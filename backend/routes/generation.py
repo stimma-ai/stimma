@@ -5,9 +5,9 @@ import os
 import uuid
 import shutil
 from pathlib import Path
-from typing import Any, List, Optional, Dict, Tuple
+from typing import Any, Awaitable, Callable, List, Optional, Dict, Tuple
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File, Form
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import MediaItem, MediaLineage, GenerationJob, Tool, CachedProviderTool, WorkingDocument
 from database_registry import get_database_registry
 from core.dependencies import get_db_session
-from core.profile_context import get_current_profile
+from core.profile_context import get_current_profile, set_current_profile
 from core.logging import get_logger
 from models.api_models import GenerationJobRequest, GenerationJobResponse, BatchJobRequest, BatchJobResponse, MediaBatchJobRequest
 from config import get_settings
@@ -416,9 +416,68 @@ def _prompt_preload_for_batch_index(request, idx: int) -> Optional[Dict[str, Any
 _BATCH_PROMPT_CONCURRENCY = 4
 
 
-async def _apply_prompt_pipeline_to_children(children: List[Dict[str, Any]], request) -> List[Dict[str, Any]]:
-    """Every child's parameters through the generate-time prompt pipeline, in order. One
-    failing fails the batch before any child is queued (the rest are cancelled)."""
+async def _batch_prompt_preflight(parameters: Dict[str, Any], request) -> None:
+    """The prompt work a batch's children share, done once before any of them: reading
+    the prompt's slots (Fluent, with its judge). Failing would fail every child, so it
+    fails the submit, as it would a single one, before anything is queued."""
+    from llm_resolver import LLMUnavailableError
+
+    prompt = parameters.get("prompt")
+    options = request.prompt_options or {}
+    if not isinstance(prompt, str) or not prompt or options.get("raw"):
+        return
+    program_opts = options.get("program")
+    if not (isinstance(program_opts, dict) and program_opts.get("enabled")
+            and prompt_enhance_context(parameters, request.tool_id, request.task_type, options)["program_supported"]):
+        return
+    from prompt_programs.fix import await_judge
+    from prompt_programs.program import ProgramError, model_failure
+
+    entry = await _read_slots(prompt, profile_id=get_current_profile(), project_id=request.project_id)
+    if entry and entry.get("key"):
+        try:
+            await await_judge(entry, project_id=request.project_id)
+        except Exception as e:
+            failure = e if isinstance(e, (ProgramError, LLMUnavailableError)) else model_failure(e)
+            if failure is None:
+                raise
+            raise _slots_failed(failure) from None
+
+
+def _child_failure_message(e: BaseException) -> str:
+    """What a failed child's job says, as the submit would have said it."""
+    if isinstance(e, HTTPException):
+        detail = e.detail
+        if isinstance(detail, dict):
+            return str(detail.get("message") or detail.get("code") or e.status_code)
+        return str(detail)
+    return str(e) or type(e).__name__
+
+
+# create(parameters, first, error): one child as a job, queued, or failed with `error`;
+# `first` for the batch's first job, which carries its total. Returns the job id.
+_CreateChild = Callable[[Dict[str, Any], bool, Optional[str]], Awaitable[int]]
+
+
+async def _queue_children_as_ready(
+    children: List[Dict[str, Any]],
+    request,
+    create: _CreateChild,
+    before_first: Callable[[], Awaitable[None]],
+) -> Tuple[List[int], bool]:
+    """Every child through the generate-time prompt pipeline, each queued as soon as its
+    own prompt is ready (in order among those ready together), so the first image starts
+    while the rest are still being written. Returns the job ids in child order, and
+    whether any child failed.
+
+    The failure rule: what every child shares (_batch_prompt_preflight) fails the submit
+    before anything runs. After that a child whose prompt fails is a failed job of the
+    batch, reported like any job that fails, while the others go ahead. Until one child's
+    prompt has succeeded nothing is queued, and if none does (the chat model is missing or
+    unreachable, say) the submit fails with the first child's error.
+    `before_first` runs once, just before the first job is made."""
+    if children:
+        await _batch_prompt_preflight(children[0], request)
     gate = asyncio.Semaphore(_BATCH_PROMPT_CONCURRENCY)
 
     async def one(idx: int, parameters: Dict[str, Any]) -> Dict[str, Any]:
@@ -433,13 +492,72 @@ async def _apply_prompt_pipeline_to_children(children: List[Dict[str, Any]], req
                 project_id=request.project_id,
             )
 
-    tasks = [asyncio.ensure_future(one(idx, parameters)) for idx, parameters in enumerate(children)]
+    tasks = {asyncio.ensure_future(one(idx, parameters)): idx for idx, parameters in enumerate(children)}
+    job_ids: List[Optional[int]] = [None] * len(children)
+    held: List[Tuple[int, Exception]] = []  # failures before any child succeeded
+    made = 0
+    any_failed = False
+
+    async def make(idx: int, parameters: Dict[str, Any], error: Optional[str]) -> None:
+        nonlocal made, any_failed
+        if made == 0:
+            await before_first()
+        job_ids[idx] = await create(parameters, made == 0, error)
+        made += 1
+        any_failed = any_failed or error is not None
+
+    def failed(idx: int, error: Exception) -> Dict[str, Any]:
+        log.warning(f"Batch child {idx}: prompt failed, reported as a failed job: {_child_failure_message(error)[:200]}")
+        return children[idx]
+
     try:
-        return list(await asyncio.gather(*tasks))
+        pending = set(tasks)
+        while pending:
+            done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            for task in sorted(done, key=tasks.__getitem__):
+                idx = tasks[task]
+                error = task.exception()
+                if error is not None:
+                    if not isinstance(error, Exception):
+                        raise error
+                    if made:
+                        await make(idx, failed(idx, error), _child_failure_message(error))
+                    else:
+                        held.append((idx, error))
+                    continue
+                await make(idx, task.result(), None)
+                for held_idx, held_error in held:
+                    await make(held_idx, failed(held_idx, held_error), _child_failure_message(held_error))
+                held.clear()
+        if held:
+            raise min(held, key=lambda h: h[0])[1]
     except BaseException:
         for task in tasks:
             task.cancel()
         raise
+    return [job_id for job_id in job_ids if job_id is not None], any_failed
+
+
+def _with_request_metadata(parameters: Dict[str, Any], request) -> Dict[str, Any]:
+    """A batch child's parameters with the request's prompt metadata and auto markers."""
+    parameters = dict(parameters)
+    if request.prompt_metadata:
+        parameters["prompt_metadata"] = request.prompt_metadata.model_dump()
+    if request.auto_marker_ids:
+        parameters["auto_marker_ids"] = request.auto_marker_ids
+    return parameters
+
+
+async def _settle_batch(generation_queue, batch_id: str, profile_id: Optional[str]) -> None:
+    """After the response: the batch's progress counted with its failed children, closing
+    it when they were the last to finish. Run after the response so a batch never closes
+    before its submitter has its id."""
+    if profile_id:
+        set_current_profile(profile_id)
+    try:
+        await generation_queue.settle_batch(batch_id, profile_id)
+    except Exception as e:
+        log.warning(f"Batch {batch_id}: settling failed children failed: {e}")
 
 
 _PROGRAM_UNSUPPORTED_MODES = ("minimax-h3", "ideogram", "audio", "edit", "qwen-image-2.1-edit", "flux3-klein-edit")
@@ -610,6 +728,35 @@ def _shape_lora_context(context: Optional[List[Dict[str, Any]]], triggers: bool,
             for c in context]
 
 
+def _slots_failed(e: Exception) -> HTTPException:
+    """A Fluent run that can't start: 424 when the chat model or its reading of the slots
+    is unusable, 422 for the program itself."""
+    from llm_resolver import LLMUnavailableError
+    from prompt_programs.reader import ReaderFailed
+
+    status, code = (424, getattr(e, "code", "llm_unavailable")) if isinstance(e, (ReaderFailed, LLMUnavailableError)) \
+        else (422, getattr(e, "code", "program_failed"))
+    # Said in the log too: a run that can't start is otherwise only a bare status there.
+    log.info(f"[prompt-program] run not started ({code}): {str(e)[:200]}")
+    return HTTPException(status_code=status, detail={"code": code, "message": f"Generation was not started: {e}"})
+
+
+async def _read_slots(prompt: str, *, profile_id: Optional[str], project_id: Optional[int]) -> Optional[Dict[str, Any]]:
+    """The prompt's slot program (prompt_programs.slots.ensure), its failures as _slots_failed."""
+    from llm_resolver import LLMUnavailableError
+    from prompt_programs import slots
+    from prompt_programs.program import ProgramError, model_failure
+    from prompt_programs.reader import ReaderFailed
+
+    try:
+        return await slots.ensure(prompt, profile_id=profile_id, project_id=project_id)
+    except Exception as e:
+        failure = e if isinstance(e, (ReaderFailed, ProgramError, LLMUnavailableError)) else model_failure(e)
+        if failure is None:
+            raise
+        raise _slots_failed(failure) from None
+
+
 async def _run_slots(
     prompt: str,
     program_opts: Dict[str, Any],
@@ -626,27 +773,12 @@ async def _run_slots(
     reading unusable): a 424, and nothing is generated. `hot_draws_for`: a forever-mode
     submit's generator instance, served a draw its pool made ahead when one is current."""
     from llm_resolver import LLMUnavailableError
-    from prompt_programs import slots
     from prompt_programs.choices import expand, kept
     from prompt_programs.fix import await_judge, prompt_view, realize_and_fix
     from prompt_programs.fluent import attach_filler
     from prompt_programs.program import ProgramError, draw_seed, model_failure, spans_of
-    from prompt_programs.reader import ReaderFailed
 
-    def failed(e: Exception) -> HTTPException:
-        status, code = (424, getattr(e, "code", "llm_unavailable")) if isinstance(e, (ReaderFailed, LLMUnavailableError)) \
-            else (422, getattr(e, "code", "program_failed"))
-        # Said in the log too: a run that can't start is otherwise only a bare status there.
-        log.info(f"[prompt-program] run not started ({code}): {str(e)[:200]}")
-        return HTTPException(status_code=status, detail={"code": code, "message": f"Generation was not started: {e}"})
-
-    try:
-        entry = await slots.ensure(prompt, profile_id=profile_id, project_id=project_id)
-    except Exception as e:
-        failure = e if isinstance(e, (ReaderFailed, ProgramError, LLMUnavailableError)) else model_failure(e)
-        if failure is None:
-            raise
-        raise failed(failure) from None
+    entry = await _read_slots(prompt, profile_id=profile_id, project_id=project_id)
     if not entry or not entry.get("key"):
         return None, prompt, None
     attach_filler(entry, profile_id)
@@ -675,7 +807,7 @@ async def _run_slots(
         failure = e if isinstance(e, (ProgramError, LLMUnavailableError)) else model_failure(e)
         if failure is None:
             raise
-        raise failed(failure) from None
+        raise _slots_failed(failure) from None
     spans = spans_of(result)
     record = {"key": entry["key"], "version": entry.get("version"), **result.to_dict(),
               "choices": choices, "filled": result.prompt, "spans": [list(s) for s in spans]}
@@ -923,7 +1055,7 @@ async def delete_reference_image(filename: str):
 async def get_reference_file(path: str):
     """Serve a reference image file from the library."""
     from fastapi.responses import FileResponse
-    from core.profile_context import get_current_profile
+    from core.profile_context import get_current_profile, set_current_profile
 
     settings = get_settings()
     profile_id = get_current_profile()
@@ -995,7 +1127,7 @@ async def get_reference_file(path: str):
 async def get_reference_video_file(path: str):
     """Serve a reference video file from the library."""
     from fastapi.responses import FileResponse
-    from core.profile_context import get_current_profile
+    from core.profile_context import get_current_profile, set_current_profile
 
     settings = get_settings()
     profile_id = get_current_profile()
@@ -1087,7 +1219,7 @@ async def upload_reference_video(
 async def get_reference_audio_file(path: str):
     """Serve a reference audio file from the library."""
     from fastapi.responses import FileResponse
-    from core.profile_context import get_current_profile
+    from core.profile_context import get_current_profile, set_current_profile
 
     settings = get_settings()
     profile_id = get_current_profile()
@@ -2035,6 +2167,7 @@ async def submit_generation_job(
 @router.post("/submit-batch")
 async def submit_batch_jobs(
     request: BatchJobRequest,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session)
 ):
     """Submit a batch of generation jobs from set inputs.
@@ -2142,9 +2275,6 @@ async def submit_batch_jobs(
                     output_title_chars=len(output_title or ""),
                 )
 
-        # Prepare every child before queueing any of them. Prompt enhancement
-        # failures are pre-queue failures; they should not leave a partial batch
-        # running behind a failed HTTP response.
         prepared_jobs = []
         for idx, combination in enumerate(combinations):
             # Build the single flat parameters dict for this combination.
@@ -2170,27 +2300,19 @@ async def submit_batch_jobs(
 
             prepared_jobs.append(parameters)
 
-        prepared_jobs = await _apply_prompt_pipeline_to_children(prepared_jobs, request)
-        for parameters in prepared_jobs:
-            if request.prompt_metadata:
-                parameters["prompt_metadata"] = request.prompt_metadata.model_dump()
-            if request.auto_marker_ids:
-                parameters["auto_marker_ids"] = request.auto_marker_ids
+        # Each child is queued as soon as its own prompt is ready (_queue_children_as_ready
+        # has the failure rule); the response follows once every child has a job.
+        async def before_first() -> None:
+            nonlocal reservation_handed_to_queue
+            await _retain_generation_inputs(session, {"input_media_ids": sorted(set(input_set_ids))})
+            await _claim_forever_reservation(generation_queue, request, provider_id)
+            reservation_handed_to_queue = True
 
-        retained_ids = set(input_set_ids)
-        for parameters in prepared_jobs:
-            retained_ids.update(generation_input_media_ids(parameters))
-        await _retain_generation_inputs(
-            session, {"input_media_ids": sorted(retained_ids)}
-        )
-
-        # Create jobs for each prepared combination.
-        job_ids = []
-        await _claim_forever_reservation(generation_queue, request, provider_id)
-        reservation_handed_to_queue = True
-        for idx, parameters in enumerate(prepared_jobs):
-            # Submit job with batch tracking
-            job_id = await generation_queue.submit_batch_job(
+        async def create(parameters: Dict[str, Any], first: bool, error: Optional[str]) -> int:
+            parameters = _with_request_metadata(parameters, request)
+            if error is None:
+                await _retain_generation_inputs(session, parameters)
+            fields = dict(
                 generator_name=provider_id,
                 model_name=_model_name_for_tool(request.tool_id),
                 folder_path=request.folder_path,
@@ -2203,16 +2325,22 @@ async def submit_batch_jobs(
                 preset_id=request.preset_id,
                 project_id=request.project_id,
                 batch_id=batch_id,
-                batch_total=total_jobs if idx == 0 else None,  # Only first job stores total
+                batch_total=total_jobs if first else None,  # Only the first job stores the total
                 batch_output_title=output_title,
-                batch_input_set_ids=input_set_ids if idx == 0 else None,  # Kept for backwards compat
+                batch_input_set_ids=input_set_ids if first else None,  # Kept for backwards compat
                 output_disposition="container_member",
                 output_context_kind="batch",
                 output_context_id=batch_id,
                 consume_pending_request=False,
                 client_ref=request.client_ref,
             )
-            job_ids.append(job_id)
+            if error is None:
+                return await generation_queue.submit_batch_job(**fields)
+            return await generation_queue.submit_failed_batch_job(**fields, error=error)
+
+        job_ids, any_failed = await _queue_children_as_ready(prepared_jobs, request, create, before_first)
+        if any_failed:
+            background_tasks.add_task(_settle_batch, generation_queue, batch_id, get_current_profile())
 
         log.info(f"Created batch {batch_id} with {len(job_ids)} jobs")
 
@@ -2310,6 +2438,7 @@ def _media_item_type(item: MediaItem) -> str | None:
 @router.post("/submit-media-batch")
 async def submit_media_batch_jobs(
     request: MediaBatchJobRequest,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session)
 ):
     """Submit a media-batch: run a tool once per item in one media slot.
@@ -2473,26 +2602,21 @@ async def submit_media_batch_jobs(
 
             prepared_jobs.append(parameters)
 
-        prepared_jobs = await _apply_prompt_pipeline_to_children(prepared_jobs, request)
-        for parameters in prepared_jobs:
-            if request.prompt_metadata:
-                parameters["prompt_metadata"] = request.prompt_metadata.model_dump()
-            if request.auto_marker_ids:
-                parameters["auto_marker_ids"] = request.auto_marker_ids
+        # Each child is queued as soon as its own prompt is ready (_queue_children_as_ready
+        # has the failure rule); the response follows once every child has a job.
+        async def before_first() -> None:
+            nonlocal reservation_handed_to_queue
+            retained_ids = set(media_ids)
+            retained_ids.update(request.constant_inputs.values())
+            await _retain_generation_inputs(session, {"input_media_ids": sorted(retained_ids)})
+            await _claim_forever_reservation(generation_queue, request, provider_id)
+            reservation_handed_to_queue = True
 
-        retained_ids = set(media_ids)
-        retained_ids.update(request.constant_inputs.values())
-        for parameters in prepared_jobs:
-            retained_ids.update(generation_input_media_ids(parameters))
-        await _retain_generation_inputs(
-            session, {"input_media_ids": sorted(retained_ids)}
-        )
-
-        job_ids = []
-        await _claim_forever_reservation(generation_queue, request, provider_id)
-        reservation_handed_to_queue = True
-        for idx, parameters in enumerate(prepared_jobs):
-            job_id = await generation_queue.submit_batch_job(
+        async def create(parameters: Dict[str, Any], first: bool, error: Optional[str]) -> int:
+            parameters = _with_request_metadata(parameters, request)
+            if error is None:
+                await _retain_generation_inputs(session, parameters)
+            fields = dict(
                 generator_name=provider_id,
                 model_name=model_name,
                 folder_path=request.folder_path,
@@ -2505,13 +2629,19 @@ async def submit_media_batch_jobs(
                 preset_id=request.preset_id,
                 project_id=request.project_id,
                 batch_id=batch_id,
-                batch_total=total_jobs if idx == 0 else None,  # Only first job stores total
+                batch_total=total_jobs if first else None,  # Only the first job stores the total
                 batch_output_title=None,
                 batch_input_set_ids=None,
                 consume_pending_request=False,
                 client_ref=request.client_ref,
             )
-            job_ids.append(job_id)
+            if error is None:
+                return await generation_queue.submit_batch_job(**fields)
+            return await generation_queue.submit_failed_batch_job(**fields, error=error)
+
+        job_ids, any_failed = await _queue_children_as_ready(prepared_jobs, request, create, before_first)
+        if any_failed:
+            background_tasks.add_task(_settle_batch, generation_queue, batch_id, get_current_profile())
 
         log.info(f"Created media-batch {batch_id} with {len(job_ids)} jobs")
 

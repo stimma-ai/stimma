@@ -1920,11 +1920,14 @@ class GenerationQueue:
         output_context_id: Optional[str] = None,
         consume_pending_request: bool = True,
         client_ref: Optional[str] = None,
+        failed_error: Optional[str] = None,
     ) -> int:
         """Shared implementation for creating and submitting a generation job.
 
         Handles tool resolution, folder validation, DB commit, pending counter
         management, and WebSocket broadcast for both single and batch jobs.
+        With ``failed_error`` the job is made already failed with that error (a
+        batch child whose prompt failed): never run, and announced as a failed job.
 
         Returns:
             Job ID
@@ -1973,8 +1976,11 @@ class GenerationQueue:
 
             log.info(f"Creating job: backend_name={backend_name}, tool_id={tool_id}" +
                      (f", batch_id={batch_id}" if batch_id else ""))
+            created_at = datetime.utcnow()
             job = GenerationJob(
-                status='queued',
+                status='queued' if failed_error is None else 'failed',
+                error=failed_error,
+                completed_at=None if failed_error is None else created_at,
                 task_type=task_type,
                 generator_type=generator_type,
                 generator_name=generator_name,
@@ -1983,7 +1989,7 @@ class GenerationQueue:
                 model_name=model_name,
                 parameters=json.dumps(parameters),
                 folder_path=folder_path,
-                created_at=datetime.utcnow(),
+                created_at=created_at,
                 auto_delete_duration=auto_delete_duration,
                 tool_id=tool_id,
                 preset_id=preset_id,
@@ -1999,7 +2005,7 @@ class GenerationQueue:
                 # Queue submission is the authoritative first-use boundary. Both
                 # the REST Tool View and agent/internal callers come through here.
                 input_media_ids = generation_input_media_ids(parameters)
-                if input_media_ids:
+                if input_media_ids and failed_error is None:
                     await clear_auto_delete_for_media(
                         session, input_media_ids, self._websocket_manager
                     )
@@ -2007,6 +2013,20 @@ class GenerationQueue:
                 await session.commit()
                 await session.refresh(job)
                 job_id = job.id
+
+            if failed_error is not None:
+                # Announced as any job that fails is, so its tile shows the reason.
+                if self._websocket_manager:
+                    failed_data = {
+                        'job': await self.get_job(job_id, profile_id=profile_id),
+                        'generator_instance_id': generator_instance_id,
+                    }
+                    if batch_id:
+                        failed_data['batch_id'] = batch_id
+                    if client_ref:
+                        failed_data['client_ref'] = client_ref
+                    await self._websocket_manager.broadcast('generation_job_failed', failed_data)
+                return job_id
 
             # Wake workers immediately
             self._job_submitted_event.set()
@@ -2133,6 +2153,28 @@ class GenerationQueue:
             consume_pending_request=consume_pending_request,
             client_ref=client_ref,
         )
+
+    async def submit_failed_batch_job(self, *, error: str, **fields: Any) -> int:
+        """A batch child whose prompt failed before it could be queued, as a job of the
+        batch that has failed with `error` (same fields as submit_batch_job). The batch's
+        count closes over it when settle_batch runs."""
+        fields.setdefault("auto_delete_duration", None)
+        fields.setdefault("preset_id", None)
+        return await self._create_job(**fields, failed_error=error)
+
+    async def settle_batch(self, batch_id: str, profile_id: Optional[str] = None) -> None:
+        """Count a batch's progress again, closing it if every job has finished: for
+        jobs made already failed (submit_failed_batch_job), which no worker settles."""
+        profile_id = profile_id or get_current_profile()
+        async with self._get_db(profile_id).async_session_maker() as session:
+            job = (await session.execute(
+                select(GenerationJob)
+                .where(GenerationJob.batch_id == batch_id, GenerationJob.status == 'failed')
+                .order_by(GenerationJob.id.desc())
+                .limit(1)
+            )).scalar_one_or_none()
+        if job is not None:
+            await self._handle_batch_job_completion(job, None, profile_id)
 
     async def get_job(self, job_id: int, profile_id: str = None) -> Optional[Dict[str, Any]]:
         """Get job details by ID.

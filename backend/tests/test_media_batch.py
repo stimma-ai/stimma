@@ -176,14 +176,15 @@ class TestMediaBatchSubmission:
         assert response.status_code == 200, response.text
         assert [c["parameters"]["prompt"] for c in calls] == ["cached prompt one", "cached prompt two"]
 
-    async def test_submit_media_batch_prompt_pipeline_failure_queues_no_partial_jobs(
+    async def test_submit_media_batch_child_prompt_failure_fails_that_child_alone(
         self, generation_client: AsyncClient, generation_db_session
     ):
         async with generation_db_session() as session:
             m1 = await create_media_item(session, file_format='png')
             m2 = await create_media_item(session, file_format='png')
 
-        mock_queue, _ = _capture_queue()
+        mock_queue, calls = _capture_queue()
+        mock_queue.submit_failed_batch_job = AsyncMock(return_value=99)
 
         async def fail_second(parameters, **kwargs):
             if parameters.get("_batch_index") == 1:
@@ -202,8 +203,14 @@ class TestMediaBatchSubmission:
                 "parameters": {"prompt": "clean up"},
             })
 
-        assert response.status_code == 500
-        mock_queue.submit_batch_job.assert_not_called()
+        assert response.status_code == 200, response.text
+        assert response.json()["job_ids"] == [1, 99]
+        assert [c["parameters"]["_batch_index"] for c in calls] == [0]
+        assert calls[0]["batch_total"] == 2
+        failed = mock_queue.submit_failed_batch_job.await_args.kwargs
+        assert failed["error"] == "enhancement failed"
+        assert failed["parameters"]["input_media_ids"] == [m2.id]
+        mock_queue.settle_batch.assert_awaited_once()
 
     async def test_submit_media_batch_applies_prep(self, generation_client: AsyncClient, generation_db_session):
         """Uniform prep is applied per item via the preprocess pipeline."""
