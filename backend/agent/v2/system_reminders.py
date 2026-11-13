@@ -153,3 +153,41 @@ def build_user_program_edit_reminder(flow_id: int) -> Optional[str]:
         "may fail or you may overwrite the user's changes.\n"
         "</system-reminder>"
     )
+
+
+MEMORY_PROMPT_LIMIT = 4000
+
+
+def build_memory_reminder(
+    chat_id: int,
+    project_id: Optional[int],
+    *,
+    include_chat: bool = True,
+) -> str:
+    """The memory files' current contents, as one reminder.
+
+    Rebuilt every loop iteration; the conversation only gains a new copy when
+    a file changed (see conversation._persist_prompt_context), so the system
+    prompt and earlier messages stay cacheable while memory is edited.
+    """
+    import memory_store
+
+    sections = [("memory/global.md", memory_store.read_global_memory())]
+    if project_id is not None:
+        sections.append(("memory/project.md", memory_store.read_project_memory_file(project_id)))
+    if include_chat:
+        sections.append(("memory/chat.md", memory_store.read_chat_memory(chat_id, project_id)))
+
+    lines = ["<system-reminder>", "Current memory files:"]
+    for path, content in sections:
+        text = content.strip()
+        if len(text) > MEMORY_PROMPT_LIMIT:
+            text = text[:MEMORY_PROMPT_LIMIT] + f"\n... (truncated; only the first {MEMORY_PROMPT_LIMIT} characters are shown, so trim this file)"
+        lines.append("")
+        lines.append(f"### {path}")
+        lines.append(text or "(empty)")
+    if project_id is None:
+        lines.append("")
+        lines.append("This chat isn't in a project, so there is no project memory.")
+    lines.append("</system-reminder>")
+    return "\n".join(lines)

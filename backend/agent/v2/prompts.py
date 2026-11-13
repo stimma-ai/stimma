@@ -2,11 +2,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional
 
 from .tools.bash import get_shell_runtime_name, is_windows_host
-def get_system_prompt(
-    additional_instructions: str = "",
-    global_memory: str = "",
-    project_memory: str = "",
-) -> str:
+def get_system_prompt(additional_instructions: str = "") -> str:
     """Get the v2 agent system prompt with merged user configuration."""
     shell_name = get_shell_runtime_name()
     shell_guidance = (
@@ -193,6 +189,27 @@ Marketplace stimpacks under `skills/` are read-only; to change one, fork it: cop
 `skills/<slug>/`, keep the same `name:`, and edit the copy — a local skill with the same name takes \
 precedence over the marketplace one everywhere, and the list marks it as yours.
 
+## Memory
+
+Memory is three markdown files in `memory/`, read and changed with your ordinary file tools \
+(`edit_file` for changes; `write_file` only to start a file). Their current contents reach you in a \
+system reminder whenever they change. Each covers a different reach:
+
+- `memory/chat.md`: this chat only. Decisions and facts for the work in this conversation: a \
+character's look, the chosen palette, "keep these 16:9", approaches tried and rejected.
+- `memory/project.md`: every chat in this project (project chats only). The project's goal, \
+style guide, recurring characters, preferred tools and settings.
+- `memory/global.md`: every future chat, including unrelated ones. Only lasting facts about the \
+user and how they want you to work everywhere.
+
+Save at the narrowest scope that holds. A forceful request about the current piece of work is a \
+chat fact, not a standing rule; put something in global memory only when the user says it applies \
+everywhere ("always", "from now on", "in every chat") or asks for it there. Global and project \
+entries are read later with none of this conversation in view, so write them as general \
+statements that stand on their own. Don't save what the chat, library or files already show, or \
+progress on the current task (that's the notepad). Update or remove an entry rather than adding a \
+near-duplicate, and keep each file short.
+
 ## Handing back
 
 Sending a message with no tool calls ends your turn and hands the conversation back to the user, so end with a message only once the task is done or you need their reply. \
@@ -219,16 +236,5 @@ The user doesn't think in "turns," so never announce that you're finishing, wrap
 
     if additional_instructions:
         prompt += f"\n\n## User Instructions\n\n{additional_instructions}"
-
-    # Inject persistent memory (global + project scopes)
-    if global_memory or project_memory:
-        prompt += "\n\n## Memory\n"
-        prompt += "Persistent context saved across conversations. Update with `save_memory`.\n"
-        if global_memory:
-            gm = global_memory if len(global_memory) <= 4000 else global_memory[:4000] + "\n... (truncated)"
-            prompt += f"\n### Global\n\n{gm}"
-        if project_memory:
-            pm = project_memory if len(project_memory) <= 4000 else project_memory[:4000] + "\n... (truncated)"
-            prompt += f"\n### Project\n\n{pm}"
 
     return prompt

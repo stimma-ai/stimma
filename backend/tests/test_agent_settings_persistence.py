@@ -9,12 +9,11 @@ import app_dirs
 import config
 import config_writer
 from agent.v2.permissions import _add_to_global_stp_permission
-from agent.v2.tools.save_memory import save_memory
 from core.profile_context import ProfileScope
 from llm_resolver import resolve_chat_model_slug
 
 
-@pytest.mark.parametrize("operation", ["allow", "deny", "memory"])
+@pytest.mark.parametrize("operation", ["allow", "deny"])
 async def test_agent_writes_preserve_local_models(tmp_path, monkeypatch, operation):
     path = tmp_path / "config.yaml"
     agent = {
@@ -50,16 +49,11 @@ async def test_agent_writes_preserve_local_models(tmp_path, monkeypatch, operati
     with ProfileScope("test-profile"):
         config.reload_settings()
         assert resolve_chat_model_slug(None, None) == "local:test-chat"
-        if operation == "memory":
-            result = await save_memory(scope="global", content="Updated memory")
-            assert result.startswith("Global memory saved")
-            expected["memory"] = "Updated memory"
-        else:
-            approved = operation == "allow"
-            await _add_to_global_stp_permission("test:target", approved)
-            chosen, opposite = ("allowed_tools", "denied_tools") if approved else ("denied_tools", "allowed_tools")
-            expected["tool_config"][chosen].append("test:target")
-            expected["tool_config"][opposite].remove("test:target")
+        approved = operation == "allow"
+        await _add_to_global_stp_permission("test:target", approved)
+        chosen, opposite = ("allowed_tools", "denied_tools") if approved else ("denied_tools", "allowed_tools")
+        expected["tool_config"][chosen].append("test:target")
+        expected["tool_config"][opposite].remove("test:target")
 
         persisted = yaml.safe_load(path.read_text())
         assert persisted["profiles"][0]["agent"] == expected

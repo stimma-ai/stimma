@@ -15,6 +15,7 @@ from models.api_models import BaseModel
 from pydantic import BaseModel as PydanticBaseModel
 from project_service import PROJECT_NONE, get_project_or_404, parse_project_filter
 from utils.websocket import ws_manager
+from memory_store import read_chat_memory, write_chat_memory
 from config import get_settings
 from llm_resolver import (
     get_effective_llm_config,
@@ -3079,12 +3080,14 @@ class AgentSettingsResponse(PydanticBaseModel):
     """Response model for agent settings."""
     additional_instructions: Optional[str]
     tool_config: Optional[dict]
+    memory: str = ""  # this chat's memory file (memory/chat.md)
 
 
 class AgentSettingsUpdate(PydanticBaseModel):
     """Request body for updating agent settings."""
     additional_instructions: Optional[str] = None
     tool_config: Optional[ToolConfigModel] = None
+    memory: Optional[str] = None
 
 
 @router.get("/{chat_id}/agent-settings", response_model=AgentSettingsResponse)
@@ -3110,6 +3113,7 @@ async def get_agent_settings(
     return AgentSettingsResponse(
         additional_instructions=chat.additional_instructions,
         tool_config=tool_config,
+        memory=read_chat_memory(chat.id, chat.project_id),
     )
 
 
@@ -3131,22 +3135,21 @@ async def update_agent_settings(
         chat.additional_instructions = data.additional_instructions
     if data.tool_config is not None:
         chat.agent_tool_config = json.dumps(data.tool_config.model_dump())
+    if data.memory is not None:
+        write_chat_memory(chat.id, data.memory, chat.project_id)
 
     await session.commit()
 
-    # Broadcast settings update
-    await ws_manager.broadcast("chat_agent_settings_updated", {
-        "chat_id": chat_id,
-        "settings": {
-            "additional_instructions": chat.additional_instructions,
-            "tool_config": json.loads(chat.agent_tool_config) if chat.agent_tool_config else None,
-        }
-    })
-
-    return AgentSettingsResponse(
+    response = AgentSettingsResponse(
         additional_instructions=chat.additional_instructions,
         tool_config=json.loads(chat.agent_tool_config) if chat.agent_tool_config else None,
+        memory=read_chat_memory(chat.id, chat.project_id),
     )
+    await ws_manager.broadcast("chat_agent_settings_updated", {
+        "chat_id": chat_id,
+        "settings": response.model_dump(),
+    })
+    return response
 
 
 @router.get("/{chat_id}/invoked-skills")

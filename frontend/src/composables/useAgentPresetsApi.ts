@@ -25,6 +25,8 @@ export interface ToolConfig {
 export interface AgentSettings {
   additional_instructions: string | null
   tool_config: ToolConfig | null
+  /** This chat's memory (memory/chat.md in its workspace) */
+  memory?: string
 }
 
 /**
@@ -33,6 +35,7 @@ export interface AgentSettings {
 export interface AgentSettingsUpdateRequest {
   additional_instructions?: string | null
   tool_config?: ToolConfig | null
+  memory?: string
 }
 
 export function useAgentPresetsApi() {

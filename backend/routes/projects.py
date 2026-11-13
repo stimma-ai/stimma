@@ -29,6 +29,7 @@ from models.api_models import (
     ProjectUpdateRequest,
 )
 from llm_resolver import PROJECT_EFFORT_COLUMNS, PROJECT_ROLE_COLUMNS, normalize_model_slug
+from memory_store import write_project_memory
 from project_service import (
     broadcast_project_assets_changed,
     get_project_or_404,
@@ -197,7 +198,7 @@ async def update_project(
     if request.additional_instructions is not None:
         project.additional_instructions = request.additional_instructions
     if request.memory is not None:
-        project.memory = request.memory
+        write_project_memory(project, request.memory)
     if request.agent_tool_config is not None:
         import json
         project.agent_tool_config = json.dumps(request.agent_tool_config)

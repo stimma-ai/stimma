@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import AgentToolConfig, get_settings
 from core.profile_context import get_current_profile
 from database import Chat, Project
+from memory_store import read_global_memory, read_project_memory
 
 
 @dataclass
@@ -88,7 +89,7 @@ async def resolve_agent_config(chat: Optional[Chat], session: Optional[AsyncSess
             if project:
                 project_tool_config = _parse_json_object(project.agent_tool_config)
                 project_additional_instructions = project.additional_instructions
-                project_memory = project.memory or ""
+                project_memory = read_project_memory(project)
 
     tool_config = merge_tool_configs(
         profile_agent_config.tool_config,
@@ -107,6 +108,6 @@ async def resolve_agent_config(chat: Optional[Chat], session: Optional[AsyncSess
     return ResolvedAgentConfig(
         additional_instructions="\n\n".join(additional_parts),
         tool_config=tool_config,
-        global_memory=profile_agent_config.memory,
+        global_memory=read_global_memory(profile_id),
         project_memory=project_memory,
     )

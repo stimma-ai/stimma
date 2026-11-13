@@ -38,6 +38,7 @@ from tool_provider_identity import (
     tool_provider_display_name,
 )
 from utils.websocket import ws_manager
+from memory_store import read_global_memory, write_global_memory
 from utils.http_headers import content_disposition
 from config_writer import (
     patch_profile_section,
@@ -2614,7 +2615,7 @@ async def get_agent_settings():
 
     return AgentSettingsResponse(
         additional_instructions=agent_config.additional_instructions,
-        memory=agent_config.memory,
+        memory=read_global_memory(current_profile_id),
         tool_config=AgentToolConfigResponse(
             allowed_tools=agent_config.tool_config.allowed_tools,
             denied_tools=agent_config.tool_config.denied_tools,
@@ -2641,7 +2642,7 @@ async def update_agent_settings(request: AgentSettingsUpdate):
     if request.additional_instructions is not None:
         agent_data["additional_instructions"] = request.additional_instructions
     if request.memory is not None:
-        agent_data["memory"] = request.memory
+        write_global_memory(request.memory, current_profile_id)
     if request.tool_config is not None:
         agent_data["tool_config"] = {
             "allowed_tools": request.tool_config.allowed_tools,
@@ -2677,7 +2678,7 @@ async def update_agent_settings(request: AgentSettingsUpdate):
     # Return updated settings
     return AgentSettingsResponse(
         additional_instructions=agent_data["additional_instructions"],
-        memory=agent_data.get("memory", ""),
+        memory=read_global_memory(current_profile_id),
         models=AgentModelsResponse(**agent_data.get("models", {})),
         tool_config=AgentToolConfigResponse(
             allowed_tools=agent_data["tool_config"]["allowed_tools"],

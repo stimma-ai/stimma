@@ -4,7 +4,7 @@ import difflib
 import json
 
 from ..tools_registry import tool, ToolParameter
-from ._workspace_files import maybe_sync_flow_program, readonly_workspace_error, resolve_workspace_path
+from ._workspace_files import maybe_announce_memory_edit, maybe_sync_flow_program, readonly_workspace_error, resolve_workspace_path
 
 
 @tool(
@@ -108,6 +108,7 @@ async def edit_file(
     rebuild_note = await maybe_sync_flow_program(
         kwargs.get("session"), kwargs.get("chat_id"), file_path
     )
+    await maybe_announce_memory_edit(kwargs.get("chat_id"), file_path, resolved)
 
     # Model-visible result. When the flow graph build failed, lead with the
     # failure so the agent doesn't interpret the edit success as meaning the

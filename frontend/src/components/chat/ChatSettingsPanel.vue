@@ -32,6 +32,22 @@
           </p>
         </div>
 
+        <!-- This chat's memory (memory/chat.md). Global and project memory
+             live in Settings and Project settings. -->
+        <div>
+          <h4 class="text-xs font-semibold text-content-secondary mb-1.5">Memory</h4>
+          <textarea
+            v-model="localMemory"
+            placeholder="Nothing remembered for this chat yet"
+            rows="6"
+            class="w-full bg-surface text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent resize-none"
+            @blur="saveMemory"
+          />
+          <p class="text-[11px] text-content-muted mt-1 leading-relaxed">
+            What the agent keeps in mind for this chat only. You and the agent can both edit it.
+          </p>
+        </div>
+
         <!-- Tool permissions scoped to THIS chat. Hidden when none — the default
              approval is "always" (global), so chat-scoped entries are the exception;
              an empty section here would be pure noise. -->
@@ -108,6 +124,7 @@ const loadingTools = ref(false)
 
 // Local state for editing (to avoid constant API calls)
 const localInstructions = ref('')
+const localMemory = ref('')
 const localToolConfig = ref<ToolConfig | null>(null)
 const showInstructionsModal = ref(false)
 
@@ -130,6 +147,7 @@ async function loadSettings() {
   try {
     settings.value = await getChatAgentSettings(props.chatId)
     localInstructions.value = settings.value.additional_instructions || ''
+    localMemory.value = settings.value.memory || ''
     localToolConfig.value = settings.value.tool_config || {
       allowed_tools: [],
       denied_tools: [],
@@ -163,6 +181,18 @@ async function saveInstructions() {
     })
   } catch (err) {
     reportActionError("Couldn't save instructions.", err)
+  }
+}
+
+async function saveMemory() {
+  if ((settings.value?.memory || '') === localMemory.value) return
+
+  try {
+    settings.value = await updateChatAgentSettings(props.chatId, {
+      memory: localMemory.value,
+    })
+  } catch (err) {
+    reportActionError("Couldn't save memory.", err)
   }
 }
 
@@ -248,8 +278,15 @@ function setupWebSocketSubscriptions() {
         allowed_tools: [],
         denied_tools: [],
       }
-      settings.value = data.settings
+      if (typeof data.settings.memory === 'string') localMemory.value = data.settings.memory
+      settings.value = { ...settings.value, ...data.settings }
     }
+  }))
+  // The agent edited memory/chat.md
+  wsUnsubscribes.push(onWsEvent('chat_memory_updated', (data: any) => {
+    if (data.chat_id !== props.chatId || typeof data.memory !== 'string') return
+    localMemory.value = data.memory
+    if (settings.value) settings.value = { ...settings.value, memory: data.memory }
   }))
 }
 

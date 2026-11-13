@@ -1490,6 +1490,7 @@ async def _run_agentic_loop_inner(
     from .stimpacks import list_skills
     from .system_reminders import (
         build_artifact_context_reminder,
+        build_memory_reminder,
         build_model_identity_reminder,
         build_skills_reminder,
         build_user_program_edit_reminder,
@@ -1513,8 +1514,6 @@ async def _run_agentic_loop_inner(
     else:
         system_prompt = get_system_prompt(
             additional_instructions=resolved_config.additional_instructions,
-            global_memory=resolved_config.global_memory,
-            project_memory=resolved_config.project_memory,
         )
 
     # Materialize the read-only .stimma/ tool catalog into the workspace so the
@@ -1536,6 +1535,15 @@ async def _run_agentic_loop_inner(
         ensure_skills_mount(workspace_dir)
     except Exception as e:
         log.warning(f"Failed to mount skills/ into workspace: {e}")
+
+    # memory/ holds this chat's memory file and links to the global and
+    # project ones, edited with the same file tools (see memory_store).
+    if chat.flow_id is None:
+        try:
+            from memory_store import ensure_memory_mount
+            ensure_memory_mount(workspace_dir, chat.project_id)
+        except Exception as e:
+            log.warning(f"Failed to mount memory/ into workspace: {e}")
 
     # Track invoked skills for run_code lib modules ("stimpack_name" is the
     # legacy metadata key from before skills were addressed flat)
@@ -1746,6 +1754,8 @@ async def _run_agentic_loop_inner(
             program_edit_reminder = build_user_program_edit_reminder(chat.flow_id)
             if program_edit_reminder:
                 system_reminders.append(program_edit_reminder)
+        if chat.flow_id is None:
+            system_reminders.append(build_memory_reminder(chat.id, chat.project_id))
         system_reminders.append(
             "<system-reminder>\n"
             + format_notepad_for_prompt(str(workspace_dir))

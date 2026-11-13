@@ -6,6 +6,7 @@ from ..tools_registry import tool, ToolParameter
 from ._workspace_files import (
     readonly_workspace_error,
     MAX_FILE_SIZE,
+    maybe_announce_memory_edit,
     maybe_sync_flow_program,
     resolve_workspace_path,
 )
@@ -85,6 +86,7 @@ async def write_file(file_path: str | None = None, content: str | None = None, *
     rebuild_note = await maybe_sync_flow_program(
         kwargs.get("session"), kwargs.get("chat_id"), file_path
     )
+    await maybe_announce_memory_edit(kwargs.get("chat_id"), file_path, resolved)
 
     # Model-visible result. When the flow graph build failed, lead with the
     # failure so the agent doesn't interpret "updated successfully" as meaning

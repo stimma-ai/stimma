@@ -53,7 +53,7 @@
       <div>
         <h4 class="text-xs font-semibold text-content-secondary">Memory</h4>
         <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">
-          Persistent context the agent remembers across all chats. The agent can also update this.
+          What the agent remembers in every chat. You and the agent can both edit it.
         </p>
         <textarea
           v-model="localMemory"

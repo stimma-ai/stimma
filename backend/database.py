@@ -1094,6 +1094,14 @@ class Project(Base):
 
     __table_args__ = {'sqlite_autoincrement': True}
 
+    def _memory_file_text(self) -> str:
+        """Project memory lives in a file (see memory_store); ``memory`` is
+        only the legacy text it was seeded from."""
+        if self.id is None:
+            return self.memory or ""
+        from memory_store import read_project_memory
+        return read_project_memory(self)
+
     def to_dict(self):
         import json
         return {
@@ -1101,7 +1109,7 @@ class Project(Base):
             "name": self.name,
             "root_path": self.root_path,
             "additional_instructions": self.additional_instructions,
-            "memory": self.memory,
+            "memory": self._memory_file_text(),
             "agent_tool_config": json.loads(self.agent_tool_config) if self.agent_tool_config else None,
             "chat_model_slug": self.chat_model_slug,
             "quick_task_model_slug": self.quick_task_model_slug,

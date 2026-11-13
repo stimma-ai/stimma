@@ -51,7 +51,7 @@
       <div class="mb-6">
         <h4 class="text-xs font-semibold text-content-secondary mb-1">Memory</h4>
         <p class="text-xs text-content-tertiary mb-3">
-          Persistent context the agent remembers for this project. The agent can also update this.
+          What the agent remembers in every chat in this project. You and the agent can both edit it.
         </p>
         <textarea
           v-model="localMemory"

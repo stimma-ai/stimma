@@ -1179,7 +1179,7 @@ agent sandbox. You have:
     — for editing ``program.py`` AND for browsing the read-only ``.stimma/tools/``
     catalog to discover ``tool_id`` / ``task_type`` / parameters for the
     ``tool(...)`` DSL primitive (see "discover real tool ids" above).
-  - ``ask_user``, ``finish``, ``save_memory``, ``show``,
+  - ``ask_user``, ``finish``, ``show``,
     ``view_image`` — shared utilities.
   - ``skill`` — loads a skill's instructions into context. Skills eligible
     for flow work are surfaced in system reminders. Invoke one only when the
@@ -1351,7 +1351,7 @@ def get_flow_system_prompt(
     if global_memory or project_memory:
         prompt += "\n\n## Memory\n"
         prompt += (
-            "Persistent context saved across conversations. Update with `save_memory`.\n"
+            "What the user's chats have saved to memory, for context. It's edited from chats, not here.\n"
         )
         if global_memory:
             gm = (

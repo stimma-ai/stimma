@@ -149,6 +149,11 @@ def resolve_workspace_path(workspace_dir: str, file_path: str) -> tuple[Path, st
         return Path(), "Error: file_path must not contain '..'"
 
     workspace = Path(workspace_dir).resolve()
+    if len(parts) == 2 and parts[0] == "memory" and parts[1] in ("global.md", "project.md"):
+        from memory_store import resolve_memory_file
+        resolved, err = resolve_memory_file(workspace, parts[1])
+        if err or resolved is not None:
+            return (resolved or Path()), err
     if len(parts) >= 3 and parts[:2] == [".stimma", "skills"]:
         root = skill_resource_roots().get(parts[2])
         if root is None:
@@ -276,3 +281,18 @@ def format_numbered_lines(content: str, offset: int = 1, limit: int | None = Non
         numbered.append(f"{line_num:>{width}}\t{line}")
 
     return "\n".join(numbered), len(selected), total_lines
+
+
+async def maybe_announce_memory_edit(chat_id: int | None, file_path: str, resolved: Path) -> None:
+    """Tell an open chat settings panel that the agent changed memory/chat.md."""
+    normalized = "/".join(p for p in (file_path or "").replace("\\", "/").split("/") if p not in ("", "."))
+    if chat_id is None or normalized != "memory/chat.md":
+        return
+    try:
+        from utils.websocket import ws_manager
+        await ws_manager.broadcast("chat_memory_updated", {
+            "chat_id": chat_id,
+            "memory": resolved.read_text(encoding="utf-8"),
+        })
+    except Exception:
+        _log.debug("chat memory broadcast failed", exc_info=True)
