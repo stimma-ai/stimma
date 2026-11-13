@@ -574,15 +574,18 @@ class TestTheSetting:
                          options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=old.revision).options)
             assert again.prompt == old.prompt and again.revision == old.revision
 
-    async def test_the_setting_is_read_in_the_prompt(self, tmp_path):
+    async def test_the_setting_and_the_time_are_read_in_the_prompt(self, tmp_path):
         prompt = "a woman on a porch at dusk, lit by <light>"
         e = entry_of(LIGHTS, prompt)
-        ask = Ask(keep={prompt: ["outdoors"]})
+        ask = Ask(keep={prompt: ["outdoors", "blue hour", "nightfall", "light drizzle"]})
         await narrow_read(e, NarrowCache(tmp_path), ask)
-        assert e["stated_context"] == [{"of": None, "cls": "scene.setting", "values": ["outdoors"]}]
-        assert [p for kind, p in ask.calls if p == prompt] == [prompt]   # read once, only for the setting
+        said = {s["cls"]: s["values"] for s in e["stated_context"]}
+        assert said == {"scene.setting": ["outdoors"], "scene.time_of_day": ["blue hour", "nightfall"]}
+        # Only what a light needs stated (the setting) or can't mismatch (natural light's time): the
+        # weather's climate only makes a look rarer, so it isn't read.
+        assert len([p for kind, p in ask.calls if p == prompt]) == 2
         o = GeneratedOptions(None, ProgramContext.of(e))
-        assert o.stated_context[None]["space"] == ("outdoor",)
+        assert o.stated_context[None]["space"] == ("outdoor",) and o.stated_context[None]["time_of_day"] == ("dusk", "night")
 
     async def test_a_prompt_that_states_no_setting_states_none(self, tmp_path):
         e = entry_of(LIGHTS, "a woman taking a selfie, lit by <light>")

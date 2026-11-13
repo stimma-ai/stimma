@@ -1,7 +1,7 @@
 {
  "id": "camera.shot_size",
  "label": "Shot size",
- "description": "Shot sizes from an extreme close-up to an extreme wide shot: how much of the subject and its surroundings the frame holds.",
+ "description": "Shot sizes, from an extreme close-up to an extreme wide shot. Most are named for how much of a person they show (head and shoulders, waist up, knees up, full length); close-ups, detail shots and wide shots suit any subject.",
  "pos": "noun phrase",
  "frame": "framed as ___",
  "notes": "Shot sizes belong here, from extreme close-up through extreme wide, phrased as named shots with an article. The subject facet marks the crops named by a person's body (head and shoulders, waist up, knees up) apart from sizes that suit any subject. Chest-up and medium close-up share one entry; three-quarter shot means a knee-up crop here, while cowboy shot ends at mid-thigh. camera.angle owns viewpoints (profile, over the shoulder, point of view); camera.selfie owns selfies; camera.genre owns group portraits and two-shots; camera.composition owns negative space, frames within the frame and reflections; camera.lens owns lenses and camera.film_look owns film and formats.",
