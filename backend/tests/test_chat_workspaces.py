@@ -10,8 +10,8 @@ from agent.v2.workspace import (
 def test_non_project_chat_workspaces_live_in_data_dir(temp_appdata_dir):
     chat_id = 123
 
-    with patch("agent.v2.workspace.get_data_dir", return_value=temp_appdata_dir), patch(
-        "agent.v2.workspace.get_cache_dir", return_value=temp_appdata_dir / "cache"
+    with patch("app_dirs.get_data_dir", return_value=temp_appdata_dir), patch(
+        "app_dirs.get_cache_dir", return_value=temp_appdata_dir / "cache"
     ):
         workspace = get_workspace_dir(chat_id)
 
@@ -24,8 +24,8 @@ def test_non_project_chat_workspaces_migrate_from_cache(temp_appdata_dir):
     chat_id = 456
     cache_dir = temp_appdata_dir / "cache"
 
-    with patch("agent.v2.workspace.get_data_dir", return_value=temp_appdata_dir), patch(
-        "agent.v2.workspace.get_cache_dir", return_value=cache_dir
+    with patch("app_dirs.get_data_dir", return_value=temp_appdata_dir), patch(
+        "app_dirs.get_cache_dir", return_value=cache_dir
     ):
         legacy_workspace = get_legacy_chat_workspace_dir(chat_id)
         legacy_workspace.mkdir(parents=True, exist_ok=True)
