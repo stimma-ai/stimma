@@ -228,7 +228,9 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
         contexts: List[Any] = []   # the context the pick's pool was drawn in, per draw (reach.py)
         seen = options_of(cid, others, contexts)
         free = free_zones(entry, cid)
-        if free is not None:   # each zone's pool on its own, then back to the zones chosen
+        # Each zone's pool on its own, then back to the zones chosen. A slot with its kinds alone
+        # has one zone, which the chooser doesn't name (choices.zone_titles): its options are its pool.
+        if free is not None and len(free) > 1:
             for z in free:
                 rt.options.zones = {**chosen, cid: [z]}
                 by_zone.setdefault(cid, {})[z] = options_of(cid, others)[:60]

@@ -134,6 +134,30 @@ async def test_pools_sends_both_zones_of_a_free_slot_and_every_group(profile, mo
     assert all(leaf.short(o) == s and s != o for o, s in outfit["short"].items())
 
 
+BODY_PROMPT = "<young woman> on a cell phone selfie, <body type, slim to avg> petite"
+BODY_READING = {"slots": [
+    {"n": 1, "kind": "person", "label": "Young woman", "lead": "",
+     "person": {"noun": "woman", "presentation": "feminine", "stated": {"age": "young"},
+                "vary": ["age", "descent", "hair"], "outfit": "person.outfit.casual"}},
+    {"n": 2, "kind": "free", "label": "Body type", "lead": ",",
+     "free": {"about": "the woman's body type, slim to average", "kinds": ["slim", "average", "athletic"], "instead": []}},
+], "lists": []}
+
+
+async def test_a_free_slot_with_its_kinds_alone_shows_them(profile, monkeypatch):
+    # Nothing stands instead of a body type: the slot has one zone, so the chooser names none,
+    # and its pool must not answer by zone either, or the card finds no options to show.
+    _use(monkeypatch, FakeModel(_reply(BODY_READING)))
+    await ready(BODY_PROMPT, profile)
+    client = _client(monkeypatch, profile)
+    out = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": BODY_PROMPT}).json()
+    body_type = {c["id"]: c for c in out["choices"]}["body_type_slim_to_avg"]
+    assert "zones" not in body_type
+    got = client.post("/api/prompt-programs/pools", json={"tool_id": "t", "prompt": BODY_PROMPT, "key": out["key"]}).json()
+    pool = got["choices"]["body_type_slim_to_avg"]
+    assert "zones" not in pool and {"slim", "average", "athletic"} <= set(pool["options"])
+
+
 async def test_preview_draws_from_the_zones_chosen(profile, monkeypatch):
     import prompt_programs.fix as fix
     monkeypatch.setattr(fix, "await_judge", _no_judge)

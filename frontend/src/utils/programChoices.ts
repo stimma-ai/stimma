@@ -75,13 +75,14 @@ function firstZone(c: ProgramChoice, pool: ChoicePool | null | undefined): strin
 
 /** A choice's options by zone, as its card lists them, in the order given. The user's own
     options (added here, or kept for its list) lead the first zone. Before its pool arrives,
-    the prepared options stand in for the first zone. */
+    the prepared options stand in for the first zone. A choice with no zones of its own lists
+    its pool's options, whatever zones the pool names. */
 export function zonesOf(c: ProgramChoice, pool: ChoicePool | null | undefined, s?: ChoiceState | null): Zone[] {
   const declared = c.zones?.length ? c.zones : [{ id: 'all', title: '' }]
   const zones: Zone[] = declared.map((z, i) => ({
     id: z.id,
     title: z.title || '',
-    options: pool?.zones ? pool.zones[z.id] || [] : i === 0 ? firstZone(c, pool) : [],
+    options: c.zones?.length && pool?.zones ? pool.zones[z.id] || [] : i === 0 ? firstZone(c, pool) : [],
   }))
   const listed = new Set(zones.flatMap(z => z.options))
   const own = uniq([...(s?.add || []), ...(pool?.mine || [])]).filter(o => !listed.has(o))

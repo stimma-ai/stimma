@@ -59,6 +59,13 @@ test('own options lead the first zone, before the pool arrives too', () => {
   assert.deepEqual(optionsOf(pet, { ...petPool, mine: ['axolotl'] }, { add: ['dragon'] }).slice(0, 3), ['dragon', 'axolotl', 'pet'])
 })
 
+test('a choice with one zone lists its pool, even when the pool names that zone', () => {
+  const body: ProgramChoice = { id: 'body', slot: 'body', kind: 'pick', label: 'Body type', options: ['slim', 'average'] }
+  const pool: ChoicePool = { options: ['slim', 'average', 'athletic'], zones: { kinds: ['slim', 'average', 'athletic'] } }
+  assert.deepEqual(optionsOf(body, pool), ['slim', 'average', 'athletic'])
+  assert.deepEqual([...drawable(body, pool, null)!], ['slim', 'average', 'athletic'])
+})
+
 const slotPet: ProgramSlot = { id: 'pet', n: 2, kind: 'free', label: 'Pet', words: 'pet', details: ['pet'] }
 
 test('a long list comes whole with the prompt; its pool adds only what it lacks', () => {
