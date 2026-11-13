@@ -1,6 +1,6 @@
 <template>
   <!-- One choice's chooser. Nothing is ticked to begin with: the lit row at the top says what
-       images get now, and clicking an option chooses it; clicking more adds them. What is
+       images get now, and clicking an option chooses it; clicking more adds them, and shift-click takes a range. What is
        chosen stays in view as chips above the list. Group chips filter the list; with only
        chips on, the top row chooses those groups whole. -->
   <div class="min-h-0 flex flex-col" :data-chooser="choice.id">
@@ -61,9 +61,10 @@
           :class="[rowClass, 'group/opt']"
           :data-option="o"
           :aria-pressed="hasToken(state, { kind: 'value', value: o })"
-          @click="toggle({ kind: 'value', value: o })"
-          @keydown.enter.self.prevent="toggle({ kind: 'value', value: o })"
-          @keydown.space.self.prevent="toggle({ kind: 'value', value: o })"
+          @mousedown="onOptionMouseDown"
+          @click="onOptionClick(o, $event)"
+          @keydown.enter.self.prevent="toggleOption(o)"
+          @keydown.space.self.prevent="toggleOption(o)"
         >
           <span :class="tickClass">
             <CheckIcon v-if="hasToken(state, { kind: 'value', value: o })" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" />
@@ -244,6 +245,35 @@ function toggle(t: Token) {
 function clear() {
   props.program.setState(props.choice.id, resetState(state.value))
 }
+
+// A click toggles one option (ctrl- or cmd-click too) and is where a shift-click range
+// starts. Shift-click sets every shown option between the last one clicked and this one
+// to what this one becomes. The range is measured in the whole list, across zones, so it
+// can start from an option the search or a group chip has since hidden.
+const anchor = ref<string | null>(null)
+function toggleOption(o: string) {
+  toggle({ kind: 'value', value: o })
+  anchor.value = o
+}
+function onOptionMouseDown(e: MouseEvent) {
+  // Keep shift-click from selecting the text in between.
+  if (e.shiftKey) e.preventDefault()
+}
+function onOptionClick(o: string, e: MouseEvent) {
+  const all = options.value
+  const from = anchor.value ? all.indexOf(anchor.value) : -1
+  const to = all.indexOf(o)
+  if (!e.shiftKey || from < 0 || to < 0) { toggleOption(o); return }
+  const shown = new Set(shownZones.value.flatMap(z => z.rows))
+  const on = !hasToken(state.value, { kind: 'value', value: o })
+  let s = state.value
+  for (const x of all.slice(Math.min(from, to), Math.max(from, to) + 1)) {
+    const t: Token = { kind: 'value', value: x }
+    if (shown.has(x) && hasToken(s, t) !== on) s = toggleToken(props.choice, s, t)
+  }
+  props.program.setState(props.choice.id, s)
+  anchor.value = o
+}
 const tokenKey = (t: Token) => t.kind === 'value' ? `v:${t.value}` : t.kind === 'zone' ? `z:${t.zone}` : `g:${t.facet}:${t.part}`
 
 const palette = computed(() => props.choice.cls === PALETTE_CLS)
@@ -327,6 +357,7 @@ watch(() => props.choice.id, () => {
   query.value = ''
   shownParts.value = new Set()
   writeError.value = ''
+  anchor.value = null
   focusSearch()
 })
 onMounted(focusSearch)

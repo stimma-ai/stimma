@@ -142,6 +142,73 @@ test('search finds, Add chooses the user’s own option, Escape steps back out',
   await expect(card).toHaveCount(0)
 })
 
+async function openDescent(t) {
+  const opened = await open(t)
+  await opened.pill('young_man').click()
+  await opened.card.locator('[data-row="young_man.descent"]').click()
+  return opened
+}
+const descentValues = state => async () => (await state())['young_man.descent']?.values || []
+
+test('a plain click toggles one option and leaves the rest alone', async t => {
+  const { option, state } = await openDescent(t)
+  const values = descentValues(state)
+  await option('Korean').click()
+  await option('Indian').click()
+  await expect.poll(values).toEqual(['Korean', 'Indian'])
+  await option('Korean').click()
+  await expect.poll(values).toEqual(['Indian'])
+})
+
+test('shift-click chooses every option from the last one clicked, without selecting text', async t => {
+  const { page, option, state } = await openDescent(t)
+  await option('Japanese').click()
+  await option('Iranian').click({ modifiers: ['Shift'] })
+  await expect.poll(descentValues(state)).toEqual(['Japanese', 'Chinese', 'Vietnamese', 'Indian', 'Iranian'])
+  assert.equal(await page.evaluate(() => String(window.getSelection())), '')
+})
+
+test('shift-click on a chosen option un-chooses the range', async t => {
+  const { option, state } = await openDescent(t)
+  const values = descentValues(state)
+  await option('Korean').click()
+  await option('Indian').click({ modifiers: ['Shift'] })
+  await expect.poll(values).toEqual(['Korean', 'Japanese', 'Chinese', 'Vietnamese', 'Indian'])
+  await option('Chinese').click()
+  await option('Korean').click({ modifiers: ['Shift'] })
+  await expect.poll(values).toEqual(['Vietnamese', 'Indian'])
+})
+
+test('a shift-click range starts from an option the search has since hidden, and takes only what is shown', async t => {
+  const { card, option, state } = await openDescent(t)
+  await option('Korean').click()
+  await card.getByPlaceholder('Search').fill('ish')
+  await option('Scottish').click({ modifiers: ['Shift'] })
+  await expect.poll(descentValues(state)).toEqual(['Korean', 'Turkish', 'Irish', 'Scottish'])
+})
+
+test('a shift-click range runs across both zones', async t => {
+  const { pill, option, state } = await open(t)
+  await pill('pet').click()
+  await option('ginger tabby cat').click()
+  await option('mug of coffee').click({ modifiers: ['Shift'] })
+  await expect.poll(async () => (await state()).pet?.values).toEqual(['ginger tabby cat', 'old basset hound', 'grey parrot', 'mug of coffee'])
+})
+
+test('ctrl- or cmd-click toggles one option and becomes where a shift-click range starts', async t => {
+  const { option, state } = await openDescent(t)
+  const values = descentValues(state)
+  await option('Korean').click()
+  await option('Indian').click({ modifiers: ['Control'] })
+  await expect.poll(values).toEqual(['Korean', 'Indian'])
+  await option('Chinese').click({ modifiers: ['Shift'] })
+  await expect.poll(values).toEqual(['Korean', 'Indian', 'Chinese', 'Vietnamese'])
+  await option('Irish').click({ modifiers: ['Meta'] })
+  await expect.poll(values).toEqual(['Korean', 'Indian', 'Chinese', 'Vietnamese', 'Irish'])
+  await option('Korean').click({ modifiers: ['Meta'] })
+  await expect.poll(values).toEqual(['Indian', 'Chinese', 'Vietnamese', 'Irish'])
+})
+
 test('More like these adds options to the list', async t => {
   const { pill, card, option, state } = await open(t)
   await pill('pet').click()
