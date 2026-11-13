@@ -65,9 +65,9 @@ class TestBatched:
 
     def test_a_draw_that_fails_doesnt_cost_the_others(self):
         entry = entry_for()
-        # an outfit this choice offers, but not for a nun: refused at the choice, for every seed
-        out = realize_and_fix_many(entry, seeds=[1, 2, 3], pins={"job": ["nun"], "outfit": ["green scrubs"]}, cfg=CFG,
-                                   judge=Scorer(moon_rule))
+        # every outfit removed: nothing left to draw at that choice, for every seed
+        gone = {"outfit": {"remove": [o for c in entry["choices"] if c["id"] == "outfit" for o in c["options"]]}}
+        out = realize_and_fix_many(entry, seeds=[1, 2, 3], edits=gone, cfg=CFG, judge=Scorer(moon_rule))
         assert all(isinstance(o, prep.ProgramError) for o in out)
         out = realize_and_fix_many(entry, seeds=[1, 2], cfg=CFG, judge=Scorer(moon_rule))
         assert all(isinstance(o, tuple) for o in out)
@@ -324,4 +324,5 @@ class TestSubmit:
         await settle(queue, "gen-1")
         before = len(queue._prompt_warm_ready["gen-1"])
         seeded = await submit(draw_seed=7)
-        assert seeded["draw_seed"] == 7 and len(queue._prompt_warm_ready["gen-1"]) == before
+        # drawn from seed 7 (or a reroll of it, REROLL_STRIDE apart)
+        assert (seeded["draw_seed"] - 7) % 10007 == 0 and len(queue._prompt_warm_ready["gen-1"]) == before

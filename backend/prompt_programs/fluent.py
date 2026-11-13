@@ -1,11 +1,11 @@
-"""The draw runtime for programs with pick specs: their options service.
+"""What a prompt's picks draw from: their options service.
 
-realize() asks `runtime_for()` what to draw a program with pick specs from: generated
-options from the profile's cache, filling in the background. A recorded revision replays
-the pools it drew from.
+realize() asks `runtime_for()` for the options a prepared prompt's picks draw from: the
+vocabulary lists, and options written for the prompt, from the profile's cache and filling
+in the background. A recorded revision replays the pools it drew from.
 
-Prepare calls `start_options()` once such a program is stored. It returns at once;
-option generation for every generated pick runs in the background at low priority.
+When a reading lands, `start_options()` queues the writing of every pool the prompt's picks
+reach. It returns at once; the writing runs in the background at low priority.
 """
 
 from __future__ import annotations
@@ -16,14 +16,13 @@ from typing import Any, Dict, List, Optional
 from core.logging import get_logger
 from prompt_programs.additions import profile_additions
 from prompt_programs.compact import is_pool_ref
-from prompt_programs.draws import CONTEXT_VERSIONS, draw, fixed_text, uses_draws
+from prompt_programs.fill import CONTEXT_VERSION, ProgramError, fill
 from prompt_programs.judge import FluentSettings, settings
 from prompt_programs.reach import reach_of
 from prompt_programs.options import (
     FIRST_OPTIONS_VERSION, OPTIONS_VERSIONS, GeneratedOptions, OptionFiller, OptionStore, ProgramContext, filler_for,
     store_for,
 )
-from prompt_programs.runtime import LoraInfo, ProgramError
 from prompt_programs.vocab import vocabulary
 
 log = get_logger(__name__)
@@ -34,15 +33,16 @@ WARM_DRAWS = 8         # draws at prepare that find the pools to fill
 UNJUDGED = (None, "null")
 
 
+CONTEXT_VERSIONS = ("ctx-1", CONTEXT_VERSION)   # what a replay can read
+
+
 def _drawn(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Any]], options: Any) -> Any:
-    if "picks" in entry:
-        from prompt_programs.fill import fill
-        return fill(entry, seed, pins, None, None, options=options)
-    return draw(entry["program"], seed, pins, None, None, None, None, options=options)
+    return fill(entry, seed, pins, None, None, options=options)
 
 
 def has_draws(entry: Dict[str, Any]) -> bool:
-    return bool(entry.get("picks")) or uses_draws(entry.get("program") or "")
+    """Whether a prepared prompt has anything to draw (a slot read, or a list)."""
+    return bool(entry.get("picks"))
 
 
 @dataclass
@@ -51,12 +51,7 @@ class Runtime:
 
 
 def program_context(entry: Dict[str, Any]) -> ProgramContext:
-    loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
-    try:
-        template = entry.get("template") or fixed_text(entry["program"], loras, set(entry.get("params") or {}) or None)
-    except ProgramError:
-        template = str(entry.get("example") or "")
-    return ProgramContext.of({**entry, "template": template})
+    return ProgramContext.of(entry)
 
 
 def _profile_store(profile_id: Optional[str]) -> Optional[OptionStore]:
@@ -73,7 +68,7 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
                 store: Optional[OptionStore] = None, filler: Optional[OptionFiller] = None,
                 cfg: Optional[FluentSettings] = None, mine: Optional[Dict[str, List[str]]] = None,
                 zones: Optional[Dict[str, List[str]]] = None) -> Runtime:
-    """What realize() draws a program with pick specs with. Passing a recorded
+    """What realize() draws a prepared prompt's picks with. Passing a recorded
     `revision` replays its pools at their recorded lengths. `mine`: the user's options kept
     per vocabulary list (additions.py); the profile's, unless a caller brings its own store.
     `zones`: the zones chosen per slot pick (options.GeneratedOptions)."""
@@ -123,7 +118,7 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
 
 def attach_filler(entry: Dict[str, Any], profile_id: Optional[str] = None) -> None:
     """Call from async code before realize() runs in a worker thread, so background
-    option generation for a new-format program has the event loop to run on."""
+    option generation has the event loop to run on."""
     if not has_draws(entry) or not settings().generate_options:
         return
     try:
@@ -137,16 +132,14 @@ def attach_filler(entry: Dict[str, Any], profile_id: Optional[str] = None) -> No
 def start_options(entry: Dict[str, Any], *, profile_id: Optional[str] = None, project_id: Optional[int] = None,
                   store: Optional[OptionStore] = None, filler: Optional[OptionFiller] = None,
                   cfg: Optional[FluentSettings] = None) -> List[str]:
-    """Queue background option generation for a just-prepared program. Returns the
-    storage keys queued. Never calls a model itself and never raises: a program whose
+    """Queue background option generation for a prepared prompt. Returns the
+    storage keys queued. Never calls a model itself and never raises: a prompt whose
     pools can't fill still draws from its seeds."""
     if not has_draws(entry):
         return []
     try:
         rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, filler=filler, cfg=cfg)
-        loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
-        params = set(entry.get("params") or {}) or None
-        # A few cheap draws visit the pools this program uses (dependent pools included,
+        # A few cheap draws visit the pools this prompt uses (dependent pools included,
         # for the upstream values they draw); each unseen pool queues a fill.
         for seed in range(WARM_DRAWS):
             try:
@@ -206,8 +199,6 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
     rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, cfg=cfg, mine=mine,
                      edits=edits, zones=zones)
     chosen = dict(rt.options.zones)
-    loras = [LoraInfo(**lo) for lo in entry.get("loras") or []]
-    params = set(entry.get("params") or {}) or None
     pins = {k: v for k, v in (pins or {}).items() if v}
     generated = [c["id"] for c in entry.get("choices") or [] if c.get("kind") == "pick" and c.get("source") != "list"]
     bound_cls = {c["id"]: c.get("cls") for c in entry.get("choices") or [] if c.get("cls")}

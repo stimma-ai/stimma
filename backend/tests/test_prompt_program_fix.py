@@ -10,22 +10,23 @@ from prompt_programs.fix import (
     FixJudgeUnavailable, OnnxJudge, fix_draw, fix_judge, judged_picks, mask, realize_and_fix, score_draw,
 )
 from prompt_programs.judge import FluentSettings
-from prompt_programs.runtime import ProgramError
+from prompt_programs.fill import ProgramError
 
-JOBS = '''
-job = pick("job", ["nun", "lifeguard", "surgeon"], label="Job", source="list", phase=1)
-outfit = pick("outfit", by=job, label="Outfit", about="what she wears", phase=2, options={
-    "nun": ["a black habit", "a gray habit"],
-    "lifeguard": ["a red swimsuit", "collection shorts"],
-    "surgeon": ["green scrubs", "blue scrubs"]})
-light = pick("light", ["dawn light", "noon sun", "moonlight", "candlelight"], label="Light", phase=1)
-emit("A", job, "wearing", outfit, "under", light)
-'''
-USER = "a {nun|lifeguard|surgeon} at work"
+USER = "A {nun|lifeguard|surgeon} wearing <outfit> under <light>"
+OUTFIT = {"n": 1, "kind": "free", "label": "Outfit", "lead": " wearing",
+          "free": {"about": "what she wears", "kinds": ["a black habit", "a gray habit", "a red swimsuit", "green scrubs",
+                                                         "blue scrubs"], "instead": []}}
+LIGHT = {"n": 2, "kind": "free", "label": "Light", "lead": " under",
+         "free": {"about": "the light", "kinds": ["dawn light", "noon sun", "moonlight", "candlelight"], "instead": []}}
 
 
-def entry_for(program=JOBS, **kw):
-    return {"key": "fix1", "program": program, "loras": [], "params": {}, "mode": "prose", "prompt": USER, **kw}
+def entry_for(prompt=USER, readings=(OUTFIT, LIGHT), **kw):
+    from prompt_programs.slots import compose, parse
+    e = compose(parse(prompt), {r["n"]: r for r in readings}, {1: "Job"})
+    for x in (*e["picks"], *e["choices"], *e["lists"]):   # the job list, named as these tests name it
+        if x["id"] == "list1":
+            x["id"] = "job"
+    return {**e, "key": "fix1", **kw}
 
 
 class Scorer:
@@ -98,7 +99,7 @@ class TestScoring:
         r = draw(entry, 2, pins={"job": ["nun"]})
         assert {d.id for d in judged_picks(r)} == {"outfit", "light"}
         assert {d.id for d in judged_picks(r, skip=["light"])} == {"outfit"}
-        one = entry_for('x = pick("x", ["only"], label="X", phase=1)\nemit("a", x)\n')
+        one = entry_for("a {only|only}", readings=())
         assert judged_picks(draw(one, 1)) == []
 
     def test_onnx_style_input_pair(self, tmp_path):
@@ -130,16 +131,6 @@ class TestFixLoop:
         assert v1["job"] == v0["job"] and v1["outfit"] == v0["outfit"]
         assert rec["rounds"][0]["rerolled"] == {"id": "light", "label": "Light", "value": "moonlight"}
         assert not rec["unresolved"] and all(len(b) == 3 for b in sc.batches)  # every round is one batch
-
-    def test_a_dependent_pick_follows_its_rerolled_upstream(self):
-        entry = entry_for()
-        s, r = seed_where(entry, lambda v: v["job"] == "lifeguard")
-        out, rec = fix_draw(r, judge=Scorer(lambda it: 0.99 if it.value == "lifeguard" else 0.0), redraw=redraw_for(entry),
-                            seed=s, user_prompt=USER, cut=0.5)
-        v = values(out)
-        pools = {"nun": {"a black habit", "a gray habit"}, "surgeon": {"green scrubs", "blue scrubs"}}
-        assert v["job"] in pools and v["outfit"] in pools[v["job"]]
-        assert values(r)["light"] == v["light"] and rec["rerolls"] == 1
 
     def test_rerolls_are_bounded_and_the_best_draw_ships(self):
         entry = entry_for()
@@ -346,11 +337,9 @@ class TestExactTextIsNeverJudged:
     SECRET = "zq7 velvet harbor"
 
     def entry(self):
-        program = JOBS.replace('emit("A", job, "wearing", outfit, "under", light)',
-                               'emit("A", job, "wearing", outfit, "under", light, "[EXACT_1]")')
         masked, exact = prep.mask_exact(f"{USER} [{self.SECRET}]")
         assert self.SECRET not in masked and exact == {"EXACT_1": self.SECRET}
-        return entry_for(program, prompt=masked, exact=exact)
+        return entry_for(masked, exact=exact)
 
     def test_no_judged_text_holds_the_exact_span(self):
         entry = self.entry()

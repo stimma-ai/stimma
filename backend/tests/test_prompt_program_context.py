@@ -12,12 +12,15 @@ import re
 
 import pytest
 
-from prompt_programs.draws import CONTEXT_VERSION, PickSpec, analyze, draw
+from prompt_programs.fill import CONTEXT_VERSION, PickSpec
+from tests.slot_fixtures import analyze
+from tests.slot_fixtures import draw
 from prompt_programs.fluent import runtime_for
 from prompt_programs.judge import FluentSettings
 from prompt_programs.narrow import NarrowCache, narrow_entry
 from prompt_programs.options import GeneratedOptions, OptionStore, ProgramContext
-from prompt_programs.runtime import ProgramError, discover
+from prompt_programs.fill import ProgramError
+from tests.slot_fixtures import discover
 from prompt_programs.vocab import LESS, given_families, vocabulary
 
 async def narrow_read(entry, cache, ask, *args, **kw):
@@ -33,9 +36,7 @@ def V():
     return vocabulary()
 
 
-def entry_of(src, prompt="", **extra):
-    return {"key": "k", "program": src, "loras": [], "params": {}, "mode": "prose", "prompt": prompt,
-            "choices": discover(src)["choices"], **extra}
+from tests.slot_fixtures import entry_of  # noqa: E402
 
 
 def draws_of(entry, tmp_path, seeds, pins=None, context=True, edits=None):
@@ -243,31 +244,6 @@ class TestTypicalLooks:
 
 # --------------------------------------------------------------------------- the engine rule
 
-class TestOrdering:
-    def test_takers_move_after_their_givers(self):
-        an = analyze(ONE)
-        phase = {s.id_text: s.phase for s in an.sites}
-        # descent is written below hair and eyes: they move after it; skin is written below it
-        assert phase["descent"] == 1 and phase["skin"] == 1 and phase["hair"] == 2 and phase["eyes"] == 2
-        assert {(an.sites[g].id_text, an.sites[t].id_text) for g, t in an.context_links} == {
-            ("descent", "hair"), ("descent", "eyes"), ("descent", "skin")}
-
-    def test_without_context_the_writers_phases_stand(self):
-        an = analyze(ONE, context=False)
-        assert {s.phase for s in an.sites} == {1} and not an.context_links
-
-    def test_a_later_pick_keeps_following_what_it_depends_on(self):
-        src = ONE.replace('emit(', 'style = ""\nif hair == "black":\n    style = pick("style", ["sleek", "loose"], '
-                                   'label="Style", phase=2, line=5)\nemit(style, ')
-        phase = {s.id_text: s.phase for s in analyze(src).sites}
-        assert phase["hair"] == 2 and phase["style"] == 3
-
-    def test_scope_is_the_person_for_descent_and_the_image_for_the_scene(self):
-        links = {(analyze(TWO).sites[g].id_text, analyze(TWO).sites[t].id_text) for g, t in analyze(TWO).context_links}
-        assert links == {("woman.descent", "woman.hair"), ("man.descent", "man.hair")}
-        scene = {(analyze(SCENE).sites[g].id_text, analyze(SCENE).sites[t].id_text)
-                 for g, t in analyze(SCENE).context_links}
-        assert scene == {("time", "light"), ("room", "light")}
 
 
 class TestWeighting:
@@ -461,23 +437,12 @@ class TestReplay:
         with pytest.raises(ProgramError):
             runtime_for(entry_of(ONE), store=OptionStore(tmp_path), cfg=OFF, revision={"context": "ctx-99", "pools": {}})
 
-    def test_a_program_without_links_draws_as_before(self, tmp_path):
-        src = ('hair = pick("hair", cls="person.hair_color", about="her hair color", seed=["black"], label="Hair", phase=1, line=1)\n'
-               'emit("A woman with", hair, "hair")')
-        e = entry_of(src)
-        for seed in range(10):
-            on = draw(src, seed, None, [], None, None, None,
-                      options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF).options)
-            rt = runtime_for(e, store=OptionStore(tmp_path), cfg=OFF)
-            rt.options.context = False
-            off = draw(src, seed, None, [], None, None, None, options=rt.options)
-            assert on.prompt == off.prompt and on.revision == off.revision and "context" not in on.revision
 
     def test_a_literal_options_draw_weights_a_bound_list_too(self):
         leaf = V().get("person.hair_color")
         spec = PickSpec("hair", "Hair", "", 1, "text", "pick", [], [], leaf.id,
                         context=(("hair_family", ("black",)),))
-        from prompt_programs.draws import LiteralOptions
+        from prompt_programs.fill import LiteralOptions
         pool = LiteralOptions().get(spec, {})
         w = dict(zip(pool.items, pool.weights))
         assert pool.key.endswith("| context hair_family=black") and w["golden blonde"] < w["black"]

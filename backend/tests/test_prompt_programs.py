@@ -1,116 +1,17 @@
-"""Prompt programs: the runtime, discovery, prepare (with a stubbed model) and the
-per-job application of a run."""
+"""Fluent's shared pieces: masking, saved wildcards, which tools vary their prompts, option
+writing on request, LoRA context and trigger words, the acceptance fake's reading, store keys."""
 
 import pytest
 
 from prompt_programs import program as prep
-from prompt_programs.runtime import LoraInfo, ProgramError, discover, run
+from prompt_programs.fill import ProgramError
 from prompt_programs.store import ProgramStore
 
 
-TRAIN = '''
-weather = pick("weather", ["rainy", "foggy", "bright"], label="Weather", source="list", line=1)
-umbrella = None
-if weather == "rainy":
-    umbrella = pick("umbrella", ["holding a clear umbrella", "holding a black umbrella"], label="Umbrella", added=True)
-hair = pick_lora("hairstyle", ["Curtain bangs", "Wolf cut"], label="Hairstyle", line=3)
-clothing = pick("clothing", by=weather, label="Clothing", line=2, options={
-    "rainy": ["a trench coat", "a rain jacket"], "foggy": ["a wool coat"], "bright": ["a linen shirt"]})
-param("guidance", 3.5, 5.5, line=4)
-emit("A woman waiting for a train on a", weather, "morning, wearing", clothing, ",", umbrella, ". [Shot on Portra 400]")
-'''
-LORAS = [LoraInfo("Curtain bangs", "loras/cb.safetensors", 0.8, "cbangs"), LoraInfo("Wolf cut", "loras/wc.safetensors", 0.9, "wolfcut")]
-PARAMS = {"guidance", "steps"}
 
 
-class TestRuntime:
-    def test_same_seed_same_result(self):
-        a = run(TRAIN, 42, None, LORAS, PARAMS)
-        b = run(TRAIN, 42, None, LORAS, PARAMS)
-        assert a.prompt == b.prompt and [d.value for d in a.draws] == [d.value for d in b.draws]
-
-    def test_seeds_vary(self):
-        prompts = {run(TRAIN, s, None, LORAS, PARAMS).prompt for s in range(30)}
-        assert len(prompts) > 5
-
-    def test_pins_narrow_the_draw(self):
-        for s in range(20):
-            r = run(TRAIN, s, {"weather": ["rainy"], "hairstyle": ["Wolf cut"]}, LORAS, PARAMS)
-            assert "rainy" in r.prompt and r.loras[0].name == "Wolf cut"
-            assert any(d.id == "umbrella" for d in r.draws)
-
-    def test_a_pin_outside_the_options_is_ignored(self):
-        r = run(TRAIN, 1, {"weather": ["snowy"]}, LORAS, PARAMS)
-        assert any(d.id == "weather" and d.value in ("rainy", "foggy", "bright") for d in r.draws)
-
-    def test_fixed_replays_draws(self):
-        first = run(TRAIN, 3, None, LORAS, PARAMS)
-        fixed = {d.id: d.value for d in first.draws}
-        again = run(TRAIN, 999, None, LORAS, PARAMS, fixed)
-        assert again.prompt == first.prompt
-
-    def test_user_edits(self):
-        for s in range(20):
-            r = run(TRAIN, s, {"weather": ["sleet"]}, LORAS, PARAMS, None,
-                    {"weather": {"add": ["sleet"]}, "umbrella": {"off": True}, "clothing": {"remove": ["a trench coat"]}})
-            assert "sleet" in r.prompt and not any(d.id == "umbrella" for d in r.draws)
-            assert "trench coat" not in r.prompt
-
-    def test_lora_trigger_and_weight(self):
-        r = run(TRAIN, 5, {"hairstyle": ["Curtain bangs"]}, LORAS, PARAMS)
-        assert r.prompt.startswith("cbangs,")
-        assert r.loras[0].path == "loras/cb.safetensors" and r.loras[0].weight == 0.8
-
-    def test_param_range(self):
-        vals = {run(TRAIN, s, None, LORAS, PARAMS).params["guidance"] for s in range(40)}
-        assert all(3.5 <= v <= 5.5 for v in vals) and len(vals) > 3
-
-    def test_param_must_exist_and_not_be_added(self):
-        with pytest.raises(ProgramError, match="no parameter"):
-            run('param("cfg", 1, 2)\nemit("x")', 1, None, [], PARAMS)
-        with pytest.raises(ProgramError, match="only vary when the user asks"):
-            run('param("guidance", 1, 2, source="added")\nemit("x")', 1, None, [], PARAMS)
-
-    def test_loop_with_distinct_values(self):
-        src = '''
-ages = []
-for i in range(group("people", 3, label="People")):
-    a = pick(f"people[{i+1}].age", ["20s", "40s", "70s"], exclude=ages)
-    ages.append(a)
-emit("Three friends:", ", ".join(ages))
-'''
-        for s in range(15):
-            r = run(src, s)
-            assert sorted(d.value for d in r.draws) == ["20s", "40s", "70s"]
-            assert r.groups["people"]["count"] == 3
-
-    @pytest.mark.parametrize("bad, msg", [
-        ("import os\n", "Import is not allowed"),
-        ("x = ().__class__\n", "is not allowed"),
-        ("while True:\n    pass\n", "While is not allowed"),
-        ("emit(open('x'))\n", "NameError"),
-        ("for i in range(1000000000):\n    pass\nemit('x')\n", "range\\(\\) is limited"),
-        ("for i in range(9000):\n    for j in range(9000):\n        pass\nemit('x')\n", "ran too long"),
-        ("pick('a', ['x'])\npick('a', ['y'])\nemit('z')\n", "used twice"),
-        ("pick('a', ['x'])\n", "emitted no prompt"),
-    ])
-    def test_rejections(self, bad, msg):
-        with pytest.raises(ProgramError, match=msg):
-            run(bad, 1)
 
 
-class TestDiscover:
-    def test_structure(self):
-        info = discover(TRAIN, LORAS, PARAMS)
-        by = {c["id"]: c for c in info["choices"]}
-        assert by["weather"]["source"] == "list" and by["weather"]["options"] == ["rainy", "foggy", "bright"]
-        assert by["umbrella"]["parent"] == "weather" and by["umbrella"]["when"] == ["rainy"]
-        assert by["umbrella"]["source"] == "added"
-        assert by["clothing"]["follows"] == "weather"
-        assert set(by["clothing"]["options"]) == {"a trench coat", "a rain jacket", "a wool coat", "a linen shirt"}
-        assert by["hairstyle"]["kind"] == "lora"
-        assert by["param.guidance"]["options"] == ["3.5", "5.5"]
-        assert info["params"] == ["guidance"]
 
 
 class TestPrepare:
@@ -145,27 +46,6 @@ class TestPrepare:
         assert out == "a {red|blue} car, film photo"
 
 
-class TestFixInCode:
-
-
-    def test_an_unclosed_fence_still_gives_the_program(self):
-        from prompt_programs.runtime import extract_code
-        assert extract_code('```python\na = 1\nemit("x")\n') == 'a = 1\nemit("x")\n'
-
-
-    # What the writer wrote for "young woman in a yoga outfit" (canary, pp-37): an age narrowed to
-    # young adults, an outfit narrowed to yoga looks, and the details the prompt leaves open.
-    YOGA = (
-        'ethnicity = pick("ethnicity", cls="person.ethnicity", about="the woman\'s ethnicity", seed=["Japanese"], label="Ethnicity", phase=1, line=1)\n'
-        'age = pick("age", cls="person.age_band", where={"life_stage": "young adult"}, about="the woman\'s age", seed=["a young adult"], label="Age", phase=1, line=1)\n'
-        'hair_color = pick("hair_color", cls="person.hair_color", about="the woman\'s hair color", seed=["black"], label="Hair color", phase=1, added=True)\n'
-        'hair_style = pick("hair_style", cls="person.hairstyle", about="the woman\'s hairstyle", seed=["a sleek high ponytail"], label="Hairstyle", phase=1, added=True)\n'
-        'expression = pick("expression", cls="person.expression", about="the woman\'s expression", seed=["a calm, focused expression"], label="Expression", phase=1, added=True)\n'
-        'outfit = pick("outfit", cls="person.outfit.athletic", about="what she wears for yoga", seed=["a sage green ribbed yoga set"], label="Outfit", phase=2, line=1, where={"sport": "yoga"})\n'
-        'pose = pick("pose", cls="person.pose", about="the woman\'s pose", seed=["sitting in a meditative lotus position"], label="Pose", phase=2, added=True)\n'
-        'setting = pick("setting", about="the yoga setting", seed=["a sun-drenched, minimalist studio"], label="Setting", phase=1, added=True)\n'
-        'emit("A photograph of a young", ethnicity, "woman, aged", age, ", with", hair_color, "hair in", hair_style, ", with",\n'
-        '     expression, ",", pose, "in", setting, ". She is wearing", outfit, ".")\n')
 
 
 class TestProgramSupport:
@@ -186,8 +66,6 @@ class TestSuggestOptions:
     ENTRY = {"key": "k", "prompt": "a woman in <stylish tank top>", "example": "a woman in a silk tank top",
              "slot_words": {"stylish_tank_top": "stylish tank top"},
              "elaborate": False, "mode": "prose",
-             "program": 't = pick("stylish_tank_top", about="a stylish tank top", seed=["a silk tank top"], '
-                        'label="Tank Top", phase=1)\nemit("a woman in", t)\n',
              "choices": [{"id": "stylish_tank_top", "kind": "pick", "label": "Tank Top",
                           "about": "a stylish tank top", "options": ["a silk tank top", "a linen tank top"]},
                          {"id": "look", "kind": "lora", "label": "Look", "options": ["A"]}]}
@@ -233,16 +111,6 @@ class TestSuggestOptions:
             await opts.suggest_options(self.ENTRY, "look", [], 3, None)
 
 
-class TestRerollEdits:
-    def test_removing_every_option_uses_the_added_ones(self):
-        src = 'top = pick("top", ["a", "b"], label="Top")\nemit(top)\n'
-        edits = {"top": {"remove": ["a", "b"], "add": ["c", "d"]}}
-        got = {run(src, s, None, [], set(), None, edits).prompt.lower() for s in range(20)}
-        assert got <= {"c", "d"} and got
-
-    def test_removing_everything_with_nothing_added_keeps_the_program_options(self):
-        src = 'top = pick("top", ["a", "b"], label="Top")\nemit(top)\n'
-        assert run(src, 1, None, [], set(), None, {"top": {"remove": ["a", "b"]}}).prompt.lower() in {"a", "b"}
 
 
 async def _protected(text, lang, pid, translate):
@@ -325,15 +193,15 @@ class TestAcceptanceFakeReadsSlots:
         from llm import _acceptance_program
         from prompt_programs import reader
         from prompt_programs.narrow import NarrowCache
-        from prompt_programs.slots import build, parse
+        from prompt_programs.slots import compose, parse
 
         async def ask(messages, project_id, max_tokens):
             return _acceptance_program(messages)
 
         parsed = parse("# at dusk\na <young man> on a {red|blue} bench by the <lake>")
         got = await reader.read(parsed, ask=ask, project_id=None, model="m", cache=NarrowCache(tmp_path))
-        _, entry = build(parsed, got)
-        assert [s["kind"] for s in entry["slots"]] == ["free", "free"]
+        entry = compose(parsed, {r["n"]: r for r in got["slots"]}, {r["n"]: r["label"] for r in got["lists"]})
+        assert [s["kind"] for s in entry["slots"]] == ["free", "free"] and not any(s.get("degraded") for s in entry["slots"])
         assert {c["id"] for c in entry["choices"]} == {"young_man", "lake", "list1"}
 
     def test_other_requests_keep_the_dummy_reply(self):
@@ -377,37 +245,6 @@ ESCAPES = [
 ]
 
 
-class TestSandbox:
-    @pytest.mark.parametrize("body", ESCAPES)
-    def test_no_route_out(self, body, monkeypatch):
-        monkeypatch.setenv("PP_SANDBOX_SECRET", SECRET)
-        for go in _both(body + "\nemit(x)"):
-            try:
-                out = go()
-            except ProgramError:
-                continue
-            assert SECRET not in out.prompt.lower() and "module" not in out.prompt.lower()
-
-    def test_format_is_not_a_method(self):
-        for go in _both('x = "{}".format(era)'):
-            with pytest.raises(ProgramError, match=r"\.format is not allowed"):
-                go()
-
-    @pytest.mark.parametrize("body, text", [
-        ('x = f"{7:02d}"', "07"),
-        ('x = f"{era:_>8}"', "___1920s"),
-        ('x = f"{era!r}"', "'1920s'"),
-        ('x = f"{2.5:.2f}"', "2.50"),
-        ('w = 7\nx = f"{era:*<{w}}"', "1920s**"),
-        ('x = "%02d and %s" % (4, era)', "04 and 1920s"),
-        ('x = f"{len(era)} letters, {era.upper()}"', "5 letters, 1920S"),
-    ])
-    def test_formatting_still_works(self, body, text):
-        src_plain = _plain(body + "\nemit(x)").replace('["1920s", "1970s"]', '["1920s"]')
-        src_phased = _phased(body + "\nemit(x)").replace('["1920s", "1970s"]', '["1920s"]')
-        from prompt_programs.draws import draw
-        assert text in run(src_plain, 1).prompt
-        assert text in draw(src_phased, 1).prompt
 
 
 DAG = 'L = ["x" * 1000]\nfor i in range(40):\n    L = [L, L]\n'
@@ -483,57 +320,6 @@ WALKS = [
 ]
 
 
-class TestResourceLimits:
-    @pytest.mark.parametrize("body", HOGS)
-    def test_one_line_cannot_hog_memory_or_cpu(self, body):
-        import time
-        for go in _both(body + "\nemit(x)"):
-            started = time.monotonic()
-            with pytest.raises(ProgramError):
-                go()
-            assert time.monotonic() - started < 0.1
-
-    @pytest.mark.parametrize("body", WALKS)
-    def test_shared_containers_cannot_hog_a_comparison(self, body):
-        import time
-        for go in _both(body + "\nemit(x)"):
-            started = time.thread_time()
-            with pytest.raises(ProgramError, match="too big to compare|holds itself"):
-                go()
-            assert time.thread_time() - started < 0.1
-
-    def test_cpu_budget(self):
-        import time
-        body = 'L = list(range(10000))\nfor i in range(5000):\n    x = sorted(L, key=str)\nx = "done"'
-        for go in _both(body + "\nemit(x)"):
-            started = time.monotonic()
-            with pytest.raises(ProgramError, match="ran too long"):
-                go()
-            assert time.monotonic() - started < 2.0
-
-    @pytest.mark.parametrize("body, text", [
-        ('x = ", ".join(["a", "b"] * 3)', "a, b, a, b, a, b"),
-        ('x = "-" * 3 + era', "---1920s"),
-        ('parts = []\nfor i in range(3):\n    parts += [f"#{i}"]\nx = " ".join(parts)', "#0 #1 #2"),
-        ('x = era.replace("19", "nineteen-")', "nineteen-20s"),
-        ('L = ["a"]\nL.extend(["b", "c"])\nx = str.join("+", L)', "a+b+c"),
-        ('x = str(sorted([3, 1, 2]))', "[1, 2, 3]"),
-        ('x = " ".join(sorted(["b", "A", "c"], key=str.lower))', "A b c"),
-        ('x = f"{100000 * 100000}"', "10000000000"),
-        ('x = str(era in ["1920s", "1970s"] and [1, [2]] == [1, [2]] and (1, 2) < (1, 3))', "true"),
-        ('x = str(sorted([[2], [1]])) + str(max([3, 1], key=abs)) + str(min(4, 2)) + str(max([], default=0))', "[[1], [2]]320"),
-        ('d = {("a", 1): "x"}\nd[("b", 2)] = "y"\nx = d[("a", 1)] + d.get(("b", 2)) + str(len({(1, 2), (1, 2)}))', "xy1"),
-        ('x = str(sorted(dict(zip(["b", "a"], [1, 2])))) + str(len(set("abca")))', "['a', 'b']3"),
-        ('x = str(object=era) + str(["a"].index("a")) + str(era[1:3])', "1920s092"),
-    ])
-    def test_ordinary_programs_are_unaffected(self, body, text):
-        from prompt_programs.draws import draw
-        assert text.lower() in run(_plain(body + "\nemit(x)").replace('["1920s", "1970s"]', '["1920s"]'), 1).prompt.lower()
-        assert text.lower() in draw(_phased(body + "\nemit(x)").replace('["1920s", "1970s"]', '["1920s"]'), 1).prompt.lower()
-
-    def test_a_limit_names_the_line(self):
-        with pytest.raises(ProgramError, match=r"^Line 3: this makes a value too long"):
-            run(_plain('y = 1\nx = "a" * 200000000\nemit(x)'), 1)
 
 
 class TestStoreKeys:

@@ -247,32 +247,3 @@ def test_spans_say_where_each_drawn_value_stands():
         for start, end, cid in r.spans:
             assert r.prompt[start:end].lower() in (drawn[cid].lower(), tidy_text([drawn[cid]]).lower())
         assert "[Kodak Portra 400]" in r.prompt
-
-
-# --------------------------------------------------------------------------- parity with the old engine
-
-@pytest.mark.parametrize("prompt,reading", [
-    (PORCH_PROMPT, PORCH_READING), (DORM_PROMPT, DORM_READING), (CAMERA_PROMPT, CAMERA_READING),
-    ("1girl, <hairstyle>, <outfit>, beach", {"slots": [
-        {"n": 1, "kind": "list", "label": "Hairstyle", "lead": ",",
-         "list": {"list": "person.hairstyle", "about": "the girl's hairstyle"}},
-        {"n": 2, "kind": "list", "label": "Outfit", "lead": ",",
-         "list": {"list": "person.outfit.summer", "about": "the girl's outfit"}}]}),
-])
-def test_the_fill_draws_what_the_program_drew(prompt, reading):
-    """The same seed, pins and edits draw exactly the text and values the generated program drew."""
-    from prompt_programs.draws import draw as program_draw
-    from prompt_programs.slots import build
-    old = build(parse(prompt), reading)[1]
-    new = entry_of(prompt, reading)
-    variants = [{}, {"edits": {"light": {"off": True}}}, {"edits": {"pet": {"off": True}}},
-                {"pins": {"elderly_african_man.age": ["70-year-old"]}}, {"zones": {"pet": ["kinds", "instead"]}},
-                {"edits": {"young_man.hair": {"off": True}}}, {"edits": {"camera.shot_size": {"off": True}}},
-                {"edits": {"elderly_african_man.outfit.colors": {"off": True}}}]
-    for v in variants:
-        for seed in range(10):
-            ro = runtime_for(old, store=None, mine={}, edits=v.get("edits"), zones=v.get("zones"))
-            a = program_draw(old["program"], seed, v.get("pins"), None, None, None, v.get("edits"), options=ro.options)
-            b = draw(new, seed, v.get("pins"), v.get("edits"), v.get("zones"))
-            assert b.prompt == a.prompt, (v, seed)
-            assert [(d.id, d.value, d.template) for d in b.draws] == [(d.id, d.value, d.template) for d in a.draws]

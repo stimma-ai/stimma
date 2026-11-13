@@ -3,14 +3,18 @@ view of them, the writer's catalog, and article agreement in emitted text."""
 
 import pytest
 
+from tests.slot_fixtures import entry_of as _fixture
+
 from prompt_programs import program as prep
-from prompt_programs.draws import PickSpec, draw
+from prompt_programs.fill import PickSpec
+from tests.slot_fixtures import draw
 from prompt_programs.fluent import pool_options
 from prompt_programs.judge import FluentSettings
 from prompt_programs.options import (
     GeneratedOptions, OptionFiller, OptionStore, ProgramContext, gen_key, generated_pick, generation_messages,
 )
-from prompt_programs.runtime import ProgramError, discover, run, tidy_text
+from prompt_programs.fill import ProgramError, tidy_text
+from tests.slot_fixtures import discover, run
 from prompt_programs.vocab import OPEN_SHARE, TIER_WEIGHTS, load, vocabulary
 
 async def narrow_read(entry, cache, ask, *args, **kw):
@@ -133,9 +137,6 @@ class TestBinding:
         assert by["eth"]["options"] == [x.text for x in eth.eligible()]
         assert "Korean" in by["eth"]["options"]
 
-    def test_an_unknown_list_is_the_writers_mistake(self):
-        with pytest.raises(ProgramError, match="isn't a vocabulary list"):
-            run(PORTRAIT.replace("person.eye_color", "person.eyes"), 1)
 
     def test_a_near_certain_typo_resolves_and_a_far_one_does_not(self):
         v = vocabulary()
@@ -146,14 +147,7 @@ class TestBinding:
         eyes = next(d for d in run(src, 1).draws if d.id == "eyes")
         assert eyes.cls == "person.eye_color"
 
-    def test_an_unknown_list_suggests_the_nearest(self):
-        with pytest.raises(ProgramError, match='Did you mean cls="person.ethnicity"'):
-            run(PORTRAIT.replace("person.ethnicity", "person.ethnday"), 1)
 
-    def test_a_user_list_cannot_bind(self):
-        src = 'x = pick("x", ["a", "b"], source="list", cls="person.eye_color", phase=1)\nemit(x)'
-        with pytest.raises(ProgramError, match="never a user list"):
-            run(src, 1)
 
     def test_draws_come_from_the_lists(self):
         opts = GeneratedOptions(None, program())
@@ -228,7 +222,7 @@ class TestBoundPools:
         import dataclasses
         from prompt_programs.fluent import runtime_for
         info = discover(PORTRAIT)
-        entry = {"key": "p", "program": PORTRAIT, "loras": [], "params": {}, "mode": "prose", "choices": info["choices"]}
+        entry = {**_fixture(PORTRAIT), "key": "p", "mode": "prose"}
         rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
         first = draw(PORTRAIT, 12, None, [], None, None, None, options=rt.options)
         rev = first.revision
@@ -244,7 +238,7 @@ class TestBoundPools:
 
     def test_a_revision_replays_after_its_list_is_removed(self, tmp_path, monkeypatch):
         from prompt_programs.fluent import runtime_for
-        entry = {"key": "p", "program": PORTRAIT, "loras": [], "params": {}, "mode": "prose",
+        entry = {**_fixture(PORTRAIT), "key": "p", "mode": "prose",
                  "choices": discover(PORTRAIT)["choices"]}
         rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
         first = draw(PORTRAIT, 0, None, [], None, None, None, options=rt.options)
@@ -268,8 +262,7 @@ class TestBoundPools:
 class TestThePicker:
     def test_pool_options_show_the_whole_list_with_tiers(self, tmp_path):
         info = discover(PORTRAIT)
-        entry = {"key": "p", "program": PORTRAIT, "loras": [], "params": {}, "mode": "prose",
-                 "choices": info["choices"]}
+        entry = {**_fixture(PORTRAIT), "key": "p", "mode": "prose"}
         out = pool_options(entry, store=OptionStore(tmp_path), cfg=OFF)
         eth = vocabulary().get("person.ethnicity")
         assert len(out["options"]["eth"]) == len(eth.eligible()) > 60  # uncapped
@@ -280,8 +273,7 @@ class TestThePicker:
 
     def test_pool_options_carry_every_group_an_option_is_in(self, tmp_path):
         info = discover(PORTRAIT)
-        entry = {"key": "p", "program": PORTRAIT, "loras": [], "params": {}, "mode": "prose",
-                 "choices": info["choices"]}
+        entry = {**_fixture(PORTRAIT), "key": "p", "mode": "prose"}
         out = pool_options(entry, store=OptionStore(tmp_path), cfg=OFF)
         leaf = vocabulary().get("person.eye_color")
         groups = out["vocab"]["eyes"]["groups"]
@@ -350,14 +342,14 @@ emit("A young", age, "woman with", eyes, "eyes.")
 
 def young_entry(prompt="a young woman with pretty eyes"):
     info = discover(YOUNG)
-    return {"key": "y", "program": YOUNG, "loras": [], "params": {}, "mode": "prose", "choices": info["choices"],
+    return {**_fixture(YOUNG), "key": "y", "mode": "prose",
             "prompt": prompt}
 
 
 def pretty_entry():
     """YOUNG with the writer's where= on her eyes too: words nothing on the eye color list fits."""
     src = YOUNG.replace('about="her eye color"', 'where="pretty", about="her eye color"')
-    return {"key": "p", "program": src, "loras": [], "params": {}, "mode": "prose", "choices": discover(src)["choices"],
+    return {**_fixture(src), "key": "p", "mode": "prose", "choices": discover(src)["choices"],
             "prompt": "a young woman with pretty eyes"}
 
 
@@ -452,7 +444,7 @@ class TestWhere:
         from prompt_programs.fluent import program_context
         src = YOUNG.replace('cls="person.age_band", where="young"', 'cls="person.expression", where="happy"')
         info = discover(src)
-        entry = {"key": "h", "program": src, "loras": [], "params": {}, "mode": "prose", "choices": info["choices"]}
+        entry = {**_fixture(src), "key": "h", "mode": "prose"}
         await narrow_read(entry, NarrowCache(tmp_path), FakeAsk(lambda v: "smile" in v or "grin" in v))
         store = OptionStore(tmp_path / "o")
         filler = OptionFiller(store, FakeGen())
@@ -551,7 +543,7 @@ class TestTemplates:
         info = discover(DRESSED)
         by = {c["id"]: c for c in info["choices"]}
         assert by["outfit"]["options"][0].startswith("a {main}") and by["outfit.colors"]["cls"] == "person.palette"
-        assert "{" not in info["example"]
+        assert "{" not in run(DRESSED, 0).prompt
 
     def test_a_kept_filled_look_keeps_its_template_and_palette(self, dressed):
         first = draw_dressed(3)
@@ -574,7 +566,7 @@ class TestTemplates:
 
     def test_a_revision_replays_a_template_draw(self, dressed, tmp_path):
         from prompt_programs.fluent import runtime_for
-        entry = {"key": "d", "program": DRESSED, "loras": [], "params": {}, "mode": "prose",
+        entry = {**_fixture(DRESSED), "key": "d", "mode": "prose",
                  "choices": discover(DRESSED)["choices"]}
         rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
         first = draw(DRESSED, 5, None, [], None, None, None, options=rt.options)
@@ -601,7 +593,7 @@ class TestTemplates:
     def test_a_replay_keeps_its_colors_after_the_palette_changes(self, dressed, tmp_path, monkeypatch):
         import dataclasses
         from prompt_programs.fluent import runtime_for
-        entry = {"key": "d", "program": DRESSED, "loras": [], "params": {}, "mode": "prose",
+        entry = {**_fixture(DRESSED), "key": "d", "mode": "prose",
                  "choices": discover(DRESSED)["choices"]}
         rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
         first = draw(DRESSED, 5, None, [], None, None, None, options=rt.options)
@@ -628,7 +620,7 @@ class TestTemplates:
     def test_facet_filters_keep_their_own_pools_and_old_keys(self, dressed):
         def entry_with(where):
             src = DRESSED.replace('label="Outfit"', f'label="Outfit", where={where!r}')
-            e = {"key": "f", "program": src, "loras": [], "params": {}, "mode": "prose",
+            e = {**_fixture(src), "key": "f", "mode": "prose",
                  "choices": discover(src)["choices"], "prompt": "a woman"}
             e["filters"] = {"outfit": [OUTFITS["values"][0]["text"]]}
             return e
@@ -659,7 +651,7 @@ class TestLocalFacetWhere:
 
     async def test_a_facet_filter_narrows_in_code_and_routes_colors(self, dressed, tmp_path):
         src = DRESSED.replace('label="Outfit"', 'label="Outfit", where={"sport": "running", "color_family": "blue"}')
-        entry = {"key": "w", "program": src, "loras": [], "params": {}, "mode": "prose",
+        entry = {**_fixture(src), "key": "w", "mode": "prose",
                  "choices": discover(src)["choices"], "prompt": "a woman in blue running kit"}
         ask = FakeAsk(lambda v: True)
         await narrow_read(entry, NarrowCache(tmp_path), ask)
@@ -699,7 +691,7 @@ class TestArticleTidy:
     def test_the_judge_and_the_highlight_find_the_value_as_emitted(self, olive):
         from prompt_programs.fix import mask, prompt_view
         from prompt_programs.program import realized_text
-        from prompt_programs.runtime import run
+        from tests.slot_fixtures import run
         r = run(DRESSED, 11)
         text = realized_text(r.prompt)
         assert mask(text, "a olive trench coat over a cream sweater", "Outfit") == "A woman wearing [Outfit]."
@@ -710,106 +702,6 @@ class TestArticleTidy:
 
 # --------------------------------------------------------------------------- the Colors id before US spelling
 
-class TestOldColorsIds:
-    """Builds before the US spelling named a look's Colors pick "<look>.colours". What they
-    recorded (prepared programs, revisions, pins, kept values, edits, an agent's keep_choices)
-    still loads and replays: those ids are read as ".colors"."""
-
-    def _entry(self):
-        return {"key": "d", "program": DRESSED, "loras": [], "params": {}, "mode": "prose", "prompt": "a woman",
-                "choices": discover(DRESSED)["choices"]}
-
-    @staticmethod
-    def _older(rev):
-        """A revision as an older build wrote it: its pool keys name the Colors pick ".colours"."""
-        pools = {k.replace("outfit.colors", "outfit.colours"): v for k, v in rev["pools"].items()}
-        assert pools != rev["pools"]
-        return {**rev, "pools": pools}
-
-    @pytest.fixture
-    def realize(self, dressed, tmp_path, monkeypatch):
-        """prep.realize as a run calls it (it builds its own runtime), drawing offline."""
-        import prompt_programs.fluent as fluent
-        monkeypatch.setattr(fluent, "settings", lambda: OFF)
-        monkeypatch.setattr(fluent, "_profile_store", lambda pid: OptionStore(tmp_path))
-        entry = self._entry()
-        return lambda **kw: prep.realize(entry, **kw)
-
-    def test_an_older_revision_replays_exactly(self, realize, dressed, monkeypatch):
-        import dataclasses
-        pal = dressed.leaves["person.palette"]
-        recolored = dataclasses.replace(
-            pal, values=tuple(dataclasses.replace(v, roles={k: "chartreuse" for k in v.roles}) for v in pal.values))
-        replayed = 0
-        for seed in range(8):
-            first = realize(seed=seed)
-            if "outfit.colors" not in {d.id for d in first.draws}:
-                continue
-            # the palette changes after the record: only the recorded pool gives the same colors
-            monkeypatch.setitem(dressed.leaves, "person.palette", recolored)
-            again = realize(seed=seed, revision=self._older(first.revision))
-            assert again.prompt == first.prompt and "chartreuse" not in again.prompt
-            monkeypatch.setitem(dressed.leaves, "person.palette", pal)
-            replayed += 1
-        assert replayed
-
-    def test_older_pins_kept_values_and_edits_still_hold(self, realize):
-        scheme = PALETTE["values"][1]["text"]
-        look = OUTFITS["values"][0]["text"]
-        for seed in range(6):
-            r = realize(seed=seed, pins={"outfit": [look], "outfit.colours": [scheme]})
-            assert next(d.value for d in r.draws if d.id == "outfit.colors") == scheme
-            assert "navy technical T-shirt" in r.prompt
-            off = realize(seed=seed, pins={"outfit": [look]}, edits={"outfit.colours": {"off": True}})
-            assert not any(d.id.endswith(".colors") for d in off.draws) and "{" not in off.prompt
-        kept = realize(seed=1, pins={"outfit": [look]}, fixed={"outfit.colours": scheme})
-        assert next(d.value for d in kept.draws if d.id == "outfit.colors") == scheme
-
-    def test_a_stored_older_program_loads_under_current_ids(self, tmp_path):
-        from prompt_programs.store import ProgramStore
-        store = ProgramStore(tmp_path)
-        old = {"key": "a" * 32, "program": DRESSED, "filters": {"outfit.colours": ["navy, white and gray"], "outfit": ["x"]},
-               "choices": [{"id": "outfit", "label": "Outfit"},
-                           {"id": "woman.outfit.colours", "label": "Colours", "follows": "woman.outfit"},
-                           {"id": "outfit.colours", "label": "Colors", "follows": "outfit"}]}
-        store.put("a" * 32, old)
-        got = store.get("a" * 32)
-        assert [c["id"] for c in got["choices"]] == ["outfit", "woman.outfit.colors", "outfit.colors"]
-        assert got["choices"][2]["follows"] == "outfit" and got["choices"][1]["follows"] == "woman.outfit"
-        assert got["filters"] == {"outfit.colors": ["navy, white and gray"], "outfit": ["x"]}
-        new = {**old, "filters": {"outfit": ["x"]}, "choices": [{"id": "outfit"}]}
-        store.put("b" * 32, new)
-        assert store.get("b" * 32) == new  # nothing old: read as stored
-
-    def test_an_agents_older_keep_choices_name_the_colors(self):
-        from routes.generation import pins_for_kept_choices
-        entry = {"choices": [{"id": "outfit", "label": "Outfit"}, {"id": "outfit.colors", "label": "Colors"}]}
-        assert pins_for_kept_choices(entry, {"outfit.colours": "navy, white and gray"}) == \
-            {"outfit.colors": ["navy, white and gray"]}
-
-    def test_revision_pool_keys_are_renamed_by_id_only(self):
-        rev = {"id": "r", "pools": {
-            "friends[2].outfit.colours: the colours of what she wears | outfit.colours=navy": 3,
-            "outfit: what she wears | colours=red": 2, "weather: the colours of the sky": 1}}
-        assert sorted(prep.current_revision(rev)["pools"]) == [
-            "friends[2].outfit.colors: the colours of what she wears | outfit.colors=navy",
-            "outfit: what she wears | colours=red", "weather: the colours of the sky"]
-        assert prep.current_revision({"pools": {"a": 1}}) == {"pools": {"a": 1}}
-
-    def test_an_older_program_with_old_facet_names_still_draws(self, tmp_path):
-        """A program written against the old vocabulary (where={"colour_family": ...}, a "grey"
-        shade) still draws: an unknown facet value matches nothing, so the whole list is used."""
-        from prompt_programs.fluent import runtime_for
-        src = ('outfit = pick("outfit", cls="person.outfit.casual", about="what she wears", seed=["a red T-shirt"], '
-               'label="Outfit", phase=1, line=1, where={"colour_family": "grey"})\n'
-               'hair = pick("hair", cls="person.hair_color", about="her hair colour", seed=["black"], label="Hair", '
-               'phase=1, line=2, where={"shade": "grey"})\n'
-               'emit("A woman with", hair, "hair wearing", outfit, ".")')
-        entry = {"key": "o", "program": src, "loras": [], "params": {}, "mode": "prose", "prompt": "a woman",
-                 "choices": discover(src)["choices"]}
-        for seed in range(6):
-            r = prep.realize(entry, seed=seed, runtime=runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF))
-            assert r.prompt and "{" not in r.prompt
 
 
 class TestSharesAndComposedLists:

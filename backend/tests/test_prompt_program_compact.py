@@ -8,21 +8,22 @@ from prompt_programs.compact import PoolStore, is_pool_ref, is_ref, pack_entry, 
 from prompt_programs.fluent import runtime_for
 from prompt_programs.judge import settings
 from prompt_programs.options import OptionStore
-from prompt_programs.people import expand_people
 from prompt_programs.program import realize
-from prompt_programs.runtime import ProgramError, discover
+from prompt_programs.fill import ProgramError
 from prompt_programs.store import ProgramStore
 from prompt_programs.vocab import vocabulary
 
-WOMAN = expand_people('woman = person("woman", noun="woman", presentation="feminine")\nemit("A portrait of", woman, ".")\n')
+WOMAN = {"n": 1, "kind": "person", "label": "Woman", "lead": "",
+         "person": {"noun": "woman", "presentation": "feminine", "stated": {},
+                    "vary": ["age", "descent", "hair", "hair_color", "face"], "outfit": ""}}
 KEY = "ab" * 16
 
 
 def entry():
-    info = discover(WOMAN)
+    from prompt_programs.slots import compose, parse
     faces = [v.text for v in vocabulary().get("person.face").matching({"presentation": "feminine"})]
-    return {"key": KEY, "program": WOMAN, "loras": [], "params": {}, "mode": "prose", "prompt": "a woman",
-            "choices": info["choices"], "groups": info["groups"], "filters": {"woman.face": faces}}
+    e = compose(parse("A portrait of a <woman>."), {1: WOMAN})
+    return {**e, "key": KEY, "prompt": "a woman", "filters": {"woman.face": faces}}
 
 
 def size(obj):

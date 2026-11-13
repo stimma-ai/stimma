@@ -3,20 +3,18 @@
 
 import collections
 
-from prompt_programs.draws import draw
+from tests.slot_fixtures import draw
 from prompt_programs.fluent import pool_options, runtime_for
 from prompt_programs.judge import FluentSettings
 from prompt_programs.options import OptionStore, program_minors
 from prompt_programs.reach import similar_values
-from prompt_programs.runtime import discover
+from tests.slot_fixtures import discover
 from prompt_programs.vocab import vocabulary
 
 OFF = FluentSettings(generate_options=False, fix_model="off")
 
 
-def entry_of(src, prompt="", **extra):
-    return {"key": "k", "program": src, "loras": [], "params": {}, "mode": "prose", "prompt": prompt,
-            "choices": discover(src)["choices"], **extra}
+from tests.slot_fixtures import entry_of  # noqa: E402
 
 
 def pools(entry, tmp_path, pins=None, mine=None):

@@ -1,8 +1,8 @@
-"""A prepared slot program's shared pieces: the prompt as the reader sees it ([exact text]
-masked, saved wildcards inlined), the store, the chat model the reader and the option writer
-ask, and realize(): one generation's prompt drawn from a program, with no model call.
+"""A prepared prompt's shared pieces: the prompt as the reader sees it ([exact text] masked,
+saved wildcards inlined), the store, the chat model the reader and the option writer ask, and
+realize(): one generation's prompt drawn from its slots (fill.py), with no model call.
 
-slots.ensure prepares a program; this module is what preparing, drawing and the routes share.
+slots.prepare prepares a prompt; this module is what preparing, drawing and the routes share.
 """
 
 from __future__ import annotations
@@ -12,8 +12,7 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.logging import get_logger
-from prompt_programs.draws import DrawAborted, draw, uses_draws
-from prompt_programs.runtime import ProgramError, RunResult, current_keys, current_revision, run, tidy_text
+from prompt_programs.fill import DrawAborted, ProgramError, RunResult, tidy_text
 from prompt_programs.store import ProgramStore
 
 log = get_logger(__name__)
@@ -197,37 +196,26 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
             profile_id: Optional[str] = None, project_id: Optional[int] = None,
             revision: Optional[Dict[str, Any]] = None, runtime: Any = None, unmask: bool = True,
             zones: Optional[Dict[str, List[str]]] = None) -> RunResult:
-    """One generation's prompt from a prepared program, drawn with generated options
-    (prompt_programs.fluent). Pass a recorded `revision` to replay its pools, or a `runtime`
-    to draw with a given options service (evaluations, tests). unmask=False leaves [exact
-    text] as its [EXACT_n] tokens, for steps a model reads (the fix judge); put it back with
-    unmask_exact(prompt, entry["exact"]). `zones`: the zones chosen per slot pick
-    (choices.expand). The result's `spans` say where each drawn value stands in its prompt."""
-    # what an older build recorded names a look's Colors ".colours": read under today's ids
-    pins, fixed, edits, revision = current_keys(pins), current_keys(fixed), current_keys(edits), current_revision(revision)
+    """One generation's prompt from a prepared entry (slots.prepare), drawn with the options
+    its picks have now (prompt_programs.fluent). Pass a recorded `revision` to replay its
+    pools, or a `runtime` to draw with a given options service (evaluations, tests).
+    unmask=False leaves [exact text] as its [EXACT_n] tokens, for steps a model reads (the fix
+    judge); put it back with unmask_exact(prompt, entry["exact"]). `zones`: the zones chosen
+    per slot pick (choices.expand). The result's `spans` say where each drawn value stands."""
+    from prompt_programs.fill import fill
+    from prompt_programs.fluent import runtime_for
     clean_pins = {str(k): [str(x) for x in (v if isinstance(v, list) else [v])] for k, v in (pins or {}).items() if v}
     clean_edits = {str(k): v for k, v in (edits or {}).items() if isinstance(v, dict)}
-    if "picks" in entry:
-        from prompt_programs.fill import fill
-        from prompt_programs.fluent import runtime_for
-        rt = runtime or runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
-                                    revision=revision, zones=zones)
-        result = fill(entry, seed, clean_pins, fixed or None, clean_edits or None, options=rt.options)
-    elif uses_draws(entry["program"]):
-        from prompt_programs.fluent import runtime_for
-        rt = runtime or runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
-                                    revision=revision, zones=zones)
-        result = draw(entry["program"], seed, clean_pins, None, None, fixed or None, clean_edits or None,
-                      options=rt.options)
-    else:
-        result = run(entry["program"], seed, clean_pins, None, None, fixed or None, clean_edits or None)
+    rt = runtime or runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
+                                revision=revision, zones=zones)
+    result = fill(entry, seed, clean_pins, fixed or None, clean_edits or None, options=rt.options)
     if unmask and entry.get("exact"):  # the user's [exact text], straight to the image model
         result.prompt = unmask_exact(result.prompt, entry["exact"])
     return result
 
 
 def spans_of(result: Any) -> List[Tuple[int, int, str]]:
-    """Where each drawn value stands in the result's prompt; none for a program drawn the plain way."""
+    """Where each drawn value stands in the result's prompt."""
     return list(getattr(result, "spans", None) or [])
 
 

@@ -10,7 +10,7 @@ from tests.test_prompt_program_context import Ask, draws_of, entry_of, mismatche
 # --------------------------------------------------------------------------- said x context
 
 async def narrow_read(entry, cache, ask, *args, **kw):
-    """narrow_entry with the fake model's reading as the slots' words (slots.build writes them)."""
+    """narrow_entry with the fake model's reading as the slots' words (fill.picks_of makes them)."""
     entry.setdefault("slot_words", dict(getattr(ask, "read", None) or {}))
     return await narrow_entry(entry, cache, ask, *args, **kw)
 
@@ -61,22 +61,14 @@ class TestSaidGivesContext:
         assert seen == {"green", "blue"}
 
 
-from prompt_programs.draws import person_of  # noqa: E402
+from prompt_programs.fill import person_of  # noqa: E402
 from prompt_programs.options import program_minors  # noqa: E402
-from prompt_programs.runtime import subject_of  # noqa: E402
+from prompt_programs.fill import subject_of  # noqa: E402
 from prompt_programs.vocab import vocabulary  # noqa: E402
 
 # --------------------------------------------------------------------------- groups x context x age policy
 
 class TestOnePersonRule:
-    def test_person_of_follows_the_subject_the_id_names(self):
-        for cid in ("friends[2].age", "friends[2].outfit.colors", "friends[2].outfit.style", "woman1.hair",
-                    "mother.outfit", "mother.outfit.colors", "twin_2.hairstyle"):
-            s = subject_of(cid)
-            assert s is not None and person_of(cid) and cid == person_of(cid) + "." + s[2], cid
-        for cid in ("outfit", "outfit.colors", "param.steps"):
-            assert subject_of(cid) is None and person_of(cid) == "", cid
-        assert person_of("friends[{}].age") == "friends[{}]"   # a loop's site: its member
 
     def test_a_shared_age_speaks_for_every_subject(self, tmp_path):
         src = ('age = pick("age", cls="person.age_band", about="their age", seed=["8-year-old"], label="Age", phase=1, line=1, shared=True)\n'

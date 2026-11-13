@@ -13,7 +13,7 @@ from prompt_programs.additions import AdditionStore, additions_for, list_id
 from prompt_programs.fix import fix_draw, judged_picks
 from prompt_programs.fluent import pool_options, runtime_for
 from prompt_programs.judge import FluentSettings
-from prompt_programs.runtime import discover
+from tests.slot_fixtures import discover
 from prompt_programs.vocab import AGE_LIST, TIER_WEIGHTS, vocabulary
 
 OFF = FluentSettings(generate_options=False, fix_model="off")
@@ -43,9 +43,8 @@ SEEDS = range(400)
 
 
 def entry_of(src, key="k", **extra):
-    info = discover(src)
-    return {"key": key, "program": src, "loras": [], "params": {}, "mode": "prose", "prompt": "",
-            "choices": info["choices"], "groups": info["groups"], **extra}
+    from tests.slot_fixtures import entry_of as fixture
+    return fixture(src, "", key=key, **extra)
 
 
 def hair_values():

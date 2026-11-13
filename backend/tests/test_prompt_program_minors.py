@@ -7,18 +7,19 @@ import re
 
 import pytest
 
-from prompt_programs.draws import LiteralOptions, PickSpec, draw, person_of
+from prompt_programs.fill import LiteralOptions, PickSpec, person_of
+from tests.slot_fixtures import draw
 from prompt_programs.fluent import pool_options, program_context, runtime_for
 from prompt_programs.judge import FluentSettings
 from prompt_programs.narrow import _SYSTEM, NarrowCache, messages_for, narrow_entry
 from prompt_programs.options import (
     GeneratedOptions, OptionFiller, OptionStore, ProgramContext, gen_key, generation_messages, program_minors,
 )
-from prompt_programs.runtime import discover
+from tests.slot_fixtures import discover
 from prompt_programs.vocab import AGE_LIST, load, minor_ages, template_matches, vocabulary
 
 async def narrow_read(entry, cache, ask, *args, **kw):
-    """narrow_entry with the fake model's reading as the slots' words (slots.build writes them)."""
+    """narrow_entry with the fake model's reading as the slots' words (fill.picks_of makes them)."""
     entry.setdefault("slot_words", dict(getattr(ask, "read", None) or {}))
     return await narrow_entry(entry, cache, ask, *args, **kw)
 
@@ -69,9 +70,7 @@ emit("A", kage, "child in", kout, "with", kexp, "beside a", mage, "mother in", m
 '''
 
 
-def entry_of(src, prompt="", **extra):
-    return {"key": "k", "program": src, "loras": [], "params": {}, "mode": "prose", "prompt": prompt,
-            "choices": discover(src)["choices"], **extra}
+from tests.slot_fixtures import entry_of  # noqa: E402
 
 
 def draws_of(entry, tmp_path, seeds=SEEDS, pins=None, edits=None, fixed=None):
@@ -185,7 +184,7 @@ class TestUnasked:
 
     def test_a_pool_of_only_standby_values_draws_nothing_unpinned(self):
         src = 'a = pick("a", cls="person.age_band", about="age", seed=["x"], label="Age", phase=1)\nemit(a)'
-        from prompt_programs.draws import DrawAborted
+        from prompt_programs.fill import DrawAborted
         young = [v.text for v in ages().values if v.minor]
         edits = {"a": {"remove": [v.text for v in ages().values if not v.minor]}}
         ctx = program_context(entry_of(src))

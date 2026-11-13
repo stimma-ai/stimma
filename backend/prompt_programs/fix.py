@@ -553,7 +553,7 @@ def _fixer(result: Any, *, judge: Any, redraw: Redraw, seed: int, user_prompt: s
            edits: Optional[Dict[str, Any]] = None, exact: Optional[Dict[str, str]] = None) -> Fixer:
     """`result`, `redraw` and `user_prompt` carry [exact text] masked; the rolls recorded
     for the generation details show it unmasked (`exact`)."""
-    from prompt_programs.runtime import ProgramError
+    from prompt_programs.fill import ProgramError
     started = time.monotonic()
     user_fixed = {str(k): v for k, v in (fixed or {}).items()}
     user_edits = {str(k): v for k, v in (edits or {}).items() if isinstance(v, dict)}

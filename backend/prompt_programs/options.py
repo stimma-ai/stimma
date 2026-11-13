@@ -36,8 +36,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
-from prompt_programs.draws import LiteralOptions, PickSpec, Pool, context_suffix, owns, person_of, pool_key
-from prompt_programs.runtime import RANK_DECAY
+from prompt_programs.fill import RANK_DECAY, LiteralOptions, PickSpec, Pool, context_suffix, owns, person_of, pool_key
 from prompt_programs.vocab import (
     AGE_LIST, OPEN_SHARE, TIER_WEIGHTS, Leaf, fill, given_families, minor_ages, tags_match, template_matches,
     vocabulary,
@@ -124,8 +123,7 @@ class ProgramContext:
 
     @classmethod
     def of(cls, entry: Dict[str, Any]) -> "ProgramContext":
-        from prompt_programs.draws import fixed_text
-        template = entry.get("template") or fixed_text(entry["program"])
+        template = str(entry.get("template") or "")
         signature = str(entry.get("context") or "").strip() or template
         lists = tuple((str(c.get("id")), str(c.get("label") or c.get("id")), tuple(str(o) for o in c.get("options") or []))
                       for c in entry.get("choices") or []
@@ -579,7 +577,7 @@ async def suggest_options(entry: Dict[str, Any], choice_id: str, existing: Seque
     Reroll all), written the way background generation writes them. Never during a run.
     `zone`: one of a slot choice's zones (choices.py), written as that zone's pool is."""
     from prompt_programs.choices import bound_zones, free_zones
-    from prompt_programs.runtime import ProgramError
+    from prompt_programs.fill import ProgramError
     choice = next((c for c in entry.get("choices") or [] if c.get("id") == choice_id), None)
     if not choice or choice.get("kind") != "pick":
         raise ProgramError(f"No choice {choice_id} to write options for.")

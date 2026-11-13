@@ -119,30 +119,3 @@ class TestStatedAgeAndMinors:
         assert dict(program_minors(e)).get("girl")
 
 
-class TestThroughPerson:
-    SRC = ('w = person("woman", noun="woman", presentation="feminine", said={"descent": "Irish", "eyes": "emerald", "age": "30 year old"}, detail="full")\n'
-           'emit("A photo of", w, ", in a cafe.")')
-
-    def test_person_gives_the_stated_details_said_and_draws_the_rest(self, tmp_path):
-        from prompt_programs.people import expand_people
-        src = expand_people(self.SRC)
-        e = entry_of(src, "a photo of a 30 year old Irish woman with emerald eyes in a cafe")
-        by = {c["id"]: c for c in e["choices"]}
-        assert (by["woman.descent"]["said"], by["woman.eyes"]["said"], by["woman.age"]["said"]) == ("Irish", "emerald", "30 year old")
-        assert by["woman.eyes"]["cls"] == "person.eye_color" and not by["woman.hair_color"].get("said")
-        skins = set()
-        for r, d in draws_of(e, tmp_path, range(20)):
-            assert "30 year old Irish woman" in r.prompt and "emerald eyes" in r.prompt
-            skins.add(d["woman.skin"].value)
-        assert len(skins) > 2
-        for _, d in draws_of(e, tmp_path / "t", range(30), pins={"woman.descent": ["Irish", "Korean"]}):
-            assert d["woman.descent"].value in {"Irish", "Korean"}
-
-    async def test_a_stated_childs_age_through_person_still_limits_her(self, tmp_path):
-        from prompt_programs.people import expand_people
-        src = expand_people('g = person("girl", noun="girl", presentation="feminine", said={"age": "12 year old"})\n'
-                            'emit(g, ", flying a kite on a hill")')
-        e = entry_of(src, "a 12 year old girl flying a kite on a hill")
-        ask = Ask(read={"girl.stated_age": "12 year old"}, keep={"12 year old": ["11-year-old"]})
-        await narrow_read(e, NarrowCache(tmp_path), ask)
-        assert dict(program_minors(e)).get("girl") == ("11-year-old",)

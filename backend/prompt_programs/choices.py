@@ -147,7 +147,6 @@ def kept(entry: Dict[str, Any], keep: Optional[Dict[str, Any]]) -> Dict[str, Any
     """An agent's keep_choices ({choice: value or [values]}) as choices of values. A choice is
     named by its id (as results report it) or its label; UnknownChoiceError for one the
     prompt doesn't have."""
-    from prompt_programs.runtime import current_id
     visible = [c for c in entry.get("choices") or [] if not c.get("hidden")]
     by_name: Dict[str, str] = {}
     for c in visible:
@@ -158,7 +157,7 @@ def kept(entry: Dict[str, Any], keep: Optional[Dict[str, Any]]) -> Dict[str, Any
             by_name.setdefault(str(c["label"]).strip().lower(), str(c.get("id")))
     out: Dict[str, Any] = {}
     for name, value in (keep or {}).items():
-        cid = by_name.get(str(name)) or by_name.get(str(name).strip().lower()) or by_name.get(current_id(name))
+        cid = by_name.get(str(name)) or by_name.get(str(name).strip().lower())
         if cid is None:
             names = ", ".join(str(c.get("id")) for c in visible) or "none"
             raise UnknownChoiceError(f'"{name}" isn\'t a choice in this prompt. Its choices are: {names}.')

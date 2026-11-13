@@ -18,15 +18,15 @@ the words, rather than from a list that ignores them.
 
 A narrowing that didn't finish (a subset call failed or came back unreadable twice, or ran
 past the time limit) is recorded in `entry["narrow_pending"]`: each such pick's list and
-options as they were. Nothing draws from such an entry: slots.ensure waits for narrowing,
-and fails the run (NarrowFailed) rather than draw a pick from a list its words narrow.
+options as they were. Nothing waits for it: slots.prepare draws a stated detail still pending
+as the user's own words, and asks again in the background. `ask=None` reads the cache only.
 
 Ages. A person is an adult unless asked: the age list's bands under 18 are opt-in (vocab.py),
 so an age pick these steps leave unnarrowed (no words, a failed or skipped call) draws adults
 only, and the narrowing model is told that "a girl" alone is no child. A person with no age
 pick of their own whose details are bound (an age the prompt states as fixed text: "a
 10-year-old at the beach") still gets their age read and narrowed, as `entry["ages"]`
-({person: subset}, person as draws.person_of names them), so their pools know when they are
+({person: subset}, person as fill.person_of names them), so their pools know when they are
 under 18. Which words make someone a child is the models' reading, never matched here.
 The same goes for an age from the user's own list ("{13-year-old|30-year-old}"): each value of
 a user list of a person with bound details and no age pick is narrowed on the age list, and the values that
@@ -46,8 +46,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
-from prompt_programs.runtime import COLORS
-from prompt_programs.draws import owns, person_of
+from prompt_programs.fill import COLORS, owns, person_of
 from prompt_programs.reader import ReaderFailed
 from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
@@ -396,7 +395,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         if phrase and k not in early:
             early[k] = (phrase, c.get("about") or "", asyncio.ensure_future(
                 subset(vocab.leaves[c["cls"]], phrase, cache, ask, project_id, c.get("about") or "", whole)))
-    # The slot reader already said which of a slot's words state each detail (slots.build).
+    # The slot reader already said which of a slot's words state each detail (fill.picks_of).
     read = {str(k): str(v) for k, v in (entry.get("slot_words") or {}).items() if str(v).strip()}
     seconds = max(1.0, seconds - (asyncio.get_running_loop().time() - t0))
     # The members of one group() ("kids playing football": four of them) are the same words'
@@ -533,7 +532,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         entry.pop("list_context", None)
     if unfinished:
         entry["narrow_pending"] = {cid: before[cid] for cid in before if cid in unfinished}
-        for c in stated:  # the next try reads it again (reopen_pending passes it by: it isn't a choice)
+        for c in stated:  # the next try reads it again
             if c["id"] in unfinished:
                 entry["narrow_pending"][c["id"]] = {"cls": AGE_LIST, "options": [], "age_of": c["age_of"]}
         for c in listed:
@@ -664,29 +663,4 @@ def list_age_values(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> L
     return out
 
 
-def mark_pending(entry: Dict[str, Any]) -> bool:
-    """Record every bound pick as not yet narrowed (narrowing was skipped). False if there
-    is nothing to narrow."""
-    vocab = vocabulary()
-    pending = {c["id"]: {"cls": c["cls"], "options": list(c.get("options") or [])}
-               for c in entry.get("choices") or [] if vocab.get(c.get("cls")) is not None and not c.get("said")}
-    if pending:
-        entry["narrow_pending"] = {**pending, **(entry.get("narrow_pending") or {})}
-    return bool(pending)
-
-
-def reopen_pending(entry: Dict[str, Any]) -> None:
-    """Put the pending picks back as they were before their unfinished narrowing (their list,
-    options and no filter), so narrow_entry narrows them afresh."""
-    pending = entry.get("narrow_pending") or {}
-    filters = dict(entry.get("filters") or {})
-    for c in entry.get("choices") or []:
-        was = pending.get(c.get("id"))
-        if was:
-            c["cls"], c["options"] = was["cls"], list(was.get("options") or [])
-            filters.pop(c["id"], None)
-    entry["filters"] = filters
-
-
-__all__ = ["NarrowCache", "NarrowFailed", "mark_pending", "narrow_entry", "parse_subset", "phrase_of",
-           "reopen_pending", "subset", "messages_for"]
+__all__ = ["NarrowCache", "NarrowFailed", "narrow_entry", "parse_subset", "phrase_of", "subset", "messages_for"]

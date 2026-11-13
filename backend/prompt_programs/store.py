@@ -1,7 +1,7 @@
 """Prepared programs, cached on disk by the inputs that produced them.
 
-A program is keyed by everything that shaped it (slots.ensure: the prompt as read, the
-reader's version and model, the vocabulary). Asking again with the same inputs never calls
+A prompt's entry is keyed by everything that shaped it (slots.prepare: the prompt as read,
+the reader's version and model, the vocabulary). Asking again with the same inputs never calls
 the model. Entries are small JSON files (a vocabulary list in one is a reference to the
 list, never a copy: compact.py); nothing is deleted.
 """
@@ -46,10 +46,9 @@ class ProgramStore:
         except (OSError, ValueError):
             return None
         from prompt_programs.compact import unpack_entry
-        from prompt_programs.runtime import current_entry
-        if isinstance(entry, dict):   # its vocabulary lists are stored by reference (compact.py)
-            entry = unpack_entry(entry)
-        return current_entry(entry)   # an older build's choice ids, read as today's
+        if not isinstance(entry, dict):
+            return None
+        return unpack_entry(entry)   # its vocabulary lists are stored by reference (compact.py)
 
     def put(self, key: str, entry: Dict[str, Any]) -> None:
         from prompt_programs.compact import pack_entry

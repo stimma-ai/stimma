@@ -1,5 +1,5 @@
-"""Fluent draws, step 2: generated options, the option cache and filler, and the
-runtime wiring in realize()."""
+"""Fluent's written options: the option cache and filler, the options service, and how
+realize() draws from them."""
 
 import asyncio
 import json
@@ -8,8 +8,8 @@ import threading
 import pytest
 
 from prompt_programs import program as prep
-from prompt_programs.draws import DrawResult, PickSpec, fixed_text
-from prompt_programs.runtime import ProgramError
+from prompt_programs.fill import DrawResult, PickSpec
+from prompt_programs.fill import ProgramError
 from prompt_programs.fluent import program_context, runtime_for, start_options
 from prompt_programs.judge import FluentSettings, settings
 from prompt_programs.options import (
@@ -17,27 +17,32 @@ from prompt_programs.options import (
     generation_messages,
 )
 
-PORTRAIT = '''
-era = pick("era", ["1920s", "1970s", "1990s"], label="Era", source="list", phase=1, line=1)
-role = pick("role", about="the woman's job", phase=1, seed=["jazz singer", "nurse"])
-hair = pick("hair", label="Hairstyle", about="her hairstyle", phase=2, seed=["finger waves"])
-light = pick("light", about="the lighting", phase=2, seed=["soft window light"])
-emit("A portrait of a", role, "in the", era, "with", hair, ",", light)
-'''
+PORTRAIT = "A portrait of a <role> in the {1920s|1970s|1990s} with <hair>, <light>"
 
-# hair depends on era (its about mentions it), so its pools are per era.
-DEPENDENT = '''
-era = pick("era", ["1920s", "1970s"], label="Era", source="list", phase=1)
-hair = pick("hair", label="Hairstyle", about=f"a {era} hairstyle", phase=2, seed=["a bob"])
-emit("A woman in the", era, "with", hair)
-'''
+
+def _free(n, label, about, kinds):
+    return {"n": n, "kind": "free", "label": label, "lead": "", "free": {"about": about, "kinds": kinds, "instead": []}}
+
+
+READINGS = (_free(1, "Role", "the woman's job", ["jazz singer", "nurse"]),
+            _free(2, "Hairstyle", "her hairstyle", ["finger waves"]),
+            _free(3, "Light", "the lighting", ["soft window light"]))
+
 
 ON = FluentSettings(generate_options=True, fix_model="off")
 OFF = FluentSettings(generate_options=False, fix_model="off")
 
 
-def entry_for(program, **kw):
-    return {"key": kw.pop("key", "prog1"), "program": program, "loras": [], "params": {}, "mode": "prose", **kw}
+def entry_for(prompt=PORTRAIT, readings=READINGS, **kw):
+    """A prepared entry for a prompt and its readings; its picks are named as these tests name
+    them: the list is "era", each slot its words."""
+    from prompt_programs.slots import compose, parse
+    e = compose(parse(prompt), {r["n"]: r for r in readings}, {1: "Era"})
+    for x in (*e["picks"], *e["choices"], *e["lists"]):
+        if x["id"] == "list1":
+            x["id"] = "era"
+    e["template"] = e["template"].replace("[List 1]", "[Era]")
+    return {**e, "key": kw.pop("key", "prog1"), **kw}
 
 
 class FakeGen:
@@ -199,10 +204,7 @@ class TestGenerationMessages:
         assert "- a bob" in user and "- a mohawk" in user
 
     def test_the_users_lists_it_does_not_depend_on_are_shown(self):
-        entry = entry_for('job = pick("job", ["nun", "lifeguard"], label="Job", source="list", phase=1)\n'
-                          'w = pick("w", ["rain", "sun"], label="Weather", source="list", phase=1)\n'
-                          'o = pick("o", about=f"what a {job} wears", seed=["a coat"], label="Outfit", phase=2)\n'
-                          'emit(job, w, o)\n',
+        entry = entry_for("a {nun|lifeguard} in {rain|sun}, <o>", readings=(),
                           choices=[{"id": "job", "label": "Job", "source": "list", "kind": "pick", "options": ["nun", "lifeguard"]},
                                    {"id": "w", "label": "Weather", "source": "list", "kind": "pick", "options": ["rain", "sun"]},
                                    {"id": "o", "label": "Outfit", "source": "text", "kind": "pick", "options": ["a coat"]}])
@@ -346,29 +348,34 @@ class TestRealize:
         store = OptionStore(tmp_path)
         return store, runtime_for(entry, store=store, filler=filler, cfg=cfg, revision=revision)
 
-    def test_the_fixed_text_masks_every_pick(self):
-        assert fixed_text(PORTRAIT) == "A portrait of a [Role] in the [Era] with [Hairstyle], [Light]"
+    def _key(self, tmp_path, entry, cid):
+        """Where a pick's written options are stored, as the options service names it."""
+        store, rt = self._runtime(tmp_path, entry)
+        prep.realize(entry, seed=0, runtime=rt)
+        return next(rt.options._where(sp, ctx)[1] for sp, ctx in rt.options.seen_specs() if sp.id == cid)
+
+    def test_the_template_masks_every_pick(self):
+        assert entry_for()["template"] == "A portrait of a [Role] in the [Era] with [Hairstyle], [Light]"
         ctx = program_context(entry_for(PORTRAIT, context="a 1920s portrait"))
         assert ctx.signature == "a 1920s portrait" and ctx.template.startswith("A portrait of a [Role]")
 
     def test_generated_options_reach_the_prompt(self, tmp_path):
         entry = entry_for(PORTRAIT)
-        store, rt = self._runtime(tmp_path, entry)
-        ctx = program_context(entry)
-        for s, opts in ((spec(), ["a sleek bob", "pin curls"]), (spec(id="light", about="the lighting", seeds=("soft window light",), label="Light"), ["neon glow"])):
-            store.append(gen_key(s, {}, ctx.signature, "prose", True), {"round": 0, "options": opts})
+        store = OptionStore(tmp_path)
+        for cid, opts in (("hair", ["a sleek bob", "pin curls"]), ("light", ["neon glow"])):
+            store.append(self._key(tmp_path, entry, cid), {"round": 0, "options": opts})
         seen = set()
         for seed in range(60):
             store_, rt = self._runtime(tmp_path, entry)
             r = prep.realize(entry, seed=seed, runtime=rt)
             seen |= {d.value for d in r.draws}
         assert {"a sleek bob", "pin curls", "neon glow"} <= seen
-        assert r.revision["pools"]["hair: her hairstyle"] == 3 and "judge" not in r.revision
+        assert r.revision["pools"]["hair: her hairstyle | kinds"] == 4 and "judge" not in r.revision
 
     def test_the_same_revision_replays_after_pools_grow(self, tmp_path):
         entry = entry_for(PORTRAIT)
-        store, rt = self._runtime(tmp_path, entry)
-        key = gen_key(spec(), {}, program_context(entry).signature, "prose", True)
+        store = OptionStore(tmp_path)
+        key = self._key(tmp_path, entry, "hair")
         store.append(key, {"round": 0, "options": ["a sleek bob", "pin curls"]})
         first = [prep.realize(entry, seed=s, runtime=self._runtime(tmp_path, entry)[1]) for s in range(12)]
         store.append(key, {"round": 1, "options": ["a beehive", "an afro", "braids"]})
@@ -376,37 +383,7 @@ class TestRealize:
             again = prep.realize(entry, seed=s, revision=r.revision, runtime=self._runtime(tmp_path, entry, revision=r.revision)[1])
             assert again.prompt == r.prompt and again.revision["id"] == r.revision["id"]
         grown = prep.realize(entry, seed=0, runtime=self._runtime(tmp_path, entry)[1])
-        assert grown.revision["pools"]["hair: her hairstyle"] == 6
-
-    def test_a_revision_replays_from_the_options_version_it_drew(self, tmp_path):
-        import dataclasses
-        from prompt_programs.options import GeneratedOptions
-        entry = entry_for(PORTRAIT)
-        store, rt = self._runtime(tmp_path, entry)
-        sig = program_context(entry).signature
-        store.append(gen_key(spec(), {}, sig, "prose", True, version="opts-1"),
-                     {"round": 0, "options": ["braids", "pin curls", "an updo"]})
-        store.append(gen_key(spec(), {}, sig, "prose", True), {"round": 0, "options": ["x1", "x2", "x3"]})
-        # Revisions drawn before the version was recorded drew opts-1 pools and record no version.
-        old = dataclasses.replace(rt, options=GeneratedOptions(store, program_context(entry), version="opts-1"))
-        first = [prep.realize(entry, seed=s, runtime=old) for s in range(12) if not old.options.reset()]
-        assert all("options" not in r.revision for r in first) and any("braids" in r.prompt for r in first)
-        for s, r in enumerate(first):
-            again = prep.realize(entry, seed=s, revision=r.revision,
-                                 runtime=self._runtime(tmp_path, entry, revision=r.revision)[1])
-            assert again.prompt == r.prompt and again.revision["id"] == r.revision["id"]
-        new = prep.realize(entry, seed=0, runtime=self._runtime(tmp_path, entry)[1])
-        assert new.revision["options"] == "opts-6"
-        with pytest.raises(ProgramError, match="options version opts-9"):
-            self._runtime(tmp_path, entry, revision={**new.revision, "options": "opts-9"})
-
-    def test_dependent_pools_are_per_upstream_value(self, tmp_path):
-        entry = entry_for(DEPENDENT)
-        store = OptionStore(tmp_path)
-        filler = OptionFiller(store, FakeGen())
-        queued = start_options(entry, store=store, filler=filler, cfg=ON)
-        contexts = {tuple(j.context.items()) for _, j in filler._jobs.values()}
-        assert contexts == {(("era", "1920s"),), (("era", "1970s"),)} and len(queued) == 2
+        assert grown.revision["pools"]["hair: her hairstyle | kinds"] == 7
 
     async def test_prepare_hook_fills_in_the_background(self, tmp_path):
         entry = entry_for(PORTRAIT)
@@ -421,9 +398,9 @@ class TestRealize:
         assert any("variant 0." in d.value for d in r.draws)
         assert start_options(entry, store=store, filler=filler, cfg=ON) == []  # already filled
 
-    def test_the_prepare_hook_ignores_older_programs_and_never_raises(self, tmp_path):
-        assert start_options({"program": 'emit("x")'}, store=OptionStore(tmp_path), cfg=ON) == []
-        assert start_options({"program": "pick(", "key": "k"}, store=OptionStore(tmp_path), cfg=ON) == []
+    def test_the_prepare_hook_ignores_entries_with_nothing_to_draw_and_never_raises(self, tmp_path):
+        assert start_options({"picks": []}, store=OptionStore(tmp_path), cfg=ON) == []
+        assert start_options({"picks": [{"id": "x"}], "key": "k"}, store=OptionStore(tmp_path), cfg=ON) == []
 
     def test_more_coming_is_reported(self, tmp_path):
         entry = entry_for(PORTRAIT)
@@ -472,7 +449,7 @@ class TestStructuredOptions:
 
     @staticmethod
     def job():
-        from prompt_programs.draws import PickSpec
+        from prompt_programs.fill import PickSpec
         from prompt_programs.options import OptionJob, ProgramContext
         spec = PickSpec("hair", "Hairstyle", "her hairstyle", 1, "text", "pick", ["a sleek bob"], [])
         return OptionJob("k", spec, {}, ProgramContext(template="a woman with [Hairstyle]"), "a woman", 0)
@@ -560,100 +537,6 @@ class TestStructuredOptions:
         assert await write_options(self.job()) == []
 
 
-class TestLookupKeyRule:
-    @pytest.mark.parametrize("src", [
-        'e = pick("e", about="her ethnicity", phase=1, seed=["a", "b"])\ntone = {"a": "x", "b": "y"}[e]\nemit(tone, e)\n',
-        'e = pick("e", about="her ethnicity", phase=1, seed=["a", "b"])\ntone = {"a": "x"}.get(e, "z")\nemit(tone, e)\n',
-        'e = pick("e", about="the era", phase=1, seed=["a", "b"])\n'
-        'h = pick("h", by=e, options={"a": ["x"], "b": ["y"]}, phase=2)\nemit(e, h)\n',
-    ])
-    def test_a_generated_pick_cannot_be_a_lookup_key(self, src):
-        from prompt_programs.draws import analyze
-        from prompt_programs.runtime import ProgramError
-        with pytest.raises(ProgramError, match="can't be a key to look something up"):
-            analyze(src)
-
-    def test_a_generated_pick_is_never_named_in_about(self):
-        from prompt_programs.draws import analyze
-        from prompt_programs.runtime import ProgramError
-        src = ('h = pick("h", about="her job", seed=["nun"], phase=1)\n'
-               'o = pick("o", about=f"what a {h} wears", seed=["x"], phase=2)\nemit(h, o)\n')
-        with pytest.raises(ProgramError, match="Describe \"h\" in words"):
-            analyze(src, strict=True)
-
-    def test_a_pick_names_few_enough_lists(self):
-        from prompt_programs.draws import analyze
-        from prompt_programs.runtime import ProgramError
-        six = '["1", "2", "3", "4", "5", "6"]'
-        src = (f'a = pick("a", {six}, source="list", phase=1)\nb = pick("b", {six}, source="list", phase=1)\n'
-               'o = pick("o", about=f"for {a} and {b}", seed=["x"], phase=2)\nemit(a, b, o)\n')
-        with pytest.raises(ProgramError, match="36 combinations"):
-            analyze(src, strict=True)
-        assert analyze(src.replace(" and {b}", ""), strict=True).phased
-
-    def test_a_list_passed_through_a_name_counts_its_values(self):
-        from prompt_programs.draws import analyze
-        from prompt_programs.runtime import ProgramError
-        values = ", ".join(f'"{i}"' for i in range(33))
-        src = (f'options = [{values}]\na = pick("a", options, source="list", phase=1)\n'
-               'o = pick("o", about=f"for {a}", seed=["x"], phase=2)\nemit(a, o)\n')
-        with pytest.raises(ProgramError, match="33 combinations"):
-            analyze(src, strict=True)
-        grown = src.replace("\na = pick", '\noptions.append("34")\na = pick')
-        with pytest.raises(ProgramError, match="aren't written out"):
-            analyze(grown, strict=True)
-        aliased = ('options = ["base"]\nalias = options\nalias.extend([' + values + '])\n'
-                   'a = pick("a", options, source="list", phase=1)\n'
-                   'o = pick("o", about=f"for {a}", seed=["x"], phase=2)\nemit(a, o)\n')
-        with pytest.raises(ProgramError, match="aren't written out"):
-            analyze(aliased, strict=True)
-        shared = aliased.replace('options = ["base"]\nalias = options\n', 'options = alias = ["base"]\n')
-        with pytest.raises(ProgramError, match="aren't written out"):
-            analyze(shared, strict=True)
-
-    def test_a_generated_pick_named_under_an_if_on_it_is_still_named(self):
-        from prompt_programs.draws import analyze
-        from prompt_programs.runtime import ProgramError
-        src = ('h = pick("h", about="her job", seed=["nun"], phase=1)\n'
-               'if h:\n    o = pick("o", about=f"what a {h} wears", seed=["x"], phase=2)\n    emit(o)\nemit(h)\n')
-        with pytest.raises(ProgramError, match="Describe \"h\" in words"):
-            analyze(src, strict=True)
-
-    def test_a_program_prepared_before_the_rule_still_draws(self, tmp_path):
-        # pp-20 programs could name a generated pick in about=; they still draw, by today's
-        # rule: a generated pick's value never keys a pool.
-        src = ('job = pick("job", about="her job", seed=["nun", "lifeguard"], phase=1)\n'
-               'outfit = pick("outfit", about=f"what a {job} wears", seed=["a coat"], phase=2)\nemit(job, outfit)\n')
-        for version in ("pp-20", "pp-21"):
-            entry = entry_for(src, version=version)
-            rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
-            assert prep.realize(entry, seed=1, runtime=rt).prompt
-            assert [ctx for spec, ctx in rt.options.seen_specs() if spec.id == "outfit"] == [{}]
-
-    def test_a_list_named_in_about_keys_the_pool_and_a_generated_pick_does_not(self, tmp_path):
-        src = ('job = pick("job", ["nun", "lifeguard"], label="Job", source="list", phase=1, line=1)\n'
-               'mood = pick("mood", about="her mood", seed=["calm"], phase=1)\n'
-               'outfit = pick("outfit", about=f"what a {job} wears", seed=["a coat"], phase=2)\n'
-               'if mood == "calm":\n    hat = pick("hat", about="her hat", seed=["a cap"], phase=2)\n'
-               'emit(job, mood, outfit)\n')
-        entry = entry_for(src)
-        rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
-        for seed in range(12):
-            prep.realize(entry, seed=seed, runtime=rt)
-            rt.options.reset()
-        specs = {(spec.id, tuple(sorted(ctx.items()))) for spec, ctx in rt.options.seen_specs()}
-        assert ("outfit", (("job", "nun"),)) in specs and ("outfit", (("job", "lifeguard"),)) in specs
-        assert ("hat", ()) in specs  # the generated mood steers the branch but keys no pool
-
-    @pytest.mark.parametrize("src", [
-        # a user list (or a pick without about=) may be a key; derived text may be looked up too
-        'e = pick("e", ["a", "b"], about="the era", source="list", phase=1)\ntone = {"a": "x", "b": "y"}[e]\nemit(tone)\n',
-        'e = pick("e", ["a", "b"], phase=1)\ntone = {"a": "x", "b": "y"}[e]\nemit(tone)\n',
-        'e = pick("e", about="her mood", phase=1, seed=["calm"])\nwords = {"x": 1}\nn = words[str(len(e) > 3)] if False else 1\nemit(e)\n',
-    ])
-    def test_fixed_lists_may_be_keys(self, src):
-        from prompt_programs.draws import analyze
-        assert analyze(src).phased
 
 
 def test_a_malformed_revision_is_ignored(tmp_path):

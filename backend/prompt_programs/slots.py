@@ -164,15 +164,7 @@ def parse(prompt: str) -> Parsed:
     return Parsed(prompt, segments)
 
 
-# --------------------------------------------------------------------------- the program
-
-KINDS = ("person", "camera", "light", "list", "free")
-CAMERA = ("shot_size", "lens", "angle", "film_look")
-
-
-class ReadingError(ValueError):
-    """A slot reading the builder can't use (the reader checks for these before it builds)."""
-
+# --------------------------------------------------------------------------- composing an entry
 
 def slot_ids(parsed: Parsed) -> List[str]:
     """Each slot's id: its words slugged, the second slot with the same words `_2`. Only an
@@ -180,7 +172,7 @@ def slot_ids(parsed: Parsed) -> List[str]:
     used = {f"list{i}" for i in range(1, len(parsed.lists()) + 1)}
     out: List[str] = []
     for s in parsed.slots():
-        # ASCII and starting with a letter: the runtime reads whose detail a pick is from its id.
+        # ASCII and starting with a letter: whose detail a pick is, is read from its id (fill.person_of).
         base = re.sub(r"[^a-z0-9]+", "_", s.words.lower()).strip("_") or "slot"
         if not base[0].isalpha():
             base = f"slot_{base}"
@@ -193,197 +185,6 @@ def slot_ids(parsed: Parsed) -> List[str]:
     return out
 
 
-def _call(fn: str, *args: Any, **kw: Any) -> str:
-    """A call with every value written by repr(), so quoting is never a problem."""
-    inner = [repr(a) for a in args] + [f"{k}={v!r}" for k, v in kw.items() if v is not None]
-    return f"{fn}({', '.join(inner)})"
-
-
-def _opt(*parts: str) -> str:
-    return f"opt({', '.join(parts)})"
-
-
-def _strings(v: Any, what: str) -> List[str]:
-    if not isinstance(v, list) or not all(isinstance(x, str) for x in v):
-        raise ReadingError(f"{what} must be a list of strings")
-    return [x for x in v if x.strip()]
-
-
-def build(parsed: Parsed, readings: Dict[str, Any], as_typed: Optional[Dict[str, str]] = None) -> Tuple[str, Dict[str, Any]]:
-    """The program for a parsed prompt and its slot reading (reader.py's reply, checked):
-    one statement per pick, one emit() in the prompt's order. Returns the source and the
-    entry the runtime draws from (`slot_words` still to be narrowed: narrow.narrow_entry).
-
-    A slot read as written (`degraded`) is its own words in the text. `as_typed` (a slot_words
-    key → why) holds stated words whose narrowing didn't come back: a person's detail draws the
-    words as typed (said=), and a list slot stands as its words."""
-    from prompt_programs.people import DETAILS, expand_people
-    from prompt_programs.runtime import discover
-    from prompt_programs.vocab import vocabulary
-
-    vocab = vocabulary()
-    typed = dict(as_typed or {})
-    by_n = {r.get("n"): r for r in readings.get("slots") or [] if isinstance(r, dict)}
-    labels = {r.get("n"): str(r.get("label") or "") for r in readings.get("lists") or [] if isinstance(r, dict)}
-    ids = slot_ids(parsed)
-    stmts: List[str] = []
-    parts: List[str] = []
-    slot_words: Dict[str, str] = {}
-    meta: List[Dict[str, Any]] = []
-    pending = ""   # text since the last mark, on this line
-
-    def listed(cls: Any, what: str) -> str:
-        if not isinstance(cls, str) or vocab.get(cls) is None:
-            raise ReadingError(f"{what}: {cls!r} is not a list")
-        return cls
-
-    def flush(lead: str = "") -> str:
-        """Emit the pending text, but the slot's lead: the reader's copy of the words that end it
-        (spaces at the end aside), or none when they don't."""
-        nonlocal pending
-        lead, stem = lead.rstrip(), pending.rstrip()
-        if not lead.strip() or not stem.endswith(lead):
-            lead, stem = "", pending
-        before = stem[:len(stem) - len(lead)]
-        if before.strip():
-            parts.append(repr(before))
-        pending = ""
-        return lead
-
-    slot_n = list_n = 0
-    person_at = None   # the stmts index of a person, until the text after them is seen
-    for seg in parsed.segments:
-        if person_at is not None:
-            # Words right after a person ("... jeans reading on a porch", "... a forked beard reading")
-            # are set off by a comma that closes the person's description, whatever of it is drawn;
-            # punctuation, a line's end or another mark need none.
-            if seg.kind == "text" and re.match(r"[ \t]*\w", seg.text):
-                stmts[person_at] = stmts[person_at][:-1] + ", close=',')"
-            person_at = None
-        if seg.kind == "text":
-            lines = seg.text.split("\n")
-            for piece in lines[:-1]:
-                pending += piece
-                if pending.strip():
-                    parts.append(repr(pending + "\n"))
-                else:
-                    parts.append(repr("\n"))
-                pending = ""
-            pending += lines[-1]
-            continue
-        if seg.kind == "comment":
-            flush()
-            parts.append(repr(seg.text))
-            continue
-        if seg.kind == "list":
-            flush()
-            list_n += 1
-            cid = f"list{list_n}"
-            stmts.append(f"{cid} = " + _call("pick", cid, seg.items, label=labels.get(list_n) or f"List {list_n}",
-                                              source="list", phase=1, line=seg.line))
-            parts.append(cid)
-            continue
-        slot_n += 1
-        cid, var = ids[slot_n - 1], f"slot{slot_n}"
-        r = by_n.get(slot_n)
-        if r is None or r.get("kind") not in KINDS:
-            raise ReadingError(f"slot {slot_n} has no reading")
-        kind, label = r["kind"], str(r.get("label") or seg.words)
-        lead = str(r.get("lead") or "")
-        got = r.get(kind) if isinstance(r.get(kind), dict) else {}
-        info: Dict[str, Any] = {"id": cid, "n": slot_n, "kind": kind, "label": label, "words": seg.words,
-                                "span": list(seg.span), "line": seg.line}
-        if kind == "list" and cid in typed:
-            r = {"degraded": True, "reason": typed[cid]}
-        if r.get("degraded"):
-            # Its reading couldn't be used: the words stand as typed, and the pill has nothing to choose yet.
-            info.update(kind="free", label=seg.words, degraded=True)
-            pending += seg.words
-            meta.append(info)
-            continue
-        if kind == "person":
-            flush()
-            vary = [d for d in got.get("vary") or [] if d in DETAILS]
-            stated = {d: str(w) for d, w in (got.get("stated") or {}).items() if d in DETAILS and str(w).strip()}
-            presentation = got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else None
-            keyed = {d: f"{cid}.{d if d in vary or d != 'age' else 'stated_age'}" for d in stated}
-            said = {d: w for d, w in stated.items() if keyed[d] in typed} or None
-            outfit = got.get("outfit") or ""
-            stmts.append(f"{var} = " + _call("person", cid, noun=str(got.get("noun") or "person"), presentation=presentation,
-                                             said=said, show=vary, article=False, words=seg.words)[:-1]
-                         + (f", wearing={var}_outfit)" if outfit else ")"))
-            person_at = len(stmts) - 1
-            parts.append(var)
-            for d, w in stated.items():
-                if keyed[d] not in typed:
-                    slot_words[keyed[d]] = w
-            if said:
-                info["degraded"] = True
-            info["stated"] = stated
-            if outfit:
-                about = f"{label}'s outfit"
-                if outfit == "written":
-                    seeds = _strings(got.get("outfit_examples") or [], "outfit_examples")
-                    stmts.append(f"{var}_outfit = " + _call("pick", f"{cid}.outfit", about=about, seed=seeds or None,
-                                                            label="Outfit", phase=2))
-                else:
-                    leaf = vocab.get(listed(outfit, label))
-                    # How the person presents narrows their outfit list, as person() does for face and build.
-                    where = ({"presentation": presentation}
-                             if presentation and presentation in leaf.local_facets.get("presentation", ()) else None)
-                    stmts.append(f"{var}_outfit = " + _call("pick", f"{cid}.outfit", cls=outfit, where=where,
-                                                            about=about, label="Outfit", phase=2))
-        elif kind == "camera":
-            lead = flush(lead)
-            vary = [d for d in got.get("vary") or [] if d in CAMERA and vocab.get(f"camera.{d}") is not None]
-            if not vary:
-                raise ReadingError(f"slot {slot_n}: a camera varies none of {CAMERA}")
-            group = []
-            for i, d in enumerate(vary):
-                leaf = vocab.get(f"camera.{d}")
-                stmts.append(f"{var}_{d} = " + _call("pick", f"{cid}.{d}", cls=leaf.id, about=f"the camera's {leaf.label.lower()}",
-                                                     label=leaf.label, phase=1))
-                group.append(_opt(f"{var}_{d}") if i == 0 else _opt(repr(","), f"{var}_{d}"))
-            parts.append(_opt(*([repr(lead)] if lead else []), *group))
-        else:
-            lead = flush(lead)
-            if kind == "light" and got.get("list"):
-                stmts.append(f"{var} = " + _call("pick", cid, cls=listed(got["list"], label), about=seg.words,
-                                                 label=label, phase=1))
-            elif kind == "light":
-                stmts.append(f"{var} = " + _call("pick", cid, about=seg.words, seed=_strings(got.get("examples") or [], "examples"),
-                                                 label=label, phase=1))
-                slot_words[cid] = seg.words
-            elif kind == "list":
-                # The slot's words narrow its list, said of what the reader says it is in this image:
-                # "pet" on an animal list keeps pets; "hairstyle" said of "a middle-aged man's hairstyle".
-                stmts.append(f"{var} = " + _call("pick", cid, cls=listed(got.get("list"), label),
-                                                 about=str(got.get("about") or "").strip() or seg.words,
-                                                 label=label, phase=1))
-                slot_words[cid] = seg.words
-            else:
-                kinds = _strings(got.get("kinds") or [], "kinds")
-                instead = _strings(got.get("instead") or [], "instead")
-                # Things instead are a zone only when the reader found some: a slot can have its kinds alone.
-                zones = {"kinds": kinds, **({"instead": instead} if instead else {})}
-                stmts.append(f"{var} = " + _call("pick", cid, about=str(got.get("about") or seg.words), seed=kinds,
-                                                 zones=zones, label=label, phase=2))
-                slot_words[cid] = seg.words
-                info["zones"] = zones
-            parts.append(_opt(*([repr(lead)] if lead else []), var))
-        meta.append(info)
-    flush()
-    source = "\n".join([*stmts, f"emit({', '.join(parts)})"]) + "\n"
-    program = expand_people(source)
-    found = discover(program)
-    for m in meta:
-        m["details"] = [c["id"] for c in found["choices"] if c["id"] == m["id"] or c["id"].startswith(m["id"] + ".")]
-    entry = {"program": program, "choices": found["choices"], "groups": found["groups"], "example": found["example"],
-             "prompt": parsed.prompt, "mode": "prose", "slot_words": slot_words, "slots": meta}
-    return source, entry
-
-
-# --------------------------------------------------------------------------- composing an entry
 
 def _segment(seg: Segment) -> Dict[str, Any]:
     out: Dict[str, Any] = {"kind": seg.kind, "text": seg.text, "span": list(seg.span), "line": seg.line}
@@ -717,5 +518,5 @@ def raw_spans(prompt: str, entry: Dict[str, Any]) -> List[Optional[Tuple[Span, i
     return [((a, b), prompt.count("\n", 0, a) + 1) for a, b in found]
 
 
-__all__ = ["KINDS", "Parsed", "ReadingError", "SLOT_RE", "SLOTS_VERSION", "Segment", "build", "compose", "current",
-           "find_slots", "idle", "is_comment", "parse", "prepare", "preparing", "raw_spans", "slot_ids", "unwrap_slots"]
+__all__ = ["Parsed", "SLOT_RE", "SLOTS_VERSION", "Segment", "compose", "current", "find_slots", "idle", "is_comment",
+           "parse", "prepare", "preparing", "raw_spans", "slot_ids", "unwrap_slots"]

@@ -1,4 +1,4 @@
-"""The slot reader: one model call that says what each slot of a prompt is and how it varies.
+"""The slot reader: a model call that says what one slot of a prompt is and how it varies.
 
     an <elderly African man> reading on a porch with his <pet>, {summer|autumn} evening
 
@@ -6,12 +6,12 @@ The model sees the prompt with its slots and lists numbered in place (⟨1: elde
 man⟩, {L1: summer|autumn}) and replies with plain JSON: per slot its kind (person, camera,
 light, list, free), a label, its lead and what it needs; per list a label. Code checks only
 the reply's structure (numbers, kinds, list ids, details, exact copies of the user's words)
-and never reads the slot's words to decide anything. A reply that fails the checks gets one
-retry told what was wrong; then the run fails with the reason.
+and never reads the slot's words to decide anything. Each part is asked on its own, the whole
+prompt shown. A reply that fails the checks gets one retry told what was wrong; then the part
+is read as written, never cached.
 
-Cached on disk in two levels: the whole numbered prompt, and each slot (and list) by its
-own words, its line and the prompt's comment lines. A prompt edited on one line asks only
-about the slots on that line.
+Cached on disk per part, by its own words, its line and the prompt's comment lines. A prompt
+edited on one line asks only about the parts on that line.
 """
 
 from __future__ import annotations
