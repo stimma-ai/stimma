@@ -2,6 +2,7 @@
 image's text drawn segment by segment, through the options service that reads the
 vocabulary lists (runtime_for(entry, store=None, mine={}))."""
 
+from collections import Counter
 import json
 import re
 from typing import Any, Dict, Optional
@@ -365,9 +366,50 @@ def test_an_animal_is_its_life_stage_and_its_kind_narrowed_by_the_slots_words():
     for s in range(12):
         got = values(draw(e, s))
         assert got["pet.species"] in pets and got["pet.life_stage"] in stages
-        assert draw(e, s).prompt == f"An old man with his {got['pet.life_stage']} {got['pet.species']} on a porch"
+        stage = "" if got["pet.life_stage"] == "adult" else got["pet.life_stage"] + " "
+        assert draw(e, s).prompt == f"An old man with his {stage}{got['pet.species']} on a porch"
     off = draw(e, 1, edits={"pet.species": {"off": True}, "pet.life_stage": {"off": True}}).prompt
     assert off == "An old man with his pet on a porch"
+
+
+async def test_a_pet_draws_only_pets_with_dogs_and_cats_first(tmp_path):
+    from prompt_programs.narrow import NarrowCache, narrow_entry
+
+    async def ask(messages, project_id, tokens):   # a narrowing that keeps bugs and hens as pets
+        return json.dumps(["dog", "cat", "hamster", "ladybug", "tarantula", "garden snail", "chicken", "goldfish"])
+
+    # The reading's type ("pet") keeps the species to the list's pets, whatever the words' narrowing kept.
+    reading = {"slots": [{**PET, "animal": {**PET["animal"], "type": "pet"}}]}
+    e = entry_of("an old man with his <pet> on a porch", reading)
+    assert e["choices"][0]["where"] == {"kind": "pet"}
+    await narrow_entry(e, NarrowCache(tmp_path), ask)
+    assert e["filters"]["pet.species"] == ["cat", "dog", "hamster", "goldfish"]
+
+    async def every(messages, project_id, tokens):
+        return '["ALL"]'
+    e = entry_of("an old man with his <pet> on a porch", reading)
+    await narrow_entry(e, NarrowCache(tmp_path / "all"), every)
+    species = vocabulary().get("animal.species")
+    pets = {v.text for v in species.values if "pet" in v.tags.get("kind", [])}
+    assert set(e["filters"]["pet.species"]) == pets
+    drawn = Counter(values(draw(e, s))["pet.species"] for s in range(300))
+    assert set(drawn) <= pets and not {"tarantula", "ladybug", "chicken"} & set(drawn)
+    assert {k for k, _ in drawn.most_common(2)} == {"dog", "cat"}
+    wrong = {"slots": [{**PET, "animal": {**PET["animal"], "type": "spaceship"}}]}
+    assert "where" not in entry_of("an old man with his <pet> on a porch", wrong)["choices"][0]
+
+
+def test_an_adult_animal_is_written_without_its_stage_unless_asked():
+    e = entry_of("an old man with his <pet> on a porch", {"slots": [PET]}, {"pet.species": ["cat"]})
+    adult = next(s for s in range(40) if values(draw(e, s))["pet.life_stage"] == "adult")
+    got = draw(e, adult)
+    assert got.prompt == "An old man with his cat on a porch" and "pet.life_stage" not in {c for _, _, c in got.spans}
+    assert draw(e, adult, pins={"pet.life_stage": ["adult"]}).prompt == "An old man with his adult cat on a porch"
+    stated = {"slots": [{**PET, "animal": {**PET["animal"], "stated": {"life_stage": "grown"}}}]}
+    said = entry_of("an old man with his <grown pet> on a porch", stated,
+                    {"grown_pet.species": ["cat"], "grown_pet.life_stage": ["adult"]})
+    assert [c["id"] for c in said["choices"]] == ["grown_pet.species", "grown_pet.life_stage"]
+    assert draw(said, 0).prompt == "An old man with his adult cat on a porch"
 
 
 def test_an_animal_of_one_kind_draws_its_breed():

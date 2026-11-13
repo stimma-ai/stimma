@@ -623,6 +623,15 @@ async def test_an_animal_reading_is_checked_for_its_shape():
     got = await reader.read(parse("a girl walking her <pet>"), ask=FakeModel(json.dumps({"slots": [both]})),
                             project_id=None, model="m")
     assert got["slots"][0]["animal"]["vary"] == ["species"]
+    # The kind of animal the words call for is one of the species list's kinds, else left out.
+    pet = {**animal, "animal": {**animal["animal"], "type": "pet"}}
+    got = await reader.read(parse("a girl walking her <pet>"), ask=FakeModel(json.dumps({"slots": [pet]})),
+                            project_id=None, model="m")
+    assert got["slots"][0]["animal"]["type"] == "pet"
+    odd = {**animal, "animal": {**animal["animal"], "type": "spaceship"}}
+    got = await reader.read(parse("a girl walking her <pet>"), ask=FakeModel(json.dumps({"slots": [odd]})),
+                            project_id=None, model="m")
+    assert "type" not in got["slots"][0]["animal"] and not got["slots"][0].get("degraded")
     ferret = {**animal, "animal": {"noun": "ferret", "vary": ["breed", "life_stage"], "breed": "animal.ferret_breed",
                                    "stated": {"life_stage": "baby"}}}
     got = await reader.read(parse("a baby <ferret> on a windowsill"), ask=FakeModel(json.dumps({"slots": [ferret]})),

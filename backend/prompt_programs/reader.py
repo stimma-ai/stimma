@@ -27,7 +27,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-15"   # reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-16"   # reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -105,11 +105,13 @@ For an animal:
   leave it open: "pet", "animal"), breed (when the words name one kind that has a breed or
   coat list below: "dog", "kitten"; never beside species), life_stage (baby, juvenile, adult,
   elderly).
+- type: when species varies, the kind of animal the words call for, from: {types}. "pet" is
+  "pet"; "farm animal" is "farm". "" when the words call for any animal ("animal", "creature").
 - breed: the id of that kind's breed or coat list below, or "".
 - stated: for each of those the words settle, the words that settle it, copied exactly:
   {"life_stage": "old"}; a young animal's own word settles its life stage: "kitten" or
   "puppy" is {"life_stage": "kitten"}.
-  "animal": {"noun": "dog", "vary": ["breed", "life_stage"], "breed": "<a breed list's id>", "stated": {}}
+  "animal": {"noun": "dog", "vary": ["breed", "life_stage"], "type": "", "breed": "<a breed list's id>", "stated": {}}
 
 For a camera: vary, the parts of it that change, from: shot_size, lens, angle, film_look.
   "camera": {"vary": ["shot_size", "angle"]}
@@ -167,7 +169,7 @@ SHAPE = {
                     "vary": ["age", "descent", "build", "hair", "hair_texture", "hair_color", "facial_hair"], "face": False,
                     "clothes": "", "outfit": "person.outfit.casual", "outfit_examples": []}},
         {"n": 2, "kind": "animal", "label": "Pet", "lead": " with his",
-         "animal": {"noun": "pet", "vary": ["species", "life_stage"], "breed": "", "stated": {}}},
+         "animal": {"noun": "pet", "vary": ["species", "life_stage"], "type": "pet", "breed": "", "stated": {}}},
     ],
     "lists": [{"n": 1, "label": "Season"}],
 }
@@ -187,10 +189,11 @@ from prompt_programs.vocab import CATALOG_ROOTS   # every directory  # noqa: E40
 
 
 def system_text() -> str:
-    from prompt_programs.fill import DETAILS
+    from prompt_programs.fill import ANIMAL_LISTS, DETAILS
     from prompt_programs.vocab import vocabulary
     details = "\n".join(f"- {k}: {v[2]}" for k, v in DETAILS.items() if k != "face")
-    return (SYSTEM.replace("{details}", details).replace("{catalog}", vocabulary().catalog(CATALOG_ROOTS))
+    types = ", ".join(f'"{t}"' for t in vocabulary().get(ANIMAL_LISTS["species"]).local_facets.get("kind", ()))
+    return (SYSTEM.replace("{details}", details).replace("{types}", types).replace("{catalog}", vocabulary().catalog(CATALOG_ROOTS))
             .replace("{shape}", json.dumps(SHAPE, ensure_ascii=False, indent=1))
             .replace("{tags}", json.dumps(TAGS, ensure_ascii=False)))
 
@@ -386,7 +389,11 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
         vary = list(dict.fromkeys([*vary, *(d for d in kept if d != "breed" or breed)]))
         if not vary:
             raise _Bad(f"part {n}: an animal needs something to vary, from {', '.join(ANIMAL)}")
-        out["animal"] = {"noun": noun, "vary": vary, "breed": breed if "breed" in vary else "", "stated": kept}
+        # The kind of animal the words call for ("pet"): one of the species list's kinds, else none.
+        sort = got.get("type") if isinstance(got.get("type"), str) else ""
+        sort = sort if "species" in vary and sort in vocab.get(ANIMAL_LISTS["species"]).local_facets.get("kind", ()) else ""
+        out["animal"] = {"noun": noun, "vary": vary, **({"type": sort} if sort else {}),
+                         "breed": breed if "breed" in vary else "", "stated": kept}
     elif kind == "light":   # one named look of light: a lighting list's, or written for the scene
         examples = _strings(got.get("examples"), f"part {n}: examples")
         lid = got.get("list") if isinstance(got.get("list"), str) else ""

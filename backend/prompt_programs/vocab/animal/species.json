@@ -4,7 +4,7 @@
  "description": "Animal species and familiar kinds, including pets, farm animals, wildlife, birds, fish, and invertebrates.",
  "pos": "noun phrase",
  "frame": "a ___",
- "notes": "Common animal identities belong here, phrased as singular names after an indefinite article; a becomes an where pronunciation requires it. animal.dog_breed, animal.cat_breed, animal.horse_breed, and animal.bird offer finer kinds, while animal.cat_coat owns coat colors and patterns. Kind chips overlap where an animal is also kept as a pet or on a farm; habitat chips describe familiar settings rather than strict range limits. Visual glosses explain unusual animals, and tiers favor familiar subjects without ranking conservation status.",
+ "notes": "Common animal identities belong here, phrased as singular names after an indefinite article; a becomes an where pronunciation requires it. animal.dog_breed, animal.cat_breed, animal.horse_breed, and animal.bird offer finer kinds, while animal.cat_coat owns coat colors and patterns. Kind chips overlap where an animal is also kept as a pet or on a farm; habitat chips describe familiar settings rather than strict range limits. Visual glosses explain unusual animals, and tiers favor familiar subjects without ranking conservation status. Among pets, dogs and cats are the typical ones, small mammals, fish and the commonest reptiles plausible, and exotic pets unusual, so dogs and cats lead a pet draw. Kept invertebrates are not tagged pet.",
  "closed": false,
  "facets": [],
  "local_facets": {
@@ -60,7 +60,7 @@
   },
   {
    "text": "rabbit",
-   "tier": "typical",
+   "tier": "plausible",
    "tags": {
     "kind": [
      "pet",
@@ -75,7 +75,7 @@
   },
   {
    "text": "guinea pig",
-   "tier": "typical",
+   "tier": "plausible",
    "tags": {
     "kind": [
      "pet"
@@ -87,7 +87,7 @@
   },
   {
    "text": "hamster",
-   "tier": "typical",
+   "tier": "plausible",
    "tags": {
     "kind": [
      "pet"
@@ -99,7 +99,7 @@
   },
   {
    "text": "gerbil",
-   "tier": "plausible",
+   "tier": "unusual",
    "tags": {
     "kind": [
      "pet"
@@ -112,7 +112,7 @@
   },
   {
    "text": "chinchilla",
-   "tier": "plausible",
+   "tier": "unusual",
    "tags": {
     "kind": [
      "pet"
@@ -152,7 +152,7 @@
   },
   {
    "text": "fancy rat",
-   "tier": "plausible",
+   "tier": "unusual",
    "tags": {
     "kind": [
      "pet"
@@ -1408,7 +1408,7 @@
   },
   {
    "text": "tortoise",
-   "tier": "typical",
+   "tier": "plausible",
    "tags": {
     "kind": [
      "pet",
@@ -1436,7 +1436,7 @@
   },
   {
    "text": "red-eared slider",
-   "tier": "plausible",
+   "tier": "unusual",
    "tags": {
     "kind": [
      "pet",
@@ -1450,7 +1450,7 @@
   },
   {
    "text": "green iguana",
-   "tier": "plausible",
+   "tier": "unusual",
    "tags": {
     "kind": [
      "pet",
@@ -1477,7 +1477,7 @@
   },
   {
    "text": "leopard gecko",
-   "tier": "plausible",
+   "tier": "unusual",
    "tags": {
     "kind": [
      "pet",
@@ -1546,7 +1546,7 @@
   },
   {
    "text": "ball python",
-   "tier": "plausible",
+   "tier": "unusual",
    "tags": {
     "kind": [
      "pet",
@@ -1597,7 +1597,7 @@
   },
   {
    "text": "goldfish",
-   "tier": "typical",
+   "tier": "plausible",
    "tags": {
     "kind": [
      "pet",
@@ -1983,11 +1983,9 @@
    "tier": "plausible",
    "tags": {
     "kind": [
-     "pet",
      "insect_other"
     ],
     "habitat": [
-     "home",
      "desert",
      "rainforest"
     ]

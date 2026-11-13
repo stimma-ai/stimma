@@ -4,7 +4,7 @@
   "description": "Skin color and visible complexion variation across the full tonal range.",
   "pos": "adjective phrase",
   "frame": "___ skin",
-  "notes": "Literal tone and visible complexion variation only. Each tone carries its broad skin_family; drawn after a person's descent, tones outside that descent's typical families are rare (weight x0.02), never excluded. Broad base tones have equal typical tiers; freckles, sun spots and depigmentation are separate visual variations within this leaf, with rarer variants downweighted. No food comparisons, group labels or health judgments.",
+  "notes": "Literal tone and visible complexion variation only. Each tone carries its broad skin_family; drawn after a person's descent, tones outside that descent's typical families are rare (weight x0.02), never excluded. Broad base tones have equal typical tiers; freckles, sun spots and depigmentation are separate visual variations within this leaf, never typical: freckled and sun-spotted tones are plausible, depigmented ones unusual. No food comparisons, group labels or health judgments.",
   "facets": [
     "genre"
   ],
@@ -117,7 +117,7 @@
     },
     {
       "text": "fair and freckled",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "skin_family": [
           "fair"
@@ -126,7 +126,7 @@
     },
     {
       "text": "light brown and freckled",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "skin_family": [
           "medium",
@@ -136,7 +136,7 @@
     },
     {
       "text": "deep brown and freckled",
-      "tier": "typical",
+      "tier": "plausible",
       "tags": {
         "skin_family": [
           "brown",

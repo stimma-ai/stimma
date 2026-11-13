@@ -163,6 +163,7 @@ class Leaf:
     less: Dict[str, float] = field(default_factory=dict)   # facet -> factor for a less-common family (module docstring)
     listed: bool = True        # shown to the writer; a part of a composed list isn't ("catalog": false)
     strict: bool = False       # never drawn without the list: words nothing in it fits leave it whole (narrow.py)
+    plain: str = ""            # the value that goes without saying (an animal's "adult"): drawn unasked, it adds no word (fill.py)
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
@@ -592,6 +593,10 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
                     leaves[lid] = replace(leaves[lid], listed=False)
                 if d.get("strict") is True:
                     leaves[lid] = replace(leaves[lid], strict=True)
+                if d.get("plain"):
+                    if leaves[lid].value(str(d["plain"])) is None:
+                        raise ValueError(f"vocabulary: {lid}'s plain value {d['plain']!r} is not one of its values")
+                    leaves[lid] = replace(leaves[lid], plain=str(d["plain"]))
                 if d.get("compose"):
                     composed[lid] = d["compose"]
     for lid, spec in composed.items():

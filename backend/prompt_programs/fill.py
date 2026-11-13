@@ -583,14 +583,23 @@ def picks_of(cid: str, words: str, reading: Dict[str, Any], *, close: str = "") 
         # What each part is of the animal; its life stage is its own part, so a kind is never "puppy".
         abouts = {"species": f"what kind of animal the {noun} is (its age is chosen apart)",
                   "breed": f"the {noun}'s breed (its age is chosen apart)", "life_stage": f"the {noun}'s life stage"}
+        # The kind of animal the reader says the words name ("pet": the species list's pets) keeps
+        # the species to that tag; the words still narrow within it (narrow.py).
+        sort = str(got.get("type") or "")
+        sort = sort if sort in vocab.get(lists["species"]).local_facets.get("kind", ()) else ""
         picks = [_pick(f"{cid}.{d}", label=vocab.get(lists[d]).label if d != "species" else "Kind",
-                       about=abouts[d], phase=1 if d != "life_stage" else 2, cls=lists[d], slot=cid) for d in vary]
+                       about=abouts[d], phase=1 if d != "life_stage" else 2, cls=lists[d], slot=cid,
+                       where={"kind": sort} if d == "species" and sort else None) for d in vary]
         # The slot's words narrow what kind of animal it is ("pet" keeps pets), unless they say more
         # of it; a life stage they state ("kitten") comes as the reading's stated words.
         said = {f"{cid}.{d}": w for d, w in stated.items()}
         if "species" in vary:
             said.setdefault(f"{cid}.species", words)
         form = {"kind": "animal", "noun": noun, "words": words, "keys": [p["id"] for p in picks]}
+        stage = vocab.get(lists["life_stage"])
+        if "life_stage" in vary and "life_stage" not in stated and stage is not None and stage.plain:
+            # The stage that goes without saying (adult) adds no word unless the user asks for it.
+            form["plain"] = {f"{cid}.life_stage": stage.plain}
         if breed and "breed" in vary and str(vocab.get(breed).pos).startswith("adjective"):
             # A list of words that go before the animal (a coat: "a ___ cat") keeps the animal's word after it.
             form["before_noun"] = True
@@ -1079,7 +1088,10 @@ def fill(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Sequence[str
     pins = {str(k): [str(x) for x in (v if isinstance(v, list) else [v])] for k, v in (pins or {}).items() if v}
     f = _Fill(entry, seed, pins, dict(fixed or {}), edits, options or LiteralOptions(edits))
     f.run()
-    parts = flatten(text_parts(entry, lambda cid: Val(cid, f.values.get(cid))))
+    # A value that goes without saying (an animal's adult stage) adds no word, unless it is pinned.
+    plain = {k: v for sl in entry.get("slots") or [] for k, v in ((sl.get("form") or {}).get("plain") or {}).items()}
+    parts = flatten(text_parts(entry, lambda cid: Val(cid, None if cid in plain and cid not in f.pins
+                                                      and f.values.get(cid) == plain[cid] else f.values.get(cid))))
     prompt = tidy_text([t for t, _ in parts])
     if not prompt:
         raise ProgramError("The prompt has no text.")

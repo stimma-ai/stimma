@@ -4,7 +4,7 @@
   "description": "How far along in life an animal is, from newborn to old.",
   "pos": "adjective",
   "frame": "a ___ dog",
-  "notes": "Life stage only; species, breed and coat have their own lists. Values read before the animal's own word, so a puppy or a kitten is a baby dog or cat here.",
+  "notes": "Life stage only; species, breed and coat have their own lists. Values read before the animal's own word, so a puppy or a kitten is a baby dog or cat here. \"adult\" is the stage that goes without saying: drawn unasked, it adds no word.",
   "facets": [],
   "closed": true,
   "untagged": {},
@@ -25,5 +25,6 @@
       "text": "elderly",
       "tier": "plausible"
     }
-  ]
+  ],
+  "plain": "adult"
 }
