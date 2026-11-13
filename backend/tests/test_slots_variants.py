@@ -4,6 +4,7 @@ each image draws a variant. Nothing here calls a model."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, Dict, List
 
@@ -335,3 +336,45 @@ async def test_the_routes_answer_the_picker(monkeypatch, profile):
     out = await rp.options(rp.OptionsRequest(**base, choice_id="lighting", choices={"lighting": {"values": []}}))
     assert len(out["options"]) == 20 and writer.calls[-1]["n"] == 20
     assert len(P.store_for(profile).variants(slot(entry, "lighting")["pool"])) == before + 20
+
+
+async def test_an_adult_pool_never_stands_in_for_a_child_after_an_edit(monkeypatch, profile):
+    """`a 30-year-old in <clothing>` edited to `a 10-year-old in <clothing>`: while the new pool is
+    written, the adult one doesn't serve (it may hold adult-only clothing); the words stand."""
+    reading = {"slots": [{"n": 1, "kind": "list", "label": "Clothing", "lead": " in", "category": "clothing",
+                          "list": {"list": "clothing.top", "about": "what they wear"}}], "lists": []}
+
+    class Ages(FakeModel):
+        async def __call__(self, messages, project_id, max_tokens):
+            user = messages[-1]["content"]
+            if user.startswith('The list "Age"'):
+                said = user.split('Which of these fit "', 1)[1]
+                return json.dumps(["10-year-old"] if said.startswith("a 10") else
+                                  ["35-year-old"] if said.startswith("a 35") else ["30-year-old"])
+            return await super().__call__(messages, project_id, max_tokens)
+    use(monkeypatch, Ages(reading))
+    adult = await settled("a 30-year-old in <clothing>", profile)
+    old = slot(adult, "clothing")
+    assert P.store_for(profile).has(old["pool"]) and "minor" not in adult["seeds"]["clothing"]
+
+    async def hang(*a, **k):   # the new pool isn't written yet
+        await asyncio.sleep(3600)
+    monkeypatch.setattr(P, "ASK", hang)
+    child_prompt = "a 10-year-old in <clothing>"
+    await slots.prepare(child_prompt, profile_id=profile, shown=adult["key"])
+    await slots.idle()
+    child = await slots.prepare(child_prompt, profile_id=profile, start=False, shown=adult["key"])
+    s = slot(child, "clothing")
+    assert child["seeds"]["clothing"]["minor"] == ["10-year-old"] and s["pool"] != old["pool"]
+    assert "stand_in" not in s
+    r = prep.realize(child, seed=1, profile_id=profile)
+    assert r.prompt.lower() == "a 10-year-old in clothing"
+    # an adult edited to another adult keeps drawing from the old pool meanwhile
+    other = "a 35-year-old in <clothing>"
+    await slots.prepare(other, profile_id=profile, shown=adult["key"])
+    await slots.idle()
+    again = await slots.prepare(other, profile_id=profile, start=False, shown=adult["key"])
+    assert slot(again, "clothing").get("stand_in") == old["pool"]
+    for t in list(P.writer_for(profile)._inflight.values()):
+        if t is not None:
+            t.cancel()

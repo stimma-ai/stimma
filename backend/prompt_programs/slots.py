@@ -584,13 +584,16 @@ async def _narrow(entry: Dict[str, Any], p: _Prompt, ask: Any) -> None:
 def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
     """A slot whose pool changed (its reading was made again after an edit) draws from the pool
     the editor's prompt had for it until its own first batch is written: the same part, by
-    match_marks, in the prompt shown (p.shown) or last prepared as this one."""
+    match_marks, in the prompt shown (p.shown) or last prepared as this one. Only a pool written
+    for the same minors context stands in (MINORS_POLICY.md): one written for a possible adult never
+    serves a person who may now be under 18, nor the other way, and a slot whose seeds (who may be
+    under 18) aren't narrowed yet has none; the slot's words stand meanwhile."""
     from prompt_programs.variant_pools import store_for
     try:
         store = store_for(p.profile_id)
     except Exception:
         return
-    earlier: Dict[str, List[str]] = {}   # per slot, the pools it drew from before, nearest first
+    earlier: Dict[str, List[Tuple[str, Tuple[str, ...]]]] = {}   # per slot, (pool, its minors), nearest first
     for key in dict.fromkeys(k for k in (p.key, p.shown) if k):
         try:
             prev = p.store.get(key)
@@ -598,16 +601,20 @@ def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
                 continue
             old = parse(str(prev["prompt"]))
             ids_old, ids_new = _part_ids(old), _part_ids(p.parsed)
-            pools = {s["id"]: [str(x) for x in (s.get("pool"), s.get("stand_in")) if x] for s in prev.get("slots") or []}
+            minors = {sid: tuple(sorted(r.get("minor") or ())) for sid, r in (prev.get("seeds") or {}).items()}
+            pools = {s["id"]: [(str(x), minors.get(s["id"], ())) for x in (s.get("pool"), s.get("stand_in")) if x]
+                     for s in prev.get("slots") or [] if s["id"] not in (prev.get("seeds_pending") or [])}
             for i, j in match_marks(old, p.parsed).items():
                 earlier.setdefault(ids_new[j], []).extend(pools.get(ids_old[i]) or [])
         except Exception as e:   # nothing to stand in: the words stand meanwhile
             log.debug(f"[slots] no stand-in pools from {key}: {e}")
+    pending = set(entry.get("seeds_pending") or [])
     for s in entry["slots"]:
-        if not s.get("pool") or store.has(s["pool"]):
+        if not s.get("pool") or store.has(s["pool"]) or s["id"] in pending:
             continue
+        minor = tuple(sorted(((entry.get("seeds") or {}).get(s["id"]) or {}).get("minor") or ()))
         # the pool it had (or stood in with) before, when this prompt's own entry already has the new key
-        was = next((k for k in earlier.get(s["id"], []) if k != s["pool"] and store.has(k)), None)
+        was = next((k for k, m in earlier.get(s["id"], []) if k != s["pool"] and m == minor and store.has(k)), None)
         if was:
             s["stand_in"] = was
 
