@@ -228,3 +228,20 @@ def test_the_check_reply_names_each_part():
     assert reader.parse_changed('{"0": "same"}', 1) is None   # counted from 0: can't be trusted
     assert reader.parse_changed('{"1": true}', 1) is None
     assert reader.parse_changed('["same"]', 1) is None
+
+
+async def test_an_edit_on_another_line_writes_no_options_and_asks_nothing(model, tmp_path):
+    before = BEFORE + "\nlate summer light"
+    first = await _ready(before)
+    store = OptionStore(tmp_path / "options")
+    gen = FakeGen()
+    filler = OptionFiller(store, gen)
+    assert start_options(first, store=store, filler=filler, cfg=ON)
+    await filler.drain()
+    written, reads, narrows = len(gen.calls), len(model.reads), model.narrows
+    entry = await _ready(before.replace("late summer light", "soft late summer light, slight haze"), shown=first["key"])
+    assert entry["template"] != first["template"]
+    assert start_options(entry, store=store, filler=filler, cfg=ON) == []   # every pool is already written
+    await filler.drain()
+    assert len(gen.calls) == written
+    assert (len(model.reads), model.narrows, model.checks) == (reads, narrows, [])

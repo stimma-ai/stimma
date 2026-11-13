@@ -120,9 +120,10 @@ class ProgramContext:
     # such a list (entry["list_context"]): (list pick, value, list, subset)
     stated: Tuple[Tuple[Optional[str], str, Tuple[str, ...]], ...] = ()
     list_context: Tuple[Tuple[str, str, str, Tuple[str, ...]], ...] = ()
-    # (pick id, signature) for the picks of a slot whose reading was kept through an edit of the
-    # prompt (slots.py, the slot's "seen"): their pools stay the ones written for the prompt the
-    # slot was read in
+    # (pick id, signature) for the picks of a slot: the prompt its reading's options were first
+    # written for (slots.py, the slot's "seen"). A slot's pools are keyed by it, so they follow
+    # its reading (its own line and the notes), not the whole prompt: an edit elsewhere, or one
+    # the edit check says leaves the slot as it was, keeps them
     kept: Tuple[Tuple[str, str], ...] = ()
 
     @classmethod
@@ -963,8 +964,8 @@ class GeneratedOptions:
             recorded = [k for k in self.limits if k.startswith(key + " | context ")]
             key = recorded[0] if len(recorded) == 1 else key + context_suffix(spec)
         lineage = "" if specific else self.program.lineage
-        # A slot kept through an edit keeps its pools: stored under the prompt it was read in,
-        # still written for the prompt as it is now.
+        # A slot's pools follow its reading: stored under the prompt it was first read in, still
+        # written for the prompt as it is now.
         stored = signature if specific else dict(self.program.kept).get(spec.id, signature)
         return key, gen_key(spec, context, stored, self.program.mode, self.program.elaborate,
                             self.program.lists, self.version, lineage, intent, spec.cls, spec.minor,

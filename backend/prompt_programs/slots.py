@@ -407,8 +407,9 @@ def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
 async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
     """The prompt's entry from its parse and the readings cached, narrowed with `ask` (None:
     from the cache only, which never calls a model)."""
-    from prompt_programs.reader import as_written, cached
+    from prompt_programs.reader import as_written, cached, seen_in
     readings, labels = cached(p.parsed, p.model, p.cache())
+    from_cache = set(readings)
     segs = {(kind, n): seg for kind, n, seg in _marked(p.parsed)}
     # A part read before an edit keeps its reading until it is checked or read again.
     unread = [(kind, n) for kind, n, _ in p.parts() if n not in (readings if kind == "slot" else labels)]
@@ -430,8 +431,21 @@ async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
         elif kind == "list" and n not in labels:
             labels[n] = ""
     entry = compose(p.parsed, readings, labels)
-    # A reading carried from before an edit, or kept through one, says what it was read in: its
-    # narrowing is read in that and its options are the ones written for it there.
+    # Every reading says what it was read in (its line and the notes) and the prompt its options
+    # were first written for, kept with it in the cache: its options are keyed by that, so an edit
+    # elsewhere in the prompt, or one that leaves it as it was, writes it no new options. A
+    # reading carried from before an edit, or kept through one, has its own already.
+    written = str(entry.get("context") or "").strip() or str(entry.get("template") or "")
+    keys = {n: key for kind, n, key in p.parts() if kind == "slot"}
+    for n in sorted(from_cache):
+        r = readings[n]
+        if isinstance(r.get("seen"), dict) or r.get("degraded"):
+            continue
+        readings[n] = {**r, "seen": {**seen_in(p.parsed, segs[("slot", n)]), "template": written}}
+        try:
+            p.cache().put_raw(keys[n], {k: v for k, v in readings[n].items() if k != "n"})
+        except OSError as e:   # only means its options are keyed by this prompt again next time
+            log.warning(f"[slots] keeping where part {n} of {p.key} was read failed: {e}")
     for s in entry["slots"]:
         seen = (readings.get(s["n"]) or {}).get("seen")
         if isinstance(seen, dict):
