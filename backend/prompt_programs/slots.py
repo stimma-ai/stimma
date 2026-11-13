@@ -350,21 +350,83 @@ async def _read_prompt(prompt: str, profile_id: Optional[str], project_id: Optio
                    profile_id, project_id, shown)
 
 
+_WORD = re.compile(r"\w+|\s+|[^\w\s]")
+
+
+def _tokens(parsed: Parsed) -> List[Any]:
+    """The prompt as tokens for matching two versions of it: each slot and list one token (its
+    kind and words), the text between them words, spaces and punctuation."""
+    out: List[Any] = []
+    for seg in parsed.segments:
+        if seg.kind in ("slot", "list"):
+            out.append(("\0mark", seg.kind, seg.words if seg.kind == "slot" else seg.text))
+        else:
+            out += _WORD.findall(seg.text)
+    return out
+
+
+def match_marks(old: Parsed, new: Parsed) -> Dict[int, int]:
+    """Which slot or list of `new` each one of `old` is, by place in _marked's order: the same
+    words standing in the same place in the text, the edit around them aside. Structure only.
+    A match that the text can't settle (one of two identical slots removed) is left out: the
+    two versions are lined up from the start and from the end, and only where both agree is a
+    part the same part."""
+    from difflib import SequenceMatcher
+    ta, tb = _tokens(old), _tokens(new)
+
+    def pairs(a: List[Any], b: List[Any]) -> Dict[int, int]:
+        out: Dict[int, int] = {}
+        for tag, i1, i2, j1, j2 in SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+            if tag == "equal":
+                out.update((i1 + k, j1 + k) for k in range(i2 - i1))
+        return out
+    ahead = pairs(ta, tb)
+    behind = {len(ta) - 1 - i: len(tb) - 1 - j for i, j in pairs(ta[::-1], tb[::-1]).items()}
+    marks_a = [i for i, t in enumerate(ta) if isinstance(t, tuple)]
+    marks_b = {j: m for m, j in enumerate(i for i, t in enumerate(tb) if isinstance(t, tuple))}
+    out: Dict[int, int] = {}
+    for m, i in enumerate(marks_a):
+        j = ahead.get(i)
+        if j is not None and j == behind.get(i) and j in marks_b:
+            out[m] = marks_b[j]
+    return out
+
+
+def _was(p: _Prompt) -> Optional[Dict[str, Any]]:
+    """For the prompt the editor shows (p.shown, when it is another prompt): which of its slots
+    and lists each of this prompt's is, by id, so what the user chose and the options shown
+    follow the part, not its id (two <mug>s with the first removed: the one left is `mug` now,
+    and was `mug_2`)."""
+    if not p.shown or p.shown == p.key:
+        return None
+    try:
+        prev = p.store.get(p.shown)
+        if not prev or not prev.get("prompt"):
+            return None
+        old = parse(str(prev["prompt"]))
+    except Exception as e:
+        log.debug(f"[slots] the shown prompt {p.shown} can't be matched: {e}")
+        return None
+    ids_old, ids_new = _part_ids(old), _part_ids(p.parsed)
+    return {"from": p.shown, "ids": {ids_new[j]: ids_old[i] for i, j in match_marks(old, p.parsed).items()}}
+
+
+def _part_ids(parsed: Parsed) -> List[str]:
+    """Each slot's and list's id, in _marked's order."""
+    slot_id = iter(slot_ids(parsed))
+    return [next(slot_id) if kind == "slot" else f"list{n}" for kind, n, _ in _marked(parsed)]
+
+
 def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
     """The readings this prompt's parts had in the prompt last prepared as this one, then in the
     one the editor shows: per (kind, number), a slot's reading or a list's {"label"}, each with
     "seen", what it was read in (reader.seen_in, and for a slot the prompt its options were
-    written for). A part is the same part when its words are, in the same order among the
-    others (an edit adds, removes or moves parts around it). Read by the same reader, model and
-    vocabulary only; a reading that couldn't be used is never carried."""
-    from difflib import SequenceMatcher
+    written for). A part is the same part when match_marks says so. Read by the same reader,
+    model and vocabulary only; a reading that couldn't be used is never carried."""
     from prompt_programs.reader import seen_in
     out: Dict[Tuple[str, int], Dict[str, Any]] = {}
     keys = list(dict.fromkeys(k for k in (p.key, p.shown) if k))
     new = _marked(p.parsed)
-
-    def token(kind: str, seg: Segment) -> Tuple[str, str]:
-        return kind, seg.words if kind == "slot" else seg.text
     for key in keys:
         try:
             prev = p.store.get(key)
@@ -377,37 +439,48 @@ def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
             readings = {r.get("n"): r for r in got.get("slots") or [] if isinstance(r, dict)}
             labels = {x.get("n"): x for x in got.get("lists") or [] if isinstance(x, dict)}
             written = str(prev.get("context") or "").strip() or str(prev.get("template") or "")
+            matched = match_marks(parsed, p.parsed)
         except Exception as e:   # an unreadable earlier entry only means nothing is carried from it
             log.debug(f"[slots] no readings carried from {key}: {e}")
             continue
         old = _marked(parsed)
-        match = SequenceMatcher(None, [token(k, sg) for k, _, sg in old], [token(k, sg) for k, _, sg in new],
-                                autojunk=False)
-        for a, b, size in match.get_matching_blocks():
-            for i in range(size):
-                kind, was, seg = old[a + i]
-                now = (kind, new[b + i][1])
-                if now in out:
+        for i, j in matched.items():
+            kind, was, seg = old[i]
+            now = (kind, new[j][1])
+            if now in out:
+                continue
+            if kind == "slot":
+                r = readings.get(was)
+                if not isinstance(r, dict) or r.get("degraded"):
                     continue
-                if kind == "slot":
-                    r = readings.get(was)
-                    if not isinstance(r, dict) or r.get("degraded"):
-                        continue
-                    seen = r["seen"] if isinstance(r.get("seen"), dict) else {**seen_in(parsed, seg), "template": written}
-                    out[now] = {**{k: v for k, v in r.items() if k != "n"}, "seen": seen}
-                else:
-                    x = labels.get(was)
-                    if not x or not str(x.get("label") or "").strip():
-                        continue
-                    out[now] = {"label": str(x["label"]),
-                                "seen": x["seen"] if isinstance(x.get("seen"), dict) else seen_in(parsed, seg)}
+                seen = r["seen"] if isinstance(r.get("seen"), dict) else {**seen_in(parsed, seg), "template": written}
+                out[now] = {**{k: v for k, v in r.items() if k != "n"}, "seen": seen}
+            else:
+                x = labels.get(was)
+                if not x or not str(x.get("label") or "").strip():
+                    continue
+                out[now] = {"label": str(x["label"]),
+                            "seen": x["seen"] if isinstance(x.get("seen"), dict) else seen_in(parsed, seg)}
     return out
+
+
+def _lead_holds(reading: Dict[str, Any], before: str) -> bool:
+    """Whether a slot's lead (the words before it that go when it is left out) still holds with
+    `before`, the text before the slot now: the text it was read after is unchanged, or the lead
+    still ends it (the joining words right before the slot are the same ones). A slot that had
+    no lead and now has new words before it is read again: only a reading can say whether they
+    hang. Structure only, as reader.check_slot checks a lead."""
+    lead = str(reading.get("lead") or "").strip()
+    seen = reading.get("seen") if isinstance(reading.get("seen"), dict) else {}
+    if isinstance(seen.get("before"), str) and seen["before"] == before:
+        return True
+    return before.rstrip().endswith(lead) if lead else not before.strip()
 
 
 async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
     """The prompt's entry from its parse and the readings cached, narrowed with `ask` (None:
     from the cache only, which never calls a model)."""
-    from prompt_programs.reader import as_written, cached, seen_in
+    from prompt_programs.reader import as_written, cached, leads, seen_in
     readings, labels = cached(p.parsed, p.model, p.cache())
     from_cache = set(readings)
     segs = {(kind, n): seg for kind, n, seg in _marked(p.parsed)}
@@ -416,9 +489,12 @@ async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
     earlier = _earlier(p) if unread else {}
     carried = [k for k in unread if k in earlier]
     list_seen: Dict[int, Any] = {}
+    before = leads(p.parsed) if carried else {}
     for kind, n in carried:
         if kind == "slot":
             readings[n] = {**earlier[(kind, n)], "n": n}
+            if not _lead_holds(readings[n], before.get(n, "")):   # read again (_start); meanwhile none
+                readings[n]["lead"] = ""
         else:
             labels[n] = earlier[(kind, n)]["label"]
             list_seen[n] = earlier[(kind, n)]["seen"]
@@ -511,9 +587,10 @@ def _start(p: _Prompt, force: bool = False) -> None:
     """Read whatever of the prompt isn't read yet, each part on its own, and settle the prompt
     once each lands. Returns at once."""
     import asyncio
-    from prompt_programs.reader import cached, seen_in
+    from prompt_programs.reader import cached, leads, seen_in
     readings, labels = cached(p.parsed, p.model, p.cache()) if not force else ({}, {})
     earlier = _earlier(p) if not force else {}
+    before = leads(p.parsed)
     segs = {(kind, n): seg for kind, n, seg in _marked(p.parsed)}
     started = False
     check: List[Tuple[str, int, str, Dict[str, Any], Dict[str, Any]]] = []
@@ -525,6 +602,8 @@ def _start(p: _Prompt, force: bool = False) -> None:
             continue
         _failed.pop(flight, None)
         was = earlier.get((kind, n))
+        if was is not None and kind == "slot" and not _lead_holds(was, before.get(n, "")):
+            was = None   # the words its lead names aren't before it now: only a reading can say what is
         if was is not None and flight not in _changed:
             now = seen_in(p.parsed, segs[(kind, n)])
             if (was["seen"].get("marked"), list(was["seen"].get("notes") or [])) == (now["marked"], now["notes"]):
@@ -653,8 +732,10 @@ async def prepare(prompt: str, *, profile_id: Optional[str], project_id: Optiona
     background (`force`: everything again); `reading` says something is still out, `working`
     that background work for it is running. `shown`: the key of the prepared prompt the editor
     shows now; a part it has (the same words, in the same order among the others) is ready with
-    its reading there while an edit is checked, and only a part new to it is `reading`. A prompt
-    with nothing that varies: {"key": None, "slots": [], "choices": []}."""
+    its reading there while an edit is checked, and only a part new to it is `reading`; `was`
+    says which of its parts each of this prompt's is ({"from": shown, "ids": {id: its id there}}),
+    so the editor's choices follow the part. A prompt with nothing that varies:
+    {"key": None, "slots": [], "choices": []}."""
     p = await _read_prompt(prompt, profile_id, project_id, shown)
     if p is None:
         return {"key": None, "slots": [], "choices": []}
@@ -665,7 +746,8 @@ async def prepare(prompt: str, *, profile_id: Optional[str], project_id: Optiona
         _start(p, force)
     entry["working"] = _working(p)
     p.store.put(p.key, entry)
-    return entry
+    was = _was(p)
+    return {**entry, "was": was} if was else entry
 
 
 current = prepare   # what a generation draws from: the same, never waiting
@@ -695,4 +777,4 @@ def raw_spans(prompt: str, entry: Dict[str, Any]) -> List[Optional[Tuple[Span, i
 
 
 __all__ = ["Parsed", "SLOT_RE", "SLOTS_VERSION", "Segment", "compose", "current", "find_slots", "idle", "is_comment",
-           "parse", "prepare", "preparing", "raw_spans", "slot_ids", "unwrap_slots"]
+           "match_marks", "parse", "prepare", "preparing", "raw_spans", "slot_ids", "unwrap_slots"]

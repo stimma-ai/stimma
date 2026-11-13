@@ -89,6 +89,13 @@ def public(entry: Dict[str, Any], prompt: str) -> Dict[str, Any]:
         out = {k: s[k] for k in _SLOT_KEYS if k in s}
         out["span"], out["line"] = (list(raw[0]), raw[1]) if raw else (None, None)
         slots.append(out)
+    # Which part of the program the editor showed each one is (slots.prepare's `was`): the
+    # editor moves what was chosen, and the options it shows, over to the part's id here.
+    was = entry.get("was") or {}
+    ids = was.get("ids") or {}
+    for out in slots:
+        if out["id"] in ids:
+            out["was"] = ids[out["id"]]
     owner = {d: s["id"] for s in entry.get("slots") or [] for d in s.get("details") or []}
     choices = []
     for c in entry.get("choices") or []:
@@ -102,9 +109,12 @@ def public(entry: Dict[str, Any], prompt: str) -> Dict[str, Any]:
             out["slot"] = owner[c["id"]]
         elif c.get("source") == "list":
             out.update(source="list", line=c.get("line"))
+            if c["id"] in ids:
+                out["was"] = ids[c["id"]]
         choices.append(out)
     return {"key": entry.get("key"), "slots": slots, "choices": choices,
-            "reading": bool(entry.get("reading")), "working": bool(entry.get("working"))}
+            "reading": bool(entry.get("reading")), "working": bool(entry.get("working")),
+            **({"from": was["from"]} if was.get("from") else {})}
 
 
 @router.post("/prepare")

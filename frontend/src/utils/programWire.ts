@@ -34,6 +34,9 @@ export interface ProgramSlot {
   state?: 'reading' | 'ready'
   /** Its reading couldn't be used: it stands as its words until it is read again. */
   degraded?: boolean
+  /** Its id in the program the prepare named as shown (`from`), when it is the same slot there:
+      what was chosen for it and its options move over by this, not by the id. */
+  was?: string
 }
 
 /** A choice's zone: where its options come from. `kinds` (kinds of what the words name) is
@@ -61,6 +64,8 @@ export interface ProgramChoice {
   starts_off?: boolean
   parent?: string
   when?: string[]
+  /** A `{a|b}` list's id in the program named by `from`, when it is the same list there. */
+  was?: string
 }
 
 /** POST /prompt-programs/prepare. It answers at once from the prompt's parse: every slot,
@@ -75,6 +80,9 @@ export interface PreparedProgram {
   reading?: boolean
   /** Background reading for this prompt is running now: look again soon. */
   working?: boolean
+  /** The key of the program the request said it shows, when its slots' and lists' `was` say
+      which of that program's parts they are. */
+  from?: string
   /** Dev dialog only (include_program): what each part was read as, its picks, one draw. */
   readings?: unknown
   picks?: unknown

@@ -577,9 +577,12 @@ def _reading(slots: Dict[int, Any], lists: Dict[int, str]) -> Dict[str, Any]:
 # with no more calls.
 
 def seen_in(parsed: Parsed, seg: Segment) -> Dict[str, Any]:
-    """What a part is read in: its line (as typed, and with the part marked) and the notes."""
+    """What a part is read in: its line (as typed, and with the part marked), the notes, and the
+    text right before it on its line since the last part (where its lead comes from)."""
+    n = sum(x.kind == "slot" for x in parsed.segments[:next(i for i, x in enumerate(parsed.segments) if x is seg) + 1])
+    before = leads(parsed).get(n, "") if seg.kind == "slot" else ""
     return {"line": parsed.prompt.split("\n")[seg.line - 1], "marked": _line_with(parsed, seg),
-            "notes": comment_lines(parsed)}
+            "notes": comment_lines(parsed), "before": before}
 
 
 CHECK_SYSTEM = """An image prompt was edited. Its marked parts, shown as ⟨words⟩, change from image to image.
@@ -601,6 +604,7 @@ def _read_as(reading: Dict[str, Any]) -> str:
     """A reading as the check is shown it: what was read, not where it stands or what it is called."""
     if "kind" not in reading:   # a list's: its label
         return json.dumps({"label": reading.get("label") or ""}, ensure_ascii=False)
+    # (its lead is structure, checked in code: slots._lead_holds)
     return json.dumps({k: v for k, v in reading.items() if k not in ("n", "lead", "label", "seen")}, ensure_ascii=False)
 
 

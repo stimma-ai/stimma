@@ -245,3 +245,57 @@ async def test_an_edit_on_another_line_writes_no_options_and_asks_nothing(model,
     await filler.drain()
     assert len(gen.calls) == written
     assert (len(model.reads), model.narrows, model.checks) == (reads, narrows, [])
+
+
+async def test_a_lead_the_edit_takes_away_is_read_again_and_one_it_keeps_is_kept(model):
+    model.fresh = {"mug": {**MUG, "lead": " with a"}}
+    first = await _ready("a table with a <mug>")
+    assert first["readings"]["slots"][0]["lead"] == " with a"
+    # "with a" no longer stands before it: read again (no check can say what the lead is now),
+    # its old lead dropped meanwhile, so leaving it out never leaves "beside a" hanging.
+    model.hold = "mug"
+    await slots.prepare("a table beside a <mug>", profile_id="p", shown=first["key"])
+    for _ in range(50):
+        await asyncio.sleep(0.01)
+        if model.reads.count("mug") == 2:
+            break
+    now = await slots.prepare("a table beside a <mug>", profile_id="p", start=False)
+    assert now["slots"][0]["state"] == "ready" and now["readings"]["slots"][0]["lead"] == ""
+    model.go.set()
+    await slots.idle()
+    assert model.reads == ["mug", "mug"] and not model.checks
+    # More words further from it: "with a" still stands right before it, and the edit is checked.
+    model.hold = None
+    kept = await _ready("a wooden table with a <mug>", shown=first["key"])
+    assert len(model.checks) == 1 and model.reads == ["mug", "mug"]
+    assert kept["readings"]["slots"][0]["lead"] == " with a"
+
+
+def test_parts_are_matched_by_where_they_stand_and_a_match_the_text_cant_settle_is_dropped():
+    from prompt_programs.slots import match_marks, parse
+    # the first of two mugs removed: the one left was the second
+    assert match_marks(parse("a <mug> on the shelf and a <mug> on the desk"), parse("a <mug> on the desk")) == {1: 0}
+    # two identical mugs, one removed: which one can't be told, so neither is matched
+    assert match_marks(parse("a <mug> and a <mug>"), parse("a <mug>")) == {}
+    # a slot added among them moves nothing
+    assert match_marks(parse("a <man> with his <pet>, {a|b}"), parse("a <man> with his <pet> and a <mug>, {a|b}")) == \
+        {0: 0, 1: 1, 2: 3}
+
+
+async def test_the_editor_is_told_which_part_each_was(model, monkeypatch):
+    model.fresh = {"mug": MUG}
+    first = await _ready("a <mug> on the shelf and a <mug> on the desk, {red|blue}")
+    assert [s["id"] for s in first["slots"]] == ["mug", "mug_2"]
+    edited = "a <mug> on the desk, {green|gray} and {red|blue}"
+    look = await slots.prepare(edited, profile_id="p", start=False, shown=first["key"])
+    assert look["was"] == {"from": first["key"], "ids": {"mug": "mug_2", "list2": "list1"}}
+    assert look["slots"][0]["state"] == "ready"   # carried from the second mug
+    out = _client(monkeypatch, "p").post("/api/prompt-programs/prepare", json={
+        "tool_id": "t", "prompt": edited, "cache_only": True, "key": first["key"]}).json()
+    assert out["from"] == first["key"] and out["slots"][0]["was"] == "mug_2"
+    lists = {c["id"]: c.get("was") for c in out["choices"] if c.get("source") == "list"}
+    assert lists == {"list1": None, "list2": "list1"}
+    # identical mugs, one removed: the one left is new to the editor, and read as new
+    twin = await _ready("a <mug> and a <mug>")
+    left = await slots.prepare("a <mug>", profile_id="p", start=False, shown=twin["key"])
+    assert left["was"] == {"from": twin["key"], "ids": {}} and left["slots"][0]["state"] == "reading"

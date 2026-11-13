@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  asWrittenState, changedCount, cleanState, drawable, isAsWritten, isChanged, keptPools, leaveOut, numberRepeats, optionsOf, pillsOf, pillValue,
+  asWrittenState, carriedIds, carryChoices, changedCount, cleanState, drawable, isAsWritten, isChanged, keptPools, leaveOut, numberRepeats, optionsOf, pillsOf, pillValue,
   isOff, resetState, swatchesOf, toggleToken, tokenText, turnOn, zonesOf, PALETTE_CLS,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
@@ -192,4 +192,35 @@ test('an edit keeps the options of the choices it kept until the new ones arrive
   const pools = { pet: { options: ['tabby cat'] } as ChoicePool, gone: { options: ['x'] } as ChoicePool }
   assert.deepEqual(keptPools(pools, { pet: pet, mug: {} }), { pet: pools.pet })
   assert.deepEqual(keptPools(pools, {}), {})
+})
+
+test('an edit moves what was chosen with the part, not its id: the second of two mugs left alone is "mug" now', () => {
+  const mug = (id: string, extra: Partial<ProgramSlot> = {}): ProgramSlot =>
+    ({ id, n: 1, kind: 'free', label: 'Mug', words: 'mug', details: [id], ...extra })
+  const pick = (id: string, extra: Partial<ProgramChoice> = {}): ProgramChoice => ({ id, kind: 'pick', label: id, options: [], ...extra })
+  const prev = {
+    key: 'A',
+    slots: [mug('mug'), mug('mug_2', { n: 2 }), { id: 'man', n: 3, kind: 'person', label: 'Man', words: 'man', details: ['man.age', 'man.hair'] } as ProgramSlot],
+    choices: [pick('mug'), pick('mug_2'), pick('man.age'), pick('man.hair'), pick('list1', { source: 'list' })],
+  }
+  const next = {
+    from: 'A',
+    slots: [mug('mug', { was: 'mug_2' }), { id: 'old_man', n: 2, kind: 'person', label: 'Man', words: 'old man', details: ['old_man.age'] } as ProgramSlot,
+      { id: 'man', n: 3, kind: 'person', label: 'Man', words: 'man', details: ['man.age', 'man.hair'], was: 'man' } as ProgramSlot],
+    choices: [pick('mug'), pick('old_man.age'), pick('man.age'), pick('man.hair'), pick('list1', { source: 'list' }), pick('list2', { source: 'list', was: 'list1' })],
+  }
+  const ids = carriedIds(prev, next)
+  assert.deepEqual(ids, { mug_2: 'mug', 'man.age': 'man.age', 'man.hair': 'man.hair', list1: 'list2' })
+  const states = { mug: { values: ['tin cup'] }, mug_2: { values: ['camp mug'] }, 'man.age': { values: ['30'] }, list1: { values: ['red'] }, stray: { off: true } }
+  assert.deepEqual(carryChoices(states, ids, prev, next),
+    { mug: { values: ['camp mug'] }, 'man.age': { values: ['30'] }, list2: { values: ['red'] } })
+  const pools = { mug: { options: ['tin cup'] } as ChoicePool, mug_2: { options: ['camp mug'] } as ChoicePool }
+  assert.deepEqual(carryChoices(pools, ids, prev, next), { mug: { options: ['camp mug'] } })
+  // a part the server couldn't match (two identical mugs, one removed): nothing moves to it
+  const twin = { from: 'A', slots: [mug('mug', { state: 'reading', details: [] })], choices: [] }
+  assert.deepEqual(carryChoices(states, carriedIds(prev, twin), prev, twin), {})
+  // an answer matched against another program, or none: by id, as before
+  assert.equal(carriedIds(prev, { ...next, from: 'B' }), null)
+  assert.equal(carriedIds(prev, { slots: next.slots, choices: next.choices }), null)
+  assert.deepEqual(carryChoices({ mug: 1, gone: 2 }, null, prev, next), { mug: 1 })
 })

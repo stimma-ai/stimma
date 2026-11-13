@@ -1,9 +1,9 @@
 import { computed, nextTick, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
-import { prepareBody, prepareErrorCode, prepareSettingsSig, shownKey, type PrepareInputs } from '../utils/fluentSubmit'
+import { prepareBody, prepareErrorCode, prepareSettingsSig, readPending, shownKey, type PrepareInputs } from '../utils/fluentSubmit'
 import { additionList, isOwnOption } from '../utils/programAdditions'
-import { cleanState, isBuilder, keptPools, numberRepeats, optionsOf as optionsIn, resetState } from '../utils/programChoices'
+import { carriedIds, carryChoices, cleanState, isBuilder, keptPools, numberRepeats, optionsOf as optionsIn, resetState } from '../utils/programChoices'
 import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareResponse, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 
 export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
@@ -135,14 +135,13 @@ export function usePromptProgram(o: Options) {
     for (const [id, s] of Object.entries(states.value)) if (byId.value[id] && s) out[id] = s
     return out
   })
-  /** A prepare for the prompt in the box landed: choices for slots that went with an edit go. */
-  function prune(p: PreparedProgram) {
-    const have = new Set((p.choices || []).map(c => c.id))
-    const gone = Object.keys(states.value).filter(id => !have.has(id))
-    if (!gone.length) return
-    const next = { ...states.value }
-    for (const id of gone) delete next[id]
-    writeStates(next)
+  /** A prepare for the prompt in the box landed: what was chosen follows each part to its id
+      there (`ids`, from carriedIds), and choices for parts that went with an edit go. */
+  function prune(p: PreparedProgram, ids: Record<string, string> | null, prev: PreparedProgram | null) {
+    const next = carryChoices(states.value, ids, prev, p)
+    const same = Object.keys(next).length === Object.keys(states.value).length
+      && Object.entries(next).every(([id, s]) => states.value[id] === s)
+    if (!same) writeStates(next)
   }
 
   function request(extra: Record<string, any> = {}) {
@@ -151,9 +150,12 @@ export function usePromptProgram(o: Options) {
 
   function landed(p: PrepareResponse, sig: string) {
     const got: PreparedProgram = { ...p, key: p.key ?? null, slots: p.slots || [], choices: p.choices || [] }
+    const prev = program.value
+    const ids = carriedIds(prev, got)
+    if (ids) pools.value = carryChoices(pools.value, ids, prev, got)
     program.value = got
     preparedSig.value = sig
-    prune(got)
+    prune(got, ids, prev)
   }
   /** A /prepare answer that holds a program: one with slots, or the empty one of a prompt
       with nothing that varies. A cache-only miss is `{key: null}` alone. */
@@ -273,8 +275,7 @@ export function usePromptProgram(o: Options) {
   /** The prompt in the box hasn't been sent for reading: stale, or looked up with slots still
       unread and nothing reading them (a look-up never starts reading). */
   function needsRead(): boolean {
-    if (status.value === 'stale') return true
-    return status.value === 'ready' && !!program.value?.reading && !program.value?.working && startedSig !== signature.value
+    return readPending(status.value, program.value, startedSig === signature.value)
   }
 
   /** Before a run: start reading the prompt if it isn't yet, and go on at once. */

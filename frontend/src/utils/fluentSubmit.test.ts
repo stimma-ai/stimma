@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { effectiveWay, foreverSlot, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, shownKey, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
+import { effectiveWay, foreverSlot, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, readPending, shownKey, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
@@ -177,4 +177,14 @@ test('a prepare names the program the editor shows, only when it was prepared un
   assert.equal(shownKey(null, sig, settings), null)
   assert.equal(shownKey({ key: null }, sig, settings), null)
   assert.equal(shownKey({ key: 'abc' }, null, settings), null)
+})
+
+test('a looked-up prompt whose readings were kept from before an edit is sent to be checked', () => {
+  // every slot ready (carried), but the edit not checked yet: reading, and nothing working
+  assert.equal(readPending('ready', { reading: true, working: false }, false), true)
+  assert.equal(readPending('ready', { reading: true, working: false }, true), false, 'its read already started')
+  assert.equal(readPending('ready', { reading: true, working: true }, false), false, 'being checked or read now')
+  assert.equal(readPending('ready', { reading: false, working: false }, false), false, 'checked and kept')
+  assert.equal(readPending('stale', null, true), true)
+  assert.equal(readPending('busy', { reading: true }, false), false)
 })

@@ -8,7 +8,7 @@
  * zone alone are stored as no choice. Leaving a choice out (`off`) replaces what is chosen.
  */
 
-import type { ChoicePool, ChoiceState, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
+import type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
 import { shownOption } from './programVocab.ts'
 
 export type Token =
@@ -97,6 +97,47 @@ export function optionsOf(c: ProgramChoice, pool: ChoicePool | null | undefined,
     show until the program's own pools arrive. */
 export function keptPools(pools: Record<string, ChoicePool>, have: Record<string, unknown>): Record<string, ChoicePool> {
   return Object.fromEntries(Object.entries(pools).filter(([id]) => id in have))
+}
+
+type Shown = Pick<PreparedProgram, 'key' | 'slots' | 'choices'>
+type Landed = Pick<PreparedProgram, 'slots' | 'choices' | 'from'>
+
+/** For a program prepared after an edit: each choice id of the program shown before it, mapped
+    to the id the same choice has now, by the parts the server matched (`was`: where each part
+    stands in the text, not its id; two `<mug>`s with the first removed leave `mug`, which was
+    `mug_2`). Null when the answer doesn't say (it wasn't matched against `prev`). A choice of
+    `prev` missing from the map went with the edit, or couldn't be told apart from another. */
+export function carriedIds(prev: Shown | null | undefined, next: Landed): Record<string, string> | null {
+  if (!prev?.key || !next.from || next.from !== prev.key) return null
+  const before = new Map((prev.slots || []).map(s => [s.id, s]))
+  const have = new Set((next.choices || []).map(c => c.id))
+  const out: Record<string, string> = {}
+  for (const s of next.slots || []) {
+    const o = s.was ? before.get(s.was) : undefined
+    if (!o) continue
+    for (const d of o.details) {
+      const id = d === o.id ? s.id : d.startsWith(`${o.id}.`) ? s.id + d.slice(o.id.length) : null
+      if (id && have.has(id)) out[d] = id
+    }
+  }
+  for (const c of next.choices || []) if (c.source === 'list' && c.was) out[c.was] = c.id
+  return out
+}
+
+/** Values kept per choice id (what was chosen, the options shown), moved to the ids a newly
+    prepared program gives the same choices. With no map, by id: those the program still has. */
+export function carryChoices<T>(byId: Record<string, T>, ids: Record<string, string> | null,
+  prev: Shown | null | undefined, next: Pick<PreparedProgram, 'choices'>): Record<string, T> {
+  const have = new Set((next.choices || []).map(c => c.id))
+  if (!ids) return Object.fromEntries(Object.entries(byId).filter(([id]) => have.has(id)))
+  const shown = new Set((prev?.choices || []).map(c => c.id))
+  const out: Record<string, T> = {}
+  for (const [id, v] of Object.entries(byId)) if (id in ids) out[ids[id]] = v
+  for (const [id, v] of Object.entries(byId)) {
+    if (id in ids || shown.has(id) || !have.has(id) || id in out) continue
+    out[id] = v   // not the shown program's (kept from before it): by id
+  }
+  return out
 }
 
 /** The options a group holds. */

@@ -58,6 +58,16 @@ export function prepareSettingsSig(i: PrepareInputs): string {
   return JSON.stringify({ tool: i.toolId })
 }
 
+/** Whether the prompt in the box still has to be sent for reading: it is stale, or a look-up
+    (which never starts reading) answered with something still to read and nothing reading it,
+    and this prompt's read hasn't been started: slots not read yet, or readings kept from before
+    an edit that the server has yet to check. */
+export function readPending(status: ProgramStatus, program: { reading?: boolean; working?: boolean } | null | undefined,
+  started: boolean): boolean {
+  if (status === 'stale') return true
+  return status === 'ready' && !!program?.reading && !program?.working && !started
+}
+
 /** The key of the prepared program the editor shows, when it was prepared under the settings
     in effect now: a prepare of an edited prompt sends it, so the slots the edit kept keep their
     readings (and stay ready) while the server checks the edit. */
