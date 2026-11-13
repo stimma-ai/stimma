@@ -472,6 +472,14 @@ prac = pick("prac", cls="lighting.indoor_practical", about="the light", seed=["l
 dram = pick("dram", cls="lighting.dramatic", about="the light", seed=["rim light"], label="Look", phase=1, line=1)
 emit("A woman taking a selfie, lit by", nat, ",", prac, "and", dram)
 '''
+NAT = '''
+nat = pick("nat", cls="lighting.natural", about="the light", seed=["window light"], label="Light", phase=1, line=1)
+emit("A woman, lit by", nat)
+'''
+AGE = '''
+age = pick("age", cls="person.age_band", about="her age", seed=["32-year-old"], label="Age", phase=1, line=1)
+emit("A", age, "woman")
+'''
 LIGHT_LISTS = {"nat": "lighting.natural", "prac": "lighting.indoor_practical", "dram": "lighting.dramatic"}
 
 
@@ -563,16 +571,46 @@ class TestTheSetting:
             got[space == "any"] += 1
         assert got[False] > 30, got   # window light and the like: the drawn room says indoors
 
-    def test_a_revision_drawn_before_the_rule_replays_exactly(self, tmp_path):
-        e = entry_of(LIGHTS)
-        for seed in range(10):
-            rt = runtime_for(e, store=OptionStore(tmp_path), cfg=OFF)
-            rt.options.context_version = "ctx-2"   # what the last build drew under
-            old = draw(LIGHTS, seed, None, [], None, None, None, options=rt.options)
-            assert old.revision["context"] == "ctx-2"
-            again = draw(LIGHTS, seed, None, [], None, None, None,
-                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=old.revision).options)
-            assert again.prompt == old.prompt and again.revision == old.revision
+    def test_a_revision_drawn_before_the_rule_replays_its_recorded_weights(self, tmp_path):
+        """A ctx-2 revision records the natural-light pool as the last build drew it (every value at
+        its tier's weight, none opt-in or held). Its replay draws from those weights, not from
+        today's opt-in flags and setting tags, so each seed draws what it drew then."""
+        import random
+        from pathlib import Path
+        recorded = json.loads((Path(__file__).parent / "fixtures" / "natural_light_pool_ctx2.json").read_text())
+        e = entry_of(NAT)
+        first = draw(NAT, 0, None, [], None, None, None,
+                     options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF).options)
+        # The last build drew no setting context, so its key has none (today's names the unstated setting).
+        key = next(k for k in first.revision["pools"] if k.startswith("nat:")).split(" | context ")[0]
+        rev = {**json.loads(json.dumps(first.revision)), "context": "ctx-2", "pools": {key: recorded}}
+        total = sum(w for _, w in recorded)
+        drawn = set()
+        for seed in range(40):
+            r = random.Random(seed).random() * total   # fill._Fill._weighted over the recorded pool
+            want = next((o for o, w in recorded if (r := r - w) <= 0), recorded[-1][0])
+            again = draw(NAT, seed, None, [], None, None, None,
+                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=rev).options)
+            got = next(d.value for d in again.draws if d.id == "nat")
+            assert got == want, (seed, got, want)
+            drawn.add(got)
+        nat = V().get("lighting.natural")
+        assert any(nat.needs(x) for x in drawn)   # values today's rule holds still replay as drawn
+
+    def test_an_older_replay_still_holds_ages_under_18(self, tmp_path):
+        e = entry_of(AGE)
+        first = draw(AGE, 0, None, [], None, None, None,
+                     options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF).options)
+        key = next(k for k in first.revision["pools"] if k.startswith("age:"))
+        ages = V().get("person.age_band")
+        young = next(v.text for v in ages.values if v.minor)
+        rev = {**json.loads(json.dumps(first.revision)), "context": "ctx-2",
+               "pools": {key: [[young, 1.0], ["32-year-old", 0.000001]]}}
+        got = {next(d.value for d in draw(AGE, seed, None, [], None, None, None,
+                                          options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF,
+                                                              revision=rev).options).draws if d.id == "age")
+               for seed in range(20)}
+        assert got == {"32-year-old"}, got
 
     async def test_the_setting_and_the_time_are_read_in_the_prompt(self, tmp_path):
         prompt = "a woman on a porch at dusk, lit by <light>"

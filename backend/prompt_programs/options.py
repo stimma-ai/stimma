@@ -36,7 +36,9 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
-from prompt_programs.fill import RANK_DECAY, LiteralOptions, PickSpec, Pool, context_suffix, owns, person_of, pool_key
+from prompt_programs.fill import (
+    CONTEXT_VERSION, RANK_DECAY, LiteralOptions, PickSpec, Pool, context_suffix, owns, person_of, pool_key,
+)
 from prompt_programs.vocab import (
     AGE_LIST, OPEN_SHARE, TIER_WEIGHTS, Leaf, fill, given_families, minor_ages, tags_match, template_matches,
     vocabulary,
@@ -1059,6 +1061,11 @@ class GeneratedOptions:
             allowed = self._allowed(spec)
             stand = leaf.pool_values(allowed, bool(spec.minor))[1] if leaf else []
             zero = {v.text for v in stand} if allowed is None else set()
+            if self._older_rules():
+                # A revision drawn under older rules replays with its recorded weights: values made
+                # opt-in since (a light that places the scene) draw as they did. Ages under 18 stay
+                # opt-in whatever was recorded (the minors policy).
+                zero = {t for t in zero if getattr(leaf.value(t), "minor", False)}
             own = frozenset(str(x) for x in [*((self.edits.get(spec.id) or {}).get("add") or []), *self._mine_of(spec)])
             return Pool(key, [str(e[0]) for e in recorded],
                         [0.0 if str(e[0]) in zero else float(e[1]) for e in recorded], False, True, roles,
@@ -1100,6 +1107,10 @@ class GeneratedOptions:
         pool = Pool(key, [o for o, _ in kept], [w for _, w in kept], False, own=frozenset(own), held=held)
         rounds = self.store.rounds(skey) if self.store is not None else 0
         return pool, items, rounds
+
+    def _older_rules(self) -> bool:
+        """A replay of a revision drawn before the current context rules (or without context)."""
+        return not self.context or getattr(self, "context_version", CONTEXT_VERSION) != CONTEXT_VERSION
 
     def _read_bound(self, spec: PickSpec, leaf: Leaf, key: str, skey: str) -> Tuple[Pool, List[str], int]:
         """A bound pick's pool: its list's eligible values weighted by tier, the user's

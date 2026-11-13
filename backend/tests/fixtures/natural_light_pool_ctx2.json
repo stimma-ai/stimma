@@ -1,0 +1,154 @@
+[
+ [
+  "golden hour sunlight",
+  1.0
+ ],
+ [
+  "low golden-hour sun raking across the scene",
+  0.3
+ ],
+ [
+  "overcast daylight",
+  1.0
+ ],
+ [
+  "harsh midday sun",
+  1.0
+ ],
+ [
+  "open shade",
+  1.0
+ ],
+ [
+  "dappled sunlight through leaves",
+  1.0
+ ],
+ [
+  "window light",
+  1.0
+ ],
+ [
+  "north-facing window light",
+  0.3
+ ],
+ [
+  "sun backlight with lens flare",
+  1.0
+ ],
+ [
+  "bright-sky silhouette lighting",
+  0.3
+ ],
+ [
+  "sunset afterglow",
+  1.0
+ ],
+ [
+  "blue hour light",
+  1.0
+ ],
+ [
+  "moonlight",
+  1.0
+ ],
+ [
+  "starlight",
+  0.03
+ ],
+ [
+  "foggy diffuse light",
+  1.0
+ ],
+ [
+  "snow-bounce light",
+  0.3
+ ],
+ [
+  "post-rain sunlight",
+  0.3
+ ],
+ [
+  "god rays through mist",
+  0.3
+ ],
+ [
+  "crepuscular rays",
+  0.3
+ ],
+ [
+  "dawn light",
+  0.3
+ ],
+ [
+  "alpenglow",
+  0.3
+ ],
+ [
+  "canyon bounce light",
+  0.3
+ ],
+ [
+  "sand-bounced sunlight",
+  0.3
+ ],
+ [
+  "water-bounced sunlight",
+  0.3
+ ],
+ [
+  "curtain-filtered daylight",
+  1.0
+ ],
+ [
+  "skylight daylight",
+  0.3
+ ],
+ [
+  "sunlight through window blinds",
+  0.3
+ ],
+ [
+  "paper-screen daylight",
+  0.3
+ ],
+ [
+  "clerestory window light",
+  0.3
+ ],
+ [
+  "sunlight through a lattice",
+  0.3
+ ],
+ [
+  "hazy sunlight",
+  0.3
+ ],
+ [
+  "storm light",
+  0.3
+ ],
+ [
+  "ice-cave daylight",
+  0.03
+ ],
+ [
+  "aurora light",
+  0.03
+ ],
+ [
+  "solar-eclipse light",
+  0.03
+ ],
+ [
+  "underwater sunlight",
+  0.3
+ ],
+ [
+  "forest shade",
+  0.3
+ ],
+ [
+  "whiteout daylight",
+  0.03
+ ]
+]
