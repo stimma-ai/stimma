@@ -206,6 +206,23 @@ async def test_the_slots_words_narrow_its_details():
         assert r.prompt.endswith(f"porch with his {drawn['pet']}, {drawn['list1']} evening")
 
 
+async def test_a_slow_narrowing_leaves_the_answers_that_came_back():
+    """Past the time limit only the narrowings still out are pending: an age that came back
+    in time holds while the descent's late answer is asked again later."""
+    import asyncio
+
+    async def slow_descent(messages, project_id, max_tokens):
+        if messages[-1]["content"].startswith('The list "Descent"'):
+            await asyncio.sleep(5)
+        return await _stub_ask(messages, project_id, max_tokens)
+
+    _, entry = build(parse(PORCH_PROMPT), PORCH_READING)
+    await narrow_entry(entry, None, slow_descent, seconds=1.0)
+    assert sorted(entry["filters"]["elderly_african_man.age"]) == sorted(ELDERLY)
+    assert "elderly_african_man.descent" in entry["narrow_pending"]
+    assert "elderly_african_man.age" not in entry["narrow_pending"]
+
+
 def test_the_same_words_twice_are_two_people():
     reading = {"n": 0, "kind": "person", "label": "Friend", "lead": "",
                "person": {"noun": "friend", "presentation": "", "stated": {}, "vary": ["age", "hair"], "outfit": ""}}

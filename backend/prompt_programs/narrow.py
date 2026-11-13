@@ -52,7 +52,7 @@ from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 log = get_logger(__name__)
 
 NARROW_VERSION = "narrow-7"   # narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
-NARROW_SECONDS = 20.0   # all of a program's narrowing calls together; past it, unresolved picks go unbound
+NARROW_SECONDS = 60.0   # all of a program's narrowing calls together; past it, unresolved picks go unbound. A local chat model answers one in 10-20s, longer while it writes options
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 _MEMBER = re.compile(r"^(.+)\[\d+\]\.(.+)$")   # kids[2].age → ("kids", "age")
@@ -329,12 +329,17 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         return asyncio.ensure_future(subset(vocab.leaves[k[0]], phrase, cache, ask, project_id, about, whole))
 
     async def batch(keys: List[Tuple[str, str, str]]) -> List[Optional[List[str]]]:
+        # Each answer that came back in time holds; only the ones still out are pending.
         jobs = [job(k) for k in keys]
-        try:
-            return list(await asyncio.wait_for(asyncio.gather(*jobs), seconds))
-        except asyncio.TimeoutError:
-            log.warning(f"[prompt-program] narrowing took longer than {seconds:.0f}s: those picks draw unbound for now")
-            return [None for _ in keys]
+        if not jobs:
+            return []
+        _done, late = await asyncio.wait(jobs, timeout=seconds)
+        if late:
+            log.warning(f"[prompt-program] narrowing took longer than {seconds:.0f}s: {len(late)} of {len(jobs)} "
+                        "picks draw unbound for now")
+            for j in late:
+                j.cancel()
+        return [None if j in late or j.cancelled() or j.exception() is not None else j.result() for j in jobs]
 
     # The picks' own narrowing and the context readings, side by side, each within the time left.
     batches = [[k for k in wanted if not all(id(c) in context_only for c in wanted[k])],
