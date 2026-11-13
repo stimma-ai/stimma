@@ -67,8 +67,10 @@ def bound_zones(entry: Dict[str, Any], cid: str) -> Optional[Tuple[List[str], Li
 def zone_titles(entry: Dict[str, Any], cid: str) -> Optional[List[Dict[str, str]]]:
     """A choice's zones as the chooser names them, or None for a choice with one zone."""
     words = str((entry.get("slot_words") or {}).get(cid) or "").strip()
-    if free_zones(entry, cid) is not None:
-        return [{"id": "kinds", "title": f"Kinds of {words}"}, {"id": "instead", "title": f"Instead of {words}"}]
+    free = free_zones(entry, cid)
+    if free is not None:   # a slot with its kinds alone shows no zones
+        titles = {"kinds": f"Kinds of {words}", "instead": f"Instead of {words}"}
+        return [{"id": z, "title": titles[z]} for z in titles if z in free] if len(free) > 1 else None
     if bound_zones(entry, cid) is not None:
         return [{"id": "kinds", "title": words[:1].upper() + words[1:]}, {"id": "instead", "title": f"Instead of {words}"}]
     return None

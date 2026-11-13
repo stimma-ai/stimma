@@ -316,3 +316,19 @@ def test_a_person_as_written_is_the_slots_own_words():
     assert bare.startswith("An elderly African man reading on a porch with his "), bare
     aged = _draw(entry, 2, edits={d: {"off": True} for d in details if not d.endswith(".age")}).prompt
     assert re.search(r"An? \d+-year-old man, wearing", aged), aged
+
+
+def test_a_free_slot_with_nothing_instead_has_its_kinds_alone():
+    """A reading with no things instead: one zone, no zone titles, drawn and pinned as usual."""
+    from prompt_programs.choices import expand, zone_titles
+    reading = json.loads(json.dumps(PORCH_READING))
+    reading["slots"][1]["free"]["instead"] = []
+    src, entry = build(parse(PORCH_PROMPT), reading)
+    assert "zones={'kinds': ['ginger tabby cat', 'old basset hound', 'grey parrot']}" in src
+    assert entry["slots"][1]["zones"] == {"kinds": ["ginger tabby cat", "old basset hound", "grey parrot"]}
+    assert zone_titles(entry, "pet") is None
+    pins, edits, zones = expand(entry, {"pet": {"zones": ["kinds", "instead"]}})
+    assert zones == {}
+    assert _draw(entry, 3, pins={"pet": ["pet"]}).prompt.split("\n")[-1].count("with his pet,") == 1
+    full = build(parse(PORCH_PROMPT), PORCH_READING)[1]
+    assert [z["id"] for z in zone_titles(full, "pet")] == ["kinds", "instead"]

@@ -26,7 +26,7 @@ from prompt_programs.slots import CAMERA, KINDS, Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-6"   # reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-7"   # reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -100,8 +100,9 @@ what the prompt and notes say of them: "the girl's hairstyle", "a middle-aged ma
   "list": {"list": "<the list's id>", "about": "..."}
 
 For free: about (what it is in this image, a few words), kinds (three specific kinds of the
-thing the words name) and instead (three other things that could stand in the same place in
-the sentence).
+thing the words name) and instead: up to three other things that would naturally stand in the
+same place instead, only when something does ("on a ⟨bench⟩" could be "low stone wall"). Often
+nothing does (what stands instead of a pet?): then instead is [].
 
 Write every example (light, kinds, instead) so it replaces exactly the bracketed words: the
 same form, no article unless the words have one. "with his ⟨pet⟩" gives "ginger tabby cat",
@@ -140,7 +141,7 @@ SHAPE = {
         {"n": 2, "kind": "free", "label": "Pet", "lead": " with his",
          "free": {"about": "his pet, with him on the porch",
                   "kinds": ["ginger tabby cat", "old basset hound", "grey parrot"],
-                  "instead": ["stack of library books", "mug of coffee", "transistor radio"]}},
+                  "instead": []}},
     ],
     "lists": [{"n": 1, "label": "Season"}],
 }

@@ -364,10 +364,12 @@ def build(parsed: Parsed, readings: Dict[str, Any], as_typed: Optional[Dict[str,
             else:
                 kinds = _strings(got.get("kinds") or [], "kinds")
                 instead = _strings(got.get("instead") or [], "instead")
+                # Things instead are a zone only when the reader found some: a slot can have its kinds alone.
+                zones = {"kinds": kinds, **({"instead": instead} if instead else {})}
                 stmts.append(f"{var} = " + _call("pick", cid, about=str(got.get("about") or seg.words), seed=kinds,
-                                                 zones={"kinds": kinds, "instead": instead}, label=label, phase=2))
+                                                 zones=zones, label=label, phase=2))
                 slot_words[cid] = seg.words
-                info["zones"] = {"kinds": kinds, "instead": instead}
+                info["zones"] = zones
             parts.append(_opt(*([repr(lead)] if lead else []), var))
         meta.append(info)
     flush()
