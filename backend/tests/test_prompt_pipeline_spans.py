@@ -50,6 +50,9 @@ def test_verify_and_unmark_needs_every_value_exactly():
     # A value copied exactly with its marks dropped is still a good answer.
     assert pp.verify_and_unmark("A young woman reads, shot on ⟦35mm⟧ film.", values) == "A young woman reads, shot on 35mm film."
     assert pp.verify_and_unmark("A young woman reads, shot on film.", values) is None
+    # A value inside a longer word is not the value: the build "short" is gone here.
+    assert pp.verify_and_unmark("A woman in denim shorts.", ["short"]) is None
+    assert pp.verify_and_unmark("A short woman in denim shorts.", ["short"]) == "A short woman in denim shorts."
     assert pp.verify_and_unmark("A ⟦Young woman⟧ reads on ⟦35mm⟧.", values) is None
 
 

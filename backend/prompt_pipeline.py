@@ -131,7 +131,10 @@ def verify_and_unmark(output: str, values: Sequence[str]) -> Optional[str]:
     The marks are how the model is told what to copy: a value copied exactly with its
     marks dropped is still a good answer."""
     plain = output.replace(_MARK_OPEN, "").replace(_MARK_CLOSE, "")
-    if any(plain.count(v) < n for v, n in Counter(values).items()):
+    # A value counts where it stands whole: "short" inside "shorts" is not the value.
+    def whole(v: str) -> int:
+        return len(re.findall(rf"(?<!\w){re.escape(v)}(?!\w)", plain))
+    if any(whole(v) < n for v, n in Counter(values).items()):
         return None
     return plain
 
