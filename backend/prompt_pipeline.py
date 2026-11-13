@@ -136,7 +136,14 @@ def verify_and_unmark(output: str, values: Sequence[str]) -> Optional[str]:
         return len(re.findall(rf"(?<!\w){re.escape(v)}(?!\w)", plain))
     if any(whole(v) < n for v, n in Counter(values).items()):
         return None
-    return plain
+    # A value that opens with its own article sometimes gets a second one written
+    # before its mark ("A ⟦a 31-year-old⟧ man"): keep one, with the outer one's capital.
+    def one_article(m: re.Match) -> str:
+        inner = m.group(2)
+        return (inner.capitalize() if m.group(1)[0].isupper() else inner) + m.group(3)
+    return re.sub(
+        rf"(?<!\w)(an?|the)\s+{re.escape(_MARK_OPEN)}(an?|the)(\s)", one_article, output, flags=re.IGNORECASE,
+    ).replace(_MARK_OPEN, "").replace(_MARK_CLOSE, "")
 
 
 def strip_comments(prompt: str) -> str:
@@ -265,7 +272,7 @@ async def _improve_with_verbatim_protection(
 ) -> str:
     """Improve one prompt, keeping [verbatim] text and the values at `fixed_spans`
     ((start, end, ...) in `prompt`) exactly. `level` makes this the per-image
-    improver: a prompt already at length is sent as it is, and a rewrite that
+    improver: the "off" level sends the prompt as it is, and a rewrite that
     keeps changing a fixed value is dropped for the prompt as given. `outcome`,
     when passed, records what happened: improved "true", "skipped" or "fallback",
     the length target, and the reason for a fallback."""
@@ -284,7 +291,7 @@ async def _improve_with_verbatim_protection(
     target = length_target(mode, level, family) if level else None
     report.update(improved="true", target=list(target) if target else None)
     if level and not improve_needed(prompt, mode, level, family):
-        log.info(f"[prompt-pipeline] Improve skipped: the prompt is already at length for {mode} ({level})")
+        log.info(f"[prompt-pipeline] Improve skipped: detail level is off for {mode}")
         report["improved"] = "skipped"
         return prompt
 
@@ -735,7 +742,7 @@ def _validated_prompt_preload(
         return None
     if not isinstance(improved_prompt, str) or not improved_prompt.strip():
         return None
-    # The per-image improver may return a prompt already at length unchanged.
+    # The per-image improver may return a prompt that needs nothing unchanged.
     if not level and " ".join(improved_prompt.split()) == " ".join(processed_prompt.split()):
         return None
     return improved_prompt

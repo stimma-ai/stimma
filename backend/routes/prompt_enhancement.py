@@ -174,13 +174,26 @@ _LEVEL_DETAIL = {
 }
 
 
+def fitted_target(target: Optional[Tuple[int, int, str]], prompt: str) -> Optional[Tuple[int, int, str]]:
+    """The target for this prompt on the per-image path. A prompt already at or past
+    the low end keeps its length and gets the level's room on top, so a long prompt is
+    improved like any other and never cut down to the ceiling."""
+    if not target:
+        return None
+    low, high, unit = target
+    length = prompt_length(prompt, unit)
+    if length < low:
+        return target
+    return (low, max(high, length + (high - low)), unit)
+
+
 def _length_target_guidance(target: Optional[Tuple[int, int, str]], *, late: bool = False,
-                            level: Optional[str] = None) -> str:
+                            level: Optional[str] = None, long_prompt: bool = False) -> str:
     """The guide's closing length line: the target's top end as a ceiling, never a
-    quota, so nothing pushes the model to pad a prompt that needs little. The low
-    end only decides when the per-image improver skips the call (improve_needed).
+    quota, so nothing pushes the model to pad a prompt that needs little.
     late: the per-image improver, which may return a prompt as it is; its level
-    (fill = Medium, expand = High) says first how much concrete detail to add."""
+    (fill = Medium, expand = High) says first how much concrete detail to add.
+    long_prompt: the prompt is already at length, so the line says to keep what it has."""
     if not target:
         return ""
     _low, high, unit = target
@@ -188,23 +201,20 @@ def _length_target_guidance(target: Optional[Tuple[int, int, str]], *, late: boo
     text = (f"Length: at most {amount}. This is a ceiling, not a target: stop when nothing "
             "concrete is left to add, however short the prompt still is.")
     if late:
-        text += " If the prompt already names what the picture needs, return it with only the changes this model's format needs."
+        if long_prompt:
+            text += (" The prompt is already long: keep every thing it names, make it read as one clear "
+                     "description, and add only the concrete things the picture still lacks.")
+        else:
+            text += " If the prompt already names what the picture needs, return it with only the changes this model's format needs."
         detail = _LEVEL_DETAIL.get((level or "expand", "tags" if unit == "tags" else "words"))
         if detail:
             text = f"{detail}\n{text}"
     return text
 
 
-# Modes whose form is prose: a prompt already at length can go as it is. Tag,
-# JSON and H3 forms are a conversion, so they always run.
-_PROSE_FORM_MODES = frozenset({"prose", "krea-2", "flux3-klein", "qwen-image-2.1", "cinematography", "ltx-2.5"})
 # Rough output tokens per unit, for the max_tokens clamp.
 _TOKENS_PER_UNIT = {"words": 1.3, "tags": 4, "sentences": 35}
 _SENTENCE_END_RE = re.compile(r"[.!?]+(?=\s|$)")
-
-
-def _has_comment_lines(prompt: str) -> bool:
-    return any(line.lstrip().startswith("#") for line in prompt.splitlines())
 
 
 def prompt_length(prompt: str, unit: str) -> int:
@@ -220,21 +230,12 @@ def prompt_length(prompt: str, unit: str) -> int:
 
 
 def improve_needed(prompt: str, mode: str, level: Optional[str], family: Optional[str] = None) -> bool:
-    """Whether the per-image improver should call the model. It reads only length and
-    line starts. Classic Improve (no level) always runs; "off" runs only where the
-    model needs its format (H3); a prose-form prompt already at the low end of its
-    target, with no comment lines asking for something, goes as it is."""
-    if not level:
-        return True
+    """Whether the per-image improver should call the model. Every level but "off"
+    runs, whatever the prompt's length; "off" runs only where the model needs its
+    format (H3). Classic Improve (no level) always runs."""
     if level == "off":
         return mode == "minimax-h3"
-    if mode not in _PROSE_FORM_MODES or _has_comment_lines(prompt):
-        return True
-    target = length_target(mode, level, family)
-    if not target:
-        return True
-    low, _high, unit = target
-    return prompt_length(prompt, unit) < low
+    return True
 
 
 def improve_max_tokens(target: Optional[Tuple[int, int, str]]) -> int:
@@ -1077,10 +1078,12 @@ async def style_guide(request: "ImprovePromptRequest", session,
             audio_disabled=(mode == "minimax-h3" and not request.h3_generate_audio),
         ),
     )
+    target = length_target(mode, request.level, family)
+    fitted = fitted_target(target, request.prompt)
     system_prompt = system_prompt.replace(
         "{length_target}", _length_target_guidance(
-            length_target(mode, request.level, family), late=request.level is not None,
-            level=request.level)
+            fitted if request.level else target, late=request.level is not None,
+            level=request.level, long_prompt=bool(request.level) and fitted != target)
     )
     # Per-request parts close the guide, so the text before them stays the same
     # across requests and can be cached; empty slots leave only blank lines.
@@ -1097,7 +1100,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
     Fleshes out sparse requests and refines detailed descriptions while
     preserving the original intent. Classic Improve retries unchanged model
     responses; the per-image improver (``level`` set) accepts them, and makes no
-    call at all for a prompt already at its length (``improve_needed``).
+    call only at the "off" level (``improve_needed``).
     """
     if not request.prompt.strip():
         # Nothing to improve (e.g. a tool with no prompt input) — don't spend
@@ -1121,7 +1124,8 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
 
     # "off" reaches the model only where it needs its format, and keeps the user's words.
     system_prompt, source_images_b64, mode = await style_guide(request, session, fill=request.level == "off")
-    max_tokens = improve_max_tokens(length_target(mode, request.level, family)) if request.level else 8192
+    max_tokens = (improve_max_tokens(fitted_target(length_target(mode, request.level, family), request.prompt))
+                  if request.level else 8192)
     log.info(
         f"Prompt improve mode={mode} images={len(source_images_b64)} "
         f"audio_conditioned={request.audio_conditioned}"
@@ -1274,7 +1278,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                         "message": "The tool assistant returned an empty prompt. Generation was not started. "
                                    "Retry or check the tool assistant model in Settings.",
                     })
-                # A prompt already at length comes back unchanged on purpose.
+                # A prompt that needs nothing comes back unchanged on purpose.
                 if request.level or " ".join(improved_prompt.split()) != " ".join(request.prompt.split()):
                     break
                 log.warning("Prompt improve returned unchanged text", attempt=attempt + 1)

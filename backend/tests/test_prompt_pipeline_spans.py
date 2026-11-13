@@ -115,15 +115,15 @@ async def test_spans_follow_their_values_through_wildcards(generation_app, gener
     assert out == "a red hat on a young woman at a bus stop"
 
 
-async def test_prompt_at_length_makes_no_call(generation_app, generation_db_session, monkeypatch):
-    requests = _fake_improve(monkeypatch, ["never used"])
+async def test_long_prompt_is_still_improved(generation_app, generation_db_session, monkeypatch):
+    requests = _fake_improve(monkeypatch, [lambda r: r.prompt + ", at a bus stop"])
     prompt = "a young woman " + " ".join(["word"] * 120)
     outcome = {}
     out = await pp.run_prompt_pipeline(
         _db(generation_db_session), prompt, LATE, model="flux1-dev", fixed_spans=[WOMAN], level="expand",
         outcome=outcome)
-    assert requests == [] and out == prompt
-    assert outcome == {"improved": "skipped", "target": [80, 120, "words"]}
+    assert len(requests) == 1 and out == prompt + ", at a bus stop"
+    assert outcome["improved"] == "true"
 
 
 async def test_unchanged_answer_is_kept_on_the_late_path(generation_app, generation_db_session, monkeypatch):
@@ -147,3 +147,8 @@ def test_preload_may_equal_its_input_only_on_the_late_path():
                 input_image_count=0, audio_conditioned=False, source_signature="s")
     assert pp._validated_prompt_preload(preload, **args) is None
     assert pp._validated_prompt_preload(preload, **args, level="fill") == "a cat"
+
+
+def test_a_doubled_article_before_a_value_is_written_once():
+    out = pp.verify_and_unmark("A ⟦a 31-year-old⟧ man waits. Beside him, a ⟦a red hat⟧ rests.", ["a 31-year-old", "a red hat"])
+    assert out == "A 31-year-old man waits. Beside him, a red hat rests."
