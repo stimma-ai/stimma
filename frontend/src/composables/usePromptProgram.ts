@@ -234,6 +234,7 @@ export function usePromptProgram(o: Options) {
     busy.value = true
     startedSig = sig
     readingPolls = 0
+    lookupId++  // a look-up sent before this answers from before the read started: drop it
     try {
       const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`, request({ force }))
       if (data?.unsupported) {

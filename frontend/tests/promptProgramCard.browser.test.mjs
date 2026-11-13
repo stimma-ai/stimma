@@ -224,6 +224,19 @@ test('a slot just made opens on "Writing options…" and fills in when it is rea
   await expect(card.locator('[data-default]')).toHaveText('Kinds of cat', { timeout: 5000 })
 })
 
+test('a look-up sent before the read started does not stop the pills filling in', async t => {
+  const { page, row } = await open(t)
+  await page.evaluate(() => { window.slow(600, 1500); window.setPrompt(`${window.calls[0].body.prompt} and a <cat>`) })
+  // The look-up is out (it will say nothing is reading); the read starts and answers first.
+  await expect.poll(() => page.evaluate(() => window.calls.filter(c => c.body.cache_only && c.body.prompt.includes('<cat>')).length)).toBe(1)
+  await page.evaluate(() => window.prepare())
+  await expect(row.locator('[data-choice="cat"] [data-reading]')).toBeVisible()
+  await expect(row.locator('[data-choice="cat"] [data-reading]')).toHaveCount(0, { timeout: 6000 })
+  await expect(row.locator('[data-choice="cat"]')).toHaveText('Cat')
+  const reads = await page.evaluate(() => window.calls.filter(c => c.url === 'prepare' && !c.body.cache_only).length)
+  assert.equal(reads, 1)
+})
+
 test('a submit sends the choices as program.choices', async t => {
   const { page, pill, card, option } = await open(t)
   await pill('list1').click()

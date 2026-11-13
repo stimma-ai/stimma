@@ -71,6 +71,8 @@ const calls: Array<{ url: string; body: any }> = ((window as any).calls = [])
 const prompt = ref(PROMPT)
 // How long a model call takes here.
 const prepareMs = ref(0)
+// How long a cache-only look-up takes to come back (its answer is what the server had when asked).
+const lookupMs = ref(0)
 // <cat> and <broken>: 'working' while the server reads them, then 'read'.
 const reads = new Map<string, 'working' | 'read'>()
 const unread = (slot: ProgramSlot): ProgramSlot => ({ ...slot, kind: 'free', label: slot.words, details: [], state: 'reading' })
@@ -96,8 +98,9 @@ axios.defaults.adapter = async (config: any) => {
       reads.set('cat', 'working')
       setTimeout(() => reads.set('cat', 'read'), prepareMs.value)
     }
-    if (reads.get('cat') !== 'read') return ok({ ...program([man, pet, light, unread(cat)]), reading: true, working: reads.get('cat') === 'working' })
-    return ok(program([man, pet, light, cat], [ch('cat', 'Cat', { slot: 'cat', options: ['cat'], zones: [{ id: 'kinds', title: 'Kinds of cat' }, { id: 'instead', title: 'Instead of cat' }] })]))
+    const late = async (data: any) => { if (body.cache_only && lookupMs.value) await new Promise(r => setTimeout(r, lookupMs.value)); return ok(data) }
+    if (reads.get('cat') !== 'read') return late({ ...program([man, pet, light, unread(cat)]), reading: true, working: reads.get('cat') === 'working' })
+    return late(program([man, pet, light, cat], [ch('cat', 'Cat', { slot: 'cat', options: ['cat'], zones: [{ id: 'kinds', title: 'Kinds of cat' }, { id: 'instead', title: 'Instead of cat' }] })]))
   }
   if (url === 'pools') {
     const have = new Set((withCat ? [...choices, { id: 'cat' }] : choices).map(c => c.id))
@@ -124,6 +127,8 @@ const pp = usePromptProgram({
 ;(window as any).programStatus = () => pp.status.value
 ;(window as any).programError = () => pp.error.value
 ;(window as any).setPrompt = (p: string) => { prompt.value = p }
+;(window as any).slow = (lookup: number, read: number) => { lookupMs.value = lookup; prepareMs.value = read }
+;(window as any).prepare = () => { void pp.prepare() }
 // The editor made a slot: the prompt changes, and it asks for the slot's card.
 ;(window as any).newSlot = (ms: number) => {
   prepareMs.value = ms
