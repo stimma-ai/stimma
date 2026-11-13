@@ -527,3 +527,38 @@ def test_the_message_names_each_part_and_the_example_shows_its_prompt():
     system = reader.system_text()
     assert 'For the prompt "an ⟨1: elderly African man⟩ reading on a porch with his ⟨2: pet⟩' in system
     assert "never a part, even when they name a\nperson" in system
+
+
+async def test_a_list_with_declared_groups_is_narrowed_by_group():
+    """The descent list's heritage groups are shown, and a group's name in the reply stands for
+    every item in it; single items still count by themselves."""
+    from prompt_programs.narrow import messages_for, subset
+    from prompt_programs.vocab import vocabulary
+    leaf = vocabulary().get("person.ethnicity")
+    values = [v.text for v in leaf.eligible()]
+    system, user = (m["content"] for m in messages_for(leaf, "African", values, "the man's descent"))
+    assert "- north_african: Moroccan, Algerian" in user and "group's name in place of its items" in system
+    north = [v.text for v in leaf.values if v.group == "north_african"]
+    horn = [v.text for v in leaf.values if v.group == "horn_of_africa"]
+
+    async def answer(messages, project_id, max_tokens):
+        return json.dumps(["north_african", horn[0], "no such people"])
+    assert sorted(await subset(leaf, "African", None, answer)) == sorted(north + horn[:1])
+
+
+async def test_an_empty_narrowing_is_asked_once_more():
+    from prompt_programs.narrow import subset
+    from prompt_programs.vocab import vocabulary
+    leaf = vocabulary().get("animal.species")
+    replies = iter(["[]", '["cat", "dog"]'])
+    asked = []
+
+    async def answer(messages, project_id, max_tokens):
+        asked.append(messages)
+        return next(replies)
+    assert await subset(leaf, "pet", None, answer) == ["cat", "dog"]
+    assert len(asked) == 2 and "That keeps no item" in asked[1][-1]["content"]
+
+    async def none(messages, project_id, max_tokens):
+        return "[]"
+    assert await subset(vocabulary().get("animal.dog_breed"), "horse", None, none) == []   # a second [] stands

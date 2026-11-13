@@ -53,7 +53,7 @@ from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-8"   # narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
+NARROW_VERSION = "narrow-9"   # narrow-9: a list with declared groups (descent) is answered in groups. narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
 NARROW_SECONDS = 180.0   # all of a program's narrowing calls together; past it the prepare fails. With no reasoning one call takes a few seconds
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
@@ -138,8 +138,40 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", str(s).strip().lower())
 
 
+GROUPED_REPLY = """The list's items are shown in named groups (peoples, regions, kinds). Reply with only a JSON
+list of the items that fit, each copied exactly as written. Where every item of a group fits,
+you may write the group's name in place of its items. The description need not be an item's
+name. A word for a continent or a whole region names no item, yet takes in the items from
+anywhere in it, all of them: "European" is everyone from Europe, north, south, east and west. A word for one people or one place keeps that item, not
+the rest of its group: "Irish" is Irish alone. If no item fits, reply []."""
+
+
+def grouped(leaf: Leaf, values: Sequence[str]) -> Optional[Dict[str, List[str]]]:
+    """The values by their declared group, when the list declares groups and every value is in
+    one (the descent list: its heritage groups); else None."""
+    if not getattr(leaf, "groups", None):
+        return None
+    shown = set(values)
+    out: Dict[str, List[str]] = {}
+    for v in leaf.values:
+        sh = _shown(v.text)
+        if sh not in shown:
+            continue
+        if not v.group or v.group not in leaf.groups:
+            return None
+        out.setdefault(v.group, []).append(sh)
+    return out or None
+
+
 def messages_for(leaf: Leaf, phrase: str, values: Sequence[str], about: str = "", prompt: str = "") -> List[Dict[str, str]]:
     said = f', said of {about.strip()}' if about.strip() else ""
+    groups = grouped(leaf, values)
+    if groups:
+        listing = "\n".join(f"- {g}: {', '.join(items)}" for g, items in groups.items())
+        user = (f'The list "{leaf.label}" ({leaf.description}):\n{json.dumps(list(values), ensure_ascii=False)}\n\n'
+                f'Its items by group:\n{listing}\n\nWhich of these fit "{phrase}"{said}?')
+        system = _SYSTEM.replace(_SYSTEM.split("\n\n")[1], GROUPED_REPLY, 1)
+        return [{"role": "system", "content": system}, {"role": "user", "content": user}]
     user = (f'The list "{leaf.label}" ({leaf.description}):\n{json.dumps(list(values), ensure_ascii=False)}\n\n'
             f'Which of these fit "{phrase}"{said}?')
     if prompt.strip():   # an age is read in the whole prompt (see _SYSTEM)
@@ -151,6 +183,18 @@ def messages_for(leaf: Leaf, phrase: str, values: Sequence[str], about: str = ""
                  "description of a child means the child's ages), never merely because the description doesn't rule "
                  f"it out: {json.dumps(asked, ensure_ascii=False)}")
     return [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": user}]
+
+
+def parse_grouped(reply: str, groups: Dict[str, List[str]]) -> Optional[List[str]]:
+    """The values a reply names, each by itself or by its group's name; None when it holds no
+    JSON list. Unknown names are ignored."""
+    every = [v for items in groups.values() for v in items]
+    names = {_norm(g): items for g, items in groups.items()}
+    got = parse_subset(reply, every + [g for g in groups if g not in set(every)])
+    if got is None:
+        return None
+    keep = {v for x in got for v in names.get(_norm(x), [x])}
+    return [v for v in every if v in keep]
 
 
 def parse_subset(reply: str, values: Sequence[str]) -> Optional[List[str]]:
@@ -232,17 +276,26 @@ async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask
         if hit is not None:
             return hit
     got = None
-    for attempt in range(2):   # one more try for a failed call or an unreadable answer
+    messages = messages_for(leaf, phrase, shown, about, prompt)
+    for attempt in range(2):   # one more try for a failed call, an unreadable answer or an empty one
         try:
-            reply = await ask(messages_for(leaf, phrase, shown, about, prompt), project_id, reply_tokens(shown))
+            reply = await ask(messages, project_id, reply_tokens(shown))
         except Exception as e:
             log.warning(f"[prompt-program] narrowing {leaf.id} by {phrase!r} failed (try {attempt + 1}): {e}")
             continue
-        named = parse_subset(reply, shown)
+        groups = grouped(leaf, shown)
+        named = parse_grouped(reply, groups) if groups else parse_subset(reply, shown)
         if named is not None and len(named) == len(shown) and _all(reply):
             opt_in = {_shown(v.text) for v in leaf.values if v.opt_in}   # kept only when named
             named = [sh for sh in named if sh not in opt_in]
         got = None if named is None else [v for v, sh in zip(values, shown) if sh in set(named)]
+        if got == [] and attempt == 0:
+            # Nothing fits the user's own words: rare enough to be asked once more. A second [] stands.
+            messages = [*messages, {"role": "assistant", "content": reply},
+                        {"role": "user", "content": f'That keeps no item. The description need not be an item\'s name: '
+                                                    f'which items would a reader of "{phrase}" accept? Reply with them, or '
+                                                    "[] again if truly none."}]
+            continue
         if got is not None:
             break
         log.info(f"[prompt-program] narrowing {leaf.id} by {phrase!r}: no list in the reply (try {attempt + 1})")

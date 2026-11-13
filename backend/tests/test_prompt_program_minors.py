@@ -242,7 +242,7 @@ class TestNarrowing:
             return "[]"
         asyncio.run(subset(vocabulary().get("person.eye_color"), "dark", None, ask, None, "her eyes", "a girl with dark eyes"))
         asyncio.run(subset(ages(), "girl", None, ask, None, "her age", "a girl with dark eyes"))
-        assert "The whole prompt" not in seen[0] and "The whole prompt:\na girl with dark eyes" in seen[1]
+        assert "The whole prompt" not in seen[0] and "The whole prompt:\na girl with dark eyes" in seen[-1]   # an empty answer is asked twice
 
 
     def test_the_opt_in_ages_are_still_named_as_such(self):
