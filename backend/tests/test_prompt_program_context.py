@@ -591,3 +591,24 @@ class TestTheSetting:
         e = entry_of(LIGHTS, "a woman taking a selfie, lit by <light>")
         await narrow_read(e, NarrowCache(tmp_path), Ask())   # every setting fits: nothing stated
         assert "stated_context" not in e
+
+
+SELFIE = '''
+selfie = pick("selfie", cls="camera.selfie", about="the selfie", seed=["an arm's-length selfie"], label="Selfie", phase=1, line=1)
+emit("A woman taking", selfie)
+'''
+
+
+async def test_a_list_copied_whole_by_its_narrowing_keeps_its_opt_in_values_held(tmp_path):
+    """A narrowing that names every item one by one says what ["ALL"] says: a couple or group
+    selfie for one woman was not called for."""
+    e = entry_of(SELFIE, "a woman taking <selfie>")
+    await narrow_read(e, NarrowCache(tmp_path), Ask(read={"selfie": "selfie"}))   # names all nine
+    held = {"a couple selfie", "a two-person mirror selfie", "a group selfie"}
+    assert e["filters"]["selfie"] and not held & set(e["filters"]["selfie"])
+    got = {d["selfie"].value for _, d in draws_of(e, tmp_path, range(300))}
+    assert got and not got & held, got
+    # Named on purpose, they are drawn.
+    e = entry_of(SELFIE, "two friends taking <selfie>")
+    await narrow_read(e, NarrowCache(tmp_path / "two"), Ask(read={"selfie": "selfie"}, keep={"selfie": ["a couple selfie"]}))
+    assert e["filters"]["selfie"] == ["a couple selfie"]

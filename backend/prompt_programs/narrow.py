@@ -481,6 +481,11 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             got = within or facet_only(vocab.leaves[c["cls"]], facet[cid])
         else:
             got = words[cid]
+            # Every item named one by one says no more than ["ALL"]: the opt-in ones (a couple
+            # selfie, a child's age) were not called for, so they stay drawn only when ticked.
+            leaf = vocab.leaves[c["cls"]]
+            if got and {v.text for v in leaf.eligible()} <= set(got):
+                got = [t for t in got if not getattr(leaf.value(t), "opt_in", False)] or got
         if not got and getattr(vocab.get(c.get("cls")), "strict", False):
             # A list that is never drawn without (ages: generated ones include children; a face or a
             # photo's look: generated ones are praise and blur). Words nothing in it fits weren't about
