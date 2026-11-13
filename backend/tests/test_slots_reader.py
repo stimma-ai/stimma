@@ -537,7 +537,7 @@ async def test_a_list_with_declared_groups_is_narrowed_by_group():
     leaf = vocabulary().get("person.ethnicity")
     values = [v.text for v in leaf.eligible()]
     system, user = (m["content"] for m in messages_for(leaf, "African", values, "the man's descent"))
-    assert "- north_african: Moroccan, Algerian" in user and "group's name in place of its items" in system
+    assert "- north_african: Moroccan, Algerian" in user and '{"groups": [...],' in system
     north = [v.text for v in leaf.values if v.group == "north_african"]
     horn = [v.text for v in leaf.values if v.group == "horn_of_africa"]
 
@@ -546,19 +546,25 @@ async def test_a_list_with_declared_groups_is_narrowed_by_group():
     assert sorted(await subset(leaf, "African", None, answer)) == sorted(north + horn[:1])
 
 
-async def test_an_empty_narrowing_is_asked_once_more():
+async def test_a_group_named_beside_its_own_items_keeps_only_those_items():
+    """{"groups": [g], "items": [an item of g]} names g for that item: just the item is kept."""
     from prompt_programs.narrow import subset
     from prompt_programs.vocab import vocabulary
-    leaf = vocabulary().get("animal.species")
-    replies = iter(["[]", '["cat", "dog"]'])
-    asked = []
+    leaf = vocabulary().get("person.ethnicity")
+    west = [v.text for v in leaf.values if v.group == "west_central_east_african"]
+    north = [v.text for v in leaf.values if v.group == "north_african"]
 
     async def answer(messages, project_id, max_tokens):
-        asked.append(messages)
-        return next(replies)
-    assert await subset(leaf, "pet", None, answer) == ["cat", "dog"]
-    assert len(asked) == 2 and "That keeps no item" in asked[1][-1]["content"]
+        return '```json\n{"groups": ["west_central_east_african", "north_african"], "items": ["Nigerian"]}\n```'
+    assert sorted(await subset(leaf, "Nigerian or North African", None, answer)) == sorted(["Nigerian", *north])
+    assert "Nigerian" in west
 
-    async def none(messages, project_id, max_tokens):
-        return "[]"
-    assert await subset(vocabulary().get("animal.dog_breed"), "horse", None, none) == []   # a second [] stands
+    async def nothing(messages, project_id, max_tokens):
+        return '{"groups": [], "items": []}'
+    asked = []
+
+    async def counted(messages, project_id, max_tokens):
+        asked.append(1)
+        return await nothing(messages, project_id, max_tokens)
+    assert await subset(leaf, "Martian", None, counted) == [] and len(asked) == 1   # an empty answer stands
+
