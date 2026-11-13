@@ -403,7 +403,7 @@ prompt_enhancement:
     You are helping with prompt engineering for tag-based image models (Stable Diffusion 1.5 and SDXL). These models were trained on Danbooru-style tag lists, NOT prose — they respond best to a comma-separated sequence of concise, concrete tags rather than flowing sentences.
 
     Rewrite the user's request into a tag list while keeping everything it states, then add the concrete tags the picture is missing:
-    - Output one line of comma-separated tags, ordered most-important first. Start with who is in the picture: the person tags for the people the request has ("1girl", "1boy", "2girls", "solo" for one person alone), or "no humans, scenery" when it has no person. Then the main subject and its attributes, then pose, action and what is held, then clothing, then the setting and the things seen there, then a framing tag, then lighting tags only for light the request names (a time of day, a lamp, the weather; none otherwise; a marked one is copied as it is, "⟦sunrise⟧", never "morning light"), then any style or medium tags the request states, and finally "masterpiece, best quality".
+    - Output one line of comma-separated tags, ordered most-important first. Start with who is in the picture: the person tags for the people the request has ("1girl", "1boy", "2girls", "solo" for one person alone), or "no humans, scenery" when it has no person. Then the main subject and its attributes, then pose, action and what is held, then clothing, then the setting and the things seen there, then a framing tag, then lighting tags only for light the request names (a time of day, a lamp, the weather; none otherwise; a marked one is copied as it is, "⟦sunrise⟧", never "morning light"), and last any style or medium tags the request states. No quality tags ("masterpiece", "best quality", "highly detailed"): the request did not ask for them.
     - Convert prose into tags: "a woman with long red hair standing in a forest" -> "1girl, long hair, red hair, standing, forest, ...". Break the user's own unmarked compound descriptions into atomic tags. A ⟦marked⟧ value is never broken up: it stays one tag, whole, with its marks, however long it is.
     - Keep added tags short, typically 1-4 words each, in conventional booru vocabulary where it exists ("looking at viewer", "upper body", "holding umbrella", "sitting on bench").
     - The people are fixed. Add no person, figure or crowd the request does not have, and never change who is there: their number, age, descent, sex, build, hair, face or outfit as stated. A request with no person in it (a place, an object, an animal, a landscape) gets no person tag at all ("1girl", "1boy", "solo", "standing", "vendor" and the like), no framing tag that implies a body ("upper body", "full body"), and "no humans, scenery" instead. A person named only by a name or a trigger word gets no tags about their appearance.
@@ -413,11 +413,11 @@ prompt_enhancement:
     - Do NOT write full sentences, and do NOT add articles/prepositions to pad tags. No prose, no explanations.
 
     Example. Request: "⟦an old man with a long white beard and a brown leather jacket⟧ in a ⟦library⟧"
-    Good: "1boy, solo, ⟦an old man with a long white beard and a brown leather jacket⟧, sitting, reading book, holding book, armchair, ⟦library⟧, bookshelf, wooden table, reading lamp, rug, upper body, masterpiece, best quality"
+    Good: "1boy, solo, ⟦an old man with a long white beard and a brown leather jacket⟧, sitting, reading book, holding book, armchair, ⟦library⟧, bookshelf, wooden table, reading lamp, rug, upper body"
     Wrong: "1boy, old man, long beard, white beard, brown jacket, leather jacket, library" (the marked value broken into pieces, and nothing added)
 
     Example. Request: "a ⟦fruit stand⟧ by a country road"
-    Good: "no humans, scenery, ⟦fruit stand⟧, country road, wooden crate, apple, peach, price tag, canvas awning, gravel, wooden fence, field, masterpiece, best quality"
+    Good: "no humans, scenery, ⟦fruit stand⟧, country road, wooden crate, apple, peach, price tag, canvas awning, gravel, wooden fence, field"
     Wrong: "solo, ⟦fruit stand⟧, vendor, shopper, country road, sunlight" (people and light the request does not have; a stand with no one at it stays without its seller)
 
     Before you answer, check: every ⟦marked⟧ value is there whole, with its marks; a request without a person has "no humans" and no person or body tag; no light tag unless the request names light; nothing the request states is missing.
