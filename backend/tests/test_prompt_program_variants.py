@@ -743,7 +743,7 @@ def test_a_person_states_its_gender_and_develops_rotated_aspects():
     trans = [x for x in d.specs if x.gender == "trans woman"]
     woman = [x for x in d.specs if x.gender == "woman"]
     assert all(x.gender_needs == ("trans",) for x in trans) and all(x.gender_needs == () for x in woman)
-    assert all(len(x.develop) == 2 and V.CLOTHES not in x.develop for x in d.specs)
+    assert all(len(x.develop) == 2 and V.CLOTHES not in x.develop and V.AGE_SHOWS not in x.develop for x in d.specs)
     assert len({x.develop for x in d.specs}) >= 6                     # no one template
     msg = V.messages(sl, d, seeds)[1]["content"]
     assert 'gender: "trans woman"' not in msg or trans                  # told only where it adds a word
