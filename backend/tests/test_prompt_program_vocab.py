@@ -997,3 +997,50 @@ class TestDogBreeds:
         for t in ("Azawakh", "Lancashire heeler", "Kishu Ken", "Bergamasco", "otterhound"):
             assert tier[t] == "unusual", t
         assert sum(1 for x in tier.values() if x == "typical") < len(tier) // 5
+
+
+class TestCameraLists:
+    """Each camera list holds one kind of thing, so a slot bound to it is offered only that."""
+
+    def test_lens_values_are_lenses_and_effects_have_their_own_list(self):
+        v = vocabulary()
+        lens, effect = v.get("camera.lens"), v.get("camera.effect")
+        assert set(lens.local_facets) == {"kind"} and set(effect.local_facets) == {"kind"}
+        for x in lens.values:
+            assert x.tags.get("kind") and set(x.tags["kind"]) <= set(lens.local_facets["kind"]), x.text
+            assert x.look, x.text   # described by what it does to the picture
+        for x in effect.values:
+            assert x.tags.get("kind") and set(x.tags["kind"]) <= set(effect.local_facets["kind"]), x.text
+        assert not {x.text for x in lens.values} & {x.text for x in effect.values}
+        for moved in ("shallow depth of field and creamy bokeh", "a tilt-shift miniature effect", "a star filter",
+                      "a long exposure", "a kaleidoscope prism filter", "deep focus"):
+            assert lens.value(moved) is None and effect.value(moved) is not None, moved
+        assert {"a 35mm lens", "a 50mm lens", "an 85mm portrait lens"} <= {x.text for x in lens.values}
+        assert effect.frame == lens.frame and effect.listed
+
+    def test_shot_size_is_only_shot_sizes(self):
+        v = vocabulary()
+        ss = v.get("camera.shot_size")
+        assert ss.local_facets == {"kind": ("close", "medium", "full", "wide"), "subject": ("person", "general")}
+        for x in ss.values:
+            assert x.tags["kind"] and x.tags["subject"], x.text
+        selfies, angle, genre = v.get("camera.selfie"), v.get("camera.angle"), v.get("camera.genre")
+        for text in ("an arm's-length selfie", "a waist-up mirror selfie", "a full-length mirror selfie", "a group selfie"):
+            assert ss.value(text) is None and selfies.value(text) is not None, text
+        for text in ("an over-the-shoulder shot", "a point-of-view shot"):
+            assert ss.value(text) is None and angle.value(text) is not None, text
+        for text in ("a two-shot", "a group portrait"):
+            assert ss.value(text) is None and genre.value(text) is not None, text
+        assert not {x.text for x in ss.values} & {x.text for x in selfies.values}
+        assert not {x.text for x in ss.values} & {x.text for x in angle.values}
+
+    def test_framings_say_how_many_people_they_need(self):
+        v = vocabulary()
+        selfies = v.get("camera.selfie")
+        assert selfies.local_facets["people"] == ("one", "two", "group")
+        for x in selfies.values:
+            assert x.tags.get("people"), x.text
+        one = {x.text for x in selfies.matching({"people": "one"})}
+        assert "an arm's-length selfie" in one and "a group selfie" not in one and "a couple selfie" not in one
+        assert v.get("camera.angle").value("an over-the-shoulder shot").tags["people"] == ["two"]
+        assert v.get("camera.genre").value("a group portrait").tags["people"] == ["group"]

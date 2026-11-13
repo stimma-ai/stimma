@@ -1,19 +1,20 @@
 {
  "id": "camera.lens",
  "label": "Camera lens",
- "description": "Lens effects, perspective, focus, bokeh, optical character, and motion rendering in photographs.",
+ "description": "Camera lenses by focal length and type, each named for what it does to the picture: how wide it sees, how it renders perspective and depth, and its optical character.",
  "pos": "noun phrase",
  "frame": "shot with ___",
- "notes": "Visible optical effects and shutter treatments belong here, named without focal-length or aperture recipes. camera.shot_size owns framing, camera.angle owns viewpoint, and camera.film_look owns capture media and photographic processes. Perspective descriptions assume the camera is moved to maintain similar subject framing. Values are short noun phrases after “shot with”; filters and motion treatments are included for their distinct visible effects.",
+ "notes": "Lenses belong here: focal lengths and lens types, each with a look that says what it does to the picture. Effects any lens can make (depth of field, shutter and motion treatments, filters, double exposures) belong in camera.effect. camera.shot_size owns framing, camera.angle owns viewpoint, and camera.film_look owns capture media and photographic processes. Perspective descriptions assume the camera is moved to keep similar subject framing. Values are noun phrases after “shot with”.",
  "facets": [],
  "closed": true,
  "local_facets": {
-  "effect": [
-   "field_of_view",
-   "depth_of_field",
-   "distortion_special",
-   "motion",
-   "vintage_character"
+  "kind": [
+   "wide",
+   "normal",
+   "telephoto",
+   "macro",
+   "specialty",
+   "character"
   ]
  },
  "values": [
@@ -23,41 +24,8 @@
    "tier": "typical",
    "look": "A broad view with nearby objects enlarged and more space opening behind them.",
    "tags": {
-    "effect": [
-     "field_of_view"
-    ]
-   }
-  },
-  {
-   "text": "a normal lens",
-   "short": "normal lens",
-   "tier": "typical",
-   "look": "A moderate view with natural-looking proportions and little obvious stretching.",
-   "tags": {
-    "effect": [
-     "field_of_view"
-    ]
-   }
-  },
-  {
-   "text": "a short telephoto portrait lens",
-   "short": "portrait telephoto",
-   "tier": "typical",
-   "look": "A narrow portrait view with gently flattened facial proportions and a softly separated background.",
-   "tags": {
-    "effect": [
-     "field_of_view"
-    ]
-   }
-  },
-  {
-   "text": "a telephoto lens with strong compression",
-   "short": "telephoto compression",
-   "tier": "typical",
-   "look": "Distant layers appear crowded together, with large background features behind the subject.",
-   "tags": {
-    "effect": [
-     "field_of_view"
+    "kind": [
+     "wide"
     ]
    }
   },
@@ -67,8 +35,86 @@
    "tier": "plausible",
    "look": "An expansive view with straight lines preserved, dramatic foreground scale, and stretched objects near the edges.",
    "tags": {
-    "effect": [
-     "field_of_view"
+    "kind": [
+     "wide"
+    ]
+   }
+  },
+  {
+   "text": "a 14mm ultra-wide lens",
+   "short": "14mm ultra-wide",
+   "tier": "plausible",
+   "look": "A sweeping view where nearby objects loom large and things near the frame corners stretch outward.",
+   "tags": {
+    "kind": [
+     "wide"
+    ]
+   }
+  },
+  {
+   "text": "a 24mm wide-angle lens",
+   "short": "24mm wide-angle",
+   "tier": "typical",
+   "look": "A wide view that takes in the surroundings, with nearby things slightly enlarged and depth exaggerated.",
+   "tags": {
+    "kind": [
+     "wide"
+    ]
+   }
+  },
+  {
+   "text": "a 35mm lens",
+   "short": "35mm",
+   "tier": "typical",
+   "look": "A slightly wide, natural view that shows the subject together with a good deal of its surroundings.",
+   "tags": {
+    "kind": [
+     "wide",
+     "normal"
+    ]
+   }
+  },
+  {
+   "text": "a normal lens",
+   "short": "normal lens",
+   "tier": "typical",
+   "look": "A moderate view with natural-looking proportions and little obvious stretching.",
+   "tags": {
+    "kind": [
+     "normal"
+    ]
+   }
+  },
+  {
+   "text": "a 50mm lens",
+   "short": "50mm",
+   "tier": "typical",
+   "look": "A view close to the eye's own, with undistorted proportions and a moderate amount of background.",
+   "tags": {
+    "kind": [
+     "normal"
+    ]
+   }
+  },
+  {
+   "text": "a short telephoto portrait lens",
+   "short": "portrait telephoto",
+   "tier": "typical",
+   "look": "A narrow portrait view with gently flattened facial proportions and a softly separated background.",
+   "tags": {
+    "kind": [
+     "telephoto"
+    ]
+   }
+  },
+  {
+   "text": "a telephoto lens with strong compression",
+   "short": "telephoto compression",
+   "tier": "typical",
+   "look": "Distant layers appear crowded together, with large background features behind the subject.",
+   "tags": {
+    "kind": [
+     "telephoto"
     ]
    }
   },
@@ -78,8 +124,41 @@
    "tier": "plausible",
    "look": "A distant subject fills a very narrow view against an enlarged, strongly flattened background.",
    "tags": {
-    "effect": [
-     "field_of_view"
+    "kind": [
+     "telephoto"
+    ]
+   }
+  },
+  {
+   "text": "an 85mm portrait lens",
+   "short": "85mm portrait",
+   "tier": "typical",
+   "look": "A tighter view that flatters faces and softly separates the subject from a blurred background.",
+   "tags": {
+    "kind": [
+     "telephoto"
+    ]
+   }
+  },
+  {
+   "text": "a 135mm telephoto lens",
+   "short": "135mm telephoto",
+   "tier": "plausible",
+   "look": "A narrow view that isolates the subject and pulls the background close behind it.",
+   "tags": {
+    "kind": [
+     "telephoto"
+    ]
+   }
+  },
+  {
+   "text": "a 200mm telephoto lens",
+   "short": "200mm telephoto",
+   "tier": "plausible",
+   "look": "A distant subject fills the frame against a strongly compressed, heavily blurred background.",
+   "tags": {
+    "kind": [
+     "telephoto"
     ]
    }
   },
@@ -89,134 +168,8 @@
    "tier": "typical",
    "look": "Tiny subjects fill the image, revealing surface textures and details normally too small to see.",
    "tags": {
-    "effect": [
-     "field_of_view"
-    ]
-   }
-  },
-  {
-   "text": "shallow depth of field and creamy bokeh",
-   "short": "creamy bokeh",
-   "tier": "typical",
-   "look": "The subject stays sharp while the background dissolves into smooth, soft patches of color.",
-   "tags": {
-    "effect": [
-     "depth_of_field"
-    ]
-   }
-  },
-  {
-   "text": "deep focus",
-   "short": "deep focus",
-   "tier": "typical",
-   "look": "Foreground, middle distance, and background remain sharp enough to read together.",
-   "tags": {
-    "effect": [
-     "depth_of_field"
-    ]
-   }
-  },
-  {
-   "text": "a split diopter",
-   "short": "split diopter",
-   "tier": "unusual",
-   "look": "A near object and a distant subject are both sharp, sometimes separated by a soft seam.",
-   "tags": {
-    "effect": [
-     "depth_of_field",
-     "distortion_special"
-    ]
-   }
-  },
-  {
-   "text": "a selective-focus art lens",
-   "short": "selective-focus art lens",
-   "tier": "plausible",
-   "look": "One small off-center area stays sharp while the surrounding image stretches into blur.",
-   "tags": {
-    "effect": [
-     "depth_of_field",
-     "distortion_special"
-    ]
-   }
-  },
-  {
-   "text": "a tilt-shift miniature effect",
-   "short": "tilt-shift miniature",
-   "tier": "plausible",
-   "look": "A narrow band of sharpness between blurred foreground and background makes a real scene look toy-sized.",
-   "tags": {
-    "effect": [
-     "distortion_special",
-     "depth_of_field"
-    ]
-   }
-  },
-  {
-   "text": "a perspective-control lens",
-   "short": "perspective control",
-   "tier": "plausible",
-   "look": "Tall structures keep parallel vertical edges rather than appearing to lean inward at the top.",
-   "tags": {
-    "effect": [
-     "distortion_special"
-    ]
-   }
-  },
-  {
-   "text": "a full-frame fisheye lens",
-   "short": "full-frame fisheye",
-   "tier": "plausible",
-   "look": "An extremely wide rectangular image with straight lines bowing outward around the center.",
-   "tags": {
-    "effect": [
-     "distortion_special",
-     "field_of_view"
-    ]
-   }
-  },
-  {
-   "text": "a circular fisheye lens",
-   "short": "circular fisheye",
-   "tier": "unusual",
-   "look": "A round image floats inside black corners, with extreme curved perspective around its rim.",
-   "tags": {
-    "effect": [
-     "distortion_special",
-     "field_of_view"
-    ]
-   }
-  },
-  {
-   "text": "an anamorphic widescreen lens with oval bokeh and horizontal flares",
-   "short": "anamorphic widescreen",
-   "tier": "plausible",
-   "look": "A wide cinematic view with vertically oval blurred lights and horizontal streaks across bright sources.",
-   "tags": {
-    "effect": [
-     "distortion_special"
-    ]
-   }
-  },
-  {
-   "text": "a kaleidoscope prism filter",
-   "short": "kaleidoscope prism",
-   "tier": "unusual",
-   "look": "Repeated fragments of the subject form mirrored wedges around a central image.",
-   "tags": {
-    "effect": [
-     "distortion_special"
-    ]
-   }
-  },
-  {
-   "text": "a star filter",
-   "short": "star filter",
-   "tier": "plausible",
-   "look": "Small bright lights sprout crisp radiating spikes while the rest of the image stays relatively sharp.",
-   "tags": {
-    "effect": [
-     "distortion_special"
+    "kind": [
+     "macro"
     ]
    }
   },
@@ -226,64 +179,77 @@
    "tier": "unusual",
    "look": "A tiny subject looms in the foreground while a wide view reveals its surrounding environment.",
    "tags": {
-    "effect": [
-     "distortion_special",
-     "field_of_view"
+    "kind": [
+     "macro",
+     "specialty"
     ]
    }
   },
   {
-   "text": "a long exposure",
-   "short": "long exposure",
+   "text": "a selective-focus art lens",
+   "short": "selective-focus art lens",
    "tier": "plausible",
-   "look": "Moving subjects smear into trails while stationary objects remain clear.",
+   "look": "One small off-center area stays sharp while the surrounding image stretches into blur.",
    "tags": {
-    "effect": [
-     "motion"
+    "kind": [
+     "specialty"
     ]
    }
   },
   {
-   "text": "a panning exposure",
-   "short": "panning",
+   "text": "a perspective-control lens",
+   "short": "perspective control",
    "tier": "plausible",
-   "look": "A moving subject stays relatively sharp against a background streaked sideways.",
+   "look": "Tall structures keep parallel vertical edges rather than appearing to lean inward at the top.",
    "tags": {
-    "effect": [
-     "motion"
+    "kind": [
+     "specialty"
     ]
    }
   },
   {
-   "text": "a fast shutter speed freezing motion",
-   "short": "freeze motion",
-   "tier": "typical",
-   "look": "Fast movement stops crisply, with individual droplets, flying debris, or airborne limbs sharply defined.",
+   "text": "a full-frame fisheye lens",
+   "short": "full-frame fisheye",
+   "tier": "plausible",
+   "look": "An extremely wide rectangular image with straight lines bowing outward around the center.",
    "tags": {
-    "effect": [
-     "motion"
+    "kind": [
+     "specialty",
+     "wide"
     ]
    }
   },
   {
-   "text": "a zoom-burst exposure",
-   "short": "zoom burst",
+   "text": "a circular fisheye lens",
+   "short": "circular fisheye",
    "tier": "unusual",
-   "look": "Lines of blur radiate from the center as though the scene is rushing toward the viewer.",
+   "look": "A round image floats inside black corners, with extreme curved perspective around its rim.",
    "tags": {
-    "effect": [
-     "motion"
+    "kind": [
+     "specialty",
+     "wide"
     ]
    }
   },
   {
-   "text": "intentional camera movement",
-   "short": "camera movement blur",
-   "tier": "unusual",
-   "look": "The whole scene becomes sweeping streaks of color, with stationary objects blurred along the same path.",
+   "text": "an anamorphic widescreen lens with oval bokeh and horizontal flares",
+   "short": "anamorphic widescreen",
+   "tier": "plausible",
+   "look": "A wide cinematic view with vertically oval blurred lights and horizontal streaks across bright sources.",
    "tags": {
-    "effect": [
-     "motion"
+    "kind": [
+     "specialty"
+    ]
+   }
+  },
+  {
+   "text": "a tilt-shift lens",
+   "short": "tilt-shift lens",
+   "tier": "plausible",
+   "look": "A tilted plane of focus keeps one slanted band sharp, so focus falls off in unexpected places across the scene.",
+   "tags": {
+    "kind": [
+     "specialty"
     ]
    }
   },
@@ -293,9 +259,8 @@
    "tier": "plausible",
    "look": "A sharp center is surrounded by blurred highlights that curve into a circular swirl.",
    "tags": {
-    "effect": [
-     "vintage_character",
-     "depth_of_field"
+    "kind": [
+     "character"
     ]
    }
   },
@@ -305,8 +270,8 @@
    "tier": "plausible",
    "look": "Fine details soften and bright areas spread into a gentle glow without becoming uniform defocus.",
    "tags": {
-    "effect": [
-     "vintage_character"
+    "kind": [
+     "character"
     ]
    }
   },
@@ -316,8 +281,8 @@
    "tier": "unusual",
    "look": "The scene has soft detail across a deep range of distances, dim corners, and gently smeared moving objects.",
    "tags": {
-    "effect": [
-     "vintage_character"
+    "kind": [
+     "character"
     ]
    }
   },
@@ -327,9 +292,9 @@
    "tier": "unusual",
    "look": "Out-of-focus highlights form bright rings with dark centers behind a compressed distant subject.",
    "tags": {
-    "effect": [
-     "vintage_character",
-     "depth_of_field"
+    "kind": [
+     "character",
+     "telephoto"
     ]
    }
   },
@@ -339,8 +304,8 @@
    "tier": "plausible",
    "look": "Bright light washes out contrast and creates colored ghost shapes across the image.",
    "tags": {
-    "effect": [
-     "vintage_character"
+    "kind": [
+     "character"
     ]
    }
   }

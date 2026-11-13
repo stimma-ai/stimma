@@ -1,10 +1,10 @@
 {
  "id": "camera.angle",
  "label": "Camera angle",
- "description": "Camera height, viewing direction, overhead viewpoints, and tilted angles.",
+ "description": "Camera height, viewing direction, overhead viewpoints, tilted angles, and subjective viewpoints such as over the shoulder or through a participant's eyes.",
  "pos": "noun phrase",
  "frame": "camera viewpoint: ___",
- "notes": "Camera height, viewing direction, and camera roll belong here, phrased as short viewpoint names. Top-down and bird’s-eye view share one entry; overhead flat lay specifically means objects arranged on a flat surface, while the aerial drone view looks obliquely across a larger setting. camera.shot_size owns crops, subject groupings, selfies, and over-the-shoulder framing. camera.lens owns lens effects, and camera.film_look owns film and format looks. Directions describe the camera relative to the subject, not the direction of lighting.",
+ "notes": "Camera height, viewing direction, camera roll and subjective viewpoints belong here, phrased as short viewpoint names. Top-down and bird’s-eye view share one entry; overhead flat lay specifically means objects arranged on a flat surface, while the aerial drone view looks obliquely across a larger setting. The over-the-shoulder shot needs two people (its people tag); the point-of-view shot looks through a participant's eyes. camera.shot_size owns framing distance and camera.selfie owns selfies. camera.lens owns lenses, and camera.film_look owns film and format looks. Directions describe the camera relative to the subject, not the direction of lighting.",
  "facets": [],
  "closed": true,
  "local_facets": {
@@ -13,7 +13,13 @@
    "low",
    "high",
    "tilted",
-   "side"
+   "side",
+   "subjective"
+  ],
+  "people": [
+   "one",
+   "two",
+   "group"
   ]
  },
  "values": [
@@ -201,6 +207,31 @@
    "tags": {
     "kind": [
      "side"
+    ]
+   }
+  },
+  {
+   "text": "an over-the-shoulder shot",
+   "short": "over-the-shoulder",
+   "tier": "plausible",
+   "look": "The back of one person’s head and shoulder edges the foreground while another person faces them beyond.",
+   "tags": {
+    "kind": [
+     "subjective"
+    ],
+    "people": [
+     "two"
+    ]
+   }
+  },
+  {
+   "text": "a point-of-view shot",
+   "short": "point-of-view shot",
+   "tier": "plausible",
+   "look": "The scene appears through a participant’s eyes, often with their hands or feet entering the bottom of the frame.",
+   "tags": {
+    "kind": [
+     "subjective"
     ]
    }
   }

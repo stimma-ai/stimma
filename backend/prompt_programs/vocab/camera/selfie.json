@@ -1,0 +1,152 @@
+{
+ "id": "camera.selfie",
+ "label": "Selfie",
+ "description": "Kinds of selfie: how the photographer holds the camera on themselves, alone, as a pair or in a group.",
+ "pos": "noun phrase",
+ "frame": "framed as ___",
+ "notes": "Selfies belong here, named by how the camera is held (at arm's length, in a mirror, on a stick) and who is in the frame. The people facet says how many people each one shows (one, two, a group), so a prompt with one person is never offered a group selfie. camera.shot_size owns framing distance, camera.angle owns viewpoint, and camera.film_look owns the camera itself. Values are named shots with an article, read after “framed as”.",
+ "facets": [],
+ "closed": true,
+ "local_facets": {
+  "kind": [
+   "handheld",
+   "mirror",
+   "stick"
+  ],
+  "people": [
+   "one",
+   "two",
+   "group"
+  ]
+ },
+ "values": [
+  {
+   "text": "an arm's-length selfie",
+   "short": "arm's-length selfie",
+   "tier": "typical",
+   "look": "The photographer’s face and shoulders fill the near foreground, often with an outstretched arm entering an edge.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ],
+    "people": [
+     "one"
+    ]
+   }
+  },
+  {
+   "text": "a close-up front-camera selfie",
+   "short": "close-up selfie",
+   "tier": "typical",
+   "look": "A phone held close fills the frame with the face, slightly wide, with little of the place behind.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ],
+    "people": [
+     "one"
+    ]
+   }
+  },
+  {
+   "text": "a high-angle arm's-length selfie",
+   "short": "high-angle selfie",
+   "tier": "plausible",
+   "look": "The phone is held above eye level, so the face tilts up toward the lens and the body narrows below it.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ],
+    "people": [
+     "one"
+    ]
+   }
+  },
+  {
+   "text": "a couple selfie",
+   "short": "couple selfie",
+   "tier": "typical",
+   "look": "Two faces lean close together near the lens, one person's arm reaching toward the camera.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ],
+    "people": [
+     "two"
+    ]
+   }
+  },
+  {
+   "text": "a group selfie",
+   "short": "group selfie",
+   "tier": "plausible",
+   "look": "Several faces crowd close to the camera, with the person holding it nearest the foreground.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ],
+    "people": [
+     "group"
+    ]
+   }
+  },
+  {
+   "text": "a waist-up mirror selfie",
+   "short": "waist-up mirror selfie",
+   "tier": "typical",
+   "look": "A mirror reflection shows the photographer from the waist up, with the phone visible in one hand.",
+   "tags": {
+    "kind": [
+     "mirror"
+    ],
+    "people": [
+     "one"
+    ]
+   }
+  },
+  {
+   "text": "a full-length mirror selfie",
+   "short": "full-body mirror selfie",
+   "tier": "plausible",
+   "look": "A tall mirror shows the photographer’s entire body and outfit, with the phone visible in the reflection.",
+   "tags": {
+    "kind": [
+     "mirror"
+    ],
+    "people": [
+     "one"
+    ]
+   }
+  },
+  {
+   "text": "a two-person mirror selfie",
+   "short": "two-person mirror selfie",
+   "tier": "plausible",
+   "look": "Two people stand together in a mirror's reflection, one of them holding the phone up in view.",
+   "tags": {
+    "kind": [
+     "mirror"
+    ],
+    "people": [
+     "two"
+    ]
+   }
+  },
+  {
+   "text": "a selfie-stick selfie",
+   "short": "selfie-stick selfie",
+   "tier": "plausible",
+   "look": "The camera sits at the end of a pole, taking in more of the people and the place around them, the stick sometimes in view.",
+   "tags": {
+    "kind": [
+     "stick"
+    ],
+    "people": [
+     "one",
+     "two",
+     "group"
+    ]
+   }
+  }
+ ]
+}

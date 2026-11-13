@@ -4,7 +4,7 @@
  "description": "Photographic genres and recognizable shooting conventions, from studio portraits to surveillance images.",
  "pos": "noun phrase",
  "frame": "in the style of ___",
- "notes": "Genres and recognizable photographic uses belong here, including commercial work, records and informal snapshots. camera.composition owns spatial arrangement, camera.color_grade owns palette and tonal finishing, and camera.film_look owns grain and photographic surface texture. Values name a genre or a familiar type of photograph after “in the style of”; their look describes characteristic framing and light rather than a required subject. Period-inspired genres remain available for contemporary scenes.",
+ "notes": "Genres and recognizable photographic uses belong here, including commercial work, records and informal snapshots. camera.composition owns spatial arrangement, camera.color_grade owns palette and tonal finishing, and camera.film_look owns grain and photographic surface texture. Values name a genre or a familiar type of photograph after “in the style of”; their look describes characteristic framing and light rather than a required subject. Period-inspired genres remain available for contemporary scenes. Conventions named by how many people they show (a two-shot, a group portrait) carry a people tag, so a prompt with one person is never offered them.",
  "facets": [],
  "closed": false,
  "local_facets": {
@@ -16,6 +16,10 @@
    "event",
    "everyday_vernacular",
    "art"
+  ],
+  "people": [
+   "two",
+   "group"
   ]
  },
  "values": [
@@ -562,6 +566,34 @@
    "tags": {
     "kind": [
      "art"
+    ]
+   }
+  },
+  {
+   "text": "a two-shot",
+   "short": "two-shot",
+   "tier": "typical",
+   "look": "Two people share the frame with comparable prominence, so their relationship and interaction are visible.",
+   "tags": {
+    "kind": [
+     "people"
+    ],
+    "people": [
+     "two"
+    ]
+   }
+  },
+  {
+   "text": "a group portrait",
+   "short": "group portrait",
+   "tier": "plausible",
+   "look": "Three or more people are arranged together so each person’s face is clearly visible within the shared frame.",
+   "tags": {
+    "kind": [
+     "people"
+    ],
+    "people": [
+     "group"
     ]
    }
   }

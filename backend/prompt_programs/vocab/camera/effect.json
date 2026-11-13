@@ -1,0 +1,185 @@
+{
+ "id": "camera.effect",
+ "label": "Photo effect",
+ "description": "Photographic effects made with any lens: depth of field, shutter and motion treatments, filters, and in-camera exposure effects.",
+ "pos": "noun phrase",
+ "frame": "shot with ___",
+ "notes": "Visible effects of focus, shutter, filters and exposure belong here, named without aperture or shutter-speed recipes. camera.lens owns the lens itself (focal lengths and lens types), camera.shot_size owns framing, camera.angle owns viewpoint, and camera.film_look owns capture media. Values are noun phrases after “shot with”.",
+ "facets": [],
+ "closed": true,
+ "local_facets": {
+  "kind": [
+   "depth_of_field",
+   "motion",
+   "filter",
+   "in_camera"
+  ]
+ },
+ "values": [
+  {
+   "text": "shallow depth of field and creamy bokeh",
+   "short": "creamy bokeh",
+   "tier": "typical",
+   "look": "The subject stays sharp while the background dissolves into smooth, soft patches of color.",
+   "tags": {
+    "kind": [
+     "depth_of_field"
+    ]
+   }
+  },
+  {
+   "text": "deep focus",
+   "short": "deep focus",
+   "tier": "typical",
+   "look": "Foreground, middle distance, and background remain sharp enough to read together.",
+   "tags": {
+    "kind": [
+     "depth_of_field"
+    ]
+   }
+  },
+  {
+   "text": "a split diopter",
+   "short": "split diopter",
+   "tier": "unusual",
+   "look": "A near object and a distant subject are both sharp, sometimes separated by a soft seam.",
+   "tags": {
+    "kind": [
+     "depth_of_field"
+    ]
+   }
+  },
+  {
+   "text": "a tilt-shift miniature effect",
+   "short": "tilt-shift miniature",
+   "tier": "plausible",
+   "look": "A narrow band of sharpness between blurred foreground and background makes a real scene look toy-sized.",
+   "tags": {
+    "kind": [
+     "depth_of_field"
+    ]
+   }
+  },
+  {
+   "text": "a long exposure",
+   "short": "long exposure",
+   "tier": "plausible",
+   "look": "Moving subjects smear into trails while stationary objects remain clear.",
+   "tags": {
+    "kind": [
+     "motion"
+    ]
+   }
+  },
+  {
+   "text": "a panning exposure",
+   "short": "panning",
+   "tier": "plausible",
+   "look": "A moving subject stays relatively sharp against a background streaked sideways.",
+   "tags": {
+    "kind": [
+     "motion"
+    ]
+   }
+  },
+  {
+   "text": "a fast shutter speed freezing motion",
+   "short": "freeze motion",
+   "tier": "typical",
+   "look": "Fast movement stops crisply, with individual droplets, flying debris, or airborne limbs sharply defined.",
+   "tags": {
+    "kind": [
+     "motion"
+    ]
+   }
+  },
+  {
+   "text": "a zoom-burst exposure",
+   "short": "zoom burst",
+   "tier": "unusual",
+   "look": "Lines of blur radiate from the center as though the scene is rushing toward the viewer.",
+   "tags": {
+    "kind": [
+     "motion"
+    ]
+   }
+  },
+  {
+   "text": "intentional camera movement",
+   "short": "camera movement blur",
+   "tier": "unusual",
+   "look": "The whole scene becomes sweeping streaks of color, with stationary objects blurred along the same path.",
+   "tags": {
+    "kind": [
+     "motion"
+    ]
+   }
+  },
+  {
+   "text": "a slow-sync flash",
+   "short": "slow-sync flash",
+   "tier": "plausible",
+   "look": "A flash freezes the subject crisply while the ambient light behind it smears into warm streaks.",
+   "tags": {
+    "kind": [
+     "motion"
+    ]
+   }
+  },
+  {
+   "text": "a kaleidoscope prism filter",
+   "short": "kaleidoscope prism",
+   "tier": "unusual",
+   "look": "Repeated fragments of the subject form mirrored wedges around a central image.",
+   "tags": {
+    "kind": [
+     "filter"
+    ]
+   }
+  },
+  {
+   "text": "a star filter",
+   "short": "star filter",
+   "tier": "plausible",
+   "look": "Small bright lights sprout crisp radiating spikes while the rest of the image stays relatively sharp.",
+   "tags": {
+    "kind": [
+     "filter"
+    ]
+   }
+  },
+  {
+   "text": "a soft mist filter",
+   "short": "mist filter",
+   "tier": "plausible",
+   "look": "Highlights bloom into a gentle glow and contrast softens a little, while fine detail stays sharp.",
+   "tags": {
+    "kind": [
+     "filter"
+    ]
+   }
+  },
+  {
+   "text": "a polarizing filter",
+   "short": "polarizer",
+   "tier": "plausible",
+   "look": "Blue sky deepens and glare lifts off water, glass and leaves, so colors look richer and surfaces clearer.",
+   "tags": {
+    "kind": [
+     "filter"
+    ]
+   }
+  },
+  {
+   "text": "an in-camera double exposure",
+   "short": "double exposure",
+   "tier": "unusual",
+   "look": "Two scenes overlap in one frame, the second showing through the darker parts of the first.",
+   "tags": {
+    "kind": [
+     "in_camera"
+    ]
+   }
+  }
+ ]
+}

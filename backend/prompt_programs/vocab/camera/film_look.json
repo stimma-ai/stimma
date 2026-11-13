@@ -1084,6 +1084,21 @@
      "film"
     ]
    }
+  },
+  {
+   "text": "a panoramic camera",
+   "short": "panoramic camera",
+   "tier": "plausible",
+   "look": "An extra-wide frame stretches across the scene, taking in far more from side to side than top to bottom.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "film",
+     "digital"
+    ]
+   }
   }
  ]
 }
