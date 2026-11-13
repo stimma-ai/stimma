@@ -555,13 +555,18 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
 
 def _contexts(entry: Dict[str, Any]) -> Dict[str, str]:
     """Per slot (by id) and per user list (by pick id), its line of the prompt with the prompt's
-    comment lines: what an age said there is read in."""
+    comment lines: what an age said there is read in. A reading kept through an edit is read in
+    what it was read in (its "seen"), so its narrowing is kept too."""
     lines = str(entry.get("prompt") or "").split("\n")
     notes = [str(sg.get("text") or "").strip() for sg in entry.get("segments") or [] if sg.get("kind") == "comment"]
     out: Dict[str, str] = {}
     for x in [*(entry.get("slots") or []), *(entry.get("lists") or [])]:
         n = x.get("line")
-        if isinstance(n, int) and 0 < n <= len(lines) and x.get("id"):
+        seen = x.get("seen")
+        if isinstance(seen, dict) and x.get("id"):
+            out[str(x["id"])] = "\n".join(dict.fromkeys([*(str(t).strip() for t in seen.get("notes") or []),
+                                                          str(seen.get("line") or "").strip()]))
+        elif isinstance(n, int) and 0 < n <= len(lines) and x.get("id"):
             out[str(x["id"])] = "\n".join(dict.fromkeys([*notes, lines[n - 1].strip()]))
     return out
 

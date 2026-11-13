@@ -15,6 +15,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from core.logging import get_logger
+
+log = get_logger(__name__)
+
 SLOT_RE = re.compile(r"(?<![<\w])<(?![/\s])([^<>{}\[\]|#:=\n]{2,80})(?<!\s)>")
 
 _NAME = re.compile(r"\{\{[^{}]+\}\}")
@@ -276,6 +280,8 @@ _again: set = set()
 # A part whose last reading couldn't be used or whose call failed, and why: it stands as
 # written until a prepare that starts work reads it again. Never cached on disk.
 _failed: Dict[Tuple[str, str], str] = {}
+# A part the edit check said an edit changed: read again, not checked again.
+_changed: set = set()
 
 
 @dataclass
@@ -289,6 +295,9 @@ class _Prompt:
     store: Any
     profile_id: Optional[str]
     project_id: Optional[int]
+    # The prepared prompt the editor shows now (its key), whose readings stand for this prompt's
+    # parts until they are checked or read.
+    shown: Optional[str] = None
 
     @property
     def root(self) -> str:
@@ -313,13 +322,19 @@ class _Prompt:
         return out
 
 
-async def _read_prompt(prompt: str, profile_id: Optional[str], project_id: Optional[int]) -> Optional[_Prompt]:
-    """The prompt as parsed for reading, or None when nothing in it varies."""
-    from prompt_pipeline import _profile_wildcards_and_segments
-    from prompt_programs import program as prep
+def _key(model: Optional[str], masked: str, exact: Dict[str, str]) -> str:
     from prompt_programs.reader import READER_VERSION
     from prompt_programs.store import program_key
     from prompt_programs.vocab import vocabulary
+    return program_key({"v": SLOTS_VERSION, "reader": READER_VERSION, "model": model, "vocab": vocabulary().version,
+                        "prompt": masked, "exact": exact})
+
+
+async def _read_prompt(prompt: str, profile_id: Optional[str], project_id: Optional[int],
+                       shown: Optional[str] = None) -> Optional[_Prompt]:
+    """The prompt as parsed for reading, or None when nothing in it varies."""
+    from prompt_pipeline import _profile_wildcards_and_segments
+    from prompt_programs import program as prep
 
     wildcards, segments = _profile_wildcards_and_segments(profile_id)
     source = prep.expand_named_lists(prompt, wildcards, segments).strip()
@@ -331,9 +346,62 @@ async def _read_prompt(prompt: str, profile_id: Optional[str], project_id: Optio
     if not parsed.varies():
         return None
     model = await prep.model_fingerprint(project_id)
-    key = program_key({"v": SLOTS_VERSION, "reader": READER_VERSION, "model": model, "vocab": vocabulary().version,
-                       "prompt": masked, "exact": exact})
-    return _Prompt(prompt, parsed, masked, exact, key, model, prep.store_for(profile_id), profile_id, project_id)
+    return _Prompt(prompt, parsed, masked, exact, _key(model, masked, exact), model, prep.store_for(profile_id),
+                   profile_id, project_id, shown)
+
+
+def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
+    """The readings this prompt's parts had in the prompt last prepared as this one, then in the
+    one the editor shows: per (kind, number), a slot's reading or a list's {"label"}, each with
+    "seen", what it was read in (reader.seen_in, and for a slot the prompt its options were
+    written for). A part is the same part when its words are, in the same order among the
+    others (an edit adds, removes or moves parts around it). Read by the same reader, model and
+    vocabulary only; a reading that couldn't be used is never carried."""
+    from difflib import SequenceMatcher
+    from prompt_programs.reader import seen_in
+    out: Dict[Tuple[str, int], Dict[str, Any]] = {}
+    keys = list(dict.fromkeys(k for k in (p.key, p.shown) if k))
+    new = _marked(p.parsed)
+
+    def token(kind: str, seg: Segment) -> Tuple[str, str]:
+        return kind, seg.words if kind == "slot" else seg.text
+    for key in keys:
+        try:
+            prev = p.store.get(key)
+            # the same reader, model and vocabulary: its key is this prompt's key for its own text
+            if not prev or prev.get("key") != key or _key(p.model, str(prev.get("prompt") or ""),
+                                                          prev.get("exact") or {}) != key:
+                continue
+            parsed = parse(str(prev["prompt"]))
+            got = prev.get("readings") or {}
+            readings = {r.get("n"): r for r in got.get("slots") or [] if isinstance(r, dict)}
+            labels = {x.get("n"): x for x in got.get("lists") or [] if isinstance(x, dict)}
+            written = str(prev.get("context") or "").strip() or str(prev.get("template") or "")
+        except Exception as e:   # an unreadable earlier entry only means nothing is carried from it
+            log.debug(f"[slots] no readings carried from {key}: {e}")
+            continue
+        old = _marked(parsed)
+        match = SequenceMatcher(None, [token(k, sg) for k, _, sg in old], [token(k, sg) for k, _, sg in new],
+                                autojunk=False)
+        for a, b, size in match.get_matching_blocks():
+            for i in range(size):
+                kind, was, seg = old[a + i]
+                now = (kind, new[b + i][1])
+                if now in out:
+                    continue
+                if kind == "slot":
+                    r = readings.get(was)
+                    if not isinstance(r, dict) or r.get("degraded"):
+                        continue
+                    seen = r["seen"] if isinstance(r.get("seen"), dict) else {**seen_in(parsed, seg), "template": written}
+                    out[now] = {**{k: v for k, v in r.items() if k != "n"}, "seen": seen}
+                else:
+                    x = labels.get(was)
+                    if not x or not str(x.get("label") or "").strip():
+                        continue
+                    out[now] = {"label": str(x["label"]),
+                                "seen": x["seen"] if isinstance(x.get("seen"), dict) else seen_in(parsed, seg)}
+    return out
 
 
 async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
@@ -342,6 +410,17 @@ async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
     from prompt_programs.reader import as_written, cached
     readings, labels = cached(p.parsed, p.model, p.cache())
     segs = {(kind, n): seg for kind, n, seg in _marked(p.parsed)}
+    # A part read before an edit keeps its reading until it is checked or read again.
+    unread = [(kind, n) for kind, n, _ in p.parts() if n not in (readings if kind == "slot" else labels)]
+    earlier = _earlier(p) if unread else {}
+    carried = [k for k in unread if k in earlier]
+    list_seen: Dict[int, Any] = {}
+    for kind, n in carried:
+        if kind == "slot":
+            readings[n] = {**earlier[(kind, n)], "n": n}
+        else:
+            labels[n] = earlier[(kind, n)]["label"]
+            list_seen[n] = earlier[(kind, n)]["seen"]
     for kind, n, key in p.parts():
         why = _failed.get((p.root, key))
         if why is None:
@@ -351,12 +430,23 @@ async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
         elif kind == "list" and n not in labels:
             labels[n] = ""
     entry = compose(p.parsed, readings, labels)
+    # A reading carried from before an edit, or kept through one, says what it was read in: its
+    # narrowing is read in that and its options are the ones written for it there.
+    for s in entry["slots"]:
+        seen = (readings.get(s["n"]) or {}).get("seen")
+        if isinstance(seen, dict):
+            s["seen"] = seen
+    for x in entry["lists"]:
+        if x["n"] in list_seen:
+            x["seen"] = list_seen[x["n"]]
     entry.update({"key": p.key, "version": SLOTS_VERSION, "exact": p.exact, "typed": p.typed,
                   "readings": {"slots": [readings[n] for n in sorted(readings)],
-                               "lists": [{"n": n, "label": labels[n]} for n in sorted(labels)]}})
+                               "lists": [{"n": n, "label": labels[n], **({"seen": list_seen[n]} if n in list_seen else {})}
+                                         for n in sorted(labels)]}})
     await _narrow(entry, p, ask)
-    unread = any(s["state"] != "ready" for s in entry["slots"]) or any(l["state"] != "ready" for l in entry["lists"])
-    entry["reading"] = bool(unread or entry.get("narrow_pending"))
+    pending = any(s["state"] != "ready" for s in entry["slots"]) or any(l["state"] != "ready" for l in entry["lists"])
+    # (a carried reading is ready, but the edit is still to be checked)
+    entry["reading"] = bool(pending or carried or entry.get("narrow_pending"))
     return entry
 
 
@@ -407,9 +497,12 @@ def _start(p: _Prompt, force: bool = False) -> None:
     """Read whatever of the prompt isn't read yet, each part on its own, and settle the prompt
     once each lands. Returns at once."""
     import asyncio
-    from prompt_programs.reader import cached
+    from prompt_programs.reader import cached, seen_in
     readings, labels = cached(p.parsed, p.model, p.cache()) if not force else ({}, {})
+    earlier = _earlier(p) if not force else {}
+    segs = {(kind, n): seg for kind, n, seg in _marked(p.parsed)}
     started = False
+    check: List[Tuple[str, int, str, Dict[str, Any], Dict[str, Any]]] = []
     for kind, n, key in p.parts():
         if n in (readings if kind == "slot" else labels):
             continue
@@ -417,12 +510,77 @@ def _start(p: _Prompt, force: bool = False) -> None:
         if flight in _reads:
             continue
         _failed.pop(flight, None)
-        task = asyncio.ensure_future(_read_job(p, kind, n, key))
-        _reads[flight] = task
-        task.add_done_callback(lambda t, k=flight: _reads.pop(k, None) if _reads.get(k) is t else None)
+        was = earlier.get((kind, n))
+        if was is not None and flight not in _changed:
+            now = seen_in(p.parsed, segs[(kind, n)])
+            if (was["seen"].get("marked"), list(was["seen"].get("notes") or [])) == (now["marked"], now["notes"]):
+                _carry(p, kind, key, was)   # read in this very line and notes: nothing to ask
+            else:
+                check.append((kind, n, key, was, now))
+            continue
+        _read(p, kind, n, key)
+        started = True
+    if check:
+        task = asyncio.ensure_future(_check_job(p, check))
+        for _, _, key, _, _ in check:
+            flight = (p.root, key)
+            _reads[flight] = task
+            task.add_done_callback(lambda t, k=flight: _reads.pop(k, None) if _reads.get(k) is t else None)
         started = True
     if not started and not any((p.root, key) in _reads for _, _, key in p.parts()):
         _settle(p)
+
+
+def _read(p: _Prompt, kind: str, n: int, key: str) -> None:
+    import asyncio
+    flight = (p.root, key)
+    task = asyncio.ensure_future(_read_job(p, kind, n, key))
+    _reads[flight] = task
+    task.add_done_callback(lambda t, k=flight: _reads.pop(k, None) if _reads.get(k) is t else None)
+
+
+def _carry(p: _Prompt, kind: str, key: str, was: Dict[str, Any]) -> None:
+    """Keep a part's earlier reading as its reading here, with what it was read in."""
+    p.cache().put_raw(key, was if kind == "slot" else was["label"])
+
+
+async def _check_job(p: _Prompt, parts: List[Tuple[str, int, str, Dict[str, Any], Dict[str, Any]]]) -> None:
+    """Ask once whether an edit changes the parts read before it. The ones it doesn't keep their
+    readings, with no more calls; the others are read again, their earlier readings standing
+    meanwhile. A failed check or a reply that can't be used reads them all again."""
+    from prompt_programs import program as prep
+    from prompt_programs.reader import changed_parts
+    items = [{"words": _words(p, kind, n), "reading": was, "before": was["seen"], "now": now}
+             for kind, n, _, was, now in parts]
+    try:
+        changed = await changed_parts(items, ask=prep.ask_model, project_id=p.project_id)
+    except Exception as e:   # never stops a run: they are read again
+        log.warning(f"[slots] checking an edit of {p.key} failed: {e}")
+        changed = None
+    again = set(range(1, len(parts) + 1)) if changed is None else changed
+    kept = 0
+    for i, (kind, n, key, was, _) in enumerate(parts, 1):
+        if i in again:
+            continue
+        try:
+            _carry(p, kind, key, was)
+            kept += 1
+        except Exception as e:
+            log.warning(f"[slots] keeping a reading of {p.key} failed: {e}")
+            again.add(i)
+        _reads.pop((p.root, key), None)
+    log.info(f"[slots] an edit of {p.key}: {kept} part(s) keep their readings, {len(again)} read again"
+             + (" (the check couldn't be used)" if changed is None else ""))
+    for i, (kind, n, key, _, _) in enumerate(parts, 1):
+        if i in again:
+            _changed.add((p.root, key))
+            _read(p, kind, n, key)
+    _settle(p)
+
+
+def _words(p: _Prompt, kind: str, n: int) -> str:
+    seg = next(seg for k, m, seg in _marked(p.parsed) if (k, m) == (kind, n))
+    return seg.words if kind == "slot" else seg.text
 
 
 async def _read_job(p: _Prompt, kind: str, n: int, key: str) -> None:
@@ -435,6 +593,8 @@ async def _read_job(p: _Prompt, kind: str, n: int, key: str) -> None:
                                      cache=p.cache())
         if (kind == "slot" and got.get("degraded")) or (kind == "list" and not got):
             _failed[flight] = str(got.get("reason") or "") if kind == "slot" else "no label"
+        else:
+            _changed.discard(flight)
     except Exception as e:   # a model slip or an unreachable model never stops a run: the part stands as written
         get_logger(__name__).warning(f"[slots] reading part {n} of {p.key} failed: {e}")
         _failed[flight] = str(e)[:200] or type(e).__name__
@@ -473,13 +633,15 @@ def _settle(p: _Prompt) -> None:
 
 
 async def prepare(prompt: str, *, profile_id: Optional[str], project_id: Optional[int] = None,
-                  start: bool = True, force: bool = False) -> Dict[str, Any]:
+                  start: bool = True, force: bool = False, shown: Optional[str] = None) -> Dict[str, Any]:
     """The prompt's entry now: every slot and list from the parse, each `ready` with its reading
     or still `reading`. Never waits on a model. `start` reads what isn't read yet in the
     background (`force`: everything again); `reading` says something is still out, `working`
-    that background work for it is running. A prompt with nothing that varies:
-    {"key": None, "slots": [], "choices": []}."""
-    p = await _read_prompt(prompt, profile_id, project_id)
+    that background work for it is running. `shown`: the key of the prepared prompt the editor
+    shows now; a part it has (the same words, in the same order among the others) is ready with
+    its reading there while an edit is checked, and only a part new to it is `reading`. A prompt
+    with nothing that varies: {"key": None, "slots": [], "choices": []}."""
+    p = await _read_prompt(prompt, profile_id, project_id, shown)
     if p is None:
         return {"key": None, "slots": [], "choices": []}
     entry = await _assemble(p, None)

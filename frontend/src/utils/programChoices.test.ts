@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  asWrittenState, changedCount, cleanState, drawable, isAsWritten, isChanged, leaveOut, numberRepeats, optionsOf, pillsOf, pillValue,
+  asWrittenState, changedCount, cleanState, drawable, isAsWritten, isChanged, keptPools, leaveOut, numberRepeats, optionsOf, pillsOf, pillValue,
   isOff, resetState, swatchesOf, toggleToken, tokenText, turnOn, zonesOf, PALETTE_CLS,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
@@ -186,4 +186,10 @@ test('a slot still being read shows as reading; one that couldn’t be read went
   assert.deepEqual(pills.map(p => [p.label, p.value, p.pending, p.changed]), [
     ['lamp', '', 'reading', false], ['rug', 'as written', 'written', false],
   ])
+})
+
+test('an edit keeps the options of the choices it kept until the new ones arrive', () => {
+  const pools = { pet: { options: ['tabby cat'] } as ChoicePool, gone: { options: ['x'] } as ChoicePool }
+  assert.deepEqual(keptPools(pools, { pet: pet, mug: {} }), { pet: pools.pet })
+  assert.deepEqual(keptPools(pools, {}), {})
 })

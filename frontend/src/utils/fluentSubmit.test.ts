@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { effectiveWay, foreverSlot, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
+import { effectiveWay, foreverSlot, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, shownKey, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
@@ -167,4 +167,14 @@ test('a prompt too long or no balance says what to do, without mechanics', () =>
   // The old writer's refusal is gone: no route answers it now.
   assert.ok(!isPrepareFailureCode('prepare_declined'))
   assert.ok(!isPrepareFailureCode('job_failed') && !isPrepareFailureCode(null))
+})
+
+test('a prepare names the program the editor shows, only when it was prepared under these settings', () => {
+  const settings = prepareSettingsSig({ toolId: 'flux', prompt: '', projectId: null })
+  const sig = JSON.stringify({ prompt: 'a <man>', settings })
+  assert.equal(shownKey({ key: 'abc' }, sig, settings), 'abc')
+  assert.equal(shownKey({ key: 'abc' }, sig, prepareSettingsSig({ toolId: 'sdxl', prompt: '', projectId: null })), null)
+  assert.equal(shownKey(null, sig, settings), null)
+  assert.equal(shownKey({ key: null }, sig, settings), null)
+  assert.equal(shownKey({ key: 'abc' }, null, settings), null)
 })

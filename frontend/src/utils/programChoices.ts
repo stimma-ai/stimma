@@ -93,6 +93,12 @@ export function optionsOf(c: ProgramChoice, pool: ChoicePool | null | undefined,
   return uniq(zonesOf(c, pool, s).flatMap(z => z.options))
 }
 
+/** The pools of the choices a newly prepared program still has (an edit kept their slots): they
+    show until the program's own pools arrive. */
+export function keptPools(pools: Record<string, ChoicePool>, have: Record<string, unknown>): Record<string, ChoicePool> {
+  return Object.fromEntries(Object.entries(pools).filter(([id]) => id in have))
+}
+
 /** The options a group holds. */
 export function groupMembers(pool: ChoicePool | null | undefined, facet: string, part: string): string[] {
   return pool?.groups?.[facet]?.[part] || []

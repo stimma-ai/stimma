@@ -58,6 +58,19 @@ export function prepareSettingsSig(i: PrepareInputs): string {
   return JSON.stringify({ tool: i.toolId })
 }
 
+/** The key of the prepared program the editor shows, when it was prepared under the settings
+    in effect now: a prepare of an edited prompt sends it, so the slots the edit kept keep their
+    readings (and stay ready) while the server checks the edit. */
+export function shownKey(program: { key?: string | null } | null | undefined, preparedSig: string | null,
+  settingsSig: string): string | null {
+  if (!program?.key || !preparedSig) return null
+  try {
+    return JSON.parse(preparedSig)?.settings === settingsSig ? program.key : null
+  } catch {
+    return null
+  }
+}
+
 /** The promptOptions a submit sends, from the ones saved on the tool. */
 export function shapePromptOptions(saved: any, c: PromptOptionsContext): any {
   if (!saved) return saved

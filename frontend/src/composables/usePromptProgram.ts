@@ -1,9 +1,9 @@
 import { computed, nextTick, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
-import { prepareBody, prepareErrorCode, prepareSettingsSig, type PrepareInputs } from '../utils/fluentSubmit'
+import { prepareBody, prepareErrorCode, prepareSettingsSig, shownKey, type PrepareInputs } from '../utils/fluentSubmit'
 import { additionList, isOwnOption } from '../utils/programAdditions'
-import { cleanState, isBuilder, numberRepeats, optionsOf as optionsIn, resetState } from '../utils/programChoices'
+import { cleanState, isBuilder, keptPools, numberRepeats, optionsOf as optionsIn, resetState } from '../utils/programChoices'
 import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareResponse, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 
 export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
@@ -173,7 +173,8 @@ export function usePromptProgram(o: Options) {
     const sig = signature.value
     const id = ++lookupId
     try {
-      const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true }))
+      const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`,
+        request({ cache_only: true, key: shownKey(program.value, preparedSig.value, settingsSig.value) }))
       if (id !== lookupId || sig !== signature.value) return
       if (data?.unsupported) { unsupportedSig.value = sig; return }
       if (!holdsProgram(data)) {
@@ -236,7 +237,8 @@ export function usePromptProgram(o: Options) {
     readingPolls = 0
     lookupId++  // a look-up sent before this answers from before the read started: drop it
     try {
-      const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`, request({ force }))
+      const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`,
+        request({ force, key: shownKey(program.value, preparedSig.value, settingsSig.value) }))
       if (data?.unsupported) {
         unsupportedSig.value = sig
         return true
@@ -349,7 +351,9 @@ export function usePromptProgram(o: Options) {
     } catch { /* the prepared options still show */ }
   }
   watch([() => program.value?.key, () => JSON.stringify(wireChoices.value)], () => { void fetchPools() })
-  watch(() => program.value?.key, () => { pools.value = {} })
+  // A new key (the prompt was edited): the choices it still has keep their options until the
+  // new ones arrive.
+  watch(() => program.value?.key, () => { pools.value = keptPools(pools.value, byId.value) })
   onUnmounted(() => { if (poolsTimer) clearTimeout(poolsTimer) })
 
   function poolOf(c: ProgramChoice): ChoicePool | null {

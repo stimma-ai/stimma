@@ -120,6 +120,10 @@ class ProgramContext:
     # such a list (entry["list_context"]): (list pick, value, list, subset)
     stated: Tuple[Tuple[Optional[str], str, Tuple[str, ...]], ...] = ()
     list_context: Tuple[Tuple[str, str, str, Tuple[str, ...]], ...] = ()
+    # (pick id, signature) for the picks of a slot whose reading was kept through an edit of the
+    # prompt (slots.py, the slot's "seen"): their pools stay the ones written for the prompt the
+    # slot was read in
+    kept: Tuple[Tuple[str, str], ...] = ()
 
     @classmethod
     def of(cls, entry: Dict[str, Any]) -> "ProgramContext":
@@ -152,7 +156,10 @@ class ProgramContext:
                    list_context=tuple((str(k), str(v), str(cls), tuple(str(x) for x in sub))
                                       for k, vals in (entry.get("list_context") or {}).items() if isinstance(vals, dict)
                                       for v, by in vals.items() if isinstance(by, dict)
-                                      for cls, sub in by.items() if isinstance(sub, list)))
+                                      for cls, sub in by.items() if isinstance(sub, list)),
+                   kept=tuple((str(d), str(s["seen"]["template"])) for s in entry.get("slots") or []
+                              if isinstance(s.get("seen"), dict) and str(s["seen"].get("template") or "").strip()
+                              for d in s.get("details") or []))
 
 
 def _presentation(where_text: str) -> str:
@@ -956,7 +963,10 @@ class GeneratedOptions:
             recorded = [k for k in self.limits if k.startswith(key + " | context ")]
             key = recorded[0] if len(recorded) == 1 else key + context_suffix(spec)
         lineage = "" if specific else self.program.lineage
-        return key, gen_key(spec, context, signature, self.program.mode, self.program.elaborate,
+        # A slot kept through an edit keeps its pools: stored under the prompt it was read in,
+        # still written for the prompt as it is now.
+        stored = signature if specific else dict(self.program.kept).get(spec.id, signature)
+        return key, gen_key(spec, context, stored, self.program.mode, self.program.elaborate,
                             self.program.lists, self.version, lineage, intent, spec.cls, spec.minor,
                             spec.said, spec.zone), signature
 

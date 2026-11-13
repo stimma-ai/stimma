@@ -31,7 +31,8 @@ class PrepareRequest(BaseModel):
     # force: read the prompt's slots again, even those already read.
     force: bool = False
     # The program the cards are showing. Options and pools work on it even while a newer
-    # version of the prompt is being prepared.
+    # version of the prompt is being prepared, and a prepare keeps its readings for the parts
+    # the new version still has.
     key: Optional[str] = None
 
 
@@ -70,7 +71,7 @@ async def _prepare(req: PrepareRequest) -> Optional[Dict[str, Any]]:
         return {"unsupported": ctx["mode"]}
     try:
         return await slots.prepare(req.prompt, profile_id=get_current_profile(), project_id=req.project_id,
-                                   start=not req.cache_only, force=req.force)
+                                   start=not req.cache_only, force=req.force, shown=req.key)
     except Exception as e:
         http = program_http_error(e)
         if http is None:

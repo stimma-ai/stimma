@@ -11,7 +11,9 @@ prompt shown. A reply that fails the checks gets one retry told what was wrong; 
 is read as written, never cached.
 
 Cached on disk per part, by its own words, its line and the prompt's comment lines. A prompt
-edited on one line asks only about the parts on that line.
+edited on one line asks only about the parts on that line, and of those, a part read before the
+edit keeps its reading while one small call for all of them (changed_parts) asks whether the
+edit changes it; only the parts it changes are read again (slots.py).
 """
 
 from __future__ import annotations
@@ -567,5 +569,97 @@ def _reading(slots: Dict[int, Any], lists: Dict[int, str]) -> Dict[str, Any]:
     return {"slots": [slots[n] for n in sorted(slots)], "lists": [{"n": n, "label": lists[n]} for n in sorted(lists)]}
 
 
-__all__ = ["READER_VERSION", "ReaderFailed", "SYSTEM", "as_written", "cached", "check_parts", "check_reply", "check_slot",
-           "leads", "numbered", "part_key", "read", "read_part", "system_text", "user_message"]
+# --------------------------------------------------------------------------- after an edit: does it matter?
+#
+# A part read before an edit keeps its reading while the edit is checked: one small call for
+# every part of the prompt whose line or notes changed, shown each part's lines before and now
+# and what it was read as. The model says which readings the edit changes; the rest are kept
+# with no more calls.
+
+def seen_in(parsed: Parsed, seg: Segment) -> Dict[str, Any]:
+    """What a part is read in: its line (as typed, and with the part marked) and the notes."""
+    return {"line": parsed.prompt.split("\n")[seg.line - 1], "marked": _line_with(parsed, seg),
+            "notes": comment_lines(parsed)}
+
+
+CHECK_SYSTEM = """An image prompt was edited. Its marked parts, shown as ⟨words⟩, change from image to image.
+Each was read before the edit, and you see what it was read as. Lines starting with "note:" are
+the user's notes about the whole image, as binding as the prompt's own words.
+
+For each numbered part you see its reading, the lines it was read in before the edit, and the
+lines now. Check the reading against the lines now, field by field: what the part is; what its
+words or the notes state about it; the list, outfit or examples chosen to suit the scene (the
+place, the season, the time, the weather, what someone wears); and the details chosen for how
+close the picture is. Answer "changed" when any field would now be chosen differently, else
+"same"; when unsure, "changed". An edit that adds, removes or rewords things the reading doesn't
+depend on, other marked parts among them, leaves it "same".
+
+Reply with JSON only, one answer per part by its number: {"1": "same", "2": "changed"}."""
+
+
+def _read_as(reading: Dict[str, Any]) -> str:
+    """A reading as the check is shown it: what was read, not where it stands or what it is called."""
+    if "kind" not in reading:   # a list's: its label
+        return json.dumps({"label": reading.get("label") or ""}, ensure_ascii=False)
+    return json.dumps({k: v for k, v in reading.items() if k not in ("n", "lead", "label", "seen")}, ensure_ascii=False)
+
+
+def check_message(items: Sequence[Dict[str, Any]]) -> str:
+    """The check's question. Each item: {"words", "reading", "before": seen_in(...), "now":
+    seen_in(...)}. The notes are shown once when the edit left them as they were, else in each
+    part's lines."""
+    notes_now = list(items[0]["now"]["notes"]) if items else []
+    same = all(list(it["before"]["notes"]) == notes_now for it in items)
+
+    def note(text: str) -> str:   # "note:" reads as the user's; "#" alone reads as markup to skip
+        return "note: " + text.lstrip().lstrip("#").strip()
+    out = ["\n".join(note(x) for x in notes_now)] if same and notes_now else []
+
+    def lines(seen: Dict[str, Any]) -> str:
+        return "\n".join([*([] if same else [note(x) for x in seen["notes"]] or ["(no notes)"]), seen["marked"]])
+    for i, it in enumerate(items, 1):
+        out.append(f'{i}. ⟨{it["words"]}⟩, read as: {_read_as(it["reading"])}\n'
+                   f'before:\n{lines(it["before"])}\nnow:\n{lines(it["now"])}')
+    return "\n\n".join(out)
+
+
+def check_tokens(count: int) -> int:
+    """Room for one short answer per part, and nothing more."""
+    return 24 + 8 * count
+
+
+def parse_changed(reply: str, count: int) -> Optional[set]:
+    """The parts (numbered from 1) the reply says the edit changed, or None when it isn't the
+    asked shape. A part it leaves out counts as changed: it is read again."""
+    try:
+        got = _json(reply)
+    except _Bad:
+        return None
+    changed = set(range(1, count + 1))
+    for k, v in got.items():
+        answer = v.strip().lower() if isinstance(v, str) else None
+        if not str(k).strip().isdigit() or not 1 <= int(k) <= count or answer not in ("same", "changed"):
+            return None
+        if answer == "same":
+            changed.discard(int(k))
+    return changed
+
+
+async def changed_parts(items: Sequence[Dict[str, Any]], *, ask: Ask, project_id: Optional[int]) -> Optional[set]:
+    """Which of the parts (by their place in `items`, from 1) an edit changes, from one small
+    call; None when the call fails or its reply can't be read (then every part is read again)."""
+    messages = [{"role": "system", "content": CHECK_SYSTEM}, {"role": "user", "content": check_message(items)}]
+    try:
+        reply = await ask(messages, project_id, check_tokens(len(items)))
+    except Exception as e:   # a model slip never stops a run: the parts are read again
+        log.warning(f"[slots] checking an edit failed: {e}")
+        return None
+    got = parse_changed(reply, len(items))
+    if got is None:
+        log.info(f"[slots] the edit check's reply can't be used: {str(reply)[:200]!r}")
+    return got
+
+
+__all__ = ["CHECK_SYSTEM", "READER_VERSION", "ReaderFailed", "SYSTEM", "as_written", "cached", "changed_parts",
+           "check_message", "check_parts", "check_reply", "check_slot", "leads", "numbered", "parse_changed", "part_key",
+           "read", "read_part", "seen_in", "system_text", "user_message"]
