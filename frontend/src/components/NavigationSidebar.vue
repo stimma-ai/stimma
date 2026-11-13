@@ -98,39 +98,45 @@
             <span>Assets</span>
           </button>
 
-          <div
-            v-for="savedView in sidebarSavedViews"
-            :key="savedView.id"
-            class="group relative"
-            data-testid="sidebar-saved-view"
-          >
-            <button
-              @click="openSavedView(savedView.id)"
-              @contextmenu.prevent.stop="openSavedViewMenu(savedView, $event)"
-              class="flex items-center gap-2 px-3 py-1.5 pr-8 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 coarse:pr-12 [&>:first-child]:mx-1"
-              :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
-              :title="displaySavedViewName(savedView.name)"
+          <TransitionGroup name="flow-expand">
+            <div
+              v-for="savedView in sidebarSavedViews"
+              :key="savedView.id"
+              class="motion-reduce:!transition-none"
+              data-testid="sidebar-saved-view"
             >
-              <component :is="savedViewIcon(savedView)" class="w-icon-nav h-icon-nav flex-shrink-0" />
-              <span class="truncate text-sm">{{ displaySavedViewName(savedView.name) }}</span>
-            </button>
-            <!-- Inside Assets a pinned view shows its pin, so you can see which
-                 views stay when you leave; otherwise the pin appears on hover. -->
-            <Tooltip :text="savedView.pinned ? 'Unpin' : 'Pin'" class="absolute right-1.5 top-1/2 -translate-y-1/2 transition-opacity" :class="savedView.pinned && inAssets ? 'opacity-70 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100 coarse:opacity-70'">
-              <button
-                type="button"
-                data-testid="saved-view-pin"
-                class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light coarse:h-11 coarse:w-11"
-                :aria-label="savedView.pinned ? 'Unpin' : 'Pin'"
-                :aria-pressed="!!savedView.pinned"
-                @click.stop="toggleSavedViewPin(savedView)"
-              >
-                <svg class="w-icon-inline h-icon-inline" viewBox="0 0 16 16" :fill="savedView.pinned ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.25" aria-hidden="true">
-                  <path :d="PIN_PATH" />
-                </svg>
-              </button>
-            </Tooltip>
-          </div>
+              <div class="min-h-0 overflow-hidden">
+                <div class="group relative">
+                  <button
+                    @click="openSavedView(savedView.id)"
+                    @contextmenu.prevent.stop="openSavedViewMenu(savedView, $event)"
+                    class="flex items-center gap-2 px-3 py-1.5 pr-8 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 coarse:pr-12 [&>:first-child]:mx-1"
+                    :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
+                    :title="displaySavedViewName(savedView.name)"
+                  >
+                    <component :is="savedViewIcon(savedView)" class="w-icon-nav h-icon-nav flex-shrink-0" />
+                    <span class="truncate text-sm">{{ displaySavedViewName(savedView.name) }}</span>
+                  </button>
+                  <!-- Inside Assets a pinned view shows its pin, so you can see which
+                       views stay when you leave; otherwise the pin appears on hover. -->
+                  <Tooltip :text="savedView.pinned ? 'Unpin' : 'Pin'" class="absolute right-1.5 top-1/2 -translate-y-1/2 transition-opacity" :class="savedView.pinned && inAssets ? 'opacity-70 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100 coarse:opacity-70'">
+                    <button
+                      type="button"
+                      data-testid="saved-view-pin"
+                      class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light coarse:h-11 coarse:w-11"
+                      :aria-label="savedView.pinned ? 'Unpin' : 'Pin'"
+                      :aria-pressed="!!savedView.pinned"
+                      @click.stop="toggleSavedViewPin(savedView)"
+                    >
+                      <svg class="w-icon-inline h-icon-inline" viewBox="0 0 16 16" :fill="savedView.pinned ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.25" aria-hidden="true">
+                        <path :d="PIN_PATH" />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                </div>
+              </div>
+            </div>
+          </TransitionGroup>
           <ActionMenu v-if="savedViewMenu" :x="savedViewMenu.x" :y="savedViewMenu.y" :actions="savedViewMenuActions" @close="savedViewMenu = null" />
 
           <!-- Collections landing link (with drag-drop to create new) -->
