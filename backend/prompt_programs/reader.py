@@ -27,7 +27,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-14"   # reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-15"   # reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -80,8 +80,9 @@ For a person:
 - vary: the details that change from image to image, from the person details below. They are
   the fixed things about the person: their age, within what the words say ("young man" stays
   young, "elderly African man" stays elderly and of African descent), their descent, build,
-  hair and the like. Most often: age, descent, build, hair and hair_color, with facial_hair
-  for a masculine person. Choose what this picture shows of them: a small figure in a wide
+  hair and the like. Most often: age, descent, build, hair, hair_texture and hair_color, with
+  facial_hair for a masculine person. hairstyle only when the prompt or a note asks for it to
+  change. Choose what this picture shows of them: a small figure in a wide
   scene shows age, build and hair, not eyes; a close portrait adds eyes.
   You need not include every detail, but leave one out only for a reason. Facial hair only
   for a masculine person.
@@ -163,7 +164,7 @@ SHAPE = {
     "slots": [
         {"n": 1, "kind": "person", "label": "Elderly African man", "lead": "an",
          "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "elderly", "descent": "African"},
-                    "vary": ["age", "descent", "build", "hair", "hair_color", "facial_hair"], "face": False,
+                    "vary": ["age", "descent", "build", "hair", "hair_texture", "hair_color", "facial_hair"], "face": False,
                     "clothes": "", "outfit": "person.outfit.casual", "outfit_examples": []}},
         {"n": 2, "kind": "animal", "label": "Pet", "lead": " with his",
          "animal": {"noun": "pet", "vary": ["species", "life_stage"], "breed": "", "stated": {}}},
@@ -182,13 +183,13 @@ TAGS = {
 }
 
 # The lists the reader may bind a slot to (vocab.catalog's roots, the outfit and hairstyle lists among them).
-CATALOG_ROOTS = ("person", "animal", "place", "scene", "camera", "lighting", "art.style")
+from prompt_programs.vocab import CATALOG_ROOTS   # every directory  # noqa: E402
 
 
 def system_text() -> str:
-    from prompt_programs.fill import DETAILS, STARTS_OFF
+    from prompt_programs.fill import DETAILS
     from prompt_programs.vocab import vocabulary
-    details = "\n".join(f"- {k}: {v[2]}" for k, v in DETAILS.items() if k not in STARTS_OFF)
+    details = "\n".join(f"- {k}: {v[2]}" for k, v in DETAILS.items() if k != "face")
     return (SYSTEM.replace("{details}", details).replace("{catalog}", vocabulary().catalog(CATALOG_ROOTS))
             .replace("{shape}", json.dumps(SHAPE, ensure_ascii=False, indent=1))
             .replace("{tags}", json.dumps(TAGS, ensure_ascii=False)))
@@ -337,11 +338,10 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
                 if d in DETAILS and isinstance(w, str) and w.strip() and _copied(w, sources)}
         # A detail the words state is drawn, within the words: left undrawn, the person would be
         # only their noun and the words would be lost ("young man" drawn as "a man").
-        from prompt_programs.fill import STARTS_OFF
         # Face detail is drawn only when the reading says it was asked for ("face": true).
-        asked = list(STARTS_OFF) if got.get("face") is True else []
+        asked = ["face"] if got.get("face") is True else []
         vary = list(dict.fromkeys([*(d for d in _strings(got.get("vary"), f"part {n}: vary")
-                                     if d in DETAILS and d not in STARTS_OFF), *asked, *kept]))
+                                     if d in DETAILS and d != "face"), *asked, *kept]))
         noun = str(got.get("noun") or "").strip()
         if not noun or not _copied(noun, sources):
             # Copied, as stated words are: a person is named by their own part. A reading whose noun

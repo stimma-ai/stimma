@@ -72,8 +72,9 @@ def porch():
 
 def test_a_reading_makes_its_picks_and_choices(dorm, porch):
     assert [c["id"] for c in dorm["choices"]] == [
-        "young_man.build", "young_man.age", "young_man.descent", "young_man.hair", "young_man.hair_color",
-        "young_man.facial_hair", "young_man.face", "young_man.outfit", "young_man.outfit.colors", "light"]
+        "young_man.build", "young_man.age", "young_man.descent", "young_man.hair", "young_man.hair_texture",
+        "young_man.hair_color", "young_man.hairstyle", "young_man.facial_hair", "young_man.face", "young_man.outfit",
+        "young_man.outfit.colors", "light"]
     assert next(c for c in porch["choices"] if c["id"] == "list1")["label"] == "Season"
     slots = {s["id"]: s for s in porch["slots"]}
     assert slots["pet"]["details"] == ["pet"] and slots["pet"]["line"] == 2 and slots["pet"]["state"] == "ready"
@@ -82,7 +83,7 @@ def test_a_reading_makes_its_picks_and_choices(dorm, porch):
     assert porch["slot_words"] == {"elderly_african_man.age": "elderly", "elderly_african_man.descent": "African",
                                    "pet": "pet"}
     assert porch["template"].split("\n")[1] == (
-        "An [Build] [Age] [Ethnicity] man with [Hair] [Hair color] hair and [Facial hair], wearing [Outfit], "
+        "An [Build] [Age] [Ethnicity] man with [Hair length] [Hair texture] [Hair color] hair and [Facial hair], wearing [Outfit], "
         "reading on a porch with his [Pet], [Season] evening")
 
 
@@ -112,18 +113,18 @@ def test_leaving_a_slot_out_takes_its_lead(dorm, porch):
 
 
 def test_a_detail_off_takes_its_joiners(dorm):
-    no_hair = draw(dorm, 5, edits={"young_man.hair": {"off": True}, "young_man.hair_color": {"off": True},
-                                   "young_man.facial_hair": {"off": True}}).prompt
+    no_hair = draw(dorm, 5, edits={"young_man.hair": {"off": True}, "young_man.hair_texture": {"off": True},
+                                   "young_man.hair_color": {"off": True}, "young_man.facial_hair": {"off": True}}).prompt
     assert no_hair.split(" man", 1)[1].startswith(", wearing") and "hair" not in no_hair
-    color_only = draw(dorm, 5, edits={"young_man.hair": {"off": True}, "young_man.facial_hair": {"off": True}})
+    color_only = draw(dorm, 5, edits={"young_man.hair": {"off": True}, "young_man.hair_texture": {"off": True},
+                                      "young_man.facial_hair": {"off": True}})
     assert f"man with {values(color_only)['young_man.hair_color']} hair, wearing" in color_only.prompt
 
 
 def test_a_pin_holds_and_ticks_draw_among_themselves(porch, dorm):
     for s in range(4):
         assert "70-year-old" in draw(porch, 200 + s, pins={"elderly_african_man.age": ["70-year-old"]}).prompt
-    ticked = {"short wavy", "long straight"}
-    hair = vocabulary().get("person.hair_length_texture").values
+    hair = vocabulary().get("person.hair_length").values
     ticked = {v.text for v in hair[:2]}
     for s in range(6):
         assert values(draw(dorm, s, pins={"young_man.hair": sorted(ticked)}))["young_man.hair"] in ticked
@@ -216,6 +217,30 @@ def test_face_detail_starts_left_out_and_turns_on_when_chosen():
     assert values(draw(e2, 1)).get("young_woman.face")
 
 
+def test_an_open_face_is_one_subtle_piece_and_ticked_pieces_of_different_parts_go_in_together():
+    e = entry_of(KITCHEN_PROMPT, KITCHEN_READING, {"young_woman.age": YOUNG})
+    face = vocabulary().get("person.face")
+    for s in range(30):
+        got = values(draw(e, s, edits={"young_woman.face": {"on": True}}))["young_woman.face"]
+        assert face.value(got) is not None and face.value(got).strength == 1, got
+    nose = next(v.text for v in face.values if v.tags["piece"] == ["nose"] and v.strength == 1)
+    freckles = next(v.text for v in face.values if v.tags["piece"] == ["skin_marks"] and v.strength == 2)
+    r = draw(e, 2, pins={"young_woman.face": [freckles, nose]})
+    assert values(r)["young_woman.face"] == f"{nose}, {freckles}" and f"{nose}, {freckles}" in r.prompt
+    noses = [v.text for v in face.values if v.tags["piece"] == ["nose"]][:2]
+    assert {values(draw(e, s, pins={"young_woman.face": noses}))["young_woman.face"] for s in range(12)} <= set(noses)
+
+
+def test_a_hairstyle_starts_left_out_and_follows_the_hair_length():
+    e = entry_of(KITCHEN_PROMPT, KITCHEN_READING, {"young_woman.age": YOUNG})
+    style = next(c for c in e["choices"] if c["id"] == "young_woman.hairstyle")
+    assert style["starts_off"] and all("young_woman.hairstyle" not in values(draw(e, s)) for s in range(10))
+    leaf = vocabulary().get("person.hairstyle")
+    for s in range(40):
+        got = values(draw(e, s, pins={"young_woman.hair": ["buzzed"]}, edits={"young_woman.hairstyle": {"on": True}}))
+        assert "short" in leaf.value(got["young_woman.hairstyle"]).tags["hair_length"], got
+
+
 def test_a_young_persons_hair_fits_their_age():
     e = entry_of(KITCHEN_PROMPT, KITCHEN_READING, {"young_woman.age": YOUNG})
     for s in range(300):
@@ -230,19 +255,22 @@ def test_the_person_reads_as_one_clean_phrase_whatever_is_on():
     e = entry_of(KITCHEN_PROMPT, {"slots": [reading, KITCHEN_READING["slots"][1]]}, {"young_woman.age": YOUNG})
     ids = [c["id"] for c in e["choices"] if c["id"].startswith("young_woman.") and not c["id"].endswith(".colors")]
     # Values with no joiners of their own, so every joiner in the text is the fill's.
-    simple = {"build": "slender", "age": "24-year-old", "descent": "Korean", "skin": "fair", "hair": "short straight",
-              "hair_color": "black", "eyes": "hazel", "face": "a small nose", "outfit": "a navy coat"}
-    said = {"skin": "fair skin", "hair": "short straight", "hair_color": "black", "eyes": "hazel eyes", "face": "a small nose"}
+    simple = {"build": "slender", "age": "24-year-old", "descent": "Korean", "skin": "fair", "hair": "short",
+              "hair_texture": "straight", "hair_color": "black", "hairstyle": "a pixie cut", "eyes": "hazel",
+              "face": "a small nose", "outfit": "a navy coat"}
+    hairs = ("hair", "hair_texture", "hair_color", "hairstyle")
+    said = {"skin": "fair skin", "hair": "HAIR", "eyes": "hazel eyes", "face": "a small nose"}
     pins = {cid: [simple[cid.split(".", 1)[1]]] for cid in ids}
     for on in product((True, False), repeat=len(ids)):
         off = {cid: {"off": True} for cid, keep in zip(ids, on) if not keep}
         got = draw(e, 1, pins={k: v for k, v in pins.items() if k not in off}, edits=off).prompt
         kept = {cid.split(".", 1)[1] for cid, keep in zip(ids, on) if keep}
         before = " ".join(simple[k] for k in ("build", "age", "descent") if k in kept)
-        details = [said[k] for k in ("skin", "hair", "eyes", "face") if k in kept or (k == "hair" and "hair_color" in kept)]
-        if "hair" in kept or "hair_color" in kept:
-            hair = " ".join(simple[k] for k in ("hair", "hair_color") if k in kept) + " hair"
-            details[[d for d in details].index(said["hair"])] = hair
+        details = [said[k] for k in ("skin", "hair", "eyes", "face") if k in kept or (k == "hair" and set(hairs) & kept)]
+        if set(hairs) & kept:
+            hair = " ".join(simple[k] for k in hairs[:3] if k in kept) + " hair"
+            hair = hair.strip() + (" in " + simple["hairstyle"] if "hairstyle" in kept else "")
+            details[details.index("HAIR")] = hair
         listed = (", ".join(details[:-1]) + " and " + details[-1]) if len(details) > 1 else "".join(details)
         person = " ".join(x for x in (before, "woman" if before or details else "young woman") if x)
         if details:

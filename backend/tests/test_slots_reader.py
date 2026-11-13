@@ -623,11 +623,17 @@ async def test_an_animal_reading_is_checked_for_its_shape():
     got = await reader.read(parse("a girl walking her <pet>"), ask=FakeModel(json.dumps({"slots": [both]})),
                             project_id=None, model="m")
     assert got["slots"][0]["animal"]["vary"] == ["species"]
+    ferret = {**animal, "animal": {"noun": "ferret", "vary": ["breed", "life_stage"], "breed": "animal.ferret_breed",
+                                   "stated": {"life_stage": "baby"}}}
+    got = await reader.read(parse("a baby <ferret> on a windowsill"), ask=FakeModel(json.dumps({"slots": [ferret]})),
+                            project_id=None, model="m")
+    assert not got["slots"][0].get("degraded") and got["slots"][0]["animal"]["vary"] == ["life_stage"]
     kitten = {**animal, "animal": {"noun": "kitten", "vary": ["breed", "life_stage"], "breed": "animal.cat_breed",
                                    "stated": {"life_stage": "kitten"}}}
     got = await reader.read(parse("a <kitten> on a windowsill"), ask=FakeModel(json.dumps({"slots": [kitten]})),
                             project_id=None, model="m")
-    assert not got["slots"][0].get("degraded") and got["slots"][0]["animal"]["vary"] == ["life_stage"]
+    assert got["slots"][0]["animal"] == {"noun": "kitten", "vary": ["breed", "life_stage"], "breed": "animal.cat_breed",
+                                         "stated": {"life_stage": "kitten"}}
     old = {**animal, "animal": {"noun": "dog", "vary": ["breed"], "breed": "animal.dog_breed", "stated": {"life_stage": "old"}}}
     got = await reader.read(parse("an <old dog> asleep"), ask=FakeModel(json.dumps({"slots": [old]})), project_id=None, model="m")
     assert got["slots"][0]["animal"]["vary"] == ["breed", "life_stage"]

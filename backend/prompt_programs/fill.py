@@ -46,8 +46,10 @@ DETAILS: Dict[str, Tuple[str, str, str, str, int]] = {
     "age": ("person.age_band", "Age", "age", "32-year-old", 1),
     "descent": ("person.ethnicity", "Ethnicity", "descent", "Korean", 1),
     "skin": ("person.skin_tone", "Skin", "skin tone", "warm beige", 2),
-    "hair": ("person.hair_length_texture", "Hair", "hair length and texture", "shoulder-length wavy", 2),
+    "hair": ("person.hair_length", "Hair length", "hair length", "shoulder-length", 2),
+    "hair_texture": ("person.hair_texture", "Hair texture", "hair texture", "wavy", 2),
     "hair_color": ("person.hair_color", "Hair color", "hair color", "dark brown", 2),
+    "hairstyle": ("person.hairstyle", "Hairstyle", "hairstyle", "a low ponytail", 2),
     "eyes": ("person.eye_color", "Eyes", "eye color", "hazel", 2),
     "facial_hair": ("person.facial_hair", "Facial hair", "facial hair", "light stubble", 2),
     "face": ("person.face", "Face", "face", "a long, narrow nose, a light scatter of freckles across the nose", 2),
@@ -55,9 +57,9 @@ DETAILS: Dict[str, Tuple[str, str, str, str, int]] = {
 
 
 # Details a person has that start left out unless the reading asks for them (the chooser turns them on).
-STARTS_OFF = ("face",)
+STARTS_OFF = ("face", "hairstyle")
 # Details every person varies, whatever the reading lists (facial hair only for a masculine person).
-CORE = ("age", "descent", "build", "hair", "hair_color", "facial_hair")
+CORE = ("age", "descent", "build", "hair", "hair_texture", "hair_color", "facial_hair")
 
 
 class ProgramError(Exception):
@@ -716,8 +718,9 @@ def person_parts(form: Dict[str, Any], value: Any) -> List[Part]:
         noun = noun if any(x.value is not None for x in v.values()) else form["words"]
     parts: List[Part] = [v[k] for k in ("build", "age", "descent") if k in v] + [noun]
     groups = [g for g in (Opt((v["skin"], "skin")) if "skin" in v else None,
-                          Opt(tuple(Opt((v[k],)) for k in ("hair", "hair_color") if k in v) + ("hair",))
-                          if "hair" in v or "hair_color" in v else None,
+                          Opt(tuple(Opt((v[k],)) for k in ("hair", "hair_texture", "hair_color") if k in v) + ("hair",)
+                              + ((Opt(("in", v["hairstyle"])),) if "hairstyle" in v else ()))
+                          if any(k in v for k in ("hair", "hair_texture", "hair_color", "hairstyle")) else None,
                           Opt((v["eyes"], "eyes")) if "eyes" in v else None,
                           Opt((v["facial_hair"],)) if "facial_hair" in v else None,
                           Opt((v["face"],)) if "face" in v else None) if g is not None]
@@ -909,6 +912,20 @@ class _Fill:
                 return o
         return items[-1][0]
 
+    def _pieces(self, leaf: Any, items: List[Tuple[str, float]]) -> str:
+        """Pieces the user ticked from different parts of a list of pieces (a face's nose and its
+        freckles) go in together, one drawn from each part, in the list's order of parts; two ticked
+        from one part (two noses) vary between them. "" when the ticks are all of one part."""
+        order = list(leaf.local_facets["piece"])
+        by: Dict[str, List[Tuple[str, float]]] = {}
+        for o, w in items:
+            v = leaf.value(o)
+            if v is not None and w > 0:
+                by.setdefault(str((v.tags.get("piece") or [""])[0]), []).append((o, w))
+        if len(by) < 2:
+            return ""
+        return ", ".join(self._weighted(by[p]) for p in sorted(by, key=lambda p: order.index(p) if p in order else len(order)))
+
     def _choose(self, spec: PickSpec, pool: Pool, items: List[Tuple[str, float]]) -> Tuple[str, bool, bool]:
         """(value, pinned, the user's own) for a pick."""
         cid, names = spec.id, [o for o, _ in items]
@@ -974,6 +991,8 @@ class _Fill:
         if pins and not items and (len(pins) > 1 or source == "list"):
             pool, items = self._eligible(spec, None)   # ticks that match nothing it has now are passed by
         value, pinned, own = self._choose(spec, pool, items)
+        if leaf is not None and "piece" in leaf.local_facets and len(pins or ()) > 1 and cid not in self.single:
+            value = self._pieces(leaf, items) or value
         template = ""
         shown = value
         if leaf is not None and leaf.slots and vocabulary().get(leaf.slots) is not None and is_template(value):
