@@ -8,24 +8,39 @@ The editor sends one object per choice (`promptOptions.program.choices`, and /po
      "lighting": {"as_written": true},
      "camera": {"off": true},
      "person": {"seeds": {"descent": {"values": ["Korean"], "groups": {"region": ["East Asia"]}},
-                          "gender": {"values": ["trans woman"]}}},
+                          "gender": {"values": ["trans woman"]},
+                          "age": {"values": ["young adult", "middle-aged"]}}},
      "list1": {"values": ["autumn"]}}
 
 `expand` turns it into what realize() and the pools read: for a slot, a variant_pools.Choice
 (pinned variants, the user's own, as written, left out, picked seeds); for a user list, pins
 (its ticked items) and edits (`off`, `add`). `{"any": true}` and `{}` are no choice. Choices the
 prompt doesn't have (one from before an edit, an old detail id like `young_man.age`) are passed by.
+Picked life stages a person can't be (not a person, outside the ages their words allow, a child
+or teen stage the minors rules don't allow them) are passed by too.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
+from dataclasses import replace
+
 from prompt_programs.variant_pools import Choice
 
 
 class UnknownChoiceError(ValueError):
     """keep_choices named a choice the prepared prompt doesn't have."""
+
+
+def _offered_ages(entry: Dict[str, Any], slot: Dict[str, Any], c: Choice) -> Choice:
+    """The choice with only the life stages the slot's person may be picked as (seeding.age_choices):
+    a stage they can't be would match no variant and seed nothing, so it would only churn top-ups."""
+    if not c.pins.age:
+        return c
+    from prompt_programs.seeding import age_choices
+    offered = age_choices((entry.get("seeds") or {}).get(str(slot.get("id")))) if slot.get("kind") == "person" else {}
+    return replace(c, pins=replace(c.pins, age=tuple(st for st in c.pins.age if st in offered)))
 
 
 def _strings(v: Any) -> List[str]:
@@ -36,7 +51,7 @@ def expand(entry: Dict[str, Any], choices: Optional[Dict[str, Any]]
            ) -> Tuple[Dict[str, List[str]], Dict[str, Dict[str, Any]], Dict[str, Choice]]:
     """(pins, edits, chosen) for the chooser's choices on a prepared prompt: pins and edits for
     its user lists, a Choice per slot."""
-    slots = {str(s.get("id")) for s in entry.get("slots") or []}
+    slots = {str(s.get("id")): s for s in entry.get("slots") or []}
     lists = {str(p.get("id")) for p in entry.get("picks") or [] if p.get("source") == "list"}
     per: Dict[str, Dict[str, Any]] = {}
     for key, value in (choices or {}).items():
@@ -52,7 +67,7 @@ def expand(entry: Dict[str, Any], choices: Optional[Dict[str, Any]]
     chosen: Dict[str, Choice] = {}
     for cid, ch in per.items():
         if cid in slots:
-            c = Choice.of(ch)
+            c = _offered_ages(entry, slots[cid], Choice.of(ch))
             if c.to_dict() is not None or c.add:
                 chosen[cid] = c
             continue

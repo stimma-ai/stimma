@@ -194,6 +194,36 @@ async def test_choices_pins_seeds_off_and_as_written(monkeypatch, profile):
     assert v["person"]["descent"]["picked"]["values"] == ["Welsh"] and v["person"]["gender"]["fits"] == ["woman", "trans woman"]
 
 
+async def test_a_picked_life_stage_steers_a_person_whose_words_state_an_age(monkeypatch, profile):
+    use(monkeypatch)
+    entry = await settled(PROMPT, profile)
+    store = P.store_for(profile)
+    person = slot(entry, "dominant_young_woman")
+    assert not any("age" in v["seeds"] for v in store.variants(person["pool"]))   # "young": no age seeded
+    # only the stages her words allow are offered; a teen, child or ruled-out stage is passed by
+    _, _, chosen = expand(entry, {"dominant_young_woman": {"seeds": {"age": {"values": ["teen", "elderly", "young adult"]}}}})
+    c = chosen["dominant_young_woman"]
+    assert c.pins.age == ("young adult",)
+    _, _, none = expand(entry, {"dominant_young_woman": {"seeds": {"age": {"values": ["child"]}}},
+                                "lighting": {"seeds": {"age": {"values": ["elderly"]}}}})
+    assert none == {}
+    r = prep.realize(entry, profile_id=profile, seed=1, chosen=chosen)
+    assert "dominant young woman" in r.prompt.lower()   # nothing matches yet: her words
+    view = pool_view(entry, chosen, profile_id=profile)
+    age = view["choices"]["dominant_young_woman"]["person"]["age"]
+    assert age["options"] == ["young adult"] and age["stages"][0]["span"] == [18, 29]
+    assert age["picked"] == {"values": ["young adult"]}
+    await P.writer_for(profile).drain()
+    got = P.drawable(store.variants(person["pool"]), c)
+    assert len(got) >= P.MIN_MATCH and all(v["seeds"]["age"] in YOUNG for v in got)
+    r = prep.realize(entry, profile_id=profile, seed=1, chosen=chosen)
+    d = next(d for d in r.draws if d.id == "dominant_young_woman")
+    assert d.source == "variant" and d.seeds["age"] in YOUNG
+    # the pin steers draws and writes only: the pool keeps its key
+    again = await settled(PROMPT, profile)
+    assert slot(again, "dominant_young_woman")["pool"] == person["pool"]
+
+
 async def test_pool_view_shape(monkeypatch, profile):
     use(monkeypatch)
     entry = await settled(PROMPT, profile)

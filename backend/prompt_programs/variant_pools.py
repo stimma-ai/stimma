@@ -35,7 +35,8 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
 from prompt_programs.variants import (
-    DESCENT, GENDER, TOPUP, VARIANTS_VERSION, Ask, Batch, Pins, Seeds, Slot, ask_writer, top_up, write_first,
+    AGE, DESCENT, GENDER, STAGE, TOPUP, VARIANTS_VERSION, Ask, Batch, Pins, Seeds, Slot, age_stages, age_years,
+    ask_writer, stages_of, top_up, write_first,
 )
 
 log = get_logger(__name__)
@@ -210,9 +211,10 @@ class Choice:
         seeds = o.get("seeds") if isinstance(o.get("seeds"), dict) else {}
         d = seeds.get("descent") if isinstance(seeds.get("descent"), dict) else {}
         g = seeds.get("gender") if isinstance(seeds.get("gender"), dict) else {}
+        a = seeds.get("age") if isinstance(seeds.get("age"), dict) else {}
         groups = d.get("groups") if isinstance(d.get("groups"), dict) else {}
         pins = Pins(descent=strings(d.get("values")), regions=strings(groups.get("region")),
-                    gender=strings(g.get("values")))
+                    gender=strings(g.get("values")), age=strings(a.get("values")))
         return cls(values=strings(o.get("values")), add=tuple(dict.fromkeys([*strings(o.get("add")), *strings(add)])),
                    as_written=o.get("as_written") is True, off=o.get("off") is True, pins=pins)
 
@@ -230,6 +232,8 @@ class Choice:
             seeds["descent"] = {"values": list(self.pins.descent), "groups": {"region": list(self.pins.regions)}}
         if self.pins.gender:
             seeds["gender"] = {"values": list(self.pins.gender)}
+        if self.pins.age:
+            seeds["age"] = {"values": list(self.pins.age)}
         if seeds:
             out["seeds"] = seeds
         return out or None
@@ -242,6 +246,8 @@ def matches(seeds: Dict[str, Any], pins: Pins) -> bool:
         return False
     if pins.gender and str(seeds.get("gender") or "") not in set(pins.gender):
         return False
+    if pins.age and not set(stages_of(seeds.get("age"))) & set(pins.age):
+        return False   # its recorded age is in none of the picked life stages (or it has none)
     return True
 
 
@@ -317,21 +323,26 @@ def due(variants: Sequence[Dict[str, Any]], uses: Dict[str, int], choice: Choice
 
 
 def in_pool(variants: Sequence[Dict[str, Any]], seed: str) -> Dict[str, int]:
-    """How many of a pool's variants carry each value of one seed (descent, gender)."""
+    """How many of a pool's variants carry each value of one seed (descent, gender); for age, by
+    life stage (a 35-year-old counts for young adult and middle-aged)."""
     out: Dict[str, int] = {}
     for v in variants:
         s = (v.get("seeds") or {}).get(seed)
         if isinstance(s, str) and s:
-            out[s] = out.get(s, 0) + 1
+            for k in (stages_of(s) if seed == "age" else (s,)):
+                out[k] = out.get(k, 0) + 1
     return out
 
 
 def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: Optional[Sequence[str]] = None,
-                   gender_fits: Optional[Sequence[str]] = None) -> Dict[str, Any]:
-    """A person slot's descent and gender pickers for /pools (VARIANTS_IMPL.md section 4):
+                   gender_fits: Optional[Sequence[str]] = None,
+                   ages: Optional[Dict[str, List[str]]] = None) -> Dict[str, Any]:
+    """A person slot's descent, gender and age pickers for /pools (VARIANTS_IMPL.md section 4):
     descent browsed by its list's browse facet (Region > heritage), what the words allow of it
     (`fits`), what is picked and how many variants carry each value; the same for gender, a short
-    list shown whole (`gender_fits`: what the words allow of it)."""
+    list shown whole (`gender_fits`: what the words allow of it); age by life stage, only the
+    stages the person may be (`ages`: variants.age_stages, their narrowed ages and the minors
+    rules; None: every adult stage), each with the span of years it holds for them."""
     from prompt_programs.vocab import vocabulary
     vocab = vocabulary()
     out: Dict[str, Any] = {}
@@ -352,6 +363,14 @@ def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: 
         out["gender"] = {"list": g.id, "label": g.label, "options": [v.text for v in g.values],
                          "fits": list(gender_fits) if gender_fits else [v.text for v in g.values],
                          "picked": {"values": list(choice.pins.gender)}, "in_pool": in_pool(variants, "gender")}
+    a = vocab.get(AGE)
+    if a is not None:
+        stages = ages if ages is not None else age_stages()
+        out["age"] = {"list": a.id, "label": a.label, "browse": STAGE, "options": list(stages),
+                      "stages": [{"id": st, "label": st[:1].upper() + st[1:],
+                                  "span": [min(age_years(t) for t in ts), max(age_years(t) for t in ts)]}
+                                 for st, ts in stages.items()],
+                      "fits": list(stages), "picked": {"values": list(choice.pins.age)}, "in_pool": in_pool(variants, "age")}
     return out
 
 

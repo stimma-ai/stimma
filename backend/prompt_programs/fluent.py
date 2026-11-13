@@ -246,8 +246,10 @@ def pool_view(entry: Dict[str, Any], chosen: Optional[Dict[str, Choice]] = None,
             banks = {b.get("role"): b for b in record.get("banks") or []}
             fits = (banks.get("descent") or {}).get("narrowed")
             gfits = (banks.get("gender") or {}).get("narrowed")
+            from prompt_programs.seeding import age_choices
             view["person"] = person_pickers(variants, c, fits=fits if isinstance(fits, list) else None,
-                                            gender_fits=gfits if isinstance(gfits, list) else None)
+                                            gender_fits=gfits if isinstance(gfits, list) else None,
+                                            ages=age_choices(record))
         out[sid] = view
     return {"choices": out, "more": busy}
 

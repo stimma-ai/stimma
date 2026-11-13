@@ -423,6 +423,48 @@ def test_store_appends_dedupes_and_counts(tmp_path):
         s.append("../escape", {})
 
 
+ADULTS = [v.text for v in vocabulary().get(V.AGE).values if not v.opt_in]   # "chef": every adult age
+YOUNG_AGES = [f"{a}-year-old" for a in range(18, 30)]                       # "young woman"
+
+
+def test_age_stages_are_what_the_words_and_the_minors_rules_allow():
+    assert list(V.age_stages()) == ["young adult", "middle-aged", "older", "elderly"]   # not narrowed yet: adults
+    assert list(V.age_stages(ADULTS)) == ["young adult", "middle-aged", "older", "elderly"]
+    # 18 and 19 are tagged teen too, but a stage holding an age under 18 needs the minors rules to allow one
+    assert "teen" not in V.age_stages(ADULTS) and "18-year-old" in V.age_stages(ADULTS)["young adult"]
+    assert V.age_stages(YOUNG_AGES) == {"young adult": YOUNG_AGES}
+    teen = ["14-year-old", "15-year-old", "16-year-old"]
+    assert V.age_stages(teen) == {"teen": teen}                                   # "a teenage girl"
+    # a user list's age under 18 on their line: that age, never the rest of childhood
+    got = V.age_stages(ADULTS, ("9-year-old",))
+    assert got["child"] == ["9-year-old"] and "baby" not in got and got["teen"] == ["18-year-old", "19-year-old"]
+    assert V.stages_of("35-year-old") == ("young adult", "middle-aged") and V.stages_of("nonsense") == ()
+    assert (V.age_years("newborn"), V.age_years("34-year-old")) == (0, 34)
+
+
+def test_a_picked_life_stage_seeds_ages_within_what_the_words_allow():
+    chef = V.person_seeds(ages=ADULTS)
+    s = chef.pinned(V.Pins(age=("elderly",)))
+    assert s.age.texts() == V.age_stages(ADULTS)["elderly"]
+    assert {sp.age for sp in V.draw_seeds(random.Random(2), s, 200).specs} <= set(s.age.texts())
+    # words that state an age seed none unpinned; a pick seeds within them, so it shows in the variants
+    young = V.person_seeds(ages=YOUNG_AGES)
+    assert young.age is None
+    s = young.pinned(V.Pins(age=("young adult",)))
+    assert set(s.age.texts()) == set(YOUNG_AGES)
+    d = V.draw_seeds(random.Random(4), s, 40)
+    assert all(sp.age in YOUNG_AGES for sp in d.specs) and any(V.AGE_SHOWS in sp.develop for sp in d.specs)
+    # a stage the words rule out, or one under 18 the minors rules don't allow, changes nothing
+    assert young.pinned(V.Pins(age=("elderly",))).age is None
+    assert chef.pinned(V.Pins(age=("teen", "child", "baby"))).age == chef.age
+    # a child the rules allow: only their own ages
+    kid = V.person_seeds(ages=["8-year-old", "9-year-old"])
+    assert kid.pinned(V.Pins(age=("child",))).age.texts() == ["8-year-old", "9-year-old"]
+    # a list slot has no age to pin
+    assert V.list_seeds([("person.makeup", None)]).pinned(V.Pins(age=("elderly",))).age is None
+
+
+
 # --------------------------------------------------------------------------- drawing
 
 POOL = [{"text": f"variant {i}", "seeds": {"descent": d, "gender": g}}
@@ -482,6 +524,20 @@ def test_picked_seeds_filter_the_pool():
     assert P.pick(POOL, {}, P.Choice(pins=V.Pins(regions=("Oceania",))), rng, "young woman").text == "young woman"
 
 
+def test_a_picked_life_stage_filters_the_pool_by_each_variants_recorded_age():
+    pool = [{"text": "a", "seeds": {"age": "24-year-old"}}, {"text": "b", "seeds": {"age": "37-year-old"}},
+            {"text": "c", "seeds": {"age": "72-year-old"}}, {"text": "d", "seeds": {"descent": "Korean"}}]
+    rng = random.Random(3)
+    c = P.Choice(pins=V.Pins(age=("middle-aged",)))
+    assert {P.pick(pool, {}, c, rng, "w").text for _ in range(20)} == {"b"}
+    c = P.Choice(pins=V.Pins(age=("young adult", "elderly")))
+    assert {P.pick(pool, {}, c, rng, "w").text for _ in range(30)} == {"a", "b", "c"}
+    # nothing recorded in that stage yet: the words, and a top-up is due
+    c = P.Choice(pins=V.Pins(age=("older",)))
+    assert P.pick(pool, {}, c, rng, "w").text == "w" and P.due(pool, {}, c)
+    assert P.in_pool(pool, "age") == {"young adult": 2, "middle-aged": 1, "elderly": 1}
+
+
 def test_choice_wire_form():
     c = P.Choice.of({"values": ["a"], "seeds": {"descent": {"values": ["Korean"], "groups": {"region": ["Europe"]}},
                                                  "gender": {"values": ["trans woman"]}}, "add": ["x"]}, add=["y"])
@@ -489,6 +545,10 @@ def test_choice_wire_form():
     assert c.pins == V.Pins(descent=("Korean",), regions=("Europe",), gender=("trans woman",))
     assert c.to_dict()["seeds"]["gender"] == {"values": ["trans woman"]}
     assert c.to_dict()["seeds"]["descent"] == {"values": ["Korean"], "groups": {"region": ["Europe"]}}
+    c = P.Choice.of({"seeds": {"age": {"values": ["young adult", "elderly"]}, "gender": {"values": ["man"]}}})
+    assert c.pins == V.Pins(gender=("man",), age=("young adult", "elderly"))
+    assert c.to_dict() == {"seeds": {"gender": {"values": ["man"]}, "age": {"values": ["young adult", "elderly"]}}}
+    assert c.pins.to_dict() == {"gender": ["man"], "age": ["young adult", "elderly"]}
     assert P.Choice.of({"off": True}).to_dict() == {"off": True}
     assert P.Choice.of({"as_written": True}).as_written
     assert P.Choice.of({}).to_dict() is None and P.Choice.of({"any": True}).to_dict() is None
@@ -521,6 +581,14 @@ def test_person_pickers():
     assert g["label"] == "Gender" and g["options"] == ["woman", "man", "trans woman", "trans man", "non-binary person"]
     assert g["in_pool"] == {"woman": 2, "man": 2, "non-binary person": 1} and g["fits"] == g["options"]
     assert P.person_pickers(POOL, P.Choice(), gender_fits=["woman", "trans woman"])["gender"]["fits"] == ["woman", "trans woman"]
+    a = got["age"]
+    assert a["label"] == "Age" and a["browse"] == "life_stage" and a["picked"] == {"values": []}
+    assert a["options"] == a["fits"] == ["young adult", "middle-aged", "older", "elderly"]   # an adult: no child or teen
+    assert a["stages"][0] == {"id": "young adult", "label": "Young adult", "span": [18, 39]}
+    assert a["stages"][-1] == {"id": "elderly", "label": "Elderly", "span": [70, 110]}
+    young = P.person_pickers(POOL, P.Choice(pins=V.Pins(age=("young adult",))), ages=V.age_stages(YOUNG_AGES))["age"]
+    assert young["options"] == ["young adult"] and young["stages"][0]["span"] == [18, 29]
+    assert young["picked"] == {"values": ["young adult"]} and young["in_pool"] == {}
 
 
 # --------------------------------------------------------------------------- writing in the background
@@ -708,6 +776,25 @@ def test_a_pick_nothing_matches_writes_a_pinned_batch_at_once(tmp_path):
         rec = w.store.batches(key)[-1]
         assert rec["pinned"] == {"descent": ["Welsh"], "gender": ["trans woman"]}
         assert all(v["seeds"]["descent"] == "Welsh" and v["seeds"]["gender"] == "trans woman" for v in rec["variants"])
+    run(go())
+
+
+def test_a_picked_life_stage_nothing_matches_writes_a_batch_with_it(tmp_path):
+    async def go():
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=FakeWriter(), paused=lambda: True)
+        w.attach()
+        sl = slot_of("a <young woman> on a rooftop", "person")
+        key = "8" * 32
+        young = V.person_seeds(ages=YOUNG_AGES)          # "young" states her age: no age seeded unpinned
+        w.store.append(key, {"batch": 0, "variants": POOL})
+        choice = P.Choice(pins=V.Pins(age=("young adult",)))
+        assert w.picked(job_for(sl, young, key=key), choice)
+        await asyncio.wait_for(w.drain(), 5)
+        rec = w.store.batches(key)[-1]
+        assert rec["pinned"] == {"age": ["young adult"]}
+        assert rec["variants"] and all(v["seeds"]["age"] in YOUNG_AGES for v in rec["variants"])
+        assert len(P.drawable(w.store.variants(key), choice)) >= P.MIN_MATCH
+        assert not w.picked(job_for(sl, young, key=key), choice)   # enough now
     run(go())
 
 

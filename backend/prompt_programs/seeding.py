@@ -152,6 +152,17 @@ def seeds_of(record: Dict[str, Any]) -> V.Seeds:
     return V.list_seeds(lists, single=bool(cores) and len(lists) == 1, minor=minor, stated=stated)
 
 
+def age_choices(record: Optional[Dict[str, Any]]) -> Dict[str, List[str]]:
+    """The life stages a person's age may be picked from, with their ages (variants.age_stages):
+    what their age narrowing kept (every adult age while it isn't there or when it failed) and
+    the ages under 18 the minors rules already allow them (record["minor"]). The same ages
+    seeds_of gives the writer, so a picked stage always has ages to seed."""
+    record = record if isinstance(record, dict) else {}
+    age = next((b for b in record.get("banks") or [] if b.get("role") == "age"), None)
+    fits = age.get("narrowed") if age is not None and isinstance(age.get("narrowed"), list) else None
+    return V.age_stages(fits, tuple(record.get("minor") or ()))
+
+
 # --------------------------------------------------------------------------- narrowing, in the background
 
 def _contexts(entry: Dict[str, Any]) -> Dict[str, str]:
@@ -295,4 +306,4 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
     entry["seeds"], entry["seeds_pending"] = out, pending
 
 
-__all__ = ["PERSON_IDEAS", "ReadingError", "SEEDS_VERSION", "narrow_seeds", "plan", "seeds_of"]
+__all__ = ["PERSON_IDEAS", "ReadingError", "SEEDS_VERSION", "age_choices", "narrow_seeds", "plan", "seeds_of"]
