@@ -127,13 +127,13 @@ def spans_of_marks(text: str) -> Tuple[str, List[Tuple[int, int]]]:
 
 
 def verify_and_unmark(output: str, values: Sequence[str]) -> Optional[str]:
-    """The output without its marks when every value came back exactly, inside its
-    marks, and nothing else was marked; None otherwise."""
-    found = Counter(marked_values(output))
-    expected = Counter(values)
-    if any(found[v] < n for v, n in expected.items()) or any(v not in expected for v in found):
+    """The output without its marks when every value came back exactly; None otherwise.
+    The marks are how the model is told what to copy: a value copied exactly with its
+    marks dropped is still a good answer."""
+    plain = output.replace(_MARK_OPEN, "").replace(_MARK_CLOSE, "")
+    if any(plain.count(v) < n for v, n in Counter(values).items()):
         return None
-    return output.replace(_MARK_OPEN, "").replace(_MARK_CLOSE, "")
+    return plain
 
 
 def strip_comments(prompt: str) -> str:

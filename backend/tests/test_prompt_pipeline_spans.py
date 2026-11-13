@@ -47,7 +47,9 @@ def test_verify_and_unmark_needs_every_value_exactly():
     good = "A ⟦young woman⟧ reads, shot on ⟦35mm⟧ film."
     assert pp.verify_and_unmark(good, values) == "A young woman reads, shot on 35mm film."
     assert pp.verify_and_unmark("A ⟦young girl⟧ reads, shot on ⟦35mm⟧ film.", values) is None
-    assert pp.verify_and_unmark("A young woman reads, shot on ⟦35mm⟧ film.", values) is None
+    # A value copied exactly with its marks dropped is still a good answer.
+    assert pp.verify_and_unmark("A young woman reads, shot on ⟦35mm⟧ film.", values) == "A young woman reads, shot on 35mm film."
+    assert pp.verify_and_unmark("A young woman reads, shot on film.", values) is None
     assert pp.verify_and_unmark("A ⟦Young woman⟧ reads on ⟦35mm⟧.", values) is None
 
 
