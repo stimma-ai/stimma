@@ -26,7 +26,7 @@ from prompt_programs.slots import CAMERA, KINDS, Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-4"   # reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-5"   # reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -51,13 +51,18 @@ before or after it, in the shape shown at the end. Each part's own fields go in 
 after its kind: "person": {...}, "camera": {...}, "light": {...}, "list": {...} or "free": {...}.
 
 kind:
-- "person": one person, or a character like one: the words name who they are ("young man",
-  "nurse", "my friend"). Two parts with the same words are two different people. Words that
-  name only something about a person (their hair, their clothes, their eyes) are not a person:
-  they are a "list" when a list below covers them, else "free".
+- "person": someone the prompt doesn't already have, named by the part's own words: "young
+  man", "nurse", "my friend", "elderly African man". Their noun is one of those words. Two parts
+  with the same words are two different people.
+- Words that name only something about a person, or about someone the prompt already has
+  ("1girl, ⟨hairstyle⟩", "a woman with ⟨hair color⟩ hair", "1boy, ⟨outfit⟩, ⟨expression⟩",
+  "a knight in ⟨armor⟩"), are never a person, even when that is all the part is about: the
+  person is already in the prompt's own words. They are a "list" when a list below covers
+  them, else "free".
 - "camera": how the picture is taken: shot size, lens, angle, film look.
 - "light": the light in the scene.
-- "list": something one of the lists below already covers well. Give its id.
+- "list": something one of the lists below holds: the list's items are kinds of the very thing
+  the words name, not of something like it. Give its id.
 - "free": anything else. Options will be written for it.
 
 For a person:
@@ -87,8 +92,10 @@ For a camera: vary, the parts of it that change, from: shot_size, lens, angle, f
 For light: examples, three kinds of light that fit this scene.
   "light": {"examples": ["...", "...", "..."]}
 
-For a list: list (its id) and stated (the words of the part that narrow it, copied exactly, or "").
-  "list": {"list": "<the list's id>", "stated": ""}
+For a list: list (its id) and about (what it is in this image, and whose, in a few words, with
+what the prompt and notes say of them: "the girl's hairstyle", "a middle-aged man's hairstyle",
+"his pet, on the porch"). The part's words and the about decide which of the list's items fit.
+  "list": {"list": "<the list's id>", "about": "..."}
 
 For free: about (what it is in this image, a few words), kinds (three specific kinds of the
 thing the words name) and instead (three other things that could stand in the same place in
@@ -115,7 +122,11 @@ Lists:
 {catalog}
 
 The reply's shape (an example):
-{shape}"""
+{shape}
+
+Another example. The prompt "1girl, ⟨1: hairstyle⟩, ⟨2: outfit⟩, beach" has one person, the girl,
+in its own words; both parts are about her:
+{tags}"""
 
 SHAPE = {
     "slots": [
@@ -131,6 +142,16 @@ SHAPE = {
     "lists": [{"n": 1, "label": "Season"}],
 }
 
+TAGS = {
+    "slots": [
+        {"n": 1, "kind": "list", "label": "Hairstyle", "lead": ",",
+         "list": {"list": "person.hairstyle", "about": "the girl's hairstyle"}},
+        {"n": 2, "kind": "list", "label": "Outfit", "lead": ",",
+         "list": {"list": "person.outfit.summer", "about": "the girl's outfit, at the beach"}},
+    ],
+    "lists": [],
+}
+
 # The lists the reader may bind a slot to (vocab.catalog's roots, the outfit and hairstyle lists among them).
 CATALOG_ROOTS = ("person", "animal", "place", "scene", "camera", "art.style")
 
@@ -140,7 +161,8 @@ def system_text() -> str:
     from prompt_programs.vocab import vocabulary
     details = "\n".join(f"- {k}: {v[2]}" for k, v in DETAILS.items())
     return (SYSTEM.replace("{details}", details).replace("{catalog}", vocabulary().catalog(CATALOG_ROOTS))
-            .replace("{shape}", json.dumps(SHAPE, ensure_ascii=False, indent=1)))
+            .replace("{shape}", json.dumps(SHAPE, ensure_ascii=False, indent=1))
+            .replace("{tags}", json.dumps(TAGS, ensure_ascii=False)))
 
 
 # --------------------------------------------------------------------------- the prompt, numbered
@@ -285,11 +307,18 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
         # A detail the words state is drawn, within the words: left undrawn, the person would be
         # only their noun and the words would be lost ("young man" drawn as "a man").
         vary = list(dict.fromkeys([*(d for d in _strings(got.get("vary"), f"part {n}: vary") if d in DETAILS), *kept]))
+        noun = str(got.get("noun") or "").strip()
+        if not noun or not _copied(noun, sources):
+            # Copied, as stated words are: a person is named by their own part. A reading whose noun
+            # comes from elsewhere has taken words about someone already in the prompt for a new person.
+            raise _Bad(f'part {n}: a person\'s noun is one of their own words, and "{noun}" is not among the '
+                       f'words "{seg.words}". Words that name only something about a person, or about someone '
+                       'the prompt already has, are a "list" when a list covers them, else "free"')
         if not vary and not outfit:
             raise _Bad(f"part {n}: a person needs details to vary (from {', '.join(DETAILS)}) or an outfit; "
                        "words about part of a person are a list or free, not a person")
         out["person"] = {
-            "noun": str(got.get("noun") or "").strip() or "person",
+            "noun": noun,
             "presentation": got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else "",
             "stated": kept, "vary": vary,
             "outfit": outfit, **({"outfit_examples": examples} if examples else {}),
@@ -308,8 +337,8 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
         lid = got.get("list")
         if not isinstance(lid, str) or vocab.get(lid) is None:
             raise _Bad(f'part {n}: list "{lid}" is not one of the lists (the id goes in "list": {{"list": "<id>", "stated": ""}})')
-        stated = got.get("stated") if isinstance(got.get("stated"), str) else ""
-        out["list"] = {"list": lid, "stated": stated.strip() if stated.strip() and _copied(stated, sources) else ""}
+        about = got.get("about") if isinstance(got.get("about"), str) else ""
+        out["list"] = {"list": lid, "about": about.strip() or seg.words}
     else:
         kinds = _strings(got.get("kinds"), f"part {n}: kinds")
         if not kinds:

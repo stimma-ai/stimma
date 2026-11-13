@@ -336,10 +336,12 @@ def build(parsed: Parsed, readings: Dict[str, Any]) -> Tuple[str, Dict[str, Any]
                                                  label=label, phase=1))
                 slot_words[cid] = seg.words
             elif kind == "list":
-                stmts.append(f"{var} = " + _call("pick", cid, cls=listed(got.get("list"), label), about=seg.words,
+                # The slot's words narrow its list, said of what the reader says it is in this image:
+                # "pet" on an animal list keeps pets; "hairstyle" said of "a middle-aged man's hairstyle".
+                stmts.append(f"{var} = " + _call("pick", cid, cls=listed(got.get("list"), label),
+                                                 about=str(got.get("about") or "").strip() or seg.words,
                                                  label=label, phase=1))
-                if str(got.get("stated") or "").strip():
-                    slot_words[cid] = str(got["stated"])
+                slot_words[cid] = seg.words
             else:
                 kinds = _strings(got.get("kinds") or [], "kinds")
                 instead = _strings(got.get("instead") or [], "instead")

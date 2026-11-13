@@ -53,7 +53,7 @@ from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-7"   # narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
+NARROW_VERSION = "narrow-8"   # narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
 NARROW_SECONDS = 180.0   # all of a program's narrowing calls together; past it the prepare fails. With no reasoning one call takes a few seconds
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
@@ -66,12 +66,14 @@ class NarrowFailed(ReaderFailed):
     code = "narrowing_failed"
 
 
+ALL = "ALL"   # the reply for a list whose every item fits: a long list isn't copied back whole
+
 _MEMBER = re.compile(r"^(.+)\[\d+\]\.(.+)$")   # kids[2].age → ("kids", "age")
 
 _SYSTEM = """You choose which items of a list fit a description from an image prompt.
 
 Reply with only a JSON list of the items that fit, each copied exactly as written. If no item
-fits, reply [].
+fits, reply []. If every item fits, reply ["ALL"] instead of copying them.
 
 Read the description whole, with what it is said of, the way a casting director would: which
 items would a reader of those words accept, and which would they call wrong? Keep the first and
@@ -160,6 +162,8 @@ def parse_subset(reply: str, values: Sequence[str]) -> Optional[List[str]]:
         except ValueError:
             continue
         if isinstance(got, list) and all(isinstance(x, str) for x in got):
+            if [x.strip() for x in got] == [ALL]:   # every item fits (the opt-in ones aside: subset())
+                return list(values)
             named = {_norm(x) for x in got}
             return [v for v in values if _norm(v) in named]
     return None
@@ -205,6 +209,15 @@ class NarrowCache:
         os.replace(tmp, p)
 
 
+def reply_tokens(shown: Sequence[str]) -> int:
+    """Room to copy back every item: about four characters a token, and a few for the quoting."""
+    return 200 + sum(len(v) for v in shown) // 3 + 6 * len(shown)
+
+
+def _all(reply: str) -> bool:
+    return bool(re.search(r'\[\s*"ALL"\s*\]', reply or ""))
+
+
 async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask,
                  project_id: Optional[int] = None, about: str = "", prompt: str = "") -> Optional[List[str]]:
     """The values of `leaf` that fit `phrase` (said of `about`, the pick's own description:
@@ -221,11 +234,14 @@ async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask
     got = None
     for attempt in range(2):   # one more try for a failed call or an unreadable answer
         try:
-            reply = await ask(messages_for(leaf, phrase, shown, about, prompt), project_id, 200 + 16 * len(shown))
+            reply = await ask(messages_for(leaf, phrase, shown, about, prompt), project_id, reply_tokens(shown))
         except Exception as e:
             log.warning(f"[prompt-program] narrowing {leaf.id} by {phrase!r} failed (try {attempt + 1}): {e}")
             continue
         named = parse_subset(reply, shown)
+        if named is not None and len(named) == len(shown) and _all(reply):
+            opt_in = {_shown(v.text) for v in leaf.values if v.opt_in}   # kept only when named
+            named = [sh for sh in named if sh not in opt_in]
         got = None if named is None else [v for v, sh in zip(values, shown) if sh in set(named)]
         if got is not None:
             break

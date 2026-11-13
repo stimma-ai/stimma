@@ -390,6 +390,7 @@ class TestWhere:
         assert parse_subset('Sure: ["25–29", "18–19", "a teenager"]', ["18–19", "20–24", "25–29"]) == ["18–19", "25–29"]
         assert parse_subset("no list here", ["a"]) is None
         assert parse_subset("[]", ["a"]) == []
+        assert parse_subset('```json\n["ALL"]\n```', ["a", "b"]) == ["a", "b"]
 
     async def test_an_entry_is_narrowed_and_the_answer_cached(self, tmp_path):
         entry, ask = young_entry(), FakeAsk(young)

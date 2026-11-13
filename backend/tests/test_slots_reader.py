@@ -81,8 +81,10 @@ def test_the_prompt_carries_the_person_guidance_and_the_catalogs():
         assert words in text
     assert "EXACT" in text and "{catalog}" not in text and "{details}" not in text
     # Each kind's own fields are shown in their object: a list's id goes inside "list": {...}.
-    assert '"list": {"list": "<the list\'s id>", "stated": ""}' in text
-    assert "are not a person" in text
+    assert '"list": {"list": "<the list\'s id>", "about": "..."}' in text
+    assert "are never a person" in text
+    # A worked tag prompt shows parts about the girl read as lists, their leads only the comma.
+    assert '"1girl, ⟨1: hairstyle⟩, ⟨2: outfit⟩, beach"' in text and '"about": "the girl\'s hairstyle"' in text
 
 
 async def test_a_list_id_outside_its_object_is_retried_with_the_shape():
@@ -93,7 +95,7 @@ async def test_a_list_id_outside_its_object_is_retried_with_the_shape():
     model = FakeModel(json.dumps(flat), json.dumps(nested))
     got = await reader.read(parse("1girl, <hairstyle>, rooftop"), ask=model, project_id=None, model="m")
     assert len(model.asked) == 2 and '"list": {...}' in model.asked[1][-1]["content"]
-    assert got["slots"][0]["list"] == {"list": "person.hairstyle", "stated": ""}
+    assert got["slots"][0]["list"] == {"list": "person.hairstyle", "about": "hairstyle"}
 
 
 async def test_bad_json_gets_one_retry_that_says_why():
@@ -133,9 +135,36 @@ async def test_a_person_with_nothing_to_draw_is_retried():
     listed = {"slots": [{"n": 1, "kind": "list", "label": "Hairstyle", "lead": "",
                          "list": {"list": "person.hairstyle", "stated": ""}}]}
     model = FakeModel(json.dumps(empty), json.dumps(listed))
-    got = await reader.read(parse("1girl, <hairstyle>, rooftop"), ask=model, project_id=None, model="m")
+    got = await reader.read(parse("1girl, <girl hairstyle>, rooftop"), ask=model, project_id=None, model="m")
     assert len(model.asked) == 2 and "a person needs details to vary" in model.asked[1][-1]["content"]
     assert got["slots"][0]["kind"] == "list"
+
+
+async def test_a_persons_noun_is_one_of_their_own_words():
+    """Words about someone the prompt already has ("1boy, <expression>") read as a new person
+    named from elsewhere: the noun isn't the part's words, so the reading is asked again."""
+    other = {"n": 1, "kind": "person", "label": "Expression", "lead": ",",
+             "person": {"noun": "boy", "presentation": "masculine", "stated": {}, "vary": ["hair"], "outfit": ""}}
+    listed = {"n": 1, "kind": "list", "label": "Expression", "lead": ",",
+              "list": {"list": "person.expression", "about": "the boy's expression"}}
+    model = FakeModel(json.dumps({"slots": [other]}), json.dumps({"slots": [listed]}))
+    got = await reader.read(parse("1boy, <expression>, city street"), ask=model, project_id=None, model="m")
+    assert len(model.asked) == 2
+    assert '"boy" is not among the words "expression"' in model.asked[1][-1]["content"]
+    assert got["slots"][0]["list"] == {"list": "person.expression", "about": "the boy's expression"}
+    # a noun from a note is the user's words too
+    noted = {**other, "person": {**other["person"], "noun": "nurse"}}
+    got = await reader.read(parse("# she is a nurse\n<tired woman>, hospital corridor"),
+                            ask=FakeModel(json.dumps({"slots": [noted]})), project_id=None, model="m")
+    assert got["slots"][0]["person"]["noun"] == "nurse"
+
+
+def test_a_list_slot_is_narrowed_by_its_words_said_of_what_it_is_about():
+    reading = {"slots": [{"n": 1, "kind": "list", "label": "Pet", "lead": " with his",
+                          "list": {"list": "animal.species", "about": "his pet, on the porch"}}]}
+    src, entry = slots.build(parse("a man on a porch with his <pet>"), reading)
+    assert "cls='animal.species', about='his pet, on the porch'" in src
+    assert entry["slot_words"] == {"pet": "pet"}
 
 
 async def test_a_stated_detail_is_always_drawn():
@@ -400,3 +429,20 @@ def test_an_oversized_prompt_is_refused_before_the_reader(profile, monkeypatch):
     long = "A woman waiting for a <train>, " * 400
     r = _client(monkeypatch, profile).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": long})
     assert r.status_code == 422 and r.json()["detail"]["code"] == "prompt_too_long" and not model.asked
+
+
+async def test_a_narrowing_that_keeps_every_item_says_all_and_the_opt_in_items_stay_out():
+    from prompt_programs.narrow import reply_tokens, subset
+    from prompt_programs.vocab import vocabulary
+    ages = vocabulary().get("person.age_band")
+    asked = []
+
+    async def all_of_them(messages, project_id, max_tokens):
+        asked.append(max_tokens)
+        return '["ALL"]'
+    got = await subset(ages, "person", None, all_of_them)
+    assert got and all(not v.opt_in for v in ages.values if v.text in set(got))
+    assert len(got) == len([v for v in ages.eligible() if not v.opt_in])
+    # a long list gets room to be copied back whole
+    outfits = [v.text for v in vocabulary().get("person.outfit.casual").eligible()]
+    assert reply_tokens(outfits) > 16 * len(outfits)
