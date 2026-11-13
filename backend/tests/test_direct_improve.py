@@ -97,6 +97,41 @@ def test_a_list_of_wildcards_is_one_drawn_value_and_segments_are_not_drawn():
     assert "⟦" not in text and "⟧" not in text
 
 
+def test_a_saved_value_with_lists_of_its_own_is_kept_whole():
+    wildcards = [{"name": "outfit", "values": ["a {red|blue} silk dress"]}]
+    text, spans = pp.draw_marked("a woman in {{outfit}}", wildcards, [])
+    assert text in ("a woman in a red silk dress", "a woman in a blue silk dress")
+    assert [text[a:b] for a, b in spans] == [text.removeprefix("a woman in ")]
+
+
+def test_saved_wildcards_inside_segments_are_drawn_and_kept_and_the_segment_stays_editable():
+    segments = [{"name": "scene", "content": "a photo of {{animal}} on {a|a} lawn"},
+                {"name": "loop", "content": "more {{loop}}"}]
+    text, spans = pp.draw_marked("{{scene}}, {{loop}}", WILDCARDS, segments)
+    animal = "a corgi" if "a corgi" in text else "a tabby cat"
+    assert text == f"a photo of {animal} on a lawn, more {{{{loop}}}}"
+    assert [text[a:b] for a, b in spans] == [animal, "a"]
+
+
+async def test_improve_that_changes_a_compound_value_or_one_from_a_segment_falls_back(tool, monkeypatch):
+    import routes.prompt_enhancement as pe
+
+    monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: (
+        WILDCARDS + [{"name": "outfit", "values": ["a {red|red} silk dress"]}],
+        [{"name": "scene", "content": "a photo of {{animal}}"}]))
+
+    async def rewrite(request, session):
+        tool.append(request)
+        text = (request.prompt.replace("silk dress", "cotton coat")
+                .replace("a corgi", "a tiger").replace("a tabby cat", "a tiger"))
+        return pe.ImprovePromptResponse(improved_prompt=text + ADDED)
+    monkeypatch.setattr(pe, "improve_prompt", rewrite)
+    out = await _submit("{{scene}} beside a woman in {{outfit}}")
+    assert "⟦a red silk dress⟧" in tool[0].prompt and ("⟦a corgi⟧" in tool[0].prompt or "⟦a tabby cat⟧" in tool[0].prompt)
+    assert out["prompt_direct"]["improve"]["improved"] == "fallback"
+    assert "silk dress" in out["prompt"] and "tiger" not in out["prompt"]
+
+
 # --------------------------------------------------------------------------- per image
 
 async def test_direct_at_medium_is_improved_with_its_drawn_values_kept(tool):

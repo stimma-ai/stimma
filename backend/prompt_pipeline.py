@@ -158,23 +158,13 @@ def unwrap_verbatim(prompt: str) -> str:
     return re.sub(r"\[([^\[\]]+)\]", r"\1", prompt)
 
 
-def _mark_drawn(value: str) -> str:
-    """A drawn value in ⟦ ⟧ marks (see draw_marked). A value that holds marks or lists
-    of its own is left for those to be marked, and a blank value has nothing to keep."""
-    if not value.strip() or any(c in value for c in "{}" + _MARK_OPEN + _MARK_CLOSE):
-        return value
-    return f"{_MARK_OPEN}{value}{_MARK_CLOSE}"
-
-
 def expand_named_wildcards(
     prompt: str,
     wildcards: List[Dict[str, Any]],
     segments: Optional[List[Dict[str, Any]]] = None,
-    mark: bool = False,
 ) -> str:
     """Replace each {{name}} with a segment's fixed content (checked first) or
-    a random value from the matching wildcard list. Unknown names stay as-is.
-    `mark` wraps each drawn wildcard value in ⟦ ⟧ (a segment's content is not drawn)."""
+    a random value from the matching wildcard list. Unknown names stay as-is."""
     if not wildcards and not segments:
         return prompt
 
@@ -188,16 +178,15 @@ def expand_named_wildcards(
         values = wildcard_lookup.get(key)
         if not values:
             return match.group(0)
-        value = random.choice(values)
-        return _mark_drawn(value) if mark else value
+        return random.choice(values)
 
     return re.sub(r"\{\{([^{}]+)\}\}", _repl, prompt)
 
 
-def expand_wildcards(prompt: str, mark: bool = False) -> str:
+def expand_wildcards(prompt: str) -> str:
     """Replace each inline {a|b|c} with a random option ({foo} → "foo").
     Unresolved {{name}} tokens are protected so this pass can't eat their
-    inner braces. `mark` wraps each drawn option in ⟦ ⟧."""
+    inner braces."""
     protected: List[str] = []
 
     def _protect(match: re.Match) -> str:
@@ -208,11 +197,7 @@ def expand_wildcards(prompt: str, mark: bool = False) -> str:
 
     def _pick(match: re.Match) -> str:
         choices = [s.strip() for s in match.group(1).split("|")]
-        choice = random.choice(choices)
-        if not mark:
-            return choice
-        # An option that was itself a marked wildcard value is one drawn value.
-        return _mark_drawn(choice.replace(_MARK_OPEN, "").replace(_MARK_CLOSE, ""))
+        return random.choice(choices)
 
     result = re.sub(r"\{([^{}]+)\}", _pick, result)
     return re.sub("\x00(\\d+)\x00", lambda m: protected[int(m.group(1))], result)
@@ -241,14 +226,13 @@ def resolve_wildcards_for_llm(
     prompt: str,
     wildcards: Optional[List[Dict[str, Any]]] = None,
     segments: Optional[List[Dict[str, Any]]] = None,
-    mark: bool = False,
 ) -> str:
     """Resolve random prompt syntax before any LLM step, while preserving
-    comments and [verbatim] markers. `mark` wraps each drawn value in ⟦ ⟧."""
+    comments and [verbatim] markers."""
     result = prompt
     if wildcards or segments:
-        result = expand_named_wildcards(result, wildcards or [], segments, mark=mark)
-    return expand_wildcards(result, mark=mark)
+        result = expand_named_wildcards(result, wildcards or [], segments)
+    return expand_wildcards(result)
 
 
 def draw_marked(
@@ -261,10 +245,67 @@ def draw_marked(
     in place; and where each drawn value stands in it, for the improver to keep exactly.
     A value drawn inside a comment line or [exact text] is not one of them: the first
     is never repeated and the second is already kept."""
-    text, spans = spans_of_marks(unwrap_slots(resolve_wildcards_for_llm(prompt, wildcards, segments, mark=True)))
+    lookups = ({str(w["name"]).lower(): w.get("values") or [] for w in (wildcards or [])},
+               {str(sg["name"]).lower(): sg.get("content", "") for sg in (segments or [])})
+    text, spans = spans_of_marks(unwrap_slots(_resolve_marked(prompt, *lookups)))
     kept = [(m.start(), m.end()) for m in re.finditer(r"\[[^\[\]]+\]", text)]
     kept += [(m.start(), m.end()) for m in re.finditer(r"(?m)^[ \t]*#.*$", text)]
     return text, [s for s in spans if not any(a <= s[0] and s[1] <= b for a, b in kept)]
+
+
+_NAMED_RE = re.compile(r"\{\{([^{}]+)\}\}")
+_LIST_RE = re.compile(r"\{([^{}]+)\}")
+# How deep saved wildcards and segments may refer to one another.
+_MAX_NESTING = 8
+
+
+def _unmarked(text: str) -> str:
+    return text.replace(_MARK_OPEN, "").replace(_MARK_CLOSE, "")
+
+
+def _mark_whole(value: str) -> str:
+    """A drawn value, all of it in one pair of ⟦ ⟧ marks, whatever it drew inside. A blank
+    value has nothing to keep; one still holding a reference that resolves to nothing
+    keeps the marks it has."""
+    plain = _unmarked(value)
+    if not plain.strip() or any(c in plain for c in "{}\x00"):
+        return value
+    return f"{_MARK_OPEN}{plain}{_MARK_CLOSE}"
+
+
+def _resolve_marked(text: str, wildcards: Dict[str, List[str]], segments: Dict[str, str],
+                    within: Tuple[str, ...] = ()) -> str:
+    """The text with every saved wildcard, segment and inline list resolved, nested ones
+    too, each drawn value marked whole: a saved value ("a {red|blue} silk dress") or a
+    list's option is one value, its own lists drawn first. A segment's text is the user's
+    words, not a draw: only what it draws is marked. A reference to itself (directly or
+    through others), or one nested too deep, is left as written."""
+    def named(match: re.Match) -> str:
+        key = match.group(1).strip().lower()
+        if key in within or len(within) >= _MAX_NESTING:
+            return match.group(0)
+        if key in segments:
+            return _resolve_marked(segments[key], wildcards, segments, within + (key,))
+        values = wildcards.get(key)
+        if not values:
+            return match.group(0)
+        return _mark_whole(_resolve_marked(random.choice(values), wildcards, segments, within + (key,)))
+
+    text = _NAMED_RE.sub(named, text)
+    # Inline lists, innermost first; references left as written are kept out of the way.
+    protected: List[str] = []
+
+    def protect(match: re.Match) -> str:
+        protected.append(match.group(0))
+        return f"\x00{len(protected) - 1}\x00"
+
+    text = _NAMED_RE.sub(protect, text)
+    for _ in range(_MAX_NESTING):
+        drawn = _LIST_RE.sub(lambda m: _mark_whole(random.choice([c.strip() for c in m.group(1).split("|")])), text)
+        if drawn == text:
+            break
+        text = drawn
+    return re.sub("\x00(\\d+)\x00", lambda m: protected[int(m.group(1))], text)
 
 
 # --- Ideogram 4 detection (mirrors isIdeogram4 in ToolView.vue) ----------------
