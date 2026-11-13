@@ -1031,6 +1031,9 @@ async def update_model_reasoning(request: UpdateModelReasoningRequest):
     levels = dict(settings.llm_reasoning_levels)
     levels[model_slug] = request.level
     patch_global_section("llm_reasoning_levels", levels)
+    # Keep the process-local copy coherent, as the model-prompt route does, so
+    # a second edit before the config reload cannot drop the first.
+    settings.llm_reasoning_levels = levels
     return {"status": "success", "model": model_slug, "level": request.level}
 
 

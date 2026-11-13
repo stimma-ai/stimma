@@ -72,7 +72,7 @@
         >
           <template #icon><ProviderBrandIcon provider="local" size="md" /></template>
           <template v-if="servedChange(provider)" #status>
-            <span class="h-2 w-2 shrink-0 rounded-full bg-amber-400"></span>
+            <span class="h-2 w-2 shrink-0 rounded-full bg-amber-500"></span>
             <span class="font-mono tabular-nums">{{ provider.models.length }} model{{ provider.models.length === 1 ? '' : 's' }}</span>
           </template>
           <template v-else #status>
@@ -163,7 +163,7 @@
                 <ModelVendorIcon :model="selectedManagerModel" size="md" />
                 <div class="min-w-0">
                   <h4 class="truncate text-[16px] font-semibold text-content">{{ selectedManagerModel.name }}</h4>
-                  <p v-if="modelSetupDraft && replacingModel" class="mt-0.5 text-xs text-content-tertiary">Replaces {{ replacingModel.name || replacingModel.model_id }}</p>
+                  <p v-if="modelSetupDraft && replacingModel" class="mt-0.5 truncate text-xs text-content-tertiary">Replaces {{ replacingModel.name || replacingModel.model_id }}</p>
                   <p v-else class="mt-0.5 text-xs text-content-tertiary">{{ modelVendor(selectedManagerModel) }}<span v-if="selectedManagerModel.cost_tier"> · {{ selectedManagerModel.cost_tier }}</span></p>
                 </div>
               </div>
@@ -260,7 +260,7 @@
                       <div class="truncate text-sm text-content">{{ model.name }}</div>
                       <div class="mt-0.5 text-[11px] text-content-muted">{{ modelVendor(model) }}<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span></div>
                     </div>
-                    <span v-if="activeManager !== 'stimma' && model.served === false" class="text-[11px] text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500"></span>Not served</span>
+                    <span v-if="activeManager !== 'stimma' && isNotServed(model)" class="shrink-0 whitespace-nowrap text-[11px] text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500"></span>Not served</span>
                     <span v-else-if="isFlexibleProvider(activeProvider) && model.last_test_passed === false" class="text-[11px] text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-red-500"></span>Failed</span>
                     <span v-else-if="isFlexibleProvider(activeProvider) && model.last_test_passed" class="text-[11px] text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-green-500"></span>Ready</span>
                     <ChevronIcon v-if="activeManager !== 'stimma'" />
@@ -622,6 +622,7 @@ import Button from '../../ui/Button.vue'
 import KeyValueList from '../../ui/KeyValueList.vue'
 import ProgressBar from '../../ui/ProgressBar.vue'
 import Spinner from '../../ui/Spinner.vue'
+import { isNotServed, servedChange } from '../../../utils/servedChange'
 import { getModelVendorInfo, MODEL_VENDOR_OPTIONS, resolveModelVendorId, sortModelsByBrand } from '../../../utils/modelVendors'
 
 const { allowsAutofocus } = useViewport()
@@ -630,6 +631,11 @@ const ChevronIcon = defineComponent({
   props: { open: Boolean },
   setup(props) {
     return () => h('svg', { class: ['h-4 w-4 shrink-0 text-content-muted transition-transform', props.open ? 'rotate-90' : ''], fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' }, [h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'm9 5 7 7-7 7' })])
+  },
+})
+const TrashIcon = defineComponent({
+  setup() {
+    return () => h('svg', { class: 'h-3.5 w-3.5', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' }, [h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'm14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166M4.772 5.79l1.068 13.133A2.25 2.25 0 0 0 8.084 21h7.832a2.25 2.25 0 0 0 2.244-2.077L19.228 5.79M9.75 5.393V4.477c0-1.18.91-2.164 2.09-2.201a51.964 51.964 0 0 1 3.32 0c1.18.037 2.09 1.022 2.09 2.201v.916' })])
   },
 })
 const props = defineProps({
@@ -1117,26 +1123,6 @@ function openStimmaAccount() {
   modelSetupReturnToCatalog.value = false
   managerOpen.value = true
 }
-// A local server can change which model it serves at the same URL. The
-// backend reports, per provider, which saved models it no longer serves and
-// which served models are not added yet. That is a swap to offer, not an error.
-function servedChange(provider) {
-  const served = provider?.kind === 'local' ? provider.served : null
-  if (!served) return null
-  const gone = new Set(served.missing || [])
-  const missing = (provider.models || []).filter(model => gone.has(model.model_id))
-  if (!missing.length) return null
-  const unadded = served.unadded || []
-  const target = missing.length === 1 && unadded.length === 1 ? unadded[0] : null
-  const names = missing.map(model => model.name || model.model_id)
-  return {
-    missing,
-    unadded,
-    target,
-    description: target ? `Now serving ${target.name || target.id}` : `${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} no longer served`,
-    verb: target ? 'Switch' : unadded.length ? 'Choose model' : '',
-  }
-}
 function openLocalProvider(provider) {
   const change = servedChange(provider)
   openProvider(provider)
@@ -1445,11 +1431,17 @@ async function commitProviderModel() {
   managerSaving.value = true
   managerError.value = ''
   const previous = replacingModel.value
-  const models = previous && activeProvider.value.models.some(model => model.id === previous.id)
-    ? activeProvider.value.models.map(model => model.id === previous.id ? modelSetupDraft.value : model)
-    : [...activeProvider.value.models, modelSetupDraft.value]
+  const replacing = previous && activeProvider.value.models.some(model => model.id === previous.id)
+  // A switch is one save: the new model takes the old one's place, and every
+  // choice pinned to the old model follows it.
+  const payload = replacing
+    ? {
+        models: activeProvider.value.models.map(model => model.id === previous.id ? modelSetupDraft.value : model),
+        replaces: { [previous.id]: modelSetupDraft.value.id },
+      }
+    : { models: [...activeProvider.value.models, modelSetupDraft.value] }
   try {
-    const response = await axios.patch(`${getApiBase()}/models/providers/${activeProvider.value.id}`, { models })
+    const response = await axios.patch(`${getApiBase()}/models/providers/${activeProvider.value.id}`, payload)
     activeProvider.value = clone(response.data)
     await refreshAll()
     closeModelSettings(true)
@@ -1675,9 +1667,18 @@ const { on: onSocket, off: offSocket } = useWebSocket()
 function handleProvidersUpdated() {
   loadProviders().catch(() => {})
 }
+// Ask local servers what they serve now, after the first paint. Only the list
+// takes the answer, as with a broadcast; an open manager keeps its drafts.
+async function probeLocalProviders() {
+  if (!providers.value.some(provider => provider.kind === 'local')) return
+  try {
+    const response = await axios.post(`${getApiBase()}/models/providers/probe`)
+    if (response.data?.providers) providers.value = response.data.providers
+  } catch { /* the list already shows the last known state */ }
+}
 onMounted(() => {
   onSocket('llm_providers_updated', handleProvidersUpdated)
-  refreshAll()
+  refreshAll().then(probeLocalProviders, () => {})
 })
 // A login poll must not outlive the panel.
 onBeforeUnmount(() => {

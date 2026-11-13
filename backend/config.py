@@ -597,6 +597,12 @@ class RoleModelSelection(BaseModel):
             return {"model": value}
         return value
 
+    @field_validator("effort", mode="before")
+    @classmethod
+    def normalize_yaml_effort(cls, value: Any) -> Any:
+        # An unquoted `off` written by ruamel reads back as False.
+        return LLMReasoningConfig._yaml_level(value)
+
 
 class ProfileAgentModels(BaseModel):
     """Per-profile model selection for each LLM role.
@@ -1009,6 +1015,15 @@ class Settings(BaseSettings):
     # Each role has a source selector (stimma_cloud or custom) and custom config
     llms: Dict[str, LLMRoleConfig] = {}
     llm_reasoning_levels: Dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("llm_reasoning_levels", mode="before")
+    @classmethod
+    def normalize_yaml_reasoning_levels(cls, value: Any) -> Any:
+        # An unquoted `off` written by ruamel reads back as False.
+        if isinstance(value, dict):
+            return {slug: LLMReasoningConfig._yaml_level(level) for slug, level in value.items()}
+        return value
+
     llm_providers: List[LLMProviderConfig] = Field(default_factory=list)
     llm_model_prompts: Dict[str, LLMModelPromptConfig] = Field(default_factory=dict)
     # Deprecated global fields retained so existing config files still parse.

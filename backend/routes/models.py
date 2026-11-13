@@ -38,6 +38,7 @@ from llm_resolver import (
     set_catalog_cache,
 )
 from privacy_lockdown import is_privacy_lockdown_enabled
+from llm_model_repoint import repoint_model_selections
 from utils.websocket import ws_manager
 from llm_provider_catalog import (
     FIXED_MODEL_PROVIDERS,
@@ -90,6 +91,9 @@ class ProviderUpdateRequest(BaseModel):
     enabled: Optional[bool] = None
     model_ids: Optional[list[str]] = None
     models: Optional[list[dict]] = None
+    # Old saved model slug -> the slug of the model replacing it in `models`.
+    # Every saved choice of the old model is repointed to the new one.
+    replaces: Optional[dict[str, str]] = None
 
 
 class ProviderModelProfileRequest(BaseModel):
@@ -131,7 +135,47 @@ def _provider_response(provider: LLMProviderConfig) -> dict:
         and not provider.credentials_validated_at
     ):
         data["last_test_passed"] = None
+    if provider.kind == "local":
+        data["served"] = _served_report(provider)
     return data
+
+
+# The models each local server advertised at its last discovery, by provider
+# id, with the base URL it was asked at. In memory only: it feeds the swap
+# offer in Settings and is refilled by every discovery and probe.
+_served_cache: dict[str, tuple[str, list[dict]]] = {}
+
+
+def _remember_discovery(provider: LLMProviderConfig, rows: list[dict]) -> None:
+    if provider.kind != "local" or provider.id.endswith("-preview"):
+        return
+    _served_cache[provider.id] = (provider.base_url, rows)
+
+
+def _forget_discovery(provider_id: str) -> None:
+    _served_cache.pop(provider_id, None)
+
+
+def _served_report(provider: LLMProviderConfig) -> dict:
+    """Saved models the server no longer serves, and served models not added."""
+    missing = [
+        model.model_id for model in provider.models
+        if model.enabled and not model.served
+    ]
+    unadded = []
+    cached = _served_cache.get(provider.id)
+    if cached and cached[0] == provider.base_url:
+        saved = {model.model_id for model in provider.models}
+        for row in _selectable_provider_rows(provider, cached[1]):
+            model_id = str(row.get("id") or row.get("name"))
+            if model_id in saved:
+                continue
+            unadded.append({
+                "id": model_id,
+                "name": str(row.get("name") or model_id),
+                "context_length": row.get("context_length"),
+            })
+    return {"missing": missing, "unadded": unadded}
 
 
 _provider_broadcasts: set[asyncio.Task] = set()
@@ -496,7 +540,9 @@ async def _fetch_fireworks_catalog(
     raise HTTPException(status_code=400, detail="The Fireworks model catalog did not finish loading.")
 
 
-async def _discover_provider_models(provider: LLMProviderConfig) -> list[dict]:
+async def _discover_provider_models(
+    provider: LLMProviderConfig, *, timeout: float = 10.0,
+) -> list[dict]:
     if provider.kind in OAUTH_MODEL_PROVIDERS:
         # Account-scoped catalog behind an OAuth session, not a bearer key on
         # a public /models route.
@@ -520,7 +566,7 @@ async def _discover_provider_models(provider: LLMProviderConfig) -> list[dict]:
                 key_response = await client.get(
                     f"{provider.base_url.rstrip('/')}/key",
                     headers=_provider_headers(provider),
-                    timeout=10.0,
+                    timeout=timeout,
                 )
                 if key_response.status_code >= 400:
                     raise HTTPException(
@@ -531,7 +577,7 @@ async def _discover_provider_models(provider: LLMProviderConfig) -> list[dict]:
                 response = await client.get(
                     f"{provider.base_url.rstrip('/')}/models",
                     headers=_provider_headers(provider),
-                    timeout=10.0,
+                    timeout=timeout,
                 )
     except httpx.RequestError as exc:
         raise HTTPException(status_code=400, detail=f"Could not reach {provider.name}.") from exc
@@ -572,6 +618,7 @@ async def _discover_provider_models(provider: LLMProviderConfig) -> list[dict]:
         if provider.kind == "fireworks" and row.get("contextLength"):
             row["context_length"] = row["contextLength"]
         normalized_rows.append(row)
+    _remember_discovery(provider, normalized_rows)
     return normalized_rows
 
 
@@ -666,6 +713,54 @@ async def _refresh_stale_chatgpt_catalog():
 @router.get("/providers")
 async def list_llm_providers():
     await _refresh_stale_chatgpt_catalog()
+    return {"providers": [_provider_response(provider) for provider in _active_providers()]}
+
+
+# A probe asks each server briefly; a slow or offline one is skipped.
+PROBE_TIMEOUT_SECONDS = 3.0
+
+
+async def _probe_served_models(provider: LLMProviderConfig) -> Optional[tuple[str, str, set[str]]]:
+    try:
+        rows = await _discover_provider_models(provider, timeout=PROBE_TIMEOUT_SECONDS)
+    except HTTPException:
+        return None
+    except Exception as exc:  # a probe never fails the caller
+        log.warning("Model probe failed", provider=provider.id, error=str(exc))
+        return None
+    return provider.id, provider.base_url, {str(row.get("id") or row.get("name")) for row in rows}
+
+
+@router.post("/providers/probe")
+async def probe_llm_providers():
+    """Ask each local server which models it serves now.
+
+    Updates the saved models' served flags and saves only when one changed.
+    A server that cannot be reached changes nothing; whether the connection
+    works is Check connection's business.
+    """
+    targets = [
+        provider for provider in _active_providers()
+        if provider.kind == "local" and provider.enabled
+    ]
+    results = await asyncio.gather(*(_probe_served_models(p) for p in targets))
+    # Re-read after the awaits: another request may have saved meanwhile.
+    providers = list(get_settings().llm_providers)
+    by_id = {provider.id: provider for provider in providers if not provider.deleted_at}
+    changed = False
+    for result in results:
+        if result is None:
+            continue
+        provider_id, base_url, advertised = result
+        provider = by_id.get(provider_id)
+        if provider is None or provider.base_url != base_url:
+            continue
+        before = [model.served for model in provider.models]
+        _mark_served_models(provider, advertised)
+        if [model.served for model in provider.models] != before:
+            changed = True
+    if changed:
+        _save_providers(providers)
     return {"providers": [_provider_response(provider) for provider in _active_providers()]}
 
 
@@ -844,6 +939,7 @@ async def profile_llm_provider_model(
 @router.patch("/providers/{provider_id}")
 async def update_llm_provider(provider_id: str, request: ProviderUpdateRequest):
     providers, provider = _find_provider(provider_id)
+    replaces = _validated_replaces(provider, request)
     updates = request.model_dump(exclude_unset=True)
     if "api_key" in updates and str(updates["api_key"] or "").startswith("***"):
         updates.pop("api_key")
@@ -896,8 +992,32 @@ async def update_llm_provider(provider_id: str, request: ProviderUpdateRequest):
             for model_id in request.model_ids
         ]
         _mark_served_models(provider, set(by_id))
+    cached = _served_cache.get(provider.id)
+    if cached and cached[0] != provider.base_url:
+        # Another server: what the old one advertised says nothing about it.
+        _forget_discovery(provider.id)
     _save_providers(providers)
+    if replaces:
+        levels = {model.id: list(model.reasoning.levels) for model in provider.models}
+        await repoint_model_selections(replaces, levels)
     return _provider_response(provider)
+
+
+def _validated_replaces(provider: LLMProviderConfig, request: ProviderUpdateRequest) -> dict[str, str]:
+    if not request.replaces:
+        return {}
+    if request.models is None:
+        raise HTTPException(status_code=400, detail="A replacement needs the new model list.")
+    saved = {model.id for model in provider.models}
+    incoming = {str(row.get("id") or "") for row in request.models if isinstance(row, dict)}
+    for old_slug, new_slug in request.replaces.items():
+        if old_slug not in saved:
+            raise HTTPException(status_code=400, detail=f"Model not found: {old_slug}.")
+        if old_slug in incoming:
+            raise HTTPException(status_code=400, detail=f"{old_slug} is still in the model list.")
+        if new_slug not in incoming:
+            raise HTTPException(status_code=400, detail=f"{new_slug} is not in the model list.")
+    return dict(request.replaces)
 
 
 @router.post("/providers/{provider_id}/test")
@@ -947,6 +1067,7 @@ async def delete_llm_provider(provider_id: str):
     providers, provider = _find_provider(provider_id)
     provider.deleted_at = datetime.now(timezone.utc).isoformat()
     provider.enabled = False
+    _forget_discovery(provider.id)
     _save_providers(providers)
     return {"status": "deleted"}
 

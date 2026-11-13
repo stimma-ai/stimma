@@ -1402,7 +1402,11 @@ def provider_runtime(monkeypatch):
 
     real_async_client = httpx.AsyncClient
 
-    def model_server(request):
+    async def model_server(request):
+        served.setdefault("requests", []).append(request)
+        if served.get("while_asked"):
+            # Something else happens while the server is being asked.
+            await served["while_asked"]()
         if not served["reachable"]:
             raise httpx.ConnectError("Connection refused", request=request)
         assert request.url.path.endswith("/models")
@@ -1617,3 +1621,494 @@ async def test_provider_changes_are_broadcast(provider_runtime, monkeypatch):
     await asyncio.sleep(0)
 
     assert events == [("llm_providers_updated", False)]
+
+
+# --- The swap offer: what a local server serves now ------------------------
+
+@pytest.fixture(autouse=True)
+def no_cached_discoveries():
+    models_route._served_cache.clear()
+    yield
+    models_route._served_cache.clear()
+
+
+def _broadcasts(monkeypatch) -> list:
+    events = []
+
+    async def broadcast(event, data, include_profile=True):
+        events.append(event)
+
+    monkeypatch.setattr(models_route.ws_manager, "broadcast", broadcast)
+    return events
+
+
+async def _probe():
+    import asyncio
+
+    result = await models_route.probe_llm_providers()
+    await asyncio.sleep(0)  # let a broadcast task run
+    return {provider["id"]: provider for provider in result["providers"]}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("serving, missing, unadded", [
+    # One saved model gone, one new one served: a one-step switch.
+    (["new-model"], ["old-model"], ["new-model"]),
+    # Several new ones: the person picks.
+    (["new-model", "step-3.7", "qwen-3.8-flash-next"], ["old-model"],
+     ["new-model", "step-3.7", "qwen-3.8-flash-next"]),
+    # Nothing else served.
+    ([], ["old-model"], []),
+    # Healthy.
+    (["old-model"], [], []),
+])
+async def test_served_report_on_a_local_provider(provider_runtime, serving, missing, unadded):
+    provider_runtime.settings.llm_providers = [_local_provider()]
+    provider_runtime.served["models"] = serving
+
+    probed = await _probe()
+    listed = await models_route.list_llm_providers()
+
+    for payload in (probed["local-gpu"], listed["providers"][0]):
+        assert payload["served"]["missing"] == missing
+        assert [row["id"] for row in payload["served"]["unadded"]] == unadded
+        assert all(set(row) == {"id", "name", "context_length"} for row in payload["served"]["unadded"])
+
+
+@pytest.mark.asyncio
+async def test_served_report_without_a_discovery_has_no_offer(provider_runtime):
+    old = _served_local_model("local-gpu", "old-model")
+    old.served = False
+    provider_runtime.settings.llm_providers = [_local_provider(models=[old])]
+
+    listed = await models_route.list_llm_providers()
+
+    assert listed["providers"][0]["served"] == {"missing": ["old-model"], "unadded": []}
+
+
+@pytest.mark.asyncio
+async def test_served_report_is_for_local_providers_only(provider_runtime):
+    provider_runtime.settings.llm_providers = [LLMProviderConfig(
+        id="openrouter-test", kind="openrouter", name="OpenRouter",
+        base_url="https://openrouter.ai/api/v1", api_key="secret",
+    )]
+
+    listed = await models_route.list_llm_providers()
+
+    assert "served" not in listed["providers"][0]
+
+
+@pytest.mark.asyncio
+async def test_served_report_forgets_another_servers_models(provider_runtime):
+    provider = _local_provider()
+    provider_runtime.settings.llm_providers = [provider]
+    provider_runtime.served["models"] = ["old-model", "new-model"]
+    await _probe()
+
+    provider.base_url = "http://other-gpu:8000/v1"
+    listed = await models_route.list_llm_providers()
+
+    assert listed["providers"][0]["served"]["unadded"] == []
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_provider_drops_its_discovery(provider_runtime):
+    provider_runtime.settings.llm_providers = [_local_provider()]
+    provider_runtime.served["models"] = ["old-model", "new-model"]
+    await _probe()
+    assert "local-gpu" in models_route._served_cache
+
+    await models_route.delete_llm_provider("local-gpu")
+
+    assert "local-gpu" not in models_route._served_cache
+
+
+@pytest.mark.asyncio
+async def test_probe_updates_flags_saves_and_broadcasts_on_change(provider_runtime, monkeypatch):
+    events = _broadcasts(monkeypatch)
+    provider = _local_provider()
+    provider_runtime.settings.llm_providers = [provider]
+    provider_runtime.served["models"] = ["new-model"]
+
+    probed = await _probe()
+
+    assert provider.models[0].served is False
+    assert probed["local-gpu"]["models"][0]["served"] is False
+    assert len(provider_runtime.saved) == 1
+    assert provider_runtime.saved[0][0]["models"][0]["served"] is False
+    assert events == ["llm_providers_updated"]
+    # A probe asks briefly, unlike Check connection.
+    timeout = provider_runtime.served["requests"][-1].extensions["timeout"]
+    assert timeout["read"] == models_route.PROBE_TIMEOUT_SECONDS
+
+
+@pytest.mark.asyncio
+async def test_probe_with_nothing_changed_writes_nothing(provider_runtime, monkeypatch):
+    events = _broadcasts(monkeypatch)
+    provider_runtime.settings.llm_providers = [_local_provider()]
+    provider_runtime.served["models"] = ["old-model", "new-model"]
+
+    probed = await _probe()
+
+    assert provider_runtime.saved == []
+    assert events == []
+    assert probed["local-gpu"]["served"]["unadded"][0]["id"] == "new-model"
+
+
+@pytest.mark.asyncio
+async def test_probe_of_an_unreachable_server_changes_nothing(provider_runtime, monkeypatch):
+    events = _broadcasts(monkeypatch)
+    provider = _local_provider()
+    provider_runtime.settings.llm_providers = [provider]
+    provider_runtime.served["models"] = ["old-model", "new-model"]
+    await _probe()
+    provider_runtime.served["reachable"] = False
+
+    probed = await _probe()
+
+    assert provider.last_test_passed is True
+    assert provider.last_error is None
+    assert provider.models[0].served is True
+    assert provider_runtime.saved == []
+    assert events == []
+    # What it served when last asked still stands.
+    assert probed["local-gpu"]["served"]["unadded"][0]["id"] == "new-model"
+
+
+@pytest.mark.asyncio
+async def test_probe_skips_disabled_and_hosted_providers(provider_runtime):
+    provider_runtime.settings.llm_providers = [
+        _local_provider(enabled=False),
+        LLMProviderConfig(
+            id="openai-test", kind="openai", name="OpenAI",
+            base_url="https://api.openai.com/v1", api_key="secret",
+        ),
+    ]
+    provider_runtime.served["models"] = ["new-model"]
+
+    await _probe()
+
+    assert provider_runtime.served.get("requests", []) == []
+    assert provider_runtime.saved == []
+
+
+@pytest.mark.asyncio
+async def test_probe_applies_flags_to_the_provider_list_saved_meanwhile(provider_runtime):
+    import asyncio
+
+    provider_runtime.settings.llm_providers = [_local_provider()]
+    provider_runtime.served["models"] = ["new-model"]
+    renamed = _local_provider(name="Renamed meanwhile")
+
+    async def another_save():
+        provider_runtime.settings.llm_providers = [renamed]
+        await asyncio.sleep(0)
+
+    provider_runtime.served["while_asked"] = another_save
+
+    await _probe()
+
+    saved = provider_runtime.saved[-1]
+    assert saved[0]["name"] == "Renamed meanwhile"
+    assert saved[0]["models"][0]["served"] is False
+    assert renamed.models[0].served is False
+
+
+@pytest.mark.asyncio
+async def test_concurrent_probes_save_once(provider_runtime):
+    import asyncio
+
+    provider_runtime.settings.llm_providers = [_local_provider()]
+    provider_runtime.served["models"] = ["new-model"]
+
+    await asyncio.gather(_probe(), _probe())
+
+    assert len(provider_runtime.saved) == 1
+
+
+# --- Replacing a model in one save ----------------------------------------
+
+def _replace_request(new_model_id="new-model", replaces=None, models=None):
+    new = _served_local_model("local-gpu", new_model_id)
+    return models_route.ProviderUpdateRequest(
+        models=[new.model_dump()] if models is None else models,
+        replaces=replaces if replaces is not None else {
+            "local-gpu:old-model": f"local-gpu:{new_model_id}",
+        },
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("request_kwargs, detail", [
+    ({"models": None}, "needs the new model list"),
+    ({"replaces": {"local-gpu:gone-model": "local-gpu:new-model"}}, "Model not found"),
+    ({"replaces": {"local-gpu:old-model": "local-gpu:other-model"}}, "not in the model list"),
+])
+async def test_replace_validation(provider_runtime, request_kwargs, detail):
+    provider_runtime.settings.llm_providers = [_local_provider()]
+    if request_kwargs.get("models", ...) is None:
+        request = models_route.ProviderUpdateRequest(
+            replaces={"local-gpu:old-model": "local-gpu:new-model"},
+        )
+    else:
+        request = _replace_request(**request_kwargs)
+
+    with pytest.raises(models_route.HTTPException, match=detail) as raised:
+        await models_route.update_llm_provider("local-gpu", request)
+
+    assert raised.value.status_code == 400
+    assert provider_runtime.saved == []
+
+
+@pytest.mark.asyncio
+async def test_replace_refuses_an_old_model_kept_in_the_list(provider_runtime):
+    old = _served_local_model("local-gpu", "old-model")
+    provider_runtime.settings.llm_providers = [_local_provider(models=[old])]
+    new = _served_local_model("local-gpu", "new-model")
+
+    with pytest.raises(models_route.HTTPException, match="still in the model list"):
+        await models_route.update_llm_provider("local-gpu", models_route.ProviderUpdateRequest(
+            models=[old.model_dump(), new.model_dump()],
+            replaces={"local-gpu:old-model": "local-gpu:new-model"},
+        ))
+    assert provider_runtime.saved == []
+
+
+@pytest.mark.asyncio
+async def test_replace_keeps_the_rule_that_a_new_model_passed_its_tests(provider_runtime):
+    provider_runtime.settings.llm_providers = [_local_provider()]
+    untested = _served_local_model("local-gpu", "new-model")
+    untested.last_test_passed = None
+
+    with pytest.raises(models_route.HTTPException, match="must pass its tests"):
+        await models_route.update_llm_provider("local-gpu", _replace_request(
+            models=[untested.model_dump()],
+        ))
+    assert provider_runtime.saved == []
+
+
+# --- A replace repoints saved choices (real config file and database) -----
+
+def _model_with_levels(provider_id: str, model_id: str, levels: list[str]) -> LLMProviderModelConfig:
+    model = _served_local_model(provider_id, model_id)
+    model.reasoning = LLMReasoningConfig(
+        mode="optional", levels=levels, default=levels[-1],
+        control="reasoning_effort", wire_levels={level: level for level in levels},
+    )
+    return model
+
+
+OLD = "local-gpu:old-model"
+NEW = "local-gpu:new-model"
+OTHER = "other-gpu:step-3.7"
+
+
+@pytest.fixture
+async def swap_app(test_app, client, monkeypatch):
+    """The real app, config file and profile database, with a local provider
+    serving old-model (levels off/low/high) and an unrelated one."""
+    import firebase_auth
+    from config import get_settings
+
+    if not any(getattr(route, "path", "") == "/api/models/providers/{provider_id}" for route in test_app.routes):
+        test_app.include_router(models_route.router)
+
+    async def no_cloud_token():
+        return None
+
+    async def cloud_unavailable():
+        return False
+
+    monkeypatch.setattr(models_route, "is_privacy_lockdown_enabled", lambda: False)
+    monkeypatch.setattr("privacy_lockdown.is_privacy_lockdown_enabled", lambda: False)
+    monkeypatch.setattr(firebase_auth, "get_valid_id_token", no_cloud_token)
+    monkeypatch.setattr(llm_resolver, "_cloud_is_available", cloud_unavailable)
+
+    models_route._save_providers([
+        _local_provider(models=[_model_with_levels("local-gpu", "old-model", ["off", "low", "high"])]),
+        LLMProviderConfig(
+            id="other-gpu", kind="local", name="other-gpu:8000",
+            base_url="http://other-gpu:8000/v1",
+            models=[_model_with_levels("other-gpu", "step-3.7", ["off", "high"])],
+            last_test_passed=True,
+        ),
+    ])
+    settings = get_settings()
+    settings.llm_reasoning_levels = {}
+    settings.llm_model_prompts = {}
+    yield SimpleNamespace(client=client, settings=settings)
+    await client.patch("/api/settings/agent", json={"models": {
+        role: {"model": "auto", "effort": None} for role in ("quick_task", "tool_assistant", "chat", "flow")
+    }})
+    models_route._save_providers([])
+
+
+async def _swap(client, levels=("off", "high")):
+    """Replace old-model with new-model, which offers `levels`."""
+    new = _model_with_levels("local-gpu", "new-model", list(levels))
+    response = await client.patch("/api/models/providers/local-gpu", json={
+        "models": [new.model_dump()],
+        "replaces": {OLD: NEW},
+    })
+    assert response.status_code == 200, response.text
+    assert [model["id"] for model in response.json()["models"]] == [NEW]
+    return response.json()
+
+
+@pytest.mark.asyncio
+async def test_replace_repoints_profile_role_selections(swap_app):
+    import yaml
+    import app_dirs
+
+    client = swap_app.client
+    await client.patch("/api/settings/agent", json={"models": {
+        "chat": {"model": OLD, "effort": "low"},       # new-model has no "low"
+        "tool_assistant": {"model": OLD, "effort": "high"},
+        "quick_task": {"model": OLD, "effort": "off"},
+        "flow": {"model": OTHER, "effort": "high"},
+    }})
+
+    await _swap(client)
+
+    models = (await client.get("/api/settings/agent")).json()["models"]
+    assert models["chat"] == {"model": NEW, "effort": None}
+    assert models["tool_assistant"] == {"model": NEW, "effort": "high"}
+    assert models["quick_task"] == {"model": NEW, "effort": "off"}
+    assert models["flow"] == {"model": OTHER, "effort": "high"}
+    persisted = yaml.safe_load(app_dirs.get_config_path().read_text())
+    assert persisted["profiles"][0]["agent"]["models"]["chat"] == {"model": NEW, "effort": None}
+    from config import reload_settings
+    reloaded = reload_settings().get_agent_for_profile("default").models
+    assert (reloaded.quick_task.model, reloaded.quick_task.effort) == (NEW, "off")
+
+
+@pytest.mark.asyncio
+async def test_replace_repoints_project_role_overrides(swap_app):
+    client = swap_app.client
+    pinned = (await client.post("/api/projects", json={
+        "name": "Pinned",
+        "chat_model_slug": OLD, "chat_effort": "low",
+        "tool_assistant_model_slug": OLD, "tool_assistant_effort": "high",
+        "flow_model_slug": OTHER, "flow_effort": "high",
+    })).json()
+    unrelated = (await client.post("/api/projects", json={
+        "name": "Unrelated", "chat_model_slug": OTHER, "chat_effort": "off",
+    })).json()
+
+    await _swap(client)
+
+    project = (await client.get(f"/api/projects/{pinned['id']}")).json()
+    assert (project["chat_model_slug"], project["chat_effort"]) == (NEW, None)
+    assert (project["tool_assistant_model_slug"], project["tool_assistant_effort"]) == (NEW, "high")
+    assert (project["flow_model_slug"], project["flow_effort"]) == (OTHER, "high")
+    other = (await client.get(f"/api/projects/{unrelated['id']}")).json()
+    assert (other["chat_model_slug"], other["chat_effort"]) == (OTHER, "off")
+
+
+@pytest.mark.asyncio
+async def test_replace_repoints_chat_model_selections(swap_app):
+    client = swap_app.client
+    kept = (await client.post("/api/chats", json={"name": "Kept effort", "model_slug": OLD})).json()
+    await client.patch(f"/api/chats/{kept['id']}", json={"reasoning_effort": "high"})
+    dropped = (await client.post("/api/chats", json={"name": "Dropped effort", "model_slug": OLD})).json()
+    await client.patch(f"/api/chats/{dropped['id']}", json={"reasoning_effort": "low"})
+    unrelated = (await client.post("/api/chats", json={"name": "Unrelated", "model_slug": OTHER})).json()
+    await client.patch(f"/api/chats/{unrelated['id']}", json={"reasoning_effort": "high"})
+
+    await _swap(client)
+
+    chat = (await client.get(f"/api/chats/{kept['id']}")).json()
+    assert (chat["model_slug"], chat["reasoning_effort"]) == (NEW, "high")
+    chat = (await client.get(f"/api/chats/{dropped['id']}")).json()
+    assert (chat["model_slug"], chat["reasoning_effort"]) == (NEW, None)
+    chat = (await client.get(f"/api/chats/{unrelated['id']}")).json()
+    assert (chat["model_slug"], chat["reasoning_effort"]) == (OTHER, "high")
+
+
+@pytest.mark.asyncio
+async def test_replace_repoints_frozen_user_tools(swap_app, db_session):
+    from sqlalchemy import select
+    from database import UserTool
+
+    async with db_session() as session:
+        pinned = UserTool(name="Pinned tool", program_text="x", model_slug=OLD)
+        unrelated = UserTool(name="Unrelated tool", program_text="x", model_slug=OTHER)
+        session.add_all([pinned, unrelated])
+        await session.commit()
+        ids = (pinned.id, unrelated.id)
+
+    await _swap(swap_app.client)
+
+    async with db_session() as session:
+        rows = {
+            tool.id: tool.model_slug
+            for tool in (await session.execute(select(UserTool).where(UserTool.id.in_(ids)))).scalars()
+        }
+    assert rows == {ids[0]: NEW, ids[1]: OTHER}
+
+
+@pytest.mark.asyncio
+async def test_replace_moves_per_model_reasoning_levels(swap_app):
+    client = swap_app.client
+    assert (await client.patch("/api/settings/model-reasoning", json={"model": OLD, "level": "off"})).status_code == 200
+    assert (await client.patch("/api/settings/model-reasoning", json={"model": OTHER, "level": "high"})).status_code == 200
+
+    await _swap(client)
+
+    assert swap_app.settings.llm_reasoning_levels == {OTHER: "high", NEW: "off"}
+    levels = (await client.get("/api/settings")).json()["llm_reasoning_levels"]
+    assert levels == {OTHER: "high", NEW: "off"}
+    # The file keeps `off` unquoted, which YAML 1.1 reads as False.
+    from config import reload_settings
+    assert reload_settings().llm_reasoning_levels == {OTHER: "high", NEW: "off"}
+
+
+@pytest.mark.asyncio
+async def test_replace_drops_a_per_model_level_the_new_model_lacks(swap_app):
+    client = swap_app.client
+    await client.patch("/api/settings/model-reasoning", json={"model": OLD, "level": "low"})
+
+    await _swap(client)
+
+    assert OLD not in swap_app.settings.llm_reasoning_levels
+    assert NEW not in swap_app.settings.llm_reasoning_levels
+
+
+@pytest.mark.asyncio
+async def test_replace_moves_per_model_prompt_settings(swap_app):
+    client = swap_app.client
+    await client.patch("/api/settings/model-prompt", json={
+        "model": OLD, "content_policy_enabled": False, "extra_system_prompt": "Be brief.",
+    })
+    await client.patch("/api/settings/model-prompt", json={
+        "model": OTHER, "content_policy_enabled": True, "extra_system_prompt": "Other.",
+    })
+
+    await _swap(client)
+
+    prompts = (await client.get("/api/settings")).json()["llm_model_prompts"]
+    assert OLD not in prompts
+    assert prompts[NEW]["content_policy_enabled"] is False
+    assert prompts[NEW]["extra_system_prompt"] == "Be brief."
+    assert prompts[OTHER]["extra_system_prompt"] == "Other."
+
+
+@pytest.mark.asyncio
+async def test_after_a_replace_the_new_model_is_offered_and_resolves_old_pins(swap_app):
+    from core.profile_context import ProfileScope
+
+    client = swap_app.client
+    await client.patch("/api/settings/agent", json={"models": {"chat": {"model": OLD, "effort": None}}})
+
+    swapped = await _swap(client)
+
+    assert swapped["served"] == {"missing": [], "unadded": []}
+    available = (await client.get("/api/models/available")).json()["models"]
+    new = next(model for model in available if model["slug"] == NEW)
+    assert new["available"] is True
+    assert new["status"] == "available"
+    assert not any(model["slug"] == OLD for model in available)
+    with ProfileScope("default"):
+        config = await llm_resolver.get_effective_llm_config("chat")
+    assert config.model == "new-model"
+    assert config.url == "http://gpu-box:8000/v1"
