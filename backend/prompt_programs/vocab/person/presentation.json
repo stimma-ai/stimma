@@ -1,0 +1,30 @@
+{
+ "id": "person.presentation",
+ "label": "Presentation",
+ "description": "How a person reads: feminine, masculine or androgynous, drawn with a fixed, even-handed distribution.",
+ "pos": "adjective",
+ "frame": "a ___ person",
+ "notes": "A comprehensive list: how a person presents, for seeding a person's variants when the prompt and notes don't say. Drawn with fixed shares (feminine and masculine equally, androgynous less often) so no presentation is left out. Not a slot's list: the reader never binds a slot to it; the chooser offers it beside descent for a person slot, and a pick pins it.",
+ "facets": [],
+ "closed": true,
+ "catalog": false,
+ "local_facets": {
+  "presentation": [
+   "feminine",
+   "masculine",
+   "androgynous"
+  ]
+ },
+ "shares": {
+  "presentation": {
+   "feminine": 0.46,
+   "masculine": 0.46,
+   "androgynous": 0.08
+  }
+ },
+ "values": [
+  {"text": "feminine", "tier": "typical", "tags": {"presentation": ["feminine"]}},
+  {"text": "masculine", "tier": "typical", "tags": {"presentation": ["masculine"]}},
+  {"text": "androgynous", "tier": "typical", "tags": {"presentation": ["androgynous"]}}
+ ]
+}
