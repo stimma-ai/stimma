@@ -1,490 +1,544 @@
 {
-  "id": "lighting.dramatic",
-  "label": "Dramatic lighting",
-  "description": "Expressive light effects defined by contrast, color, silhouette or projected patterns; choose for a cinematic effect rather than a named natural source or rig.",
-  "pos": "noun phrase",
-  "frame": "lit by ___",
-  "notes": "Designed color relationships, silhouettes and expressive light patterns belong here. Studio owns named photographic rigs and modifiers; indoor_practical owns ordinary in-scene fixtures; natural owns literal sun, sky and moon sources. Color treatments can be used across depicted eras.",
-  "facets": [],
-  "closed": false,
-  "values": [
-    {
-      "text": "a single hard spotlight from above",
-      "short": "hard top spotlight",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "spotlight"
-        ]
-      }
-    },
-    {
-      "text": "strong rim light against a dark background",
-      "short": "rim light on dark",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "moody",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "warm key light against cool blue fill",
-      "short": "warm key, cool fill",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "warm",
-          "cool",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "hard side light dividing the face into light and shadow",
-      "short": "split side light",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "moody",
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "soft amber light against deep shadows",
-      "short": "amber light, deep shadow",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "soft",
-          "moody",
-          "warm",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "pink and teal light",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "red light from one side and blue light from the other",
-      "short": "red and blue sides",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "harsh",
-          "cool",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "cool cyan light across a dark scene",
-      "short": "cool cyan in the dark",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "moody",
-          "cool",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "a bright shaft of light through smoky air",
-      "short": "shaft through smoke",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "deep red light with sharp black shadows",
-      "short": "deep red, black shadows",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "moody",
-          "harsh",
-          "warm",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "violet light edged with pale blue highlights",
-      "short": "violet, pale blue edges",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "cool",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "an emerald glow rising from below",
-      "short": "emerald glow from below",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "moody",
-          "cool",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "projected bands of light and shadow",
-      "short": "projected light bands",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "moody",
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "projector"
-        ]
-      }
-    },
-    {
-      "text": "alternating bands of light and shadow",
-      "short": "alternating light bands",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "moody",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "an oval pool of light surrounded by darkness",
-      "short": "oval pool of light",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "spotlight"
-        ]
-      }
-    },
-    {
-      "text": "crossing beams of white laser light",
-      "short": "crossing laser beams",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "laser"
-        ]
-      }
-    },
-    {
-      "text": "pale blue underlighting beneath the chin",
-      "short": "pale blue underlight",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "moody",
-          "harsh",
-          "cool",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "warm light reflected from below",
-      "short": "warm light from below",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "warm",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "orange backlight through drifting smoke",
-      "short": "orange backlit smoke",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "moody",
-          "warm",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "magenta highlights against green shadows",
-      "short": "magenta and green",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "moody",
-          "cool",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "a moving searchlight sweeping across the scene",
-      "short": "sweeping searchlight",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "spotlight"
-        ]
-      }
-    },
-    {
-      "text": "soft pink light fading into lavender shadow",
-      "short": "pink into lavender",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft",
-          "moody",
-          "cool",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "fragmented projected light through a patterned screen",
-      "short": "patterned-screen light",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft",
-          "dramatic"
-        ],
-        "source": [
-          "projector"
-        ]
-      }
-    },
-    {
-      "text": "rippling reflected light across the walls",
-      "short": "rippling water light",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "a luminous halo directly behind the head",
-      "short": "halo behind the head",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft",
-          "moody",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "pulsing red emergency light",
-      "short": "red emergency light",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "moody",
-          "harsh",
-          "warm",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "a bright triangle of light on one cheek",
-      "short": "Rembrandt triangle",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "a spiraling pattern of projected light",
-      "short": "spiral projection",
-      "tier": "unusual",
-      "tags": {
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "projector"
-        ]
-      }
-    },
-    {
-      "text": "rainbow caustics scattered across the skin",
-      "short": "rainbow caustics",
-      "tier": "unusual",
-      "tags": {
-        "mood": [
-          "soft",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "concentric rings of projected laser light",
-      "short": "laser rings",
-      "tier": "unusual",
-      "tags": {
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "laser"
-        ]
-      }
-    },
-    {
-      "text": "saturated yellow light against cobalt shadows",
-      "short": "yellow against cobalt",
-      "tier": "unusual",
-      "tags": {
-        "mood": [
-          "warm",
-          "dramatic"
-        ],
-        "source": [
-          "unspecified"
-        ]
-      }
-    },
-    {
-      "text": "a web of fine laser beams in haze",
-      "short": "laser web in haze",
-      "tier": "unusual",
-      "tags": {
-        "mood": [
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "laser"
-        ]
-      }
-    }
-  ],
-  "local_facets": {
-    "mood": [
-      "harsh",
-      "dramatic",
-      "moody",
-      "warm",
-      "cool",
-      "soft"
+ "id": "lighting.dramatic",
+ "label": "Dramatic lighting",
+ "description": "Named cinematic lighting looks, dramatic shadow patterns, colored light treatments, beams, and optical effects.",
+ "pos": "noun phrase",
+ "frame": "lit by ___",
+ "notes": "Designed cinematic looks belong here, phrased to follow “lit by.” lighting.studio owns named portrait setups and photographic modifiers; lighting.indoor_practical owns visible fixtures, and lighting.natural owns literal sun, sky, and moonlight. These looks describe the image treatment and can be staged across depicted eras and genres. Temporal effects such as strobe and light painting describe their visible still-image result.",
+ "facets": [],
+ "closed": false,
+ "values": [
+  {
+   "text": "chiaroscuro lighting",
+   "short": "chiaroscuro",
+   "look": "Strong light and deep shadow sculpt rounded forms, with gradual transitions across the lit subject.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "contrast"
     ],
-    "source": [
-      "spotlight",
-      "unspecified",
-      "projector",
-      "laser"
+    "mood": [
+     "dramatic",
+     "moody"
     ]
+   }
+  },
+  {
+   "text": "tenebrist lighting",
+   "short": "tenebrism",
+   "look": "A small intensely lit face or gesture emerges from near-total darkness, with most surroundings swallowed in black.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "contrast"
+    ],
+    "mood": [
+     "dramatic",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "film noir venetian-blind lighting",
+   "short": "noir blind shadows",
+   "look": "Hard diagonal stripes of light and shadow cross the face and walls in a dark, high-contrast scene.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shadow_patterns"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "hard top light",
+   "short": "hard top light",
+   "look": "A hard overhead beam brightens the crown and shoulders while eye sockets and lower features sink into shadow.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "contrast"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "horror underlighting",
+   "short": "horror underlight",
+   "look": "Light from below reverses familiar facial shadows, darkening the brow and casting nose shadows upward.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "contrast"
+    ],
+    "mood": [
+     "harsh",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "cyberpunk pink-and-teal neon light",
+   "short": "pink and teal neon",
+   "look": "Saturated pink and teal washes divide the scene into glowing colored highlights and deep cool shadows.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "color"
+    ],
+    "mood": [
+     "cool",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "cold blue cinematic moonlight",
+   "short": "blue moonlit grade",
+   "look": "An exaggerated steel-blue night look leaves pale cool highlights against deep blue-black shadows.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "color"
+    ],
+    "mood": [
+     "cool",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "volumetric light beams through haze",
+   "short": "volumetric beams",
+   "look": "Several bright beams remain visible in hazy air, giving the scene layered depth and glowing atmosphere.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "atmosphere"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "a single shaft of light",
+   "short": "single light shaft",
+   "look": "One narrow column of light isolates a subject or detail while nearly everything around it stays dark.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "atmosphere",
+     "contrast"
+    ],
+    "mood": [
+     "dramatic",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "silhouette backlight",
+   "short": "silhouette backlight",
+   "look": "A broad bright field behind the subject turns the body into a dark readable shape.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "backlight"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "stroboscopic lighting",
+   "short": "strobe",
+   "look": "Repeated flashes freeze several distinct positions of a moving subject within one otherwise dark image.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "stage"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "anamorphic lens-flare lighting",
+   "short": "anamorphic flare",
+   "look": "Bright lights facing the lens stretch into long horizontal flare streaks and luminous veiling glare.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "optical"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "colored gel split lighting",
+   "short": "gel split lighting",
+   "look": "Red light covers one side of the face and blue light covers the other, meeting along a sharp central divide.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "color"
+    ],
+    "mood": [
+     "harsh",
+     "cool",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "firelit red glow",
+   "short": "firelit red glow",
+   "look": "Deep red-orange light rises into the scene, with ember-like highlights and heavy smoky black shadows.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "color"
+    ],
+    "mood": [
+     "warm",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "bioluminescent glow",
+   "short": "bioluminescence",
+   "look": "Small living forms glow cyan or green from within, lighting nearby edges in an otherwise dark environment.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "glow"
+    ],
+    "mood": [
+     "soft",
+     "cool",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "stained-glass light",
+   "short": "stained-glass light",
+   "look": "Translucent colored panes project distinct jewel-colored patches and dark leading lines across the scene.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shadow_patterns",
+     "color"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "water-caustic lighting",
+   "short": "water caustics",
+   "look": "Bright rippling nets of reflected or refracted light move across skin, walls, or the bottom of a pool.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shadow_patterns"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "warm key light with cool fill",
+   "short": "warm key, cool fill",
+   "look": "Amber highlights shape the subject while blue fill keeps its shaded side visible.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "color"
+    ],
+    "mood": [
+     "warm",
+     "cool",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "monochromatic red lighting",
+   "short": "red monochrome",
+   "look": "Saturated red illuminates the whole scene, reducing other colors to red tones and black shadows.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "color"
+    ],
+    "mood": [
+     "warm",
+     "harsh",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "blacklight",
+   "short": "blacklight",
+   "look": "Fluorescent pigments and white fabric glow vividly against violet-lit skin and a nearly black background.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "glow"
+    ],
+    "mood": [
+     "cool",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "leaf-pattern gobo lighting",
+   "short": "leaf gobo",
+   "look": "Projected leaf silhouettes form a controlled canopy pattern of light and shadow across the subject and backdrop.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shadow_patterns"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "prismatic rainbow light",
+   "short": "prism rainbow light",
+   "look": "A prism splits a beam into distinct rainbow bands across skin or a plain surface.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "optical",
+     "color"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "halo backlighting",
+   "short": "halo backlight",
+   "look": "A circular glow centered behind the head frames the subject like a luminous halo.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "backlight"
+    ],
+    "mood": [
+     "soft",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "searchlight beams",
+   "short": "searchlight",
+   "look": "A powerful narrow beam cuts across a dark scene, making a bright cone in the atmosphere.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "stage",
+     "atmosphere"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "laser light beams",
+   "short": "laser beams",
+   "look": "Thin intensely colored straight lines cross the haze and end in tiny bright spots on surfaces.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "stage"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "orange backlight through smoke",
+   "short": "orange backlit smoke",
+   "look": "Orange light from behind turns thick smoke into luminous clouds around dark foreground shapes.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "backlight",
+     "atmosphere"
+    ],
+    "mood": [
+     "warm",
+     "moody",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "light-leak effects",
+   "short": "light leaks",
+   "look": "Soft orange or red flares wash in from the frame edge, partially veiling the image in uneven bands.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "optical"
+    ],
+    "mood": [
+     "warm",
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "expressionist lighting",
+   "short": "expressionist shadows",
+   "look": "Exaggerated angular shadows stretch across walls and figures, distorting shapes into sharp graphic diagonals.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shadow_patterns"
+    ],
+    "mood": [
+     "harsh",
+     "moody",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "blooming backlight",
+   "short": "blooming backlight",
+   "look": "Bright rear light spills softly around the subject, dissolving edges into a luminous misty glow.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "backlight"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "disco-ball light",
+   "short": "disco-ball light",
+   "look": "Many small reflected spots of light scatter across faces, floors, and walls against a dark room.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "stage",
+     "shadow_patterns"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "projection-mapping light",
+   "short": "projection mapping",
+   "look": "Projected images and geometric colors wrap across a face or structure, following its visible contours.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "shadow_patterns",
+     "color"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "light painting",
+   "short": "light painting",
+   "look": "Long-exposure ribbons and loops of light trace paths through a dark scene around a still subject.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "optical"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "starburst light flares",
+   "short": "starburst flares",
+   "look": "Bright point lights grow sharp radiating spikes across the image while the surrounding scene stays readable.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "optical"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "red-and-blue emergency lighting",
+   "short": "emergency light wash",
+   "look": "Alternating red and blue light washes across the scene, with hard colored reflections on faces and wet surfaces.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "color"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic"
+    ]
+   }
   }
+ ],
+ "local_facets": {
+  "kind": [
+   "contrast",
+   "color",
+   "shadow_patterns",
+   "backlight",
+   "atmosphere",
+   "optical",
+   "glow",
+   "stage"
+  ],
+  "mood": [
+   "harsh",
+   "dramatic",
+   "moody",
+   "warm",
+   "cool",
+   "soft"
+  ]
+ }
 }

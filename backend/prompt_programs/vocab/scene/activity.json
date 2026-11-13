@@ -1,0 +1,1044 @@
+{
+ "id": "scene.activity",
+ "label": "Activity",
+ "description": "Visible ongoing actions in a scene: daily routines, work, hobbies, social activities, sports, and travel.",
+ "pos": "participle phrase",
+ "frame": "a woman ___",
+ "notes": "Ongoing actions belong here, phrased as participles after a subject. person.pose owns held body postures; scene.activity may imply the movement needed for an action. Necessary objects stay generic, leaving clothing to the person.outfit lists and surrounding locations to interior_space.room and exterior_space.outdoors. Setting tags indicate suitable contexts rather than specifying the scene, and era or genre tags identify actions requiring particular technology or fictional effects.",
+ "facets": [
+  "genre",
+  "era"
+ ],
+ "local_facets": {
+  "setting": [
+   "home",
+   "outdoors",
+   "work",
+   "social",
+   "sport",
+   "travel",
+   "other"
+  ]
+ },
+ "closed": false,
+ "values": [
+  {
+   "text": "reading a paperback",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "home",
+     "outdoors",
+     "travel"
+    ],
+    "era": [
+     "19th_century",
+     "1900s_1940s",
+     "1950s_1970s",
+     "1980s_1990s",
+     "contemporary",
+     "future"
+    ]
+   },
+   "short": "reading a paperback"
+  },
+  {
+   "text": "pouring coffee",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "home",
+     "work",
+     "social"
+    ]
+   },
+   "short": "pouring coffee"
+  },
+  {
+   "text": "peeling an orange",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "home",
+     "outdoors",
+     "travel"
+    ]
+   },
+   "short": "peeling an orange"
+  },
+  {
+   "text": "stirring a bowl of soup",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "home"
+    ]
+   },
+   "short": "stirring a bowl of soup"
+  },
+  {
+   "text": "kneading dough",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "home"
+    ]
+   },
+   "short": "kneading dough"
+  },
+  {
+   "text": "folding a towel",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "home"
+    ]
+   },
+   "short": "folding a towel"
+  },
+  {
+   "text": "watering a potted plant",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "home",
+     "work"
+    ]
+   },
+   "short": "watering a potted plant"
+  },
+  {
+   "text": "sewing a loose button onto a shirt",
+   "short": "sewing on a button",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "brushing tangled hair",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "home"
+    ]
+   },
+   "short": "brushing tangled hair"
+  },
+  {
+   "text": "wrapping a small gift",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "home",
+     "social"
+    ]
+   },
+   "short": "wrapping a small gift"
+  },
+  {
+   "text": "sorting a stack of letters",
+   "short": "sorting letters",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "home",
+     "work"
+    ]
+   }
+  },
+  {
+   "text": "polishing a pair of shoes",
+   "short": "polishing shoes",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "writing notes on a pad",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "work",
+     "home",
+     "travel"
+    ]
+   },
+   "short": "writing notes on a pad"
+  },
+  {
+   "text": "typing on a laptop",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "work",
+     "home",
+     "travel"
+    ],
+    "era": [
+     "1980s_1990s",
+     "contemporary",
+     "future"
+    ]
+   },
+   "short": "typing on a laptop"
+  },
+  {
+   "text": "sorting a stack of documents",
+   "short": "sorting documents",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "work",
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "measuring a piece of fabric",
+   "short": "measuring fabric",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "work",
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "examining a small mechanical part",
+   "short": "examining a small part",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "work"
+    ]
+   }
+  },
+  {
+   "text": "drawing a diagram on paper",
+   "short": "drawing a diagram",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "work",
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "packing a parcel",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "work",
+     "home"
+    ]
+   },
+   "short": "packing a parcel"
+  },
+  {
+   "text": "labeling a row of jars",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "work",
+     "home"
+    ]
+   },
+   "short": "labeling a row of jars"
+  },
+  {
+   "text": "counting a handful of coins",
+   "short": "counting coins",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "work",
+     "home",
+     "travel"
+    ]
+   }
+  },
+  {
+   "text": "explaining a chart to a small group",
+   "short": "explaining a chart",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "work",
+     "social"
+    ]
+   }
+  },
+  {
+   "text": "photographing a small object",
+   "short": "photographing an object",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "work",
+     "home"
+    ],
+    "era": [
+     "19th_century",
+     "1900s_1940s",
+     "1950s_1970s",
+     "1980s_1990s",
+     "contemporary",
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "testing a circuit with a handheld meter",
+   "short": "testing a circuit",
+   "tier": "unusual",
+   "tags": {
+    "setting": [
+     "work"
+    ],
+    "era": [
+     "1900s_1940s",
+     "1950s_1970s",
+     "1980s_1990s",
+     "contemporary",
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "walking along a path",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "outdoors",
+     "travel"
+    ]
+   },
+   "short": "walking along a path"
+  },
+  {
+   "text": "collecting fallen leaves",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "outdoors"
+    ]
+   },
+   "short": "collecting fallen leaves"
+  },
+  {
+   "text": "planting a seedling",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "outdoors",
+     "home"
+    ]
+   },
+   "short": "planting a seedling"
+  },
+  {
+   "text": "picking ripe berries",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "outdoors"
+    ]
+   },
+   "short": "picking ripe berries"
+  },
+  {
+   "text": "flying a kite",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "outdoors"
+    ]
+   },
+   "short": "flying a kite"
+  },
+  {
+   "text": "blowing seeds from a dandelion",
+   "short": "blowing a dandelion",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "outdoors"
+    ]
+   }
+  },
+  {
+   "text": "skipping a stone across water",
+   "short": "skipping a stone",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "outdoors"
+    ]
+   }
+  },
+  {
+   "text": "gathering seashells",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "outdoors",
+     "travel"
+    ]
+   },
+   "short": "gathering seashells"
+  },
+  {
+   "text": "examining a flower through a magnifying glass",
+   "short": "studying a flower",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "outdoors",
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "feeding a small bird",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "outdoors"
+    ]
+   },
+   "short": "feeding a small bird"
+  },
+  {
+   "text": "building a snowman",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "outdoors",
+     "social"
+    ]
+   },
+   "short": "building a snowman"
+  },
+  {
+   "text": "catching falling snowflakes on an outstretched hand",
+   "short": "catching snowflakes",
+   "tier": "unusual",
+   "tags": {
+    "setting": [
+     "outdoors"
+    ]
+   }
+  },
+  {
+   "text": "talking with a companion",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "social",
+     "work",
+     "travel"
+    ]
+   },
+   "short": "talking with a companion"
+  },
+  {
+   "text": "sharing a snack with a friend",
+   "short": "sharing a snack",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "social",
+     "home",
+     "outdoors"
+    ]
+   }
+  },
+  {
+   "text": "dealing playing cards",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "social",
+     "home",
+     "travel"
+    ]
+   },
+   "short": "dealing playing cards"
+  },
+  {
+   "text": "rolling a pair of dice",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "social",
+     "home"
+    ]
+   },
+   "short": "rolling a pair of dice"
+  },
+  {
+   "text": "moving a piece on a game board",
+   "short": "moving a game piece",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "social",
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "tossing a ball to a companion",
+   "short": "tossing a ball",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "social",
+     "outdoors",
+     "sport"
+    ]
+   }
+  },
+  {
+   "text": "blowing soap bubbles",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "social",
+     "outdoors"
+    ]
+   },
+   "short": "blowing soap bubbles"
+  },
+  {
+   "text": "assembling a jigsaw puzzle",
+   "short": "doing a jigsaw puzzle",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "social",
+     "home"
+    ],
+    "era": [
+     "early_modern",
+     "19th_century",
+     "1900s_1940s",
+     "1950s_1970s",
+     "1980s_1990s",
+     "contemporary",
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "building a tower of wooden blocks",
+   "short": "stacking wooden blocks",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "social",
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "clapping along to music",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "social"
+    ]
+   },
+   "short": "clapping along to music"
+  },
+  {
+   "text": "performing a card trick",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "social"
+    ]
+   },
+   "short": "performing a card trick"
+  },
+  {
+   "text": "juggling three oranges",
+   "tier": "unusual",
+   "tags": {
+    "setting": [
+     "social",
+     "other"
+    ]
+   },
+   "short": "juggling three oranges"
+  },
+  {
+   "text": "jogging at an easy pace",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "sport",
+     "outdoors"
+    ]
+   },
+   "short": "jogging at an easy pace"
+  },
+  {
+   "text": "jumping rope",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "sport",
+     "outdoors"
+    ]
+   },
+   "short": "jumping rope"
+  },
+  {
+   "text": "dribbling a ball",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "sport",
+     "outdoors"
+    ]
+   },
+   "short": "dribbling a ball"
+  },
+  {
+   "text": "kicking a ball",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "sport",
+     "outdoors"
+    ]
+   },
+   "short": "kicking a ball"
+  },
+  {
+   "text": "swinging a racket",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "sport"
+    ]
+   },
+   "short": "swinging a racket"
+  },
+  {
+   "text": "throwing a flying disc",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "sport",
+     "outdoors"
+    ],
+    "era": [
+     "1950s_1970s",
+     "1980s_1990s",
+     "contemporary",
+     "future"
+    ]
+   },
+   "short": "throwing a flying disc"
+  },
+  {
+   "text": "swimming through calm water",
+   "short": "swimming",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "sport",
+     "outdoors"
+    ]
+   }
+  },
+  {
+   "text": "pedaling a bicycle",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "sport",
+     "outdoors",
+     "travel"
+    ],
+    "era": [
+     "19th_century",
+     "1900s_1940s",
+     "1950s_1970s",
+     "1980s_1990s",
+     "contemporary",
+     "future"
+    ]
+   },
+   "short": "pedaling a bicycle"
+  },
+  {
+   "text": "practicing dance steps",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "sport",
+     "social",
+     "home"
+    ]
+   },
+   "short": "practicing dance steps"
+  },
+  {
+   "text": "punching a training bag",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "sport"
+    ]
+   },
+   "short": "punching a training bag"
+  },
+  {
+   "text": "balancing a spinning ball on one fingertip",
+   "short": "spinning a ball",
+   "tier": "unusual",
+   "tags": {
+    "setting": [
+     "sport",
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "leaping over a low hurdle",
+   "short": "leaping a hurdle",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "sport"
+    ]
+   }
+  },
+  {
+   "text": "reading a folded map",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "travel",
+     "outdoors"
+    ]
+   },
+   "short": "reading a folded map"
+  },
+  {
+   "text": "checking a timetable",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "travel"
+    ]
+   },
+   "short": "checking a timetable"
+  },
+  {
+   "text": "packing a travel bag",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "travel",
+     "home"
+    ]
+   },
+   "short": "packing a travel bag"
+  },
+  {
+   "text": "pulling a wheeled suitcase",
+   "short": "pulling a suitcase",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "travel"
+    ],
+    "era": [
+     "1950s_1970s",
+     "1980s_1990s",
+     "contemporary",
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "adjusting the straps of a backpack",
+   "short": "adjusting a backpack",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "travel",
+     "outdoors"
+    ]
+   }
+  },
+  {
+   "text": "showing a ticket to an attendant",
+   "short": "showing a ticket",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "travel"
+    ]
+   }
+  },
+  {
+   "text": "photographing a distant landmark",
+   "short": "photographing a landmark",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "travel",
+     "outdoors"
+    ],
+    "era": [
+     "19th_century",
+     "1900s_1940s",
+     "1950s_1970s",
+     "1980s_1990s",
+     "contemporary",
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "writing a postcard",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "travel",
+     "home"
+    ],
+    "era": [
+     "19th_century",
+     "1900s_1940s",
+     "1950s_1970s",
+     "1980s_1990s",
+     "contemporary",
+     "future"
+    ]
+   },
+   "short": "writing a postcard"
+  },
+  {
+   "text": "asking a passerby for directions",
+   "short": "asking for directions",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "travel",
+     "outdoors",
+     "social"
+    ]
+   }
+  },
+  {
+   "text": "taking a sip from a water bottle",
+   "short": "sipping from a bottle",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "travel",
+     "sport",
+     "outdoors"
+    ]
+   }
+  },
+  {
+   "text": "tying a luggage tag onto a bag",
+   "short": "tying a luggage tag",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "travel",
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "sketching a route in the sand",
+   "short": "sketching in the sand",
+   "tier": "unusual",
+   "tags": {
+    "setting": [
+     "travel",
+     "outdoors"
+    ]
+   }
+  },
+  {
+   "text": "sketching in a notebook",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "other",
+     "home",
+     "outdoors"
+    ]
+   },
+   "short": "sketching in a notebook"
+  },
+  {
+   "text": "painting with a brush",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "other",
+     "home",
+     "work"
+    ]
+   },
+   "short": "painting with a brush"
+  },
+  {
+   "text": "shaping a small lump of clay",
+   "short": "shaping clay",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "other",
+     "home",
+     "work"
+    ]
+   }
+  },
+  {
+   "text": "knitting a scarf",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "other",
+     "home",
+     "travel"
+    ]
+   },
+   "short": "knitting a scarf"
+  },
+  {
+   "text": "folding a paper crane",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "other",
+     "home",
+     "social"
+    ]
+   },
+   "short": "folding a paper crane"
+  },
+  {
+   "text": "playing a flute",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "other",
+     "home",
+     "social"
+    ]
+   },
+   "short": "playing a flute"
+  },
+  {
+   "text": "strumming an acoustic guitar",
+   "short": "strumming a guitar",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "other",
+     "home",
+     "social"
+    ],
+    "era": [
+     "early_modern",
+     "19th_century",
+     "1900s_1940s",
+     "1950s_1970s",
+     "1980s_1990s",
+     "contemporary",
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "carving a small wooden figure",
+   "short": "carving a wooden figure",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "other",
+     "home",
+     "work"
+    ]
+   }
+  },
+  {
+   "text": "threading beads onto a cord",
+   "short": "threading beads",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "other",
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "weaving a glowing spell between open hands",
+   "short": "weaving a glowing spell",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "other"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "guiding a floating crystal through the air",
+   "short": "guiding a crystal",
+   "tier": "plausible",
+   "tags": {
+    "setting": [
+     "other"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "rearranging symbols on a hovering holographic display",
+   "short": "using a hologram",
+   "tier": "typical",
+   "tags": {
+    "setting": [
+     "other",
+     "work"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  }
+ ]
+}

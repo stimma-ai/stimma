@@ -1,81 +1,208 @@
 {
-  "id": "camera.angle",
-  "label": "Camera angle",
-  "description": "The camera viewpoint relative to the person being photographed.",
-  "pos": "prepositional/noun phrase",
-  "frame": "shot from ___",
-  "notes": "Camera height, azimuth, tilt and relative position belong here. camera.shot_size owns framing extent and camera.lens owns focal length; lighting leaves own the direction of illumination.",
-  "facets": [],
-  "closed": true,
-  "values": [
-    {
-      "text": "eye level",
-      "tier": "typical"
-    },
-    {
-      "text": "a low angle",
-      "tier": "typical"
-    },
-    {
-      "text": "a high angle",
-      "tier": "typical"
-    },
-    {
-      "text": "directly overhead",
-      "tier": "plausible"
-    },
-    {
-      "text": "ground level",
-      "tier": "plausible"
-    },
-    {
-      "text": "a three-quarter front angle",
-      "short": "three-quarter front",
-      "tier": "typical"
-    },
-    {
-      "text": "a side-on viewpoint",
-      "tier": "typical"
-    },
-    {
-      "text": "directly behind",
-      "tier": "plausible"
-    },
-    {
-      "text": "over the shoulder",
-      "tier": "typical"
-    },
-    {
-      "text": "a three-quarter rear angle",
-      "short": "three-quarter rear",
-      "tier": "plausible"
-    },
-    {
-      "text": "waist height",
-      "tier": "plausible"
-    },
-    {
-      "text": "knee height",
-      "tier": "plausible"
-    },
-    {
-      "text": "just above the head",
-      "tier": "plausible"
-    },
-    {
-      "text": "the viewpoint of someone lying down",
-      "short": "lying-down viewpoint",
-      "tier": "plausible"
-    },
-    {
-      "text": "a low angle with the camera tilted sideways",
-      "short": "low Dutch angle",
-      "tier": "plausible"
-    },
-    {
-      "text": "an overhead angle with the frame rotated diagonally",
-      "short": "overhead, rotated",
-      "tier": "plausible"
-    }
+ "id": "camera.angle",
+ "label": "Camera angle",
+ "description": "Camera height, viewing direction, overhead viewpoints, and tilted angles.",
+ "pos": "noun phrase",
+ "frame": "camera viewpoint: ___",
+ "notes": "Camera height, viewing direction, and camera roll belong here, phrased as short viewpoint names. Top-down and bird’s-eye view share one entry; overhead flat lay specifically means objects arranged on a flat surface, while the aerial drone view looks obliquely across a larger setting. camera.shot_size owns crops, subject groupings, selfies, and over-the-shoulder framing. camera.lens owns lens effects, and camera.film_look owns film and format looks. Directions describe the camera relative to the subject, not the direction of lighting.",
+ "facets": [],
+ "closed": true,
+ "local_facets": {
+  "kind": [
+   "level",
+   "low",
+   "high",
+   "tilted",
+   "side"
   ]
+ },
+ "values": [
+  {
+   "text": "eye level",
+   "short": "eye level",
+   "tier": "typical",
+   "look": "The camera sits at the subject’s eye height, looking straight across without looking up or down.",
+   "tags": {
+    "kind": [
+     "level"
+    ]
+   }
+  },
+  {
+   "text": "chest level",
+   "short": "chest level",
+   "tier": "plausible",
+   "look": "The camera looks horizontally from chest height, with a standing person’s head above the camera’s center line.",
+   "tags": {
+    "kind": [
+     "level"
+    ]
+   }
+  },
+  {
+   "text": "hip level",
+   "short": "hip level",
+   "tier": "plausible",
+   "look": "The camera looks horizontally from the hips, placing nearby waists at its height and heads well above it.",
+   "tags": {
+    "kind": [
+     "level"
+    ]
+   }
+  },
+  {
+   "text": "a low angle",
+   "short": "low angle",
+   "tier": "typical",
+   "look": "The camera tilts upward from below the subject, showing undersides and making the subject rise above the viewer.",
+   "tags": {
+    "kind": [
+     "low"
+    ]
+   }
+  },
+  {
+   "text": "ground level",
+   "short": "ground level",
+   "tier": "plausible",
+   "look": "The camera looks across the scene from the floor or ground, with the nearest surface prominent in the foreground.",
+   "tags": {
+    "kind": [
+     "low"
+    ]
+   }
+  },
+  {
+   "text": "knee level",
+   "short": "knee level",
+   "tier": "plausible",
+   "look": "The camera is positioned at knee height, placing lower legs close to its center and the upper body above.",
+   "tags": {
+    "kind": [
+     "low"
+    ]
+   }
+  },
+  {
+   "text": "a worm's-eye view",
+   "short": "worm's-eye view",
+   "tier": "unusual",
+   "look": "From almost on the ground, the camera points steeply upward beneath the subject toward the sky or ceiling.",
+   "tags": {
+    "kind": [
+     "low"
+    ]
+   }
+  },
+  {
+   "text": "a high angle",
+   "short": "high angle",
+   "tier": "typical",
+   "look": "The camera looks down diagonally, revealing the tops of heads and objects along with the floor or ground.",
+   "tags": {
+    "kind": [
+     "high"
+    ]
+   }
+  },
+  {
+   "text": "a top-down bird's-eye view",
+   "short": "bird's-eye view",
+   "tier": "plausible",
+   "look": "The camera points straight down onto the scene, showing top surfaces and positions across the ground below.",
+   "tags": {
+    "kind": [
+     "high"
+    ]
+   }
+  },
+  {
+   "text": "an overhead flat lay",
+   "short": "overhead flat lay",
+   "tier": "plausible",
+   "look": "Objects lie arranged on one flat surface, photographed directly from above with no horizon visible.",
+   "tags": {
+    "kind": [
+     "high"
+    ]
+   }
+  },
+  {
+   "text": "an aerial drone view",
+   "short": "aerial drone view",
+   "tier": "plausible",
+   "look": "An elevated, oblique view spans rooftops or landscape, showing both top surfaces and distant terrain.",
+   "tags": {
+    "kind": [
+     "high"
+    ]
+   }
+  },
+  {
+   "text": "a Dutch angle",
+   "short": "Dutch angle",
+   "tier": "plausible",
+   "look": "The camera rolls sideways so the horizon slopes and upright objects lean diagonally across the frame.",
+   "tags": {
+    "kind": [
+     "tilted"
+    ]
+   }
+  },
+  {
+   "text": "a straight-on view",
+   "short": "straight-on view",
+   "tier": "typical",
+   "look": "The subject faces the camera squarely, with its front visible and both sides appearing roughly symmetrical.",
+   "tags": {
+    "kind": [
+     "side"
+    ]
+   }
+  },
+  {
+   "text": "a three-quarter view",
+   "short": "three-quarter view",
+   "tier": "typical",
+   "look": "The camera sees the front and one side together; on a face, both eyes show but one side appears narrower.",
+   "tags": {
+    "kind": [
+     "side"
+    ]
+   }
+  },
+  {
+   "text": "a profile view",
+   "short": "profile view",
+   "tier": "plausible",
+   "look": "The camera sees the subject directly from one side; on a face, one eye shows and the nose projects in silhouette.",
+   "tags": {
+    "kind": [
+     "side"
+    ]
+   }
+  },
+  {
+   "text": "a three-quarter rear view",
+   "short": "three-quarter rear view",
+   "tier": "plausible",
+   "look": "The camera sees the back and one side together, with little or none of the subject’s front visible.",
+   "tags": {
+    "kind": [
+     "side"
+    ]
+   }
+  },
+  {
+   "text": "a view from behind",
+   "short": "from behind",
+   "tier": "plausible",
+   "look": "The camera faces the subject’s back directly; a person’s face is hidden and the back of the head is visible.",
+   "tags": {
+    "kind": [
+     "side"
+    ]
+   }
+  }
+ ]
 }

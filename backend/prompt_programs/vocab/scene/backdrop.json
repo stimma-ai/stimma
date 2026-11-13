@@ -1,700 +1,701 @@
 {
-  "id": "scene.backdrop",
-  "label": "Backdrop",
-  "description": "Visual backgrounds behind a portrait or product: studio sweeps, plain colors, textured surfaces and softly blurred environments.",
-  "pos": "noun phrase",
-  "frame": "against ___",
-  "notes": "The visible background behind a subject, rather than a whole location. Exterior and interior space leaves own the surrounding scene; lighting leaves own illumination of the subject. Tone describes the background itself. Plain colors and timeless surfaces fit any era; era and genre tags mark specific exceptions.",
-  "facets": [
-    "genre",
-    "era"
+ "id": "scene.backdrop",
+ "label": "Backdrop",
+ "description": "Backgrounds behind a subject: studio sweeps, plain colors, textured surfaces, blurred scenery, and fantasy effects.",
+ "pos": "noun phrase",
+ "frame": "against ___",
+ "notes": "Visible backgrounds behind a subject belong here, phrased to follow “against.” exterior_space.outdoors and interior_space.room own whole locations; lighting.natural and lighting.studio own illumination of the subject. Kind groups the background material or treatment, and tone describes the background itself. Era and genre restrictions are reserved for the impossible luminous runes and holographic grid.",
+ "facets": [
+  "genre",
+  "era"
+ ],
+ "local_facets": {
+  "kind": [
+   "studio",
+   "plain",
+   "textured",
+   "blurred_environment",
+   "other"
   ],
-  "local_facets": {
+  "tone": [
+   "light",
+   "dark",
+   "colorful"
+  ]
+ },
+ "closed": false,
+ "values": [
+  {
+   "text": "a seamless mid-gray paper backdrop",
+   "tier": "typical",
+   "tags": {
     "kind": [
-      "studio",
-      "plain",
-      "textured",
-      "blurred environment",
-      "other"
+     "studio"
     ],
     "tone": [
-      "light",
-      "dark",
-      "colorful"
+     "light"
     ]
+   },
+   "short": "mid-gray paper"
   },
-  "closed": false,
-  "values": [
-    {
-      "text": "a seamless mid-gray paper backdrop",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "studio"
-        ],
-        "tone": [
-          "light"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a white cyclorama",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "studio"
-        ],
-        "tone": [
-          "light"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a matte black studio sweep",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "studio"
-        ],
-        "tone": [
-          "dark"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a softly graduated gray studio background",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "studio"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a cream muslin studio drape",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "studio"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a deep brown velvet studio curtain",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "studio"
-        ],
-        "tone": [
-          "dark"
-        ]
-      }
-    },
-    {
-      "text": "a hand-painted blue studio canvas",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "studio"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a warm beige studio sweep",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "studio"
-        ],
-        "tone": [
-          "light"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a translucent scrim glowing with pastel light",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "studio"
-        ],
-        "tone": [
-          "light",
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a studio backdrop crossed by bands of colored light",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "studio"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a plain ivory background",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "plain"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a flat charcoal background",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "plain"
-        ],
-        "tone": [
-          "dark"
-        ]
-      }
-    },
-    {
-      "text": "a pale blue background",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "plain"
-        ],
-        "tone": [
-          "light",
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a solid burgundy background",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "plain"
-        ],
-        "tone": [
-          "dark",
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a matte forest-green background",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "plain"
-        ],
-        "tone": [
-          "dark",
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a warm sand-colored background",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "plain"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a saturated cobalt-blue background",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "plain"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a pale blush-pink background",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "plain"
-        ],
-        "tone": [
-          "light",
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a flat mustard-yellow background",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "plain"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a vivid acid-green background",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "plain"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a rough pale plaster wall",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a weathered red brick wall",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a dark slate wall",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "dark"
-        ]
-      }
-    },
-    {
-      "text": "a wall of honey-colored wooden boards",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a mottled gray concrete wall",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a sheet of softly creased linen",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a dark woven tapestry",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "dark"
-        ]
-      }
-    },
-    {
-      "text": "a terracotta stucco wall",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a pale veined marble slab",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a wall of rippled bronze panels",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "dark"
-        ]
-      }
-    },
-    {
-      "text": "a sunlit plant-filled wall",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a sculpted wall of folded paper fans",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "textured"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a softly blurred city at night",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "dark",
-          "colorful"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a softly blurred sunlit garden",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "light",
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a canopy of leaves rendered as green bokeh",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a blurred shoreline in pale morning light",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a dim interior softened into warm bokeh",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "dark"
-        ]
-      }
-    },
-    {
-      "text": "a softly blurred corridor of pale arches",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a blurred woodland in autumn colors",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a distant mountain ridge softened by mist",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a blurred field of wildflowers",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a rain-streaked window with blurred streetlights beyond",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "dark",
-          "colorful"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a softly blurred snow-covered landscape",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a blurred crowd beneath festive lanterns",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "blurred environment"
-        ],
-        "tone": [
-          "dark",
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a curtain of hanging glass beads",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "other"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    },
-    {
-      "text": "a reflective silver foil screen",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "other"
-        ],
-        "tone": [
-          "light"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a suspended arrangement of colorful fabric ribbons",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "other"
-        ],
-        "tone": [
-          "colorful"
-        ]
-      }
-    },
-    {
-      "text": "a floating veil of luminous runes",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "other"
-        ],
-        "tone": [
-          "dark",
-          "colorful"
-        ],
-        "genre": [
-          "fantasy",
-          "fairy_tale"
-        ]
-      }
-    },
-    {
-      "text": "a holographic grid fading into darkness",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "other"
-        ],
-        "tone": [
-          "dark",
-          "colorful"
-        ],
-        "genre": [
-          "scifi",
-          "cyberpunk"
-        ],
-        "era": [
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "a curtain of suspended water droplets",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "other"
-        ],
-        "tone": [
-          "light"
-        ]
-      }
-    }
-  ]
+  {
+   "text": "a white cyclorama",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "studio"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "white cyclorama"
+  },
+  {
+   "text": "a matte black studio sweep",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "studio"
+    ],
+    "tone": [
+     "dark"
+    ]
+   },
+   "short": "black studio sweep"
+  },
+  {
+   "text": "a softly graduated gray studio background",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "studio"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "gray gradient"
+  },
+  {
+   "text": "a cream muslin studio drape",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "studio"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "cream muslin"
+  },
+  {
+   "text": "a deep brown velvet studio curtain",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "studio"
+    ],
+    "tone": [
+     "dark"
+    ]
+   },
+   "short": "brown velvet curtain"
+  },
+  {
+   "text": "a hand-painted blue studio canvas",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "studio"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "painted blue canvas"
+  },
+  {
+   "text": "a sculptural folded white paper backdrop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "studio"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "folded paper backdrop"
+  },
+  {
+   "text": "a translucent scrim glowing with pastel light",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "studio"
+    ],
+    "tone": [
+     "light",
+     "colorful"
+    ]
+   },
+   "short": "pastel scrim"
+  },
+  {
+   "text": "a studio backdrop crossed by bands of colored light",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "studio"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "colored light bands"
+  },
+  {
+   "text": "a plain ivory background",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "plain"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "ivory"
+  },
+  {
+   "text": "a flat charcoal background",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "plain"
+    ],
+    "tone": [
+     "dark"
+    ]
+   },
+   "short": "charcoal"
+  },
+  {
+   "text": "a pale blue background",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "plain"
+    ],
+    "tone": [
+     "light",
+     "colorful"
+    ]
+   },
+   "short": "pale blue"
+  },
+  {
+   "text": "a solid burgundy background",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "plain"
+    ],
+    "tone": [
+     "dark",
+     "colorful"
+    ]
+   },
+   "short": "burgundy"
+  },
+  {
+   "text": "a matte forest-green background",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "plain"
+    ],
+    "tone": [
+     "dark",
+     "colorful"
+    ]
+   },
+   "short": "forest green"
+  },
+  {
+   "text": "a solid terracotta-orange background",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "plain"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "terracotta orange"
+  },
+  {
+   "text": "a saturated cobalt-blue background",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "plain"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "cobalt blue"
+  },
+  {
+   "text": "a pale blush-pink background",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "plain"
+    ],
+    "tone": [
+     "light",
+     "colorful"
+    ]
+   },
+   "short": "blush pink"
+  },
+  {
+   "text": "a flat mustard-yellow background",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "plain"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "mustard yellow"
+  },
+  {
+   "text": "a vivid acid-green background",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "plain"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "acid green"
+  },
+  {
+   "text": "a rough pale plaster wall",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "pale plaster"
+  },
+  {
+   "text": "a weathered red brick wall",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "red brick"
+  },
+  {
+   "text": "a dark slate wall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "dark"
+    ]
+   },
+   "short": "dark slate"
+  },
+  {
+   "text": "a wall of honey-colored wooden boards",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "wooden boards"
+  },
+  {
+   "text": "a mottled gray concrete wall",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "gray concrete"
+  },
+  {
+   "text": "a coarse burlap backdrop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "coarse burlap"
+  },
+  {
+   "text": "a dark woven tapestry",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "dark"
+    ]
+   },
+   "short": "woven tapestry"
+  },
+  {
+   "text": "a terracotta stucco wall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "terracotta stucco"
+  },
+  {
+   "text": "a pale veined marble slab",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "veined marble"
+  },
+  {
+   "text": "a wall of rippled bronze panels",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "dark"
+    ]
+   },
+   "short": "rippled bronze"
+  },
+  {
+   "text": "a sunlit plant-filled wall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "living plant wall"
+  },
+  {
+   "text": "a sculpted wall of folded paper fans",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "textured"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "folded paper fans"
+  },
+  {
+   "text": "a softly blurred city at night",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "dark",
+     "colorful"
+    ]
+   },
+   "short": "city night bokeh"
+  },
+  {
+   "text": "a softly blurred sunlit garden",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "light",
+     "colorful"
+    ]
+   },
+   "short": "sunlit garden"
+  },
+  {
+   "text": "a canopy of leaves rendered as green bokeh",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "green leaf bokeh"
+  },
+  {
+   "text": "a blurred shoreline in pale morning light",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "blurred shoreline"
+  },
+  {
+   "text": "a dim interior softened into warm bokeh",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "dark"
+    ]
+   },
+   "short": "warm interior bokeh"
+  },
+  {
+   "text": "a softly blurred corridor of pale arches",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "blurred arches"
+  },
+  {
+   "text": "a blurred woodland in autumn colors",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "autumn woodland"
+  },
+  {
+   "text": "a distant mountain ridge softened by mist",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "misty mountain ridge"
+  },
+  {
+   "text": "a blurred field of wildflowers",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "blurred wildflowers"
+  },
+  {
+   "text": "a rain-streaked window with blurred streetlights beyond",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "dark",
+     "colorful"
+    ]
+   },
+   "short": "rainy window"
+  },
+  {
+   "text": "a softly blurred snow-covered landscape",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "snowy landscape"
+  },
+  {
+   "text": "a blurred crowd beneath festive lanterns",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "blurred_environment"
+    ],
+    "tone": [
+     "dark",
+     "colorful"
+    ]
+   },
+   "short": "crowd and lanterns"
+  },
+  {
+   "text": "a curtain of hanging glass beads",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "glass bead curtain"
+  },
+  {
+   "text": "a reflective silver foil screen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "silver foil screen"
+  },
+  {
+   "text": "a suspended arrangement of colorful fabric ribbons",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "tone": [
+     "colorful"
+    ]
+   },
+   "short": "colorful ribbons"
+  },
+  {
+   "text": "a floating veil of luminous runes",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "tone": [
+     "dark",
+     "colorful"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   },
+   "short": "luminous runes"
+  },
+  {
+   "text": "a holographic grid fading into darkness",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "tone": [
+     "dark",
+     "colorful"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ],
+    "era": [
+     "future"
+    ]
+   },
+   "short": "holographic grid"
+  },
+  {
+   "text": "a curtain of suspended water droplets",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "tone": [
+     "light"
+    ]
+   },
+   "short": "water droplet curtain"
+  }
+ ]
 }

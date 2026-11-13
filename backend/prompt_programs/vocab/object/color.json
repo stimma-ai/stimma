@@ -1,386 +1,1489 @@
 {
-  "id": "object.color",
-  "label": "Object color",
-  "description": "the surface color of an object, independent of its material or pattern",
-  "pos": "adjective",
-  "frame": "a ___ mug",
-  "notes": "Color adjectives only; metallic names specify color, not construction. Modifiers keep every value grammatical after the frame’s fixed article. object.material owns substance and object.pattern owns motifs.",
-  "facets": [],
-  "closed": true,
-  "local_facets": {
-    "family": [
-      "red",
-      "orange",
-      "yellow",
-      "green",
-      "blue",
-      "purple",
-      "pink",
-      "brown",
-      "neutral",
-      "metallic"
-    ]
-  },
-  "values": [
-    {
-      "text": "red",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "red"
-        ]
-      }
-    },
-    {
-      "text": "burgundy",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "red"
-        ]
-      }
-    },
-    {
-      "text": "crimson",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "red"
-        ]
-      }
-    },
-    {
-      "text": "scarlet",
-      "tier": "unusual",
-      "tags": {
-        "family": [
-          "red"
-        ]
-      }
-    },
-    {
-      "text": "orange",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "orange"
-        ]
-      }
-    },
-    {
-      "text": "burnt orange",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "orange"
-        ]
-      }
-    },
-    {
-      "text": "tangerine",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "orange"
-        ]
-      }
-    },
-    {
-      "text": "yellow",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "yellow"
-        ]
-      }
-    },
-    {
-      "text": "mustard yellow",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "yellow"
-        ]
-      }
-    },
-    {
-      "text": "lemon yellow",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "yellow"
-        ]
-      }
-    },
-    {
-      "text": "green",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "green"
-        ]
-      }
-    },
-    {
-      "text": "forest green",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "green"
-        ]
-      }
-    },
-    {
-      "text": "sage green",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "green"
-        ]
-      }
-    },
-    {
-      "text": "lime green",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "green"
-        ]
-      }
-    },
-    {
-      "text": "mint green",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "green"
-        ]
-      }
-    },
-    {
-      "text": "blue",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "blue"
-        ]
-      }
-    },
-    {
-      "text": "navy blue",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "blue"
-        ]
-      }
-    },
-    {
-      "text": "sky blue",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "blue"
-        ]
-      }
-    },
-    {
-      "text": "teal",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "blue"
-        ]
-      }
-    },
-    {
-      "text": "cobalt blue",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "blue"
-        ]
-      }
-    },
-    {
-      "text": "purple",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "purple"
-        ]
-      }
-    },
-    {
-      "text": "lavender",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "purple"
-        ]
-      }
-    },
-    {
-      "text": "violet",
-      "tier": "unusual",
-      "tags": {
-        "family": [
-          "purple"
-        ]
-      }
-    },
-    {
-      "text": "pink",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "pink"
-        ]
-      }
-    },
-    {
-      "text": "blush pink",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "pink"
-        ]
-      }
-    },
-    {
-      "text": "hot pink",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "pink"
-        ]
-      }
-    },
-    {
-      "text": "brown",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "brown"
-        ]
-      }
-    },
-    {
-      "text": "chocolate brown",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "brown"
-        ]
-      }
-    },
-    {
-      "text": "tan",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "brown"
-        ]
-      }
-    },
-    {
-      "text": "rust brown",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "brown"
-        ]
-      }
-    },
-    {
-      "text": "white",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "neutral"
-        ]
-      }
-    },
-    {
-      "text": "black",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "neutral"
-        ]
-      }
-    },
-    {
-      "text": "gray",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "neutral"
-        ]
-      }
-    },
-    {
-      "text": "cream",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "neutral"
-        ]
-      }
-    },
-    {
-      "text": "beige",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "neutral"
-        ]
-      }
-    },
-    {
-      "text": "charcoal gray",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "neutral"
-        ]
-      }
-    },
-    {
-      "text": "ivory",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "neutral"
-        ]
-      }
-    },
-    {
-      "text": "silver",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "metallic"
-        ]
-      }
-    },
-    {
-      "text": "gold",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "metallic"
-        ]
-      }
-    },
-    {
-      "text": "copper",
-      "tier": "unusual",
-      "tags": {
-        "family": [
-          "metallic"
-        ]
-      }
-    }
+ "id": "object.color",
+ "label": "Object color",
+ "description": "Named surface colors, including muted shades, vivid hues, neutrals, and metallic colors.",
+ "pos": "adjective",
+ "frame": "an object colored ___",
+ "notes": "Named colors belong here, including conventional metallic color names; object.material holds substances and object.pattern holds surface motifs. Values are short color names that follow “colored,” with visual glosses distinguishing hue, lightness, and saturation. Color names describe approximate visual ranges rather than standardized swatches, and metallic entries specify appearance rather than construction. Families are browsing aids, with boundary colors placed in the family most useful for finding them; the list is closed to keep draws within this curated palette.",
+ "closed": true,
+ "facets": [],
+ "local_facets": {
+  "family": [
+   "red",
+   "orange",
+   "yellow",
+   "green",
+   "blue",
+   "purple",
+   "pink",
+   "brown",
+   "neutral",
+   "metallic"
   ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "red",
+   "look": "A strong balanced red without an obvious orange or purple cast.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "red"
+    ]
+   }
+  },
+  {
+   "text": "crimson",
+   "look": "A deep saturated red with a slight blue cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "red"
+    ]
+   }
+  },
+  {
+   "text": "scarlet",
+   "look": "A bright intense red leaning toward orange.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "red"
+    ]
+   }
+  },
+  {
+   "text": "vermilion",
+   "look": "A vivid red-orange, warmer and more orange than scarlet.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "red"
+    ]
+   }
+  },
+  {
+   "text": "cherry red",
+   "look": "A bright glossy-looking red with a slight pink cast, like ripe cherries.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "red"
+    ]
+   }
+  },
+  {
+   "text": "oxblood",
+   "look": "An almost black brown-red with a dense dark appearance.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "red"
+    ]
+   }
+  },
+  {
+   "text": "burgundy",
+   "look": "A dark wine red with a noticeable purple undertone.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "red"
+    ]
+   }
+  },
+  {
+   "text": "maroon",
+   "look": "A dark muted red with a brown undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "red"
+    ]
+   }
+  },
+  {
+   "text": "brick red",
+   "look": "A muted earthy red with a warm brown-orange cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "red"
+    ]
+   }
+  },
+  {
+   "text": "carmine",
+   "look": "A saturated cool red with a strong pink undertone.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "red"
+    ]
+   }
+  },
+  {
+   "text": "raspberry red",
+   "look": "A rich berry red between pink and crimson.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "red"
+    ]
+   }
+  },
+  {
+   "text": "orange",
+   "look": "A strong clear orange midway between red and yellow.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "orange"
+    ]
+   }
+  },
+  {
+   "text": "burnt orange",
+   "look": "A deep earthy orange with a brown cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "orange"
+    ]
+   }
+  },
+  {
+   "text": "tangerine",
+   "look": "A bright saturated orange with a fresh yellow undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "orange"
+    ]
+   }
+  },
+  {
+   "text": "pumpkin orange",
+   "look": "A warm medium orange, darker and softer than tangerine.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "orange"
+    ]
+   }
+  },
+  {
+   "text": "apricot",
+   "look": "A pale warm orange with a soft yellow-pink tint.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "orange"
+    ]
+   }
+  },
+  {
+   "text": "peach",
+   "look": "A light creamy orange-pink.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "orange"
+    ]
+   }
+  },
+  {
+   "text": "coral",
+   "look": "A bright warm pink-orange, like red coral.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "orange"
+    ]
+   }
+  },
+  {
+   "text": "salmon",
+   "look": "A softened orange-pink with a slightly dusty appearance.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "orange"
+    ]
+   }
+  },
+  {
+   "text": "terracotta",
+   "look": "A muted reddish orange like unglazed clay.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "orange"
+    ]
+   }
+  },
+  {
+   "text": "persimmon",
+   "look": "A deep vivid orange-red, richer and redder than pumpkin.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "orange"
+    ]
+   }
+  },
+  {
+   "text": "yellow",
+   "look": "A clear bright yellow without a strong orange or green cast.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "yellow"
+    ]
+   }
+  },
+  {
+   "text": "lemon yellow",
+   "look": "A sharp bright yellow with a slight green undertone.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "yellow"
+    ]
+   }
+  },
+  {
+   "text": "canary yellow",
+   "look": "A strong clean sunny yellow, warmer than lemon yellow.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "yellow"
+    ]
+   }
+  },
+  {
+   "text": "golden yellow",
+   "look": "A rich warm yellow with an orange glow, without metallic shine.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "yellow"
+    ]
+   }
+  },
+  {
+   "text": "mustard yellow",
+   "look": "A muted dark yellow with a brown-green undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "yellow"
+    ]
+   }
+  },
+  {
+   "text": "saffron",
+   "look": "A rich orange-yellow, like concentrated saffron pigment.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "yellow"
+    ]
+   }
+  },
+  {
+   "text": "marigold",
+   "look": "A vivid golden orange-yellow, deeper than a clear yellow.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "yellow"
+    ]
+   }
+  },
+  {
+   "text": "amber",
+   "look": "A deep honey yellow-orange with a warm glowing appearance.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "yellow"
+    ]
+   }
+  },
+  {
+   "text": "ochre",
+   "look": "An earthy muted yellow-brown.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "yellow"
+    ]
+   }
+  },
+  {
+   "text": "straw yellow",
+   "look": "A pale dry yellow with a faint gray-brown cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "yellow"
+    ]
+   }
+  },
+  {
+   "text": "butter yellow",
+   "look": "A soft pale creamy yellow, warmer and lighter than straw.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "yellow"
+    ]
+   }
+  },
+  {
+   "text": "green",
+   "look": "A balanced medium green without a strong yellow or blue cast.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "grass green",
+   "look": "A fresh medium yellow-green like sunlit grass.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "forest green",
+   "look": "A deep dark green with a natural slightly warm cast.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "emerald green",
+   "look": "A rich saturated jewel green with a cool blue undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "jade green",
+   "look": "A medium cool green softened by a slight milky gray cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "mint green",
+   "look": "A pale fresh green with a cool blue tint.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "seafoam green",
+   "look": "A light muted green-blue, grayer and bluer than mint.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "celadon",
+   "look": "A pale gray-green with a soft ceramic-glaze appearance.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "sage green",
+   "look": "A muted medium-light gray-green with a faint earthy yellow cast.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "olive green",
+   "look": "A muted yellow-green darkened with brown.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "moss green",
+   "look": "A soft earthy medium green with a yellow-brown cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "fern green",
+   "look": "A medium leafy green, cooler and clearer than moss.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "pistachio green",
+   "look": "A pale muted yellow-green, like the inside of a pistachio.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "avocado green",
+   "look": "A dull medium yellow-green with a heavier earthy tone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "bottle green",
+   "look": "A very dark blue-green like a thick green glass bottle.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "viridian",
+   "look": "A deep cool green with a clear blue undertone.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "malachite green",
+   "look": "A vivid medium-dark mineral green, greener and brighter than teal.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "chartreuse",
+   "look": "A bright sharp yellow-green midway between lime and yellow.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "lime green",
+   "look": "A bright acidic green with a strong yellow cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "neon green",
+   "look": "An intensely luminous fluorescent green.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "spring green",
+   "look": "A bright clear green with a slight cyan cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "celery green",
+   "look": "A very pale watery yellow-green, lighter and yellower than pistachio.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "sap green",
+   "look": "A warm transparent-looking leafy green with a golden-yellow undertone.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "green"
+    ]
+   }
+  },
+  {
+   "text": "blue",
+   "look": "A clear medium blue without a strong green or purple cast.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "navy blue",
+   "look": "A very dark blue, still visibly blue beside black.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "cobalt blue",
+   "look": "A strong saturated medium blue with a slight violet cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "ultramarine blue",
+   "look": "A deep vivid blue with a pronounced violet undertone.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "cerulean blue",
+   "look": "A clear medium-light blue with a cyan undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "sky blue",
+   "look": "A light open blue like a clear daytime sky.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "azure",
+   "look": "A bright saturated sky-like blue, deeper and stronger than sky blue.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "cornflower blue",
+   "look": "A soft medium blue with a gentle violet cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "powder blue",
+   "look": "A pale muted blue with a gray cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "ice blue",
+   "look": "An almost white blue with a cool faint cyan tint.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "denim blue",
+   "look": "A medium muted indigo blue, like faded blue jeans.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "steel blue",
+   "look": "A subdued medium gray-blue with a cool metallic-looking tone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "slate blue",
+   "look": "A muted medium blue-violet with a gray undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "Prussian blue",
+   "look": "A very deep inky blue with a slight green undertone.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "midnight blue",
+   "look": "An almost black blue with a faint violet cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "indigo",
+   "look": "A deep saturated blue-purple, bluer than violet.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "teal",
+   "look": "A medium-dark balanced blue-green.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "turquoise",
+   "look": "A bright medium blue-green, lighter and more saturated than teal.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "cyan",
+   "look": "A vivid clear blue-green, bluer than turquoise.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "petrol blue",
+   "look": "A deep muted blue-green with a smoky gray cast.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "duck egg blue",
+   "look": "A pale muted blue-green with a chalky gray tint.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "electric blue",
+   "look": "An intensely bright saturated blue with a luminous cyan edge.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "blue"
+    ]
+   }
+  },
+  {
+   "text": "purple",
+   "look": "A balanced medium purple between red and blue.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "violet",
+   "look": "A saturated blue-leaning purple.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "lavender",
+   "look": "A pale cool purple with a soft blue cast.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "lilac",
+   "look": "A pale purple with a warmer pink tint than lavender.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "mauve",
+   "look": "A muted grayish pink-purple.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "periwinkle",
+   "look": "A light blue-violet, bluer than lavender.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "plum",
+   "look": "A deep reddish purple with a soft brown undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "aubergine",
+   "look": "An almost black purple with a rich brown-red cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "mulberry",
+   "look": "A dark berry purple leaning strongly toward red.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "amethyst",
+   "look": "A clear medium violet-purple with a slightly cool jewel tone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "orchid",
+   "look": "A bright pinkish purple, lighter and softer than magenta.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "wisteria",
+   "look": "A muted medium-light blue-purple with a smoky gray tint.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "heliotrope",
+   "look": "A vivid light purple with a strong pink cast.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "Tyrian purple",
+   "look": "A deep dark red-purple, redder and richer than ordinary purple.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "grape purple",
+   "look": "A dark saturated blue-purple, like the skin of purple grapes.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "purple"
+    ]
+   }
+  },
+  {
+   "text": "puce",
+   "look": "A muted brownish pink-purple with a dusty gray cast.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "purple",
+     "pink",
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "pink",
+   "look": "A clear medium-light pink without a strong orange or purple cast.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "blush pink",
+   "look": "A very pale soft pink with a warm peach tint.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "dusty rose",
+   "look": "A muted medium pink softened with brown and gray.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "rose pink",
+   "look": "A medium floral pink with a gentle red undertone.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "hot pink",
+   "look": "A strong bright pink with a slight blue cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "fuchsia",
+   "look": "A vivid saturated purple-pink.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "magenta",
+   "look": "An intense red-purple, deeper and cooler than hot pink.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "cerise",
+   "look": "A deep vivid pink-red, like a very bright cherry.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "bubblegum pink",
+   "look": "A sweet opaque medium pink with a cool milky cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "watermelon pink",
+   "look": "A bright warm red-pink with a slight coral tint.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "flamingo pink",
+   "look": "A medium warm peach-pink, brighter than salmon.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "nude pink",
+   "look": "A muted beige-pink with a warm skin-like tint.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "pink"
+    ]
+   }
+  },
+  {
+   "text": "brown",
+   "look": "A balanced medium warm brown.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "chocolate brown",
+   "look": "A deep rich brown with a slightly warm red undertone.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "espresso brown",
+   "look": "An almost black cool brown.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "chestnut",
+   "look": "A medium reddish brown with a warm polished-wood appearance.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "mahogany",
+   "look": "A deep red-brown, darker and redder than chestnut.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "russet",
+   "look": "A dark earthy orange-brown with a red undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "sienna",
+   "look": "An earthy golden yellow-brown.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "burnt sienna",
+   "look": "A rich reddish orange-brown, warmer and lighter than umber.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "umber",
+   "look": "A dark earthy brown with a subdued yellow-green cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "burnt umber",
+   "look": "A very dark warm brown with a subtle red cast, deeper and less orange than burnt sienna.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "tan",
+   "look": "A light warm brown with a sandy yellow cast.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "caramel",
+   "look": "A medium golden brown with a warm orange glow.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "cognac",
+   "look": "A clear rich amber-brown with a reddish orange cast.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "sepia",
+   "look": "A muted dark brown with a smoky antique-photo appearance.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "buff",
+   "look": "A pale dry yellow-brown, lighter and less orange than tan.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "brown"
+    ]
+   }
+  },
+  {
+   "text": "white",
+   "look": "A clean bright white without a warm or cool tint.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "black",
+   "look": "A deep near-lightless black.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "gray",
+   "look": "A balanced medium gray without a strong warm or cool cast.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "cream",
+   "look": "A warm pale yellow-white.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "ivory",
+   "look": "A soft warm white with a faint yellow tint, lighter than cream.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "ecru",
+   "look": "An unbleached linen color between pale beige and gray-yellow.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "beige",
+   "look": "A light muted sandy brown.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "taupe",
+   "look": "A medium gray-brown with a soft slightly purple cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "greige",
+   "look": "A light balanced mix of gray and beige.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "charcoal gray",
+   "look": "A very dark gray, softer and lighter than black.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "slate gray",
+   "look": "A medium-dark cool gray with a blue cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "ash gray",
+   "look": "A light muted gray with a faint green undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "dove gray",
+   "look": "A soft light gray with a slight warm pink cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "oatmeal",
+   "look": "A pale warm beige with a muted gray-brown undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "mushroom gray",
+   "look": "A muted medium gray-brown, warmer and lighter than taupe.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "pearl white",
+   "look": "A soft white with a cool gray iridescent-looking cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "bone",
+   "look": "A pale yellow-gray white, duller and earthier than ivory.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "neutral"
+    ]
+   }
+  },
+  {
+   "text": "silver",
+   "look": "A bright cool metallic gray with pale white highlights.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "metallic"
+    ]
+   }
+  },
+  {
+   "text": "gold",
+   "look": "A rich warm metallic yellow.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "metallic"
+    ]
+   }
+  },
+  {
+   "text": "bronze",
+   "look": "A dark metallic brown with a warm yellow undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "metallic"
+    ]
+   }
+  },
+  {
+   "text": "copper",
+   "look": "A warm metallic orange-red.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "metallic"
+    ]
+   }
+  },
+  {
+   "text": "rose gold",
+   "look": "A pale warm metallic gold with a clear pink cast.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "metallic"
+    ]
+   }
+  },
+  {
+   "text": "champagne",
+   "look": "A pale muted metallic beige-gold.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "metallic"
+    ]
+   }
+  },
+  {
+   "text": "gunmetal",
+   "look": "A very dark metallic blue-gray.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "metallic"
+    ]
+   }
+  },
+  {
+   "text": "pewter",
+   "look": "A muted medium metallic gray, darker and softer than silver.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "metallic"
+    ]
+   }
+  },
+  {
+   "text": "brass",
+   "look": "A yellow metallic color with a slightly green-brown undertone.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "metallic"
+    ]
+   }
+  }
+ ]
 }

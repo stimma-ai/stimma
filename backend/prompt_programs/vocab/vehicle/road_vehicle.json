@@ -1,553 +1,856 @@
 {
-  "id": "vehicle.road_vehicle",
-  "label": "Road vehicle",
-  "description": "Generic wheeled road transport across eras, from carts to modern cars and trucks.",
-  "pos": "noun phrase",
-  "frame": "a ___ parked on the street",
-  "notes": "Vehicle kinds and body forms only; makes, models, paint, pose and occupants are separate. Era tags cover ordinary use or recognizable surviving examples; antique vehicles tagged contemporary are heritage or collector sights. Genre is unrestricted, while era supplies the technology boundary.",
-  "facets": [
-    "era"
-  ],
-  "closed": false,
-  "untagged": {},
-  "values": [
-    {
-      "text": "hatchback",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "sedan",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "station wagon",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "pickup truck",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "motorcycle",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "bicycle",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "delivery van",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "city bus",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "taxi",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "minivan",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "compact crossover",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "convertible",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "coupe",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "panel van",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "school bus",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "fire engine",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "tractor",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "dump truck",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "flatbed truck",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "motor scooter",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "tandem bicycle",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "cargo bicycle",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "pedal tricycle",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "sidecar motorcycle",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "double-decker bus",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "garbage truck",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "tow truck",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "tanker truck",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "refrigerated truck",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "stretch limousine",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "camper van",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "motorhome",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "sports car",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "paramedic ambulance",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "motor rickshaw",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "cycle rickshaw",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "horseless carriage",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s"
-        ]
-      }
-    },
-    {
-      "text": "brass-era touring car",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s"
-        ]
-      }
-    },
-    {
-      "text": "steam road carriage",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "19th_century",
-          "1900s_1940s"
-        ]
-      }
-    },
-    {
-      "text": "horse-drawn cab",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "contemporary"
-        ]
-      }
-    },
-    {
-      "text": "horse-drawn coach",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "contemporary"
-        ]
-      }
-    },
-    {
-      "text": "horse-drawn cart",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "ancient",
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ]
-      }
-    },
-    {
-      "text": "steam traction engine",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "contemporary"
-        ]
-      }
-    },
-    {
-      "text": "velocipede",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "19th_century",
-          "contemporary"
-        ]
-      }
-    },
-    {
-      "text": "penny-farthing bicycle",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "19th_century",
-          "contemporary"
-        ]
-      }
-    },
-    {
-      "text": "bubble car",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "contemporary"
-        ]
-      }
-    },
-    {
-      "text": "half-track truck",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "contemporary"
-        ]
-      }
-    }
+ "id": "vehicle.road_vehicle",
+ "label": "Road vehicle",
+ "description": "Generic cars, trucks, buses, bicycles, motorcycles, work vehicles, and fictional ground transport.",
+ "pos": "noun phrase",
+ "frame": "the ___ is parked beside the road",
+ "notes": "Generic road and ground vehicle types belong here, including bicycles, work machinery, and recognizable classic forms. vehicle.rail owns vehicles confined to rails; vehicle.aircraft, vehicle.watercraft, and vehicle.spacecraft own their respective transport. Values are bare type names without manufacturers, models, paint colors, or occupants. Real vehicles remain available in contemporary scenes, including preserved classics; only fictional forms carry genre tags.",
+ "facets": [
+  "genre"
+ ],
+ "closed": false,
+ "local_facets": {
+  "kind": [
+   "car",
+   "utility_truck",
+   "service_emergency",
+   "bus_transit",
+   "two_wheel",
+   "three_wheel",
+   "classic",
+   "heavy_equipment",
+   "special"
   ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "hatchback",
+   "look": "A compact car with a short rear overhang and a rear window that lifts with the cargo hatch.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "sedan",
+   "look": "An enclosed passenger car with a separate trunk projecting behind the rear window.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "coupe",
+   "look": "A low two-door car with a sloping roof and a short rear passenger compartment.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "convertible",
+   "look": "A car with its roof folded away, leaving the passenger compartment open above.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "station wagon",
+   "look": "A passenger car with a long roof extending over a full-height rear cargo compartment.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "minivan",
+   "look": "A tall passenger van with a short hood, sliding side doors, and several rows of seats.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "pickup truck",
+   "look": "A passenger cab followed by an open cargo bed with a tailgate.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "car",
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "SUV",
+   "look": "A tall, boxy passenger vehicle with high ground clearance and a large enclosed rear compartment.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "compact crossover",
+   "look": "A small, rounded passenger vehicle with a raised roof and hatchback rear.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "sports car",
+   "look": "A low, sleek two-seat car with a long hood, wide stance, and small passenger cabin.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "stretch limousine",
+   "look": "An unusually long passenger car with an extended row of side windows between the front and rear seats.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "taxi",
+   "look": "A passenger car identified by a roof-mounted taxi sign and commercial markings.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "car",
+     "service_emergency"
+    ]
+   }
+  },
+  {
+   "text": "1960s split-window camper van",
+   "short": "split-window camper",
+   "look": "A rounded, flat-front van with a divided windshield, circular headlights, and a compact living interior.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "classic",
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "1950s finned cruiser",
+   "look": "A long chrome-trimmed car with sweeping rear tailfins and a broad low body.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "classic",
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "muscle car",
+   "look": "A broad two-door car with a long hood, short rear deck, and large engine bulge or scoop.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "classic",
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "hot rod",
+   "look": "An early car modified with an exposed engine, chopped roof, and oversized rear tires.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "classic",
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "lowrider",
+   "look": "A long customized car sitting very close to the ground, often with wire wheels and chrome trim.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "classic",
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "kei car",
+   "look": "A very small, narrow car with an upright cabin, short hood, and tiny wheels.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "bubble microcar",
+   "look": "An egg-shaped microcar with a rounded canopy, tiny wheels, and a short bulbous nose.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "classic",
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "brass-era touring car",
+   "look": "An open early motorcar with a tall radiator, brass lamps, spoked wheels, and a folding fabric roof.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "classic",
+     "car"
+    ]
+   }
+  },
+  {
+   "text": "horse-drawn coach",
+   "look": "An enclosed passenger carriage with large spoked wheels and a raised driver's seat at the front.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "horse-drawn cart",
+   "look": "A simple open wooden cargo bed on large spoked wheels, with shafts extending toward a horse.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "classic",
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "steam traction engine",
+   "look": "A wheeled steam engine with a cylindrical boiler, tall smokestack, and large metal rear wheels.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "classic",
+     "heavy_equipment"
+    ]
+   }
+  },
+  {
+   "text": "delivery van",
+   "look": "An enclosed cargo van with a tall rear body, plain side panels, and rear loading doors.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "box truck",
+   "look": "A separate driver cab ahead of a tall rectangular cargo box.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "semi truck",
+   "look": "A large tractor cab hauling a long articulated freight trailer.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "flatbed truck",
+   "look": "A truck with a long, exposed loading platform and no roof or enclosing cargo walls.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "tanker truck",
+   "look": "A heavy truck carrying a long cylindrical tank behind its cab.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "dump truck",
+   "look": "A heavy truck with a deep open cargo bed that tips upward to unload.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "utility_truck",
+     "heavy_equipment"
+    ]
+   }
+  },
+  {
+   "text": "concrete mixer truck",
+   "look": "A truck carrying a large tilted mixing drum with a discharge chute at the back.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "utility_truck",
+     "heavy_equipment"
+    ]
+   }
+  },
+  {
+   "text": "logging truck",
+   "look": "A long truck with upright metal stakes holding a stack of full-length logs.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "food truck",
+   "look": "A boxy commercial van with a large side serving hatch, menu panels, and a kitchen inside.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "camper van",
+   "look": "A modern van fitted with living-space windows, a raised roof or pop-top, and compact camping equipment.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "motorhome",
+   "look": "A large self-contained camping vehicle with a buslike body, living windows, and an integrated driving cab.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "tow truck",
+   "look": "A recovery truck with a rear lifting boom or wheel cradle for hauling another vehicle.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "service_emergency",
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "fire engine",
+   "look": "A large emergency truck with hose compartments, pumps, warning lights, and a roof-mounted ladder.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "service_emergency"
+    ]
+   }
+  },
+  {
+   "text": "ambulance",
+   "look": "An emergency van or truck with a tall patient compartment, medical markings, and flashing roof lights.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "service_emergency"
+    ]
+   }
+  },
+  {
+   "text": "police car",
+   "look": "A patrol car with police markings, a roof light bar, and a reinforced front push bumper.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "service_emergency"
+    ]
+   }
+  },
+  {
+   "text": "garbage truck",
+   "look": "A heavy refuse truck with a bulky compactor body and a rear or front loading mechanism.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "service_emergency",
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "street sweeper",
+   "look": "A compact work truck with rotating brushes beneath the cab and a large rear debris hopper.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "service_emergency"
+    ]
+   }
+  },
+  {
+   "text": "snowplow truck",
+   "look": "A heavy truck with a wide angled plow blade mounted ahead of its front wheels.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "service_emergency",
+     "utility_truck"
+    ]
+   }
+  },
+  {
+   "text": "airport crash tender",
+   "look": "A wide, low airport fire truck with huge tires, a flat-front cab, and a roof-mounted water cannon.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "service_emergency"
+    ]
+   }
+  },
+  {
+   "text": "school bus",
+   "look": "A long yellow passenger bus with closely spaced windows, a high roof, and a folding front door.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bus_transit"
+    ]
+   }
+  },
+  {
+   "text": "city bus",
+   "look": "A full-size passenger bus with a flat front, broad windows, and wide doors for frequent stops.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bus_transit"
+    ]
+   }
+  },
+  {
+   "text": "double-decker bus",
+   "look": "A tall passenger bus with two stacked rows of windows and an upper passenger deck.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bus_transit"
+    ]
+   }
+  },
+  {
+   "text": "articulated bus",
+   "look": "An extra-long bus with two passenger sections connected by a flexible accordion joint.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bus_transit"
+    ]
+   }
+  },
+  {
+   "text": "coach bus",
+   "look": "A long touring bus with high passenger windows and luggage compartments beneath the seating deck.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bus_transit"
+    ]
+   }
+  },
+  {
+   "text": "jeepney",
+   "look": "A brightly decorated passenger vehicle with a long hood, chrome trim, open rear entry, and bench seating.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bus_transit"
+    ]
+   }
+  },
+  {
+   "text": "matatu minibus",
+   "look": "A shared passenger minibus with vivid graphics, decorated windows, and closely packed seating.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bus_transit"
+    ]
+   }
+  },
+  {
+   "text": "cruiser motorcycle",
+   "look": "A low motorcycle with a long wheelbase, large front fork, and relaxed, rearward seating position.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "sport motorcycle",
+   "look": "A streamlined motorcycle with full body fairings, a compact tail, and low handlebars.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "café racer",
+   "look": "A stripped-down motorcycle with low handlebars, a narrow tank, and a small rear seat hump.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "dirt bike",
+   "look": "A lightweight motorcycle with knobby tires, high fenders, long suspension, and a narrow saddle.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "chopper motorcycle",
+   "look": "A customized motorcycle with an extremely extended front fork, high handlebars, and a low seat.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "touring motorcycle",
+   "look": "A large motorcycle with a broad windshield, roomy saddle, and hard luggage boxes on both sides.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "motor scooter",
+   "look": "A small motorbike with a step-through frame, front leg shield, and flat footboard.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "moped",
+   "look": "A light motorized two-wheeler with a slim frame, small engine, and bicycle-style pedals.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "road bicycle",
+   "look": "A light bicycle with narrow tires, a slim diamond frame, and curved drop handlebars.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "mountain bike",
+   "look": "A sturdy bicycle with wide knobby tires, straight handlebars, and visible suspension forks.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "fixed-gear bicycle",
+   "short": "fixie",
+   "look": "A minimalist city bicycle with a single chainring and rear sprocket, without derailleurs.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "cargo bicycle",
+   "look": "A long bicycle with a large cargo box between the handlebars and front wheel.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "tandem bicycle",
+   "look": "A long bicycle with two saddles, two sets of handlebars, and two sets of pedals.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "recumbent bicycle",
+   "look": "A low bicycle with a reclining seat and pedals extending ahead of the rider.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "two_wheel"
+    ]
+   }
+  },
+  {
+   "text": "penny-farthing bicycle",
+   "look": "An antique bicycle with an enormous front wheel, tiny rear wheel, and saddle perched above the front axle.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "two_wheel",
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "tuk-tuk",
+   "look": "A small three-wheeled motor taxi with a covered rear passenger bench and an open-sided cabin.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "three_wheel"
+    ]
+   }
+  },
+  {
+   "text": "cycle rickshaw",
+   "look": "A pedal-powered three-wheeler with a passenger bench or canopy behind the cyclist.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "three_wheel"
+    ]
+   }
+  },
+  {
+   "text": "sidecar motorcycle",
+   "look": "A motorcycle with a small separate passenger compartment mounted beside it on a third wheel.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "three_wheel"
+    ]
+   }
+  },
+  {
+   "text": "pedal tricycle",
+   "look": "A pedal cycle with one front wheel, two rear wheels, and an upright saddle.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "three_wheel"
+    ]
+   }
+  },
+  {
+   "text": "tractor",
+   "look": "A farm vehicle with huge treaded rear tires, smaller front wheels, and a high driving seat.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "heavy_equipment"
+    ]
+   }
+  },
+  {
+   "text": "forklift",
+   "look": "A compact industrial vehicle with a vertical lifting mast and two horizontal cargo forks at the front.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "heavy_equipment"
+    ]
+   }
+  },
+  {
+   "text": "excavator",
+   "look": "A tracked construction machine with a rotating cab and a long jointed digging arm ending in a bucket.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "heavy_equipment"
+    ]
+   }
+  },
+  {
+   "text": "bulldozer",
+   "look": "A low tracked machine with a broad curved steel blade across the front.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "heavy_equipment"
+    ]
+   }
+  },
+  {
+   "text": "wheel loader",
+   "look": "A four-wheeled construction vehicle with large tires and a broad scoop raised by two front lifting arms.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "heavy_equipment"
+    ]
+   }
+  },
+  {
+   "text": "road roller",
+   "look": "A heavy road machine with a broad smooth steel drum in place of its front wheels.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "heavy_equipment"
+    ]
+   }
+  },
+  {
+   "text": "mobile crane",
+   "look": "A multi-axle truck carrying a tall telescoping boom, a suspended hook, and extending stabilizer legs.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "heavy_equipment"
+    ]
+   }
+  },
+  {
+   "text": "dune buggy",
+   "look": "A light off-road vehicle with an exposed tubular frame, roll cage, and wide sand tires.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "monster truck",
+   "look": "A raised pickup body mounted far above four enormous, deeply treaded tires.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "golf cart",
+   "look": "A small open-sided electric cart with a bench seat, simple roof, and compact wheels.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "hover car",
+   "look": "A streamlined car floating just above the ground without wheels touching the surface.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ]
+   }
+  },
+  {
+   "text": "steam-powered walking carriage",
+   "short": "walking carriage",
+   "look": "A brass-and-iron passenger cabin carried on jointed mechanical legs, with a boiler and smokestack.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "genre": [
+     "steampunk",
+     "fantasy"
+    ]
+   }
+  }
+ ]
 }

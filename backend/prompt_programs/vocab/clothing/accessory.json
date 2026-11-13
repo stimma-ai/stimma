@@ -1,0 +1,1663 @@
+{
+ "id": "clothing.accessory",
+ "label": "Accessory",
+ "description": "Named eyewear, jewelry, bags, belts, neckwear, gloves, watches, hair accessories and handheld accessories.",
+ "pos": "noun phrase",
+ "frame": "with ___",
+ "notes": "Accessories occupy their own slot, phrased as neutral noun phrases after with, without a prescribed color or outfit. clothing.headwear owns hats, tiaras and head coverings; person.hairstyle owns hair arrangements, while clips, hair ornaments and flower crowns belong here. person.body_art owns nose jewelry and other named body piercings; conventional earrings and removable ear cuffs belong here. Belt includes suspenders, neckwear includes pocket squares and shoulder wraps, and handheld covers umbrellas, fans, canes and muffs. Period accessories remain available in contemporary images; only the impossible visor and floating pendant carry genre restrictions.",
+ "closed": false,
+ "facets": [
+  "presentation",
+  "genre"
+ ],
+ "local_facets": {
+  "kind": [
+   "eyewear",
+   "jewelry",
+   "bag",
+   "belt",
+   "neckwear",
+   "gloves",
+   "watch",
+   "hair",
+   "handheld"
+  ]
+ },
+ "values": [
+  {
+   "text": "aviator sunglasses",
+   "tier": "typical",
+   "look": "Thin frames with large teardrop lenses and a double bridge.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "browline glasses",
+   "tier": "typical",
+   "look": "Heavy upper rims trace the eyebrows above thin lower rims.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "cat-eye glasses",
+   "tier": "typical",
+   "look": "The outer frame corners sweep upward toward the temples.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "round wire-rimmed glasses",
+   "tier": "typical",
+   "look": "Circular lenses sit in thin wire frames.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   },
+   "short": "round wire-rim glasses"
+  },
+  {
+   "text": "oversized sunglasses",
+   "tier": "typical",
+   "look": "Large dark lenses cover the eyebrows and upper cheeks.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "rimless eyeglasses",
+   "tier": "plausible",
+   "look": "Exposed lens edges with only a bridge and slender arms.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "half-moon reading glasses",
+   "tier": "plausible",
+   "look": "Shallow semicircular lenses sit low on the nose.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   },
+   "short": "half-moon readers"
+  },
+  {
+   "text": "a monocle",
+   "tier": "unusual",
+   "look": "One round lens is held over a single eye, sometimes with a hanging cord.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   },
+   "short": "monocle"
+  },
+  {
+   "text": "sport wraparound sunglasses",
+   "tier": "plausible",
+   "look": "Curved lenses and close-fitting arms wrap around the sides of the face.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   },
+   "short": "wraparound sunglasses"
+  },
+  {
+   "text": "rectangular eyeglasses",
+   "tier": "typical",
+   "look": "Straight-sided frames surround wide rectangular lenses.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "geometric eyeglasses",
+   "tier": "plausible",
+   "look": "Angular polygonal rims form visible corners around each lens.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "oval sunglasses",
+   "tier": "plausible",
+   "look": "Narrow rounded lenses stretch horizontally across the eyes.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "shield sunglasses",
+   "tier": "plausible",
+   "look": "One broad continuous lens spans both eyes and the bridge of the nose.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "pince-nez glasses",
+   "tier": "unusual",
+   "look": "Two lenses pinch onto the nose without arms over the ears.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "a lorgnette",
+   "tier": "unusual",
+   "look": "A pair of eyeglass lenses is mounted on a short handheld side handle.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   },
+   "short": "lorgnette"
+  },
+  {
+   "text": "ski goggles",
+   "tier": "plausible",
+   "look": "A thick padded frame holds a broad lens, secured by a wide head strap.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "swimming goggles",
+   "tier": "plausible",
+   "look": "Two small sealed eyecups sit close to the eyes with a thin strap behind the head.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ]
+   }
+  },
+  {
+   "text": "a holographic visor",
+   "tier": "unusual",
+   "look": "A luminous translucent display floats across the eyes without a solid lens.",
+   "tags": {
+    "kind": [
+     "eyewear"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ]
+   },
+   "short": "holographic visor"
+  },
+  {
+   "text": "a signet ring",
+   "tier": "typical",
+   "look": "A ring with a broad flat engraved face in place of a raised gemstone.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "signet ring"
+  },
+  {
+   "text": "a cocktail ring",
+   "tier": "plausible",
+   "look": "An oversized central gemstone rises above an elaborate ring setting.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "cocktail ring"
+  },
+  {
+   "text": "stacked rings",
+   "tier": "typical",
+   "look": "Several separate narrow rings sit together on one finger.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   }
+  },
+  {
+   "text": "a wedding band",
+   "tier": "typical",
+   "look": "A simple continuous ring with an even width and no raised stone.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "wedding band"
+  },
+  {
+   "text": "a solitaire ring",
+   "tier": "typical",
+   "look": "One prominent gemstone is held above a slender band.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "solitaire ring"
+  },
+  {
+   "text": "a knuckle ring",
+   "tier": "plausible",
+   "look": "A small ring sits above the middle finger joint rather than at the base.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "knuckle ring"
+  },
+  {
+   "text": "an articulated armor ring",
+   "tier": "unusual",
+   "look": "Overlapping metal plates cover a finger across its bending joints.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "armor ring"
+  },
+  {
+   "text": "a chain necklace",
+   "tier": "typical",
+   "look": "Interlocking metal links form a plain necklace without a pendant.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "chain necklace"
+  },
+  {
+   "text": "a pendant necklace",
+   "tier": "typical",
+   "look": "One ornament hangs from the center of a chain.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "pendant necklace"
+  },
+  {
+   "text": "a beaded necklace",
+   "tier": "typical",
+   "look": "A continuous row of beads circles the neck.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "beaded necklace"
+  },
+  {
+   "text": "a pearl strand necklace",
+   "tier": "typical",
+   "look": "Rounded pearls form a single continuous strand around the neck.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "pearl strand necklace"
+  },
+  {
+   "text": "a choker",
+   "tier": "typical",
+   "look": "A narrow close-fitting band circles the base of the neck.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "choker"
+  },
+  {
+   "text": "a bib necklace",
+   "tier": "plausible",
+   "look": "A broad triangular cluster of beads or stones spreads across the upper chest.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "bib necklace"
+  },
+  {
+   "text": "a shell choker",
+   "tier": "plausible",
+   "look": "Small shells form a short close-fitting necklace.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "shell choker"
+  },
+  {
+   "text": "a locket necklace",
+   "tier": "plausible",
+   "look": "A small hinged oval or heart-shaped case hangs from a chain.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "locket necklace"
+  },
+  {
+   "text": "a lariat necklace",
+   "tier": "plausible",
+   "look": "A long necklace drops into a Y shape with loose hanging ends.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "lariat necklace"
+  },
+  {
+   "text": "a collar necklace",
+   "tier": "plausible",
+   "look": "A broad rigid necklace curves closely around the base of the neck.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "collar necklace"
+  },
+  {
+   "text": "layered necklaces",
+   "tier": "typical",
+   "look": "Several separate necklaces fall at visibly different lengths.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   }
+  },
+  {
+   "text": "a torc necklace",
+   "tier": "unusual",
+   "look": "A stiff open-ended neck ring has two enlarged terminals facing each other at the front.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "torc necklace"
+  },
+  {
+   "text": "a tennis bracelet",
+   "tier": "plausible",
+   "look": "A flexible single row of closely set gemstones circles the wrist.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "tennis bracelet"
+  },
+  {
+   "text": "a cuff bracelet",
+   "tier": "typical",
+   "look": "A broad rigid band wraps around the wrist with an open gap.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "cuff bracelet"
+  },
+  {
+   "text": "a bangle stack",
+   "tier": "typical",
+   "look": "Several rigid circular bracelets sit loosely together on the wrist.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "bangle stack"
+  },
+  {
+   "text": "a charm bracelet",
+   "tier": "plausible",
+   "look": "Small individual ornaments dangle from links around the wrist.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "charm bracelet"
+  },
+  {
+   "text": "a woven bracelet",
+   "tier": "typical",
+   "look": "Interlaced threads form a soft flat band around the wrist.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "woven bracelet"
+  },
+  {
+   "text": "a beaded bracelet",
+   "tier": "plausible",
+   "look": "A row of separate rounded beads circles the wrist.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "beaded bracelet"
+  },
+  {
+   "text": "a wrap bracelet",
+   "tier": "plausible",
+   "look": "One long bracelet winds around the wrist several times.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "wrap bracelet"
+  },
+  {
+   "text": "an upper-arm cuff",
+   "tier": "plausible",
+   "look": "A rigid decorative band circles the upper arm above the elbow.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "upper-arm cuff"
+  },
+  {
+   "text": "hoop earrings",
+   "tier": "typical",
+   "look": "Large open circles hang from the earlobes.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   }
+  },
+  {
+   "text": "huggie earrings",
+   "tier": "plausible",
+   "look": "Small thick hoops fit closely around the earlobes.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   }
+  },
+  {
+   "text": "stud earrings",
+   "tier": "typical",
+   "look": "Small ornaments sit directly against the earlobes without dangling.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   }
+  },
+  {
+   "text": "drop earrings",
+   "tier": "typical",
+   "look": "A single ornament hangs just below each earlobe.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   }
+  },
+  {
+   "text": "chandelier earrings",
+   "tier": "plausible",
+   "look": "Branching tiers of dangling ornaments spread beneath each ear.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "threader earrings",
+   "tier": "plausible",
+   "look": "Fine chains pass through the earlobes with long loose ends.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   }
+  },
+  {
+   "text": "an ear cuff",
+   "tier": "plausible",
+   "look": "A curved band clips around the outer ear cartilage.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "ear cuff"
+  },
+  {
+   "text": "ear climber earrings",
+   "tier": "plausible",
+   "look": "A line of small ornaments follows the upward curve of the outer ear.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   }
+  },
+  {
+   "text": "tassel earrings",
+   "tier": "plausible",
+   "look": "Bundles of fine threads or chains hang from the earlobes.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a brooch",
+   "tier": "plausible",
+   "look": "A decorative pin with a broad ornamental face fastens onto clothing.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "brooch"
+  },
+  {
+   "text": "a lapel pin",
+   "tier": "typical",
+   "look": "A small badge or ornament is pinned to the folded edge of a jacket.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "lapel pin"
+  },
+  {
+   "text": "an anklet",
+   "tier": "plausible",
+   "look": "A fine chain or narrow bracelet circles the ankle.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "anklet"
+  },
+  {
+   "text": "a body chain",
+   "tier": "unusual",
+   "look": "Fine chains drape from the neck across the torso and around the waist.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "body chain",
+   "adult_only": true
+  },
+  {
+   "text": "a hand chain",
+   "tier": "plausible",
+   "look": "A chain crosses the back of the hand to connect a bracelet and a finger ring.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   },
+   "short": "hand chain"
+  },
+  {
+   "text": "cufflinks",
+   "tier": "plausible",
+   "look": "Small decorative fasteners join the two sides of shirt cuffs.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ]
+   }
+  },
+  {
+   "text": "a floating crystal pendant",
+   "tier": "unusual",
+   "look": "A faceted crystal hovers just below the throat without a chain or visible support.",
+   "tags": {
+    "kind": [
+     "jewelry"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   },
+   "short": "floating crystal pendant"
+  },
+  {
+   "text": "a tote bag",
+   "tier": "typical",
+   "look": "A large open-topped bag has a broad rectangular body and two parallel handles.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "tote bag"
+  },
+  {
+   "text": "a clutch bag",
+   "tier": "typical",
+   "look": "A small strapless purse is held in one hand or tucked under the arm.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "clutch bag"
+  },
+  {
+   "text": "a crossbody bag",
+   "tier": "typical",
+   "look": "A long strap runs diagonally across the torso to a bag resting at the opposite hip.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "crossbody bag"
+  },
+  {
+   "text": "a satchel",
+   "tier": "typical",
+   "look": "A structured rectangular bag has a top handle, a broad flap, and buckle closures.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "satchel"
+  },
+  {
+   "text": "a messenger bag",
+   "tier": "plausible",
+   "look": "A broad soft rectangular shoulder bag has a large flap covering the front.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "messenger bag"
+  },
+  {
+   "text": "a backpack",
+   "tier": "typical",
+   "look": "A bag rests on the back with two straps over the shoulders.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "backpack"
+  },
+  {
+   "text": "a bucket bag",
+   "tier": "plausible",
+   "look": "A tall rounded bag gathers shut with a drawstring at the top.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "bucket bag"
+  },
+  {
+   "text": "a doctor's bag",
+   "tier": "plausible",
+   "look": "A boxy bag with short handles opens along a rigid hinged top frame.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "doctor's bag"
+  },
+  {
+   "text": "a fanny pack",
+   "tier": "typical",
+   "look": "A small zippered pouch is attached to a belt around the waist.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "fanny pack"
+  },
+  {
+   "text": "a briefcase",
+   "tier": "typical",
+   "look": "A slim rectangular case with a top handle holds flat papers or a laptop.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "briefcase"
+  },
+  {
+   "text": "a duffel bag",
+   "tier": "plausible",
+   "look": "A long cylindrical soft bag has handles above a zippered top.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "duffel bag"
+  },
+  {
+   "text": "a hobo bag",
+   "tier": "plausible",
+   "look": "A soft crescent-shaped shoulder bag sags beneath a single strap.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "hobo bag"
+  },
+  {
+   "text": "a baguette bag",
+   "tier": "plausible",
+   "look": "A small long horizontal purse sits close under the arm on a short strap.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "baguette bag"
+  },
+  {
+   "text": "a saddle bag",
+   "tier": "plausible",
+   "look": "A rounded-bottom shoulder bag has a curved flap modeled on riding bags.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "saddle bag"
+  },
+  {
+   "text": "a drawstring pouch",
+   "tier": "plausible",
+   "look": "A soft small bag gathers into folds where a cord closes its mouth.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "drawstring pouch"
+  },
+  {
+   "text": "a frame purse",
+   "tier": "plausible",
+   "look": "A rigid hinged rim and clasp close the top of a small rounded handbag.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "frame purse"
+  },
+  {
+   "text": "a basket bag",
+   "tier": "plausible",
+   "look": "A stiff woven basket body has an open top and carrying handles.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "basket bag"
+  },
+  {
+   "text": "a wristlet bag",
+   "tier": "plausible",
+   "look": "A small zippered purse hangs from a short loop around the wrist.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "wristlet bag"
+  },
+  {
+   "text": "a rolling suitcase",
+   "tier": "plausible",
+   "look": "A tall rigid travel case has wheels and an extended pull handle.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "rolling suitcase"
+  },
+  {
+   "text": "a garment bag",
+   "tier": "plausible",
+   "look": "A long flat zippered carrier encloses hanging clothing, with a hanger hook projecting from the top.",
+   "tags": {
+    "kind": [
+     "bag"
+    ]
+   },
+   "short": "garment bag"
+  },
+  {
+   "text": "a leather belt",
+   "tier": "typical",
+   "look": "A flat leather strap passes through belt loops and fastens with a simple buckle.",
+   "tags": {
+    "kind": [
+     "belt"
+    ]
+   },
+   "short": "leather belt"
+  },
+  {
+   "text": "a braided belt",
+   "tier": "plausible",
+   "look": "Woven strips form a textured belt with visible interlacing.",
+   "tags": {
+    "kind": [
+     "belt"
+    ]
+   },
+   "short": "braided belt"
+  },
+  {
+   "text": "a chain belt",
+   "tier": "plausible",
+   "look": "Large linked metal loops drape around the waist.",
+   "tags": {
+    "kind": [
+     "belt"
+    ]
+   },
+   "short": "chain belt"
+  },
+  {
+   "text": "a concho belt",
+   "tier": "plausible",
+   "look": "A series of large decorative metal disks runs around a narrow belt.",
+   "tags": {
+    "kind": [
+     "belt"
+    ]
+   },
+   "short": "concho belt"
+  },
+  {
+   "text": "a corset belt",
+   "tier": "plausible",
+   "look": "A wide shaped waist belt narrows the middle and fastens with lacing or buckles.",
+   "tags": {
+    "kind": [
+     "belt"
+    ]
+   },
+   "short": "corset belt"
+  },
+  {
+   "text": "an obi belt",
+   "tier": "plausible",
+   "look": "A broad fabric waist wrap is tied into a prominent folded knot or bow.",
+   "tags": {
+    "kind": [
+     "belt"
+    ]
+   },
+   "short": "obi belt"
+  },
+  {
+   "text": "a sash belt",
+   "tier": "plausible",
+   "look": "A long soft fabric strip wraps the waist with loose ends hanging from a knot.",
+   "tags": {
+    "kind": [
+     "belt"
+    ]
+   },
+   "short": "sash belt"
+  },
+  {
+   "text": "a studded belt",
+   "tier": "plausible",
+   "look": "Rows of raised metal studs cover a narrow strap around the waist.",
+   "tags": {
+    "kind": [
+     "belt"
+    ]
+   },
+   "short": "studded belt"
+  },
+  {
+   "text": "a utility belt",
+   "tier": "plausible",
+   "look": "Several practical pouches and clips attach around a sturdy waist strap.",
+   "tags": {
+    "kind": [
+     "belt"
+    ]
+   },
+   "short": "utility belt"
+  },
+  {
+   "text": "suspenders",
+   "tier": "plausible",
+   "look": "Two straps run over the shoulders and clip or button onto the waistband.",
+   "tags": {
+    "kind": [
+     "belt"
+    ]
+   }
+  },
+  {
+   "text": "a silk scarf",
+   "tier": "typical",
+   "look": "A small smooth fabric square is folded and knotted around the neck.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "silk scarf"
+  },
+  {
+   "text": "a knitted scarf",
+   "tier": "typical",
+   "look": "A long thick strip of textured knit loops around the neck with hanging ends.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "knitted scarf"
+  },
+  {
+   "text": "an infinity scarf",
+   "tier": "plausible",
+   "look": "A continuous loop of fabric circles the neck without loose ends.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "infinity scarf"
+  },
+  {
+   "text": "a bandana neckerchief",
+   "tier": "typical",
+   "look": "A triangular cloth is knotted around the neck with its point hanging in front.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "bandana neckerchief"
+  },
+  {
+   "text": "an ascot tie",
+   "tier": "plausible",
+   "look": "Broad folded neckcloth fills the open collar with a soft overlapping knot.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "ascot tie"
+  },
+  {
+   "text": "a bow tie",
+   "tier": "typical",
+   "look": "Two symmetrical fabric loops sit at the front of a shirt collar.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "bow tie"
+  },
+  {
+   "text": "a bolo tie",
+   "tier": "plausible",
+   "look": "A decorative sliding clasp joins two thin cords with metal tips.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "bolo tie"
+  },
+  {
+   "text": "a necktie",
+   "tier": "typical",
+   "look": "A long tapered fabric strip hangs from a knot beneath the shirt collar.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "necktie"
+  },
+  {
+   "text": "a skinny tie",
+   "tier": "plausible",
+   "look": "A narrow straight-sided necktie creates a slim vertical line down the chest.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "skinny tie"
+  },
+  {
+   "text": "a cravat",
+   "tier": "plausible",
+   "look": "A full neckcloth wraps the throat and falls in gathered folds down the chest.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "cravat"
+  },
+  {
+   "text": "a fur stole",
+   "tier": "plausible",
+   "look": "A thick fur wrap lies across the shoulders with its ends draped down the front.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "fur stole"
+  },
+  {
+   "text": "a feather boa",
+   "tier": "unusual",
+   "look": "A long fluffy rope of feathers loops around the neck and shoulders.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "feather boa"
+  },
+  {
+   "text": "a lace shawl",
+   "tier": "plausible",
+   "look": "An openwork fabric wrap spreads over the shoulders with a visibly patterned edge.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "lace shawl"
+  },
+  {
+   "text": "a pocket square",
+   "tier": "plausible",
+   "look": "A small folded piece of fabric projects from a jacket's breast pocket.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "pocket square"
+  },
+  {
+   "text": "a jabot",
+   "tier": "unusual",
+   "look": "A cascade of layered ruffles falls from the throat onto the upper chest.",
+   "tags": {
+    "kind": [
+     "neckwear"
+    ]
+   },
+   "short": "jabot"
+  },
+  {
+   "text": "opera gloves",
+   "tier": "plausible",
+   "look": "Long fitted gloves extend past the elbows toward the upper arms.",
+   "tags": {
+    "kind": [
+     "gloves"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "driving gloves",
+   "tier": "plausible",
+   "look": "Short fitted leather gloves have knuckle openings and a cutout on the back of the hand.",
+   "tags": {
+    "kind": [
+     "gloves"
+    ]
+   }
+  },
+  {
+   "text": "fingerless gloves",
+   "tier": "typical",
+   "look": "Gloves cover the palms and knuckles while leaving the fingers exposed.",
+   "tags": {
+    "kind": [
+     "gloves"
+    ]
+   }
+  },
+  {
+   "text": "knitted gloves",
+   "tier": "typical",
+   "look": "Close-fitting knit fabric covers each finger separately and ends in ribbed cuffs.",
+   "tags": {
+    "kind": [
+     "gloves"
+    ]
+   }
+  },
+  {
+   "text": "mittens",
+   "tier": "typical",
+   "look": "Each hand has one shared rounded finger pocket and a separate thumb.",
+   "tags": {
+    "kind": [
+     "gloves"
+    ]
+   }
+  },
+  {
+   "text": "lace gloves",
+   "tier": "plausible",
+   "look": "Sheer patterned openwork fabric covers the hands and fingers.",
+   "tags": {
+    "kind": [
+     "gloves"
+    ]
+   }
+  },
+  {
+   "text": "gauntlet gloves",
+   "tier": "plausible",
+   "look": "Heavy gloves widen into flared protective cuffs over the forearms.",
+   "tags": {
+    "kind": [
+     "gloves"
+    ]
+   }
+  },
+  {
+   "text": "boxing gloves",
+   "tier": "plausible",
+   "look": "Thick rounded padding encloses the fists with broad fastening wrist cuffs.",
+   "tags": {
+    "kind": [
+     "gloves"
+    ]
+   }
+  },
+  {
+   "text": "rubber cleaning gloves",
+   "tier": "plausible",
+   "look": "Smooth waterproof gloves have long loose cuffs reaching up the forearms.",
+   "tags": {
+    "kind": [
+     "gloves"
+    ]
+   }
+  },
+  {
+   "text": "a leather-strap watch",
+   "tier": "typical",
+   "look": "A round analog watch face is attached to a plain leather wrist strap.",
+   "tags": {
+    "kind": [
+     "watch"
+    ]
+   },
+   "short": "leather-strap watch"
+  },
+  {
+   "text": "a metal-bracelet watch",
+   "tier": "typical",
+   "look": "A compact analog watch face sits on a flexible band of metal links.",
+   "tags": {
+    "kind": [
+     "watch"
+    ]
+   },
+   "short": "metal-bracelet watch"
+  },
+  {
+   "text": "a chunky dive watch",
+   "tier": "plausible",
+   "look": "A thick watch case has a broad marked rotating bezel and bold hour markers.",
+   "tags": {
+    "kind": [
+     "watch"
+    ]
+   },
+   "short": "chunky dive watch"
+  },
+  {
+   "text": "a digital wristwatch",
+   "tier": "typical",
+   "look": "A rectangular screen shows numerical time inside a compact wrist-mounted case.",
+   "tags": {
+    "kind": [
+     "watch"
+    ]
+   },
+   "short": "digital wristwatch"
+  },
+  {
+   "text": "a pocket watch",
+   "tier": "plausible",
+   "look": "A round watch case hangs from a chain attached to a pocket or vest.",
+   "tags": {
+    "kind": [
+     "watch"
+    ]
+   },
+   "short": "pocket watch"
+  },
+  {
+   "text": "a skeleton watch",
+   "tier": "plausible",
+   "look": "An open watch face reveals the small gears and moving mechanism inside.",
+   "tags": {
+    "kind": [
+     "watch"
+    ]
+   },
+   "short": "skeleton watch"
+  },
+  {
+   "text": "a cuff watch",
+   "tier": "plausible",
+   "look": "A watch face is set into a broad rigid wrist cuff.",
+   "tags": {
+    "kind": [
+     "watch"
+    ]
+   },
+   "short": "cuff watch"
+  },
+  {
+   "text": "a calculator watch",
+   "tier": "unusual",
+   "look": "A small digital display sits above rows of tiny number buttons on the wrist.",
+   "tags": {
+    "kind": [
+     "watch"
+    ]
+   },
+   "short": "calculator watch"
+  },
+  {
+   "text": "a claw clip",
+   "tier": "typical",
+   "look": "Two curved rows of teeth hinge together to grip a gathered section of hair.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   },
+   "short": "claw clip"
+  },
+  {
+   "text": "a scrunchie",
+   "tier": "typical",
+   "look": "A thick ruffled fabric ring cinches hair into a gathered bundle.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   },
+   "short": "scrunchie"
+  },
+  {
+   "text": "a headband",
+   "tier": "typical",
+   "look": "A curved band crosses the crown from behind one ear to the other.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   },
+   "short": "headband"
+  },
+  {
+   "text": "bobby pins",
+   "tier": "typical",
+   "look": "Small doubled metal pins lie flat against the hair to hold sections in place.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   }
+  },
+  {
+   "text": "a hair barrette",
+   "tier": "plausible",
+   "look": "A flat decorative clasp closes horizontally over a section of hair.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   },
+   "short": "hair barrette"
+  },
+  {
+   "text": "a hair stick",
+   "tier": "plausible",
+   "look": "A long slender stick passes through an updo to hold it together.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   },
+   "short": "hair stick"
+  },
+  {
+   "text": "a hair fork",
+   "tier": "plausible",
+   "look": "Two or more long rigid prongs slide through a bun, leaving a curved top visible.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   },
+   "short": "hair fork"
+  },
+  {
+   "text": "a decorative hair comb",
+   "tier": "plausible",
+   "look": "A row of short teeth anchors an ornamental crest into the side or back of the hair.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   },
+   "short": "decorative hair comb"
+  },
+  {
+   "text": "a ribbon hair bow",
+   "tier": "plausible",
+   "look": "Two fabric loops and trailing tails decorate a tied section of hair.",
+   "tags": {
+    "kind": [
+     "hair"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "short": "ribbon hair bow"
+  },
+  {
+   "text": "a flower crown",
+   "tier": "plausible",
+   "look": "A ring of blossoms and foliage circles the top of the head.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   },
+   "short": "flower crown"
+  },
+  {
+   "text": "a snood hair net",
+   "tier": "plausible",
+   "look": "A loose mesh pouch gathers the hair at the back of the head.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   },
+   "short": "snood hair net"
+  },
+  {
+   "text": "hair beads",
+   "tier": "plausible",
+   "look": "Small beads are threaded onto individual braids or strands of hair.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   }
+  },
+  {
+   "text": "hair rings",
+   "tier": "plausible",
+   "look": "Small metal hoops are spaced along individual braids or locs.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   }
+  },
+  {
+   "text": "a bun cage",
+   "tier": "unusual",
+   "look": "A rigid ornamental openwork shell encloses a rounded hair bun.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   },
+   "short": "bun cage"
+  },
+  {
+   "text": "a feather hair clip",
+   "tier": "unusual",
+   "look": "A small cluster of feathers projects from a clip tucked into the hair.",
+   "tags": {
+    "kind": [
+     "hair"
+    ]
+   },
+   "short": "feather hair clip"
+  },
+  {
+   "text": "a stick umbrella",
+   "tier": "typical",
+   "look": "A broad domed fabric canopy sits above a long shaft with a curved handle.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "stick umbrella"
+  },
+  {
+   "text": "a folding umbrella",
+   "tier": "typical",
+   "look": "A compact fabric canopy is supported by jointed ribs on a short telescoping shaft.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "folding umbrella"
+  },
+  {
+   "text": "a bubble umbrella",
+   "tier": "plausible",
+   "look": "A deep transparent dome extends down around the head and shoulders.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "bubble umbrella"
+  },
+  {
+   "text": "a lace parasol",
+   "tier": "plausible",
+   "look": "An open lace canopy shades the head on a slender handheld shaft.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "lace parasol"
+  },
+  {
+   "text": "a paper parasol",
+   "tier": "plausible",
+   "look": "A thin paper canopy shows many fine radial ribs beneath a round surface.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "paper parasol"
+  },
+  {
+   "text": "a folding fan",
+   "tier": "plausible",
+   "look": "Pleated material opens into a semicircle above a set of hinged ribs.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "folding fan"
+  },
+  {
+   "text": "a paddle fan",
+   "tier": "plausible",
+   "look": "A flat rigid leaf-shaped panel extends from a short handle.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "paddle fan"
+  },
+  {
+   "text": "a feather fan",
+   "tier": "unusual",
+   "look": "A broad spray of long feathers spreads from a handheld grip.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "feather fan"
+  },
+  {
+   "text": "a crook-handled cane",
+   "tier": "plausible",
+   "look": "A straight walking stick ends in a curved hook-shaped handle.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "crook-handled cane"
+  },
+  {
+   "text": "a knob-handled cane",
+   "tier": "plausible",
+   "look": "A slender straight cane is topped with a rounded ball grip.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "knob-handled cane"
+  },
+  {
+   "text": "a carved animal-head cane",
+   "tier": "unusual",
+   "look": "A walking cane has a sculpted animal head forming its handle.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "animal-head cane"
+  },
+  {
+   "text": "a hand muff",
+   "tier": "unusual",
+   "look": "A soft cylindrical fur sleeve warms both hands through openings at either end.",
+   "tags": {
+    "kind": [
+     "handheld"
+    ]
+   },
+   "short": "hand muff"
+  }
+ ]
+}

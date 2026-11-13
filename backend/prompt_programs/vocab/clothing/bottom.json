@@ -1,0 +1,1015 @@
+{
+ "id": "clothing.bottom",
+ "label": "Bottom",
+ "description": "Named trousers, jeans, shorts, skirts, leggings and bib overalls, distinguished by cut and construction.",
+ "pos": "noun phrase",
+ "frame": "wearing ___",
+ "notes": "Single lower-body garments belong here, along with bib overalls that leave the upper body open for a separate top. clothing.top owns shirts and other tops, while clothing.dress owns full jumpsuits, rompers and catsuits. Values follow wearing as singular garment names or natural plural trouser names, with no chosen color or complete outfit. Shared cuts remain available to any presentation, while clearly gendered skirts and lingerie bottoms carry presentation tags; lingerie and fetish garments are adult-only.",
+ "closed": false,
+ "facets": [
+  "presentation"
+ ],
+ "local_facets": {
+  "kind": [
+   "trousers",
+   "jeans",
+   "shorts",
+   "skirt",
+   "leggings",
+   "overalls"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "straight-leg trousers",
+   "short": "straight-leg trousers",
+   "tier": "typical",
+   "look": "trousers with legs falling in a straight line from thigh to hem",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "wide-leg trousers",
+   "short": "wide-leg trousers",
+   "tier": "typical",
+   "look": "trousers with roomy legs widening or falling broadly from the hips",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "slim-fit trousers",
+   "short": "slim-fit trousers",
+   "tier": "plausible",
+   "look": "trousers cut close along the thighs and calves without clinging like leggings",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "tapered trousers",
+   "short": "tapered trousers",
+   "tier": "plausible",
+   "look": "trousers with room through the thigh and steadily narrowing lower legs",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "pleated trousers",
+   "short": "pleated trousers",
+   "tier": "typical",
+   "look": "tailored trousers with visible folds opening below the front waistband",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "palazzo pants",
+   "short": "palazzo pants",
+   "tier": "plausible",
+   "look": "fluid trousers with extremely wide legs flowing like a divided skirt",
+   "tags": {
+    "kind": [
+     "trousers"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "cigarette pants",
+   "short": "cigarette pants",
+   "tier": "plausible",
+   "look": "narrow straight trousers with a close fit and neat ankle-length hems",
+   "tags": {
+    "kind": [
+     "trousers"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "capri pants",
+   "short": "capri pants",
+   "tier": "plausible",
+   "look": "slim trousers with hems stopping around the middle of the calves",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "culottes",
+   "short": "culottes",
+   "tier": "typical",
+   "look": "wide, skirt-like trousers with hems around or below the knees",
+   "tags": {
+    "kind": [
+     "trousers"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "cargo pants",
+   "short": "cargo pants",
+   "tier": "typical",
+   "look": "loose trousers with large flap pockets on the outer thighs",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "carpenter pants",
+   "short": "carpenter pants",
+   "tier": "plausible",
+   "look": "work trousers with reinforced seams, narrow tool pockets and a side hammer loop",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "chinos",
+   "short": "chinos",
+   "tier": "typical",
+   "look": "clean-cut cotton twill trousers with slanted front pockets and plain straight legs",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "tuxedo trousers",
+   "short": "tuxedo trousers",
+   "tier": "plausible",
+   "look": "tailored formal trousers with a smooth satin stripe down each outer leg",
+   "tags": {
+    "kind": [
+     "trousers"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "corduroy pants",
+   "short": "corduroy pants",
+   "tier": "plausible",
+   "look": "trousers with clearly raised vertical corduroy ridges",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "leather pants",
+   "short": "leather pants",
+   "tier": "plausible",
+   "look": "close-cut trousers with a smooth leather surface and sharply visible seams",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "track pants",
+   "short": "track pants",
+   "tier": "plausible",
+   "look": "lightweight athletic trousers with side stripes and loose straight legs",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "jogger sweatpants",
+   "short": "jogger sweatpants",
+   "tier": "typical",
+   "look": "soft fleece trousers with a drawstring waist and elastic cuffs at the ankles",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "harem pants",
+   "short": "harem pants",
+   "tier": "plausible",
+   "look": "very loose trousers with a deeply dropped crotch and gathered ankles",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "jodhpurs",
+   "short": "jodhpurs",
+   "tier": "unusual",
+   "look": "riding trousers with pronounced fullness at the hips and thighs and tightly fitted lower legs",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "sailor pants",
+   "short": "sailor pants",
+   "tier": "plausible",
+   "look": "high-waisted wide-leg trousers with a broad front flap outlined by rows of buttons",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "paperbag-waist pants",
+   "short": "paperbag-waist pants",
+   "tier": "plausible",
+   "look": "trousers with a gathered high waist rising in a ruffled edge above a belt",
+   "tags": {
+    "kind": [
+     "trousers"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "parachute pants",
+   "short": "parachute pants",
+   "tier": "plausible",
+   "look": "baggy lightweight trousers with billowing legs gathered by drawcords at the ankles",
+   "tags": {
+    "kind": [
+     "trousers"
+    ]
+   }
+  },
+  {
+   "text": "straight-leg jeans",
+   "short": "straight-leg jeans",
+   "tier": "typical",
+   "look": "denim jeans with evenly straight legs from the thighs to the hems",
+   "tags": {
+    "kind": [
+     "jeans"
+    ]
+   }
+  },
+  {
+   "text": "skinny jeans",
+   "short": "skinny jeans",
+   "tier": "typical",
+   "look": "stretch denim jeans fitting closely from the hips through the ankles",
+   "tags": {
+    "kind": [
+     "jeans"
+    ]
+   }
+  },
+  {
+   "text": "slim-fit jeans",
+   "short": "slim-fit jeans",
+   "tier": "plausible",
+   "look": "denim jeans following the legs closely with a little room around the calves",
+   "tags": {
+    "kind": [
+     "jeans"
+    ]
+   }
+  },
+  {
+   "text": "bootcut jeans",
+   "short": "bootcut jeans",
+   "tier": "typical",
+   "look": "jeans fitted through the thighs with a modest flare below each knee",
+   "tags": {
+    "kind": [
+     "jeans"
+    ]
+   }
+  },
+  {
+   "text": "flared jeans",
+   "short": "flared jeans",
+   "tier": "plausible",
+   "look": "jeans with fitted thighs and dramatically flared lower legs",
+   "tags": {
+    "kind": [
+     "jeans"
+    ]
+   }
+  },
+  {
+   "text": "wide-leg jeans",
+   "short": "wide-leg jeans",
+   "tier": "typical",
+   "look": "denim jeans with broad legs falling loosely from the hips",
+   "tags": {
+    "kind": [
+     "jeans"
+    ]
+   }
+  },
+  {
+   "text": "boyfriend jeans",
+   "short": "boyfriend jeans",
+   "tier": "plausible",
+   "look": "relaxed jeans hanging low on the hips with roomy thighs and casually rolled hems",
+   "tags": {
+    "kind": [
+     "jeans"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "mom jeans",
+   "short": "mom jeans",
+   "tier": "plausible",
+   "look": "high-waisted jeans with rounded hips, a roomy seat and tapered ankles",
+   "tags": {
+    "kind": [
+     "jeans"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "barrel-leg jeans",
+   "short": "barrel-leg jeans",
+   "tier": "plausible",
+   "look": "jeans with curved, bowed-out side seams and legs narrowing sharply at the ankles",
+   "tags": {
+    "kind": [
+     "jeans"
+    ]
+   }
+  },
+  {
+   "text": "baggy jeans",
+   "short": "baggy jeans",
+   "tier": "plausible",
+   "look": "oversized jeans with a dropped crotch and loose legs pooling around the shoes",
+   "tags": {
+    "kind": [
+     "jeans"
+    ]
+   }
+  },
+  {
+   "text": "carpenter jeans",
+   "short": "carpenter jeans",
+   "tier": "plausible",
+   "look": "denim work jeans with a hammer loop and extra narrow tool pockets",
+   "tags": {
+    "kind": [
+     "jeans"
+    ]
+   }
+  },
+  {
+   "text": "ripped jeans",
+   "short": "ripped jeans",
+   "tier": "plausible",
+   "look": "jeans with conspicuous tears and frayed holes exposing parts of the legs",
+   "tags": {
+    "kind": [
+     "jeans"
+    ]
+   }
+  },
+  {
+   "text": "chino shorts",
+   "short": "chino shorts",
+   "tier": "typical",
+   "look": "neat cotton twill shorts with slanted side pockets and straight hems above the knees",
+   "tags": {
+    "kind": [
+     "shorts"
+    ]
+   }
+  },
+  {
+   "text": "cargo shorts",
+   "short": "cargo shorts",
+   "tier": "typical",
+   "look": "loose shorts with large flap pockets attached to the outer thighs",
+   "tags": {
+    "kind": [
+     "shorts"
+    ]
+   }
+  },
+  {
+   "text": "denim cutoff shorts",
+   "short": "denim cutoffs",
+   "tier": "typical",
+   "look": "short denim bottoms with raw, fraying hems where the legs have been cut off",
+   "tags": {
+    "kind": [
+     "shorts"
+    ]
+   }
+  },
+  {
+   "text": "Bermuda shorts",
+   "short": "Bermuda shorts",
+   "tier": "plausible",
+   "look": "tailored straight-leg shorts with hems ending just above the knees",
+   "tags": {
+    "kind": [
+     "shorts"
+    ]
+   }
+  },
+  {
+   "text": "pleated shorts",
+   "short": "pleated shorts",
+   "tier": "plausible",
+   "look": "tailored shorts with deep front pleats opening from the waistband",
+   "tags": {
+    "kind": [
+     "shorts"
+    ]
+   }
+  },
+  {
+   "text": "dolphin shorts",
+   "short": "dolphin shorts",
+   "tier": "plausible",
+   "look": "short athletic bottoms with curved hems, side slits and contrasting edge binding",
+   "tags": {
+    "kind": [
+     "shorts"
+    ]
+   }
+  },
+  {
+   "text": "basketball shorts",
+   "short": "basketball shorts",
+   "tier": "typical",
+   "look": "very loose athletic shorts with a broad elastic waist and long legs reaching the knees",
+   "tags": {
+    "kind": [
+     "shorts"
+    ]
+   }
+  },
+  {
+   "text": "cycling shorts",
+   "short": "cycling shorts",
+   "tier": "plausible",
+   "look": "stretchy shorts fitting tightly from the waist to the middle or lower thighs",
+   "tags": {
+    "kind": [
+     "shorts"
+    ]
+   }
+  },
+  {
+   "text": "boxer shorts",
+   "short": "boxer shorts",
+   "tier": "plausible",
+   "look": "loose underwear shorts with an elastic waistband and a short button fly",
+   "tags": {
+    "kind": [
+     "shorts"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "tap shorts",
+   "short": "tap shorts",
+   "tier": "unusual",
+   "look": "loose satin lingerie shorts with flared leg openings and a short curved hem",
+   "tags": {
+    "kind": [
+     "shorts"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a skort",
+   "short": "skort",
+   "tier": "plausible",
+   "look": "shorts covered by a skirt-like front panel",
+   "tags": {
+    "kind": [
+     "shorts"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "bloomer shorts",
+   "short": "bloomer shorts",
+   "tier": "unusual",
+   "look": "short, puffed bottoms gathered into elastic or ruffled bands around the thighs",
+   "tags": {
+    "kind": [
+     "shorts"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "paperbag-waist shorts",
+   "short": "paperbag-waist shorts",
+   "tier": "plausible",
+   "look": "shorts with a gathered high waist ruffling above a tied belt",
+   "tags": {
+    "kind": [
+     "shorts"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an A-line skirt",
+   "short": "A-line skirt",
+   "tier": "typical",
+   "look": "a skirt fitted at the waist and widening gradually toward the hem",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a pencil skirt",
+   "short": "pencil skirt",
+   "tier": "typical",
+   "look": "a narrow straight skirt fitting closely around the hips and thighs",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a circle skirt",
+   "short": "circle skirt",
+   "tier": "typical",
+   "look": "a very full skirt falling in deep folds from a fitted waistband",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a wrap skirt",
+   "short": "wrap skirt",
+   "tier": "typical",
+   "look": "a skirt with one front panel overlapping the other and fastened at the waist",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a tulip skirt",
+   "short": "tulip skirt",
+   "tier": "plausible",
+   "look": "a skirt with overlapping curved front panels that narrow toward the knees",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a bubble skirt",
+   "short": "bubble skirt",
+   "tier": "plausible",
+   "look": "a skirt whose hem folds under to create a rounded, inflated lower edge",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a godet skirt",
+   "short": "godet skirt",
+   "tier": "plausible",
+   "look": "a fitted skirt with triangular fabric inserts spreading into flares near the hem",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a mermaid skirt",
+   "short": "mermaid skirt",
+   "tier": "plausible",
+   "look": "a long skirt fitted through the hips and thighs, then flaring below the knees",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a handkerchief skirt",
+   "short": "handkerchief skirt",
+   "tier": "plausible",
+   "look": "a flowing skirt with an uneven hem falling in long pointed corners",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a high-low skirt",
+   "short": "high-low skirt",
+   "tier": "plausible",
+   "look": "a skirt cut shorter in front and sweeping longer behind",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a tiered skirt",
+   "short": "tiered skirt",
+   "tier": "typical",
+   "look": "a full skirt built from stacked horizontal tiers of gathered fabric",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a broomstick skirt",
+   "short": "broomstick skirt",
+   "tier": "plausible",
+   "look": "a long, loose skirt covered in narrow irregular vertical crinkles",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a knife-pleated skirt",
+   "short": "knife-pleated skirt",
+   "tier": "typical",
+   "look": "a skirt with crisp, parallel pleats folded in the same direction",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a box-pleated skirt",
+   "short": "box-pleated skirt",
+   "tier": "plausible",
+   "look": "a skirt with wide, flat pleats formed by pairs of opposing folds",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an accordion-pleated skirt",
+   "short": "accordion-pleated skirt",
+   "tier": "plausible",
+   "look": "a skirt with many fine, sharp zigzag pleats that fan open with movement",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a miniskirt",
+   "short": "miniskirt",
+   "tier": "typical",
+   "look": "a short skirt with the hem well above the knees",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a micro miniskirt",
+   "short": "micro miniskirt",
+   "tier": "unusual",
+   "look": "an extremely short fitted skirt ending just below the hips",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a maxi skirt",
+   "short": "maxi skirt",
+   "tier": "typical",
+   "look": "a flowing skirt with a long hem reaching the ankles or floor",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a slip skirt",
+   "short": "slip skirt",
+   "tier": "plausible",
+   "look": "a fluid, lightly flared skirt in smooth lustrous fabric with a clean waistband",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a ballerina tulle skirt",
+   "short": "ballerina tulle skirt",
+   "tier": "plausible",
+   "look": "a full skirt of layered translucent tulle falling below the knees",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a rah-rah skirt",
+   "short": "rah-rah skirt",
+   "tier": "plausible",
+   "look": "a short skirt made of several overlapping tiers of ruffles",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a bustle skirt",
+   "short": "bustle skirt",
+   "tier": "unusual",
+   "look": "a long skirt with gathered fabric projecting prominently behind the hips",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cargo skirt",
+   "short": "cargo skirt",
+   "tier": "plausible",
+   "look": "a straight utility skirt with large flap pockets attached at the sides",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a leather miniskirt",
+   "short": "leather miniskirt",
+   "tier": "plausible",
+   "look": "a short skirt with a smooth leather surface and a firm, structured shape",
+   "tags": {
+    "kind": [
+     "skirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "leggings",
+   "short": "leggings",
+   "tier": "typical",
+   "look": "close-fitting stretch bottoms extending from the waist to the ankles",
+   "tags": {
+    "kind": [
+     "leggings"
+    ]
+   }
+  },
+  {
+   "text": "capri leggings",
+   "short": "capri leggings",
+   "tier": "plausible",
+   "look": "tight stretch bottoms ending around the middle of the calves",
+   "tags": {
+    "kind": [
+     "leggings"
+    ]
+   }
+  },
+  {
+   "text": "stirrup leggings",
+   "short": "stirrup leggings",
+   "tier": "plausible",
+   "look": "fitted stretch bottoms with narrow bands passing beneath the arches of the feet",
+   "tags": {
+    "kind": [
+     "leggings"
+    ]
+   }
+  },
+  {
+   "text": "flared leggings",
+   "short": "flared leggings",
+   "tier": "plausible",
+   "look": "stretch bottoms hugging the thighs and flaring outward below the knees",
+   "tags": {
+    "kind": [
+     "leggings"
+    ]
+   }
+  },
+  {
+   "text": "latex leggings",
+   "short": "latex leggings",
+   "tier": "unusual",
+   "look": "skin-tight bottoms with a highly reflective, smooth latex surface",
+   "tags": {
+    "kind": [
+     "leggings"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "bib overalls",
+   "short": "bib overalls",
+   "tier": "typical",
+   "look": "work pants with a chest bib, buckled shoulder straps and open sides above the waist",
+   "tags": {
+    "kind": [
+     "overalls"
+    ]
+   }
+  },
+  {
+   "text": "short overalls",
+   "short": "short overalls",
+   "tier": "plausible",
+   "look": "shorts with a chest bib, adjustable shoulder straps and open sides",
+   "tags": {
+    "kind": [
+     "overalls"
+    ]
+   }
+  },
+  {
+   "text": "flared overalls",
+   "short": "flared overalls",
+   "tier": "plausible",
+   "look": "bib overalls fitted through the hips with legs widening strongly below the knees",
+   "tags": {
+    "kind": [
+     "overalls"
+    ]
+   }
+  },
+  {
+   "text": "wide-leg overalls",
+   "short": "wide-leg overalls",
+   "tier": "plausible",
+   "look": "bib overalls with broad trouser legs falling loosely from the hips",
+   "tags": {
+    "kind": [
+     "overalls"
+    ]
+   }
+  }
+ ]
+}

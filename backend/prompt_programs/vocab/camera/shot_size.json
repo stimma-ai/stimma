@@ -1,66 +1,335 @@
 {
-  "id": "camera.shot_size",
-  "label": "Shot size",
-  "description": "How much of the subject and surroundings the frame includes.",
-  "pos": "noun phrase",
-  "frame": "___ of a person",
-  "notes": "Framing extent and anatomical crops belong here. camera.angle owns viewpoint, camera.lens owns optics and camera.film_look owns rendering. A detail shot may include only part of the person; it still composes with the person phrase.",
-  "facets": [],
-  "closed": true,
-  "values": [
-    {
-      "text": "a tight close-up",
-      "tier": "typical"
-    },
-    {
-      "text": "a head-and-shoulders portrait",
-      "short": "head and shoulders",
-      "tier": "typical"
-    },
-    {
-      "text": "a chest-up shot",
-      "tier": "typical"
-    },
-    {
-      "text": "a waist-up medium shot",
-      "tier": "typical"
-    },
-    {
-      "text": "a knee-up three-quarter shot",
-      "short": "knee-up shot",
-      "tier": "typical"
-    },
-    {
-      "text": "a full-length shot",
-      "tier": "typical"
-    },
-    {
-      "text": "a wide environmental portrait",
-      "short": "environmental portrait",
-      "tier": "typical"
-    },
-    {
-      "text": "an extreme wide shot",
-      "tier": "plausible"
-    },
-    {
-      "text": "a loosely framed full-length portrait",
-      "short": "loose full-length",
-      "tier": "plausible"
-    },
-    {
-      "text": "a head-to-mid-thigh shot",
-      "tier": "plausible"
-    },
-    {
-      "text": "a neck-to-waist torso crop",
-      "short": "neck-to-waist crop",
-      "tier": "plausible"
-    },
-    {
-      "text": "a panoramic environmental portrait",
-      "short": "panoramic portrait",
-      "tier": "unusual"
-    }
+ "id": "camera.shot_size",
+ "label": "Shot size",
+ "description": "Named shot sizes, portrait crops, subject groupings, and selfie framings.",
+ "pos": "noun phrase",
+ "frame": "framed as ___",
+ "notes": "Framing extent, named portrait crops, subject groupings, and selfie setups belong here, phrased as named shots with an article. Chest-up and medium close-up share one entry; three-quarter shot means a knee-up crop here, while cowboy shot ends at mid-thigh. camera.angle owns independently chosen camera height, direction, and tilt; the profile portrait is retained as a familiar named framing. camera.lens owns lens effects, and camera.film_look owns film and format looks. Pose, expression, and lighting belong in their own lists rather than being bundled into framing variants.",
+ "facets": [],
+ "closed": true,
+ "local_facets": {
+  "kind": [
+   "close",
+   "medium",
+   "full",
+   "wide",
+   "two_person",
+   "selfie",
+   "special"
   ]
+ },
+ "values": [
+  {
+   "text": "an extreme close-up",
+   "short": "extreme close-up",
+   "tier": "plausible",
+   "look": "A tiny feature, such as one eye or a mouth, fills the frame; the rest of the subject is cut off.",
+   "tags": {
+    "kind": [
+     "close"
+    ]
+   }
+  },
+  {
+   "text": "a close-up",
+   "short": "close-up",
+   "tier": "typical",
+   "look": "The face or main subject fills nearly the entire frame, with little background visible.",
+   "tags": {
+    "kind": [
+     "close"
+    ]
+   }
+  },
+  {
+   "text": "a head-and-shoulders portrait",
+   "short": "head and shoulders",
+   "tier": "typical",
+   "look": "The entire head and the tops of both shoulders show, with the crop near the collarbone.",
+   "tags": {
+    "kind": [
+     "close"
+    ]
+   }
+  },
+  {
+   "text": "a profile portrait",
+   "short": "profile portrait",
+   "tier": "plausible",
+   "look": "A close side view of the head shows one eye and the outline of the forehead, nose, lips, and chin.",
+   "tags": {
+    "kind": [
+     "close"
+    ]
+   }
+  },
+  {
+   "text": "a detail shot",
+   "short": "detail shot",
+   "tier": "plausible",
+   "look": "One small part of a larger subject fills the image, such as stitching on a coat or a carved door handle.",
+   "tags": {
+    "kind": [
+     "close",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "a chest-up medium close-up",
+   "short": "medium close-up",
+   "tier": "typical",
+   "look": "The head, shoulders, and upper chest show; the frame ends around the middle of the chest.",
+   "tags": {
+    "kind": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a medium shot",
+   "short": "medium shot",
+   "tier": "typical",
+   "look": "The person is framed from the waist up, leaving room for arms, hands, and some background.",
+   "tags": {
+    "kind": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cowboy shot",
+   "short": "cowboy shot",
+   "tier": "plausible",
+   "look": "The person is framed from the head to mid-thigh, keeping the hips and hands beside them visible.",
+   "tags": {
+    "kind": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a torso crop",
+   "short": "torso crop",
+   "tier": "unusual",
+   "look": "Only the body between the neck and waist is visible; the head and legs fall outside the frame.",
+   "tags": {
+    "kind": [
+     "medium",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "a three-quarter shot",
+   "short": "three-quarter shot",
+   "tier": "plausible",
+   "look": "The person is visible from the head to around the knees, with the lower legs and feet outside the frame.",
+   "tags": {
+    "kind": [
+     "full"
+    ]
+   }
+  },
+  {
+   "text": "a full-length shot",
+   "short": "full-length shot",
+   "tier": "typical",
+   "look": "The entire person is visible from head to feet and occupies most of the frame height.",
+   "tags": {
+    "kind": [
+     "full"
+    ]
+   }
+  },
+  {
+   "text": "a wide shot",
+   "short": "wide shot",
+   "tier": "typical",
+   "look": "The whole subject is visible with ample space around it, making the surrounding setting easy to read.",
+   "tags": {
+    "kind": [
+     "wide"
+    ]
+   }
+  },
+  {
+   "text": "an extreme wide shot",
+   "short": "extreme wide shot",
+   "tier": "unusual",
+   "look": "The setting dominates the image; any person is a tiny figure within a much larger landscape or space.",
+   "tags": {
+    "kind": [
+     "wide"
+    ]
+   }
+  },
+  {
+   "text": "an establishing shot",
+   "short": "establishing shot",
+   "tier": "plausible",
+   "look": "A broad view identifies the location, showing a building or landscape together with its immediate surroundings.",
+   "tags": {
+    "kind": [
+     "wide"
+    ]
+   }
+  },
+  {
+   "text": "an environmental portrait",
+   "short": "environmental portrait",
+   "tier": "plausible",
+   "look": "A person shares the frame with their workspace or everyday setting, including objects that show what they do there.",
+   "tags": {
+    "kind": [
+     "wide"
+    ]
+   }
+  },
+  {
+   "text": "a panoramic shot",
+   "short": "panoramic shot",
+   "tier": "plausible",
+   "look": "An extra-wide horizontal frame stretches across the scene, taking in far more from side to side than top to bottom.",
+   "tags": {
+    "kind": [
+     "wide"
+    ]
+   }
+  },
+  {
+   "text": "a two-shot",
+   "short": "two-shot",
+   "tier": "typical",
+   "look": "Two people share the frame with comparable prominence, so their relationship and interaction are visible.",
+   "tags": {
+    "kind": [
+     "two_person"
+    ]
+   }
+  },
+  {
+   "text": "an over-the-shoulder shot",
+   "short": "over-the-shoulder",
+   "tier": "plausible",
+   "look": "The back of one person’s head and shoulder edges the foreground while another person faces them beyond.",
+   "tags": {
+    "kind": [
+     "two_person"
+    ]
+   }
+  },
+  {
+   "text": "an arm's-length selfie",
+   "short": "arm's-length selfie",
+   "tier": "typical",
+   "look": "The photographer’s face and shoulders fill the near foreground, often with an outstretched arm entering an edge.",
+   "tags": {
+    "kind": [
+     "selfie"
+    ]
+   }
+  },
+  {
+   "text": "a waist-up mirror selfie",
+   "short": "waist-up mirror selfie",
+   "tier": "typical",
+   "look": "A mirror reflection shows the photographer from the waist up, with the phone visible in one hand.",
+   "tags": {
+    "kind": [
+     "selfie"
+    ]
+   }
+  },
+  {
+   "text": "a full-length mirror selfie",
+   "short": "full-body mirror selfie",
+   "tier": "plausible",
+   "look": "A tall mirror shows the photographer’s entire body and outfit, with the phone visible in the reflection.",
+   "tags": {
+    "kind": [
+     "selfie",
+     "full"
+    ]
+   }
+  },
+  {
+   "text": "a group selfie",
+   "short": "group selfie",
+   "tier": "plausible",
+   "look": "Several faces crowd close to the camera, with the person holding it nearest the foreground.",
+   "tags": {
+    "kind": [
+     "selfie"
+    ]
+   }
+  },
+  {
+   "text": "an insert shot",
+   "short": "insert shot",
+   "tier": "plausible",
+   "look": "A specific object or action fills the frame, such as a key in a lock or fingers pressing a button.",
+   "tags": {
+    "kind": [
+     "special",
+     "close"
+    ]
+   }
+  },
+  {
+   "text": "a point-of-view shot",
+   "short": "point-of-view shot",
+   "tier": "plausible",
+   "look": "The scene appears through a participant’s eyes, often with their hands or feet entering the bottom of the frame.",
+   "tags": {
+    "kind": [
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "a group portrait",
+   "short": "group portrait",
+   "tier": "plausible",
+   "look": "Three or more people are arranged together so each person’s face is clearly visible within the shared frame.",
+   "tags": {
+    "kind": [
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "a negative-space portrait",
+   "short": "negative-space portrait",
+   "tier": "plausible",
+   "look": "The person occupies one edge or corner, leaving most of the frame as a plain wall, sky, or other empty area.",
+   "tags": {
+    "kind": [
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "a frame-within-a-frame shot",
+   "short": "frame within a frame",
+   "tier": "plausible",
+   "look": "A doorway, window, arch, or other foreground opening forms a visible border around the subject.",
+   "tags": {
+    "kind": [
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "a reflection portrait",
+   "short": "reflection portrait",
+   "tier": "plausible",
+   "look": "The person is seen in a mirror or window reflection, with the reflective surface or its edges visible.",
+   "tags": {
+    "kind": [
+     "special"
+    ]
+   }
+  }
+ ]
 }

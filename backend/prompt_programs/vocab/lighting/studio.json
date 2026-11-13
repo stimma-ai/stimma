@@ -1,430 +1,608 @@
 {
-  "id": "lighting.studio",
-  "label": "Studio lighting",
-  "description": "Photographic lighting rigs, modifiers and portrait setups such as softboxes, strobes and reflectors; choose for how the image is lit for capture.",
-  "pos": "noun phrase",
-  "frame": "lit by ___",
-  "notes": "Photographic sources, modifiers and placement belong here, indoors or outdoors. Natural owns ambient sun and sky; indoor_practical owns fixtures within the scene; dramatic owns cinematic effects described independently of equipment. These are capture setups, so the depicted era does not restrict them.",
-  "facets": [],
-  "closed": false,
-  "values": [
-    {
-      "text": "a large softbox from camera left",
-      "short": "softbox camera left",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a white shoot-through umbrella",
-      "short": "shoot-through umbrella",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a ring light around the lens",
-      "short": "ring light",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "hard on-camera flash",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "harsh"
-        ],
-        "source": [
-          "flash"
-        ]
-      }
-    },
-    {
-      "text": "a beauty dish above the camera",
-      "short": "beauty dish",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "harsh"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a bounced flash aimed at the ceiling",
-      "short": "ceiling-bounced flash",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "flash"
-        ]
-      }
-    },
-    {
-      "text": "a soft key light and a white fill card",
-      "short": "soft key and fill card",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "two large softboxes flanking the camera",
-      "short": "two flanking softboxes",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a single bare studio strobe",
-      "short": "bare strobe",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "harsh"
-        ],
-        "source": [
-          "flash"
-        ]
-      }
-    },
-    {
-      "text": "a warm rectangular LED panel beside the camera",
-      "short": "warm LED panel",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "harsh",
-          "warm"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a three-light portrait setup",
-      "short": "three-light setup",
-      "tier": "typical",
-      "tags": {
-        "mood": [
-          "soft",
-          "dramatic"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a silver reflective umbrella",
-      "short": "silver umbrella",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "harsh"
-        ],
-        "source": [
-          "reflector"
-        ]
-      }
-    },
-    {
-      "text": "a gridded strip softbox placed as a rear rim light",
-      "short": "strip-box rim light",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft",
-          "dramatic",
-          "moody"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a snooted strobe aimed at the face",
-      "short": "snooted strobe",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "harsh",
-          "dramatic",
-          "moody"
-        ],
-        "source": [
-          "flash"
-        ]
-      }
-    },
-    {
-      "text": "a clamshell arrangement of two softboxes",
-      "short": "clamshell lighting",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a split-lighting setup with a hard side key",
-      "short": "split lighting",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "harsh",
-          "dramatic",
-          "moody"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a loop-lighting setup with a small softbox",
-      "short": "loop lighting",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a broad-lighting setup illuminating the near cheek",
-      "short": "broad lighting",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a large overhead diffusion silk",
-      "short": "overhead silk",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a strobe reflected from a silver card",
-      "short": "silver-card bounce",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "harsh"
-        ],
-        "source": [
-          "reflector"
-        ]
-      }
-    },
-    {
-      "text": "a warm gold reflector beneath the face",
-      "short": "gold reflector below",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "dramatic",
-          "warm"
-        ],
-        "source": [
-          "reflector"
-        ]
-      }
-    },
-    {
-      "text": "a feathered softbox key light",
-      "short": "feathered softbox",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a pair of strobes aimed at a white backdrop",
-      "short": "white-backdrop strobes",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a soft key light with black flags absorbing fill",
-      "short": "key with black flags",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft",
-          "dramatic",
-          "moody"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a strobe bounced into a large white V-flat",
-      "short": "V-flat bounce",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "flash"
-        ]
-      }
-    },
-    {
-      "text": "a warm-balanced fluorescent photography bank",
-      "short": "fluorescent bank",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft",
-          "warm"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a softbox placed close to the floor",
-      "short": "floor-level softbox",
-      "tier": "plausible",
-      "tags": {
-        "mood": [
-          "soft",
-          "dramatic"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a focused optical spot projecting a window pattern",
-      "short": "projected window gobo",
-      "tier": "unusual",
-      "tags": {
-        "mood": [
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "studio light"
-        ]
-      }
-    },
-    {
-      "text": "a circular array of synchronized strobes",
-      "short": "strobe ring array",
-      "tier": "unusual",
-      "tags": {
-        "mood": [
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "flash"
-        ]
-      }
-    },
-    {
-      "text": "a strobe fired through a water-filled glass tray",
-      "short": "strobe through water",
-      "tier": "unusual",
-      "tags": {
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "flash"
-        ]
-      }
-    }
-  ],
-  "local_facets": {
-    "mood": [
-      "soft",
-      "harsh",
-      "warm",
-      "dramatic",
-      "moody"
+ "id": "lighting.studio",
+ "label": "Studio lighting",
+ "description": "Named portrait lighting patterns, photographic modifiers, flash techniques, and studio lighting setups.",
+ "pos": "noun phrase",
+ "frame": "lit by ___",
+ "notes": "Named photographic setups and modifiers belong here, phrased to follow “lit by.” lighting.natural owns ambient sun and sky; lighting.indoor_practical owns visible scene fixtures, and lighting.dramatic owns cinematic effects independent of a capture rig. These setups can photograph any depicted era. Related setups remain separate when they create different facial shadows, reflections, or subject separation.",
+ "facets": [],
+ "closed": false,
+ "values": [
+  {
+   "text": "Rembrandt lighting",
+   "short": "Rembrandt",
+   "look": "Angled light leaves a small triangle of illumination on the shadow-side cheek.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "portrait_patterns"
     ],
-    "source": [
-      "studio light",
-      "flash",
-      "reflector"
+    "mood": [
+     "dramatic",
+     "moody"
     ]
+   }
+  },
+  {
+   "text": "butterfly (Paramount) lighting",
+   "short": "butterfly lighting",
+   "look": "Centered light above the face makes a small butterfly-shaped shadow directly beneath the nose.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "portrait_patterns"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "split lighting",
+   "short": "split lighting",
+   "look": "Light from the side divides the face into a bright half and a deeply shadowed half.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "portrait_patterns"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "loop lighting",
+   "short": "loop lighting",
+   "look": "A slightly raised side light makes a small nose shadow that stops before joining the cheek shadow.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "portrait_patterns"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "clamshell lighting",
+   "short": "clamshell lighting",
+   "look": "Light above and fill below brighten the face evenly, with paired catchlights and little under-chin shadow.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "portrait_patterns"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "broad lighting",
+   "short": "broad lighting",
+   "look": "On a turned face, the cheek facing the camera is lit and the narrower far side falls into shadow.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "portrait_patterns"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "short lighting",
+   "short": "short lighting",
+   "look": "On a turned face, the far cheek is lit while the larger camera-facing cheek stays in shadow.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "portrait_patterns"
+    ],
+    "mood": [
+     "dramatic",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "rim lighting",
+   "short": "rim lighting",
+   "look": "A narrow bright outline separates the subject from the background along its outer edges.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "separation"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "kicker lighting",
+   "short": "kicker light",
+   "look": "A rear side light puts a bright accent along one cheek, jaw, or shoulder while the face stays readable.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "separation"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "hair lighting",
+   "short": "hair light",
+   "look": "A light above and behind the subject picks out the crown and strands without lighting the whole outline.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "separation"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "three-point lighting",
+   "short": "three-point lighting",
+   "look": "A main light shapes the face, weaker fill opens shadows, and a rear light separates the subject.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "portrait_patterns"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "high-key lighting",
+   "short": "high-key lighting",
+   "look": "Bright tones dominate the image, with open shadows and a light background.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "tonal"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "low-key lighting",
+   "short": "low-key lighting",
+   "look": "Small lit areas stand out against a mostly dark image with deep shadows.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "tonal"
+    ],
+    "mood": [
+     "moody",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "softbox light",
+   "short": "softbox",
+   "look": "Broad diffused light wraps around the subject with gentle shadow edges and rectangular catchlights.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "soft_sources"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "beauty dish light",
+   "short": "beauty dish",
+   "look": "Crisp, sculpted light gives defined cheekbones, rounded catchlights, and softer shadows than a bare flash.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "hard_sources"
+    ],
+    "mood": [
+     "soft",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "a ring light",
+   "short": "ring light",
+   "look": "Nearly shadowless frontal light makes circular catchlights and a faint halo shadow behind the subject.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "soft_sources"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "bare-bulb flash",
+   "short": "bare-bulb flash",
+   "look": "A small exposed flash makes crisp shadows, sharp specular highlights, and strong contrast.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "flash"
+    ],
+    "mood": [
+     "harsh"
+    ]
+   }
+  },
+  {
+   "text": "on-camera direct flash",
+   "short": "direct flash",
+   "look": "Frontal flash lights the subject abruptly, with shiny highlights and a hard shadow directly behind it.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "flash"
+    ],
+    "mood": [
+     "harsh"
+    ]
+   }
+  },
+  {
+   "text": "bounced flash",
+   "short": "bounced flash",
+   "look": "Flash reflected from a wall or ceiling spreads into soft directional light with gentle shadows.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "flash",
+     "bounce"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "strip softbox lighting",
+   "short": "strip lights",
+   "look": "Long narrow sources make elongated catchlights and bright strips of reflection on curved surfaces.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "soft_sources"
+    ],
+    "mood": [
+     "soft",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "gelled color lights",
+   "short": "gelled lights",
+   "look": "Colored filters turn the illumination into saturated washes rather than neutral white light.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "color"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "background gradient lighting",
+   "short": "background gradient",
+   "look": "The backdrop fades smoothly from a bright pool behind the subject into darker edges.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "separation"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "a single bare spotlight",
+   "short": "bare spotlight",
+   "look": "One concentrated light makes a defined pool of illumination with hard shadows around it.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "hard_sources"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "a V-flat bounce",
+   "short": "V-flat bounce",
+   "look": "Light reflected from a large white folded panel fills one side of the subject with broad soft illumination.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bounce"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "shoot-through umbrella light",
+   "short": "shoot-through umbrella",
+   "look": "A translucent umbrella spreads light widely, giving soft shadows and rounded catchlights.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "soft_sources"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "silver umbrella light",
+   "short": "silver umbrella",
+   "look": "A reflective silver umbrella gives punchy light with bright specular highlights and crisp texture.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bounce"
+    ],
+    "mood": [
+     "harsh"
+    ]
+   }
+  },
+  {
+   "text": "overhead diffusion light",
+   "short": "overhead diffusion",
+   "look": "A large translucent panel softens light from above into broad highlights and gentle downward shadows.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "soft_sources"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "negative-fill lighting",
+   "short": "negative fill",
+   "look": "Black surfaces absorb reflected light on one side, making that side noticeably darker and more sculpted.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "tonal"
+    ],
+    "mood": [
+     "moody",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "gold-reflector fill",
+   "short": "gold reflector",
+   "look": "Warm reflected light lifts the lower face and shadow side with a golden tint.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bounce",
+     "color"
+    ],
+    "mood": [
+     "warm"
+    ]
+   }
+  },
+  {
+   "text": "silver-reflector fill",
+   "short": "silver reflector",
+   "look": "Bright neutral reflected light opens shadows from below or the side with crisp shiny highlights.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bounce"
+    ],
+    "mood": [
+     "harsh"
+    ]
+   }
+  },
+  {
+   "text": "snoot lighting",
+   "short": "snoot light",
+   "look": "A tightly restricted spot illuminates a small detail while nearby areas quickly fall into darkness.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "hard_sources"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "Fresnel lighting",
+   "short": "Fresnel light",
+   "look": "A focused theatrical beam gives sculpted highlights and clean directional shadows with controlled spill.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "hard_sources"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "gridded softbox light",
+   "short": "gridded softbox",
+   "look": "Soft light stays in a narrow area, shaping the subject while keeping the surrounding background dark.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "soft_sources"
+    ],
+    "mood": [
+     "soft",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "cross lighting",
+   "short": "cross lighting",
+   "look": "Opposing side lights pick out both sides of the subject while the center remains comparatively dark.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "portrait_patterns"
+    ],
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "book lighting",
+   "short": "book light",
+   "look": "Light is bounced and then diffused, making a very broad wrap with barely visible shadow edges.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "soft_sources",
+     "bounce"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "light-tent illumination",
+   "short": "light tent",
+   "look": "Diffusion on all sides gives small objects even illumination and broad white reflections with few hard shadows.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "soft_sources"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "dark-field lighting",
+   "short": "dark-field lighting",
+   "look": "Transparent glass appears mainly as bright edge outlines against a black background.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "tonal"
+    ],
+    "mood": [
+     "dramatic",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "bright-field lighting",
+   "short": "bright-field lighting",
+   "look": "Transparent glass sits against a luminous white background, defined by dark contours along its edges.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "tonal"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "cross-polarized lighting",
+   "short": "cross-polarized light",
+   "look": "Reflections and surface glare disappear, revealing matte-looking color and fine detail beneath shiny surfaces.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "tonal"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "grazing light",
+   "short": "grazing light",
+   "look": "Light skims almost parallel to a surface, turning tiny ridges and recesses into strong relief.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "hard_sources"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic"
+    ]
+   }
   }
+ ],
+ "local_facets": {
+  "kind": [
+   "portrait_patterns",
+   "soft_sources",
+   "hard_sources",
+   "flash",
+   "bounce",
+   "separation",
+   "tonal",
+   "color"
+  ],
+  "mood": [
+   "soft",
+   "harsh",
+   "warm",
+   "dramatic",
+   "moody"
+  ]
+ }
 }

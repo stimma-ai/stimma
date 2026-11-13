@@ -1,182 +1,1089 @@
 {
-  "id": "camera.film_look",
-  "label": "Film and digital look",
-  "description": "Grain, color, contrast and optical texture of the finished image.",
-  "pos": "noun phrase",
-  "frame": "with ___",
-  "notes": "Rendering and photographic surface texture belong here; camera.lens owns optical equipment, lighting leaves own illumination and scene.time_of_day owns the hour. Genre and era do not filter this leaf: they describe the depicted world, while any rendering process or period-inspired look can be applied to a scene set in any world or era.",
-  "facets": [],
-  "closed": false,
-  "values": [
-    {
-      "text": "fine 35mm film grain and muted colors",
-      "short": "fine 35mm grain",
-      "tier": "typical"
-    },
-    {
-      "text": "crisp digital clarity",
-      "tier": "typical"
-    },
-    {
-      "text": "high-contrast black-and-white grain",
-      "short": "high-contrast B&W grain",
-      "tier": "typical"
-    },
-    {
-      "text": "soft highlight halation and warm color grading",
-      "short": "halation, warm grade",
-      "tier": "typical"
-    },
-    {
-      "text": "rich color and deep clean shadows",
-      "short": "rich color, deep shadows",
-      "tier": "typical"
-    },
-    {
-      "text": "gentle contrast and pastel colors",
-      "short": "soft pastel film",
-      "tier": "typical"
-    },
-    {
-      "text": "neutral color and smooth tonal gradients",
-      "short": "neutral, smooth tones",
-      "tier": "typical"
-    },
-    {
-      "text": "cool shadows and warm highlights",
-      "short": "cool shadows, warm highs",
-      "tier": "typical"
-    },
-    {
-      "text": "clean monochrome tones and fine detail",
-      "short": "clean monochrome",
-      "tier": "typical"
-    },
-    {
-      "text": "coarse grain and saturated primary colors",
-      "short": "coarse saturated grain",
-      "tier": "plausible"
-    },
-    {
-      "text": "silvery monochrome midtones and luminous highlights",
-      "short": "silvery monochrome",
-      "tier": "plausible"
-    },
-    {
-      "text": "a faded matte finish and warm paper tones",
-      "short": "faded matte, warm paper",
-      "tier": "plausible"
-    },
-    {
-      "text": "a magenta cast and streaked emulsion damage",
-      "short": "damaged magenta film",
-      "tier": "unusual"
-    },
-    {
-      "text": "bleach-bypass contrast and reduced saturation",
-      "short": "bleach bypass",
-      "tier": "plausible"
-    },
-    {
-      "text": "cross-processed green shadows and yellow highlights",
-      "short": "cross-processed",
-      "tier": "plausible"
-    },
-    {
-      "text": "subtle red light leaks along the frame edge",
-      "short": "red light leaks",
-      "tier": "unusual"
-    },
-    {
-      "text": "uneven exposure and darkened corners",
-      "short": "uneven, dark corners",
-      "tier": "plausible"
-    },
-    {
-      "text": "monochrome lith-print texture and gritty shadow clumps",
-      "short": "lith print",
-      "tier": "plausible"
-    },
-    {
-      "text": "warm sepia toning and visible paper fibers",
-      "short": "sepia toning",
-      "tier": "plausible"
-    },
-    {
-      "text": "a cool selenium-toned monochrome finish",
-      "short": "selenium-toned",
-      "tier": "plausible"
-    },
-    {
-      "text": "infrared monochrome tones and pale foliage",
-      "short": "infrared monochrome",
-      "tier": "unusual"
-    },
-    {
-      "text": "false-color infrared tones and crimson foliage",
-      "short": "false-color infrared",
-      "tier": "unusual"
-    },
-    {
-      "text": "a solarized silver outline around high-contrast edges",
-      "short": "solarized",
-      "tier": "unusual"
-    },
-    {
-      "text": "a glossy instant-print finish and uneven color development",
-      "short": "instant print",
-      "tier": "plausible"
-    },
-    {
-      "text": "an ultraviolet fluorescence palette against dark shadows",
-      "short": "ultraviolet fluorescence",
-      "tier": "unusual"
-    },
-    {
-      "text": "faint scratches and dust flecks across the image",
-      "short": "scratches and dust",
-      "tier": "plausible"
-    },
-    {
-      "text": "the mirrorlike silver surface of an early photographic plate",
-      "short": "daguerreotype",
-      "tier": "plausible"
-    },
-    {
-      "text": "the brown-gray tones and irregular edges of a wet-plate portrait",
-      "short": "wet-plate collodion",
-      "tier": "plausible"
-    },
-    {
-      "text": "the hand-tinted colors of an early postcard photograph",
-      "short": "hand-tinted postcard",
-      "tier": "plausible"
-    },
-    {
-      "text": "the bold dye colors of a mid-century color transparency",
-      "short": "mid-century slide film",
-      "tier": "plausible"
-    },
-    {
-      "text": "the warm fading and rounded corners of a seventies snapshot",
-      "short": "seventies snapshot",
-      "tier": "plausible"
-    },
-    {
-      "text": "the harsh color noise and scan lines of an analog video still",
-      "short": "analog video still",
-      "tier": "unusual"
-    },
-    {
-      "text": "the blocky pixels and narrow tonal range of an early digital photograph",
-      "short": "early digital photo",
-      "tier": "unusual"
-    },
-    {
-      "text": "a cyanotype-blue monochrome print texture",
-      "short": "cyanotype",
-      "tier": "unusual"
-    }
+ "id": "camera.film_look",
+ "label": "Film and format",
+ "description": "Photographic film stocks, camera formats, digital capture looks, video media, and historical processes.",
+ "pos": "noun phrase",
+ "frame": "shot on ___",
+ "notes": "Named film stocks, capture formats, camera looks, video media, and historical photographic processes belong here. camera.lens owns optical effects and focus; lighting.studio owns lighting setups. Values are short noun phrases after “shot on”; paper and plate names stand for the finished photographic process. Generic camera entries include a characteristic capture treatment where useful, and the looks describe recognizable visual cues rather than guaranteed camera properties. Historical and discontinued media remain available for scenes of any era, and a film format does not prescribe a color stock.",
+ "facets": [],
+ "closed": false,
+ "local_facets": {
+  "kind": [
+   "color_film",
+   "black_and_white_film",
+   "instant",
+   "vintage_digital",
+   "modern_digital",
+   "motion_picture",
+   "historical_process",
+   "special"
   ],
-  "untagged": {}
+  "medium": [
+   "film",
+   "digital",
+   "instant",
+   "historical",
+   "video"
+  ]
+ },
+ "values": [
+  {
+   "text": "Kodak Portra 400 film",
+   "short": "Portra 400",
+   "tier": "typical",
+   "look": "Soft contrast, warm skin tones, restrained colors, and fine visible grain.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Kodak Portra 800 film",
+   "short": "Portra 800",
+   "tier": "typical",
+   "look": "Warm color with more visible grain and textured shadows than slower portrait film.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Kodak Portra 160 film",
+   "short": "Portra 160",
+   "tier": "plausible",
+   "look": "Very fine grain, delicate skin tones, and subdued color with smooth, low-contrast transitions.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Kodak Gold 200 film",
+   "short": "Gold 200",
+   "tier": "typical",
+   "look": "Golden warmth, saturated reds and yellows, and visible snapshot grain.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Kodak Ektar 100 film",
+   "short": "Ektar 100",
+   "tier": "typical",
+   "look": "Vivid reds and blues, crisp contrast, and exceptionally smooth color grain.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Kodak Ektachrome E100 film",
+   "short": "Ektachrome E100",
+   "tier": "typical",
+   "look": "Clean whites, cool blues, and crisp slide-film color with fine grain.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Kodachrome 64 film",
+   "short": "Kodachrome 64",
+   "tier": "plausible",
+   "look": "Rich reds and warm highlights sit against deep, dense shadows and strong color separation.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Fujifilm Velvia 50 film",
+   "short": "Velvia 50",
+   "tier": "plausible",
+   "look": "Intensely saturated greens, blues, and reds with deep shadows and punchy contrast.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Fujifilm Provia 100F film",
+   "short": "Provia 100F",
+   "tier": "plausible",
+   "look": "Balanced slide-film colors with clear midtones, crisp detail, and less saturation than Velvia.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Fujifilm Superia X-TRA 400 film",
+   "short": "Superia X-TRA 400",
+   "tier": "typical",
+   "look": "Lively greens and blues, slightly cool shadows, and noticeable consumer-film grain.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "CineStill 800T film",
+   "short": "CineStill 800T",
+   "tier": "typical",
+   "look": "Cool ambient colors, warm artificial lights, coarse grain, and red halos around bright highlights.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "CineStill 50D film",
+   "short": "CineStill 50D",
+   "tier": "plausible",
+   "look": "Fine-grained daylight color with soft highlights and warm red halation around overexposed edges.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Fujifilm Pro 400H film",
+   "short": "Pro 400H",
+   "tier": "plausible",
+   "look": "Airy pastel colors, cool green shadows, and gentle skin tones with soft contrast.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Kodak Ultramax 400 film",
+   "short": "Ultramax 400",
+   "tier": "typical",
+   "look": "Bold blue skies, warm skin, stronger snapshot contrast, and coarse color grain.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Kodak ColorPlus 200 film",
+   "short": "ColorPlus 200",
+   "tier": "plausible",
+   "look": "Warm, slightly muted everyday colors with grainy shadows and a modest amber cast.",
+   "tags": {
+    "kind": [
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Ilford HP5 Plus film",
+   "short": "HP5 Plus",
+   "tier": "typical",
+   "look": "Visible black-and-white grain with open shadows and soft, flexible midtones.",
+   "tags": {
+    "kind": [
+     "black_and_white_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Kodak Tri-X 400 film",
+   "short": "Tri-X 400",
+   "tier": "typical",
+   "look": "Gritty black-and-white grain, strong blacks, and punchy separation between light and shadow.",
+   "tags": {
+    "kind": [
+     "black_and_white_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Ilford Delta 3200 film",
+   "short": "Delta 3200",
+   "tier": "plausible",
+   "look": "Large, soft-edged monochrome grain and hazy low-light shadows with luminous highlights.",
+   "tags": {
+    "kind": [
+     "black_and_white_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Kodak T-Max 100 film",
+   "short": "T-Max 100",
+   "tier": "plausible",
+   "look": "Very fine monochrome grain, clean edges, and smooth gray gradients with precise detail.",
+   "tags": {
+    "kind": [
+     "black_and_white_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Ilford Pan F Plus film",
+   "short": "Pan F Plus",
+   "tier": "plausible",
+   "look": "Crisp fine-grained monochrome with bright whites, deep blacks, and strong local contrast.",
+   "tags": {
+    "kind": [
+     "black_and_white_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Ilford Ortho Plus film",
+   "short": "Ortho Plus",
+   "tier": "unusual",
+   "look": "Red lips and red fabrics turn unusually dark in a fine-grained black-and-white image.",
+   "tags": {
+    "kind": [
+     "black_and_white_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Polaroid color instant film",
+   "short": "Polaroid color",
+   "tier": "typical",
+   "look": "A soft square color image with creamy highlights, uneven chemistry, and a broad white lower border.",
+   "tags": {
+    "kind": [
+     "instant"
+    ],
+    "medium": [
+     "instant"
+    ]
+   }
+  },
+  {
+   "text": "Instax Mini instant film",
+   "short": "Instax Mini",
+   "tier": "typical",
+   "look": "A small upright print with a white border, cool crisp colors, and contrasty dark shadows.",
+   "tags": {
+    "kind": [
+     "instant"
+    ],
+    "medium": [
+     "instant"
+    ]
+   }
+  },
+  {
+   "text": "Polaroid black-and-white instant film",
+   "short": "Polaroid B&W",
+   "tier": "plausible",
+   "look": "A soft monochrome square with deep dark tones, silvery highlights, and a white instant-print border.",
+   "tags": {
+    "kind": [
+     "instant",
+     "black_and_white_film"
+    ],
+    "medium": [
+     "instant"
+    ]
+   }
+  },
+  {
+   "text": "an early-2000s digital compact camera",
+   "short": "2000s digital compact",
+   "tier": "plausible",
+   "look": "Small-sensor color, hard flash, clipped highlights, and crunchy detail in a compact-camera snapshot.",
+   "tags": {
+    "kind": [
+     "vintage_digital"
+    ],
+    "medium": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a first-generation digital camera",
+   "short": "1990s digital camera",
+   "tier": "unusual",
+   "look": "A tiny low-resolution image with blocky pixels, limited color, and jagged diagonal edges.",
+   "tags": {
+    "kind": [
+     "vintage_digital"
+    ],
+    "medium": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "an early camera phone",
+   "short": "early camera phone",
+   "tier": "plausible",
+   "look": "Muddy colors, smeared detail, blown highlights, and heavy compression in a small phone image.",
+   "tags": {
+    "kind": [
+     "vintage_digital"
+    ],
+    "medium": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a low-resolution webcam",
+   "short": "webcam",
+   "tier": "plausible",
+   "look": "Soft low-resolution detail, indoor color casts, and blotchy noise in flat front-facing video.",
+   "tags": {
+    "kind": [
+     "vintage_digital"
+    ],
+    "medium": [
+     "digital",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "a CCTV camera",
+   "short": "CCTV still",
+   "tier": "unusual",
+   "look": "A high-corner surveillance view with washed-out color, coarse noise, and a timestamp overlay.",
+   "tags": {
+    "kind": [
+     "vintage_digital"
+    ],
+    "medium": [
+     "digital",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "a DSLR with direct flash",
+   "short": "DSLR direct flash",
+   "tier": "typical",
+   "look": "Sharp digital detail with bright frontal flash, hard shadows, and a darker background.",
+   "tags": {
+    "kind": [
+     "modern_digital"
+    ],
+    "medium": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a mirrorless digital camera",
+   "short": "mirrorless digital",
+   "tier": "typical",
+   "look": "A clean high-resolution color image with crisp edges, smooth gradients, and little visible grain.",
+   "tags": {
+    "kind": [
+     "modern_digital"
+    ],
+    "medium": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a phone camera with computational HDR",
+   "short": "phone camera HDR",
+   "tier": "typical",
+   "look": "Brightened shadows, retained sky detail, strong local contrast, and heavily sharpened fine edges.",
+   "tags": {
+    "kind": [
+     "modern_digital"
+    ],
+    "medium": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a 360 camera",
+   "short": "360 camera",
+   "tier": "plausible",
+   "look": "An all-around equirectangular panorama with severe stretching near the top and bottom.",
+   "tags": {
+    "kind": [
+     "modern_digital",
+     "special"
+    ],
+    "medium": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a monochrome digital camera",
+   "short": "monochrome digital",
+   "tier": "plausible",
+   "look": "A crisp black-and-white image with clean shadow detail, smooth grays, and no film grain.",
+   "tags": {
+    "kind": [
+     "modern_digital"
+    ],
+    "medium": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "an action camera",
+   "short": "action camera",
+   "tier": "plausible",
+   "look": "A very wide view with bowed edges, deep focus, and strongly sharpened digital detail.",
+   "tags": {
+    "kind": [
+     "modern_digital"
+    ],
+    "medium": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "Super 8 film",
+   "short": "Super 8 film still",
+   "tier": "plausible",
+   "look": "Chunky moving-picture grain, soft detail, uneven exposure, and rounded film-gate corners.",
+   "tags": {
+    "kind": [
+     "motion_picture"
+    ],
+    "medium": [
+     "film",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "16mm film",
+   "tier": "plausible",
+   "look": "Visible cinema grain and gently soft detail with a more defined image than Super 8.",
+   "tags": {
+    "kind": [
+     "motion_picture"
+    ],
+    "medium": [
+     "film",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "35mm cinema film",
+   "short": "35mm cinema film",
+   "tier": "typical",
+   "look": "Fine moving-picture grain, rich shadow detail, and smooth cinematic highlight transitions.",
+   "tags": {
+    "kind": [
+     "motion_picture"
+    ],
+    "medium": [
+     "film",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "65mm cinema film",
+   "short": "65mm cinema film",
+   "tier": "plausible",
+   "look": "A broad cinematic image with exceptionally fine grain and detailed distant scenery.",
+   "tags": {
+    "kind": [
+     "motion_picture"
+    ],
+    "medium": [
+     "film",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "three-strip Technicolor film",
+   "short": "three-strip Technicolor",
+   "tier": "plausible",
+   "look": "Dense jewel-like reds, greens, and blues with rich blacks and sharply separated colors.",
+   "tags": {
+    "kind": [
+     "motion_picture"
+    ],
+    "medium": [
+     "film",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "a VHS camcorder",
+   "short": "VHS camcorder still",
+   "tier": "plausible",
+   "look": "Soft analog video with bleeding colors, horizontal tracking noise, and interlaced edges.",
+   "tags": {
+    "kind": [
+     "motion_picture"
+    ],
+    "medium": [
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "a MiniDV camcorder",
+   "short": "MiniDV still",
+   "tier": "plausible",
+   "look": "Sharper standard-definition video with interlaced motion edges, clipped whites, and blocky compression.",
+   "tags": {
+    "kind": [
+     "motion_picture"
+    ],
+    "medium": [
+     "digital",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "silent-era black-and-white cinema film",
+   "short": "silent film still",
+   "tier": "unusual",
+   "look": "A grainy monochrome frame with deep shadows, bright faces, scratches, and uneven exposure.",
+   "tags": {
+    "kind": [
+     "motion_picture",
+     "black_and_white_film"
+    ],
+    "medium": [
+     "film",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "Kodak VISION3 500T cinema film",
+   "short": "VISION3 500T",
+   "tier": "plausible",
+   "look": "Textured low-light cinema grain, neutral tungsten-lit skin, and cool daylight with restrained halation.",
+   "tags": {
+    "kind": [
+     "motion_picture",
+     "color_film"
+    ],
+    "medium": [
+     "film",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "Kodak VISION3 50D cinema film",
+   "short": "VISION3 50D",
+   "tier": "plausible",
+   "look": "Very fine daylight cinema grain, natural color, and long, smooth highlight transitions.",
+   "tags": {
+    "kind": [
+     "motion_picture",
+     "color_film"
+    ],
+    "medium": [
+     "film",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "Kodak Double-X 5222 cinema film",
+   "short": "Double-X 5222",
+   "tier": "plausible",
+   "look": "Bold monochrome cinema texture with dense blacks, bright highlights, and pronounced grain.",
+   "tags": {
+    "kind": [
+     "motion_picture",
+     "black_and_white_film"
+    ],
+    "medium": [
+     "film",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "a daguerreotype plate",
+   "short": "daguerreotype",
+   "tier": "unusual",
+   "look": "An extremely detailed silver-gray image on a reflective metal surface, often with tarnished edges.",
+   "tags": {
+    "kind": [
+     "historical_process"
+    ],
+    "medium": [
+     "historical"
+    ]
+   }
+  },
+  {
+   "text": "a tintype plate",
+   "short": "tintype",
+   "tier": "unusual",
+   "look": "A dark gray-brown image on metal with pale highlights, scuffs, and irregular plate edges.",
+   "tags": {
+    "kind": [
+     "historical_process"
+    ],
+    "medium": [
+     "historical"
+    ]
+   }
+  },
+  {
+   "text": "a wet-plate collodion glass negative",
+   "short": "wet-plate collodion",
+   "tier": "unusual",
+   "look": "Creamy monochrome tones, dark red objects, fine central detail, and streaks or pooling at the plate edges.",
+   "tags": {
+    "kind": [
+     "historical_process"
+    ],
+    "medium": [
+     "historical"
+    ]
+   }
+  },
+  {
+   "text": "cyanotype paper",
+   "short": "cyanotype",
+   "tier": "unusual",
+   "look": "White and pale-blue forms appear against deep Prussian blue on textured paper.",
+   "tags": {
+    "kind": [
+     "historical_process"
+    ],
+    "medium": [
+     "historical"
+    ]
+   }
+  },
+  {
+   "text": "albumen photographic paper",
+   "short": "albumen print",
+   "tier": "unusual",
+   "look": "Warm brown-purple shadows, creamy highlights, and a slightly glossy paper surface with fine cracks.",
+   "tags": {
+    "kind": [
+     "historical_process"
+    ],
+    "medium": [
+     "historical"
+    ]
+   }
+  },
+  {
+   "text": "an autochrome plate",
+   "short": "autochrome",
+   "tier": "unusual",
+   "look": "Soft translucent color with a fine colored mosaic texture and subdued greens, pinks, and golds.",
+   "tags": {
+    "kind": [
+     "historical_process"
+    ],
+    "medium": [
+     "historical"
+    ]
+   }
+  },
+  {
+   "text": "a hand-tinted photographic print",
+   "short": "hand-tinted photograph",
+   "tier": "unusual",
+   "look": "Transparent patches of pink, blue, and yellow tint a monochrome photograph, leaving gray detail visible.",
+   "tags": {
+    "kind": [
+     "historical_process"
+    ],
+    "medium": [
+     "historical"
+    ]
+   }
+  },
+  {
+   "text": "platinum photographic paper",
+   "short": "platinum print",
+   "tier": "unusual",
+   "look": "A matte monochrome image with deep charcoal tones and long, delicate gray transitions in the paper fibers.",
+   "tags": {
+    "kind": [
+     "historical_process"
+    ],
+    "medium": [
+     "historical"
+    ]
+   }
+  },
+  {
+   "text": "salted photographic paper",
+   "short": "salted paper print",
+   "tier": "unusual",
+   "look": "A soft warm-brown image sinks into matte paper fibers, with muted highlights and low contrast.",
+   "tags": {
+    "kind": [
+     "historical_process"
+    ],
+    "medium": [
+     "historical"
+    ]
+   }
+  },
+  {
+   "text": "gum bichromate paper",
+   "short": "gum bichromate print",
+   "tier": "unusual",
+   "look": "Soft photographic forms dissolve into brushy pigment, layered colors, and rough paper texture.",
+   "tags": {
+    "kind": [
+     "historical_process"
+    ],
+    "medium": [
+     "historical"
+    ]
+   }
+  },
+  {
+   "text": "photogravure paper",
+   "short": "photogravure",
+   "tier": "unusual",
+   "look": "Rich ink blacks and fine etched texture on matte paper, often bounded by a pressed plate mark.",
+   "tags": {
+    "kind": [
+     "historical_process"
+    ],
+    "medium": [
+     "historical"
+    ]
+   }
+  },
+  {
+   "text": "35mm film",
+   "tier": "typical",
+   "look": "Visible fine grain and familiar rectangular snapshot proportions, with slight softness in small details.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "6×7 medium-format film",
+   "short": "6×7 medium format",
+   "tier": "typical",
+   "look": "A nearly square rectangular film frame with smooth tonal transitions, fine texture, and restrained grain.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Hasselblad square medium-format film",
+   "short": "Hasselblad square",
+   "tier": "plausible",
+   "look": "A square film frame with detailed textures, smooth gradations, and fine, restrained grain.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "a large-format view camera",
+   "short": "large-format view camera",
+   "tier": "plausible",
+   "look": "An exceptionally detailed sheet-film image with precise textures and smooth, finely separated tones.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "a disposable camera with flash",
+   "short": "disposable flash camera",
+   "tier": "typical",
+   "look": "Grainy color, hard frontal flash, dark backgrounds, and slightly soft corners in a casual snapshot.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "a Lomography toy camera",
+   "short": "Lomography toy camera",
+   "tier": "plausible",
+   "look": "A punchy rectangular snapshot with saturated colors, dark corners, and uneven exposure.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "a Holga toy camera",
+   "short": "Holga",
+   "tier": "plausible",
+   "look": "A soft square film image with heavy vignetting, uneven sharpness, and stray edge light leaks.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "half-frame 35mm film",
+   "short": "half-frame film",
+   "tier": "plausible",
+   "look": "Two small upright snapshots sit side by side with enlarged grain and a narrow divider between frames.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "a thermal camera",
+   "short": "thermal camera",
+   "tier": "unusual",
+   "look": "Heat becomes false color, with hot areas glowing yellow or white against cooler purple and blue shapes.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "black-and-white infrared film",
+   "short": "infrared B&W film",
+   "tier": "unusual",
+   "look": "Leaves and grass turn luminous white beneath dark skies, with pale skin and glowing highlights.",
+   "tags": {
+    "kind": [
+     "special",
+     "black_and_white_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Kodak Aerochrome infrared film",
+   "short": "Aerochrome infrared",
+   "tier": "unusual",
+   "look": "Green foliage becomes vivid crimson or pink while skies and other surfaces shift toward cyan and blue.",
+   "tags": {
+    "kind": [
+     "special",
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "a night-vision camera",
+   "short": "night vision",
+   "tier": "unusual",
+   "look": "A grainy green monochrome view with bright eyes, blooming lights, and dark, noisy surroundings.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "digital",
+     "video"
+    ]
+   }
+  },
+  {
+   "text": "X-ray film",
+   "tier": "unusual",
+   "look": "Dense internal structures appear pale against a dark field while outer surfaces become translucent.",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Lomography Redscale film",
+   "short": "Redscale film",
+   "tier": "unusual",
+   "look": "The image is dominated by amber, orange, and deep red, with muted blues and heavy warm shadows.",
+   "tags": {
+    "kind": [
+     "special",
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "Lomography LomoChrome Purple film",
+   "short": "LomoChrome Purple",
+   "tier": "unusual",
+   "look": "Green foliage shifts to purple and lilac while skin stays relatively recognizable and skies turn cyan.",
+   "tags": {
+    "kind": [
+     "special",
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "cross-processed slide film",
+   "short": "cross-processed film",
+   "tier": "plausible",
+   "look": "Strong contrast and unnatural green shadows combine with yellow highlights and exaggerated color shifts.",
+   "tags": {
+    "kind": [
+     "special",
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  },
+  {
+   "text": "expired color negative film",
+   "short": "expired color film",
+   "tier": "unusual",
+   "look": "Faded contrast, color casts, fogged shadows, and irregular patches of mottled grain affect the image.",
+   "tags": {
+    "kind": [
+     "special",
+     "color_film"
+    ],
+    "medium": [
+     "film"
+    ]
+   }
+  }
+ ]
 }

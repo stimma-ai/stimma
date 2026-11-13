@@ -1,0 +1,805 @@
+{
+ "id": "clothing.footwear",
+ "label": "Footwear",
+ "description": "Named shoes, boots, sandals, slippers and traditional footwear, grouped by construction and use.",
+ "pos": "noun phrase",
+ "frame": "wearing ___",
+ "notes": "One footwear type per value belongs here, including everyday shoes, formal shoes, traditional forms and recognizable dance shoes. Complete looks belong in the person.outfit lists; other clothing accessories belong in person.accessory and hats in clothing.headwear. Values use natural plural footwear names after wearing, without a specified color or brand. Named subtypes replace vague parent categories when their construction gives a more useful visual distinction, and traditional forms carry no descent tags.",
+ "closed": false,
+ "facets": [
+  "presentation"
+ ],
+ "local_facets": {
+  "kind": [
+   "sneakers",
+   "flats",
+   "heels",
+   "boots",
+   "sandals",
+   "dress_shoes",
+   "traditional",
+   "house",
+   "dance"
+  ]
+ },
+ "values": [
+  {
+   "text": "canvas low-top sneakers",
+   "short": "canvas low-tops",
+   "tier": "typical",
+   "look": "low canvas lace-up shoes with rubber toe caps and flat rubber soles",
+   "tags": {
+    "kind": [
+     "sneakers"
+    ]
+   }
+  },
+  {
+   "text": "canvas high-top sneakers",
+   "short": "canvas high-tops",
+   "tier": "typical",
+   "look": "canvas lace-up shoes rising above the ankles with rubber toe caps and flat soles",
+   "tags": {
+    "kind": [
+     "sneakers"
+    ]
+   }
+  },
+  {
+   "text": "slip-on sneakers",
+   "tier": "typical",
+   "look": "low laceless shoes with elastic side inserts and flat rubber soles",
+   "tags": {
+    "kind": [
+     "sneakers"
+    ]
+   }
+  },
+  {
+   "text": "running shoes",
+   "tier": "typical",
+   "look": "mesh athletic shoes with curved, cushioned soles and layered supportive uppers",
+   "tags": {
+    "kind": [
+     "sneakers"
+    ]
+   }
+  },
+  {
+   "text": "trail running shoes",
+   "tier": "plausible",
+   "look": "low athletic shoes with reinforced toes, protective overlays and deeply lugged soles",
+   "tags": {
+    "kind": [
+     "sneakers"
+    ]
+   }
+  },
+  {
+   "text": "court sneakers",
+   "tier": "plausible",
+   "look": "low leather athletic shoes with broad flat cup soles and perforated toe panels",
+   "tags": {
+    "kind": [
+     "sneakers"
+    ]
+   }
+  },
+  {
+   "text": "skate shoes",
+   "tier": "plausible",
+   "look": "wide, low suede sneakers with thick padded tongues and flat grippy soles",
+   "tags": {
+    "kind": [
+     "sneakers"
+    ]
+   }
+  },
+  {
+   "text": "platform sneakers",
+   "tier": "plausible",
+   "look": "casual lace-up shoes lifted on thick, flat platform soles",
+   "tags": {
+    "kind": [
+     "sneakers"
+    ]
+   }
+  },
+  {
+   "text": "ballet flats",
+   "tier": "typical",
+   "look": "low slip-on shoes with rounded toes, shallow uppers and tiny bows",
+   "tags": {
+    "kind": [
+     "flats"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "Mary Janes",
+   "tier": "typical",
+   "look": "closed-toe low shoes with a single buckled strap crossing the instep",
+   "tags": {
+    "kind": [
+     "flats"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "d'Orsay flats",
+   "tier": "plausible",
+   "look": "flat shoes with closed toes and heel cups but deep open cutouts along the sides",
+   "tags": {
+    "kind": [
+     "flats"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "T-strap flats",
+   "tier": "plausible",
+   "look": "low closed-toe shoes with a central strap joining an ankle strap in a T shape",
+   "tags": {
+    "kind": [
+     "flats"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "moccasins",
+   "tier": "plausible",
+   "look": "soft leather shoes with gathered toe seams and little separation between the sole and upper",
+   "tags": {
+    "kind": [
+     "flats",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "flat espadrilles",
+   "tier": "typical",
+   "look": "canvas slip-on shoes with flat braided-rope soles",
+   "tags": {
+    "kind": [
+     "flats"
+    ]
+   }
+  },
+  {
+   "text": "Venetian loafers",
+   "tier": "plausible",
+   "look": "sleek slip-on leather shoes with plain, uninterrupted vamps and low stacked heels",
+   "tags": {
+    "kind": [
+     "flats",
+     "dress_shoes"
+    ]
+   }
+  },
+  {
+   "text": "penny loafers",
+   "tier": "typical",
+   "look": "slip-on leather shoes with apron seams and slotted leather bands across the instep",
+   "tags": {
+    "kind": [
+     "flats",
+     "dress_shoes"
+    ]
+   }
+  },
+  {
+   "text": "tassel loafers",
+   "tier": "plausible",
+   "look": "slip-on leather shoes with small dangling tassels across the instep",
+   "tags": {
+    "kind": [
+     "flats",
+     "dress_shoes"
+    ]
+   }
+  },
+  {
+   "text": "boat shoes",
+   "tier": "typical",
+   "look": "low leather deck shoes with apron toes, side lacing and thin siped rubber soles",
+   "tags": {
+    "kind": [
+     "flats"
+    ]
+   }
+  },
+  {
+   "text": "stiletto pumps",
+   "tier": "typical",
+   "look": "closed-toe low-cut shoes balanced on tall, very thin heels",
+   "tags": {
+    "kind": [
+     "heels"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "kitten-heel pumps",
+   "tier": "plausible",
+   "look": "low-cut closed-toe shoes on short, slender curved heels",
+   "tags": {
+    "kind": [
+     "heels"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "block-heel pumps",
+   "tier": "typical",
+   "look": "closed-toe low-cut shoes with broad, squared heels",
+   "tags": {
+    "kind": [
+     "heels"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "platform pumps",
+   "tier": "plausible",
+   "look": "closed-toe shoes with thick forefoot platforms and tall heels",
+   "tags": {
+    "kind": [
+     "heels"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "wedge espadrilles",
+   "tier": "plausible",
+   "look": "canvas shoes lifted on sloping rope-wrapped wedge soles, often tied at the ankles",
+   "tags": {
+    "kind": [
+     "heels",
+     "sandals"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "slingback pumps",
+   "tier": "typical",
+   "look": "low-cut heeled shoes with open heels held by narrow straps around the back",
+   "tags": {
+    "kind": [
+     "heels"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "peep-toe pumps",
+   "tier": "plausible",
+   "look": "heeled shoes with enclosed sides and a small opening showing the tips of the toes",
+   "tags": {
+    "kind": [
+     "heels"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "heeled mules",
+   "tier": "plausible",
+   "look": "backless heeled shoes with broad uppers covering the front of the foot",
+   "tags": {
+    "kind": [
+     "heels"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "lace-up heels",
+   "tier": "plausible",
+   "look": "open heeled shoes with long thin laces winding around the ankles and lower legs",
+   "tags": {
+    "kind": [
+     "heels",
+     "sandals"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "ankle-strap heels",
+   "tier": "typical",
+   "look": "open-toe heeled shoes with a slim toe band and a buckled strap around each ankle",
+   "tags": {
+    "kind": [
+     "heels",
+     "sandals"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "Chelsea boots",
+   "tier": "typical",
+   "look": "ankle boots with smooth rounded toes, elastic side panels and rear pull tabs",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "combat boots",
+   "tier": "typical",
+   "look": "sturdy mid-calf lace-up boots with heavy soles, reinforced toes and rows of eyelets",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "cowboy boots",
+   "tier": "typical",
+   "look": "pull-on boots with pointed toes, angled heels, scalloped tops and stitched shafts",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "platform boots",
+   "tier": "plausible",
+   "look": "boots raised on very thick forefoot platforms and chunky heels",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "knee-high riding boots",
+   "short": "riding boots",
+   "tier": "plausible",
+   "look": "smooth knee-high leather boots with low heels, rounded toes and slim shafts",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "thigh-high boots",
+   "tier": "plausible",
+   "look": "close-fitting boots with shafts extending above the knees to the thighs",
+   "tags": {
+    "kind": [
+     "boots"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "zippered ankle boots",
+   "tier": "typical",
+   "look": "short leather boots with side zippers, tapered toes and medium block heels",
+   "tags": {
+    "kind": [
+     "boots"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "hiking boots",
+   "tier": "typical",
+   "look": "ankle-height lace-up boots with thick lugged soles, padded collars and metal lace hooks",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "work boots",
+   "tier": "typical",
+   "look": "sturdy leather lace-up boots with broad reinforced toes, thick soles and padded collars",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "engineer boots",
+   "tier": "plausible",
+   "look": "heavy pull-on leather boots with buckled straps across the insteps and near the tops",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "duck boots",
+   "tier": "plausible",
+   "look": "lace-up boots with molded rubber lower sections joined to leather shafts",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "rubber rain boots",
+   "tier": "typical",
+   "look": "tall waterproof pull-on boots with smooth rubber shafts and rounded toes",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "snow boots",
+   "tier": "plausible",
+   "look": "bulky insulated boots with thick rubber soles, padded shafts and drawstring or laced closures",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "sheepskin boots",
+   "tier": "plausible",
+   "look": "soft pull-on suede boots with thick wool lining and broad, flat soles",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "desert boots",
+   "tier": "plausible",
+   "look": "ankle-height suede boots with two or three pairs of lace holes and soft crepe soles",
+   "tags": {
+    "kind": [
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "heeled sock boots",
+   "tier": "plausible",
+   "look": "stretch-knit ankle boots fitted closely like socks above narrow heels",
+   "tags": {
+    "kind": [
+     "boots",
+     "heels"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "flip-flops",
+   "tier": "typical",
+   "look": "flat open sandals with Y-shaped straps passing between the first two toes",
+   "tags": {
+    "kind": [
+     "sandals"
+    ]
+   }
+  },
+  {
+   "text": "slide sandals",
+   "tier": "typical",
+   "look": "backless flat sandals with one broad strap over the top of the foot",
+   "tags": {
+    "kind": [
+     "sandals"
+    ]
+   }
+  },
+  {
+   "text": "gladiator sandals",
+   "tier": "plausible",
+   "look": "flat sandals with many narrow straps crossing the foot and climbing around the ankle",
+   "tags": {
+    "kind": [
+     "sandals"
+    ]
+   }
+  },
+  {
+   "text": "sport sandals",
+   "tier": "plausible",
+   "look": "open shoes with thick treaded soles and adjustable webbing straps at the toes, ankles and heels",
+   "tags": {
+    "kind": [
+     "sandals"
+    ]
+   }
+  },
+  {
+   "text": "fisherman sandals",
+   "tier": "plausible",
+   "look": "closed-toe sandals with interwoven leather straps and buckled ankle straps",
+   "tags": {
+    "kind": [
+     "sandals"
+    ]
+   }
+  },
+  {
+   "text": "huaraches",
+   "tier": "plausible",
+   "look": "flat sandals with densely woven leather strips forming airy uppers",
+   "tags": {
+    "kind": [
+     "sandals",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "wooden-soled clogs",
+   "tier": "plausible",
+   "look": "backless shoes with rounded closed toes, rigid wooden soles and low block heels",
+   "tags": {
+    "kind": [
+     "flats"
+    ]
+   }
+  },
+  {
+   "text": "flat mules",
+   "tier": "plausible",
+   "look": "backless flat shoes with closed toes and smooth uppers covering the instep",
+   "tags": {
+    "kind": [
+     "flats"
+    ]
+   }
+  },
+  {
+   "text": "Oxford shoes",
+   "tier": "plausible",
+   "look": "low leather shoes with closed lacing panels stitched beneath the front uppers",
+   "tags": {
+    "kind": [
+     "dress_shoes"
+    ]
+   }
+  },
+  {
+   "text": "Derby shoes",
+   "tier": "plausible",
+   "look": "low leather shoes with open lacing flaps sewn on top of the front uppers",
+   "tags": {
+    "kind": [
+     "dress_shoes"
+    ]
+   }
+  },
+  {
+   "text": "wingtip brogues",
+   "tier": "plausible",
+   "look": "leather lace-up shoes with W-shaped toe overlays and decorative perforations",
+   "tags": {
+    "kind": [
+     "dress_shoes"
+    ]
+   }
+  },
+  {
+   "text": "double-monk shoes",
+   "tier": "plausible",
+   "look": "low leather shoes fastening with two side buckles instead of laces",
+   "tags": {
+    "kind": [
+     "dress_shoes"
+    ]
+   }
+  },
+  {
+   "text": "saddle shoes",
+   "tier": "plausible",
+   "look": "low lace-up shoes with a contrasting saddle-shaped panel across the instep",
+   "tags": {
+    "kind": [
+     "dress_shoes"
+    ]
+   }
+  },
+  {
+   "text": "opera pumps",
+   "tier": "unusual",
+   "look": "low-cut formal slippers with glossy leather uppers, flat heels and broad ribbon bows",
+   "tags": {
+    "kind": [
+     "dress_shoes",
+     "flats"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "ghillie brogues",
+   "tier": "unusual",
+   "look": "perforated leather shoes without tongues, laced through loops and tied around the ankles",
+   "tags": {
+    "kind": [
+     "dress_shoes",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "geta sandals",
+   "tier": "plausible",
+   "look": "wooden platform sandals raised on two transverse blocks with fabric thong straps",
+   "tags": {
+    "kind": [
+     "traditional",
+     "sandals"
+    ]
+   }
+  },
+  {
+   "text": "zori sandals",
+   "tier": "plausible",
+   "look": "flat thong sandals with broad fabric straps and oval layered soles",
+   "tags": {
+    "kind": [
+     "traditional",
+     "sandals"
+    ]
+   }
+  },
+  {
+   "text": "mojaris",
+   "tier": "plausible",
+   "look": "close-fitting leather slip-ons with embroidered uppers and pointed, often curled toes",
+   "tags": {
+    "kind": [
+     "traditional",
+     "flats"
+    ]
+   }
+  },
+  {
+   "text": "babouche slippers",
+   "tier": "plausible",
+   "look": "soft leather slippers with sharply pointed toes and flattened open backs",
+   "tags": {
+    "kind": [
+     "traditional",
+     "flats"
+    ]
+   }
+  },
+  {
+   "text": "klompen",
+   "tier": "plausible",
+   "look": "rigid shoes carved from wood with enclosed rounded toes and thick raised soles",
+   "tags": {
+    "kind": [
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "jika-tabi boots",
+   "tier": "unusual",
+   "look": "close-fitting fabric work boots with rubber soles and a separate compartment for the big toe",
+   "tags": {
+    "kind": [
+     "traditional",
+     "boots"
+    ]
+   }
+  },
+  {
+   "text": "paduka sandals",
+   "tier": "unusual",
+   "look": "flat wooden soles held to the feet by upright knobs gripped between the first two toes",
+   "tags": {
+    "kind": [
+     "traditional",
+     "sandals"
+    ]
+   }
+  },
+  {
+   "text": "pointe shoes",
+   "tier": "plausible",
+   "look": "satin ballet shoes with stiff flattened toe boxes and ribbons wrapping around the ankles",
+   "tags": {
+    "kind": [
+     "dance"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "tap shoes",
+   "tier": "plausible",
+   "look": "low lace-up or strapped dance shoes with metal plates under the toes and heels",
+   "tags": {
+    "kind": [
+     "dance",
+     "dress_shoes"
+    ]
+   }
+  },
+  {
+   "text": "closed-back slippers",
+   "tier": "typical",
+   "look": "soft indoor shoes enclosing the toes and heels with padded fabric uppers",
+   "tags": {
+    "kind": [
+     "house"
+    ]
+   }
+  },
+  {
+   "text": "slipper boots",
+   "tier": "plausible",
+   "look": "soft padded indoor boots covering the ankles with flexible soles and plush lining",
+   "tags": {
+    "kind": [
+     "house"
+    ]
+   }
+  }
+ ]
+}

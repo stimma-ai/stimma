@@ -1,0 +1,977 @@
+{
+ "id": "plant.tree",
+ "label": "Trees",
+ "description": "Named trees and distinctive tree-form plants, including palms, cacti, conifers and flowering trees.",
+ "pos": "noun phrase",
+ "frame": "___",
+ "notes": "Whole-tree identities and distinctive silhouettes belong here, including palms, tree ferns and tree-form cacti. plant.flower holds blossoms as the subject, while plant.houseplant holds indoor specimens and bonsai. Values are singular names with their own a or an, adding tree only where that is natural English. Kind chips overlap; ancient_iconic highlights monumental or especially recognizable forms rather than claiming that every specimen is ancient. Spanish moss is explicit in the live-oak entry rather than assumed for all oaks.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "broadleaf",
+   "conifer",
+   "palm_cactus",
+   "flowering",
+   "tropical",
+   "ancient_iconic"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "an English oak",
+   "short": "English oak",
+   "tier": "typical",
+   "look": "a broad spreading crown of lobed leaves above a thick deeply ridged trunk",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "a live oak with Spanish moss",
+   "short": "moss-draped live oak",
+   "tier": "typical",
+   "look": "a low massive oak with long horizontal limbs draped in hanging gray Spanish moss",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a cork oak",
+   "short": "cork oak",
+   "tier": "plausible",
+   "look": "a spreading evergreen oak with thick deeply furrowed corky bark, often exposing reddish stripped sections",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "a silver birch",
+   "short": "silver birch",
+   "tier": "typical",
+   "look": "slender white trunks with dark fissures, fine drooping twigs and small triangular leaves",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "a quaking aspen",
+   "short": "quaking aspen",
+   "tier": "typical",
+   "look": "smooth pale trunks marked with dark eyes beneath rounded leaves on thin flexible stems",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "an American elm",
+   "short": "American elm",
+   "tier": "typical",
+   "look": "a tall vase-shaped crown formed by upright limbs that arch outward at the tips",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "an American beech",
+   "short": "American beech",
+   "tier": "typical",
+   "look": "a broad rounded canopy above smooth pale gray bark and a sturdy straight trunk",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "a horse chestnut",
+   "short": "horse chestnut",
+   "tier": "plausible",
+   "look": "a dense rounded crown with large fanlike compound leaves and upright white flower candles",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a sweetgum",
+   "short": "sweetgum",
+   "tier": "plausible",
+   "look": "a tall pointed crown with star-shaped leaves and dangling spiky round seed balls",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "an American sycamore",
+   "short": "American sycamore",
+   "tier": "plausible",
+   "look": "a massive broad-crowned tree with peeling white, tan and green patchwork bark",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "a weeping willow",
+   "short": "weeping willow",
+   "tier": "typical",
+   "look": "a broad canopy of long flexible branches hanging in curtains nearly to the ground",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "an olive tree",
+   "short": "olive tree",
+   "tier": "typical",
+   "look": "a gnarled twisted trunk beneath a loose crown of narrow silvery gray-green leaves",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a ginkgo tree",
+   "short": "ginkgo tree",
+   "tier": "typical",
+   "look": "fan-shaped leaves on irregular branching limbs, often forming a vivid gold crown in fall",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a Japanese maple",
+   "short": "Japanese maple",
+   "tier": "typical",
+   "look": "a small layered tree with finely lobed leaves and delicately spreading horizontal branches",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "a sugar maple",
+   "short": "sugar maple",
+   "tier": "typical",
+   "look": "a tall rounded tree with broad five-lobed leaves that turn orange, red and yellow",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "an American tulip tree",
+   "short": "American tulip tree",
+   "tier": "plausible",
+   "look": "a tall straight trunk with squared-off four-lobed leaves and green-orange cup-shaped flowers",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a catalpa tree",
+   "short": "catalpa tree",
+   "tier": "plausible",
+   "look": "a broad tree with huge heart-shaped leaves, white trumpet flowers and long thin seed pods",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a European linden",
+   "short": "European linden",
+   "tier": "plausible",
+   "look": "a dense heart-shaped crown with heart-shaped leaves and hanging pale bracted flower clusters",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "a black locust",
+   "short": "black locust",
+   "tier": "plausible",
+   "look": "deeply furrowed bark, airy compound leaves and hanging clusters of white pea-shaped flowers",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a sassafras tree",
+   "short": "sassafras tree",
+   "tier": "plausible",
+   "look": "an open rounded crown bearing oval, mitten-shaped and three-lobed leaves on the same branches",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "a white mulberry tree",
+   "short": "white mulberry tree",
+   "tier": "plausible",
+   "look": "a low spreading crown of glossy variably lobed leaves with small clustered blackberry-like fruit",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "a fig tree",
+   "short": "fig tree",
+   "tier": "plausible",
+   "look": "a spreading low-branched tree with smooth gray limbs, large lobed leaves and pear-shaped figs",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "an apple tree",
+   "short": "apple tree",
+   "tier": "typical",
+   "look": "a small round-crowned tree with crooked branches, pink-white blossoms and round fruit",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a lemon tree",
+   "short": "lemon tree",
+   "tier": "typical",
+   "look": "a compact evergreen tree with glossy leaves, white blossoms and oval yellow fruit",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "an orange tree",
+   "short": "orange tree",
+   "tier": "plausible",
+   "look": "a dense rounded evergreen crown with glossy leaves and bright round orange fruit",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a mango tree",
+   "short": "mango tree",
+   "tier": "plausible",
+   "look": "a dense spreading evergreen crown with long glossy leaves and hanging oval fruit",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a breadfruit tree",
+   "short": "breadfruit tree",
+   "tier": "plausible",
+   "look": "a broad tropical crown with huge deeply lobed leaves and round knobbly green fruit",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a jackfruit tree",
+   "short": "jackfruit tree",
+   "tier": "unusual",
+   "look": "a dense evergreen tree with enormous rough green fruit growing directly from the trunk and major limbs",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a baobab",
+   "short": "baobab",
+   "tier": "plausible",
+   "look": "an enormously swollen smooth trunk topped by a sparse crown of thick rootlike branches",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "tropical",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a banyan tree",
+   "short": "banyan tree",
+   "tier": "plausible",
+   "look": "an immense spreading crown supported by many dangling aerial roots that thicken into trunks",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "tropical",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a dragon blood tree",
+   "short": "dragon blood tree",
+   "tier": "unusual",
+   "look": "a thick trunk branching into a dense umbrella-shaped crown of stiff pointed leaf rosettes",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a giant sequoia",
+   "short": "giant sequoia",
+   "tier": "typical",
+   "look": "an immense tapering reddish trunk with a flared base and a high rounded conifer crown",
+   "tags": {
+    "kind": [
+     "conifer",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a coast redwood",
+   "short": "coast redwood",
+   "tier": "typical",
+   "look": "an exceptionally tall straight reddish trunk with a narrow evergreen crown far overhead",
+   "tags": {
+    "kind": [
+     "conifer",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a bristlecone pine",
+   "short": "bristlecone pine",
+   "tier": "plausible",
+   "look": "a twisted weathered trunk with exposed pale deadwood and sparse tufts of short needles",
+   "tags": {
+    "kind": [
+     "conifer",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a monkey puzzle tree",
+   "short": "monkey puzzle tree",
+   "tier": "plausible",
+   "look": "a straight trunk with tiers of stiff curved branches densely armored in triangular leaves",
+   "tags": {
+    "kind": [
+     "conifer",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a Joshua tree",
+   "short": "Joshua tree",
+   "tier": "plausible",
+   "look": "a rough trunk forking into crooked branches tipped with dense spiky leaf tufts",
+   "tags": {
+    "kind": [
+     "palm_cactus",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a saguaro cactus",
+   "short": "saguaro cactus",
+   "tier": "plausible",
+   "look": "a tall ribbed green column with upward-curving arms and rows of spines",
+   "tags": {
+    "kind": [
+     "palm_cactus",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a rainbow eucalyptus",
+   "short": "rainbow eucalyptus",
+   "tier": "unusual",
+   "look": "a tall smooth trunk shedding bark in vivid streaks of green, orange, purple and rust",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "tropical",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a kapok tree",
+   "short": "kapok tree",
+   "tier": "plausible",
+   "look": "a huge straight tropical trunk with broad buttress roots and a high spreading canopy",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "tropical",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a strangler fig",
+   "short": "strangler fig",
+   "tier": "unusual",
+   "look": "a lattice of fused roots and trunks wrapped around a hollow central space or host tree",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "tropical",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a Madagascar ocotillo",
+   "short": "Madagascar ocotillo",
+   "tier": "unusual",
+   "look": "tall thin gray spiny stems lined with rows of small round green leaves",
+   "tags": {
+    "kind": [
+     "palm_cactus",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a Wollemi pine",
+   "short": "Wollemi pine",
+   "tier": "unusual",
+   "look": "a narrow conifer with bubbly bark and flat rows of broad leathery green needles",
+   "tags": {
+    "kind": [
+     "conifer",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a dawn redwood",
+   "short": "dawn redwood",
+   "tier": "plausible",
+   "look": "a tall conical tree with a fluted trunk and soft flat sprays of deciduous feathery needles",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a bald cypress",
+   "short": "bald cypress",
+   "tier": "typical",
+   "look": "a tall flared trunk above projecting root knees, with soft feathery foliage",
+   "tags": {
+    "kind": [
+     "conifer",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a Monterey cypress",
+   "short": "Monterey cypress",
+   "tier": "plausible",
+   "look": "a windswept coastal conifer with a twisted trunk and a broad flattened crown",
+   "tags": {
+    "kind": [
+     "conifer",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "an Italian cypress",
+   "short": "Italian cypress",
+   "tier": "typical",
+   "look": "a very narrow upright column of dense dark evergreen foliage",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a weeping cedar",
+   "short": "weeping cedar",
+   "tier": "plausible",
+   "look": "a conifer whose long branches and blue-green needle-covered shoots cascade downward",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a cedar of Lebanon",
+   "short": "cedar of Lebanon",
+   "tier": "plausible",
+   "look": "a massive conifer with broad horizontal tiers of branches and a flattened mature crown",
+   "tags": {
+    "kind": [
+     "conifer",
+     "ancient_iconic"
+    ]
+   }
+  },
+  {
+   "text": "a blue spruce",
+   "short": "blue spruce",
+   "tier": "typical",
+   "look": "a dense symmetrical cone of stiff sharply pointed silvery blue needles",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a Norfolk Island pine",
+   "short": "Norfolk Island pine",
+   "tier": "plausible",
+   "look": "a very regular conical tree with widely spaced horizontal tiers of symmetrical branches",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a Scots pine",
+   "short": "Scots pine",
+   "tier": "typical",
+   "look": "an open irregular crown of paired needles above orange upper bark and a crooked trunk",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a stone pine",
+   "short": "stone pine",
+   "tier": "plausible",
+   "look": "a tall bare trunk topped by a broad rounded umbrella-shaped crown",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a ponderosa pine",
+   "short": "ponderosa pine",
+   "tier": "plausible",
+   "look": "a tall straight pine with large orange-brown bark plates and tufts of long needles",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a larch",
+   "short": "larch",
+   "tier": "plausible",
+   "look": "a slender conifer with soft needle tufts that turn bright gold before falling",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a Douglas fir",
+   "short": "Douglas fir",
+   "tier": "plausible",
+   "look": "a tall pointed conifer with drooping branch tips and cones bearing three-pronged bracts",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a yew tree",
+   "short": "yew tree",
+   "tier": "plausible",
+   "look": "a dense dark evergreen with flat needle sprays, reddish peeling bark and red berry-like arils",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a juniper tree",
+   "short": "juniper tree",
+   "tier": "plausible",
+   "look": "a twisted irregular trunk beneath sparse tufts of scale-like foliage and dusty blue berry-like cones",
+   "tags": {
+    "kind": [
+     "conifer"
+    ]
+   }
+  },
+  {
+   "text": "a date palm",
+   "short": "date palm",
+   "tier": "typical",
+   "look": "a stout patterned trunk topped with arching featherlike fronds and hanging date clusters",
+   "tags": {
+    "kind": [
+     "palm_cactus",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a coconut palm",
+   "short": "coconut palm",
+   "tier": "typical",
+   "look": "a slender often curved ringed trunk with long drooping fronds and coconuts beneath the crown",
+   "tags": {
+    "kind": [
+     "palm_cactus",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a royal palm",
+   "short": "royal palm",
+   "tier": "plausible",
+   "look": "a tall smooth gray trunk topped by a bright green crownshaft and a rounded spray of fronds",
+   "tags": {
+    "kind": [
+     "palm_cactus",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a traveler's palm",
+   "short": "traveler's palm",
+   "tier": "plausible",
+   "look": "a tall fan of huge banana-like leaves aligned in one flat plane above a short trunk",
+   "tags": {
+    "kind": [
+     "palm_cactus",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a fan palm",
+   "short": "fan palm",
+   "tier": "plausible",
+   "look": "a slender trunk crowned with large round leaves divided into radiating fan-shaped segments",
+   "tags": {
+    "kind": [
+     "palm_cactus",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a bottle palm",
+   "short": "bottle palm",
+   "tier": "unusual",
+   "look": "a short smooth trunk swollen like a bottle beneath a small crown of arching fronds",
+   "tags": {
+    "kind": [
+     "palm_cactus",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a screw pine",
+   "short": "screw pine",
+   "tier": "plausible",
+   "look": "a branching tropical tree with spiral clusters of long strap leaves and stiltlike prop roots",
+   "tags": {
+    "kind": [
+     "palm_cactus",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a tree fern",
+   "short": "tree fern",
+   "tier": "plausible",
+   "look": "a slender fibrous trunk topped by a broad rosette of long finely divided fern fronds",
+   "tags": {
+    "kind": [
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a southern magnolia",
+   "short": "southern magnolia",
+   "tier": "typical",
+   "look": "a dense evergreen crown with glossy leaves, rusty leaf undersides and huge creamy white flowers",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a flowering cherry tree",
+   "short": "flowering cherry tree",
+   "tier": "typical",
+   "look": "a graceful branching tree covered in clouds of pink or white blossoms",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a jacaranda tree",
+   "short": "jacaranda tree",
+   "tier": "typical",
+   "look": "a broad spreading crown of fine fernlike leaves and clouds of lavender-blue flowers",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a flame tree",
+   "short": "flame tree",
+   "tier": "typical",
+   "look": "a broad umbrella-shaped canopy with feathery leaves and masses of scarlet-orange flowers",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a golden rain tree",
+   "short": "golden rain tree",
+   "tier": "plausible",
+   "look": "an airy round crown with yellow flower sprays and hanging pink-tan papery seed lanterns",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a golden chain tree",
+   "short": "golden chain tree",
+   "tier": "plausible",
+   "look": "a small tree draped in long hanging chains of bright yellow pea-shaped flowers",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a flowering dogwood",
+   "short": "flowering dogwood",
+   "tier": "plausible",
+   "look": "a small tree with layered horizontal branches covered in broad four-bracted white or pink blooms",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a redbud tree",
+   "short": "redbud tree",
+   "tier": "plausible",
+   "look": "a small spreading tree with pink flowers lining bare twigs before heart-shaped leaves appear",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a crape myrtle",
+   "short": "crape myrtle",
+   "tier": "plausible",
+   "look": "a small multi-trunked tree with smooth peeling bark and dense clusters of crinkled flowers",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a plumeria tree",
+   "short": "plumeria tree",
+   "tier": "plausible",
+   "look": "thick blunt branching limbs with leaf rosettes and clusters of waxy pinwheel-shaped flowers",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "an African tulip tree",
+   "short": "African tulip tree",
+   "tier": "plausible",
+   "look": "a large tropical tree with clusters of orange-red cup-shaped flowers held above compound leaves",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a silk floss tree",
+   "short": "silk floss tree",
+   "tier": "unusual",
+   "look": "a swollen green trunk studded with cone-shaped thorns beneath pink star-shaped flowers",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a coral tree",
+   "short": "coral tree",
+   "tier": "plausible",
+   "look": "an open sculptural crown with clusters of bright red curved tubular flowers on bare branches",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "a broad-leaved paperbark",
+   "short": "broad-leaved paperbark",
+   "tier": "plausible",
+   "look": "a tree with pale cream bark peeling in thick soft papery layers",
+   "tags": {
+    "kind": [
+     "broadleaf"
+    ]
+   }
+  },
+  {
+   "text": "a weeping bottlebrush",
+   "short": "weeping bottlebrush",
+   "tier": "plausible",
+   "look": "drooping narrow-leaved branches tipped with bright red cylindrical brushlike flowers",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a silver acacia",
+   "short": "silver acacia",
+   "tier": "plausible",
+   "look": "an airy crown of fine silvery divided leaves covered in fluffy golden flower balls",
+   "tags": {
+    "kind": [
+     "broadleaf",
+     "flowering"
+    ]
+   }
+  }
+ ]
+}

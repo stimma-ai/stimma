@@ -1,0 +1,852 @@
+{
+ "id": "clothing.fabric",
+ "label": "Fabric",
+ "description": "Named clothing fabrics, knits, lace, leather, technical textiles and embellished surfaces.",
+ "pos": "noun",
+ "frame": "made of ___",
+ "notes": "Visible fabric structures, finishes and fibers with a recognizable surface belong here, phrased as material nouns after made of. clothing.cut owns garment construction; object.pattern owns printed motifs and named surface designs rather than the cloth itself. Generic satin and fluid silk charmeuse distinguish a smooth, fuller cloth from a thin, clinging drape; eyelet and broderie anglaise share one entry. Knitted luxury fibers are named as fabrics, and groups may overlap when a cloth is both sheer and embellished. Plain latex is treated as a material without assuming a fetish outfit.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "woven",
+   "knit",
+   "pile",
+   "sheer",
+   "luxury",
+   "leather_synthetic",
+   "technical",
+   "embellished",
+   "felted"
+  ]
+ },
+ "values": [
+  {
+   "text": "linen",
+   "tier": "typical",
+   "look": "A matte, airy cloth with visible slubs, uneven threads and relaxed creases.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "cotton poplin",
+   "tier": "typical",
+   "look": "Smooth, closely woven cotton with a crisp surface and clean, structured folds.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "denim",
+   "tier": "typical",
+   "look": "Sturdy twill with diagonal grain, pale worn edges and a contrasting light reverse.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "chambray",
+   "tier": "plausible",
+   "look": "Lightweight cloth with a pale cross-thread that gives the colored surface a soft, mottled cast.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "canvas",
+   "tier": "typical",
+   "look": "Heavy plain weave with a coarse square grain and stiff, substantial folds.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "cotton twill",
+   "tier": "typical",
+   "look": "Opaque cotton with clear diagonal ribs and a firm, gently sloping drape.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "gabardine",
+   "tier": "plausible",
+   "look": "A tightly woven surface with fine, steep diagonal ribs and sharply defined tailored folds.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "flannel",
+   "tier": "typical",
+   "look": "Soft brushed cloth with a fuzzy matte surface and gently blurred weave.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "seersucker",
+   "tier": "plausible",
+   "look": "Alternating flat and puckered stripes give the cloth a rippling, crinkled surface.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "tweed",
+   "tier": "typical",
+   "look": "A coarse wool weave with flecks of contrasting yarn and a rough, mottled surface.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "heathered herringbone tweed",
+   "short": "herringbone tweed",
+   "tier": "plausible",
+   "look": "Speckled wool yarns form small, broken zigzag ribs across a thick, rugged cloth.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "bouclé",
+   "tier": "plausible",
+   "look": "Small curled yarn loops create a bumpy, pebbled surface with irregular raised knots.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "melton wool",
+   "tier": "plausible",
+   "look": "Thick, compact wool with a smooth felted face, almost hidden weave and weighty folds.",
+   "tags": {
+    "kind": [
+     "woven",
+     "felted"
+    ]
+   }
+  },
+  {
+   "text": "wool felt",
+   "tier": "plausible",
+   "look": "Dense, matte compressed wool with no visible weave and firm edges that hold their shape.",
+   "tags": {
+    "kind": [
+     "felted"
+    ]
+   }
+  },
+  {
+   "text": "silk dupioni",
+   "tier": "plausible",
+   "look": "Crisp silk with pronounced horizontal slubs and an uneven, softly reflective surface.",
+   "tags": {
+    "kind": [
+     "woven",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "crêpe de Chine",
+   "tier": "plausible",
+   "look": "Light silk with a fine pebbled grain, subdued sheen and softly falling folds.",
+   "tags": {
+    "kind": [
+     "woven",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "wool crêpe",
+   "tier": "plausible",
+   "look": "A dry-looking, finely crinkled wool surface with a matte finish and substantial drape.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "plissé",
+   "tier": "plausible",
+   "look": "Closely spaced permanent crinkles form narrow, irregular ridges along the cloth.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "satin",
+   "tier": "typical",
+   "look": "A smooth, glossy face reflects broad highlights over rounded, full folds.",
+   "tags": {
+    "kind": [
+     "woven",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "silk charmeuse",
+   "tier": "plausible",
+   "look": "Thin, liquid-looking silk with a lustrous face that clings and falls in narrow, flowing folds.",
+   "tags": {
+    "kind": [
+     "woven",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "taffeta",
+   "tier": "plausible",
+   "look": "Crisp, shiny cloth holds angular folds and flares outward rather than clinging.",
+   "tags": {
+    "kind": [
+     "woven",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "silk faille",
+   "tier": "unusual",
+   "look": "Firm silk with closely spaced crosswise ribs and a restrained sheen.",
+   "tags": {
+    "kind": [
+     "woven",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "moiré silk",
+   "tier": "unusual",
+   "look": "Wavy, watermarked bands of light and dark shift across a lustrous ribbed surface.",
+   "tags": {
+    "kind": [
+     "woven",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "cotton jersey",
+   "tier": "typical",
+   "look": "A fine, flat knit that stretches into soft folds and gently follows the body.",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "rib knit",
+   "tier": "typical",
+   "look": "Parallel raised vertical ribs alternate with recessed channels in a stretchy cloth.",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "waffle knit",
+   "tier": "plausible",
+   "look": "Small recessed squares form a regular honeycomb-like grid across the surface.",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "cable knit",
+   "tier": "typical",
+   "look": "Thick knitted ropes cross over one another in raised, braided columns.",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "pointelle knit",
+   "tier": "plausible",
+   "look": "Tiny arranged holes form delicate diamonds or leaf shapes in a fine knit.",
+   "tags": {
+    "kind": [
+     "knit",
+     "sheer"
+    ]
+   }
+  },
+  {
+   "text": "open crochet",
+   "tier": "plausible",
+   "look": "Large, visibly looped stitches form an open web of handmade-looking motifs.",
+   "tags": {
+    "kind": [
+     "knit",
+     "sheer"
+    ]
+   }
+  },
+  {
+   "text": "chunky roving knit",
+   "tier": "unusual",
+   "look": "Oversized soft yarn loops create very large stitches with a thick, loosely spun surface.",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "cashmere",
+   "tier": "typical",
+   "look": "Fine, even stitches sit beneath a soft, short halo with a smooth, gentle drape.",
+   "tags": {
+    "kind": [
+     "knit",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "mohair",
+   "tier": "plausible",
+   "look": "Long wispy fibers rise from an airy knit, making a shaggy, translucent halo.",
+   "tags": {
+    "kind": [
+     "knit",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "angora wool",
+   "tier": "plausible",
+   "look": "A dense cloud of very fine fluff blurs the stitches and gives the surface a downy appearance.",
+   "tags": {
+    "kind": [
+     "knit",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "chenille knit",
+   "tier": "plausible",
+   "look": "Plush, fuzzy yarns form visible stitches with a velvety sheen along each loop.",
+   "tags": {
+    "kind": [
+     "knit",
+     "pile"
+    ]
+   }
+  },
+  {
+   "text": "velvet",
+   "tier": "typical",
+   "look": "A dense short pile shifts from deep shadow to rich highlights as its direction changes.",
+   "tags": {
+    "kind": [
+     "pile",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "crushed velvet",
+   "tier": "plausible",
+   "look": "Flattened pile catches light in irregular shimmering patches and wrinkled-looking streaks.",
+   "tags": {
+    "kind": [
+     "pile",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "corduroy",
+   "tier": "typical",
+   "look": "Straight parallel ridges of soft pile run lengthwise, separated by narrow grooves.",
+   "tags": {
+    "kind": [
+     "pile",
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "velour",
+   "tier": "plausible",
+   "look": "A soft, stretchy pile follows rounded contours with a more relaxed drape than woven velvet.",
+   "tags": {
+    "kind": [
+     "pile",
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "polar fleece",
+   "tier": "typical",
+   "look": "A thick synthetic nap forms a soft, matte, slightly fuzzy surface.",
+   "tags": {
+    "kind": [
+     "pile",
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "sherpa fleece",
+   "tier": "plausible",
+   "look": "Dense curled tufts make a chunky, wool-like surface with an uneven looped texture.",
+   "tags": {
+    "kind": [
+     "pile",
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "terry cloth",
+   "tier": "typical",
+   "look": "Small absorbent loops cover the surface, giving it a thick, towel-like texture.",
+   "tags": {
+    "kind": [
+     "pile"
+    ]
+   }
+  },
+  {
+   "text": "faux fur",
+   "tier": "plausible",
+   "look": "Long, dense fibers form a visibly furry surface with a soft, mobile outline.",
+   "tags": {
+    "kind": [
+     "pile",
+     "leather_synthetic"
+    ]
+   }
+  },
+  {
+   "text": "shearling",
+   "tier": "plausible",
+   "look": "Curly wool remains attached to a suede-like skin, often showing at turned-back edges.",
+   "tags": {
+    "kind": [
+     "pile",
+     "leather_synthetic"
+    ]
+   }
+  },
+  {
+   "text": "chiffon",
+   "tier": "typical",
+   "look": "Very light, transparent cloth floats in soft folds with a slightly grainy matte face.",
+   "tags": {
+    "kind": [
+     "sheer",
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "organza",
+   "tier": "plausible",
+   "look": "Transparent, crisp cloth holds airy volume and sharp folds with a faint shine.",
+   "tags": {
+    "kind": [
+     "sheer",
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "tulle",
+   "tier": "plausible",
+   "look": "Fine, regular netting forms a transparent, springy mesh that builds volume in layers.",
+   "tags": {
+    "kind": [
+     "sheer"
+    ]
+   }
+  },
+  {
+   "text": "silk georgette",
+   "tier": "plausible",
+   "look": "A sheer, crinkled silk with a more pronounced grain and heavier fall than chiffon.",
+   "tags": {
+    "kind": [
+     "sheer",
+     "woven",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "cotton voile",
+   "tier": "plausible",
+   "look": "Fine plain-woven cotton has a softly translucent, matte surface and a light drape.",
+   "tags": {
+    "kind": [
+     "sheer",
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "mesh",
+   "tier": "typical",
+   "look": "Evenly spaced open holes form a flexible grid with the layer beneath clearly visible.",
+   "tags": {
+    "kind": [
+     "sheer",
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "fishnet",
+   "tier": "plausible",
+   "look": "Large diamond-shaped openings form a coarse, highly visible net.",
+   "tags": {
+    "kind": [
+     "sheer"
+    ]
+   }
+  },
+  {
+   "text": "Swiss dot fabric",
+   "tier": "plausible",
+   "look": "Tiny raised dots are scattered across a fine, translucent fabric.",
+   "tags": {
+    "kind": [
+     "sheer",
+     "embellished"
+    ]
+   }
+  },
+  {
+   "text": "lace",
+   "tier": "typical",
+   "look": "Thread-built flowers and scrolling motifs are connected by open net or delicate bars.",
+   "tags": {
+    "kind": [
+     "sheer",
+     "embellished"
+    ]
+   }
+  },
+  {
+   "text": "guipure lace",
+   "tier": "plausible",
+   "look": "Heavy raised motifs join directly with bars, leaving large openings without a net backing.",
+   "tags": {
+    "kind": [
+     "sheer",
+     "embellished"
+    ]
+   }
+  },
+  {
+   "text": "broderie anglaise eyelet",
+   "short": "broderie anglaise",
+   "tier": "plausible",
+   "look": "Embroidered round holes and cutout flower shapes pierce an otherwise solid cotton ground.",
+   "tags": {
+    "kind": [
+     "woven",
+     "embellished"
+    ]
+   }
+  },
+  {
+   "text": "leather",
+   "tier": "typical",
+   "look": "A smooth, opaque hide shows fine grain, a subdued sheen and heavy, rounded folds.",
+   "tags": {
+    "kind": [
+     "leather_synthetic"
+    ]
+   }
+  },
+  {
+   "text": "suede",
+   "tier": "typical",
+   "look": "A matte, finely napped hide changes shade where the surface is brushed in different directions.",
+   "tags": {
+    "kind": [
+     "leather_synthetic"
+    ]
+   }
+  },
+  {
+   "text": "patent leather",
+   "tier": "plausible",
+   "look": "A hard-looking lacquered surface gives sharp, mirrorlike highlights over dense folds.",
+   "tags": {
+    "kind": [
+     "leather_synthetic"
+    ]
+   }
+  },
+  {
+   "text": "PVC",
+   "tier": "plausible",
+   "look": "Glossy plastic sheeting forms stiff, slick folds with bright reflections.",
+   "tags": {
+    "kind": [
+     "leather_synthetic"
+    ]
+   }
+  },
+  {
+   "text": "latex",
+   "tier": "plausible",
+   "look": "A smooth rubber surface stretches tightly over contours with continuous glossy highlights.",
+   "tags": {
+    "kind": [
+     "leather_synthetic"
+    ]
+   }
+  },
+  {
+   "text": "transparent vinyl",
+   "tier": "unusual",
+   "look": "Clear plastic shows the layer beneath through glossy, stiffly folded sheeting.",
+   "tags": {
+    "kind": [
+     "leather_synthetic",
+     "sheer"
+    ]
+   }
+  },
+  {
+   "text": "metallic leather",
+   "tier": "unusual",
+   "look": "A fine-grained hide has a reflective metallic finish that bends into broad highlights.",
+   "tags": {
+    "kind": [
+     "leather_synthetic"
+    ]
+   }
+  },
+  {
+   "text": "ripstop nylon",
+   "tier": "plausible",
+   "look": "Thin, lightly crinkled nylon is crossed by a visible grid of thicker reinforcing threads.",
+   "tags": {
+    "kind": [
+     "technical",
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "neoprene",
+   "tier": "plausible",
+   "look": "Thick, smooth foam-backed fabric holds sculptural rounded shapes with little wrinkling.",
+   "tags": {
+    "kind": [
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "waxed cotton",
+   "tier": "plausible",
+   "look": "A weathered, slightly oily surface develops pale crease marks on firm cotton cloth.",
+   "tags": {
+    "kind": [
+     "technical",
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "coated nylon",
+   "tier": "plausible",
+   "look": "Thin, slick fabric has a lightly glossy coating and sharp, papery wrinkles.",
+   "tags": {
+    "kind": [
+     "technical",
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "reflective fabric",
+   "tier": "unusual",
+   "look": "A silvery gray surface throws back intense, nearly white highlights under direct light.",
+   "tags": {
+    "kind": [
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "spacer mesh",
+   "tier": "plausible",
+   "look": "A thick, open cellular knit shows a perforated face over a springy inner layer.",
+   "tags": {
+    "kind": [
+     "technical",
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "quilted fabric",
+   "tier": "typical",
+   "look": "Stitched channels or diamonds divide a padded surface into softly raised compartments.",
+   "tags": {
+    "kind": [
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "sequined fabric",
+   "short": "sequins",
+   "tier": "plausible",
+   "look": "Overlapping reflective discs cover the cloth in many small, sharp flashes.",
+   "tags": {
+    "kind": [
+     "embellished"
+    ]
+   }
+  },
+  {
+   "text": "lamé",
+   "tier": "unusual",
+   "look": "Metallic threads give the entire cloth a bright, foil-like shimmer.",
+   "tags": {
+    "kind": [
+     "embellished",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "brocade",
+   "tier": "plausible",
+   "look": "Raised ornamental motifs are woven into a rich cloth, often with contrasting glossy threads.",
+   "tags": {
+    "kind": [
+     "embellished",
+     "woven",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "beaded fabric",
+   "tier": "plausible",
+   "look": "Rows or clusters of small beads add a raised, sparkling texture to the cloth.",
+   "tags": {
+    "kind": [
+     "embellished",
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "embroidered tulle",
+   "tier": "plausible",
+   "look": "Stitched flowers or curling motifs float on a fine, transparent net background.",
+   "tags": {
+    "kind": [
+     "embellished",
+     "sheer"
+    ]
+   }
+  },
+  {
+   "text": "feather fabric",
+   "tier": "unusual",
+   "look": "Overlapping feathers cover the surface with soft vanes and a fringed, fluttering outline.",
+   "tags": {
+    "kind": [
+     "embellished"
+    ]
+   }
+  },
+  {
+   "text": "fringed fabric",
+   "tier": "plausible",
+   "look": "Hanging strands form loose rows that swing away from the underlying cloth.",
+   "tags": {
+    "kind": [
+     "embellished"
+    ]
+   }
+  },
+  {
+   "text": "raffia weave",
+   "tier": "unusual",
+   "look": "Flat straw-like strands create a coarse, dry-looking lattice with angular bends.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "burlap",
+   "tier": "unusual",
+   "look": "Thick rough yarns form a loose, clearly visible square weave with stray fibers.",
+   "tags": {
+    "kind": [
+     "woven"
+    ]
+   }
+  },
+  {
+   "text": "velvet devoré",
+   "tier": "unusual",
+   "look": "Velvet motifs remain raised above transparent areas where the surrounding pile has been removed.",
+   "tags": {
+    "kind": [
+     "pile",
+     "sheer",
+     "luxury"
+    ]
+   }
+  }
+ ]
+}

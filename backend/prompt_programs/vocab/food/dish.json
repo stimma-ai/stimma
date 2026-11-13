@@ -1,1067 +1,4901 @@
 {
-  "id": "food.dish",
-  "label": "Prepared dish",
-  "description": "Named prepared foods served on a plate, spanning cuisines and meal types.",
-  "pos": "noun phrase",
-  "frame": "a plate of ___",
-  "notes": "Plate-compatible preparations only; drinks have their own leaf. Region tags mark culinary associations rather than exclusive origins. Meal tags can overlap; tier reflects visual frequency within a cuisine, not its cultural specificity.",
-  "facets": [
-    "region"
+ "id": "food.dish",
+ "label": "Prepared dish",
+ "description": "Named savory dishes from world cuisines, including soups, salads, breakfasts, street food, and main courses.",
+ "pos": "noun phrase",
+ "frame": "a serving of ___",
+ "notes": "Savory prepared dishes belong here; food.dessert holds sweets and baked goods, and food.drink holds beverages. Values use recognizable dish names that follow “a serving of,” with visual glosses for browsing. Cuisine chips are culinary groupings; region tags mark associations rather than exclusive origins, and Mediterranean dishes can span several regions. Meal tags overlap where a dish serves several roles; tiers reflect expected food imagery rather than cultural importance.",
+ "closed": false,
+ "facets": [
+  "region"
+ ],
+ "local_facets": {
+  "cuisine": [
+   "east_asian",
+   "southeast_asian",
+   "south_asian",
+   "middle_eastern",
+   "african",
+   "mediterranean",
+   "european",
+   "latin_american",
+   "north_american",
+   "oceanian",
+   "fusion_global"
   ],
-  "closed": false,
-  "untagged": {},
-  "values": [
-    {
-      "text": "vegetable fried rice",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "chow mein",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "gyoza",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "main",
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "mapo tofu",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "bibimbap",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "bulgogi",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "tonkatsu",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "lotus-leaf sticky rice",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "chicken biryani",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "vegetable curry",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "dal and rice",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "palak paneer",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "chana masala",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "fish curry",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "dhokla",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "breakfast",
-          "snack"
-        ]
-      }
-    },
-    {
-      "text": "pad thai",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "southeast_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "satay skewers",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "southeast_asian"
-        ],
-        "meal": [
-          "main",
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "nasi goreng",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "southeast_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "pad see ew",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "southeast_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "beef rendang",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "southeast_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "Hainanese chicken rice",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "southeast_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "banana-leaf fish parcels",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "southeast_asian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "falafel",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "meal": [
-          "main",
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "hummus and flatbread",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "chicken shawarma",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "tabbouleh",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "stuffed vine leaves",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "mujaddara",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "kibbeh",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "jollof rice",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "african"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "couscous with vegetables",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "african"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "injera with lentil stew",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "african"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "chicken tagine",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "african"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "suya skewers",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "african"
-        ],
-        "meal": [
-          "main",
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "moi moi",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "african"
-        ],
-        "meal": [
-          "main",
-          "snack"
-        ]
-      }
-    },
-    {
-      "text": "spaghetti with tomato sauce",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "mushroom risotto",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "fish and chips",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "pierogi",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "paella",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "moussaka",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "buckwheat blini",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "tacos",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "latin_american"
-        ],
-        "meal": [
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "empanadas",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "latin_american"
-        ],
-        "meal": [
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "arepas",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "latin_american"
-        ],
-        "meal": [
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "pupusas",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "latin_american"
-        ],
-        "meal": [
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "tamales",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "latin_american"
-        ],
-        "meal": [
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "pão de queijo",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "latin_american"
-        ],
-        "meal": [
-          "street food",
-          "snack"
-        ]
-      }
-    },
-    {
-      "text": "acarajé",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "latin_american"
-        ],
-        "meal": [
-          "street food",
-          "snack"
-        ]
-      }
-    },
-    {
-      "text": "macaroni and cheese",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "north_american"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "barbecue ribs",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "north_american"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "fried chicken",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "north_american"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "cornbread and beans",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "north_american"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "poutine",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "north_american"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "salmon cakes",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "north_american"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "succotash",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "north_american"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "meat pie",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "oceanian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "grilled barramundi",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "oceanian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "hāngī vegetables",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "oceanian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "coconut fish",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "oceanian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "sausage rolls",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "oceanian"
-        ],
-        "meal": [
-          "main",
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "poi",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "oceanian"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "pancakes",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "north_american"
-        ],
-        "meal": [
-          "breakfast"
-        ]
-      }
-    },
-    {
-      "text": "scrambled eggs",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "north_american"
-        ],
-        "meal": [
-          "breakfast"
-        ]
-      }
-    },
-    {
-      "text": "French toast",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "north_american"
-        ],
-        "meal": [
-          "breakfast"
-        ]
-      }
-    },
-    {
-      "text": "masala dosa",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "breakfast"
-        ]
-      }
-    },
-    {
-      "text": "idli",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "breakfast"
-        ]
-      }
-    },
-    {
-      "text": "poha",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "breakfast"
-        ]
-      }
-    },
-    {
-      "text": "samosas",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "snack",
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "pakoras",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "snack"
-        ]
-      }
-    },
-    {
-      "text": "roasted chickpeas",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "meal": [
-          "snack"
-        ]
-      }
-    },
-    {
-      "text": "spring rolls",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "snack",
-          "street food"
-        ]
-      }
-    },
-    {
-      "text": "rice crackers",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "snack"
-        ]
-      }
-    },
-    {
-      "text": "sesame shrimp toast",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "snack"
-        ]
-      }
-    },
-    {
-      "text": "baklava",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "meal": [
-          "dessert"
-        ]
-      }
-    },
-    {
-      "text": "kunafa",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "meal": [
-          "dessert"
-        ]
-      }
-    },
-    {
-      "text": "maamoul",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "meal": [
-          "dessert"
-        ]
-      }
-    },
-    {
-      "text": "pavlova",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "oceanian"
-        ],
-        "meal": [
-          "dessert"
-        ]
-      }
-    },
-    {
-      "text": "lamingtons",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "oceanian"
-        ],
-        "meal": [
-          "dessert"
-        ]
-      }
-    },
-    {
-      "text": "Anzac biscuits",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "oceanian"
-        ],
-        "meal": [
-          "dessert"
-        ]
-      }
-    },
-    {
-      "text": "crêpes",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "dessert"
-        ]
-      }
-    },
-    {
-      "text": "churros",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "dessert"
-        ]
-      }
-    },
-    {
-      "text": "crêpe cake",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "dessert"
-        ]
-      }
-    },
-    {
-      "text": "squid-ink risotto",
-      "tier": "unusual",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "main"
-        ]
-      }
-    },
-    {
-      "text": "sugar-glass tuiles",
-      "tier": "unusual",
-      "tags": {
-        "region": [
-          "european"
-        ],
-        "meal": [
-          "dessert"
-        ]
-      }
-    },
-    {
-      "text": "edible-flower tempura",
-      "tier": "unusual",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "meal": [
-          "snack"
-        ]
-      }
-    }
-  ],
-  "local_facets": {
+  "meal": [
+   "main",
+   "breakfast",
+   "side",
+   "snack",
+   "street_food"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "vegetable fried rice",
+   "look": "Golden rice grains tossed with diced vegetables and egg.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
     "meal": [
-      "breakfast",
-      "main",
-      "snack",
-      "dessert",
-      "street food"
+     "main"
+    ],
+    "region": [
+     "east_asian"
     ]
+   }
+  },
+  {
+   "text": "chow mein",
+   "look": "A tangle of stir-fried wheat noodles with vegetables.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "gyoza",
+   "look": "Crescent dumplings with pleated edges and crisp browned bottoms.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main",
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "mapo tofu",
+   "look": "Soft tofu cubes in red chili oil sauce with minced meat.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "bibimbap",
+   "look": "Rice topped with separate colorful vegetables, meat, chili paste, and a fried egg.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "bulgogi",
+   "look": "Thin glossy slices of grilled marinated beef with sesame seeds.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "tonkatsu",
+   "look": "A breaded pork cutlet sliced into strips beside shredded cabbage.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "lotus-leaf sticky rice",
+   "look": "A dark green leaf opened around a compact parcel of sticky rice and savory fillings.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main",
+     "snack"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "Peking duck",
+   "look": "Lacquered roast duck with crisp brown skin, thin pancakes, scallions, and sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "char siu",
+   "look": "Sliced roast pork with a shiny red-brown glaze and charred edges.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "xiao long bao",
+   "look": "Small round steamed soup dumplings with tightly pleated tops.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "siu mai",
+   "look": "Open-topped dumplings with yellow wrappers and visible pork and shrimp filling.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "snack"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "baozi",
+   "look": "Round white steamed buns with a gathered pleated seam on top.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "congee",
+   "look": "A loose white rice porridge topped with scallions and savory garnishes.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "scallion pancakes",
+   "look": "Flat golden pan-fried rounds with flaky layers and green scallion flecks.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "hot pot",
+   "look": "A simmering pot of broth surrounded by thin raw meat, vegetables, and dipping sauces.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "zhajiangmian",
+   "look": "Wheat noodles topped with dark bean-paste meat sauce and julienned cucumber.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "biang biang noodles",
+   "look": "Very wide hand-pulled noodle ribbons with chili oil and greens.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "century egg with tofu",
+   "look": "Black translucent egg wedges on white tofu with scallions and soy dressing.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "side"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "nigiri sushi",
+   "look": "Small oblong rice mounds topped with slices of raw fish.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main",
+     "snack"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "maki sushi",
+   "look": "Sliced seaweed-wrapped rice rolls showing colorful centers.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main",
+     "snack"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "sashimi",
+   "look": "Clean slices of raw fish arranged with shredded daikon.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "tempura",
+   "look": "Shrimp and vegetables in a pale, lacy, crisp batter.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main",
+     "snack"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "shoyu ramen",
+   "look": "Yellow noodles in brown broth with pork slices, seaweed, scallions, and an egg.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "kitsune udon",
+   "look": "Thick white noodles in clear brown broth topped with a sheet of fried tofu.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "zaru soba",
+   "look": "Cold brown buckwheat noodles on a bamboo mat beside dipping sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "onigiri",
+   "look": "Triangular white rice balls wrapped partly in dark seaweed.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "okonomiyaki",
+   "look": "A thick savory cabbage pancake striped with dark sauce and mayonnaise.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "takoyaki",
+   "look": "Round browned octopus batter balls topped with sauce and wispy bonito flakes.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "yakitori",
+   "look": "Small grilled chicken pieces on bamboo skewers with a brown glaze.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "kimbap",
+   "look": "Seaweed rice roll slices with a tight mosaic of vegetables, egg, and meat inside.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main",
+     "snack"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "tteokbokki",
+   "look": "Short white rice cakes coated in thick, glossy red chili sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "japchae",
+   "look": "Translucent glass noodles tossed with julienned vegetables and strips of meat.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main",
+     "side"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "kimchi jjigae",
+   "look": "A red bubbling stew with cabbage kimchi, tofu, pork, and scallions.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "Cantonese steamed fish",
+   "look": "A whole steamed fish in light soy sauce covered with ginger strips and scallions.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "cheung fun",
+   "look": "Wide silky white rice-noodle sheets rolled around shrimp and drizzled with soy sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "snack"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "lion's head meatballs",
+   "look": "Very large brown pork meatballs braised with pale napa cabbage.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "Taiwanese oyster omelet",
+   "look": "A soft egg-and-starch pancake with oysters and greens under glossy red sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "lu rou fan",
+   "look": "White rice topped with small glossy cubes of braised pork and pickled vegetables.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "Japanese curry rice",
+   "look": "White rice beside thick brown curry with carrots, potatoes, and meat.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "bossam",
+   "look": "Pale sliced boiled pork belly with kimchi, lettuce leaves, and dipping sauces.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "east_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "pad thai",
+   "look": "Flat rice noodles with shrimp, bean sprouts, peanuts, and lime.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "pad see ew",
+   "look": "Wide dark soy-coated noodles stir-fried with Chinese broccoli and egg.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "Thai green curry",
+   "look": "Green coconut curry with vegetables, meat, basil, and a side of rice.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "tom yum soup",
+   "look": "Red-orange broth with shrimp, mushrooms, lemongrass, and lime leaves.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "som tam",
+   "look": "Shredded green papaya salad with tomato, long beans, peanuts, and chilies.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "side",
+     "street_food"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "larb",
+   "look": "Crumbled meat salad with mint, sliced shallots, and lime.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "pho",
+   "look": "Clear broth with flat rice noodles, sliced beef, herbs, and bean sprouts.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "bánh mì",
+   "look": "A split crusty baguette filled with meat, pickled carrots, cucumber, and herbs.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "gỏi cuốn",
+   "look": "Translucent rice-paper rolls showing shrimp, herbs, and rice noodles.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "bánh xèo",
+   "look": "A large yellow crispy crêpe folded over shrimp, bean sprouts, and pork.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "bún chả",
+   "look": "Grilled pork patties in dipping broth beside rice vermicelli and leafy herbs.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "cơm tấm",
+   "look": "Broken rice with a grilled pork chop, pickles, and a fried egg.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "nasi goreng",
+   "look": "Dark fried rice with a fried egg, cucumber, and prawn crackers.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "beef rendang",
+   "look": "Dark brown beef chunks coated in a thick, nearly dry spiced coconut sauce.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "satay skewers",
+   "look": "Grilled meat skewers with charred edges beside thick peanut sauce.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "gado-gado",
+   "look": "Vegetables, tofu, egg, and rice cakes dressed with tan peanut sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "bakso",
+   "look": "Round gray-brown meatballs and noodles in clear broth with greens.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "nasi lemak",
+   "look": "Coconut rice with sambal, cucumber, peanuts, fried anchovies, and a boiled egg.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "laksa",
+   "look": "Rice noodles in orange coconut broth with shrimp, tofu puffs, and herbs.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "Hainanese chicken rice",
+   "look": "Pale poached chicken slices with seasoned rice, cucumber, and chili sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "char kway teow",
+   "look": "Wide rice noodles darkened with soy sauce, with egg, sprouts, and shellfish.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "chili crab",
+   "look": "Red crab pieces coated in a thick red-orange chili sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "chicken adobo",
+   "look": "Bone-in chicken in a glossy brown soy-vinegar sauce with bay leaves.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "pancit bihon",
+   "look": "Thin rice noodles stir-fried with shredded vegetables and sliced meat.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "sinigang",
+   "look": "A clear sour soup with meat or fish, tomatoes, greens, and long green chilies.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "lechon",
+   "look": "Roast pork with glossy amber crackling and pale sliced meat.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "fish amok",
+   "look": "A thick coconut fish curry steamed in a folded banana-leaf cup.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "mohinga",
+   "look": "Rice noodles in golden fish broth with sliced banana stem and crisp fritter garnish.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "khao soi",
+   "look": "Egg noodles in yellow-orange curry broth topped with a nest of crisp fried noodles.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "pineapple fried rice",
+   "look": "Yellow fried rice with pineapple chunks served in a hollowed pineapple half.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "roti canai with curry",
+   "look": "Flaky griddle-browned flatbread torn beside a small bowl of curry.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "southeast_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "chicken biryani",
+   "look": "Long-grain rice streaked white and saffron-orange with spiced chicken pieces.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "butter chicken",
+   "look": "Chicken pieces in a smooth orange tomato-cream sauce.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "palak paneer",
+   "look": "White paneer cubes in a thick dark green spinach sauce.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "chana masala",
+   "look": "Chickpeas in a reddish-brown tomato gravy with herbs.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "dal tadka",
+   "look": "Yellow lentils topped with red chili oil, cumin, and whole dried chilies.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "rogan josh",
+   "look": "Lamb chunks in a deep red spiced gravy.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "aloo gobi",
+   "look": "Golden cauliflower florets and potato chunks with toasted spices.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main",
+     "side"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "masala dosa",
+   "look": "A thin golden rice crêpe rolled around spiced potatoes beside chutney and sambar.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "idli",
+   "look": "Small domed white steamed rice cakes served with chutney and lentil soup.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "poha",
+   "look": "Yellow flattened rice flakes with peanuts, herbs, and lemon.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "uttapam",
+   "look": "A thick round rice pancake dotted with chopped tomato, onion, and green chilies.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "samosas",
+   "look": "Golden triangular pastry pockets served with green and brown chutneys.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "pakoras",
+   "look": "Irregular crisp vegetable fritters with craggy golden batter.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "pani puri",
+   "look": "Hollow crisp shells with openings for potato filling and green spiced water.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "bhel puri",
+   "look": "Puffed rice, crisp noodles, chopped vegetables, and chutneys tossed together.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "pav bhaji",
+   "look": "Buttered bread rolls beside a thick reddish mashed vegetable curry.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "vada pav",
+   "look": "A bread roll holding a round battered potato fritter and chutney.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "dhokla",
+   "look": "Spongy yellow steamed squares with mustard seeds, cilantro, and green chilies.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "snack"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "chole bhature",
+   "look": "Large puffed fried breads beside dark chickpea curry.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "chicken tikka",
+   "look": "Red-orange grilled chicken chunks with charred edges.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "seekh kebab",
+   "look": "Long ridged cylinders of spiced ground meat grilled on skewers.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "nihari",
+   "look": "Dark slow-cooked meat stew with ginger strips, herbs, and oil on the surface.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "Sri Lankan hoppers",
+   "look": "Bowl-shaped rice pancakes with lacy edges, sometimes holding an egg.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "kottu roti",
+   "look": "Chopped flatbread stir-fried with vegetables, egg, and meat.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "Nepalese momos",
+   "look": "Pleated steamed dumplings served with a red-orange dipping sauce.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "snack",
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "dal bhat",
+   "look": "Rice with lentil soup, vegetable curry, greens, and pickles in separate portions.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "Maldivian mas huni",
+   "look": "Flaked tuna mixed with white coconut, onion, and chili beside thin flatbread.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "Goan fish curry",
+   "look": "Fish pieces in a bright orange coconut curry with rice.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "string hoppers",
+   "look": "Small flat nests of white steamed rice noodles with coconut relish and curry.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "Kerala sadya",
+   "look": "A banana leaf holds rice with many small separate portions of curries, pickles, and crisp papad.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "haleem",
+   "look": "Thick tan wheat-and-meat porridge topped with fried onions, ginger, herbs, and lemon.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "south_asian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "falafel",
+   "look": "Rough golden chickpea fritters with green centers, often served with tahini.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main",
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "hummus and flatbread",
+   "look": "A swirl of pale chickpea dip with olive oil beside soft flatbread.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "side",
+     "snack"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "chicken shawarma",
+   "look": "Thin shavings of spiced roasted chicken in a flatbread wrap with pickles.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "tabbouleh",
+   "look": "A finely chopped green parsley salad with tomato and small grains of bulgur.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "side"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "stuffed vine leaves",
+   "look": "Small olive-green leaf cylinders packed tightly around a rice filling.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "side",
+     "snack"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "mujaddara",
+   "look": "Brown lentils and rice topped with deeply caramelized onion strands.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "kibbeh",
+   "look": "Pointed oval bulgur shells fried golden around spiced ground meat.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main",
+     "snack"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "fattoush",
+   "look": "Chopped tomato, cucumber, and lettuce with toasted flatbread shards and sumac.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "side"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "baba ganoush",
+   "look": "A pale smoky eggplant dip swirled with olive oil and herbs.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "side",
+     "snack"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "manakish zaatar",
+   "look": "Round flatbread covered with a dark green herb and sesame topping.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "breakfast",
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "lahmacun",
+   "look": "Thin round flatbread spread with finely minced meat, tomato, and herbs.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "pide",
+   "look": "A boat-shaped baked flatbread with raised edges around meat or cheese filling.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "menemen",
+   "look": "Soft scrambled eggs mixed with tomatoes and green peppers in a skillet.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "çilbir",
+   "look": "Poached eggs on white yogurt drizzled with red chili butter.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "kebab koobideh",
+   "look": "Long flattened ground-meat kebabs with ridged grill marks beside rice.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "tahdig",
+   "look": "A thick golden rice crust turned out as a crisp round cake.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main",
+     "side"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "ghormeh sabzi",
+   "look": "A dark green herb stew with meat, red kidney beans, and dried limes.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "fesenjan",
+   "look": "Chicken in a thick dark walnut and pomegranate sauce.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "sabzi polo with fish",
+   "look": "White rice flecked heavily with green herbs beside fried fish.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "mansaf",
+   "look": "Lamb on a mound of rice with pale yogurt sauce, almonds, and flatbread beneath.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "maqluba",
+   "look": "An inverted tower of rice, vegetables, and meat with browned vegetables on top.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "musakhan",
+   "look": "Roast chicken and purple sumac onions on oil-soaked flatbread.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "kabsa",
+   "look": "Reddish spiced rice with large pieces of chicken and toasted nuts.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "Yemeni saltah",
+   "look": "Bubbling meat-and-vegetable stew topped with pale green fenugreek foam.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "sabich",
+   "look": "A pita stuffed with fried eggplant, sliced boiled egg, chopped salad, and yellow sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "fatteh",
+   "look": "Chickpeas and toasted pita pieces under white yogurt sauce with browned nuts.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "Turkish manti",
+   "look": "Tiny folded meat dumplings covered with white yogurt and red chili butter.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "middle_eastern"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "jollof rice",
+   "look": "Orange-red long-grain rice cooked in tomato and pepper sauce.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "chicken tagine",
+   "look": "Chicken stewed with olives and preserved lemon beneath a conical clay lid.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "couscous with vegetables",
+   "look": "Fine pale grains piled beneath carrots, zucchini, chickpeas, and broth.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "injera with lentil stew",
+   "look": "A large spongy sour flatbread holding separate mounds of red and yellow lentil stew.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "doro wat",
+   "look": "Chicken and whole boiled eggs in a dark red sauce on spongy injera.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "kitfo",
+   "look": "Finely minced red beef seasoned with spiced butter, served beside greens and fresh cheese.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "tibs",
+   "look": "Small browned meat pieces sautéed with onions and green peppers.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "suya skewers",
+   "look": "Thin grilled beef on sticks with a reddish peanut-spice crust and raw onion.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "snack",
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "moi moi",
+   "look": "Smooth reddish bean pudding unmolded from a leaf or cup.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "snack",
+     "side"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "egusi soup",
+   "look": "A thick yellow-speckled melon-seed stew with leafy greens and meat.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "fufu with okra soup",
+   "look": "A smooth white dough mound beside green okra stew with meat or fish.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "waakye",
+   "look": "Reddish-brown rice and beans with separate portions of noodles, egg, and pepper sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "kelewele",
+   "look": "Small golden-brown fried plantain cubes with a red spice coating.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "red red",
+   "look": "Red bean stew served with golden fried plantain slices.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "attiéké with grilled fish",
+   "short": "attiéké and fish",
+   "look": "Fluffy cassava grains beside a whole grilled fish, onions, and tomato.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "thieboudienne",
+   "look": "Red rice with fish, cabbage wedges, carrots, and large pieces of cassava.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "chicken yassa",
+   "look": "Chicken covered in soft golden onion sauce with lemon and olives.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "mafé",
+   "look": "Meat and vegetables in a thick tan peanut sauce beside rice.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "ndolé",
+   "look": "Dark chopped greens in peanut sauce topped with shrimp or meat.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "koshari",
+   "look": "Rice, lentils, and macaroni topped with tomato sauce and crisp fried onions.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "ful medames",
+   "look": "Brown stewed fava beans with olive oil, herbs, and chopped tomato.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "harira",
+   "look": "Red-brown tomato soup with chickpeas, lentils, noodles, and herbs.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "shakshuka",
+   "look": "Eggs poached in a thick red tomato-and-pepper sauce.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "african",
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "bobotie",
+   "look": "Baked spiced ground meat under a golden egg-custard topping.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "bunny chow",
+   "look": "A hollowed square loaf filled with thick curry.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "boerewors with pap",
+   "look": "A coiled grilled sausage beside a mound of white maize porridge.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "sukuma wiki with ugali",
+   "look": "Dark sautéed leafy greens beside a firm white maize mound.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "nyama choma",
+   "look": "Chunky pieces of char-grilled goat or beef with chopped tomato and onion salad.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "Tunisian brik",
+   "look": "A large thin triangular fried pastry with an egg inside and a crisp blistered shell.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "matoke",
+   "look": "A soft mound of yellow-green cooked plantains with a savory stew alongside.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "african"
+    ],
+    "meal": [
+     "main",
+     "side"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "spaghetti with tomato sauce",
+   "short": "spaghetti pomodoro",
+   "look": "Long pasta strands coated with red tomato sauce and basil.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "mushroom risotto",
+   "look": "Creamy short-grain rice with sliced mushrooms and grated cheese.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "lasagna",
+   "look": "A square stack of pasta sheets, meat sauce, and melted cheese.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "margherita pizza",
+   "look": "A round pizza with red tomato sauce, white mozzarella patches, and green basil.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "gnocchi al pesto",
+   "look": "Small ridged potato dumplings coated in green basil sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "ravioli",
+   "look": "Square stuffed pasta pillows with sealed edges and sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "carbonara",
+   "look": "Spaghetti in a pale glossy sauce with browned pork pieces and black pepper.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "arancini",
+   "look": "Large golden breaded rice balls with a soft savory center.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "caprese salad",
+   "look": "Overlapping red tomato and white mozzarella slices with basil leaves.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "side"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "bruschetta",
+   "look": "Toasted bread slices piled with chopped tomatoes, basil, and olive oil.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "snack",
+     "side"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "osso buco",
+   "look": "A braised cross-cut veal shank with a round marrow bone in the center.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "polenta with mushrooms",
+   "look": "A soft golden cornmeal bed topped with browned mushrooms.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "paella",
+   "look": "A wide shallow pan of saffron-yellow rice with seafood, vegetables, and lemon wedges.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "patatas bravas",
+   "look": "Crisp fried potato chunks topped with red sauce and white aioli.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "side",
+     "snack"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "tortilla española",
+   "look": "A thick round potato-and-egg omelet cut into wedges.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main",
+     "snack"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "gazpacho",
+   "look": "Smooth cold red tomato soup with chopped vegetables on top.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main",
+     "side"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "pulpo a la gallega",
+   "look": "Sliced octopus tentacles with paprika and olive oil over potatoes.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main",
+     "snack"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "moussaka",
+   "look": "Baked layers of eggplant and ground meat beneath a thick browned béchamel top.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "Greek salad",
+   "look": "Chunky tomatoes, cucumber, olives, and red onion under a slab of feta.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "side",
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "spanakopita",
+   "look": "Flaky golden phyllo pastry with a dark green spinach and white cheese filling.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "snack",
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "souvlaki",
+   "look": "Small grilled meat cubes on skewers with pita, tomato, and yogurt sauce.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "gemista",
+   "look": "Whole red tomatoes and green peppers baked with rice filling inside.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "ratatouille",
+   "look": "Soft zucchini, eggplant, peppers, and tomatoes in a colorful vegetable stew.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main",
+     "side"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "bouillabaisse",
+   "look": "Fish and shellfish in a saffron-orange broth with toasted bread alongside.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "imam bayildi",
+   "look": "A whole softened eggplant split open and filled with tomatoes, onions, and olive oil.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "gözleme",
+   "look": "Thin griddle-browned flatbread folded around spinach or cheese and cut into squares.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "squid-ink risotto",
+   "look": "Glossy jet-black rice with pale pieces of squid and a little green herb garnish.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "grilled sardines",
+   "look": "Small whole silver fish with charred skin served with lemon.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "mediterranean"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "fish and chips",
+   "look": "A large golden battered fish fillet with thick fried potatoes and a lemon wedge.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "shepherd's pie",
+   "look": "A baked meat-and-vegetable filling under ridged browned mashed potatoes.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "beef Wellington",
+   "look": "Sliced beef wrapped in mushrooms and golden puff pastry.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "full English breakfast",
+   "look": "Fried eggs, bacon, sausages, beans, mushrooms, tomatoes, and toast on one plate.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "bangers and mash",
+   "look": "Browned sausages on mashed potatoes with onion gravy.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "roast beef with Yorkshire pudding",
+   "short": "roast beef dinner",
+   "look": "Sliced roast beef with crisp puffed batter cups, vegetables, and gravy.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "Scotch eggs",
+   "look": "Halved breaded sausage balls reveal a whole boiled egg at the center.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "snack"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "Welsh rarebit",
+   "look": "Toast covered with a bubbling browned savory cheese sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "snack",
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "coq au vin",
+   "look": "Chicken in dark wine sauce with mushrooms, small onions, and bacon.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "beef bourguignon",
+   "look": "Beef chunks in glossy dark sauce with carrots, mushrooms, and pearl onions.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "quiche Lorraine",
+   "look": "An open savory tart with pale egg custard, bacon, and a browned top.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "breakfast",
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "French onion soup",
+   "look": "Dark onion broth topped with bread and a thick cap of melted browned cheese.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "steak frites",
+   "look": "A seared steak served beside a heap of thin golden fries.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "schnitzel",
+   "look": "A thin broad cutlet in crisp golden breadcrumbs with lemon.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "sauerbraten",
+   "look": "Slices of dark braised beef with brown gravy, dumplings, and red cabbage.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "spaetzle",
+   "look": "Short irregular egg noodles with butter or melted cheese.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "side",
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "rösti",
+   "look": "A broad flat cake of shredded potato with a crisp golden crust.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "breakfast",
+     "side"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "cheese fondue",
+   "look": "A pot of melted pale cheese with bread cubes on long forks.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "pierogi",
+   "look": "Plump half-moon dumplings with pinched edges and sautéed onions.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "Polish gołąbki",
+   "look": "Large cabbage rolls filled with meat and rice under tomato sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "borscht",
+   "look": "Deep beet-red soup with cabbage, vegetables, and a white dollop of sour cream.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "beef stroganoff",
+   "look": "Beef strips and mushrooms in pale creamy sauce over noodles.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "chicken Kyiv",
+   "look": "A breaded chicken roll cut open to release yellow herb butter.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "Swedish meatballs",
+   "look": "Small brown meatballs with cream gravy, mashed potatoes, and red lingonberries.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "gravlax",
+   "look": "Thin orange cured salmon slices with a dill coating and mustard sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "snack",
+     "side"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "smørrebrød",
+   "look": "Open-faced dark rye sandwiches with neatly layered fish, meat, eggs, or vegetables.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main",
+     "snack"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "Finnish salmon soup",
+   "look": "Pale creamy broth with orange salmon chunks, potatoes, and dill.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "herring rollmops",
+   "look": "Silvery pickled herring fillets rolled around pickles and fastened with toothpicks.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "snack"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "khachapuri",
+   "look": "A boat-shaped bread holding melted cheese, butter, and a bright egg yolk.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european",
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "khinkali",
+   "look": "Large pleated dumplings with thick twisted knobs at the top.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european",
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "buckwheat blini",
+   "look": "Small brown buckwheat pancakes topped with sour cream and orange fish roe.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "snack"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "Hungarian goulash",
+   "look": "Red paprika broth with beef cubes, potatoes, carrots, and peppers.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "bacalhau à Brás",
+   "look": "Shredded salt cod and thin fried potato sticks bound with egg, olives, and parsley.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "european"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "tacos al pastor",
+   "look": "Small tortillas with red grilled pork, pineapple, chopped onion, and cilantro.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "chiles en nogada",
+   "look": "A stuffed green poblano under white walnut sauce with red pomegranate seeds.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "mole poblano",
+   "look": "Chicken covered in thick dark brown mole sauce and sesame seeds.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "pozole rojo",
+   "look": "Red broth with large white hominy kernels, pork, radish, and shredded cabbage.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "enchiladas",
+   "look": "Rolled tortillas covered in red or green sauce, cheese, and crema.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "chilaquiles",
+   "look": "Tortilla chips softened in sauce with crema, cheese, onion, and eggs.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "Mexican tamales",
+   "look": "Corn husks opened around firm steamed masa with a savory filling.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "elote",
+   "look": "A corn cob coated with white crema, crumbled cheese, chili, and lime.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "aguachile",
+   "look": "Raw shrimp spread in green chili-lime liquid with cucumber and red onion.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "quesadillas",
+   "look": "Folded griddled tortillas cut to reveal melted cheese.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main",
+     "snack"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "pupusas",
+   "look": "Thick griddled corn rounds stuffed with cheese or beans, beside pickled cabbage.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "arepas",
+   "look": "Thick round corn cakes split and filled with meat, cheese, or beans.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "pabellón criollo",
+   "look": "Separate portions of shredded beef, white rice, black beans, and fried plantains.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "bandeja paisa",
+   "look": "A large platter of beans, rice, meat, pork crackling, egg, avocado, and plantain.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "ajiaco",
+   "look": "A thick pale potato-and-chicken soup with a piece of corn cob and capers.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "Peruvian ceviche",
+   "look": "Pale fish cubes in milky citrus marinade with red onion, sweet potato, and corn.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "lomo saltado",
+   "look": "Seared beef strips, red onion, and tomato tossed with fries beside rice.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "causa limeña",
+   "look": "A molded yellow potato stack with avocado and a pale chicken or tuna filling.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "ají de gallina",
+   "look": "Shredded chicken in a thick yellow sauce over potatoes with olives and egg.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "anticuchos",
+   "look": "Dark grilled beef-heart chunks on skewers beside potatoes and corn.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "feijoada",
+   "look": "Black bean and pork stew with rice, orange slices, and chopped greens.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "moqueca",
+   "look": "Fish in orange coconut broth with tomatoes, peppers, and cilantro.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "coxinhas",
+   "look": "Golden teardrop-shaped croquettes with shredded chicken inside.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "acarajé",
+   "look": "A split fried bean cake stuffed with shrimp and bright vegetable fillings.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "Argentine empanadas",
+   "look": "Golden half-moon pastries with thick crimped edges and savory filling.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "snack",
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "asado",
+   "look": "Large grilled beef cuts and sausages with charred edges on a serving board.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "choripán",
+   "look": "A crusty roll holding a grilled sausage and green chimichurri.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "pastel de choclo",
+   "look": "A baked ground-meat casserole under a browned yellow sweet-corn topping.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "ropa vieja",
+   "look": "Long strands of shredded beef with peppers and onions in tomato sauce.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "mofongo",
+   "look": "A compact mound of mashed fried green plantains with pork crackling and garlic.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "cochinita pibil",
+   "look": "Orange-red shredded pork with vivid pink pickled onions and tortillas.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "llapingachos",
+   "look": "Thick golden potato cakes with cheese filling beside peanut sauce and salad.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "latin_american"
+    ],
+    "meal": [
+     "main",
+     "side"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "cheeseburger",
+   "look": "A bun holding a grilled beef patty, melted cheese, lettuce, and tomato.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "hot dog",
+   "look": "A sausage in a split bun with lines of mustard and ketchup.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "macaroni and cheese",
+   "look": "Curved pasta coated in smooth yellow cheese sauce.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main",
+     "side"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "barbecue ribs",
+   "look": "A rack of browned ribs with a glossy reddish barbecue glaze.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "fried chicken",
+   "look": "Chicken pieces with thick craggy golden-brown breading.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "New England clam chowder",
+   "look": "Thick white soup with clam pieces, potato cubes, and oyster crackers.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "gumbo",
+   "look": "Dark brown stew with sausage, chicken or seafood, and a scoop of white rice.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "jambalaya",
+   "look": "Reddish seasoned rice with sausage slices, shrimp, and vegetables.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "shrimp and grits",
+   "look": "Pink shrimp and brown sauce over soft pale corn grits.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "lobster roll",
+   "look": "A split toasted bun piled with large red-and-white lobster pieces.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "Philly cheesesteak",
+   "look": "A long roll packed with chopped beef, onions, and melted cheese.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "Reuben sandwich",
+   "look": "Toasted rye slices holding corned beef, sauerkraut, melted cheese, and pink dressing.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "club sandwich",
+   "look": "A tall triple-decker sandwich cut into triangles with meat, bacon, lettuce, and tomato.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "Cobb salad",
+   "look": "Rows of chicken, bacon, egg, avocado, tomato, and blue cheese over greens.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "Buffalo wings",
+   "look": "Chicken wings coated in orange-red sauce beside celery and white dip.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "snack",
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "meatloaf",
+   "look": "Thick slices of baked ground meat with a red glaze and mashed potatoes.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "poutine",
+   "look": "French fries covered with pale cheese curds and brown gravy.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main",
+     "snack"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "Montreal smoked meat sandwich",
+   "short": "smoked meat sandwich",
+   "look": "A thick stack of pink smoked beef between rye bread slices with mustard.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "pancakes",
+   "look": "A stack of round golden pancakes with butter and dripping syrup.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "French toast",
+   "look": "Golden egg-soaked bread slices topped with powdered sugar or syrup.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "eggs Benedict",
+   "look": "Poached eggs over ham and English muffins under yellow hollandaise sauce.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "biscuits and gravy",
+   "look": "Split fluffy biscuits covered with thick white sausage gravy.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "succotash",
+   "look": "Yellow corn kernels mixed with green lima beans and diced peppers.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "side"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "Cajun crawfish boil",
+   "look": "Bright red whole crawfish with corn cobs and red potatoes scattered together.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "scrambled eggs",
+   "look": "Soft yellow egg curds with toast and a little chopped chive garnish.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "north_american"
+    ],
+    "meal": [
+     "breakfast"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "Australian meat pie",
+   "look": "A small round golden pastry pie filled with dark meat gravy.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "grilled barramundi",
+   "look": "A thick white fish fillet with crisp skin and charred grill marks.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "hāngī",
+   "look": "A platter of earth-cooked meat, cabbage, potatoes, and orange sweet potatoes.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "kokoda",
+   "look": "Raw fish cubes in white coconut-citrus dressing with chopped peppers and onions.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "Samoan palusami",
+   "look": "Dark taro-leaf bundles opened to show a soft creamy coconut filling.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "side",
+     "main"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "poi",
+   "look": "A smooth sticky lavender-gray taro paste served in a bowl.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "side"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "poke bowl",
+   "look": "Raw fish cubes over rice with seaweed, avocado, vegetables, and sesame.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "loco moco",
+   "look": "A hamburger patty on rice under a fried egg and brown gravy.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "main",
+     "breakfast"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "luncheon meat musubi",
+   "look": "A rectangular rice block topped with grilled luncheon meat and a seaweed band.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "whitebait fritters",
+   "look": "Thin golden egg fritters with small silvery fish visible throughout.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "sausage rolls",
+   "look": "Golden puff-pastry cylinders wrapped around sausage filling and cut into lengths.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "snack",
+     "street_food"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "Hawaiian laulau",
+   "look": "A dark steamed leaf parcel unwrapped around pork and fish.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "oceanian"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "sushi burrito",
+   "look": "A large uncut seaweed-and-rice cylinder packed with raw fish and vegetables.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "fusion_global"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "north_american",
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "ramen burger",
+   "look": "A beef patty sandwiched between two crisp round cakes of ramen noodles.",
+   "tier": "unusual",
+   "tags": {
+    "cuisine": [
+     "fusion_global"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "north_american",
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "Korean barbecue tacos",
+   "look": "Small tortillas filled with glossy grilled beef, kimchi, and sesame.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "fusion_global"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "north_american",
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "California burrito",
+   "look": "A large flour tortilla cut open to show steak, French fries, cheese, and salsa.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "fusion_global"
+    ],
+    "meal": [
+     "main",
+     "street_food"
+    ],
+    "region": [
+     "north_american",
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "loaded nachos",
+   "look": "Tortilla chips layered with melted cheese, beans, salsa, jalapeños, and sour cream.",
+   "tier": "typical",
+   "tags": {
+    "cuisine": [
+     "fusion_global"
+    ],
+    "meal": [
+     "snack",
+     "main"
+    ],
+    "region": [
+     "north_american",
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "butter chicken pizza",
+   "look": "A pizza topped with orange butter chicken sauce, chicken chunks, and melted cheese.",
+   "tier": "plausible",
+   "tags": {
+    "cuisine": [
+     "fusion_global"
+    ],
+    "meal": [
+     "main"
+    ],
+    "region": [
+     "north_american",
+     "south_asian"
+    ]
+   }
   }
+ ]
 }

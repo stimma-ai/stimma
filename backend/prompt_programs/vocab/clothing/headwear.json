@@ -1,0 +1,751 @@
+{
+ "id": "clothing.headwear",
+ "label": "Headwear",
+ "description": "Named hats, caps, headwraps, scarves, veils, crowns and practical head coverings.",
+ "pos": "noun phrase",
+ "frame": "wearing ___",
+ "notes": "Head coverings and wearable headpieces belong here, including ceremonial crowns and practical protective headwear. Hairstyles belong in person.hairstyle; earrings, necklaces and other jewelry belong in person.accessory. Each value names one item after wearing, with no specified color or brand. Traditional names describe the covering rather than the wearer’s descent, and revivable hat styles remain available in contemporary scenes.",
+ "closed": false,
+ "facets": [
+  "presentation"
+ ],
+ "local_facets": {
+  "kind": [
+   "brimmed_hat",
+   "cap",
+   "knit",
+   "wrap_scarf",
+   "formal_ceremonial",
+   "sun",
+   "other"
+  ]
+ },
+ "values": [
+  {
+   "text": "a fedora",
+   "short": "fedora",
+   "tier": "typical",
+   "look": "a felt hat with a pinched, lengthwise-creased crown and a medium brim that dips in front",
+   "tags": {
+    "kind": [
+     "brimmed_hat"
+    ]
+   }
+  },
+  {
+   "text": "a trilby",
+   "short": "trilby",
+   "tier": "plausible",
+   "look": "a pinched-crown hat with a narrow brim turned sharply upward at the back",
+   "tags": {
+    "kind": [
+     "brimmed_hat"
+    ]
+   }
+  },
+  {
+   "text": "a porkpie hat",
+   "short": "porkpie hat",
+   "tier": "plausible",
+   "look": "a low hat with a flat circular crown, a shallow crown groove and a short turned-up brim",
+   "tags": {
+    "kind": [
+     "brimmed_hat"
+    ]
+   }
+  },
+  {
+   "text": "a bowler hat",
+   "short": "bowler hat",
+   "tier": "plausible",
+   "look": "a rigid felt hat with a round domed crown and a narrow curled brim",
+   "tags": {
+    "kind": [
+     "brimmed_hat"
+    ]
+   }
+  },
+  {
+   "text": "a boater hat",
+   "short": "boater hat",
+   "tier": "plausible",
+   "look": "a stiff straw hat with a flat crown, flat circular brim and ribbon band",
+   "tags": {
+    "kind": [
+     "brimmed_hat",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "a top hat",
+   "short": "top hat",
+   "tier": "plausible",
+   "look": "a tall cylindrical hat with a flat top and a short brim curled upward at the sides",
+   "tags": {
+    "kind": [
+     "brimmed_hat",
+     "formal_ceremonial"
+    ]
+   }
+  },
+  {
+   "text": "a homburg hat",
+   "short": "homburg hat",
+   "tier": "plausible",
+   "look": "a felt hat with a single center crown crease and a rolled, bound brim",
+   "tags": {
+    "kind": [
+     "brimmed_hat",
+     "formal_ceremonial"
+    ]
+   }
+  },
+  {
+   "text": "a cowboy hat",
+   "short": "cowboy hat",
+   "tier": "typical",
+   "look": "a high-crowned hat with a deeply creased top and a broad brim swept upward at the sides",
+   "tags": {
+    "kind": [
+     "brimmed_hat",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "a panama hat",
+   "short": "panama hat",
+   "tier": "typical",
+   "look": "a finely woven straw hat with a pinched crown, broad brim and ribbon band",
+   "tags": {
+    "kind": [
+     "brimmed_hat",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "a wide-brimmed sun hat",
+   "short": "wide-brimmed sun hat",
+   "tier": "typical",
+   "look": "a light hat with an expansive brim shading the face, ears and neck",
+   "tags": {
+    "kind": [
+     "brimmed_hat",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "a bucket hat",
+   "short": "bucket hat",
+   "tier": "typical",
+   "look": "a soft cloth hat with a flat crown and a short downward-sloping brim",
+   "tags": {
+    "kind": [
+     "brimmed_hat",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "a cloche hat",
+   "short": "cloche hat",
+   "tier": "plausible",
+   "look": "a close-fitting bell-shaped hat pulled low over the forehead with a small downward brim",
+   "tags": {
+    "kind": [
+     "brimmed_hat"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Breton hat",
+   "short": "Breton hat",
+   "tier": "plausible",
+   "look": "a round-crowned hat with a wide brim turned upward all the way around",
+   "tags": {
+    "kind": [
+     "brimmed_hat"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cartwheel hat",
+   "short": "cartwheel hat",
+   "tier": "unusual",
+   "look": "a shallow-crowned hat with an extremely broad, flat circular brim",
+   "tags": {
+    "kind": [
+     "brimmed_hat",
+     "formal_ceremonial",
+     "sun"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a conical straw hat",
+   "short": "conical straw hat",
+   "tier": "plausible",
+   "look": "a woven straw hat forming a broad cone from a pointed top to a wide circular rim",
+   "tags": {
+    "kind": [
+     "brimmed_hat",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "a pith helmet",
+   "short": "pith helmet",
+   "tier": "plausible",
+   "look": "a lightweight rigid helmet with a domed crown, a surrounding brim and a band above the brim",
+   "tags": {
+    "kind": [
+     "sun",
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a boonie hat",
+   "short": "boonie hat",
+   "tier": "plausible",
+   "look": "a soft field hat with a broad stitched brim, webbing loops around the crown and a chin cord",
+   "tags": {
+    "kind": [
+     "brimmed_hat",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "a baseball cap",
+   "short": "baseball cap",
+   "tier": "typical",
+   "look": "a fitted paneled cap with a rounded crown and a projecting curved visor",
+   "tags": {
+    "kind": [
+     "cap",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "a trucker cap",
+   "short": "trucker cap",
+   "tier": "typical",
+   "look": "a cap with a tall solid front panel, a mesh back and a curved visor",
+   "tags": {
+    "kind": [
+     "cap",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "a five-panel cap",
+   "short": "five-panel cap",
+   "tier": "plausible",
+   "look": "a shallow cloth cap with a broad rectangular front panel, side panels and a flat visor",
+   "tags": {
+    "kind": [
+     "cap",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "a flat cap",
+   "short": "flat cap",
+   "tier": "typical",
+   "look": "a low, rounded cloth cap with the sloping crown fastened close to a short front visor",
+   "tags": {
+    "kind": [
+     "cap"
+    ]
+   }
+  },
+  {
+   "text": "a newsboy cap",
+   "short": "newsboy cap",
+   "tier": "plausible",
+   "look": "a full eight-panel cloth cap with a top button and a short projecting visor",
+   "tags": {
+    "kind": [
+     "cap"
+    ]
+   }
+  },
+  {
+   "text": "a beret",
+   "short": "beret",
+   "tier": "typical",
+   "look": "a soft round cap with a flat, wide crown draped to one side",
+   "tags": {
+    "kind": [
+     "cap"
+    ]
+   }
+  },
+  {
+   "text": "a peaked service cap",
+   "short": "peaked service cap",
+   "tier": "plausible",
+   "look": "a structured uniform cap with a broad flat crown, a stiff front visor and a badge band",
+   "tags": {
+    "kind": [
+     "cap",
+     "formal_ceremonial"
+    ]
+   }
+  },
+  {
+   "text": "a cadet cap",
+   "short": "cadet cap",
+   "tier": "plausible",
+   "look": "a flat-topped cylindrical cloth cap with short straight sides and a compact front visor",
+   "tags": {
+    "kind": [
+     "cap"
+    ]
+   }
+  },
+  {
+   "text": "a deerstalker hat",
+   "short": "deerstalker hat",
+   "tier": "plausible",
+   "look": "a paneled hunting cap with front and rear visors and earflaps tied over the crown",
+   "tags": {
+    "kind": [
+     "cap"
+    ]
+   }
+  },
+  {
+   "text": "a sailor cap",
+   "short": "sailor cap",
+   "tier": "plausible",
+   "look": "a brimless round uniform cap with a flat overhanging crown and a ribbon band with trailing ends",
+   "tags": {
+    "kind": [
+     "cap",
+     "formal_ceremonial"
+    ]
+   }
+  },
+  {
+   "text": "a fez",
+   "short": "fez",
+   "tier": "plausible",
+   "look": "a stiff brimless felt cap shaped like a truncated cone with a tassel falling from the top",
+   "tags": {
+    "kind": [
+     "cap",
+     "formal_ceremonial"
+    ]
+   }
+  },
+  {
+   "text": "a taqiyah",
+   "short": "taqiyah",
+   "tier": "plausible",
+   "look": "a close-fitting rounded skullcap, often crocheted or embroidered",
+   "tags": {
+    "kind": [
+     "cap",
+     "formal_ceremonial"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a kippah",
+   "short": "kippah",
+   "tier": "plausible",
+   "look": "a small shallow circular cap resting on the crown of the head",
+   "tags": {
+    "kind": [
+     "cap",
+     "formal_ceremonial"
+    ]
+   }
+  },
+  {
+   "text": "a songkok",
+   "short": "songkok",
+   "tier": "plausible",
+   "look": "a brimless oval cap with straight velvet sides and a flat top",
+   "tags": {
+    "kind": [
+     "cap",
+     "formal_ceremonial"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a cuffed beanie",
+   "short": "cuffed beanie",
+   "tier": "typical",
+   "look": "a snug knitted cap with a folded band around the forehead and ears",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a pom-pom beanie",
+   "short": "pom-pom beanie",
+   "tier": "typical",
+   "look": "a fitted knitted cap topped with a round yarn pom-pom",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a slouchy beanie",
+   "short": "slouchy beanie",
+   "tier": "plausible",
+   "look": "a long knitted cap with extra fabric drooping behind the crown",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "an earflap knit hat",
+   "short": "earflap knit hat",
+   "tier": "plausible",
+   "look": "a knitted cap with panels covering the ears and long braided ties",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a balaclava",
+   "short": "balaclava",
+   "tier": "plausible",
+   "look": "a close-fitting hood covering the head and neck with an opening for the face",
+   "tags": {
+    "kind": [
+     "knit",
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "an ushanka",
+   "short": "ushanka",
+   "tier": "plausible",
+   "look": "a thick fur hat with a front flap and long earflaps that tie beneath the chin or over the crown",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a papakha",
+   "short": "papakha",
+   "tier": "plausible",
+   "look": "a tall brimless hat with a cylindrical body covered in dense shaggy sheepskin",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a turban",
+   "short": "turban",
+   "tier": "plausible",
+   "look": "a long cloth wound around the head in layered bands, forming a rounded or peaked crown",
+   "tags": {
+    "kind": [
+     "wrap_scarf"
+    ]
+   }
+  },
+  {
+   "text": "a headwrap",
+   "short": "headwrap",
+   "tier": "typical",
+   "look": "a broad cloth wrapped around the hair and gathered into a prominent knot or fold",
+   "tags": {
+    "kind": [
+     "wrap_scarf"
+    ]
+   }
+  },
+  {
+   "text": "a hijab",
+   "short": "hijab",
+   "tier": "typical",
+   "look": "a scarf framing the face while covering the hair, neck and upper shoulders",
+   "tags": {
+    "kind": [
+     "wrap_scarf"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a keffiyeh",
+   "short": "keffiyeh",
+   "tier": "plausible",
+   "look": "a square woven scarf with a geometric check pattern draped over the head and shoulders",
+   "tags": {
+    "kind": [
+     "wrap_scarf"
+    ]
+   }
+  },
+  {
+   "text": "a bandana",
+   "short": "bandana",
+   "tier": "typical",
+   "look": "a triangular folded cloth tied around the head with a knot and short tails at the back",
+   "tags": {
+    "kind": [
+     "wrap_scarf"
+    ]
+   }
+  },
+  {
+   "text": "a headscarf",
+   "short": "headscarf",
+   "tier": "typical",
+   "look": "a square scarf folded over the hair and tied beneath the chin, leaving the face and front of the neck visible",
+   "tags": {
+    "kind": [
+     "wrap_scarf"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a niqab",
+   "short": "niqab",
+   "tier": "plausible",
+   "look": "a head covering with a hanging face veil that leaves a narrow opening for the eyes",
+   "tags": {
+    "kind": [
+     "wrap_scarf"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a hair snood",
+   "short": "hair snood",
+   "tier": "plausible",
+   "look": "a loose netted pouch holding the hair together at the back of the head",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a mantilla",
+   "short": "mantilla",
+   "tier": "plausible",
+   "look": "a lace veil draped over the crown and shoulders, sometimes lifted at the back by a tall comb",
+   "tags": {
+    "kind": [
+     "wrap_scarf",
+     "formal_ceremonial"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a fascinator",
+   "short": "fascinator",
+   "tier": "plausible",
+   "look": "a small decorative headpiece of sculpted fabric, feathers or netting perched at an angle",
+   "tags": {
+    "kind": [
+     "formal_ceremonial"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a pillbox hat",
+   "short": "pillbox hat",
+   "tier": "plausible",
+   "look": "a small brimless hat with straight sides and a flat circular or oval top",
+   "tags": {
+    "kind": [
+     "formal_ceremonial"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a tiara",
+   "short": "tiara",
+   "tier": "plausible",
+   "look": "a jeweled open-backed headpiece rising into decorative points above the forehead",
+   "tags": {
+    "kind": [
+     "formal_ceremonial"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a crown",
+   "short": "crown",
+   "tier": "plausible",
+   "look": "a rigid circlet encircling the head with raised points, arches or jewel settings",
+   "tags": {
+    "kind": [
+     "formal_ceremonial"
+    ]
+   }
+  },
+  {
+   "text": "a mortarboard",
+   "short": "mortarboard",
+   "tier": "plausible",
+   "look": "a fitted academic cap topped by a flat square board and a hanging tassel",
+   "tags": {
+    "kind": [
+     "formal_ceremonial"
+    ]
+   }
+  },
+  {
+   "text": "a tricorn hat",
+   "short": "tricorn hat",
+   "tier": "unusual",
+   "look": "a wide-brimmed hat folded upward on three sides to form a triangular outline",
+   "tags": {
+    "kind": [
+     "brimmed_hat",
+     "formal_ceremonial"
+    ]
+   }
+  },
+  {
+   "text": "a bonnet",
+   "short": "bonnet",
+   "tier": "plausible",
+   "look": "a soft head covering with a projecting brim framing the face and ribbons tied under the chin",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a headband",
+   "short": "headband",
+   "tier": "typical",
+   "look": "a narrow band arching over the crown or circling the forehead to hold the hair back",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "earmuffs",
+   "tier": "typical",
+   "look": "two padded ear cups joined by a band passing over or behind the head",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a sun visor",
+   "short": "sun visor",
+   "tier": "typical",
+   "look": "a headband with a projecting front brim and an open crown",
+   "tags": {
+    "kind": [
+     "cap",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "a chef's toque",
+   "short": "chef's toque",
+   "tier": "plausible",
+   "look": "a tall pleated cloth hat with a fitted band and a softly puffed top",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a hard hat",
+   "short": "hard hat",
+   "tier": "typical",
+   "look": "a rigid protective shell with a small front brim and raised ridges across the crown",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a bicycle helmet",
+   "short": "bicycle helmet",
+   "tier": "typical",
+   "look": "a close-fitting protective helmet with long ventilation slots and a buckled chin strap",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  }
+ ]
+}

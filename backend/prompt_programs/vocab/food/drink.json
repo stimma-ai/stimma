@@ -1,450 +1,958 @@
 {
-  "id": "food.drink",
-  "label": "Drink",
-  "description": "Beverages grouped by temperature and drink kind.",
-  "pos": "noun phrase",
-  "frame": "a glass of ___",
-  "notes": "Glass-compatible drinks, including hot drinks served in heatproof glassware. Kind is deliberately multi-valued: temperature can combine with alcoholic, soft, or juice or smoothie. Soft labels non-alcoholic refreshers other than juice or smoothies; unspecified temperature remains unconstrained.",
-  "facets": [],
-  "closed": false,
-  "untagged": {},
-  "values": [
-    {
-      "text": "water",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "sparkling water",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "milk",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "lemonade",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "cola",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "ginger ale",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "iced tea",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "iced coffee",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "orange juice",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "juice or smoothie"
-        ]
-      }
-    },
-    {
-      "text": "apple juice",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "juice or smoothie"
-        ]
-      }
-    },
-    {
-      "text": "pineapple juice",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "juice or smoothie"
-        ]
-      }
-    },
-    {
-      "text": "mango smoothie",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "juice or smoothie"
-        ]
-      }
-    },
-    {
-      "text": "strawberry smoothie",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "juice or smoothie"
-        ]
-      }
-    },
-    {
-      "text": "black tea",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "hot"
-        ]
-      }
-    },
-    {
-      "text": "green tea",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "hot"
-        ]
-      }
-    },
-    {
-      "text": "coffee",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "hot"
-        ]
-      }
-    },
-    {
-      "text": "hot chocolate",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "hot"
-        ]
-      }
-    },
-    {
-      "text": "beer",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "alcoholic"
-        ]
-      }
-    },
-    {
-      "text": "red wine",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "alcoholic"
-        ]
-      }
-    },
-    {
-      "text": "white wine",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "cold",
-          "alcoholic"
-        ]
-      }
-    },
-    {
-      "text": "hibiscus tea",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "hot"
-        ]
-      }
-    },
-    {
-      "text": "mint tea",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "hot"
-        ]
-      }
-    },
-    {
-      "text": "chai",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "hot"
-        ]
-      }
-    },
-    {
-      "text": "hot lemon water",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "hot"
-        ]
-      }
-    },
-    {
-      "text": "tonic water",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "coconut water",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "cold-brew coffee",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "iced matcha",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "pomegranate juice",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "juice or smoothie"
-        ]
-      }
-    },
-    {
-      "text": "watermelon juice",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "juice or smoothie"
-        ]
-      }
-    },
-    {
-      "text": "banana smoothie",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "juice or smoothie"
-        ]
-      }
-    },
-    {
-      "text": "green smoothie",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "juice or smoothie"
-        ]
-      }
-    },
-    {
-      "text": "rosé wine",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "alcoholic"
-        ]
-      }
-    },
-    {
-      "text": "cider",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "alcoholic"
-        ]
-      }
-    },
-    {
-      "text": "sangria",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "alcoholic"
-        ]
-      }
-    },
-    {
-      "text": "sparkling wine",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "cold",
-          "alcoholic"
-        ]
-      }
-    },
-    {
-      "text": "butterfly pea tea",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "hot"
-        ]
-      }
-    },
-    {
-      "text": "roasted barley tea",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "hot"
-        ]
-      }
-    },
-    {
-      "text": "tamarind cooler",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "salted plum soda",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "cold",
-          "soft"
-        ]
-      }
-    },
-    {
-      "text": "sea buckthorn juice",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "cold",
-          "juice or smoothie"
-        ]
-      }
-    },
-    {
-      "text": "black sesame smoothie",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "cold",
-          "juice or smoothie"
-        ]
-      }
-    },
-    {
-      "text": "mead",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "alcoholic"
-        ]
-      }
-    },
-    {
-      "text": "rice wine",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "alcoholic"
-        ]
-      }
-    }
-  ],
-  "local_facets": {
+ "id": "food.drink",
+ "label": "Drink",
+ "description": "Named cocktails, coffees, teas, wines, beers, spirits, juices, and other beverages.",
+ "pos": "noun phrase",
+ "frame": "a drink of ___",
+ "notes": "Prepared and pourable beverages belong here; food.dish holds meals and food.dessert holds spoonable sweets and frozen desserts. Values use familiar drink names that follow “a drink of,” and visual glosses give the usual color, vessel, foam, ice, and garnish. Kind chips classify drink families rather than serving temperature; standard presentations help distinguish similar liquids. Branded cocktail names are phrased generically, and beer and wine entries emphasize visibly different styles rather than production regions.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "coffee",
+   "tea",
+   "cocktail",
+   "soft_drink",
+   "juice_smoothie",
+   "milk_based",
+   "fermented",
+   "beer",
+   "wine",
+   "spirit"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "espresso",
+   "look": "A small dark shot in a demitasse with a thin hazelnut-colored crema.",
+   "tier": "typical",
+   "tags": {
     "kind": [
-      "hot",
-      "cold",
-      "alcoholic",
-      "soft",
-      "juice or smoothie"
+     "coffee"
     ]
+   }
+  },
+  {
+   "text": "cortado",
+   "look": "Equal-looking layers of espresso and warm milk in a small clear glass with little foam.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "flat white",
+   "look": "A small cup of tan espresso and milk with a thin smooth microfoam surface.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "cappuccino",
+   "look": "A cup of brown coffee under a thick dome of pale milk foam.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "latte with latte art",
+   "look": "A broad cup of milky coffee with a white rosetta or heart drawn into the tan surface.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "iced coffee",
+   "look": "Brown coffee poured over clear ice cubes in a tall glass.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "Vietnamese iced coffee",
+   "look": "Dark coffee and pale condensed milk over ice, often with a metal drip filter nearby.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "Turkish coffee",
+   "look": "A tiny ornate cup of very dark unfiltered coffee with a fine bubbly surface.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "coffee mocha",
+   "look": "A brown coffee-and-chocolate drink topped with milk foam or whipped cream.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "affogato",
+   "look": "A white scoop of gelato melting into a small pool of dark espresso.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "espresso con panna",
+   "look": "A small dark espresso shot topped with a distinct mound of white whipped cream.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "Irish coffee",
+   "look": "Dark coffee in a stemmed glass with a clean thick layer of white cream.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "frappé coffee",
+   "look": "A tall iced tan drink with a thick bubbly foam cap and a straw.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "dalgona coffee",
+   "look": "A tall glass of white milk beneath a thick mound of whipped caramel-brown coffee.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "text": "black tea",
+   "look": "A clear reddish-brown infusion in a cup, without milk.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "green tea",
+   "look": "A pale yellow-green translucent infusion in a small cup.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "matcha",
+   "look": "Opaque vivid green tea with a fine foamy surface in a wide ceramic bowl.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "iced matcha latte",
+   "look": "White milk and vivid green matcha in separate swirling layers over ice.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "masala chai",
+   "look": "Opaque tan spiced milk tea with a lightly frothy surface.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "bubble tea",
+   "look": "Milky tan tea with large dark tapioca pearls settled at the bottom and a wide straw.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "Moroccan mint tea",
+   "look": "Clear golden tea with fresh green mint sprigs in a small patterned glass.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "hibiscus tea",
+   "look": "A clear deep ruby-red infusion, hot or poured over ice.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "butterfly pea tea",
+   "look": "A clear intense cobalt-blue infusion in a glass cup.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "Thai iced tea",
+   "look": "Bright orange tea over ice with a pale condensed-milk layer.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "blooming tea",
+   "look": "A tied bundle of leaves opens like a flower inside a clear pot of golden tea.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "oolong tea",
+   "look": "A golden-amber infusion in small handleless cups beside a compact teapot.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "tea"
+    ]
+   }
+  },
+  {
+   "text": "Negroni",
+   "look": "A clear ruby-red drink in a low glass with a large ice cube and an orange peel.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "aperitivo spritz",
+   "look": "A bright orange sparkling drink in a large wine glass with ice and an orange slice.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "old fashioned",
+   "look": "An amber drink in a low tumbler with a large ice cube and a curled orange peel.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "martini",
+   "look": "A clear drink in a V-shaped stemmed glass with an olive or lemon twist.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "margarita",
+   "look": "A pale green drink in a broad stemmed glass with a salted rim and a lime wedge.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "mojito",
+   "look": "A tall clear iced drink packed with green mint leaves and lime wedges.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "piña colada",
+   "look": "An opaque creamy white drink in a curved glass with pineapple garnish.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "espresso martini",
+   "look": "A dark coffee cocktail in a stemmed glass with tan foam and three coffee beans.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "Manhattan",
+   "look": "A clear reddish-amber drink in a small stemmed glass with a dark cherry.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "daiquiri",
+   "look": "A pale cloudy lime drink served without ice in a chilled coupe.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "mai tai",
+   "look": "An amber iced drink in a low glass with mint and a lime shell.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "Moscow mule",
+   "look": "A pale fizzy drink with ice and lime in a copper mug.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "French 75",
+   "look": "A pale golden sparkling drink in a flute with a curled lemon peel.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "Bloody Mary",
+   "look": "An opaque red tomato drink in a tall glass with celery and a seasoned rim.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "Sazerac",
+   "look": "A small amber pour in a low glass, served without ice with a lemon peel.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "mezcal paloma",
+   "look": "A pale pink fizzy drink over ice with a salted rim and grapefruit wedge.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "whiskey sour",
+   "look": "An amber-yellow drink with a smooth white foam cap in a low glass.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "pisco sour",
+   "look": "A cloudy pale yellow drink in a stemmed glass with white foam dotted with brown bitters.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "cosmopolitan",
+   "look": "A translucent pink drink in a V-shaped cocktail glass with citrus peel.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "aviation cocktail",
+   "look": "A pale violet cocktail in a stemmed glass with a dark cherry.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "blue lagoon cocktail",
+   "look": "A bright blue iced drink in a tall glass with a lemon garnish.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "tequila sunrise",
+   "look": "A tall iced drink grading from orange at the top to red at the bottom.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "mint julep",
+   "look": "Crushed ice heaped in a silver-colored cup with a large fresh mint bouquet.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "Singapore sling",
+   "look": "A tall pink-red iced drink with pineapple and a cherry.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "gin and tonic",
+   "look": "A clear bubbly drink with large ice cubes and lime in a tall glass.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cocktail"
+    ]
+   }
+  },
+  {
+   "text": "water",
+   "look": "Clear still water in a plain glass.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "soft_drink"
+    ]
+   }
+  },
+  {
+   "text": "sparkling water",
+   "look": "Clear water with streams of small rising bubbles.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "soft_drink"
+    ]
+   }
+  },
+  {
+   "text": "lemonade",
+   "look": "A cloudy pale yellow drink over ice with lemon slices.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "soft_drink"
+    ]
+   }
+  },
+  {
+   "text": "cola",
+   "look": "Dark brown fizzy soda with ice and a light brown foam edge.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "soft_drink"
+    ]
+   }
+  },
+  {
+   "text": "ginger beer",
+   "look": "A cloudy pale gold fizzy drink over ice with a lime wedge.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "soft_drink"
+    ]
+   }
+  },
+  {
+   "text": "root beer float",
+   "look": "Dark soda in a tall glass beneath a scoop of white vanilla ice cream and tan foam.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "soft_drink"
+    ]
+   }
+  },
+  {
+   "text": "hot chocolate",
+   "look": "A steaming dark brown drink topped with whipped cream or marshmallows.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "soft_drink"
+    ]
+   }
+  },
+  {
+   "text": "Italian cream soda",
+   "look": "Bright fruit syrup and soda over ice with pale cream swirling through the glass.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "soft_drink"
+    ]
+   }
+  },
+  {
+   "text": "orange juice",
+   "look": "Opaque orange juice in a clear glass, sometimes with fine pulp.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "juice_smoothie"
+    ]
+   }
+  },
+  {
+   "text": "pomegranate juice",
+   "look": "A deep ruby-red juice served in a clear glass.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "juice_smoothie"
+    ]
+   }
+  },
+  {
+   "text": "watermelon agua fresca",
+   "look": "A watery pink-red iced drink with a watermelon wedge.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "juice_smoothie"
+    ]
+   }
+  },
+  {
+   "text": "green smoothie",
+   "look": "A thick opaque green drink with a smooth slightly frothy surface.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "juice_smoothie"
+    ]
+   }
+  },
+  {
+   "text": "mango smoothie",
+   "look": "A thick bright yellow-orange drink with a creamy surface.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "juice_smoothie"
+    ]
+   }
+  },
+  {
+   "text": "strawberry smoothie",
+   "look": "A thick pale pink drink speckled with tiny berry seeds.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "juice_smoothie"
+    ]
+   }
+  },
+  {
+   "text": "carrot juice",
+   "look": "A vivid opaque orange juice with a thin fine foam layer.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "juice_smoothie"
+    ]
+   }
+  },
+  {
+   "text": "sugarcane juice",
+   "look": "A cloudy pale green-gold juice over ice with a stalk of sugarcane nearby.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "juice_smoothie"
+    ]
+   }
+  },
+  {
+   "text": "tamarind agua fresca",
+   "look": "A cloudy brown iced drink with a lime wedge.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "juice_smoothie"
+    ]
+   }
+  },
+  {
+   "text": "milk",
+   "look": "An opaque white drink in a plain glass.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "milk_based"
+    ]
+   }
+  },
+  {
+   "text": "horchata",
+   "look": "A milky white rice drink over ice dusted with brown cinnamon.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "milk_based"
+    ]
+   }
+  },
+  {
+   "text": "mango lassi",
+   "look": "A thick yellow yogurt drink in a tall glass with a little froth.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "milk_based"
+    ]
+   }
+  },
+  {
+   "text": "rose lassi",
+   "look": "A pale pink yogurt drink topped with rose petals or pistachios.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "milk_based"
+    ]
+   }
+  },
+  {
+   "text": "ayran",
+   "look": "A white yogurt drink with a frothy top in a glass or metal cup.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "milk_based"
+    ]
+   }
+  },
+  {
+   "text": "falooda",
+   "look": "A tall pink milk drink layered with fine noodles, basil seeds, jelly, and ice cream.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "milk_based"
+    ]
+   }
+  },
+  {
+   "text": "kombucha",
+   "look": "A translucent amber lightly fizzy drink, often in a swing-top bottle or clear glass.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "fermented"
+    ]
+   }
+  },
+  {
+   "text": "milk kefir",
+   "look": "A thick off-white cultured drink with a slightly bubbly surface.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "fermented"
+    ]
+   }
+  },
+  {
+   "text": "kvass",
+   "look": "A dark amber bread drink with a small foamy head in a glass mug.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "fermented"
+    ]
+   }
+  },
+  {
+   "text": "pilsner beer",
+   "look": "Clear straw-gold beer with rising bubbles and a white foam head in a tall glass.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "beer"
+    ]
+   }
+  },
+  {
+   "text": "stout beer",
+   "look": "Nearly black beer with a dense creamy tan head.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "beer"
+    ]
+   }
+  },
+  {
+   "text": "wheat beer",
+   "look": "Cloudy pale gold beer with a tall white head in a curving glass.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "beer"
+    ]
+   }
+  },
+  {
+   "text": "amber ale",
+   "look": "Clear copper-red beer with an off-white head in a pint glass.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "beer"
+    ]
+   }
+  },
+  {
+   "text": "hazy IPA",
+   "look": "Opaque golden-orange beer with a dense white foam head.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "beer"
+    ]
+   }
+  },
+  {
+   "text": "red wine",
+   "look": "A deep burgundy-red pour in a large rounded stemmed glass.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wine"
+    ]
+   }
+  },
+  {
+   "text": "white wine",
+   "look": "A clear pale straw-colored pour in a narrow stemmed glass.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wine"
+    ]
+   }
+  },
+  {
+   "text": "rosé wine",
+   "look": "A clear blush-pink pour in a stemmed wine glass.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wine"
+    ]
+   }
+  },
+  {
+   "text": "sparkling wine",
+   "look": "A pale golden wine with fine rising bubbles in a tall flute.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wine"
+    ]
+   }
+  },
+  {
+   "text": "sangria",
+   "look": "Red wine with floating orange slices, fruit pieces, and ice in a pitcher or glass.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wine"
+    ]
+   }
+  },
+  {
+   "text": "mulled wine",
+   "look": "A steaming dark red drink with orange slices, cinnamon sticks, and star anise.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wine"
+    ]
+   }
+  },
+  {
+   "text": "whiskey neat",
+   "look": "A small amber pour without ice in a heavy low tumbler.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "sake",
+   "look": "A clear drink in a small ceramic cup beside a matching narrow-necked flask.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "soju",
+   "look": "A clear drink in a tiny straight-sided shot glass beside a plain green bottle.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "absinthe with a sugar cube",
+   "short": "absinthe sugar ritual",
+   "look": "Pale green spirit beneath a perforated spoon holding a white sugar cube.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "ouzo with water",
+   "look": "A cloudy milky-white drink in a narrow glass with ice.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "spirit"
+    ]
+   }
   }
+ ]
 }

@@ -1,1096 +1,1102 @@
 {
-  "id": "interior_space.style",
-  "label": "Style",
-  "description": "Decorative and architectural styles applied to an already chosen interior, such as minimalist or Art Deco; supplies an adjective rather than a room or location.",
-  "pos": "adjective phrase",
-  "frame": "the ___ bedroom",
-  "notes": "Use for room-wide architectural or decorating character; concrete room layouts and furnishings belong to bedroom and the other place leaves. Historical revival styles remain usable in contemporary rooms. Untagged styles fit realistic contemporary rooms; historical, traditional, and speculative styles explicitly list their broader contexts. Use a/an agreement for indefinite noun phrases; the example uses “the” to admit vowel-initial styles.",
-  "facets": [
-    "era",
-    "genre",
-    "region",
-    "budget",
-    "formality",
-    "locale",
-    "climate"
+ "id": "interior_space.style",
+ "label": "Style",
+ "description": "Interior design and decorating styles, including modern movements, historical rooms, and regional traditions.",
+ "pos": "adjective phrase",
+ "frame": "the ___ room",
+ "notes": "Room-wide interior design and decorating styles belong here, phrased as modifiers before “room.” Room functions and layouts belong in interior_space.bedroom and the other room lists; exterior architectural styles belong in place.architecture_style. Period groups describe stylistic origins or traditional use rather than restricting the setting era, and ornament remains an independent visual filter. Related families emphasize distinct furnishings or finishes; retrospective and regional looks may be used anywhere today.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "period": [
+   "contemporary",
+   "mid_20th",
+   "late_20th",
+   "early_20th",
+   "19th_century",
+   "renaissance_to_18th",
+   "ancient_medieval",
+   "vernacular_traditional"
   ],
-  "closed": false,
-  "values": [
-    {
-      "text": "mid-century modern",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "minimalist",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "maximalist",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "Japandi",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "Scandinavian",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "shabby-chic",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "warehouse loft-style",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "post_apocalyptic",
-          "horror"
-        ],
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "rustic farmhouse",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "post_apocalyptic",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "layered bohemian",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "coastal cottage-style",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "raw industrial",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "post_apocalyptic",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "color-blocked contemporary",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "sculptural organic modern",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "retro-futurist",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "biophilic",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "traditional Arts and Crafts",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "steampunk",
-          "horror"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "streamlined Art Deco",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "ornate"
-        ]
-      }
-    },
-    {
-      "text": "flowing Art Nouveau",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "steampunk",
-          "horror"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "ornate"
-        ]
-      }
-    },
-    {
-      "text": "Bauhaus-inspired",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "brutalist concrete",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "post_apocalyptic",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "postmodern",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "colonial revival",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "steampunk",
-          "horror"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "Gothic revival",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "ornate"
-        ]
-      }
-    },
-    {
-      "text": "French provincial",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "ornate"
-        ]
-      }
-    },
-    {
-      "text": "traditional English country-house",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "timber alpine chalet-style",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "Mediterranean villa-style",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "tiled Andalusian courtyard-style",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "ornate"
-        ]
-      }
-    },
-    {
-      "text": "Japanese ryokan-style",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "Chinese courtyard-house-style",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "Korean hanok-style",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "east_asian"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "Rajasthani haveli-style",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "ornate"
-        ]
-      }
-    },
-    {
-      "text": "Kerala timber-house-style",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "south_asian"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "Balinese pavilion-style",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "southeast_asian"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "Javanese joglo-style",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "southeast_asian"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "Moroccan riad-style",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "ornate"
-        ]
-      }
-    },
-    {
-      "text": "lavish Ottoman revival",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "ornate"
-        ]
-      }
-    },
-    {
-      "text": "Persian courtyard-house-style",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "middle_eastern"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "ornate"
-        ]
-      }
-    },
-    {
-      "text": "Swahili coastal-style",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "african"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "Mexican hacienda-style",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "latin_american"
-        ],
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "Brazilian tropical modernist",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "latin_american"
-        ],
-        "genre": [
-          "realistic",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "wabi-sabi",
-      "tier": "plausible",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "nautical",
-      "tier": "plausible",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "steampunk",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "ornament": [
-          "layered"
-        ]
-      }
-    },
-    {
-      "text": "desert adobe-style",
-      "tier": "plausible",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "post_apocalyptic",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "ancient",
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "recycled-material",
-      "tier": "plausible",
-      "tags": {
-        "genre": [
-          "realistic",
-          "post_apocalyptic",
-          "horror"
-        ],
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "rough-stone rustic",
-      "tier": "plausible",
-      "tags": {
-        "genre": [
-          "realistic",
-          "fantasy",
-          "post_apocalyptic",
-          "horror",
-          "fairy_tale"
-        ],
-        "era": [
-          "medieval",
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    },
-    {
-      "text": "space-age modular",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "scifi",
-          "cyberpunk",
-          "horror"
-        ],
-        "era": [
-          "future"
-        ],
-        "ornament": [
-          "restrained"
-        ]
-      }
-    }
-  ],
-  "untagged": {
-    "genre": [
-      "realistic"
+  "ornament": [
+   "restrained",
+   "layered",
+   "ornate"
+  ]
+ },
+ "untagged": {
+  "space": [
+   "indoor"
+  ]
+ },
+ "values": [
+  {
+   "text": "Japandi",
+   "look": "Pale wood, low furniture, neutral textiles, and sparse Japanese-inspired forms share an uncluttered room.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "contemporary"
     ],
-    "era": [
-      "contemporary"
-    ],
-    "space": [
-      "indoor"
-    ]
-  },
-  "local_facets": {
     "ornament": [
-      "restrained",
-      "layered",
-      "ornate"
+     "restrained"
     ]
+   }
   },
-  "context": {
-    "gives": [
-      "space"
+  {
+   "text": "wabi-sabi",
+   "look": "Weathered wood, uneven plaster, handmade ceramics, and muted earth colors show natural surface irregularities.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "restrained"
     ]
+   }
+  },
+  {
+   "text": "Scandinavian",
+   "look": "Bright walls, light wood, simple furniture, wool textiles, and practical open space.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "mid-century modern",
+   "look": "Low tapered-leg furniture, warm wood casework, sculptural lamps, and bold geometric accents.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "Hollywood Regency",
+   "look": "Mirrored surfaces, glossy lacquer, plush upholstery, dramatic lamps, and gold accents.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Art Deco",
+   "look": "Geometric inlays, stepped forms, dark polished wood, curved upholstery, and metallic trim.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "maximalist",
+   "look": "Dense arrangements of colorful furnishings, patterned textiles, art, and collections fill the room.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "contemporary"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "shabby chic",
+   "look": "Distressed painted furniture, faded floral fabrics, pale colors, and loosely layered linens.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "French country",
+   "look": "Curved rustic wood furniture, toile or floral fabrics, worn stone, and soft cream colors.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "English country-house",
+   "short": "English country house",
+   "look": "Deep upholstered seating, patterned curtains, antique wood furniture, books, and mixed floral prints.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "farmhouse",
+   "look": "A sturdy wood table, painted cupboards, simple ceramics, exposed beams, and practical woven textiles.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "industrial loft",
+   "look": "Exposed brick, visible pipes, steel-framed glazing, concrete floors, and large open furniture groupings.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "late_20th"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "Bauhaus",
+   "look": "Tubular steel chairs, geometric furniture, plain walls, and focused red, yellow, and blue accents.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "Memphis",
+   "look": "Asymmetrical furniture, squiggle patterns, bright laminate, and clashing geometric color blocks.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "brutalist",
+   "look": "Exposed concrete walls, heavy blocklike furniture, deep recesses, and sparse dark accents.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "Moroccan riad-style",
+   "short": "Moroccan riad",
+   "look": "Zellige tile, carved plaster arches, pierced metal lanterns, and low cushioned seating.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Rajasthani haveli-style",
+   "short": "Rajasthani haveli",
+   "look": "Carved arches, painted niches, pierced stone screens, low seating, and richly colored textiles.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Mediterranean",
+   "look": "Warm plaster walls, terracotta floors, arched openings, dark beams, and woven furnishings.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "coastal",
+   "look": "Light wood, white upholstery, sandy colors, breezy curtains, and a few blue accents.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "contemporary"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "Bohemian",
+   "look": "Layered rugs, low mismatched seating, woven hangings, plants, and richly patterned fabrics.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "late_20th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "grandmillennial",
+   "look": "Chintz upholstery, pleated lampshades, skirted tables, needlepoint, and clustered traditional ornaments.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "contemporary"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "dark academia",
+   "look": "Dark wood shelves, leather chairs, old books, framed prints, and dim brass task lighting.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "contemporary"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "cottagecore",
+   "look": "Small floral prints, handmade quilts, rustic painted furniture, baskets, and dried flowers.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "contemporary"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Victorian parlor-style",
+   "short": "Victorian parlor",
+   "look": "Button-tufted seating, dark carved furniture, elaborate wallpaper, heavy drapes, and crowded mantel displays.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "19th_century"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Gothic",
+   "look": "Pointed arches, dark carved wood, stained glass, tall-backed chairs, and candlelike metal lighting.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "rustic cabin",
+   "look": "Log or rough timber walls, a stone hearth, heavy wood furniture, and thick woven blankets.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Spanish Colonial",
+   "look": "White plaster, dark ceiling beams, terracotta tiles, wrought iron, and carved wood furniture.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Shaker",
+   "look": "Plain wood furniture, ladder-back chairs, peg rails, built-in cupboards, and clean functional lines.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "19th_century"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "Arts and Crafts",
+   "look": "Solid oak furniture, exposed joinery, built-in benches, stained glass, and earthy patterned textiles.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Tuscan",
+   "look": "Golden plaster, heavy stone, terracotta floors, dark beams, and substantial carved wood furniture.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Swedish Gustavian",
+   "look": "Pale gray painted furniture, fluted legs, light floors, delicate moldings, and simple chandeliers.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_18th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "minimalist",
+   "look": "Few furnishings, clear surfaces, simple geometry, and a small coordinated palette.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "contemporary"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "Japanese ryokan-style",
+   "short": "Japanese ryokan",
+   "look": "Tatami floors, shoji screens, a low table, floor cushions, and a small display alcove.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "tropical modern",
+   "look": "Open rooms, deep shade, warm timber, stone floors, low modern furniture, and lush planting.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "organic modern",
+   "look": "Rounded furniture, pale textured walls, natural wood, stone, and soft neutral upholstery.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "contemporary"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "biophilic",
+   "look": "Abundant living plants, green walls, daylight, natural textures, and views of vegetation.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "contemporary"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "contemporary color-blocked",
+   "short": "color-blocked",
+   "look": "Large contrasting areas of solid color define walls, furniture, and simple geometric forms.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "contemporary"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "postmodern",
+   "look": "Playful oversized shapes, unexpected classical motifs, contrasting materials, and offbeat furniture proportions.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Colonial Revival",
+   "look": "Windsor chairs, braided rugs, painted paneling, wingback seating, and a symmetrical fireplace wall.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Art Nouveau",
+   "look": "Flowing woodwork, stained glass, curved furniture, and plantlike patterns on walls and metalwork.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "alpine chalet",
+   "look": "Timber paneling, exposed rafters, a large hearth, wool blankets, and carved wood seating.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Andalusian courtyard-style",
+   "short": "Andalusian courtyard",
+   "look": "Painted ceramic tiles, white plaster arches, iron lanterns, and potted plants around a tiled fountain.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Chinese courtyard-house-style",
+   "short": "Chinese courtyard house",
+   "look": "Dark hardwood furniture, lattice screens, stone floors, carved panels, and a view into a planted courtyard.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Korean hanok-style",
+   "short": "Korean hanok",
+   "look": "Exposed timber beams, pale paper doors, warm wood floors, low tables, and floor cushions.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "Kerala timber-house-style",
+   "short": "Kerala timber house",
+   "look": "Dark carved wood columns, sloping timber ceilings, polished red floors, and a central open courtyard.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Balinese pavilion-style",
+   "short": "Balinese pavilion",
+   "look": "Open timber posts, carved wood furniture, woven thatch ceilings, and sheer curtains beside tropical greenery.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Javanese joglo-style",
+   "short": "Javanese joglo",
+   "look": "Four central carved wood posts support a high tiered ceiling above low wood furniture.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Ottoman",
+   "look": "Low divan seating, patterned tiles, arched niches, rich carpets, and intricate wood latticework.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Persian courtyard-house-style",
+   "short": "Persian courtyard house",
+   "look": "Colored glass windows, recessed plaster niches, patterned carpets, and cushioned seating around a courtyard.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Swahili coastal-style",
+   "short": "Swahili coastal",
+   "look": "Carved wood doors, plaster niches, woven mats, low benches, and white coral-stone walls.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Mexican hacienda-style",
+   "short": "Mexican hacienda",
+   "look": "Terracotta floors, thick plaster arches, painted tile, heavy wood furniture, and bold woven blankets.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "desert adobe-style",
+   "short": "desert adobe",
+   "look": "Rounded earthen walls, deep niches, exposed vigas, clay floors, and warm woven textiles.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "nautical",
+   "look": "Navy-and-white textiles, rope details, brass fittings, and furniture shaped like ship cabin joinery.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "space-age",
+   "look": "Rounded molded chairs, pedestal tables, glossy white shells, and orb-shaped lamps.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "Georgian",
+   "look": "Balanced paneled walls, classical fireplaces, sash windows, and polished mahogany furniture.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_18th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Louis XV",
+   "look": "Curving gilded furniture, cabriole legs, asymmetrical shell carvings, and soft floral upholstery.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_18th"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Louis XVI",
+   "look": "Straight fluted furniture legs, restrained gilding, classical medallions, and symmetrical wall panels.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_18th"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Empire",
+   "look": "Heavy polished furniture, gilded animal motifs, straight monumental forms, and rich red or green upholstery.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "19th_century"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Regency",
+   "look": "Slender dark wood furniture, brass inlay, striped fabrics, and Greek-inspired chairs and mirrors.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "19th_century"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Biedermeier",
+   "look": "Smooth light wood veneers, rounded chairs, simple black accents, and compact balanced furniture groups.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "19th_century"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "Baroque",
+   "look": "Massive carved furniture, dramatic gilding, heavy drapery, large mirrors, and rich dark colors.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_18th"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Renaissance",
+   "look": "Coffered ceilings, carved walnut chests, stone fireplaces, and symmetrical classical wall divisions.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_18th"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "medieval great-hall-style",
+   "short": "medieval great hall",
+   "look": "High exposed roof timbers, stone walls, long trestle tables, banners, and a large hearth.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "ancient Roman",
+   "look": "Painted plaster walls, mosaic floors, classical columns, and low couches around an open atrium.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "ancient Egyptian",
+   "look": "Painted columns, geometric borders, carved wood stools, and saturated red, blue, and gold details.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Rustic modern",
+   "look": "Rough timber and natural stone pair with clean-lined furniture and uncluttered neutral fabrics.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "contemporary"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "transitional",
+   "look": "Traditional furniture silhouettes mix with plain upholstery, neutral colors, and simple modern lighting.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "contemporary"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "Southwestern",
+   "look": "Earthy plaster, geometric woven rugs, leather seating, pottery, and warm terracotta accents.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "late_20th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "American diner-style",
+   "short": "American diner",
+   "look": "Vinyl booths, chrome stools, checkerboard floors, neon accents, and a long service counter.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "1970s conversation-pit",
+   "short": "1970s conversation pit",
+   "look": "Sunken built-in sofas surround a low table amid shag rugs, warm wood, and earth-toned upholstery.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Bauernstube",
+   "look": "Carved wood paneling encloses a corner bench, sturdy table, and large tiled stove.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Russian dacha-style",
+   "short": "Russian dacha",
+   "look": "Painted wood walls, lace curtains, patterned rugs, simple timber furniture, and a tiled stove.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Portuguese azulejo-style",
+   "short": "Portuguese azulejo",
+   "look": "Blue-and-white tiled walls pair with dark wood furniture, pale plaster, and patterned stone floors.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Italian palazzo-style",
+   "short": "Italian palazzo",
+   "look": "Frescoed high ceilings, marble floors, tall paneled doors, and large carved antique furnishings.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_18th"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Peranakan",
+   "look": "Colorful patterned floor tiles, carved dark wood, porcelain displays, and pierced timber screens.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Tibetan",
+   "look": "Painted timber beams, low cushioned benches, patterned rugs, and richly colored cabinets.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "ornate"
+    ]
+   }
+  },
+  {
+   "text": "Mongolian yurt-style",
+   "short": "Mongolian yurt",
+   "look": "A circular lattice wall supports radial roof poles above painted chests, rugs, and a central stove.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "ornament": [
+     "layered"
+    ]
+   }
+  },
+  {
+   "text": "Streamline Moderne",
+   "look": "Rounded wall corners, horizontal bands, glass-block partitions, chrome rails, and streamlined built-in furniture.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "De Stijl",
+   "look": "Black structural lines divide white planes with isolated red, blue, and yellow rectangular elements.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
+  },
+  {
+   "text": "High-tech",
+   "look": "Exposed ducts, steel framing, metal mesh, glass partitions, and utilitarian industrial fittings.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "late_20th"
+    ],
+    "ornament": [
+     "restrained"
+    ]
+   }
   }
+ ],
+ "context": {
+  "gives": [
+   "space"
+  ]
+ }
 }

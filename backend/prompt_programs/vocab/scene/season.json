@@ -1,150 +1,138 @@
 {
-  "id": "scene.season",
-  "label": "Season",
-  "description": "The stage of the year visible in the landscape and seasonal surroundings.",
-  "pos": "noun phrase",
-  "frame": "in ___",
-  "notes": "Annual phases belong here; scene.weather owns current atmospheric conditions, scene.time_of_day owns daily phases and lighting.natural owns seasonal light. Seasons alone do not fix temperature: winter and summer differ across climates. The four seasons by name are typical; a stage within one is plausible, so a picker of seasons reads as seasons.",
-  "facets": [
-    "climate"
-  ],
-  "closed": true,
-  "values": [
-    {
-      "text": "spring",
-      "tier": "typical",
-      "tags": {
-        "season": [
-          "early_spring",
-          "late_spring"
-        ]
-      }
-    },
-    {
-      "text": "summer",
-      "tier": "typical",
-      "tags": {
-        "season": [
-          "early_summer",
-          "high_summer"
-        ]
-      }
-    },
-    {
-      "text": "autumn",
-      "tier": "typical",
-      "tags": {
-        "season": [
-          "early_autumn",
-          "late_autumn"
-        ]
-      }
-    },
-    {
-      "text": "winter",
-      "tier": "typical",
-      "tags": {
-        "season": [
-          "early_winter",
-          "deep_winter"
-        ]
-      }
-    },
-    {
-      "text": "early spring",
-      "tier": "plausible",
-      "tags": {
-        "season": [
-          "early_spring"
-        ]
-      }
-    },
-    {
-      "text": "late spring",
-      "tier": "plausible",
-      "tags": {
-        "season": [
-          "late_spring"
-        ]
-      }
-    },
-    {
-      "text": "early summer",
-      "tier": "plausible",
-      "tags": {
-        "season": [
-          "early_summer"
-        ]
-      }
-    },
-    {
-      "text": "the height of summer",
-      "tier": "plausible",
-      "tags": {
-        "season": [
-          "high_summer"
-        ]
-      }
-    },
-    {
-      "text": "early autumn",
-      "tier": "plausible",
-      "tags": {
-        "season": [
-          "early_autumn"
-        ]
-      }
-    },
-    {
-      "text": "late autumn",
-      "tier": "plausible",
-      "tags": {
-        "season": [
-          "late_autumn"
-        ]
-      }
-    },
-    {
-      "text": "early winter",
-      "tier": "plausible",
-      "tags": {
-        "season": [
-          "early_winter"
-        ]
-      }
-    },
-    {
-      "text": "deep winter",
-      "tier": "plausible",
-      "tags": {
-        "season": [
-          "deep_winter"
-        ]
-      }
-    },
-    {
-      "text": "the rainy season",
-      "tier": "plausible",
-      "tags": {
-        "season": [
-          "wet_season"
-        ]
-      }
-    },
-    {
-      "text": "the dry season",
-      "tier": "plausible",
-      "tags": {
-        "season": [
-          "dry_season"
-        ]
-      }
-    }
-  ],
-  "context": {
-    "gives": [
-      "season"
+ "id": "scene.season",
+ "label": "Season",
+ "description": "Visibly distinct seasonal landscapes: blossoms, summer greenery, fall leaves, snow, thaw, wet and dry seasons.",
+ "pos": "noun phrase",
+ "frame": "in ___",
+ "notes": "Seasonal changes in vegetation and ground cover belong here, phrased to follow “in.” scene.weather owns current atmospheric conditions, scene.time_of_day owns daily phases, and lighting.natural owns illumination. The temperate entries name visible stages rather than calendar boundaries; rainy and dry seasons cover landscapes outside the four-season pattern.",
+ "facets": [],
+ "closed": true,
+ "values": [
+  {
+   "text": "spring",
+   "look": "Pink and white blossoms cover tree branches above fresh green grass.",
+   "tier": "typical",
+   "tags": {
+    "landscape": [
+     "spring"
     ],
-    "stated": true
+    "season": [
+     "early_spring",
+     "late_spring"
+    ]
+   }
+  },
+  {
+   "text": "summer",
+   "look": "Dense green canopies and fully grown vegetation fill the landscape.",
+   "tier": "typical",
+   "tags": {
+    "landscape": [
+     "summer"
+    ],
+    "season": [
+     "high_summer"
+    ]
+   }
+  },
+  {
+   "text": "autumn",
+   "look": "Tree canopies turn red, orange, and gold, with colorful leaves scattered below.",
+   "tier": "typical",
+   "tags": {
+    "landscape": [
+     "autumn"
+    ],
+    "season": [
+     "early_autumn"
+    ]
+   }
+  },
+  {
+   "text": "winter",
+   "look": "A continuous blanket of snow covers the ground and rests on bare branches and evergreens.",
+   "tier": "typical",
+   "tags": {
+    "landscape": [
+     "winter"
+    ],
+    "season": [
+     "early_winter",
+     "deep_winter"
+    ]
+   }
+  },
+  {
+   "text": "late autumn",
+   "short": "late autumn",
+   "look": "Bare branches stand above a thick carpet of brown fallen leaves and withered grass.",
+   "tier": "plausible",
+   "tags": {
+    "landscape": [
+     "autumn"
+    ],
+    "season": [
+     "late_autumn"
+    ]
+   }
+  },
+  {
+   "text": "the spring thaw",
+   "short": "spring thaw",
+   "look": "Melting snow survives in patches among muddy ground, meltwater, and the first green shoots.",
+   "tier": "plausible",
+   "tags": {
+    "landscape": [
+     "spring",
+     "winter"
+    ],
+    "season": [
+     "early_spring"
+    ]
+   }
+  },
+  {
+   "text": "the rainy season",
+   "short": "rainy season",
+   "look": "Lush vegetation surrounds saturated ground, standing water, and swollen streams.",
+   "tier": "plausible",
+   "tags": {
+    "landscape": [
+     "wet_dry"
+    ],
+    "season": [
+     "wet_season"
+    ]
+   }
+  },
+  {
+   "text": "the dry season",
+   "short": "dry season",
+   "look": "Bleached grasses and sparse foliage surround dusty earth and dried streambeds.",
+   "tier": "plausible",
+   "tags": {
+    "landscape": [
+     "wet_dry"
+    ],
+    "season": [
+     "dry_season"
+    ]
+   }
   }
+ ],
+ "context": {
+  "gives": [
+   "season"
+  ],
+  "stated": true
+ },
+ "local_facets": {
+  "landscape": [
+   "spring",
+   "summer",
+   "autumn",
+   "winter",
+   "wet_dry"
+  ]
+ }
 }

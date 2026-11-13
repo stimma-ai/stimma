@@ -103,6 +103,8 @@ export interface ChoicePool {
   more?: boolean
   /** option -> its short form, for pills and rows, where one exists. */
   short?: Record<string, string>
+  /** option -> one line on what it looks like, for lists that teach (hairstyles, film stocks). */
+  looks?: Record<string, string>
 }
 
 /** POST /prompt-programs/pools. `more`: the choices whose options are still being written. */

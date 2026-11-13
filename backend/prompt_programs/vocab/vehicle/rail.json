@@ -1,0 +1,278 @@
+{
+ "id": "vehicle.rail",
+ "label": "Rail vehicle",
+ "description": "Locomotives, passenger and freight trains, urban rail, individual railcars, and small work vehicles.",
+ "pos": "noun phrase",
+ "frame": "a view of the ___ on the tracks",
+ "notes": "Rail vehicles belong here, covering complete trains, locomotives, distinctive passenger and freight cars, and small work vehicles. vehicle.road_vehicle owns road traffic, including buses; street-running trams remain here because they follow rails. Values are bare type names without operators, manufacturers, routes, or liveries. Heritage and contemporary equipment share the list, and tram and streetcar entries distinguish articulated low-floor and traditional single-car forms.",
+ "facets": [],
+ "closed": false,
+ "local_facets": {
+  "kind": [
+   "locomotive",
+   "high_speed",
+   "urban",
+   "mountain",
+   "passenger_car",
+   "freight",
+   "work"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "steam locomotive",
+   "look": "A rail engine with a cylindrical boiler, smokestack, large driving wheels, and exposed connecting rods.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "locomotive"
+    ]
+   }
+  },
+  {
+   "text": "diesel locomotive",
+   "look": "A long boxy engine with a raised cab, side walkways, and large grilles along its hood.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "locomotive"
+    ]
+   }
+  },
+  {
+   "text": "electric locomotive",
+   "look": "A boxy rail engine with roof-mounted pantographs reaching up to overhead power wires.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "locomotive"
+    ]
+   }
+  },
+  {
+   "text": "bullet train",
+   "look": "A sleek passenger train with an elongated pointed nose and smoothly connected cars.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "high_speed"
+    ]
+   }
+  },
+  {
+   "text": "maglev train",
+   "look": "A smooth streamlined train wraps around a raised guideway without visible conventional wheels.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "high_speed"
+    ]
+   }
+  },
+  {
+   "text": "subway train",
+   "look": "A line of short metal passenger cars with frequent wide sliding doors and flat cab ends.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "urban"
+    ]
+   }
+  },
+  {
+   "text": "low-floor articulated tram",
+   "short": "articulated tram",
+   "look": "A long street-running rail vehicle with several flexible joints, broad windows, and doors near pavement level.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "urban"
+    ]
+   }
+  },
+  {
+   "text": "vintage streetcar",
+   "look": "A short single railcar with a rounded roof, tall windows, wood trim, and a roof-mounted trolley pole.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban"
+    ]
+   }
+  },
+  {
+   "text": "cable car",
+   "look": "A compact street railcar with open running boards, wooden benches, and enclosed central seating.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban"
+    ]
+   }
+  },
+  {
+   "text": "funicular",
+   "look": "A short passenger car with a stepped body on a steep hillside track, pulled by a cable.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "monorail",
+   "look": "An elevated passenger train rides on one thick beam rather than a pair of rails.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban"
+    ]
+   }
+  },
+  {
+   "text": "freight train",
+   "look": "A locomotive hauls a long mixed line of boxcars, tank cars, and other cargo wagons.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "freight"
+    ]
+   }
+  },
+  {
+   "text": "sleeper car",
+   "look": "A long passenger railcar with a corridor-side window row and separate sleeping-compartment windows.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "passenger_car"
+    ]
+   }
+  },
+  {
+   "text": "dome car",
+   "look": "A passenger railcar has a raised glass observation dome extending above the main roof.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "passenger_car"
+    ]
+   }
+  },
+  {
+   "text": "double-decker commuter train",
+   "short": "double-decker train",
+   "look": "A passenger train has two stacked rows of windows and tall cars between lower vestibules.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban"
+    ]
+   }
+  },
+  {
+   "text": "rack railway train",
+   "look": "A compact mountain train climbs steep rails above a visible central toothed rack.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "cog railway steam locomotive",
+   "short": "cog steam locomotive",
+   "look": "A small steam engine has a tilted boiler and exposed geared drive for a steep mountain railway.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "locomotive",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "suspended monorail",
+   "look": "Passenger cars hang below a single overhead rail, with wheels and supports above the roof.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "urban"
+    ]
+   }
+  },
+  {
+   "text": "boxcar",
+   "look": "An enclosed rectangular freight car with a corrugated metal body and a large sliding side door.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "freight"
+    ]
+   }
+  },
+  {
+   "text": "rail tank car",
+   "look": "A horizontal cylindrical tank sits on a rail underframe with a small top loading dome.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "freight"
+    ]
+   }
+  },
+  {
+   "text": "hopper car",
+   "look": "An open-topped freight car has sloping lower walls and funnel-shaped unloading bays beneath.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "freight"
+    ]
+   }
+  },
+  {
+   "text": "flatcar",
+   "look": "A low flat rail platform with exposed cargo tie-downs and no enclosed sides or roof.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "freight"
+    ]
+   }
+  },
+  {
+   "text": "mine cart",
+   "look": "A small open metal ore tub sits on four tiny flanged wheels.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work"
+    ]
+   }
+  },
+  {
+   "text": "railroad handcar",
+   "look": "A small open rail platform has a central seesaw pump handle used to drive its wheels.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "work"
+    ]
+   }
+  },
+  {
+   "text": "rail snowplow",
+   "look": "A heavy rail vehicle has a huge circular rotary blade inside a broad front housing.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "work"
+    ]
+   }
+  }
+ ]
+}

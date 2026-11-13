@@ -1,2396 +1,2646 @@
 {
-  "id": "art.style",
-  "label": "Illustration and art style",
-  "description": "Non-photographic styles by family: anime, illustration, comic, cartoon, painting, drawing, print, graphic, game, 3D, historic and craft. Bind only when the prompt asks for a drawn, painted or animated image; choose the family from the prompt.",
-  "pos": "noun phrase",
-  "frame": "in ___",
-  "notes": "DRAFT. Never drawn for a prompt that doesn't ask for a non-photo image: no default shares. The writer picks the family (where={\"family\": ...}); the draw varies the style inside it. Each value says what the style looks like, so it works on models that don't know the style's name. No artist or studio names. art.medium keeps bare physical media.",
-  "facets": [],
-  "closed": true,
-  "local_facets": {
+ "id": "art.style",
+ "label": "Illustration and art style",
+ "description": "Non-photographic art styles across anime, illustration, comics, painting, drawing, print, graphics, 3D, and craft.",
+ "pos": "noun phrase",
+ "frame": "in ___",
+ "notes": "Named movements and distinct visual treatments for non-photographic images belong here; art.medium owns bare physical media. Bind only when the prompt asks for drawn, painted, animated, graphic, or crafted imagery, and use family to keep draws within the requested tradition. Values retain descriptive noun phrases after in, while short names label the chooser and look explains unfamiliar terms. Historical styles remain usable in contemporary images; no artist, studio, or product names are included.",
+ "facets": [],
+ "closed": true,
+ "local_facets": {
+  "family": [
+   "anime",
+   "illustration",
+   "comic",
+   "cartoon",
+   "painting",
+   "drawing",
+   "print",
+   "graphic",
+   "game",
+   "3d",
+   "historic",
+   "craft"
+  ]
+ },
+ "values": [
+  {
+   "text": "a cel-shaded anime style with flat color and clean outlines",
+   "short": "cel-shaded anime",
+   "look": "Flat areas of color and hard-edged shadow sit inside clean outlines.",
+   "tier": "typical",
+   "tags": {
     "family": [
-      "anime",
-      "illustration",
-      "comic",
-      "cartoon",
-      "painting",
-      "drawing",
-      "print",
-      "graphic",
-      "game",
-      "3d",
-      "historic",
-      "craft"
+     "anime"
     ]
+   }
   },
-  "values": [
-    {
-      "text": "a cel-shaded anime style with flat color and clean outlines",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a soft pastel anime style with delicate linework",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a painterly anime-film style with lush, detailed backgrounds",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a modern anime style with sharp highlights in the hair and eyes",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a slice-of-life anime style with gentle color and simple shading",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a 1990s anime style with hand-painted backgrounds and slight film grain",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a 1980s anime style with airbrushed highlights and thick outlines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a black-and-white manga style with screentone shading",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a shojo manga style with large sparkling eyes and flower-filled backgrounds",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a gritty seinen manga style with heavy cross-hatching and realistic proportions",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a chibi style with oversized heads and tiny bodies",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a mecha anime style with hard-edged machinery and dramatic lighting",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a dark fantasy anime style with deep shadows and muted color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a magical-girl anime style with ribbons, sparkles and candy colors",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a sports anime style with speed lines and dynamic foreshortening",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "an anime style with watercolor-textured backgrounds and thin pencil-like outlines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a retro-future anime style with neon city color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a light-novel cover style with glossy coloring and detailed costume",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a four-panel gag manga style with simple round faces",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a moody anime style with long shadows and sunset gradients",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "an anime key-visual style with a dramatic sky and backlit figures",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a rough anime storyboard style in pencil and gray marker",
-      "tier": "unusual",
-      "tags": {
-        "family": [
-          "anime"
-        ]
-      }
-    },
-    {
-      "text": "a storybook style with soft watercolor washes",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a flat vector style with simple shapes and solid color",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a gouache illustration style with matte, opaque color",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a textured digital illustration style with grainy brushes and soft shapes",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a clean editorial illustration style with bold shapes and a limited palette",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a cozy picture-book style with rounded characters and warm color",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a loose ink-and-wash sketch style",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a fine line-art style with cross-hatched shading",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a colored-pencil style with visible strokes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a mid-century editorial style with limited color and rough print texture",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a fashion-illustration style with elongated figures and quick brush lines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a botanical-illustration style with precise outlines and pale washes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a scientific-plate style with fine engraved lines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a children's crayon-drawing style with wobbly lines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a felt-tip marker style with streaky, saturated color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a pastel-chalk style with soft smudged edges",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a vintage fairy-tale illustration style with fine ink lines and muted washes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a golden-age adventure-book style with rich painted plates",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a paper-collage illustration style with torn edges and mixed textures",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a whimsical ink-and-watercolor style with wobbly outlines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a flat geometric style with characters built from circles and rectangles",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a zine illustration style with two inks and misaligned layers",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a scratchboard style with white lines cut from black",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a stippled ink style built from tiny dots",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a grainy airbrush style with smooth gradients and soft glow",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a naive folk-art style with flat figures and bright pattern",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a tarot-card style with ornate borders and symbolic figures",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "an architectural sketch style with ruled lines and light washes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a technical cutaway style with clean outlines and flat tints",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a tattoo-flash style with bold outlines and limited color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a sticker style with thick white borders and simple shading",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a kawaii style with tiny features, round shapes and pastel color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a corporate flat-illustration style with long limbs and simple faces",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a fantasy-map illustration style in ink on parchment tones",
-      "tier": "unusual",
-      "tags": {
-        "family": [
-          "illustration"
-        ]
-      }
-    },
-    {
-      "text": "a comic-book style with bold inks and halftone dots",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a clear-line comic style with even outlines and flat color",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a modern superhero comic style with dynamic poses and glossy coloring",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a graphic-novel style with heavy black shadows",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a newspaper-strip style with simple, exaggerated features",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a 1960s pop comic style with primary colors and coarse print dots",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a noir comic style in stark black and white",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "an underground-comix style with dense, wobbly hatching",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a watercolor graphic-novel style with loose painted panels",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a webcomic style with flat color and clean digital lines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a pulp-magazine cover style with lurid painted color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a silver-age comic style with bright flat color and thick outlines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a European adventure-album style with detailed backgrounds and flat color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a horror-comic style with scratchy inks and sickly greens",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "an indie comic style with thin lines and muted two-tone color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a romance-comic style with soft faces and big print dots",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "comic"
-        ]
-      }
-    },
-    {
-      "text": "a Saturday-morning cartoon style with thick outlines and flat color",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a modern TV cartoon style with simple geometric characters",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a classic hand-drawn animation style with fluid lines and painted backgrounds",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a 1930s rubber-hose cartoon style with pie-cut eyes and bendy limbs",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a mid-century modern cartoon style with flat shapes and offset color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a preschool cartoon style with round shapes and bright primary colors",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a caricature style with enlarged heads and exaggerated features",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "an adult-animation style with flat color and deadpan faces",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a storybook-animation style with soft painted textures",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a limited-animation style with flat backgrounds and angular characters",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a doodle style with thin wobbly lines and no shading",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a mascot style with simple shapes and a thick outline",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a political-cartoon style with ink hatching and exaggerated likenesses",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "a cutout-animation style with flat jointed paper figures",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "cartoon"
-        ]
-      }
-    },
-    {
-      "text": "an oil-painting style with thick, visible brushwork",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a loose watercolor style with color bleeding at the edges",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a digital concept-art style with broad painterly strokes",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "an acrylic style with flat, bright, hard-edged color",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a realistic oil-portrait style with smooth blending",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a digital painting style with soft edges and glowing light",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "an impressionist style with broken dabs of color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "an old-master portrait style with a dark background and soft modeling",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a palette-knife style with slabs of thick paint",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "an expressionist style with distorted forms and harsh color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a pointillist style built from small dots of pure color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a cubist style with faces and objects broken into flat planes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a surrealist style with dreamlike, smoothly painted impossibilities",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a fauvist style with wild, unnatural color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "an abstract style with large fields of soft color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a fresco style with chalky color on plaster",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a tempera icon style with gold backgrounds and stylized faces",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a Dutch still-life style with dark backgrounds and gleaming detail",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a romantic landscape style with dramatic skies and tiny figures",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a plein-air sketch style with quick, loose strokes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a Chinese ink-wash style with misty mountains and empty space",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a Japanese sumi-e style with a few confident brushstrokes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a miniature-painting style with fine detail, flat perspective and ornate borders",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a naive painting style with flat perspective and careful detail",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a matte-painting style with vast, detailed scenery",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a speed-painting style with rough blocks of color and little detail",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a Pre-Raphaelite style with jewel color and minute natural detail",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a tonalist style with hazy, muted dusk color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a wet-on-wet watercolor style with soft blooms and no hard edges",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a poster-paint style with flat layers and crisp edges",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a hyperrealist painting style with photographic detail",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "an encaustic style with waxy, layered color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a splatter-and-drip abstract style",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a mural style with large simplified figures and bold outlines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a dark fantasy oil style with dramatic light and rich detail",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a pulp sci-fi paperback style with airbrushed planets and bold color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "painting"
-        ]
-      }
-    },
-    {
-      "text": "a pencil-sketch style with soft shading",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a charcoal style with smudged shadows and rough edges",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a pen-and-ink style with confident outlines",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a ballpoint-pen style with dense blue hatching",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a red-chalk study style on toned paper",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a quick gesture-drawing style with a few sweeping lines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a blind-contour style with one wandering line",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a technical-pencil style with precise construction lines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a graphite realism style with smooth tonal shading",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a white-chalk-on-blackboard style",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a marker-rendering style with bold strokes and gray shadows",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a sketchbook style with unfinished lines and overlapping studies",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a courtroom-sketch style in pastel and quick line",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a conté-crayon style with warm brown tones",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a silverpoint style with pale, delicate lines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "an ink-brush style with thick-and-thin strokes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a pen style with engraving-like crosshatching",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a storyboard style in gray marker with rough figures",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "drawing"
-        ]
-      }
-    },
-    {
-      "text": "a woodblock-print style with flat color and flowing outlines",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a linocut style with carved black shapes",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a screen-print style with flat layers of bright ink",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a two-color risograph style with grainy, overlapping inks",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "an etching style with fine scratched lines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a copperplate-engraving style with parallel hatching",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a lithograph poster style with crayon texture",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a letterpress style with slightly uneven ink on rough paper",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a woodcut style with bold, rough-cut lines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a cyanotype style in deep blue and white",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a halftone newspaper-print style with coarse dots",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a mimeograph style in faded purple ink",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a stencil style with sharp-edged sprayed shapes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a block-printed textile style with repeating motifs",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a monotype style with painterly smears of ink",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a vintage matchbox-label style with misregistered color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "print"
-        ]
-      }
-    },
-    {
-      "text": "a bold poster style with flat shapes and strong contrast",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a minimalist style with a few simple shapes and lots of empty space",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a flat-design style with clean icons and solid color",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a minimal line-drawing style with a single unbroken stroke",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a paper-cutout style with layered shapes and soft shadows",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a Swiss-poster style with a strict grid and plain shapes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a constructivist poster style with diagonals in red and black",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a psychedelic 1960s poster style with swirling shapes and clashing color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a 1980s Memphis style with squiggles, dots and pastel blocks",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a vaporwave style with pink-and-teal gradients and grid horizons",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a synthwave style with a neon sun and glowing grid lines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a duotone style in two flat inks",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a silhouette style with solid black figures on color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a geometric style of triangles and circles with little detail",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a blueprint style with white lines on blue",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a neon-sign style with glowing tubes on a dark wall",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a chalkboard style with white chalk doodles",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a mid-century travel-poster style with flat color and long shadows",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a propaganda-poster style with heroic figures and limited color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a glitch style with shifted color bands and broken scanlines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a collage style with cut-out photographs and torn paper",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a punk-flyer style with photocopied textures and rough cutouts",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "an infographic style with flat diagrams and simple pictograms",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a graffiti style with bubble shapes, drips and bright outlines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a street-stencil style with stark two-tone figures",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a holographic style with iridescent foil gradients",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a gradient style with smooth blended blobs of color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a line-icon style with even strokes and no fill",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "graphic"
-        ]
-      }
-    },
-    {
-      "text": "a pixel-art style with a limited palette",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a 16-bit game style with detailed sprites and tiled backgrounds",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "an 8-bit game style with a handful of colors and blocky sprites",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a low-resolution 3D game style with wobbly textures and sharp polygons",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a voxel style built from small cubes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "an isometric pixel-art style",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a point-and-click adventure style with painted pixel backgrounds",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a visual-novel style with a character over a painted background",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a trading-card art style with dramatic, detailed fantasy painting",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a cel-shaded game style with bold outlines on 3D forms",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a hand-painted game-texture style with chunky shapes and soft gradients",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a one-bit style in pure black and white pixels",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a tabletop-miniature style with painted figures on scenic bases",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a fighting-game style with bold character portraits",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a dithered retro-computer style with a four-color palette",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "game"
-        ]
-      }
-    },
-    {
-      "text": "a 3D animated-film style with smooth rounded forms and soft light",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a claymation style with hand-pressed clay and miniature sets",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a stylized 3D character style with big eyes and simplified features",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a low-poly 3D style with flat faceted surfaces",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a stop-motion style with felt and fabric puppets",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a glossy plastic toy-figure style",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "an isometric 3D diorama style",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a vinyl collectible-figure style with a big head and matte finish",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a soft inflatable 3D style with puffy, shiny forms",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a clay-render style in a single matte color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a paper-craft 3D style with folded card and visible edges",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a knitted-toy style with yarn textures",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a brick-built toy style of interlocking plastic blocks",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a miniature-model style like a tiny tabletop world",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a wireframe style with glowing lines on black",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a glass-and-chrome 3D style with reflections and refraction",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a wooden-toy style with painted blocks and simple joints",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a puppet-theater style with strings and painted flats",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a 1990s computer-graphics style with shiny spheres and checkered floors",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a photoreal 3D-render style with studio-clean materials",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a sculpted-bust style in white marble",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "a bronze-statue style with a green patina",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "3d"
-        ]
-      }
-    },
-    {
-      "text": "an Art Nouveau style with flowing plant lines and ornamental borders",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "an Art Deco style with geometric symmetry and metallic accents",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Bauhaus style with primary colors and basic shapes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a ukiyo-e style with flat color, bold outlines and patterned robes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Byzantine mosaic style with gold tiles and frontal figures",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a medieval illuminated-manuscript style with gilded borders",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Renaissance style with balanced composition and soft modeling",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Baroque style with deep shadow and theatrical light",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Rococo style with pastel color and playful ornament",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a neoclassical style with statue-like figures and cool color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Romantic style with stormy skies and heightened emotion",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Victorian engraving style with dense fine lines",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "an Egyptian wall-painting style with profile figures and flat color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Greek vase-painting style with black figures on orange clay",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Persian miniature style with jewel color and patterned gardens",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Mughal miniature style with fine profiles and floral borders",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Mexican muralist style with monumental workers and earthy color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a pop-art style with flat color, bold outlines and repeated images",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "an op-art style with vibrating black-and-white patterns",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a 1970s paperback-cover style with warm airbrushed color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a 1950s advertising-illustration style with cheerful painted figures",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a 1920s fashion-plate style with slim figures and flat pastel color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a medieval tapestry style with flat woven figures and flower-strewn grounds",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Chinese gongbi style with fine outlines and delicate color",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a Celtic-knotwork style with interlaced borders",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a futurist style with repeated shapes showing speed",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "historic"
-        ]
-      }
-    },
-    {
-      "text": "a stained-glass style with black leading and jewel color",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a mosaic style of small colored tiles",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "an embroidery style with visible stitches on cloth",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a cross-stitch style on a visible grid",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a felt-appliqué style with soft layered shapes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a patchwork-quilt style of stitched fabric pieces",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a shadow-puppet style with pierced black silhouettes",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "an origami style of folded paper forms",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a layered paper-cut style with glowing depth between the sheets",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a ceramic-tile style in blue and white glaze",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a carved-wood relief style",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a beadwork style of tiny glossy beads",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a woven-tapestry style with soft wool texture",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a marquetry style of inlaid wood veneers",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "a batik style with wax-crackled dye",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    },
-    {
-      "text": "an enamel-pin style with metal outlines and flat glossy fills",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "craft"
-        ]
-      }
-    }
-  ],
-  "strict": true
+  {
+   "text": "a soft pastel anime style with delicate linework",
+   "short": "soft pastel anime",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a painterly anime-film style with lush, detailed backgrounds",
+   "short": "painterly anime film",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a modern anime style with sharp highlights in the hair and eyes",
+   "short": "glossy modern anime",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a slice-of-life anime style with gentle color and simple shading",
+   "short": "slice-of-life anime",
+   "look": "Gentle colors and simple shading give everyday characters and settings a quiet, relaxed look.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a 1990s anime style with hand-painted backgrounds and slight film grain",
+   "short": "1990s anime",
+   "look": "Hand-painted backgrounds, cel-style shading, and light film grain soften the image.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a 1980s anime style with airbrushed highlights and thick outlines",
+   "short": "1980s anime",
+   "look": "Thick outlines and airbrushed highlights give characters and machinery a glossy, high-contrast finish.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a black-and-white manga style with screentone shading",
+   "short": "screentone manga",
+   "look": "Black ink outlines and sheets of tiny printed dots create gray shadows without color.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "anime",
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a shojo manga style with large sparkling eyes and flower-filled backgrounds",
+   "short": "shojo manga",
+   "look": "Large sparkling eyes, delicate faces, and flowers fill the image with ornate detail.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime",
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a gritty seinen manga style with heavy cross-hatching and realistic proportions",
+   "short": "seinen manga",
+   "look": "Realistic proportions and dense crosshatching create gritty faces and heavy shadows.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime",
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a chibi style with oversized heads and tiny bodies",
+   "short": "chibi",
+   "look": "Oversized heads and tiny bodies give characters compact, rounded proportions.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a mecha anime style with hard-edged machinery and dramatic lighting",
+   "short": "mecha anime",
+   "look": "Hard-edged robots and machinery have articulated panels, sharp highlights, and dramatic shadows.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a dark fantasy anime style with deep shadows and muted color",
+   "short": "dark fantasy anime",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a magical-girl anime style with ribbons, sparkles and candy colors",
+   "short": "magical-girl anime",
+   "look": "Ribbons, sparkles, decorative costumes, and candy colors surround expressive characters.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a sports anime style with speed lines and dynamic foreshortening",
+   "short": "sports anime",
+   "look": "Speed lines and strongly foreshortened bodies emphasize athletic motion.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "an anime style with watercolor-textured backgrounds and thin pencil-like outlines",
+   "short": "watercolor anime",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a retro-future anime style with neon city color",
+   "short": "retro-future anime",
+   "look": "Neon city colors illuminate futuristic scenery with a vintage anime finish.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a light-novel cover style with glossy coloring and detailed costume",
+   "short": "light-novel cover",
+   "look": "Glossy anime coloring, elaborate costumes, and sharply detailed characters dominate the composition.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a four-panel gag manga style with simple round faces",
+   "short": "gag manga",
+   "look": "Simple round faces and spare linework give short comic panels an exaggerated, playful look.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime",
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a moody anime style with long shadows and sunset gradients",
+   "short": "sunset anime",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "an anime key-visual style with a dramatic sky and backlit figures",
+   "short": "anime key visual",
+   "look": "Backlit characters stand against a dramatic, expansive sky in a polished promotional composition.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a rough anime storyboard style in pencil and gray marker",
+   "short": "anime storyboard",
+   "look": "Rough anime figures and scene layouts are sketched in pencil and broad gray marker.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "anime",
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a storybook style with soft watercolor washes",
+   "short": "watercolor storybook",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a flat vector style with simple shapes and solid color",
+   "short": "flat vector illustration",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a gouache illustration style with matte, opaque color",
+   "short": "gouache illustration",
+   "look": "Opaque matte colors form solid shapes with softly visible brush edges.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a textured digital illustration style with grainy brushes and soft shapes",
+   "short": "grainy digital art",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a clean editorial illustration style with bold shapes and a limited palette",
+   "short": "editorial illustration",
+   "look": "Bold simplified shapes and a limited palette create a clear, graphic composition.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a cozy picture-book style with rounded characters and warm color",
+   "short": "cozy picture book",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a loose ink-and-wash sketch style",
+   "short": "ink-and-wash sketch",
+   "look": "Loose ink lines sit beneath transparent, lightly pooled washes of color.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "illustration",
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a colored-pencil style with visible strokes",
+   "short": "colored-pencil drawing",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "illustration",
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a mid-century editorial style with limited color and rough print texture",
+   "short": "mid-century editorial",
+   "look": "Limited colors, simplified figures, and rough printed textures create a vintage magazine look.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a fashion-illustration style with elongated figures and quick brush lines",
+   "short": "fashion illustration",
+   "look": "Elongated figures and quick, fluid brush lines emphasize the silhouette and drape of clothing.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a botanical-illustration style with precise outlines and pale washes",
+   "short": "botanical illustration",
+   "look": "Precisely outlined plants have pale washes that reveal leaves, stems, and petals in fine detail.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a scientific-plate style with fine engraved lines",
+   "short": "scientific plate",
+   "look": "Fine engraved lines and careful shading describe specimens with precise, clearly separated details.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a children's crayon-drawing style with wobbly lines",
+   "short": "crayon drawing",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration",
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a felt-tip marker style with streaky, saturated color",
+   "short": "felt-tip marker drawing",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration",
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a pastel-chalk style with soft smudged edges",
+   "short": "soft chalk pastel",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "illustration",
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a vintage fairy-tale illustration style with fine ink lines and muted washes",
+   "short": "vintage fairy tale",
+   "look": "Fine ink outlines and muted washes surround intricately drawn characters and scenery.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a golden-age adventure-book style with rich painted plates",
+   "short": "golden-age illustration",
+   "look": "Richly painted scenes have detailed costumes, modeled figures, and dramatic narrative staging.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a paper-collage illustration style with torn edges and mixed textures",
+   "short": "torn-paper collage",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration",
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a whimsical ink-and-watercolor style with wobbly outlines",
+   "short": "whimsical ink and wash",
+   "look": "Wobbly ink contours and loose watercolor patches give figures a light, handmade appearance.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a flat geometric style with characters built from circles and rectangles",
+   "short": "geometric illustration",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a scratchboard style with white lines cut from black",
+   "short": "scratchboard",
+   "look": "Fine white lines scratched into a black surface build bright forms out of deep shadow.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration",
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a stippled ink style built from tiny dots",
+   "short": "ink stippling",
+   "look": "Tiny black dots cluster into dark areas and thin out across highlights.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration",
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a grainy airbrush style with smooth gradients and soft glow",
+   "short": "grainy airbrush",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a naive folk-art style with flat figures and bright pattern",
+   "short": "naive folk art",
+   "look": "Flat figures, bright repeating patterns, and simplified space fill a decorative painted scene.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a tarot-card style with ornate borders and symbolic figures",
+   "short": "tarot-card art",
+   "look": "Symbolic figures sit inside ornate borders with carefully arranged decorative details.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "an architectural sketch style with ruled lines and light washes",
+   "short": "architectural sketch",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a technical cutaway style with clean outlines and flat tints",
+   "short": "technical cutaway",
+   "look": "Clean outlines and flat tints reveal the interior structure of an object or building.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a tattoo-flash style with bold outlines and limited color",
+   "short": "tattoo flash",
+   "look": "Heavy outlines enclose simple, boldly colored motifs with strong silhouettes.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a sticker style with thick white borders and simple shading",
+   "short": "white-border sticker",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration",
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a kawaii style with tiny features, round shapes and pastel color",
+   "short": "kawaii",
+   "look": "Tiny facial features, rounded shapes, and pastel colors make characters and objects look soft and cute.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "illustration",
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a corporate flat-illustration style with long limbs and simple faces",
+   "short": "corporate illustration",
+   "look": "Long-limbed figures with small, simple faces are built from large areas of flat color.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a fantasy-map illustration style in ink on parchment tones",
+   "short": "parchment fantasy map",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a comic-book style with bold inks and halftone dots",
+   "short": "halftone comic book",
+   "look": "Bold black inks and visible printed dots give colored areas a textured comic-page finish.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a clear-line comic style with even outlines and flat color",
+   "short": "ligne claire",
+   "look": "Even-weight outlines enclose flat colors, with crisp details in both figures and backgrounds.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a modern superhero comic style with dynamic poses and glossy coloring",
+   "short": "modern superhero comic",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a newspaper-strip style with simple, exaggerated features",
+   "short": "newspaper comic strip",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a noir comic style in stark black and white",
+   "short": "noir comic",
+   "look": "Stark black-and-white shapes and heavy shadows carve out faces, figures, and streets.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "an underground-comix style with dense, wobbly hatching",
+   "short": "underground comix",
+   "look": "Dense, wobbly hatching and irregular outlines give the page a rough, crowded appearance.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a watercolor graphic-novel style with loose painted panels",
+   "short": "watercolor graphic novel",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a webcomic style with flat color and clean digital lines",
+   "short": "digital webcomic",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a pulp-magazine cover style with lurid painted color",
+   "short": "pulp magazine cover",
+   "look": "Lurid painted colors, heightened shadows, and dramatic figures create an intense narrative scene.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "illustration",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a silver-age comic style with bright flat color and thick outlines",
+   "short": "Silver Age comic",
+   "look": "Thick black outlines and bright, flat colors define clearly modeled comic-book figures.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a horror-comic style with scratchy inks and sickly greens",
+   "short": "horror comic",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "an indie comic style with thin lines and muted two-tone color",
+   "short": "two-tone indie comic",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a romance-comic style with soft faces and big print dots",
+   "short": "romance comic",
+   "look": "Softly drawn faces and large halftone dots give close character scenes a vintage comic-print texture.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "comic"
+    ]
+   }
+  },
+  {
+   "text": "a Saturday-morning cartoon style with thick outlines and flat color",
+   "short": "Saturday-morning cartoon",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a modern TV cartoon style with simple geometric characters",
+   "short": "geometric TV cartoon",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a classic hand-drawn animation style with fluid lines and painted backgrounds",
+   "short": "classic cel animation",
+   "look": "Fluid hand-drawn outlines and flat character colors sit over painted backgrounds.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a 1930s rubber-hose cartoon style with pie-cut eyes and bendy limbs",
+   "short": "rubber-hose cartoon",
+   "look": "Pie-cut eyes, rubbery limbs, and rounded hands give characters a bendy 1930s silhouette.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a mid-century modern cartoon style with flat shapes and offset color",
+   "short": "mid-century cartoon",
+   "look": "Flat simplified shapes and slightly offset color create angular, graphic characters and scenery.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a preschool cartoon style with round shapes and bright primary colors",
+   "short": "preschool cartoon",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a caricature style with enlarged heads and exaggerated features",
+   "short": "caricature",
+   "look": "Enlarged heads and deliberately exaggerated facial features distort recognizable proportions.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "an adult-animation style with flat color and deadpan faces",
+   "short": "deadpan adult animation",
+   "look": "Flat colors, restrained expressions, and simple faces give characters a dry, understated look.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a storybook-animation style with soft painted textures",
+   "short": "storybook animation",
+   "look": "Soft painted textures and rounded illustrated forms give animated scenes a picture-book finish.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a limited-animation style with flat backgrounds and angular characters",
+   "short": "limited animation",
+   "look": "Angular characters and spare flat backgrounds have sharply simplified shapes and little modeling.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a doodle style with thin wobbly lines and no shading",
+   "short": "unshaded doodle",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a mascot style with simple shapes and a thick outline",
+   "short": "cartoon mascot",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a political-cartoon style with ink hatching and exaggerated likenesses",
+   "short": "political cartoon",
+   "look": "Exaggerated likenesses and loose ink hatching give recognizable figures a pointed, sketchy appearance.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "a cutout-animation style with flat jointed paper figures",
+   "short": "paper-cutout animation",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "cartoon",
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "an oil-painting style with thick, visible brushwork",
+   "short": "impasto oil",
+   "look": "Thick brushstrokes leave raised ridges and visible trails of paint across the surface.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a loose watercolor style with color bleeding at the edges",
+   "short": "loose watercolor",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a digital concept-art style with broad painterly strokes",
+   "short": "painterly concept art",
+   "look": "Broad digital brushstrokes block in forms, atmosphere, and light without outlining every detail.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "an acrylic style with flat, bright, hard-edged color",
+   "short": "hard-edged acrylic",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a realistic oil-portrait style with smooth blending",
+   "short": "realistic oil portrait",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a digital painting style with soft edges and glowing light",
+   "short": "glowing digital painting",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "an impressionist style with broken dabs of color",
+   "short": "Impressionism",
+   "look": "Broken dabs of color suggest forms and flickering light with few hard outlines.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a palette-knife style with slabs of thick paint",
+   "short": "palette-knife painting",
+   "look": "Thick slabs and ridges of paint form angular patches with scraped edges.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "an expressionist style with distorted forms and harsh color",
+   "short": "Expressionism",
+   "look": "Distorted forms and harsh, unnatural colors create forceful, uneven compositions.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a pointillist style built from small dots of pure color",
+   "short": "Pointillism",
+   "look": "Small separate dots of pure color build forms and blend into tones at a distance.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a cubist style with faces and objects broken into flat planes",
+   "short": "Cubism",
+   "look": "Faces and objects break into overlapping flat planes seen from several angles at once.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a surrealist style with dreamlike, smoothly painted impossibilities",
+   "short": "Surrealism",
+   "look": "Smoothly painted, recognizable objects combine in impossible arrangements and dreamlike spaces.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a fauvist style with wild, unnatural color",
+   "short": "Fauvism",
+   "look": "Strong, unnatural colors and broad strokes replace realistic skin, shadow, and landscape tones.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "an abstract style with large fields of soft color",
+   "short": "color field painting",
+   "look": "Large expanses of soft color meet or overlap with very little linework or small detail.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a fresco style with chalky color on plaster",
+   "short": "fresco",
+   "look": "Chalky, matte colors appear absorbed into a lightly textured plaster wall.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a tempera icon style with gold backgrounds and stylized faces",
+   "short": "tempera icon",
+   "look": "Stylized frontal faces and flat robes stand against luminous gold backgrounds.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting",
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "a Dutch still-life style with dark backgrounds and gleaming detail",
+   "short": "Dutch still life",
+   "look": "Carefully modeled objects gleam against dark backgrounds with fine surface detail.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a plein-air sketch style with quick, loose strokes",
+   "short": "plein-air sketch",
+   "look": "Quick, loose brushstrokes suggest outdoor forms and changing light without polishing every edge.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a Chinese ink-wash style with misty mountains and empty space",
+   "short": "Chinese ink wash",
+   "look": "Misty mountains emerge from diluted ink, with broad areas of untouched paper between them.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a Japanese sumi-e style with a few confident brushstrokes",
+   "short": "sumi-e",
+   "look": "A few flowing black brushstrokes suggest forms, leaving large areas of blank paper.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a matte-painting style with vast, detailed scenery",
+   "short": "matte painting",
+   "look": "Vast, intricately painted scenery stretches into layered, atmospheric distance.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a Pre-Raphaelite style with jewel color and minute natural detail",
+   "short": "Pre-Raphaelite",
+   "look": "Jewel-like colors and minute natural details surround carefully modeled figures.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a tonalist style with hazy, muted dusk color",
+   "short": "Tonalism",
+   "look": "Muted colors and hazy dusk light merge forms into a narrow range of soft tones.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a hyperrealist painting style with photographic detail",
+   "short": "hyperrealist painting",
+   "look": "Precisely painted surfaces, edges, and reflections have the detail of a sharp photograph.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "an encaustic style with waxy, layered color",
+   "short": "encaustic",
+   "look": "Translucent waxy layers give colors a cloudy depth and a softly textured surface.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a splatter-and-drip abstract style",
+   "short": "drip-and-splatter art",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a dark fantasy oil style with dramatic light and rich detail",
+   "short": "dark fantasy oil",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a pulp sci-fi paperback style with airbrushed planets and bold color",
+   "short": "pulp sci-fi cover",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "painting",
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a pencil-sketch style with soft shading",
+   "short": "shaded pencil sketch",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a charcoal style with smudged shadows and rough edges",
+   "short": "charcoal drawing",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a pen-and-ink style with confident outlines",
+   "short": "pen-and-ink outlines",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a ballpoint-pen style with dense blue hatching",
+   "short": "blue ballpoint hatching",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a red-chalk study style on toned paper",
+   "short": "red-chalk study",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a quick gesture-drawing style with a few sweeping lines",
+   "short": "gesture drawing",
+   "look": "A few sweeping lines capture the direction, balance, and movement of a pose.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a blind-contour style with one wandering line",
+   "short": "blind contour",
+   "look": "A wandering line traces distorted outlines with irregular proportions and little internal shading.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a technical-pencil style with precise construction lines",
+   "short": "technical pencil drawing",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a graphite realism style with smooth tonal shading",
+   "short": "graphite realism",
+   "look": "Smooth tonal shading and fine pencil detail model surfaces with lifelike precision.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a white-chalk-on-blackboard style",
+   "short": "chalk on blackboard",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a marker-rendering style with bold strokes and gray shadows",
+   "short": "marker rendering",
+   "look": "Bold marker strokes and gray shadow blocks define forms with visible streaks and overlaps.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a sketchbook style with unfinished lines and overlapping studies",
+   "short": "unfinished sketchbook",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a courtroom-sketch style in pastel and quick line",
+   "short": "courtroom sketch",
+   "look": "Quick linework and smudged pastel color capture loosely rendered people in an interior scene.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a silverpoint style with pale, delicate lines",
+   "short": "silverpoint",
+   "look": "Pale, delicate gray lines build restrained detail with little deep black shading.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "an ink-brush style with thick-and-thin strokes",
+   "short": "brush-ink drawing",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a pen style with engraving-like crosshatching",
+   "short": "ink crosshatching",
+   "look": "Intersecting fine ink lines build dense shadows and engraved-looking surface detail.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a storyboard style in gray marker with rough figures",
+   "short": "gray-marker storyboard",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a linocut style with carved black shapes",
+   "short": "linocut",
+   "look": "Solid black shapes and clean carved gaps form bold, simplified silhouettes.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a screen-print style with flat layers of bright ink",
+   "short": "screen print",
+   "look": "Bright flat inks overlap in crisp layers, with a small number of clearly separated colors.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a two-color risograph style with grainy, overlapping inks",
+   "short": "two-color risograph",
+   "look": "Grainy ink layers overlap in two colors with slightly misaligned edges.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "an etching style with fine scratched lines",
+   "short": "etching",
+   "look": "Fine scratched-looking lines and irregular hatching build delicate shadows on paper.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a copperplate-engraving style with parallel hatching",
+   "short": "copperplate engraving",
+   "look": "Closely spaced, controlled parallel lines and crosshatching model detailed forms.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a lithograph poster style with crayon texture",
+   "short": "lithograph poster",
+   "look": "Crayon-like grain and softly drawn ink shapes create a textured printed surface.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a letterpress style with slightly uneven ink on rough paper",
+   "short": "letterpress",
+   "look": "Slightly uneven ink coverage catches on rough paper around firmly defined printed shapes.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a woodcut style with bold, rough-cut lines",
+   "short": "woodcut",
+   "look": "Bold rough-cut lines and irregular black shapes leave a visibly carved, grainy texture.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a cyanotype style in deep blue and white",
+   "short": "cyanotype",
+   "look": "Deep blue fields and pale white shapes create a high-contrast photographic print.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a halftone newspaper-print style with coarse dots",
+   "short": "newspaper halftone",
+   "look": "Coarse black dots build gray tones on a grainy newspaper-like surface.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a mimeograph style in faded purple ink",
+   "short": "purple mimeograph",
+   "look": "Faded purple ink and uneven reproduction soften lines on plain paper.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a block-printed textile style with repeating motifs",
+   "short": "block-printed textile",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "print",
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a monotype style with painterly smears of ink",
+   "short": "monotype",
+   "look": "Painterly ink smears and irregular transferred patches leave a one-off printed texture.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a vintage matchbox-label style with misregistered color",
+   "short": "vintage matchbox label",
+   "look": "Compact shapes and misregistered color layers give the image a small, rough vintage-print finish.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a bold poster style with flat shapes and strong contrast",
+   "short": "bold graphic poster",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a minimalist style with a few simple shapes and lots of empty space",
+   "short": "minimalist graphic",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a flat-design style with clean icons and solid color",
+   "short": "flat icon design",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a minimal line-drawing style with a single unbroken stroke",
+   "short": "continuous-line drawing",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic",
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a paper-cutout style with layered shapes and soft shadows",
+   "short": "layered paper cutout",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "graphic",
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a Swiss-poster style with a strict grid and plain shapes",
+   "short": "Swiss poster",
+   "look": "A strict grid, plain geometric forms, and ample spacing create an orderly, spare composition.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a constructivist poster style with diagonals in red and black",
+   "short": "Constructivist poster",
+   "look": "Red-and-black diagonals and angular shapes drive the composition across the page.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a psychedelic 1960s poster style with swirling shapes and clashing color",
+   "short": "psychedelic poster",
+   "look": "Swirling shapes and clashing saturated colors crowd together in dense, rippling patterns.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a 1980s Memphis style with squiggles, dots and pastel blocks",
+   "short": "Memphis design",
+   "look": "Pastel blocks, scattered squiggles, dots, and geometric shapes form playful decorative patterns.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a vaporwave collage style with pastel gradients, classical busts and retro computer graphics",
+   "short": "vaporwave",
+   "look": "Pastel pink and cyan surround classical busts and fragments of early computer graphics in a surreal collage.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a synthwave style with a neon sun and glowing grid lines",
+   "short": "synthwave",
+   "look": "A glowing neon sun and luminous grid recede toward the horizon in saturated pinks and blues.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a duotone style in two flat inks",
+   "short": "flat duotone",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a silhouette style with solid black figures on color",
+   "short": "black silhouette",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a geometric style of triangles and circles with little detail",
+   "short": "geometric abstraction",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a blueprint style with white lines on blue",
+   "short": "blueprint",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic",
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a neon-sign style with glowing tubes on a dark wall",
+   "short": "glowing neon sign",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a mid-century travel-poster style with flat color and long shadows",
+   "short": "retro travel poster",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a propaganda-poster style with heroic figures and limited color",
+   "short": "propaganda poster",
+   "look": "Heroic figures, simplified shapes, and a limited palette create a forceful, monumental composition.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a glitch style with shifted color bands and broken scanlines",
+   "short": "digital glitch",
+   "look": "Shifted color bands and broken scanlines interrupt the image with jagged digital distortions.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a collage style with cut-out photographs and torn paper",
+   "short": "torn-photo collage",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a punk-flyer style with photocopied textures and rough cutouts",
+   "short": "punk flyer",
+   "look": "Photocopied grain, rough cutouts, and uneven overlaps create a raw, densely layered page.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "an infographic style with flat diagrams and simple pictograms",
+   "short": "infographic",
+   "look": "Flat diagrams and simple pictograms organize information into clearly separated visual units.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a graffiti style with bubble shapes, drips and bright outlines",
+   "short": "bubble graffiti",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a street-stencil style with stark two-tone figures",
+   "short": "street stencil",
+   "look": "Stark two-tone figures have sharp sprayed edges and broad areas of solid color.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic",
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a holographic style with iridescent foil gradients",
+   "short": "holographic foil",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a gradient style with smooth blended blobs of color",
+   "short": "gradient blobs",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a line-icon style with even strokes and no fill",
+   "short": "outline icons",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a 16-bit game style with detailed sprites and tiled backgrounds",
+   "short": "16-bit pixel art",
+   "look": "Detailed blocky sprites and tiled backgrounds use a richer palette than early 8-bit graphics.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "game"
+    ]
+   }
+  },
+  {
+   "text": "an 8-bit game style with a handful of colors and blocky sprites",
+   "short": "8-bit pixel art",
+   "look": "Chunky sprites and a small handful of flat colors create visibly coarse pixel shapes.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "game"
+    ]
+   }
+  },
+  {
+   "text": "a low-resolution 3D game style with wobbly textures and sharp polygons",
+   "short": "early low-res 3D",
+   "look": "Sharp polygons and wobbly low-resolution textures give objects a rough early-game appearance.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "game",
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a voxel style built from small cubes",
+   "short": "voxel art",
+   "look": "Small cubes build stepped surfaces and blocky silhouettes in three dimensions.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "game",
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "an isometric pixel-art style",
+   "short": "isometric pixel art",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "game"
+    ]
+   }
+  },
+  {
+   "text": "a point-and-click adventure style with painted pixel backgrounds",
+   "short": "point-and-click art",
+   "look": "Detailed painted pixel scenery forms a layered backdrop for small adventure-game characters.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "game"
+    ]
+   }
+  },
+  {
+   "text": "a visual-novel style with a character over a painted background",
+   "short": "visual novel",
+   "look": "A cleanly drawn anime character stands in front of a separately painted background.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "game",
+     "anime"
+    ]
+   }
+  },
+  {
+   "text": "a trading-card art style with dramatic, detailed fantasy painting",
+   "short": "fantasy trading-card art",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "game"
+    ]
+   }
+  },
+  {
+   "text": "a cel-shaded game style with bold outlines on 3D forms",
+   "short": "cel-shaded 3D game",
+   "look": "Bold outlines and hard-edged shadow bands make three-dimensional forms resemble cartoon drawings.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "game",
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a hand-painted game-texture style with chunky shapes and soft gradients",
+   "short": "hand-painted game art",
+   "look": "Chunky forms and softly blended painted textures give game objects a brushed, stylized surface.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "game"
+    ]
+   }
+  },
+  {
+   "text": "a one-bit style in pure black and white pixels",
+   "short": "1-bit pixel art",
+   "look": "Pure black and white pixels build shapes and dithered shading without any gray or color.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "game"
+    ]
+   }
+  },
+  {
+   "text": "a tabletop-miniature style with painted figures on scenic bases",
+   "short": "painted tabletop minis",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "game",
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a fighting-game style with bold character portraits",
+   "short": "fighting-game portrait",
+   "look": "A bold character portrait emphasizes exaggerated features and strong graphic shapes.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "game"
+    ]
+   }
+  },
+  {
+   "text": "a dithered retro-computer style with a four-color palette",
+   "short": "four-color dithering",
+   "look": "Four flat colors mix through visible checkerboard patterns and coarse pixel clusters.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "game"
+    ]
+   }
+  },
+  {
+   "text": "a 3D animated-film style with smooth rounded forms and soft light",
+   "short": "3D animated film",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a claymation style with hand-pressed clay and miniature sets",
+   "short": "claymation",
+   "look": "Hand-pressed clay figures have soft dents and fingerprints inside miniature sets.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "3d",
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a low-poly 3D style with flat faceted surfaces",
+   "short": "flat-shaded low-poly 3D",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a stop-motion style with felt and fabric puppets",
+   "short": "felt-puppet stop-motion",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d",
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a glossy plastic toy-figure style",
+   "short": "glossy plastic toy",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "an isometric 3D diorama style",
+   "short": "isometric 3D diorama",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a vinyl collectible-figure style with a big head and matte finish",
+   "short": "vinyl collectible",
+   "look": "A large head and simplified small body have smooth surfaces and a matte toy finish.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a soft inflatable 3D style with puffy, shiny forms",
+   "short": "puffy inflatable 3D",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a clay-render style in a single matte color",
+   "short": "monochrome clay render",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a paper-craft 3D style with cut card, glued tabs and visible edges",
+   "short": "cardstock models",
+   "look": "Cut card panels, folded edges, and glued tabs form angular miniature objects.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d",
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a knitted-toy style with yarn textures",
+   "short": "knitted yarn toy",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d",
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a brick-built toy style of interlocking plastic blocks",
+   "short": "interlocking brick toy",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a wireframe style with glowing lines on black",
+   "short": "glowing wireframe",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a glass-and-chrome 3D style with reflections and refraction",
+   "short": "glass-and-chrome 3D",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a wooden-toy style with painted blocks and simple joints",
+   "short": "painted wooden toy",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a puppet-theater style with strings and painted flats",
+   "short": "string-puppet theater",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d",
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a 1990s computer-graphics style with shiny spheres and checkered floors",
+   "short": "1990s CGI",
+   "look": "Shiny spheres, hard specular highlights, and checkered floors fill a simple computer-rendered scene.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a photoreal 3D-render style with studio-clean materials",
+   "short": "photoreal studio 3D",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a sculpted-bust style in white marble",
+   "short": "white marble bust",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a bronze-statue style with a green patina",
+   "short": "patinated bronze statue",
+   "look": "Green oxidation coats a modeled metal surface, with darker recesses and highlighted raised details.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "an Art Nouveau style with flowing plant lines and ornamental borders",
+   "short": "Art Nouveau",
+   "look": "Flowing plantlike lines curve around figures and forms inside elaborate ornamental borders.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "historic",
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "an Art Deco style with geometric symmetry and metallic accents",
+   "short": "Art Deco",
+   "look": "Symmetrical geometry, stepped shapes, and metallic accents create a crisp ornamental design.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "historic",
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a Bauhaus style with primary colors and basic shapes",
+   "short": "Bauhaus",
+   "look": "Primary colors and basic geometric shapes form spare, balanced compositions.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a ukiyo-e style with flat color, bold outlines and patterned robes",
+   "short": "ukiyo-e print",
+   "look": "Flat colors, flowing bold outlines, and patterned robes define shallow, carefully arranged scenes.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "historic",
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a Byzantine mosaic style with gold tiles and frontal figures",
+   "short": "Byzantine mosaic",
+   "look": "Small gold tiles surround frontal figures with stylized faces and flattened robes.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a medieval illuminated-manuscript style with gilded borders",
+   "short": "illuminated manuscript",
+   "look": "Gilded borders and dense ornament frame small, flattened medieval illustrations.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a Renaissance style with balanced composition and soft modeling",
+   "short": "Renaissance painting",
+   "look": "Balanced compositions and softly modeled forms create calm, orderly scenes with convincing depth.",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "historic",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a Baroque style with deep shadow and theatrical light",
+   "short": "Baroque painting",
+   "look": "Deep shadows and theatrical shafts of light give modeled figures a dramatic presence.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a Rococo style with pastel color and playful ornament",
+   "short": "Rococo",
+   "look": "Pastel colors, curling ornament, and playful decorative forms create an airy, elaborate scene.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a neoclassical style with statue-like figures and cool color",
+   "short": "Neoclassicism",
+   "look": "Cool colors and sharply modeled, statue-like figures sit in restrained, orderly compositions.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a Romantic style with stormy skies and heightened emotion",
+   "short": "Romanticism",
+   "look": "Stormy skies, dramatic landscapes, and heightened contrasts give figures and nature an emotional intensity.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "an Egyptian wall-painting style with profile figures and flat color",
+   "short": "Egyptian wall painting",
+   "look": "Profile heads and legs combine with frontal torsos in flat, sharply outlined figures.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "a Greek vase-painting style with black figures on orange clay",
+   "short": "Greek vase painting",
+   "look": "Black silhouettes and linear details curve across an orange clay-colored ground.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "a Persian miniature style with jewel color and patterned gardens",
+   "short": "Persian miniature",
+   "look": "Jewel colors, patterned gardens, tiny detailed figures, and flattened space fill an ornate composition.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a Mughal miniature style with fine profiles and floral borders",
+   "short": "Mughal miniature",
+   "look": "Precisely drawn profile faces, fine costume detail, and floral borders frame carefully arranged figures.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a Mexican muralist style with monumental workers and earthy color",
+   "short": "Mexican muralism",
+   "look": "Monumental workers and broad, solid forms fill large compositions in earthy colors.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a pop-art style with flat color, bold outlines and repeated images",
+   "short": "Pop Art",
+   "look": "Flat bright colors, heavy outlines, and repeated images turn familiar forms into graphic patterns.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "an op-art style with vibrating black-and-white patterns",
+   "short": "Op Art",
+   "look": "Repeating black-and-white shapes create vibrating patterns and illusions of movement or depth.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a 1970s paperback-cover style with warm airbrushed color",
+   "short": "1970s paperback cover",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a 1950s advertising-illustration style with cheerful painted figures",
+   "short": "1950s advertising art",
+   "look": "Cheerful painted figures and carefully modeled products fill a polished, brightly colored scene.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a 1920s fashion-plate style with slim figures and flat pastel color",
+   "short": "1920s fashion plate",
+   "look": "Slim elongated figures wear stylized clothing drawn in flat pastel colors.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "illustration"
+    ]
+   }
+  },
+  {
+   "text": "a medieval tapestry style with flat woven figures and flower-strewn grounds",
+   "short": "medieval tapestry",
+   "look": "Flat woven figures stand among dense flowers and patterned grounds.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a Chinese gongbi style with fine outlines and delicate color",
+   "short": "gongbi",
+   "look": "Fine, controlled outlines enclose delicately layered colors and precise natural details.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a Celtic-knotwork style with interlaced borders",
+   "short": "Celtic knotwork",
+   "look": "Interlaced bands loop over and under each other in dense, continuous borders and patterns.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "graphic"
+    ]
+   }
+  },
+  {
+   "text": "a futurist style with repeated shapes showing speed",
+   "short": "Futurism",
+   "look": "Repeated angular forms and fractured shapes suggest speed and overlapping stages of motion.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "historic",
+     "painting"
+    ]
+   }
+  },
+  {
+   "text": "a stained-glass style with black leading and jewel color",
+   "short": "stained glass",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a mosaic style of small colored tiles",
+   "short": "colored-tile mosaic",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "an embroidery style with visible stitches on cloth",
+   "short": "embroidery",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a cross-stitch style on a visible grid",
+   "short": "cross-stitch",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a felt-appliqué style with soft layered shapes",
+   "short": "felt appliqué",
+   "look": "Soft cut-felt shapes overlap on fabric, with visible edges and a shallow layered surface.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a patchwork-quilt style of stitched fabric pieces",
+   "short": "patchwork quilt",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a shadow-puppet style with pierced black silhouettes",
+   "short": "shadow puppetry",
+   "look": "Pierced black silhouettes and articulated profiles stand against a brightly lit flat screen.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "craft",
+     "cartoon"
+    ]
+   }
+  },
+  {
+   "text": "an origami style of folded paper forms",
+   "short": "origami",
+   "tier": "typical",
+   "tags": {
+    "family": [
+     "craft",
+     "3d"
+    ]
+   }
+  },
+  {
+   "text": "a ceramic-tile style in blue and white glaze",
+   "short": "blue-and-white tile",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a carved-wood relief style",
+   "short": "carved wood relief",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a beadwork style of tiny glossy beads",
+   "short": "beadwork",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a woven-tapestry style with soft wool texture",
+   "short": "woven wool tapestry",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a marquetry style of inlaid wood veneers",
+   "short": "marquetry",
+   "look": "Precisely cut wood veneers fit together into flat pictures with contrasting colors and grain directions.",
+   "tier": "unusual",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "a batik style with wax-crackled dye",
+   "short": "batik",
+   "look": "Wax-resist patterns and fine crackled dye lines break up colored areas on cloth.",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "craft"
+    ]
+   }
+  },
+  {
+   "text": "an enamel-pin style with metal outlines and flat glossy fills",
+   "short": "enamel pin",
+   "tier": "plausible",
+   "tags": {
+    "family": [
+     "craft",
+     "graphic"
+    ]
+   }
+  }
+ ],
+ "strict": true
 }

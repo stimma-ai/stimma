@@ -74,7 +74,10 @@
           <span v-if="swatches(o)" class="shrink-0 flex -space-x-1 mt-px">
             <span v-for="(c, j) in swatches(o)" :key="j" class="w-3.5 h-3.5 rounded-full border border-surface" :style="{ background: c }" />
           </span>
-          <span :class="['flex-1 min-w-0 leading-snug break-words', inPlay.has(o) ? 'text-content' : 'text-content-secondary']">{{ shownOption(o) }}</span>
+          <span :class="['flex-1 min-w-0 leading-snug break-words', inPlay.has(o) ? 'text-content' : 'text-content-secondary']">
+            {{ shownOption(o) }}
+            <span v-if="pool?.looks?.[o]" class="block text-[11px] leading-snug text-content-muted" data-look>{{ pool.looks[o] }}</span>
+          </span>
           <button
             v-if="program.isOwn(choice, o)"
             type="button"
@@ -213,7 +216,7 @@ function toggleParts() {
 // The list ------------------------------------------------------------------------------
 const matches = (o: string) => {
   const q = query.value.trim()
-  if (q && !matchesQuery(valueText(pool.value, o), q) && !matchesQuery(o, q)) return false
+  if (q && !matchesQuery(valueText(pool.value, o), q) && !matchesQuery(o, q) && !matchesQuery(pool.value?.looks?.[o] || '', q)) return false
   return !shownParts.value.size || inShownParts.value.has(o)
 }
 const matched = computed(() => zones.value.map(z => ({ ...z, rows: filtered.value ? z.options.filter(matches) : z.options })))

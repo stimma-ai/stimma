@@ -1,0 +1,2051 @@
+{
+ "id": "art.artist",
+ "label": "Artist",
+ "description": "Deceased artists and their visual signatures across painting, illustration, prints, photography, design, and sculpture.",
+ "pos": "noun phrase",
+ "frame": "in the style of ___",
+ "notes": "Individual artists who died before 2026 belong here; art.movement holds collective schools and traditions, art.medium holds materials, and art.style holds broader rendering styles. Values use familiar searchable names after “in the style of,” while look describes a recognizable visual signature rather than a biography or a required subject. Field and period are local browsing groups for the work most associated with the name, and do not constrain the depicted scene or exhaust an artist’s career. Aliases such as Moebius appear once, and living artists are excluded.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "field": [
+   "painting",
+   "illustration_comics",
+   "printmaking",
+   "photography",
+   "design_poster",
+   "sculpture_other"
+  ],
+  "period": [
+   "ancient_medieval",
+   "renaissance_baroque",
+   "18th_19th_century",
+   "early_modern_20th",
+   "mid_20th",
+   "late_20th_contemporary",
+   "non_western_traditions",
+   "digital_internet"
+  ]
+ },
+ "values": [
+  {
+   "text": "Claude Monet",
+   "look": "Broken strokes, shimmering water, and gardens softened by changing light.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Vincent van Gogh",
+   "look": "Thick curling brushstrokes, intense yellows and blues, and restless skies.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Gustav Klimt",
+   "look": "Gold ornament, mosaic-like patterns, and softly modeled faces surrounded by flat decoration.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Egon Schiele",
+   "look": "Angular bodies, wiry contour lines, bony hands, and sparse, pale backgrounds.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Rembrandt",
+   "look": "Warm golden light, deep brown shadows, textured paint, and searching faces.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Johannes Vermeer",
+   "look": "Quiet interiors, cool window light, luminous pearls, and carefully balanced geometry.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Caravaggio",
+   "look": "Hard shafts of light reveal solid figures against near-black surroundings.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Leonardo da Vinci",
+   "look": "Soft smoky edges, subtle facial modeling, and hazy distant landscapes.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Sandro Botticelli",
+   "look": "Graceful elongated figures, flowing hair, delicate outlines, and floral detail.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Hieronymus Bosch",
+   "look": "Crowded dream landscapes, hybrid creatures, tiny figures, and bizarre detailed contraptions.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Pieter Bruegel the Elder",
+   "look": "Elevated views of crowded villages, small lively figures, and broad seasonal landscapes.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "J. M. W. Turner",
+   "look": "Radiant mist, turbulent seas, and dissolving forms in glowing yellow and blue.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "John Singer Sargent",
+   "look": "Fluid confident brushwork, luminous skin, and sumptuous fabric captured with a few bold strokes.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Edward Hopper",
+   "look": "Isolated figures, spare buildings, and hard sunlight or electric light in quiet geometric spaces.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Georgia O'Keeffe",
+   "look": "Enlarged flowers, smooth curving forms, sun-bleached bones, and spare desert shapes.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Frida Kahlo",
+   "look": "Frontal self-portraits, precise foliage, symbolic animals, and vivid, unsettling bodily imagery.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Diego Rivera",
+   "look": "Monumental rounded figures, earth colors, and sweeping scenes of labor and history.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th",
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Salvador Dalí",
+   "look": "Meticulously painted impossible objects, long shadows, and barren dream landscapes.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th",
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "René Magritte",
+   "look": "Plainly painted everyday objects appear in impossible relationships beneath clear blue skies.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Pablo Picasso",
+   "look": "Fractured faces, bold contour lines, and angular overlapping planes seen from several viewpoints.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Henri Matisse",
+   "look": "Brilliant flat colors, loose contours, simplified figures, and decorative interior patterns.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Wassily Kandinsky",
+   "look": "Floating geometric shapes, musical arcs, black lines, and bursts of vivid abstract color.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Piet Mondrian",
+   "look": "Black right-angle grids, white space, and sharply bounded red, yellow, and blue rectangles.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Paul Klee",
+   "look": "Playful signs, delicate wandering lines, and small glowing patches of abstract color.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Henri de Toulouse-Lautrec",
+   "look": "Cropped nightlife scenes, wiry outlines, flattened color, and sharply observed theatrical faces.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   },
+   "short": "Toulouse-Lautrec"
+  },
+  {
+   "text": "Edgar Degas",
+   "look": "Off-center dancers, cropped viewpoints, dusty pastel textures, and candid gestures.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Paul Cézanne",
+   "look": "Faceted brushstrokes, weighty fruit, and landscapes built from interlocking colored planes.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Georges Seurat",
+   "look": "Orderly scenes and still figures built from tiny separate dots of luminous color.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Edvard Munch",
+   "look": "Wavy contours, anxious elongated faces, and emotionally charged skies in clashing colors.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Andy Warhol",
+   "look": "Repeated celebrity portraits and consumer objects in flat screen-printed colors with slight misregistration.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Roy Lichtenstein",
+   "look": "Comic panels with thick black outlines, primary colors, speech balloons, and regular dots.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Keith Haring",
+   "look": "Bold outlined dancing figures, radiating motion marks, and flat vivid backgrounds.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Jean-Michel Basquiat",
+   "look": "Crown symbols, skeletal faces, scratched words, and raw layered patches of color.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Tamara de Lempicka",
+   "look": "Sleek sculptural figures, metallic-looking fabrics, and polished angular shadows.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Hilma af Klint",
+   "look": "Large pastel spirals, botanical diagrams, circles, and symbolic geometric forms.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Zdzisław Beksiński",
+   "look": "Skeletal structures, eroded bodies, and vast desolate landscapes in smoky golden light.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "H. R. Giger",
+   "look": "Dark airbrushed biomechanical forms fuse ribbed machinery, bones, and smooth organic surfaces.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting",
+     "illustration_comics"
+    ],
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Giotto",
+   "look": "Solid robed figures, simple architecture, blue skies, and clear fresco-like narrative groupings.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "ancient_medieval"
+    ]
+   }
+  },
+  {
+   "text": "Andrei Rublev",
+   "look": "Serene elongated sacred figures, luminous gold, and gently curving robes in restrained colors.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "ancient_medieval"
+    ]
+   }
+  },
+  {
+   "text": "Michelangelo",
+   "look": "Powerfully muscled bodies, twisting poses, and sculptural anatomy arranged in monumental groups.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "painting",
+     "sculpture_other"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Raphael",
+   "look": "Harmonious triangular groups, gentle idealized faces, and balanced classical spaces.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Titian",
+   "look": "Rich warm reds, glowing flesh, and broad soft brushwork in sumptuous settings.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Albrecht Dürer",
+   "look": "Intricate hatching, exact anatomy, finely observed animals, and crisp ornamental detail.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "printmaking",
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Artemisia Gentileschi",
+   "look": "Forceful women, richly colored fabric, and dramatic light cutting through dark narrative scenes.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Diego Velázquez",
+   "look": "Silvery restrained colors, convincing air, and faces built from loose, economical strokes.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Peter Paul Rubens",
+   "look": "Full-bodied figures, glowing flesh, tumbling movement, and lavish warm color.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "El Greco",
+   "look": "Elongated figures, flickering highlights, and stormy spaces in acidic blue, green, and yellow.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Francisco Goya",
+   "look": "Dark expressive faces, blunt brushwork, and unsettling figures caught in harsh light.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "William Blake",
+   "look": "Muscular visionary figures, curling flames, and delicate colored linework in luminous scenes.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Caspar David Friedrich",
+   "look": "Tiny solitary figures face misty mountains, bare trees, and hushed expansive skies.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "John Constable",
+   "look": "Lush green countryside, changing cloud banks, and sparkling flecks of light on foliage.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Eugène Delacroix",
+   "look": "Sweeping diagonals, agitated figures, and rich red and gold color in turbulent scenes.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Jean-Auguste-Dominique Ingres",
+   "look": "Polished skin, precise contours, elongated elegance, and finely rendered fabric.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   },
+   "short": "Ingres"
+  },
+  {
+   "text": "William-Adolphe Bouguereau",
+   "look": "Smooth idealized skin, carefully modeled anatomy, and softly lit figures in pastoral settings.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   },
+   "short": "Bouguereau"
+  },
+  {
+   "text": "Dante Gabriel Rossetti",
+   "look": "Full-lipped faces, abundant hair, jewel colors, and densely arranged flowers and fabrics.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "John William Waterhouse",
+   "look": "Mythic women, rippling fabric, and detailed water plants in softly painted natural settings.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Gustave Moreau",
+   "look": "Jewel-encrusted figures and fantastic architecture shimmer in dense gold and saturated color.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Odilon Redon",
+   "look": "Floating eyes, dream creatures, and luminous flowers emerge from charcoal darkness or hazy pastel color.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Henri Rousseau",
+   "look": "Flat jungle leaves, still exotic animals, and simplified figures in clear, dense color.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Berthe Morisot",
+   "look": "Feathery pale strokes, informal domestic scenes, and fleeting figures softened by light.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Mary Cassatt",
+   "look": "Intimate family gestures, patterned fabric, firm drawing, and soft pastel or print-like color.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Édouard Manet",
+   "look": "Flat dark accents, brisk visible strokes, and direct modern figures against loosely painted settings.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Pierre-Auguste Renoir",
+   "look": "Warm glowing skin, rounded faces, and flickering pink, blue, and green patches of outdoor light.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Amedeo Modigliani",
+   "look": "Long necks, almond eyes, mask-like faces, and smooth warm shapes against muted backgrounds.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Marc Chagall",
+   "look": "Floating lovers, village rooftops, and dream animals in glowing blue, red, and green.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Joan Miró",
+   "look": "Playful biomorphic shapes, star signs, fine black lines, and bright primary-color accents.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Giorgio de Chirico",
+   "look": "Empty arcades, long shadows, mannequin figures, and stark sunlit plazas.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "René Gruau",
+   "look": "Elegant silhouettes and sweeping black brush lines with sparse red or cream color.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics",
+     "design_poster"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Jackson Pollock",
+   "look": "Overlapping drips, splashes, and looping paint trails create an all-over web without a central figure.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Mark Rothko",
+   "look": "Large soft-edged rectangles float in layered, glowing fields of closely related color.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Willem de Kooning",
+   "look": "Broad slashing strokes, scraped paint, and distorted figures mingle in restless pink and yellow fields.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Helen Frankenthaler",
+   "look": "Transparent pools of color soak into raw canvas with soft bleeding edges and open space.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Agnes Martin",
+   "look": "Faint pencil grids and fine horizontal bands sit over pale, subtly varied color fields.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Leonora Carrington",
+   "look": "Elongated hybrid creatures, ritual interiors, and strange domestic scenes in subdued luminous colors.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Remedios Varo",
+   "look": "Slender robed figures inhabit intricate alchemical rooms and fantastical machines in amber light.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Tarsila do Amaral",
+   "look": "Rounded tropical forms, oversized limbs, and smooth bright colors in simplified landscapes.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Wifredo Lam",
+   "look": "Angular mask-like faces, spiky hybrid bodies, and sugarcane-like verticals in dark earth colors.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Jacob Lawrence",
+   "look": "Angular flattened figures and rhythmic geometric interiors in bold opaque colors.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Romare Bearden",
+   "look": "Cut-paper bodies, mismatched photographic faces, and vibrant patterned fragments form layered social scenes.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Aaron Douglas",
+   "look": "Silhouetted figures, concentric light rings, and diagonal beams in muted overlapping color.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Grant Wood",
+   "look": "Smooth rounded hills, precisely outlined rural buildings, and stiff, finely detailed figures.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Andrew Wyeth",
+   "look": "Dry grass, weathered interiors, and isolated figures in spare, finely textured brown and gray.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Edward Burne-Jones",
+   "look": "Slender solemn figures, cool muted colors, and long flowing folds in flattened medieval scenes.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Raja Ravi Varma",
+   "look": "Idealized figures in luminous silk, detailed jewelry, and softly modeled mythological settings.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Amrita Sher-Gil",
+   "look": "Still grouped figures, weighty silhouettes, and broad areas of deep red, ocher, and brown.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Jamini Roy",
+   "look": "Almond-eyed figures, sweeping black outlines, and flat earthy colors with little background detail.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Qi Baishi",
+   "look": "Lively shrimp, insects, and plants drawn with spare wet ink strokes and bright color accents.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Xu Beihong",
+   "look": "Galloping horses built from sweeping black ink strokes, pale washes, and strong anatomical gestures.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Sesshū Tōyō",
+   "look": "Rugged mountains and small trees emerge from forceful ink strokes, pale mist, and empty paper.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Norman Rockwell",
+   "look": "Expressive ordinary people, carefully staged visual stories, and warmly detailed everyday settings.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "J. C. Leyendecker",
+   "look": "Chiseled faces, angular fabric folds, and crisp highlights painted in sculptural strokes.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "N. C. Wyeth",
+   "look": "Heroic figures, strong silhouettes, and dramatic outdoor adventure scenes in broad, rich color.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Arthur Rackham",
+   "look": "Twisted trees, wiry ink lines, and tiny fairy-tale figures tinted with muted washes.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Aubrey Beardsley",
+   "look": "Black-and-white silhouettes, sinuous outlines, and intricate ornamental pattern with broad empty spaces.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Kay Nielsen",
+   "look": "Tall delicate figures, patterned robes, and jewel-like fairy-tale settings with long flowing curves.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Ivan Bilibin",
+   "look": "Crisp ink outlines, flat rich color, and ornamental borders around Russian fairy-tale scenes.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Moebius",
+   "look": "Fine clean lines, open alien landscapes, and strange machinery in airy pastel colors.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Frank Frazetta",
+   "look": "Muscular figures, ferocious creatures, and smoky fantasy settings with forceful light and dark masses.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Gustave Doré",
+   "look": "Dense engraved hatching, towering architecture, and tiny figures in dramatic shafts of light.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Beatrix Potter",
+   "look": "Small naturalistic animals in clothes, delicate ink contours, and pale washes on white paper.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "John Tenniel",
+   "look": "Precisely hatched Victorian figures, eccentric faces, and sharply outlined storybook creatures.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Tove Jansson",
+   "look": "Round soft creatures, delicate ink textures, and quiet northern landscapes with broad white areas.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Osamu Tezuka",
+   "look": "Rounded expressive faces, large shining eyes, elastic poses, and clean black-and-white comic lines.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Jack Kirby",
+   "look": "Blocky powerful heroes, extreme foreshortening, crackling black energy dots, and monumental machinery.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Winsor McCay",
+   "look": "Elegant outlined figures explore vast dream architecture in intricate, softly colored comic panels.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Harry Clarke",
+   "look": "Elongated eerie figures, jewel-toned ornament, and dense lace-like black ink patterns.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Edmund Dulac",
+   "look": "Delicate faces and elaborate costumes in richly patterned fairy-tale settings with luminous blue washes.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "illustration_comics"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Ansel Adams",
+   "look": "Crisp black-and-white wilderness, luminous clouds, and deep tonal separation from snow to rock.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Dorothea Lange",
+   "look": "Direct documentary portraits, worn clothing, and expressive hands in clear, natural black-and-white light.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Diane Arbus",
+   "look": "Frontal square-format portraits with direct gazes, stark flash, and unsettling everyday surroundings.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Vivian Maier",
+   "look": "Candid city figures, layered reflections, and balanced square compositions in black and white.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Henri Cartier-Bresson",
+   "look": "Fleeting street gestures align with precise geometry, deep focus, and natural black-and-white light.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Richard Avedon",
+   "look": "Stark white backgrounds, sharp facial detail, and dynamic or intensely direct portrait poses.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Irving Penn",
+   "look": "Spare studio portraits and still lifes with sculptural light, rich texture, and restrained backgrounds.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Saul Leiter",
+   "look": "Muted color fragments, rainy glass, soft obstructions, and compressed glimpses of city streets.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Fan Ho",
+   "look": "Small figures cross graphic shafts of light, deep shadows, and misty black-and-white city spaces.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Man Ray",
+   "look": "Solarized portraits, sharp-edged photograms, and surreal object arrangements in luminous monochrome.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "early_modern_20th",
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Berenice Abbott",
+   "look": "Crisp city architecture, steep viewpoints, and dense urban detail in clear black and white.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Edward Weston",
+   "look": "Close-up shells, vegetables, and bodies become sharply focused sculptural forms with rich tonal curves.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "early_modern_20th",
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Imogen Cunningham",
+   "look": "Precisely focused flowers, leaf veins, and intimate portraits in delicately graded black and white.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Julia Margaret Cameron",
+   "look": "Soft-focus faces, dark drapery, and luminous skin in intimate sepia-toned portraits.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Eugène Atget",
+   "look": "Quiet old streets, shop windows, and empty courtyards in softly detailed, subdued monochrome.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Alfred Stieglitz",
+   "look": "Atmospheric city scenes, close tonal studies, and luminous clouds in carefully balanced monochrome.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Walker Evans",
+   "look": "Plain frontal buildings, worn signs, and direct documentary portraits with crisp unromantic detail.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Robert Capa",
+   "look": "Close, hurried documentary scenes with tilted framing, grain, and palpable movement.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Gordon Parks",
+   "look": "Expressive documentary portraits and city scenes shaped by dramatic natural light and rich tonal contrast.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Brassaï",
+   "look": "Wet nighttime streets, glowing lamps, deep black shadows, and intimate café interiors.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "early_modern_20th",
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Alphonse Mucha",
+   "look": "Halo-like circles, flowing hair, decorative flowers, and elegant outlined figures in muted jewel colors.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "design_poster",
+     "illustration_comics",
+     "painting"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Saul Bass",
+   "look": "Rough cut-paper silhouettes, jagged lettering, and a few bold colors in spare, forceful compositions.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "design_poster"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Paul Rand",
+   "look": "Playful geometric symbols, collage fragments, and spare typography with bright primary-color accents.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "design_poster"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "El Lissitzky",
+   "look": "Red wedges, black geometry, and floating architectural shapes in asymmetric white space.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "design_poster"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Alexander Rodchenko",
+   "look": "Diagonal photomontage, steep camera angles, and strong red-and-black type blocks.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "design_poster"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "William Morris",
+   "look": "Dense repeating leaves, curling stems, and stylized flowers in richly colored ornamental patterns.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "design_poster",
+     "illustration_comics"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "A. M. Cassandre",
+   "look": "Streamlined geometry, airbrushed gradients, and monumental transport imagery with bold lettering.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "design_poster"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Josef Müller-Brockmann",
+   "look": "Precise asymmetric grids, clean sans-serif type, and repeated geometric circles or bars.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "design_poster"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Milton Glaser",
+   "look": "Bold silhouettes, flowing rainbow shapes, and playful lettering with strong graphic contrast.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "design_poster"
+    ],
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Herbert Bayer",
+   "look": "Lowercase geometric lettering, primary-color shapes, and surreal photomontage in spare layouts.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "design_poster"
+    ],
+    "period": [
+     "early_modern_20th",
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Hokusai",
+   "look": "Claw-like waves, strong dark outlines, crisp flat colors, and boldly structured mountain views.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "printmaking"
+    ],
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Hiroshige",
+   "look": "Rain, snow, and mist soften woodblock landscapes with diagonal crops and delicate color gradients.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "printmaking"
+    ],
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Kitagawa Utamaro",
+   "look": "Elegant close-up women, fine hair lines, elongated faces, and softly colored patterned robes.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "printmaking"
+    ],
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Utagawa Kuniyoshi",
+   "look": "Dynamic warriors, curling waves, patterned clothing, and imaginative animals in densely outlined color.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "printmaking"
+    ],
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "M. C. Escher",
+   "look": "Impossible staircases, interlocking tessellations, and precise black-and-white spatial puzzles.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "printmaking"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Käthe Kollwitz",
+   "look": "Heavy dark marks, grieving faces, and protective hands in powerful, compressed monochrome groups.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "printmaking"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Auguste Rodin",
+   "look": "Expressive bodies with rough worked surfaces, twisting poses, and deep, broken shadows.",
+   "tier": "typical",
+   "tags": {
+    "field": [
+     "sculpture_other"
+    ],
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Constantin Brâncuși",
+   "look": "Polished elongated ovals, simplified birds, and pure organic forms with smooth reflective surfaces.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "sculpture_other"
+    ],
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Alberto Giacometti",
+   "look": "Extremely thin elongated figures, rough dark surfaces, and small heads in wide empty space.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "sculpture_other"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Henry Moore",
+   "look": "Massive reclining bodies, rounded hollows, and pierced organic forms with smooth stone-like surfaces.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "sculpture_other"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Barbara Hepworth",
+   "look": "Smooth pierced ovals, taut strings, and clean organic curves in wood, stone, or bronze.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "sculpture_other"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Isamu Noguchi",
+   "look": "Quiet biomorphic stone forms, rounded voids, and spare arrangements balanced against open space.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "sculpture_other"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Ruth Asawa",
+   "look": "Transparent hanging wire loops form nested lobes, open baskets, and delicate interwoven shadows.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "sculpture_other"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Louise Bourgeois",
+   "look": "Towering spindly spiders, bulbous organic forms, and stitched fabric bodies with an uneasy tactile presence.",
+   "tier": "plausible",
+   "tags": {
+    "field": [
+     "sculpture_other"
+    ],
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Ben Enwonwu",
+   "look": "Elongated dancing bodies, rhythmic curves, and smooth portrait faces in warm, strongly modeled color.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "painting",
+     "sculpture_other"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Gerard Sekoto",
+   "look": "Close-set township figures, warm ocher walls, and broad blue shadows rendered in weighty blocks of color.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "painting"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Seydou Keïta",
+   "look": "Formally posed black-and-white studio portraits with patterned fabric backdrops, elegant clothing, and carefully placed props.",
+   "tier": "unusual",
+   "tags": {
+    "field": [
+     "photography"
+    ],
+    "period": [
+     "mid_20th"
+    ]
+   }
+  }
+ ]
+}

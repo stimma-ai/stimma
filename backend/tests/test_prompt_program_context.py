@@ -94,7 +94,7 @@ emit("A", wd, "woman with", wh, "hair and a", md, "man with", mh, "hair")
 SCENE = '''
 t = pick("time", cls="scene.time_of_day", about="the time of day", seed=["dusk"], label="Time", phase=1, line=1)
 light = pick("light", cls="lighting.natural", about="the light", seed=["moonlight"], label="Light", phase=2, line=2)
-room = pick("room", cls="interior_space.kitchen", about="the room", seed=["a kitchen"], label="Room", phase=1, line=3)
+room = pick("room", cls="interior_space.room", about="the room", seed=["a kitchen"], label="Room", phase=1, line=3)
 emit("A cook in", room, "at", t, ", lit by", light)
 '''
 
@@ -277,13 +277,13 @@ class TestWeighting:
             assert light is not None and "night" in light.tags["time_of_day"], d["light"].value
             assert light.tags.get("space", ["indoor"]) == ["indoor"]   # a kitchen: no outdoor-only light
             weights = dict(zip(d["light"].options, [None] * len(d["light"].options)))
-            assert "clear midday sunlight" in weights   # still shown (the picker can pin it), weight 0
+            assert "harsh midday sun" in weights   # still shown (the picker can pin it), weight 0
 
     def test_a_pinned_taker_value_still_draws(self, tmp_path):
         e = entry_of(SCENE)
         got = {d["light"].value for _, d in draws_of(e, tmp_path, range(5),
-                                                    pins={"time": ["midnight"], "light": ["clear midday sunlight"]})}
-        assert got == {"clear midday sunlight"}
+                                                    pins={"time": ["midnight"], "light": ["harsh midday sun"]})}
+        assert got == {"harsh midday sun"}
 
 
 class TestTheUsersOwn:

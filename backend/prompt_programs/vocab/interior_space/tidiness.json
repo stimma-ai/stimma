@@ -1,0 +1,88 @@
+{
+ "id": "interior_space.tidiness",
+ "label": "Tidiness",
+ "description": "Room cleanliness and arrangement, from spotless and neat to cluttered, messy, or abandoned and dusty.",
+ "pos": "adjective",
+ "frame": "a ___ room",
+ "notes": "Cleanliness, arrangement, and visible signs of neglect belong here, phrased as adjectives before room. Interior type and permanent fixtures belong to interior_space.room; decorative treatments belong to interior_space.style. Cluttered means many belongings crowd usable surfaces; messy means belongings are scattered or displaced, while abandoned and dusty means prolonged disuse.",
+ "closed": true,
+ "facets": [],
+ "local_facets": {
+  "condition": [
+   "clean",
+   "orderly",
+   "in_use",
+   "clutter",
+   "disorder",
+   "neglected"
+  ]
+ },
+ "values": [
+  {
+   "text": "spotless",
+   "short": "spotless",
+   "look": "Surfaces are immaculate, with no visible dirt, dust, clutter, or items out of place.",
+   "tier": "plausible",
+   "tags": {
+    "condition": [
+     "clean"
+    ]
+   }
+  },
+  {
+   "text": "neat",
+   "short": "neat",
+   "look": "Objects are put away or lined up, with clear floors and usable surfaces.",
+   "tier": "typical",
+   "tags": {
+    "condition": [
+     "orderly"
+    ]
+   }
+  },
+  {
+   "text": "lived-in",
+   "short": "lived-in",
+   "look": "A few everyday belongings are left within reach, with light signs of regular use.",
+   "tier": "typical",
+   "tags": {
+    "condition": [
+     "in_use"
+    ]
+   }
+  },
+  {
+   "text": "cluttered",
+   "short": "cluttered",
+   "look": "Many belongings cover shelves and surfaces, though the room is still usable.",
+   "tier": "plausible",
+   "tags": {
+    "condition": [
+     "clutter"
+    ]
+   }
+  },
+  {
+   "text": "messy",
+   "short": "messy",
+   "look": "Objects are strewn around, with displaced furnishings and piles spilling onto the floor.",
+   "tier": "plausible",
+   "tags": {
+    "condition": [
+     "disorder"
+    ]
+   }
+  },
+  {
+   "text": "abandoned and dusty",
+   "short": "abandoned and dusty",
+   "look": "Dust coats surfaces, cobwebs gather in corners, and furnishings show long neglect.",
+   "tier": "unusual",
+   "tags": {
+    "condition": [
+     "neglected"
+    ]
+   }
+  }
+ ]
+}

@@ -1,153 +1,1128 @@
 {
-  "id": "art.medium",
-  "label": "Visual art medium",
-  "description": "The material or image-making process used to depict a scene.",
-  "pos": "noun phrase",
-  "frame": "rendered as ___",
-  "notes": "Media and physical making processes only; camera.film_look owns photographic grain and color treatment, and interior style belongs to place leaves. Sculpture and craft values depict the scene as a made object. A cyanotype here means the actual print process rather than a simulated film look. Media do not constrain the era or genre of the depicted scene; no artist or studio names.",
-  "facets": [],
-  "closed": false,
-  "untagged": {},
-  "values": [
-    {
-      "text": "a watercolor painting",
-      "tier": "typical"
-    },
-    {
-      "text": "an oil painting",
-      "tier": "typical"
-    },
-    {
-      "text": "an acrylic painting",
-      "tier": "typical"
-    },
-    {
-      "text": "a pencil drawing",
-      "tier": "typical"
-    },
-    {
-      "text": "a charcoal sketch",
-      "tier": "typical"
-    },
-    {
-      "text": "a pen-and-ink drawing",
-      "tier": "typical"
-    },
-    {
-      "text": "a pastel drawing",
-      "tier": "typical"
-    },
-    {
-      "text": "a digital painting",
-      "tier": "typical"
-    },
-    {
-      "text": "a 3D render",
-      "tier": "typical"
-    },
-    {
-      "text": "a gouache painting",
-      "tier": "typical"
-    },
-    {
-      "text": "a colored-pencil drawing",
-      "tier": "typical"
-    },
-    {
-      "text": "a linocut print",
-      "tier": "typical"
-    },
-    {
-      "text": "a woodcut print",
-      "tier": "plausible"
-    },
-    {
-      "text": "an etching",
-      "tier": "plausible"
-    },
-    {
-      "text": "a screen print",
-      "tier": "plausible"
-    },
-    {
-      "text": "a lithograph",
-      "tier": "plausible"
-    },
-    {
-      "text": "a scratchboard drawing",
-      "tier": "plausible"
-    },
-    {
-      "text": "an ink-wash painting",
-      "tier": "plausible"
-    },
-    {
-      "text": "a paper collage",
-      "tier": "plausible"
-    },
-    {
-      "text": "a cut-paper illustration",
-      "tier": "plausible"
-    },
-    {
-      "text": "a mosaic",
-      "tier": "plausible"
-    },
-    {
-      "text": "an embroidered textile",
-      "tier": "plausible"
-    },
-    {
-      "text": "a clay sculpture",
-      "tier": "plausible"
-    },
-    {
-      "text": "a bronze sculpture",
-      "tier": "plausible"
-    },
-    {
-      "text": "a stained-glass panel",
-      "tier": "plausible"
-    },
-    {
-      "text": "a pixel-art illustration",
-      "tier": "plausible"
-    },
-    {
-      "text": "a vector illustration",
-      "tier": "plausible"
-    },
-    {
-      "text": "a fresco",
-      "tier": "plausible"
-    },
-    {
-      "text": "a cyanotype print",
-      "tier": "unusual"
-    },
-    {
-      "text": "a silverpoint drawing",
-      "tier": "unusual"
-    },
-    {
-      "text": "an encaustic painting",
-      "tier": "unusual"
-    },
-    {
-      "text": "a sand painting",
-      "tier": "unusual"
-    },
-    {
-      "text": "a felt appliqué",
-      "tier": "unusual"
-    },
-    {
-      "text": "a needle-felted sculpture",
-      "tier": "unusual"
-    },
-    {
-      "text": "a risograph print",
-      "tier": "unusual"
-    }
+ "id": "art.medium",
+ "label": "Visual art medium",
+ "description": "Art materials and image-making processes, from painting and printmaking to animation, sculpture, and fiber art.",
+ "pos": "noun phrase",
+ "frame": "made as ___",
+ "notes": "Broad media and making processes belong here, with article-led noun phrases that follow “made as.” art.rendering owns specific 3D, game, and digital rendering looks; art.craft expands named decorative techniques and traditions. art.style owns movements and illustration styles, while camera.film_look owns photographic film treatments. Craft and sculpture entries depict the subject as a made object, and animation entries describe a single frame.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "paint",
+   "drawing",
+   "print",
+   "photo_process",
+   "collage_paper",
+   "animation_film",
+   "digital",
+   "textile_fiber",
+   "sculpture_3d",
+   "glass_ceramic",
+   "novelty"
   ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "a watercolor painting",
+   "short": "watercolor",
+   "tier": "typical",
+   "look": "transparent washes with pale paper showing through soft edges and pooled color",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "an oil painting",
+   "short": "oil painting",
+   "tier": "typical",
+   "look": "rich blended color with visible brushwork on a canvas surface",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "an acrylic painting",
+   "short": "acrylic",
+   "tier": "typical",
+   "look": "opaque color with crisp edges, layered brushstrokes, and a smooth painted surface",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "a gouache painting",
+   "short": "gouache",
+   "tier": "typical",
+   "look": "flat, opaque matte color with velvety brush marks and clean painted shapes",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "an impasto oil painting",
+   "short": "impasto oil",
+   "tier": "plausible",
+   "look": "thick ridges and peaks of oil paint catch the light above the canvas",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "an encaustic painting",
+   "short": "encaustic",
+   "tier": "unusual",
+   "look": "cloudy translucent wax layers with embedded color and a softly polished surface",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "an egg tempera painting",
+   "short": "egg tempera",
+   "tier": "plausible",
+   "look": "fine, dry brushstrokes build clear matte colors and sharply defined details",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "a fresco",
+   "short": "fresco",
+   "tier": "plausible",
+   "look": "matte pigment sinks into a pale plaster wall with a grainy, weathered surface",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "a colored ink-wash painting",
+   "short": "colored ink wash",
+   "tier": "plausible",
+   "look": "transparent colored ink spreads in fluid washes with dark pooled edges",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "a sumi-e ink painting",
+   "short": "sumi-e",
+   "tier": "plausible",
+   "look": "spare black brushstrokes shift from deep ink to watery gray against white paper",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "an airbrush painting",
+   "short": "airbrush",
+   "tier": "plausible",
+   "look": "smooth sprayed gradients with soft edges and almost no visible brush texture",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "a spray-painted graffiti mural",
+   "short": "spray paint graffiti",
+   "tier": "plausible",
+   "look": "bold aerosol-painted forms with misted edges, drips, and overspray on a wall",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "a stencil painting",
+   "short": "stencil",
+   "tier": "plausible",
+   "look": "flat sprayed shapes with sharp cut edges, bridges, and occasional paint bleed",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "an acrylic pour painting",
+   "short": "acrylic pour",
+   "tier": "unusual",
+   "look": "flowing ribbons of paint form marbled swirls and rounded cellular patterns",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "a gold-leaf illuminated painting",
+   "short": "gold-leaf illumination",
+   "tier": "unusual",
+   "look": "small painted details sit beside flat metallic gold areas that gleam in the light",
+   "tags": {
+    "kind": [
+     "paint"
+    ]
+   }
+  },
+  {
+   "text": "a graphite pencil drawing",
+   "short": "graphite pencil",
+   "tier": "typical",
+   "look": "silvery gray lines and shaded hatching leave the paper grain visible",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a charcoal drawing",
+   "short": "charcoal",
+   "tier": "typical",
+   "look": "deep powdery blacks, broad smudges, and rough broken strokes on pale paper",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a colored pencil drawing",
+   "short": "colored pencil",
+   "tier": "typical",
+   "look": "fine layered colored strokes with a waxy grain and small gaps of paper",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a soft pastel drawing",
+   "short": "soft pastel",
+   "tier": "typical",
+   "look": "powdery color blends into velvety patches with broken, chalky edges",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "an oil pastel drawing",
+   "short": "oil pastel",
+   "tier": "plausible",
+   "look": "dense waxy color forms thick streaks, smears, and scratched-through layers",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a chalk drawing",
+   "short": "chalk",
+   "tier": "plausible",
+   "look": "dusty pale marks break across a rough ground with loose powder around the lines",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a Conté crayon drawing",
+   "short": "Conté crayon",
+   "tier": "plausible",
+   "look": "firm black, white, and earthy red strokes model forms on toned paper",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a ballpoint pen drawing",
+   "short": "ballpoint pen",
+   "tier": "plausible",
+   "look": "fine blue ink lines build shadows through dense overlapping hatching",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a fineliner drawing",
+   "short": "fineliner",
+   "tier": "typical",
+   "look": "even-width black lines define crisp contours and precise small details",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a marker drawing",
+   "short": "marker",
+   "tier": "typical",
+   "look": "broad translucent color bands overlap with darker edges and visible stroke direction",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a scratchboard drawing",
+   "short": "scratchboard",
+   "tier": "plausible",
+   "look": "sharp white lines scratched through black reveal bright detail on a dark field",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a silverpoint drawing",
+   "short": "silverpoint",
+   "tier": "unusual",
+   "look": "very fine pale metallic lines form delicate contours and close, light hatching",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a stippled ink drawing",
+   "short": "ink stippling",
+   "tier": "plausible",
+   "look": "tiny separate ink dots build contours and shading without continuous strokes",
+   "tags": {
+    "kind": [
+     "drawing"
+    ]
+   }
+  },
+  {
+   "text": "a linocut print",
+   "short": "linocut",
+   "tier": "typical",
+   "look": "bold inked shapes and sweeping carved white lines with slightly rough edges",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a woodcut print",
+   "short": "woodcut",
+   "tier": "plausible",
+   "look": "strong black shapes with angular gouges, splintered edges, and traces of wood grain",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a wood engraving",
+   "short": "wood engraving",
+   "tier": "plausible",
+   "look": "dense fields of fine white incised lines create intricate detail against black ink",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "an etching",
+   "short": "etching",
+   "tier": "plausible",
+   "look": "fine irregular ink lines and crosshatching sit inside a faint rectangular plate mark",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a drypoint print",
+   "short": "drypoint",
+   "tier": "plausible",
+   "look": "scratched lines print with soft fuzzy ink edges and rich dark burrs",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a lithograph",
+   "short": "lithograph",
+   "tier": "plausible",
+   "look": "greasy crayon-like grain and soft ink washes lie flat on paper",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a mezzotint print",
+   "short": "mezzotint",
+   "tier": "unusual",
+   "look": "velvety black areas fade into smooth gray tones and softly emerging highlights",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a risograph print",
+   "short": "risograph",
+   "tier": "plausible",
+   "look": "grainy spot colors overlap with slightly misaligned outlines and darker overprints",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a screen print",
+   "short": "screen print",
+   "tier": "typical",
+   "look": "flat saturated ink areas with crisp stencil edges and overlapping layers",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a monotype print",
+   "short": "monotype",
+   "tier": "plausible",
+   "look": "loose painterly ink shapes show wiped highlights and uneven transfer onto paper",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a collagraph print",
+   "short": "collagraph",
+   "tier": "unusual",
+   "look": "inked textures from fabric, card, and rough surfaces leave an embossed patchwork",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "an aquatint print",
+   "short": "aquatint",
+   "tier": "plausible",
+   "look": "fine grainy tonal patches resemble ink washes with crisp plate-bound edges",
+   "tags": {
+    "kind": [
+     "print"
+    ]
+   }
+  },
+  {
+   "text": "a cyanotype print",
+   "short": "cyanotype",
+   "tier": "plausible",
+   "look": "deep Prussian blue surrounds white silhouettes and pale blue photographic detail",
+   "tags": {
+    "kind": [
+     "photo_process"
+    ]
+   }
+  },
+  {
+   "text": "a photogram",
+   "short": "photogram",
+   "tier": "plausible",
+   "look": "camera-free silhouettes and translucent shadows appear against a dark photographic ground",
+   "tags": {
+    "kind": [
+     "photo_process"
+    ]
+   }
+  },
+  {
+   "text": "a daguerreotype",
+   "short": "daguerreotype",
+   "tier": "unusual",
+   "look": "a finely detailed monochrome image sits on a reflective silver plate with darkened edges",
+   "tags": {
+    "kind": [
+     "photo_process"
+    ]
+   }
+  },
+  {
+   "text": "a hand-colored photograph",
+   "short": "hand-colored photo",
+   "tier": "plausible",
+   "look": "a monochrome photograph carries delicate painted tints over faces, clothes, and scenery",
+   "tags": {
+    "kind": [
+     "photo_process"
+    ]
+   }
+  },
+  {
+   "text": "a photogravure print",
+   "short": "photogravure",
+   "tier": "unusual",
+   "look": "photographic detail appears in rich matte ink with a fine grain and deep shadow tones",
+   "tags": {
+    "kind": [
+     "photo_process"
+    ]
+   }
+  },
+  {
+   "text": "a paper collage",
+   "short": "paper collage",
+   "tier": "typical",
+   "look": "overlapping scraps of colored and printed paper form a visibly assembled image",
+   "tags": {
+    "kind": [
+     "collage_paper"
+    ]
+   }
+  },
+  {
+   "text": "a photomontage",
+   "short": "photomontage",
+   "tier": "plausible",
+   "look": "cut photographic fragments combine at mismatched scales with visible joins",
+   "tags": {
+    "kind": [
+     "collage_paper"
+    ]
+   }
+  },
+  {
+   "text": "a cut-paper illustration",
+   "short": "cut paper",
+   "tier": "typical",
+   "look": "clean-edged colored paper shapes overlap with small cast shadows",
+   "tags": {
+    "kind": [
+     "collage_paper"
+    ]
+   }
+  },
+  {
+   "text": "a decoupage panel",
+   "short": "decoupage",
+   "tier": "plausible",
+   "look": "printed paper motifs lie pasted onto a solid surface under a glossy clear finish",
+   "tags": {
+    "kind": [
+     "collage_paper"
+    ]
+   }
+  },
+  {
+   "text": "a paper-quilled picture",
+   "short": "paper quilling",
+   "tier": "plausible",
+   "look": "narrow paper strips curl into raised coils, loops, and outlined shapes",
+   "tags": {
+    "kind": [
+     "collage_paper"
+    ]
+   }
+  },
+  {
+   "text": "an origami sculpture",
+   "short": "origami",
+   "tier": "typical",
+   "look": "folded paper planes meet at crisp creases with pointed corners and visible flaps",
+   "tags": {
+    "kind": [
+     "collage_paper"
+    ]
+   }
+  },
+  {
+   "text": "a torn-paper collage",
+   "short": "torn paper",
+   "tier": "plausible",
+   "look": "ragged fibrous paper edges create soft irregular boundaries between colored shapes",
+   "tags": {
+    "kind": [
+     "collage_paper"
+    ]
+   }
+  },
+  {
+   "text": "a paper silhouette",
+   "short": "paper silhouette",
+   "tier": "plausible",
+   "look": "a single dark cut-paper outline holds the subject against a plain light ground",
+   "tags": {
+    "kind": [
+     "collage_paper"
+    ]
+   }
+  },
+  {
+   "text": "a layered paper relief",
+   "short": "paper relief",
+   "tier": "plausible",
+   "look": "stacked cut-paper planes create stepped depth and narrow shadows between layers",
+   "tags": {
+    "kind": [
+     "collage_paper"
+    ]
+   }
+  },
+  {
+   "text": "a claymation frame",
+   "short": "claymation",
+   "tier": "typical",
+   "look": "rounded clay figures show thumbprints, soft seams, and handmade miniature scenery",
+   "tags": {
+    "kind": [
+     "animation_film"
+    ]
+   }
+  },
+  {
+   "text": "a stop-motion puppet frame",
+   "short": "stop-motion puppet",
+   "tier": "plausible",
+   "look": "fabric-covered articulated puppets stand in a physical miniature set",
+   "tags": {
+    "kind": [
+     "animation_film"
+    ]
+   }
+  },
+  {
+   "text": "a cel animation frame",
+   "short": "cel animation",
+   "tier": "typical",
+   "look": "clean ink outlines and flat painted colors sit over a painted background",
+   "tags": {
+    "kind": [
+     "animation_film"
+    ]
+   }
+  },
+  {
+   "text": "a rotoscoped animation frame",
+   "short": "rotoscope",
+   "tier": "plausible",
+   "look": "traced live-action contours retain realistic poses under simplified drawn color shapes",
+   "tags": {
+    "kind": [
+     "animation_film"
+    ]
+   }
+  },
+  {
+   "text": "a cutout animation frame",
+   "short": "cutout animation",
+   "tier": "plausible",
+   "look": "flat hinged paper figures have separate overlapping limbs against a layered backdrop",
+   "tags": {
+    "kind": [
+     "animation_film"
+    ]
+   }
+  },
+  {
+   "text": "a digital painting",
+   "short": "digital painting",
+   "tier": "typical",
+   "look": "painted color and simulated brush texture form an image without a physical support",
+   "tags": {
+    "kind": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a vector illustration",
+   "short": "vector illustration",
+   "tier": "typical",
+   "look": "smooth scalable curves enclose clean, sharply bounded areas of color",
+   "tags": {
+    "kind": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a pixel-art illustration",
+   "short": "pixel art",
+   "tier": "typical",
+   "look": "visible square pixels build stepped outlines and small blocks of color",
+   "tags": {
+    "kind": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a 3D render",
+   "short": "3D render",
+   "tier": "typical",
+   "look": "modeled volumes have calculated lighting, dimensional surfaces, and cast shadows",
+   "tags": {
+    "kind": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a photobash illustration",
+   "short": "photobash",
+   "tier": "plausible",
+   "look": "photographic textures and fragments are painted together into a unified scene",
+   "tags": {
+    "kind": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a digital matte painting",
+   "short": "matte painting",
+   "tier": "plausible",
+   "look": "a detailed cinematic environment combines painted scenery with photographic textures",
+   "tags": {
+    "kind": [
+     "digital"
+    ]
+   }
+  },
+  {
+   "text": "a needle-felted sculpture",
+   "short": "needle felting",
+   "tier": "plausible",
+   "look": "soft fuzzy wool forms rounded volumes with tiny fibers visible along the edges",
+   "tags": {
+    "kind": [
+     "textile_fiber"
+    ]
+   }
+  },
+  {
+   "text": "an embroidered picture",
+   "short": "embroidery",
+   "tier": "typical",
+   "look": "colored threads build raised lines and filled shapes across a fabric ground",
+   "tags": {
+    "kind": [
+     "textile_fiber"
+    ]
+   }
+  },
+  {
+   "text": "a cross-stitch picture",
+   "short": "cross-stitch",
+   "tier": "plausible",
+   "look": "small X-shaped stitches form a gridded image on evenly woven fabric",
+   "tags": {
+    "kind": [
+     "textile_fiber"
+    ]
+   }
+  },
+  {
+   "text": "a patchwork quilt",
+   "short": "patchwork quilt",
+   "tier": "typical",
+   "look": "joined fabric pieces make a padded picture with seams and quilting stitches",
+   "tags": {
+    "kind": [
+     "textile_fiber"
+    ]
+   }
+  },
+  {
+   "text": "a woven tapestry",
+   "short": "tapestry",
+   "tier": "plausible",
+   "look": "dense woven threads form a picture with stepped edges and a ribbed textile surface",
+   "tags": {
+    "kind": [
+     "textile_fiber"
+    ]
+   }
+  },
+  {
+   "text": "a batik textile",
+   "short": "batik",
+   "tier": "plausible",
+   "look": "dyed cloth has crisp wax-resist shapes and fine branching crackle lines",
+   "tags": {
+    "kind": [
+     "textile_fiber"
+    ]
+   }
+  },
+  {
+   "text": "a crochet amigurumi sculpture",
+   "short": "crochet amigurumi",
+   "tier": "plausible",
+   "look": "small stuffed figures have rounded forms covered in tight, visible crochet loops",
+   "tags": {
+    "kind": [
+     "textile_fiber"
+    ]
+   }
+  },
+  {
+   "text": "a knitted picture",
+   "short": "knitting",
+   "tier": "plausible",
+   "look": "rows of interlocking V-shaped yarn loops form a soft, stretchy colored image",
+   "tags": {
+    "kind": [
+     "textile_fiber"
+    ]
+   }
+  },
+  {
+   "text": "a lace panel",
+   "short": "lace",
+   "tier": "plausible",
+   "look": "open threadwork creates delicate motifs surrounded by tiny holes and scalloped edges",
+   "tags": {
+    "kind": [
+     "textile_fiber"
+    ]
+   }
+  },
+  {
+   "text": "a punch-needle rug",
+   "short": "punch needle",
+   "tier": "plausible",
+   "look": "dense upright yarn loops form a plush textured picture with softly rounded outlines",
+   "tags": {
+    "kind": [
+     "textile_fiber"
+    ]
+   }
+  },
+  {
+   "text": "a bronze sculpture",
+   "short": "bronze sculpture",
+   "tier": "typical",
+   "look": "solid metal forms carry warm brown or green patina and bright polished high points",
+   "tags": {
+    "kind": [
+     "sculpture_3d"
+    ]
+   }
+  },
+  {
+   "text": "a marble sculpture",
+   "short": "marble sculpture",
+   "tier": "typical",
+   "look": "pale carved stone has subtle veins, smooth planes, and softly translucent thin edges",
+   "tags": {
+    "kind": [
+     "sculpture_3d"
+    ]
+   }
+  },
+  {
+   "text": "a wood carving",
+   "short": "wood carving",
+   "tier": "typical",
+   "look": "carved forms follow visible wood grain with chisel cuts and warm natural tones",
+   "tags": {
+    "kind": [
+     "sculpture_3d"
+    ]
+   }
+  },
+  {
+   "text": "a clay sculpture",
+   "short": "clay sculpture",
+   "tier": "plausible",
+   "look": "matte earthy forms show pressed joins, modeled surfaces, and tool marks",
+   "tags": {
+    "kind": [
+     "sculpture_3d"
+    ]
+   }
+  },
+  {
+   "text": "a papier-mâché sculpture",
+   "short": "papier-mâché",
+   "tier": "plausible",
+   "look": "lightweight rounded forms have wrinkled paper layers and a painted shell",
+   "tags": {
+    "kind": [
+     "sculpture_3d"
+    ]
+   }
+  },
+  {
+   "text": "a welded metal sculpture",
+   "short": "welded metal",
+   "tier": "plausible",
+   "look": "joined metal plates and rods show exposed weld beads and heat-darkened seams",
+   "tags": {
+    "kind": [
+     "sculpture_3d"
+    ]
+   }
+  },
+  {
+   "text": "a wire sculpture",
+   "short": "wire sculpture",
+   "tier": "plausible",
+   "look": "bent metal wires outline an airy form with open spaces instead of solid surfaces",
+   "tags": {
+    "kind": [
+     "sculpture_3d"
+    ]
+   }
+  },
+  {
+   "text": "a cardboard sculpture",
+   "short": "cardboard",
+   "tier": "plausible",
+   "look": "cut and folded brown card exposes corrugated edges, tabs, and planar joints",
+   "tags": {
+    "kind": [
+     "sculpture_3d"
+    ]
+   }
+  },
+  {
+   "text": "a stone bas-relief",
+   "short": "stone bas-relief",
+   "tier": "plausible",
+   "look": "shallow carved forms project from a flat stone background with short edge shadows",
+   "tags": {
+    "kind": [
+     "sculpture_3d"
+    ]
+   }
+  },
+  {
+   "text": "a plastic toy brick sculpture",
+   "short": "plastic toy bricks",
+   "tier": "plausible",
+   "look": "small interlocking plastic blocks form stepped volumes with visible studs and seams",
+   "tags": {
+    "kind": [
+     "sculpture_3d"
+    ]
+   }
+  },
+  {
+   "text": "a mosaic",
+   "short": "mosaic",
+   "tier": "typical",
+   "look": "small colored tile or stone pieces form an image separated by thin grout lines",
+   "tags": {
+    "kind": [
+     "glass_ceramic"
+    ]
+   }
+  },
+  {
+   "text": "a stained-glass panel",
+   "short": "stained glass",
+   "tier": "typical",
+   "look": "translucent colored glass pieces glow between thick dark lead outlines",
+   "tags": {
+    "kind": [
+     "glass_ceramic"
+    ]
+   }
+  },
+  {
+   "text": "a glazed ceramic sculpture",
+   "short": "ceramic glaze",
+   "tier": "plausible",
+   "look": "fired clay forms carry a glossy colored glaze that pools in grooves",
+   "tags": {
+    "kind": [
+     "glass_ceramic"
+    ]
+   }
+  },
+  {
+   "text": "a blown-glass sculpture",
+   "short": "blown glass",
+   "tier": "plausible",
+   "look": "smooth hollow glass curves show transparent color, reflections, and occasional bubbles",
+   "tags": {
+    "kind": [
+     "glass_ceramic"
+    ]
+   }
+  },
+  {
+   "text": "a fused-glass panel",
+   "short": "fused glass",
+   "tier": "plausible",
+   "look": "melted glass pieces merge into a glossy panel with softened edges and trapped bubbles",
+   "tags": {
+    "kind": [
+     "glass_ceramic"
+    ]
+   }
+  },
+  {
+   "text": "a neon sign artwork",
+   "short": "neon sign art",
+   "tier": "plausible",
+   "look": "bent luminous tubes trace bright colored outlines against a darker background",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "a colored sand painting",
+   "short": "sand art",
+   "tier": "unusual",
+   "look": "fine colored grains form flat shapes with granular edges on a level surface",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "a latte art design",
+   "short": "latte art",
+   "tier": "unusual",
+   "look": "white milk foam makes curved motifs in a tan coffee surface",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "a chalkboard artwork",
+   "short": "chalkboard art",
+   "tier": "plausible",
+   "look": "white and colored chalk marks sit on a dark slate ground with dust and erased smears",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "an ice sculpture",
+   "short": "ice sculpture",
+   "tier": "unusual",
+   "look": "clear carved ice has frosted cut surfaces, trapped bubbles, and wet reflective edges",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "a butter sculpture",
+   "short": "butter sculpture",
+   "tier": "unusual",
+   "look": "pale yellow creamy forms show smooth modeling and soft tool-cut edges",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "a carved fruit sculpture",
+   "short": "fruit carving",
+   "tier": "unusual",
+   "look": "cut fruit flesh and peel form layered petals and shapes in contrasting natural colors",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "a string art picture",
+   "short": "string art",
+   "tier": "unusual",
+   "look": "taut colored threads crisscross between pins to build angular webs and curved envelopes",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "a pressed-flower picture",
+   "short": "pressed flowers",
+   "tier": "plausible",
+   "look": "flattened petals, leaves, and stems lie arranged on a pale ground with papery translucent edges",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "a beadwork picture",
+   "short": "beadwork",
+   "tier": "plausible",
+   "look": "small glossy beads form colored shapes with a raised, evenly pebbled surface",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  }
+ ]
 }

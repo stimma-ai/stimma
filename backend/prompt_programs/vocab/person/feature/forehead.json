@@ -1,0 +1,431 @@
+{
+ "id": "person.feature.forehead",
+ "label": "Forehead",
+ "description": "Forehead height, width, profile, brow ridge and frontal hairline.",
+ "pos": "noun phrase",
+ "frame": "a person with ___",
+ "notes": "Forehead structure and frontal hairline geometry, phrased as visible noun phrases. Forehead lines belong in person.feature.age_marks; hair color and hairstyle belong in person.hair_color and person.hairstyle. Receding-hairline values retain their presentation constraints. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "facets": [],
+ "closed": true,
+ "strict": true,
+ "catalog": false,
+ "local_facets": {
+  "aspect": [
+   "proportion",
+   "profile",
+   "brow_ridge",
+   "hairline"
+  ],
+  "presentation": [
+   "feminine",
+   "masculine"
+  ]
+ },
+ "context": {
+  "takes": {
+   "life_stage": {
+    "mismatch": "drop"
+   }
+  }
+ },
+ "shares": {
+  "aspect": {
+   "proportion": 0.35,
+   "profile": 0.2,
+   "brow_ridge": 0.15,
+   "hairline": 0.3
+  }
+ },
+ "values": [
+  {
+   "text": "a slightly high forehead",
+   "short": "slightly high forehead",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slightly low forehead",
+   "short": "slightly low forehead",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slightly broad forehead",
+   "short": "slightly broad forehead",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slightly narrow forehead",
+   "short": "slightly narrow forehead",
+   "tier": "plausible",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a tall forehead",
+   "short": "tall forehead",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a short forehead",
+   "short": "short forehead",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a gently rounded forehead",
+   "short": "gently rounded forehead",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "profile"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a backward-sloping forehead",
+   "short": "sloping forehead",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "profile"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a flat, upright forehead",
+   "short": "flat, upright forehead",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "profile"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a forehead curving forward in profile",
+   "short": "forward-curving forehead",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "profile"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slight brow ridge",
+   "short": "slight brow ridge",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "brow_ridge"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a pronounced brow ridge",
+   "short": "pronounced brow ridge",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "brow_ridge"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a softly rounded hairline",
+   "short": "softly rounded hairline",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "hairline"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a straight frontal hairline",
+   "short": "straight hairline",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "hairline"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a widow’s peak",
+   "short": "widow’s peak",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "hairline"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slightly uneven hairline",
+   "short": "slightly uneven hairline",
+   "tier": "plausible",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "hairline"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a low frontal hairline",
+   "short": "low hairline",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "hairline"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a hairline receding at the temples",
+   "short": "receding temples",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "hairline"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a deeply receding frontal hairline",
+   "short": "deeply receded hairline",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "hairline"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a thinning frontal hairline",
+   "short": "thinning hairline",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "hairline"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  }
+ ]
+}

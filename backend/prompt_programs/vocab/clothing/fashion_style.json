@@ -1,0 +1,823 @@
+{
+ "id": "clothing.fashion_style",
+ "label": "Fashion style",
+ "description": "Named outfit styles, fashion subcultures, street fashions, decade revivals, and costume aesthetics.",
+ "pos": "noun phrase",
+ "frame": "dressed in ___ style",
+ "notes": "Named ways of assembling an outfit belong here, with short style names that follow “dressed in” and precede “style.” clothing.traditional_dress owns named cultural garments and ensembles; clothing.fabric owns materials rather than complete looks. Decade revivals and costume genres remain available in contemporary scenes, without era, genre, or descent restrictions. Tiers describe how expected a look is in an open fashion draw; the explicitly fetish-coded entry is adult-only.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "classic",
+   "subculture",
+   "aesthetic_trend",
+   "decade",
+   "regional_street",
+   "costume_genre"
+  ]
+ },
+ "values": [
+  {
+   "text": "preppy",
+   "tier": "typical",
+   "look": "polo shirts, cable-knit sweaters, chinos or pleated skirts, and loafers",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "workwear",
+   "tier": "typical",
+   "look": "canvas chore jackets, heavy denim, utility pockets, and sturdy leather boots",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "athleisure",
+   "tier": "typical",
+   "look": "leggings or joggers, fitted athletic tops, zip jackets, and sneakers",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "minimalist",
+   "tier": "typical",
+   "look": "plain crisp shirts, straight pants, clean geometric jackets, and simple shoes in black and white",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "boho",
+   "tier": "typical",
+   "look": "loose printed dresses, embroidered blouses, layered jewelry, and suede boots",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "western",
+   "tier": "typical",
+   "look": "snap-front shirts, denim, tooled belts, cowboy hats, and pointed cowboy boots",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "safari",
+   "tier": "plausible",
+   "look": "belted khaki jackets, cargo pockets, neutral shorts or pants, and field hats",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "nautical",
+   "tier": "plausible",
+   "look": "striped tops, navy jackets, white pants, and boat shoes",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "military-inspired",
+   "tier": "plausible",
+   "look": "structured field jackets, epaulets, cargo pants, and lace-up combat boots",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "avant-garde",
+   "tier": "plausible",
+   "look": "sculptural silhouettes, asymmetric layers, exaggerated proportions, and unconventional tailoring",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "dandy",
+   "tier": "plausible",
+   "look": "sharply tailored suits, ornate waistcoats, pocket squares, and polished dress shoes",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "business formal",
+   "tier": "plausible",
+   "look": "matching tailored suits, pressed shirts, restrained ties or blouses, and dress shoes",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "business casual",
+   "tier": "typical",
+   "look": "soft blazers, open-collar shirts, knit tops, chinos or tailored pants, and loafers",
+   "tags": {
+    "kind": [
+     "classic"
+    ]
+   }
+  },
+  {
+   "text": "streetwear",
+   "tier": "typical",
+   "look": "oversized graphic tees, hoodies, loose pants, and statement sneakers",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "skater",
+   "tier": "typical",
+   "look": "baggy jeans, graphic tees, open flannel shirts, and flat skate shoes",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "punk",
+   "tier": "typical",
+   "look": "ripped plaid, patched leather jackets, safety pins, studded belts, and combat boots",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "grunge",
+   "tier": "typical",
+   "look": "oversized flannel shirts, distressed jeans, slouchy knits, and worn boots",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "goth",
+   "tier": "typical",
+   "look": "black lace, velvet, long dark coats, silver jewelry, and heavy boots",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "pastel goth",
+   "tier": "plausible",
+   "look": "pastel tops with black skirts, spooky motifs, platform shoes, and dark accessories",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "emo",
+   "tier": "plausible",
+   "look": "tight dark jeans, band tees, fitted hoodies, studded belts, and canvas sneakers",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "scene",
+   "tier": "plausible",
+   "look": "neon graphic tees, skinny jeans, striped layers, chunky accessories, and bright hair bows",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "hippie",
+   "tier": "plausible",
+   "look": "tie-dye tops, bell-bottoms, fringed vests, beads, and round sunglasses",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "biker",
+   "tier": "typical",
+   "look": "black leather motorcycle jackets, dark denim, leather boots, and metal hardware",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "skinhead",
+   "tier": "plausible",
+   "look": "bomber jackets, braces, cuffed straight jeans, and polished work boots",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "rave",
+   "tier": "plausible",
+   "look": "neon mesh tops, reflective pants, bright beads, and chunky platform shoes",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "heavy metal",
+   "tier": "plausible",
+   "look": "black band tees, leather vests, studded wristbands, dark jeans, and heavy boots",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "psychobilly",
+   "tier": "unusual",
+   "look": "leopard-print tops, battered leather, rolled jeans, creeper shoes, and horror-themed details",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "romantic goth",
+   "tier": "unusual",
+   "look": "ruffled blouses, long velvet skirts or coats, lace cuffs, and ornate dark jewelry",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "industrial goth",
+   "tier": "unusual",
+   "look": "black straps, mesh layers, buckled cargo pants, and towering platform boots",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "surf",
+   "tier": "plausible",
+   "look": "loose tropical shirts, board shorts, casual tanks, and flip-flops",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "glam rock",
+   "tier": "plausible",
+   "look": "metallic jumpsuits, glittering jackets, tight flared pants, and tall platform boots",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "Harajuku decora",
+   "tier": "plausible",
+   "look": "bright layered clothing covered in colorful hair clips, toy jewelry, pins, and patterned socks",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "Lolita fashion",
+   "tier": "plausible",
+   "look": "knee-length bell-shaped dresses, petticoats, lace blouses, bows, and Mary Jane shoes",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "gyaru",
+   "tier": "plausible",
+   "look": "fitted tops, short skirts, tall boots, bold accessories, and elaborate hair and makeup",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "visual kei",
+   "tier": "unusual",
+   "look": "ornate asymmetric jackets, corset details, layered skirts or pants, and tall boots",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "mori kei",
+   "tier": "unusual",
+   "look": "loose layered earth-tone dresses, lace hems, knitted shawls, and flat leather shoes",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "fairy kei",
+   "tier": "unusual",
+   "look": "pastel oversized sweaters, tulle skirts, cartoon motifs, and colorful sneakers",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "ouji fashion",
+   "tier": "unusual",
+   "look": "ruffled shirts, fitted waistcoats, knee-length breeches, stockings, and small decorative hats",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "New Romantic",
+   "tier": "unusual",
+   "look": "frilled pirate shirts, velvet jackets, high-waisted pants, sashes, and elaborate headwear",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "cholo",
+   "tier": "plausible",
+   "look": "oversized plaid shirts buttoned at the neck, long shorts, tall socks, and clean sneakers",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "sapeur",
+   "tier": "unusual",
+   "look": "vivid tailored suits, contrasting pocket squares, dress hats, and highly polished shoes",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "Scandinavian street",
+   "tier": "plausible",
+   "look": "oversized tailored coats, roomy pants, bright knitwear, and practical sneakers",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "kogal",
+   "tier": "unusual",
+   "look": "short pleated skirts, loose white socks, loafers, and oversized cardigans",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "bōsōzoku",
+   "tier": "unusual",
+   "look": "long embroidered coats, wide matching pants, wrapped waists, and tall boots",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "Korean streetwear",
+   "tier": "plausible",
+   "look": "boxy blazers, wide-leg pants, layered tees, and chunky sneakers in coordinated colors",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "Acubi",
+   "tier": "unusual",
+   "look": "cropped muted tops, sheer layers, low-rise cargo pants, and chunky headphones",
+   "tags": {
+    "kind": [
+     "regional_street"
+    ]
+   }
+  },
+  {
+   "text": "gorpcore",
+   "tier": "typical",
+   "look": "technical shells, fleece layers, hiking pants, trail shoes, and utility backpacks",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "cottagecore",
+   "tier": "typical",
+   "look": "floral prairie dresses, puff sleeves, knitted cardigans, and straw hats",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "dark academia",
+   "tier": "typical",
+   "look": "brown tweed blazers, sweater vests, dark pleated pants or skirts, and leather satchels",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "light academia",
+   "tier": "plausible",
+   "look": "cream linen, pale cardigans, light tweed, pleated pants or skirts, and loafers",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "normcore",
+   "tier": "typical",
+   "look": "plain tees, ordinary straight jeans, neutral fleece, and simple everyday sneakers",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "quiet luxury",
+   "tier": "plausible",
+   "look": "tonal cashmere knits, fluid wide-leg pants, long wool coats, and plain structured leather bags",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "old money",
+   "tier": "plausible",
+   "look": "tennis sweaters over collared shirts, pale tailored pants, silk scarves, and loafers",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "techwear",
+   "tier": "typical",
+   "look": "dark technical jackets, articulated cargo pants, harness straps, and weatherproof sneakers",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "mob wife",
+   "tier": "plausible",
+   "look": "oversized faux-fur coats, leopard print, fitted black clothing, gold jewelry, and big sunglasses",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "coastal grandmother",
+   "tier": "plausible",
+   "look": "loose white linen shirts, pale pants, soft knit sweaters, woven bags, and sun hats",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "balletcore",
+   "tier": "plausible",
+   "look": "wrap cardigans, leotard-like tops, tulle skirts, leg warmers, and ballet flats",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "e-girl",
+   "tier": "plausible",
+   "look": "striped long sleeves under graphic tees, plaid mini skirts, chains, and platform shoes",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "goblincore",
+   "tier": "plausible",
+   "look": "mossy knits, patched overalls, earth-tone layers, mushroom motifs, and muddy boots",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "grandpacore",
+   "tier": "plausible",
+   "look": "roomy cardigans, patterned sweater vests, corduroy pants, and practical loafers",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "kidcore",
+   "tier": "plausible",
+   "look": "primary-color overalls, rainbow stripes, cartoon prints, and playful plastic accessories",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "blokecore",
+   "tier": "plausible",
+   "look": "soccer jerseys, loose jeans, track jackets, and low-profile athletic sneakers",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "coquette",
+   "tier": "plausible",
+   "look": "lace-trimmed tops, small satin bows, soft pink skirts, pearl details, and delicate shoes",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "fetish",
+   "tier": "unusual",
+   "look": "glossy latex or leather garments, buckled harnesses, collars, and towering heels",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "mermaidcore",
+   "tier": "plausible",
+   "look": "iridescent fabrics, shell details, fishnet layers, and long skirts that flare at the hem",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "space age",
+   "tier": "plausible",
+   "look": "white geometric mini dresses, metallic panels, molded accessories, and tall white boots",
+   "tags": {
+    "kind": [
+     "aesthetic_trend"
+    ]
+   }
+  },
+  {
+   "text": "1960s mod",
+   "tier": "typical",
+   "look": "geometric shift dresses or close-cut three-button suits, with white boots or polished ankle boots",
+   "tags": {
+    "kind": [
+     "decade"
+    ]
+   }
+  },
+  {
+   "text": "Y2K",
+   "tier": "typical",
+   "look": "low-rise jeans, cropped baby tees, tiny shoulder bags, and shiny accessories",
+   "tags": {
+    "kind": [
+     "decade"
+    ]
+   }
+  },
+  {
+   "text": "1950s rockabilly",
+   "tier": "plausible",
+   "look": "cuffed jeans or full swing skirts, fitted tops, leather jackets, and bold polka dots",
+   "tags": {
+    "kind": [
+     "decade"
+    ]
+   }
+  },
+  {
+   "text": "Teddy Boy",
+   "tier": "plausible",
+   "look": "long drape jackets with velvet collars, narrow pants, string ties, and thick-soled creepers",
+   "tags": {
+    "kind": [
+     "decade"
+    ]
+   }
+  },
+  {
+   "text": "zoot suit",
+   "tier": "plausible",
+   "look": "long broad-shouldered suit jackets, high-waisted pegged pants, wide hats, and watch chains",
+   "tags": {
+    "kind": [
+     "decade"
+    ]
+   }
+  },
+  {
+   "text": "1920s flapper",
+   "tier": "plausible",
+   "look": "dropped-waist dresses with fringe or beads, long necklaces, and cloche hats",
+   "tags": {
+    "kind": [
+     "decade"
+    ]
+   }
+  },
+  {
+   "text": "1950s New Look",
+   "tier": "plausible",
+   "look": "nipped-waist jackets, rounded shoulders, full calf-length skirts, and pointed pumps",
+   "tags": {
+    "kind": [
+     "decade"
+    ]
+   }
+  },
+  {
+   "text": "1970s disco",
+   "tier": "typical",
+   "look": "shiny wrap dresses or open-neck shirts, flared pants, sequins, and platform shoes",
+   "tags": {
+    "kind": [
+     "decade"
+    ]
+   }
+  },
+  {
+   "text": "1980s power dressing",
+   "tier": "plausible",
+   "look": "broad padded shoulders, double-breasted jackets, bold blouses, and sharply tailored skirts or pants",
+   "tags": {
+    "kind": [
+     "decade"
+    ]
+   }
+  },
+  {
+   "text": "1980s aerobics",
+   "tier": "plausible",
+   "look": "bright leotards over tights, high-cut briefs, leg warmers, and sweatbands",
+   "tags": {
+    "kind": [
+     "decade"
+    ]
+   }
+  },
+  {
+   "text": "1990s hip-hop",
+   "tier": "plausible",
+   "look": "oversized sports jerseys, baggy jeans, puffer jackets, bucket hats, and chunky sneakers",
+   "tags": {
+    "kind": [
+     "decade"
+    ]
+   }
+  },
+  {
+   "text": "cyberpunk",
+   "tier": "plausible",
+   "look": "neon-trimmed dark jackets, synthetic layers, cybernetic-looking accessories, and heavy boots",
+   "tags": {
+    "kind": [
+     "costume_genre"
+    ]
+   }
+  },
+  {
+   "text": "steampunk",
+   "tier": "plausible",
+   "look": "waistcoats, corseted layers, brass goggles, pocket watches, and lace-up boots",
+   "tags": {
+    "kind": [
+     "costume_genre"
+    ]
+   }
+  },
+  {
+   "text": "post-apocalyptic",
+   "tier": "unusual",
+   "look": "tattered layered coats, patched cargo pants, improvised armor, and scavenged utility gear",
+   "tags": {
+    "kind": [
+     "costume_genre"
+    ]
+   }
+  }
+ ]
+}

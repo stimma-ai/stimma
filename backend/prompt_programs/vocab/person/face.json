@@ -1,61 +1,63 @@
 {
-  "id": "person.face",
-  "label": "Face",
-  "pos": "noun phrase",
-  "frame": "a person with ___",
-  "description": "What a person's face looks like: two or three of its features, such as its shape, the eyes, nose, lips, jaw, brows, cheeks or the detail of the skin, in plain visible terms. Fits the person's drawn age",
-  "notes": "Composed from the person.feature lists when the vocabulary loads: which features a face names is part of the draw, so faces differ in what is distinctive about them. Never praise ('pretty', 'striking'): every part says what is visible. A face with a feature only one sex has is drawn only when the pick says which (where={\"presentation\": ...}).",
-  "facets": [],
-  "closed": true,
-  "strict": true,
-  "local_facets": {
-    "presentation": [
-      "feminine",
-      "masculine"
-    ]
+ "id": "person.face",
+ "label": "Face",
+ "pos": "noun phrase",
+ "frame": "a person with ___",
+ "description": "One visible feature of a person's face: its shape, eyes, brows, nose, mouth, jaw, cheeks, forehead, ears or the marks and texture of the skin. Fits the person's drawn age.",
+ "notes": "Every value of the person.feature lists, one piece at a time: one subtle piece reads as a face, while two or three named features stack and image models caricature them. Pieces rated strength 2 (marked) are drawn only when the user picks them. Never praise ('pretty', 'striking'): every piece says what is visible. A piece only one sex has is drawn only when the person's presentation says which (where={\"presentation\": ...}).",
+ "facets": [],
+ "closed": true,
+ "strict": true,
+ "local_facets": {
+  "piece": [
+   "shape",
+   "eyes",
+   "brows",
+   "nose",
+   "lips",
+   "jaw_chin",
+   "cheeks",
+   "forehead",
+   "ears",
+   "skin_marks",
+   "skin_texture",
+   "age_marks"
+  ],
+  "presentation": [
+   "feminine",
+   "masculine"
+  ]
+ },
+ "context": {
+  "takes": {
+   "life_stage": {
+    "mismatch": "drop"
+   }
+  }
+ },
+ "compose": {
+  "each": true,
+  "marked": "opt_in",
+  "parts": {
+   "person.feature.shape": 0.1,
+   "person.feature.eyes": 0.1,
+   "person.feature.brows": 0.07,
+   "person.feature.nose": 0.07,
+   "person.feature.lips": 0.08,
+   "person.feature.jaw_chin": 0.07,
+   "person.feature.cheeks": 0.06,
+   "person.feature.forehead": 0.02,
+   "person.feature.ears": 0.02,
+   "person.feature.skin_marks": 0.18,
+   "person.feature.skin_texture": 0.08,
+   "person.feature.age_marks": 0.15
   },
-  "context": {
-    "takes": {
-      "life_stage": {
-        "mismatch": "drop"
-      }
-    }
-  },
-  "compose": {
-    "parts": {
-      "person.feature.shape": 0.14,
-      "person.feature.eyes": 0.13,
-      "person.feature.brows": 0.07,
-      "person.feature.nose": 0.13,
-      "person.feature.lips": 0.1,
-      "person.feature.jaw_chin": 0.1,
-      "person.feature.cheeks": 0.07,
-      "person.feature.forehead_ears": 0.04,
-      "person.feature.skin_detail": 0.22
-    },
-    "take": {
-      "2": 0.55,
-      "3": 0.45
-    },
-    "count": 3000,
-    "tags": {
-      "life_stage": [
-        "baby",
-        "child",
-        "teen",
-        "young adult",
-        "middle-aged",
-        "older",
-        "elderly"
-      ],
-      "presentation": [
-        "feminine",
-        "masculine"
-      ]
-    },
-    "keep": [
-      "presentation"
-    ]
-  },
-  "values": []
+  "tags": {
+   "presentation": [
+    "feminine",
+    "masculine"
+   ]
+  }
+ },
+ "values": []
 }

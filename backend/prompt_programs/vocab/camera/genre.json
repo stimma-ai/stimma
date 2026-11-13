@@ -1,0 +1,569 @@
+{
+ "id": "camera.genre",
+ "label": "Photography genre",
+ "description": "Photographic genres and recognizable shooting conventions, from studio portraits to surveillance images.",
+ "pos": "noun phrase",
+ "frame": "in the style of ___",
+ "notes": "Genres and recognizable photographic uses belong here, including commercial work, records and informal snapshots. camera.composition owns spatial arrangement, camera.color_grade owns palette and tonal finishing, and camera.film_look owns grain and photographic surface texture. Values name a genre or a familiar type of photograph after “in the style of”; their look describes characteristic framing and light rather than a required subject. Period-inspired genres remain available for contemporary scenes.",
+ "facets": [],
+ "closed": false,
+ "local_facets": {
+  "kind": [
+   "people",
+   "commercial",
+   "news_documentary",
+   "nature_science",
+   "event",
+   "everyday_vernacular",
+   "art"
+  ]
+ },
+ "values": [
+  {
+   "text": "street photography",
+   "look": "Candid street moments framed among passersby, signs and buildings, often in available light.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "news_documentary"
+    ]
+   }
+  },
+  {
+   "text": "editorial fashion photography",
+   "short": "editorial fashion",
+   "look": "Expressive clothing poses, styled sets or locations, and dramatic light arranged like a magazine fashion story.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "commercial",
+     "people"
+    ]
+   }
+  },
+  {
+   "text": "product photography",
+   "look": "A single object dominates a controlled setup, with shaped highlights, clean surfaces and carefully managed reflections.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "food photography",
+   "look": "Dishes are styled close to the camera, with side light revealing texture, gloss and steam.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "wedding photography",
+   "look": "Formal clothing, intimate couple portraits and candid ceremony moments, with soft light and polished skin tones.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "event",
+     "people"
+    ]
+   }
+  },
+  {
+   "text": "astrophotography",
+   "look": "Dark skies reveal dense stars, a bright Milky Way or colored nebulae through long exposures.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "nature_science"
+    ]
+   }
+  },
+  {
+   "text": "sports action photography",
+   "short": "sports action",
+   "look": "Athletes are caught at peak motion in tight frames, with crisp action and distant backgrounds.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "event"
+    ]
+   }
+  },
+  {
+   "text": "architectural photography",
+   "short": "architectural",
+   "look": "Carefully aligned building edges, straight verticals and deliberate light emphasize structure and materials.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "real estate photography",
+   "look": "Wide corner views show entire furnished rooms, with bright interiors, readable windows and straight verticals.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "a paparazzi shot",
+   "short": "paparazzi shot",
+   "look": "A hurried, obstructed or tightly zoomed view catches someone unposed, often with harsh flash and rough framing.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "news_documentary",
+     "people"
+    ]
+   }
+  },
+  {
+   "text": "photojournalism",
+   "look": "A decisive public moment is shown with surrounding context, available light and direct, unpolished detail.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "news_documentary"
+    ]
+   }
+  },
+  {
+   "text": "documentary photography",
+   "look": "Unposed everyday activity unfolds in contextual frames, with natural light and visible details of lived surroundings.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "news_documentary"
+    ]
+   }
+  },
+  {
+   "text": "a studio portrait session",
+   "short": "studio portrait",
+   "look": "A deliberately posed sitter stands against a controlled backdrop, with shaped studio light and tidy framing.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "people"
+    ]
+   }
+  },
+  {
+   "text": "a school portrait",
+   "short": "school portrait",
+   "look": "A seated half-length pose, even flash and a mottled or laser-pattern backdrop create a school photo studio look.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "people",
+     "everyday_vernacular"
+    ]
+   }
+  },
+  {
+   "text": "a passport photo",
+   "short": "passport photo",
+   "look": "A front-facing head is centered against a blank pale background, with flat light and a neutral expression.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "people",
+     "everyday_vernacular"
+    ]
+   }
+  },
+  {
+   "text": "a mugshot",
+   "short": "mugshot",
+   "look": "A stark front-and-profile identification layout uses flat flash, a plain wall and sometimes height marks.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "news_documentary",
+     "people"
+    ]
+   }
+  },
+  {
+   "text": "a yearbook photo",
+   "short": "yearbook photo",
+   "look": "A tightly cropped head-and-shoulders portrait uses a turned pose, neat clothing and a subdued studio background.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "people",
+     "everyday_vernacular"
+    ]
+   }
+  },
+  {
+   "text": "a family snapshot",
+   "short": "family snapshot",
+   "look": "An informal group bunches together in familiar surroundings, with casual cropping and household light or direct flash.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "everyday_vernacular",
+     "people"
+    ]
+   }
+  },
+  {
+   "text": "travel photography",
+   "look": "Landmarks and local activity share broad, inviting frames, with vivid daylight and a strong sense of place.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "everyday_vernacular"
+    ]
+   }
+  },
+  {
+   "text": "wildlife photography",
+   "look": "Animals are observed in their habitat, often isolated by a long lens against soft natural backgrounds.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "nature_science"
+    ]
+   }
+  },
+  {
+   "text": "macro nature photography",
+   "look": "Tiny insects, petals or droplets fill the frame, revealing minute textures against a very soft background.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "nature_science"
+    ]
+   }
+  },
+  {
+   "text": "aerial photography",
+   "look": "A high oblique viewpoint reveals terrain, rooftops and roads as broad shapes with visible depth.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "nature_science"
+    ]
+   }
+  },
+  {
+   "text": "underwater photography",
+   "look": "Submerged subjects appear through blue-green water, with drifting particles, softened distance and rippled light.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "nature_science"
+    ]
+   }
+  },
+  {
+   "text": "concert photography",
+   "look": "Performers fill the frame amid colored stage beams, dark crowds, glowing haze and strong light-dark contrast.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "event"
+    ]
+   }
+  },
+  {
+   "text": "fine-art nude photography",
+   "short": "fine-art nude",
+   "look": "An unclothed figure is posed as sculptural form, with deliberate cropping and light tracing the body.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "art",
+     "people"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "boudoir photography",
+   "look": "Intimate reclining poses, lingerie and bedroom settings use soft window light and close, flattering framing.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "people"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "glamour photography",
+   "look": "Sensual poses, glossy skin and sculpted curves are emphasized by polished studio light and retouching.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "people",
+     "commercial"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "lookbook photography",
+   "look": "Full outfits are shown on posed models in consistent, simple locations, with readable silhouettes and even light.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "commercial",
+     "people"
+    ]
+   }
+  },
+  {
+   "text": "catalog photography",
+   "look": "Merchandise is shown in plain, repeatable views against a seamless background, with even light and clear edges.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "stock photography",
+   "look": "Staged, broadly legible activities use bright even light, tidy surroundings and space for advertising copy.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "influencer lifestyle photography",
+   "short": "influencer lifestyle",
+   "look": "A casually posed subject inhabits a curated everyday setting, with flattering window light and coordinated props.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "commercial",
+     "people"
+    ]
+   }
+  },
+  {
+   "text": "flat lay photography",
+   "look": "Objects are arranged on one surface and photographed straight down, with soft shadows and deliberate spacing.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "still life photography",
+   "look": "Inanimate objects form a deliberate tabletop arrangement, with side light shaping volume and cast shadows.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "art"
+    ]
+   }
+  },
+  {
+   "text": "crime scene photography",
+   "look": "Wide, matter-of-fact room or location views show evidence markers and spatial relationships under direct light.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "news_documentary"
+    ]
+   }
+  },
+  {
+   "text": "forensic evidence photography",
+   "short": "forensic evidence",
+   "look": "Evidence fills a square-on close view beside a measuring scale, with flat light and sharply readable surface detail.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "news_documentary",
+     "nature_science"
+    ]
+   }
+  },
+  {
+   "text": "clinical medical photography",
+   "short": "clinical medical",
+   "look": "A body area is recorded in a direct, standardized close view with neutral color, even light and a plain background.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "nature_science"
+    ]
+   }
+  },
+  {
+   "text": "scientific photomicrography",
+   "short": "photomicrography",
+   "look": "Cells, crystals or tissue fill a microscope field, with flattened depth and stained or translucent colors.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "nature_science"
+    ]
+   }
+  },
+  {
+   "text": "surveillance photography",
+   "look": "A fixed high corner view surveys a wide area, with coarse detail, flat contrast and impersonal framing.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "news_documentary"
+    ]
+   }
+  },
+  {
+   "text": "satellite photography",
+   "look": "A straight-down orbital view flattens land, clouds and cities into large maplike patterns.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "nature_science"
+    ]
+   }
+  },
+  {
+   "text": "a Polaroid party snapshot",
+   "short": "Polaroid party snapshot",
+   "look": "Close partygoers are hit by direct flash, with dark surroundings, soft instant-film color and a white print border.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "everyday_vernacular",
+     "event"
+    ]
+   }
+  },
+  {
+   "text": "a 1990s mall glamour shot",
+   "short": "1990s mall glamour",
+   "look": "A head-and-shoulders pose, teased hair, soft-focus glow and a colored studio backdrop evoke a mall portrait package.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "people",
+     "everyday_vernacular"
+    ]
+   }
+  },
+  {
+   "text": "a school sports team photo",
+   "short": "school sports team",
+   "look": "Uniformed players line up in seated and standing rows, facing the camera in even daylight or broad flash.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "event",
+     "everyday_vernacular"
+    ]
+   }
+  },
+  {
+   "text": "environmental portraiture",
+   "short": "environmental portrait",
+   "look": "A posed person shares the frame with their workplace or home, with contextual objects and available light.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "people",
+     "news_documentary"
+    ]
+   }
+  },
+  {
+   "text": "a corporate headshot",
+   "short": "corporate headshot",
+   "look": "A neatly posed head-and-shoulders view uses restrained clothing, a simple background and smooth, even face lighting.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "people",
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "beauty photography",
+   "look": "An extremely close face crop emphasizes makeup, skin and lips with crisp catchlights and carefully sculpted light.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "people",
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "landscape photography",
+   "look": "Broad landforms fill a deep, detailed view, with weather and directional light defining distance.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "nature_science",
+     "art"
+    ]
+   }
+  },
+  {
+   "text": "seascape photography",
+   "look": "Surf, rocks and a broad horizon anchor the frame, often with long-exposure water and soft coastal light.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "nature_science",
+     "art"
+    ]
+   }
+  },
+  {
+   "text": "storm-chasing photography",
+   "short": "storm chasing",
+   "look": "A towering storm front or lightning dominates a wide sky above a small, dark strip of land.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "nature_science"
+    ]
+   }
+  },
+  {
+   "text": "industrial photography",
+   "look": "Machinery and factory structures fill precise, detailed frames under hard work lights or dramatic industrial glow.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "commercial",
+     "news_documentary"
+    ]
+   }
+  },
+  {
+   "text": "abstract photography",
+   "look": "Tight crops turn reflections, textures or shadows into shapes and colors whose original subject is hard to identify.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "art"
+    ]
+   }
+  }
+ ]
+}

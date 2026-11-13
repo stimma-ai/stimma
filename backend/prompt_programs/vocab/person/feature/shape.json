@@ -1,415 +1,451 @@
 {
-  "id": "person.feature.shape",
-  "label": "Face shape",
-  "description": "The outline, fullness and proportions of the whole face.",
-  "pos": "noun phrase",
-  "frame": "a person with ___",
-  "notes": "Merged from three independently written sets. Each value says what is visible: no attractiveness or character words, no expression, no color, no ancestry words. A person gets two or three face features (person.face), not every list. `life_stage` is the ages a value is seen at: a drawn age that doesn't fit removes it. `by_ancestry: unreviewed` marks values whose rate differs by ancestry and are not weighted yet. Closed: generated face options drift to praise.",
-  "facets": [],
-  "closed": true,
-  "strict": true,
-  "catalog": false,
-  "local_facets": {
-    "aspect": [
-      "outline",
-      "fullness",
-      "proportion",
-      "symmetry"
-    ]
-  },
-  "context": {
-    "takes": {
-      "life_stage": {
-        "mismatch": "drop"
-      }
-    }
-  },
-  "shares": {
-    "aspect": {
-      "outline": 0.4,
-      "fullness": 0.25,
-      "proportion": 0.2,
-      "symmetry": 0.15
-    }
-  },
-  "values": [
-    {
-      "text": "an oval face, a little longer than it is wide",
-      "short": "oval face",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a round face, about as wide as it is long",
-      "short": "round face",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a long, narrow face",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a square face with a wide forehead and a wide jaw",
-      "short": "square face",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a heart-shaped face, wide at the forehead and narrow at the chin",
-      "short": "heart-shaped face",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a face widest at the cheekbones, narrowing above and below",
-      "short": "diamond face",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a rectangular face, long with straight sides",
-      "short": "rectangular face",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "outline"
-        ],
-        "life_stage": [
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a face widest at the jaw, narrowing toward the forehead",
-      "short": "pear-shaped face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a short, wide face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a face that tapers evenly from the temples to a narrow chin",
-      "short": "tapering face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a very long face with a high forehead and a long chin",
-      "short": "very long face",
-      "tier": "unusual",
-      "tags": {
-        "aspect": [
-          "outline"
-        ],
-        "life_stage": [
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a face with almost straight sides from the temples to the jaw",
-      "short": "straight-sided face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a face only a little longer than it is wide",
-      "short": "nearly square face",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a compact face, short from brow to chin",
-      "short": "compact face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "outline"
-        ]
-      }
-    },
-    {
-      "text": "a full, fleshy face with soft edges",
-      "short": "full, fleshy face",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ]
-      }
-    },
-    {
-      "text": "a lean face with the bones showing under the skin",
-      "short": "lean, bony face",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a gaunt face with sunken temples",
-      "short": "gaunt face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "life_stage": [
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a plump face with a soft double chin",
-      "short": "plump face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ]
-      }
-    },
-    {
-      "text": "a baby-round face with full cheeks and a small chin",
-      "short": "baby-round face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "life_stage": [
-          "baby",
-          "child"
-        ]
-      }
-    },
-    {
-      "text": "a face that has grown heavier in its lower half",
-      "short": "heavier lower face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "life_stage": [
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a thin face with loose skin over the bones",
-      "short": "thin, loose-skinned face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "life_stage": [
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "features set close together in the middle of a broad face",
-      "short": "close-set features",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "proportion"
-        ]
-      }
-    },
-    {
-      "text": "features spread wide across the face",
-      "short": "wide-set features",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "proportion"
-        ]
-      }
-    },
-    {
-      "text": "a large forehead above small, low-set features",
-      "short": "large forehead",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "proportion"
-        ]
-      }
-    },
-    {
-      "text": "a long lower face, with a wide gap between nose and chin",
-      "short": "long lower face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "proportion"
-        ]
-      }
-    },
-    {
-      "text": "a tall forehead that takes up a large share of the face",
-      "short": "tall forehead",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "proportion"
-        ]
-      }
-    },
-    {
-      "text": "a short forehead, with most of the face below the brows",
-      "short": "short forehead",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "proportion"
-        ]
-      }
-    },
-    {
-      "text": "a short lower face, with the chin close under the mouth",
-      "short": "short lower face",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "proportion"
-        ]
-      }
-    },
-    {
-      "text": "a slightly uneven face, one side a little fuller than the other",
-      "short": "slightly uneven face",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "symmetry"
-        ]
-      }
-    },
-    {
-      "text": "one eye set a little higher than the other",
-      "short": "one eye higher",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "symmetry"
-        ]
-      }
-    },
-    {
-      "text": "a mouth that sits slightly to one side",
-      "short": "off-center mouth",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "symmetry"
-        ]
-      }
-    },
-    {
-      "text": "a nose and chin that lean slightly to the same side",
-      "short": "nose and chin askew",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "symmetry"
-        ]
-      }
-    },
-    {
-      "text": "a clearly lopsided face, the jaw wider on one side",
-      "short": "lopsided face",
-      "tier": "unusual",
-      "tags": {
-        "aspect": [
-          "symmetry"
-        ]
-      }
-    },
-    {
-      "text": "a chin that sits a little off the line of the nose",
-      "short": "off-center chin",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "symmetry"
-        ]
-      }
-    }
+ "id": "person.feature.shape",
+ "label": "Face shape",
+ "description": "The overall outline, fullness, proportions and asymmetry of a face.",
+ "pos": "noun phrase",
+ "frame": "a person with ___",
+ "notes": "Whole-face structure, phrased as short visible noun phrases after “with.” Individual bones belong in person.feature.jaw_chin or person.feature.cheeks; forehead shape belongs in person.feature.forehead. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "facets": [],
+ "closed": true,
+ "strict": true,
+ "catalog": false,
+ "local_facets": {
+  "aspect": [
+   "outline",
+   "fullness",
+   "proportion",
+   "symmetry"
   ]
+ },
+ "context": {
+  "takes": {
+   "life_stage": {
+    "mismatch": "drop"
+   }
+  }
+ },
+ "shares": {
+  "aspect": {
+   "outline": 0.4,
+   "fullness": 0.25,
+   "proportion": 0.2,
+   "symmetry": 0.15
+  }
+ },
+ "values": [
+  {
+   "text": "a softly oval face",
+   "short": "soft oval face",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "outline"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slightly rounded face",
+   "short": "slightly rounded face",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "outline"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a square face",
+   "short": "square face",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "outline"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a heart-shaped face",
+   "short": "heart-shaped face",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "outline"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a diamond-shaped face",
+   "short": "diamond-shaped face",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "outline"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a rectangular face",
+   "short": "rectangular face",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "outline"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a pear-shaped face",
+   "short": "pear-shaped face",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "outline"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a long, narrow face",
+   "short": "long, narrow face",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "outline"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a short, broad face",
+   "short": "short, broad face",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "outline"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slightly full face",
+   "short": "slightly full face",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "fullness"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slightly lean face",
+   "short": "slightly lean face",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "fullness"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a full face with rounded contours",
+   "short": "full, rounded face",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "fullness"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a lean face with visible bone contours",
+   "short": "lean, angular face",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "fullness"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a face with sunken temples",
+   "short": "sunken temples",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "fullness"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slightly longer lower face",
+   "short": "longer lower face",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slightly shorter lower face",
+   "short": "shorter lower face",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "features clustered toward the center of the face",
+   "short": "clustered features",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "features spaced broadly across the face",
+   "short": "broadly spaced features",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a long middle face between the eyes and mouth",
+   "short": "long middle face",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a short middle face between the eyes and mouth",
+   "short": "short middle face",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "proportion"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a face slightly fuller on one side",
+   "short": "uneven facial fullness",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "symmetry"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "one side of the face broader than the other",
+   "short": "uneven facial width",
+   "tier": "unusual",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "symmetry"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  }
+ ]
 }

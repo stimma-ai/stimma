@@ -1,259 +1,634 @@
 {
-  "id": "person.makeup",
-  "label": "Makeup",
-  "description": "Visible cosmetic treatments and combinations for the face.",
-  "pos": "noun phrase",
-  "frame": "with ___",
-  "notes": "Applied cosmetics only, for any gender or presentation. Lip colors explicitly mean lipstick or tint, not underlying complexion. Modern cosmetic formulations default to contemporary/future electrical worlds; period looks and magical effects use explicit tags. No uncovered skin, skin tone or worn accessories. Kohl and loose face powder are the cross-era backbone; they describe visible pigments rather than modern formulations.",
-  "facets": [
-    "era",
-    "genre"
-  ],
-  "closed": false,
-  "values": [
-    {
-      "text": "smudged black eyeliner",
-      "tier": "typical"
-    },
-    {
-      "text": "bold red lipstick",
-      "tier": "typical",
-      "adult_only": true
-    },
-    {
-      "text": "soft brown eyeshadow",
-      "tier": "typical"
-    },
-    {
-      "text": "a thin line of liquid eyeliner",
-      "short": "liquid eyeliner",
-      "tier": "typical"
-    },
-    {
-      "text": "subtle peach blush",
-      "tier": "typical"
-    },
-    {
-      "text": "clear lip gloss",
-      "tier": "typical"
-    },
-    {
-      "text": "a light dusting of face powder",
-      "short": "face powder",
-      "tier": "typical",
-      "tags": {
-        "genre": "any",
-        "era": "any"
-      }
-    },
-    {
-      "text": "softly defined brows",
-      "tier": "typical"
-    },
-    {
-      "text": "black mascara",
-      "tier": "typical"
-    },
-    {
-      "text": "a berry lip stain",
-      "tier": "typical"
-    },
-    {
-      "text": "a sheer pink lip tint",
-      "tier": "typical"
-    },
-    {
-      "text": "a dewy foundation finish",
-      "tier": "typical"
-    },
-    {
-      "text": "a matte foundation finish",
-      "short": "matte foundation",
-      "tier": "typical"
-    },
-    {
-      "text": "a softly blended smoky eye",
-      "short": "smoky eye",
-      "tier": "typical",
-      "adult_only": true
-    },
-    {
-      "text": "winged eyeliner",
-      "tier": "plausible"
-    },
-    {
-      "text": "gold eyeshadow",
-      "tier": "plausible"
-    },
-    {
-      "text": "silver eyeshadow",
-      "tier": "plausible"
-    },
-    {
-      "text": "cobalt blue eyeliner",
-      "tier": "plausible"
-    },
-    {
-      "text": "emerald eyeshadow",
-      "tier": "plausible"
-    },
-    {
-      "text": "violet eyeshadow",
-      "tier": "plausible"
-    },
-    {
-      "text": "copper eyeshadow",
-      "tier": "plausible"
-    },
-    {
-      "text": "coral lipstick",
-      "tier": "plausible"
-    },
-    {
-      "text": "deep plum lipstick",
-      "tier": "plausible",
-      "adult_only": true
-    },
-    {
-      "text": "black lipstick",
-      "tier": "unusual"
-    },
-    {
-      "text": "glitter along the eyelids",
-      "short": "glitter lids",
-      "tier": "unusual"
-    },
-    {
-      "text": "tiny painted freckles",
-      "tier": "plausible"
-    },
-    {
-      "text": "a sharp cut crease",
-      "tier": "unusual",
-      "adult_only": true
-    },
-    {
-      "text": "graphic white eyeliner",
-      "tier": "unusual"
-    },
-    {
-      "text": "glossy brown lipstick",
-      "tier": "plausible",
-      "adult_only": true
-    },
-    {
-      "text": "shimmering cheek highlighter",
-      "short": "cheek highlighter",
-      "tier": "plausible"
-    },
-    {
-      "text": "bronze contouring",
-      "tier": "plausible",
-      "adult_only": true
-    },
-    {
-      "text": "two-tone lipstick",
-      "tier": "unusual"
-    },
-    {
-      "text": "a small painted beauty mark",
-      "short": "painted beauty mark",
-      "tier": "plausible"
-    },
-    {
-      "text": "kohl-lined eyes",
-      "tier": "plausible",
-      "tags": {
-        "genre": "any",
-        "era": "any"
-      }
-    },
-    {
-      "text": "terracotta lipstick",
-      "tier": "plausible"
-    },
-    {
-      "text": "pale powder and a cupid’s-bow lip",
-      "short": "pale powder, bow lip",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "rouge circles high on the cheeks",
-      "short": "rouge circles",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "pastel blue lids and thick false lashes",
-      "short": "pastel lids, faux lashes",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "contemporary",
-          "future"
-        ]
-      },
-      "adult_only": true
-    },
-    {
-      "text": "neon pink blush swept to the temples",
-      "short": "neon pink blush",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ]
-      }
-    },
-    {
-      "text": "luminous runes painted across the cheeks",
-      "short": "painted runes",
-      "tier": "plausible",
-      "tags": {
-        "genre": [
-          "fantasy",
-          "fairy_tale"
-        ]
-      }
-    },
-    {
-      "text": "glowing circuit lines around the eyes",
-      "short": "glowing circuit lines",
-      "tier": "plausible",
-      "tags": {
-        "genre": [
-          "scifi",
-          "cyberpunk"
-        ]
-      }
-    }
-  ],
-  "untagged": {
-    "genre": [
-      "realistic",
-      "scifi",
-      "cyberpunk",
-      "horror"
-    ],
-    "era": [
-      "contemporary",
-      "future"
+ "id": "person.makeup",
+ "label": "Makeup",
+ "description": "Named makeup looks, from everyday finishes and eye techniques to period, stage and special effects makeup.",
+ "pos": "noun phrase",
+ "frame": "with ___",
+ "notes": "Applied cosmetic looks and recognizable techniques belong here, with brief names that fit after with. Natural facial structure belongs in person.face, and tattoos, piercings and henna belong in person.body_art. Period and costume looks remain available in contemporary scenes because they can be recreated with makeup; pigments do not imply descent or natural complexion. Existing adult_only markers are retained on corresponding looks, while permanent body changes and truly luminous fantasy effects are outside this list.",
+ "facets": [],
+ "closed": false,
+ "local_facets": {
+  "kind": [
+   "everyday",
+   "evening",
+   "editorial",
+   "period",
+   "subculture",
+   "stage_costume",
+   "effects"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "no-makeup makeup",
+   "tier": "typical",
+   "look": "Sheer coverage, softly groomed brows and barely tinted lips leave skin texture visible.",
+   "tags": {
+    "kind": [
+     "everyday"
     ]
+   }
+  },
+  {
+   "text": "dewy makeup",
+   "tier": "typical",
+   "look": "A softly luminous base reflects light on the cheeks and forehead without a heavy powder finish.",
+   "tags": {
+    "kind": [
+     "everyday"
+    ]
+   }
+  },
+  {
+   "text": "matte makeup",
+   "tier": "typical",
+   "look": "An even, velvety base suppresses shine across the forehead, nose and cheeks.",
+   "tags": {
+    "kind": [
+     "everyday"
+    ]
+   }
+  },
+  {
+   "text": "glass skin makeup",
+   "tier": "plausible",
+   "look": "An exceptionally smooth, glossy complexion catches bright, almost wet highlights across the face.",
+   "tags": {
+    "kind": [
+     "everyday"
+    ]
+   }
+  },
+  {
+   "text": "soft peach makeup",
+   "tier": "typical",
+   "look": "Light peach blush and matching sheer lips accompany softly shaded warm eyelids.",
+   "tags": {
+    "kind": [
+     "everyday"
+    ]
+   }
+  },
+  {
+   "text": "rosy makeup",
+   "tier": "typical",
+   "look": "Pink cheeks and softly tinted rose lips create a gentle flush against lightly finished skin.",
+   "tags": {
+    "kind": [
+     "everyday"
+    ]
+   }
+  },
+  {
+   "text": "bronzed makeup",
+   "tier": "typical",
+   "look": "Warm bronze shading defines the cheekbones and temples, with coppery eyes and neutral lips.",
+   "tags": {
+    "kind": [
+     "everyday"
+    ]
+   }
+  },
+  {
+   "text": "faux freckle makeup",
+   "tier": "typical",
+   "look": "Small irregular painted freckles scatter across the nose and cheeks over a sheer base.",
+   "tags": {
+    "kind": [
+     "everyday"
+    ]
+   }
+  },
+  {
+   "text": "soft brown eye makeup",
+   "tier": "typical",
+   "look": "Blended brown shadow lightly defines the lids and outer corners, with understated lips.",
+   "tags": {
+    "kind": [
+     "everyday"
+    ]
+   }
+  },
+  {
+   "text": "winged eyeliner makeup",
+   "tier": "typical",
+   "look": "A clean dark line follows the upper lashes and extends into a pointed upward flick.",
+   "tags": {
+    "kind": [
+     "everyday"
+    ]
+   }
+  },
+  {
+   "text": "bold red lip makeup",
+   "tier": "typical",
+   "look": "Crisp red lipstick stands out against restrained eyes and an even complexion.",
+   "tags": {
+    "kind": [
+     "evening"
+    ]
+   }
+  },
+  {
+   "text": "classic smoky eye makeup",
+   "tier": "typical",
+   "look": "Dark shadow surrounds the eyes and fades outward into a soft haze, paired with understated lips.",
+   "tags": {
+    "kind": [
+     "evening"
+    ]
+   }
+  },
+  {
+   "text": "soft glam makeup",
+   "tier": "typical",
+   "look": "Blended neutral shadow, feathery lashes, softly sculpted cheeks and a satin lip have no hard edges.",
+   "tags": {
+    "kind": [
+     "evening"
+    ]
+   }
+  },
+  {
+   "text": "cut crease makeup",
+   "tier": "plausible",
+   "look": "A sharp curved boundary separates a pale eyelid from darker shadow above the crease.",
+   "tags": {
+    "kind": [
+     "evening"
+    ]
+   }
+  },
+  {
+   "text": "halo eye makeup",
+   "tier": "plausible",
+   "look": "Dark inner and outer eyelid corners frame a bright, reflective patch at the center of each lid.",
+   "tags": {
+    "kind": [
+     "evening"
+    ]
+   }
+  },
+  {
+   "text": "gold eyeshadow makeup",
+   "tier": "typical",
+   "look": "Reflective gold covers the eyelids, with dark lashes and warm neutral lips.",
+   "tags": {
+    "kind": [
+     "evening"
+    ]
+   }
+  },
+  {
+   "text": "silver eyeshadow makeup",
+   "tier": "plausible",
+   "look": "Cool metallic silver eyelids stand out against dark lashes and softly finished skin.",
+   "tags": {
+    "kind": [
+     "evening"
+    ]
+   }
+  },
+  {
+   "text": "jewel-tone eye makeup",
+   "tier": "plausible",
+   "look": "Saturated emerald and violet shadows blend across the lids against otherwise restrained makeup.",
+   "tags": {
+    "kind": [
+     "evening"
+    ]
+   }
+  },
+  {
+   "text": "plum lip makeup",
+   "tier": "plausible",
+   "look": "Deep plum lipstick is the main focus, with softly defined eyes and muted cheeks.",
+   "tags": {
+    "kind": [
+     "evening"
+    ]
+   }
+  },
+  {
+   "text": "glossy brown lip makeup",
+   "tier": "plausible",
+   "look": "Rich brown lipstick has a visibly wet shine, paired with warm neutral eyes.",
+   "tags": {
+    "kind": [
+     "evening"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "coral lip makeup",
+   "tier": "typical",
+   "look": "Bright pink-orange lipstick contrasts with lightly defined eyes and fresh cheeks.",
+   "tags": {
+    "kind": [
+     "everyday"
+    ]
+   }
+  },
+  {
+   "text": "kohl eye makeup",
+   "tier": "plausible",
+   "look": "Black kohl rims the upper and lower lash lines, enclosing the eyes in a dense dark outline.",
+   "tags": {
+    "kind": [
+     "evening"
+    ]
+   }
+  },
+  {
+   "text": "monochromatic mauve makeup",
+   "short": "monochromatic mauve",
+   "tier": "plausible",
+   "look": "Muted mauve repeats across the eyelids, cheeks and lips, with soft blended edges.",
+   "tags": {
+    "kind": [
+     "everyday"
+    ]
+   }
+  },
+  {
+   "text": "graphic eyeliner makeup",
+   "tier": "plausible",
+   "look": "Sharp geometric black lines extend beyond the lash line in angular shapes around the eyes.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "floating crease eyeliner",
+   "short": "floating crease liner",
+   "tier": "plausible",
+   "look": "A separate curved line sits above the eyelid crease, leaving bare skin between it and the lashes.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "negative-space eyeliner",
+   "short": "negative-space liner",
+   "tier": "unusual",
+   "look": "Bold outlined eye shapes surround deliberate gaps of bare skin instead of solid shadow.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "white eyeliner makeup",
+   "tier": "plausible",
+   "look": "Opaque white lines frame the eyes and stand out clearly against the lashes and skin.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "neon eyeliner makeup",
+   "tier": "plausible",
+   "look": "Fluorescent-looking lime, orange or pink liner traces vivid lines around otherwise simple eyes.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "glossy eyelid makeup",
+   "tier": "plausible",
+   "look": "Clear gloss makes the eyelids look wet and reflective over softly colored shadow.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "glitter eye makeup",
+   "tier": "plausible",
+   "look": "Distinct glitter particles sparkle across the eyelids, rather than a smooth metallic sheen.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "rhinestone eye makeup",
+   "tier": "unusual",
+   "look": "Small reflective gems are arranged along the lash lines and around the outer eye corners.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "color-block eye makeup",
+   "tier": "unusual",
+   "look": "Flat saturated patches of contrasting colors form crisp shapes across and around the eyelids.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "watercolor eye makeup",
+   "tier": "plausible",
+   "look": "Sheer pink, blue and lavender washes blend into diffuse, translucent patches around the eyes.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "avant-garde makeup",
+   "tier": "unusual",
+   "look": "Asymmetric blocks of pigment, painted brows and off-center lip shapes reshape the face graphically.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "two-tone lip makeup",
+   "tier": "unusual",
+   "look": "The upper and lower lips are painted in two sharply contrasting lipstick colors.",
+   "tags": {
+    "kind": [
+     "editorial"
+    ]
+   }
+  },
+  {
+   "text": "1920s cupid’s-bow makeup",
+   "short": "1920s cupid’s bow",
+   "tier": "plausible",
+   "look": "Powdered skin, dark rounded eyes and small dark lips emphasize an exaggerated cupid’s bow.",
+   "tags": {
+    "kind": [
+     "period"
+    ]
+   }
+  },
+  {
+   "text": "1930s Hollywood makeup",
+   "short": "1930s Hollywood",
+   "tier": "plausible",
+   "look": "Thin arched brows, softly shaded lids and a sharply outlined rose lip define a powdered face.",
+   "tags": {
+    "kind": [
+     "period"
+    ]
+   }
+  },
+  {
+   "text": "1940s makeup",
+   "tier": "plausible",
+   "look": "Full arched brows and a defined red lip accompany modest liner and softly powdered skin.",
+   "tags": {
+    "kind": [
+     "period"
+    ]
+   }
+  },
+  {
+   "text": "1950s pinup makeup",
+   "tier": "plausible",
+   "look": "Black cat-eye wings, strong arched brows and glossy red lips create a crisp, sculpted look.",
+   "tags": {
+    "kind": [
+     "period"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "1960s mod makeup",
+   "tier": "plausible",
+   "look": "Pale blue lids, a dark drawn crease and thick false lashes frame eyes with painted lower lashes.",
+   "tags": {
+    "kind": [
+     "period"
+    ]
+   }
+  },
+  {
+   "text": "1970s disco makeup",
+   "tier": "plausible",
+   "look": "Shimmering blue-purple shadow reaches toward the brows above glossy lips and luminous cheeks.",
+   "tags": {
+    "kind": [
+     "period"
+    ]
+   }
+  },
+  {
+   "text": "1980s blush makeup",
+   "tier": "plausible",
+   "look": "Strong pink blush sweeps diagonally from the cheeks to the temples beside vivid colored shadow.",
+   "tags": {
+    "kind": [
+     "period"
+    ]
+   }
+  },
+  {
+   "text": "1990s grunge makeup",
+   "tier": "plausible",
+   "look": "Smudged dark liner and matte brown lips sit against a minimally polished complexion.",
+   "tags": {
+    "kind": [
+     "period",
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "2000s frosted makeup",
+   "tier": "plausible",
+   "look": "Icy pastel shimmer covers the lids and pale pink glossy lips, often with thin brows.",
+   "tags": {
+    "kind": [
+     "period"
+    ]
+   }
+  },
+  {
+   "text": "goth makeup",
+   "tier": "plausible",
+   "look": "Pale foundation, heavily blackened eyes and black lipstick create a stark high-contrast face.",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "e-girl makeup",
+   "tier": "plausible",
+   "look": "Pink blush crosses the nose and cheeks beneath heavy winged liner and small painted hearts.",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "punk makeup",
+   "tier": "unusual",
+   "look": "Rough black eye shapes, sharply drawn brows and dark lipstick have deliberately jagged edges.",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "rockabilly makeup",
+   "tier": "plausible",
+   "look": "Thick swept eyeliner and red lips are joined by a painted beauty mark high on one cheek.",
+   "tags": {
+    "kind": [
+     "subculture"
+    ]
+   }
+  },
+  {
+   "text": "whiteface clown makeup",
+   "short": "whiteface clown",
+   "tier": "unusual",
+   "look": "An opaque white base supports exaggerated brows, a red nose and an oversized painted mouth.",
+   "tags": {
+    "kind": [
+     "stage_costume"
+    ]
+   }
+  },
+  {
+   "text": "mime makeup",
+   "tier": "unusual",
+   "look": "A white face, black outlined eyes and sharply drawn lips form a masklike expression.",
+   "tags": {
+    "kind": [
+     "stage_costume"
+    ]
+   }
+  },
+  {
+   "text": "kabuki kumadori makeup",
+   "tier": "unusual",
+   "look": "Bold red and black strokes follow and exaggerate facial muscles over a white base.",
+   "tags": {
+    "kind": [
+     "stage_costume"
+    ]
+   }
+  },
+  {
+   "text": "geisha oshiroi makeup",
+   "tier": "unusual",
+   "look": "Opaque white face powder, black and red eye accents and small red lips create crisp contrasts.",
+   "tags": {
+    "kind": [
+     "stage_costume"
+    ]
+   }
+  },
+  {
+   "text": "drag makeup",
+   "tier": "plausible",
+   "look": "High drawn brows, enlarged cut creases, heavy lashes, strong contour and overlined lips reshape the face.",
+   "tags": {
+    "kind": [
+     "stage_costume"
+    ]
+   }
+  },
+  {
+   "text": "stage makeup",
+   "tier": "plausible",
+   "look": "Strong brows, dark lash lines, pronounced cheek shading and defined lips remain visible from a distance.",
+   "tags": {
+    "kind": [
+     "stage_costume"
+    ]
+   }
+  },
+  {
+   "text": "sugar skull makeup",
+   "tier": "unusual",
+   "look": "Painted dark eye sockets, a skeletal nose and teeth are framed by colorful flowers and dotted ornaments.",
+   "tags": {
+    "kind": [
+     "stage_costume"
+    ]
+   }
+  },
+  {
+   "text": "old-age SFX makeup",
+   "tier": "unusual",
+   "look": "Painted shadows and textured prosthetics add deep creases, under-eye bags and sagging facial folds.",
+   "tags": {
+    "kind": [
+     "effects"
+    ]
+   }
+  },
+  {
+   "text": "bruise SFX makeup",
+   "tier": "unusual",
+   "look": "Mottled purple, blue and yellow pigments imitate bruised skin around the cheek or eye.",
+   "tags": {
+    "kind": [
+     "effects"
+    ]
+   }
+  },
+  {
+   "text": "fake wound SFX makeup",
+   "tier": "unusual",
+   "look": "Raised prosthetic edges and dark red pigment create the illusion of torn skin and a fresh cut.",
+   "tags": {
+    "kind": [
+     "effects"
+    ]
+   }
+  },
+  {
+   "text": "zombie SFX makeup",
+   "tier": "unusual",
+   "look": "Gray-green paint, sunken eye shadows and ragged prosthetic patches imitate decaying skin.",
+   "tags": {
+    "kind": [
+     "effects"
+    ]
+   }
+  },
+  {
+   "text": "cracked porcelain makeup",
+   "short": "cracked porcelain",
+   "tier": "unusual",
+   "look": "A smooth pale base is crossed by fine black fracture lines, with dark gaps suggesting broken ceramic.",
+   "tags": {
+    "kind": [
+     "effects"
+    ]
+   }
   }
+ ]
 }

@@ -1,0 +1,1971 @@
+{
+ "id": "clothing.traditional_dress",
+ "label": "Traditional dress",
+ "description": "Named traditional garments and ensembles worn today, grouped by cultural area with regional tags.",
+ "pos": "noun phrase",
+ "frame": "wearing ___",
+ "notes": "Named traditional garments and ensembles worn today belong here, including everyday, formal, festival, and dance dress. clothing.fashion_style owns fashion aesthetics and revival styling; clothing.fabric owns cloth types apart from named garments. Values are noun phrases after “wearing,” with familiar garment names and brief ensemble qualifiers where needed to distinguish their silhouettes. Region describes the garment tradition rather than the wearer’s descent; broad browse areas can span several regions, and presentation tags appear only on clearly gendered forms. Tiers balance familiar starting points with more specific dress forms, rather than ranking cultures.",
+ "closed": false,
+ "facets": [
+  "region",
+  "presentation"
+ ],
+ "local_facets": {
+  "area": [
+   "east_asia",
+   "south_asia",
+   "southeast_asia",
+   "middle_east_north_africa",
+   "sub_saharan_africa",
+   "europe",
+   "americas",
+   "oceania",
+   "central_asia"
+  ]
+ },
+ "values": [
+  {
+   "text": "a kimono",
+   "short": "kimono",
+   "tier": "typical",
+   "look": "a straight T-shaped robe with wide sleeves, an overlapping front, and a broad obi sash",
+   "tags": {
+    "area": [
+     "east_asia"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a yukata",
+   "short": "yukata",
+   "tier": "typical",
+   "look": "a light cotton wrap robe with short hanging sleeves and a simple sash, often in crisp repeating prints",
+   "tags": {
+    "area": [
+     "east_asia"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "hakama over a kimono",
+   "short": "hakama",
+   "tier": "plausible",
+   "look": "deeply pleated wide pants or a divided skirt tied high over a narrow-sleeved kimono",
+   "tags": {
+    "area": [
+     "east_asia"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a furisode kimono",
+   "short": "furisode",
+   "tier": "plausible",
+   "look": "a brightly patterned kimono with very long hanging sleeves and an elaborate wide obi",
+   "tags": {
+    "area": [
+     "east_asia"
+    ],
+    "region": [
+     "east_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a chima jeogori hanbok",
+   "short": "chima jeogori",
+   "tier": "typical",
+   "look": "a short ribbon-tied jacket above a high-waisted, voluminous ankle-length skirt",
+   "tags": {
+    "area": [
+     "east_asia"
+    ],
+    "region": [
+     "east_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a baji jeogori hanbok",
+   "short": "baji jeogori",
+   "tier": "plausible",
+   "look": "a wrap-front jacket over roomy pants gathered at the ankles, sometimes under a long outer coat",
+   "tags": {
+    "area": [
+     "east_asia"
+    ],
+    "region": [
+     "east_asian"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a cheongsam",
+   "short": "cheongsam",
+   "tier": "typical",
+   "look": "a fitted dress with a standing collar, diagonal front fastening, and side slits",
+   "tags": {
+    "area": [
+     "east_asia"
+    ],
+    "region": [
+     "east_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a changshan",
+   "short": "changshan",
+   "tier": "plausible",
+   "look": "a straight ankle-length gown with a standing collar, side fastening, and side slits",
+   "tags": {
+    "area": [
+     "east_asia"
+    ],
+    "region": [
+     "east_asian"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "hanfu",
+   "short": "hanfu",
+   "tier": "plausible",
+   "look": "flowing cross-collar robes with broad sleeves, layered skirts, and long tied sashes",
+   "tags": {
+    "area": [
+     "east_asia"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Tibetan chuba",
+   "short": "Tibetan chuba",
+   "tier": "plausible",
+   "look": "a heavy wrap robe belted into a roomy pouch at the waist, often worn with one sleeve hanging loose",
+   "tags": {
+    "area": [
+     "east_asia"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Miao pleated dress with silver ornaments",
+   "short": "Miao dress",
+   "tier": "unusual",
+   "look": "a densely pleated skirt and embroidered jacket with a broad silver neckpiece and elaborate silver headdress",
+   "tags": {
+    "area": [
+     "east_asia"
+    ],
+    "region": [
+     "east_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sari",
+   "short": "sari",
+   "tier": "typical",
+   "look": "a long cloth pleated at the waist and wrapped into a skirt, with one end draped over a shoulder",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a salwar kameez",
+   "short": "salwar kameez",
+   "tier": "typical",
+   "look": "a long side-slit tunic over loose pants gathered at the ankles, with a draped scarf",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a lehenga choli",
+   "short": "lehenga choli",
+   "tier": "typical",
+   "look": "a fitted short blouse with a full ankle-length skirt and a long draped dupatta",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sherwani",
+   "short": "sherwani",
+   "tier": "typical",
+   "look": "a long fitted button-front coat with a standing collar, worn over narrow pants",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a kurta",
+   "short": "kurta",
+   "tier": "typical",
+   "look": "a loose straight tunic with side slits, long sleeves, and a short button placket",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a dhoti",
+   "short": "dhoti",
+   "tier": "plausible",
+   "look": "a long cloth wrapped and pleated around the waist, then passed between the legs to form loose divided folds",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a lungi",
+   "short": "lungi",
+   "tier": "plausible",
+   "look": "a colorful checked cloth wrapped into a straight ankle-length skirt and tucked at the waist",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a mundum neriyathum",
+   "short": "mundum neriyathum",
+   "tier": "plausible",
+   "look": "two cream cloths with gold borders form a wrapped skirt and a separate drape over the blouse and shoulder",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an anarkali suit",
+   "short": "anarkali suit",
+   "tier": "plausible",
+   "look": "a fitted bodice flares into a long flowing tunic over slim pants, accompanied by a light scarf",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Kandyan osariya",
+   "short": "Kandyan osariya",
+   "tier": "plausible",
+   "look": "a wrapped sari with a crisp pleated frill around the waist and a draped shoulder end",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a mekhela chador",
+   "short": "mekhela chador",
+   "tier": "plausible",
+   "look": "a cylindrical wrapped skirt with a separate woven cloth folded across the torso and over one shoulder",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Bhutanese gho",
+   "short": "gho",
+   "tier": "typical",
+   "look": "a knee-length belted robe bloused at the waist, with broad white cuffs, knee socks, and shoes",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a Bhutanese kira",
+   "short": "kira",
+   "tier": "plausible",
+   "look": "a woven ankle-length wrap dress pinned at the shoulders, belted at the waist, and worn with a short jacket",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a daura suruwal",
+   "short": "daura suruwal",
+   "tier": "plausible",
+   "look": "a high-necked wrap tunic tied with cords over tapered pants, often with a vest and patterned cap",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a gunyo cholo",
+   "short": "gunyo cholo",
+   "tier": "plausible",
+   "look": "a fitted tied blouse, a long wrapped skirt, a waist sash, and a separate shoulder drape",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a pavadai davani",
+   "short": "pavadai davani",
+   "tier": "plausible",
+   "look": "a long flared skirt and fitted blouse with a separate half-sari cloth draped across the torso",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Kashmiri pheran",
+   "short": "pheran",
+   "tier": "plausible",
+   "look": "a wide loose knee-length wool tunic with generous sleeves and embroidery around the neck and cuffs",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "an angarkha",
+   "short": "angarkha",
+   "tier": "plausible",
+   "look": "a flared wrap tunic with an overlapping curved front tied to one side with fabric cords",
+   "tags": {
+    "area": [
+     "south_asia"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "an áo dài",
+   "short": "áo dài",
+   "tier": "typical",
+   "look": "a high-necked fitted tunic with long split panels flowing over wide pants",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an áo tứ thân",
+   "short": "áo tứ thân",
+   "tier": "plausible",
+   "look": "a long open-front four-panel tunic over a contrasting bodice and skirt, tied with bright waist sashes",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an áo bà ba ensemble",
+   "short": "áo bà ba",
+   "tier": "plausible",
+   "look": "a simple button-front collarless shirt with side slits over straight loose pants",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a barong Tagalog",
+   "short": "barong Tagalog",
+   "tier": "typical",
+   "look": "a sheer long-sleeved embroidered shirt worn untucked over an undershirt and dark pants",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a baro't saya",
+   "short": "baro't saya",
+   "tier": "plausible",
+   "look": "a loose blouse with full sleeves above a long skirt, with a shoulder kerchief and an overskirt",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Filipiniana terno",
+   "short": "terno",
+   "tier": "plausible",
+   "look": "a fitted long dress with stiff upright butterfly sleeves and a narrow waist",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a kebaya",
+   "short": "kebaya",
+   "tier": "typical",
+   "look": "a close-fitting front-opening blouse in lace or embroidery over a long wrapped patterned skirt",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a batik sarong",
+   "short": "batik sarong",
+   "tier": "typical",
+   "look": "a rectangular cloth with intricate wax-resist patterns wrapped into a long straight skirt",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a baju kurung",
+   "short": "baju kurung",
+   "tier": "typical",
+   "look": "a loose long-sleeved tunic with a round neckline worn over a matching long skirt",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a baju Melayu",
+   "short": "baju Melayu",
+   "tier": "plausible",
+   "look": "a long-sleeved tunic and matching pants with a short woven sampin wrapped around the hips",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a checked Burmese longyi",
+   "short": "Burmese longyi",
+   "tier": "plausible",
+   "look": "a checked tubular ankle-length wrap gathered into a prominent tuck at the front of the waist",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Cambodian sampot",
+   "short": "sampot",
+   "tier": "plausible",
+   "look": "a silk hip cloth wrapped into a close ankle-length skirt with folded fabric at the waist",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "chong kraben",
+   "short": "chong kraben",
+   "tier": "plausible",
+   "look": "a hip cloth drawn between the legs and tucked behind to make loose knee-length breeches",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a chut Thai sabai ensemble",
+   "short": "chut Thai sabai",
+   "tier": "plausible",
+   "look": "a fitted long silk skirt with a pleated sash crossing the chest and draping over one shoulder",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Lao sinh",
+   "short": "Lao sinh",
+   "tier": "plausible",
+   "look": "a straight tubular skirt with a broad intricately woven hem, worn with a fitted blouse",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an embroidered Hmong dress",
+   "short": "Hmong dress",
+   "tier": "unusual",
+   "look": "a brightly embroidered jacket with a pleated skirt, apron panels, and silver coin ornaments",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a baju bodo",
+   "short": "baju bodo",
+   "tier": "plausible",
+   "look": "a translucent boxy short-sleeved blouse over a woven silk sarong, with large gold ornaments",
+   "tags": {
+    "area": [
+     "southeast_asia"
+    ],
+    "region": [
+     "southeast_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a kaftan",
+   "short": "kaftan",
+   "tier": "typical",
+   "look": "a long loose robe with broad sleeves and a decorated center front, worn open or closed",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "african",
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a djellaba",
+   "short": "djellaba",
+   "tier": "typical",
+   "look": "an ankle-length robe with long sleeves and a large pointed hood",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "an Arabian thobe",
+   "short": "Arabian thobe",
+   "tier": "typical",
+   "look": "a straight ankle-length long-sleeved white robe with a small collar and button placket",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "middle_eastern"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "an abaya",
+   "short": "abaya",
+   "tier": "typical",
+   "look": "a loose full-length outer robe falling from the shoulders, commonly black and worn over other clothes",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "middle_eastern"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a keffiyeh with a thobe",
+   "short": "keffiyeh with thobe",
+   "tier": "plausible",
+   "look": "a checked headcloth draped over the head and shoulders above a long plain robe",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "middle_eastern"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a Moroccan takchita",
+   "short": "takchita",
+   "tier": "plausible",
+   "look": "a decorated open-front outer robe over a matching long dress, cinched with a broad ornate belt",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a gandoura",
+   "short": "gandoura",
+   "tier": "plausible",
+   "look": "a loose ankle-length tunic with very short or absent sleeves and a decorated neckline",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a burnous",
+   "short": "burnous",
+   "tier": "plausible",
+   "look": "a heavy hooded wool cloak forming a broad triangular drape around the shoulders",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a haik",
+   "short": "haik",
+   "tier": "plausible",
+   "look": "a large white cloth wrapped over the head and around the body in loose overlapping folds",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an Algerian karakou",
+   "short": "karakou",
+   "tier": "plausible",
+   "look": "a fitted velvet jacket densely embroidered with gold braid above voluminous pants",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Palestinian embroidered thobe",
+   "short": "Palestinian thobe",
+   "tier": "typical",
+   "look": "a long dark dress with geometric cross-stitch panels on the chest, sleeves, and skirt",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "middle_eastern"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Yemeni futah",
+   "short": "Yemeni futah",
+   "tier": "plausible",
+   "look": "a striped or patterned wrap skirt tied at the waist, usually with a shirt or jacket",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "middle_eastern"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a bisht over a thobe",
+   "short": "bisht",
+   "tier": "plausible",
+   "look": "a flowing open cloak with gold-trimmed edges draped over a straight ankle-length robe",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "middle_eastern"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a Kurdish kiras fistan",
+   "short": "Kurdish kiras fistan",
+   "tier": "plausible",
+   "look": "a bright floor-length dress with long trailing sleeves, a decorative vest, and a wide belt",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "middle_eastern"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a chador",
+   "short": "chador",
+   "tier": "plausible",
+   "look": "a semicircular full-body cloth draped over the head and held closed at the front, leaving the face visible",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "middle_eastern"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "Turkish şalvar with a cepken",
+   "short": "şalvar and cepken",
+   "tier": "plausible",
+   "look": "very loose pants gathered at the ankles beneath a shirt and a short embroidered jacket",
+   "tags": {
+    "area": [
+     "middle_east_north_africa"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a kente cloth wrap",
+   "short": "kente wrap",
+   "tier": "typical",
+   "look": "bright narrow woven strips joined into a large geometric cloth draped around the body and over a shoulder",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "an agbada",
+   "short": "agbada",
+   "tier": "typical",
+   "look": "a broad embroidered outer gown with folded-back sleeves over a long tunic and matching pants",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a dashiki",
+   "short": "dashiki",
+   "tier": "typical",
+   "look": "a loose hip-length pullover with a bold patterned yoke framing a deep notched neckline",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a Senegalese grand boubou",
+   "short": "grand boubou",
+   "tier": "typical",
+   "look": "a flowing ankle-length wide robe with a large embroidered chest panel and loose hanging sides",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a kanga wrap",
+   "short": "kanga wrap",
+   "tier": "plausible",
+   "look": "bright rectangular printed cloths with bold borders wrapped as a skirt and an upper-body drape",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a kitenge mermaid dress",
+   "short": "kitenge mermaid dress",
+   "tier": "plausible",
+   "look": "a fitted dress in vivid wax-print cloth, with shaped sleeves and a skirt flaring strongly below the knees",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a gomesi",
+   "short": "gomesi",
+   "tier": "plausible",
+   "look": "a floor-length dress with squared pointed shoulders, a buttoned side neckline, and a wide waist sash",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Ugandan kanzu with a jacket",
+   "short": "kanzu and jacket",
+   "tier": "plausible",
+   "look": "a white ankle-length tunic with subtle chest embroidery beneath a dark tailored suit jacket",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a habesha kemis",
+   "short": "habesha kemis",
+   "tier": "typical",
+   "look": "a white ankle-length cotton dress with brightly woven borders at the neckline, cuffs, and hem",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an Ethiopian shamma",
+   "short": "shamma",
+   "tier": "plausible",
+   "look": "a large white cotton cloth with a woven colored border wrapped around the shoulders and body",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a Maasai shuka",
+   "short": "Maasai shuka",
+   "tier": "typical",
+   "look": "a bold red checked cloth wrapped around the body and draped across one shoulder",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a Basotho blanket",
+   "short": "Basotho blanket",
+   "tier": "plausible",
+   "look": "a thick patterned wool blanket pinned around the shoulders and falling into a rounded cape",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a Xhosa umbhaco ensemble",
+   "short": "Xhosa umbhaco",
+   "tier": "plausible",
+   "look": "a full long skirt with bold dark bands, a matching shoulder wrap, and beaded accessories",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Zulu isidwaba ensemble",
+   "short": "Zulu isidwaba",
+   "tier": "plausible",
+   "look": "a stiff pleated leather skirt worn with a beaded upper garment, necklaces, and a broad hat",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an Ndebele beaded apron ensemble",
+   "short": "Ndebele beaded apron",
+   "tier": "unusual",
+   "look": "a rectangular geometric beaded apron, stacked neck and leg rings, and a thick striped shoulder blanket",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an iro and buba with a gele",
+   "short": "iro, buba, and gele",
+   "tier": "typical",
+   "look": "a wrapped long skirt and loose matching blouse with a large sculpted fabric headwrap",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Somali dirac",
+   "short": "Somali dirac",
+   "tier": "plausible",
+   "look": "a sheer brightly colored ankle-length dress with wide sleeves over an opaque slip and a light shawl",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Herero dress",
+   "short": "Herero dress",
+   "tier": "unusual",
+   "look": "a high-necked full-length dress with puffed sleeves, a very wide skirt, and a horizontal horn-shaped headdress",
+   "tags": {
+    "area": [
+     "sub_saharan_africa"
+    ],
+    "region": [
+     "african"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a dirndl",
+   "short": "dirndl",
+   "tier": "typical",
+   "look": "a fitted laced bodice over a white blouse, with a full skirt and a contrasting tied apron",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "lederhosen",
+   "short": "lederhosen",
+   "tier": "typical",
+   "look": "short leather breeches with an embroidered front flap, often with suspenders and knee socks",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a kilt with Highland dress",
+   "short": "Highland dress",
+   "tier": "typical",
+   "look": "a pleated tartan kilt with a sporran, fitted jacket, knee socks, and leather brogues",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a Sámi gákti",
+   "short": "gákti",
+   "tier": "plausible",
+   "look": "a bright tunic belted at the waist, edged with contrasting bands, and worn with distinctive boots and headwear",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a sarafan",
+   "short": "sarafan",
+   "tier": "plausible",
+   "look": "a long loose sleeveless dress with broad shoulder straps worn over a full-sleeved blouse",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a kosovorotka",
+   "short": "kosovorotka",
+   "tier": "plausible",
+   "look": "a loose shirt with a high collar and off-center neck opening, belted over pants",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a Ukrainian vyshyvanka",
+   "short": "vyshyvanka",
+   "tier": "typical",
+   "look": "a white linen shirt or blouse with dense geometric embroidery at the neck, chest, and cuffs",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a Norwegian bunad",
+   "short": "bunad",
+   "tier": "plausible",
+   "look": "a fitted wool bodice and long skirt over a white blouse, with silver clasps and embroidered panels",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a traje de flamenca",
+   "short": "traje de flamenca",
+   "tier": "plausible",
+   "look": "a fitted ankle-length dress with multiple tiers of flounces at the skirt and sleeves",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Greek fustanella ensemble",
+   "short": "fustanella",
+   "tier": "plausible",
+   "look": "a short white skirt with many narrow pleats, an embroidered vest, white stockings, and tasseled shoes",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "an Icelandic upphlutur",
+   "short": "upphlutur",
+   "tier": "plausible",
+   "look": "a dark fitted laced bodice over a white blouse and long skirt, with silver ornaments and a tasseled cap",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Breton dress with a bigouden coif",
+   "short": "Breton bigouden dress",
+   "tier": "plausible",
+   "look": "a dark embroidered bodice and full skirt with a lace apron and a very tall cylindrical lace headdress",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a chokha",
+   "short": "chokha",
+   "tier": "plausible",
+   "look": "a close-fitting long coat with rows of cartridge holders across the chest, a narrow belt, and tall boots",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european",
+     "middle_eastern"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a Romanian ie with a catrință",
+   "short": "ie and catrință",
+   "tier": "plausible",
+   "look": "a full-sleeved embroidered white blouse with woven rectangular apron panels over a long skirt",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Kraków folk dress",
+   "short": "Kraków folk dress",
+   "tier": "plausible",
+   "look": "a sequined floral vest over a white puff-sleeved blouse, a full printed skirt, apron, and red bead necklaces",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Hungarian kalocsai dress",
+   "short": "Kalocsai dress",
+   "tier": "plausible",
+   "look": "a full white skirt and puff-sleeved blouse covered in vivid floral embroidery, with a fitted vest and apron",
+   "tags": {
+    "area": [
+     "europe"
+    ],
+    "region": [
+     "european"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a huipil",
+   "short": "huipil",
+   "tier": "typical",
+   "look": "a rectangular woven blouse or tunic with a head opening and dense brocade or embroidery across the shoulders",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "latin_american"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Bolivian pollera ensemble",
+   "short": "Bolivian pollera",
+   "tier": "typical",
+   "look": "a layered bell-shaped pleated skirt, fitted blouse, fringed shawl, and bowler hat",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "latin_american"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an Andean poncho",
+   "short": "Andean poncho",
+   "tier": "typical",
+   "look": "a heavy rectangular woven cloth with a central head opening and bold stripes falling over the torso",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a Panamanian pollera",
+   "short": "Panamanian pollera",
+   "tier": "plausible",
+   "look": "a wide white two-piece dress with lace ruffles, embroidered floral designs, and ornate hair combs",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "latin_american"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a charro suit",
+   "short": "charro suit",
+   "tier": "typical",
+   "look": "a short fitted jacket and close pants with silver side ornaments, a wide bow tie, and a broad sombrero",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "latin_american"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a Tehuana dress",
+   "short": "Tehuana dress",
+   "tier": "plausible",
+   "look": "a boxy richly embroidered floral blouse with a long full skirt finished in a wide white lace flounce",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "latin_american"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a quechquemitl",
+   "short": "quechquemitl",
+   "tier": "plausible",
+   "look": "a short woven shoulder cape with pointed front and back panels, often densely embroidered",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "latin_american"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an Inuit amauti",
+   "short": "amauti",
+   "tier": "plausible",
+   "look": "a long hooded parka with a large back pouch, broad shoulders, and a long curved rear hem",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "north_american"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a ribbon shirt",
+   "short": "ribbon shirt",
+   "tier": "plausible",
+   "look": "a loose shirt with bright ribbon bands across the chest and sleeves, often with hanging ribbon ends",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "north_american"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a jingle dress",
+   "short": "jingle dress",
+   "tier": "plausible",
+   "look": "a knee-length powwow dress covered in rows of small metal cones that hang from the fabric",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "north_american"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a fancy shawl dance outfit",
+   "short": "fancy shawl outfit",
+   "tier": "plausible",
+   "look": "a brightly decorated dress with beaded accessories and a wide shawl edged in long swinging fringe",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "north_american"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a gaucho bombacha ensemble",
+   "short": "gaucho bombachas",
+   "tier": "plausible",
+   "look": "loose pants gathered at the ankles, tall leather boots, a wide belt, a neckerchief, and a flat-brimmed hat",
+   "tags": {
+    "area": [
+     "americas"
+    ],
+    "region": [
+     "latin_american"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a lavalava",
+   "short": "lavalava",
+   "tier": "typical",
+   "look": "a rectangular cloth wrapped around the waist as a straight skirt, in plain or bold printed fabric",
+   "tags": {
+    "area": [
+     "oceania"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "a hula pāʻū skirt",
+   "short": "hula pāʻū skirt",
+   "tier": "plausible",
+   "look": "a very full gathered skirt with several elastic waist channels and a bright botanical print",
+   "tags": {
+    "area": [
+     "oceania"
+    ],
+    "region": [
+     "oceanian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Māori piupiu",
+   "short": "piupiu",
+   "tier": "typical",
+   "look": "a skirt of flax strands with alternating dark and pale sections that swing apart with movement",
+   "tags": {
+    "area": [
+     "oceania"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "a Tongan ta'ovala over a tupenu",
+   "short": "ta'ovala and tupenu",
+   "tier": "plausible",
+   "look": "a stiff woven mat tied around the waist over a long cloth skirt, secured with a braided cord",
+   "tags": {
+    "area": [
+     "oceania"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "a Samoan puletasi",
+   "short": "puletasi",
+   "tier": "plausible",
+   "look": "a fitted tunic with a long matching skirt in large floral or geometric prints",
+   "tags": {
+    "area": [
+     "oceania"
+    ],
+    "region": [
+     "oceanian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a muʻumuʻu",
+   "short": "muʻumuʻu",
+   "tier": "plausible",
+   "look": "a loose flowing ankle-length dress with a gathered yoke, broad sleeves, and bright floral prints",
+   "tags": {
+    "area": [
+     "oceania"
+    ],
+    "region": [
+     "oceanian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Fijian sulu vakataga",
+   "short": "sulu vakataga",
+   "tier": "plausible",
+   "look": "a tailored knee-length wrap skirt with pockets and a straight waistband, worn with a collared shirt",
+   "tags": {
+    "area": [
+     "oceania"
+    ],
+    "region": [
+     "oceanian"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a Mongolian deel",
+   "short": "deel",
+   "tier": "typical",
+   "look": "a long wrap robe fastening high to one side, with a broad cloth sash and long cuffed sleeves",
+   "tags": {
+    "area": [
+     "central_asia"
+    ],
+    "region": [
+     "central_asian"
+    ]
+   }
+  },
+  {
+   "text": "a chapan",
+   "short": "chapan",
+   "tier": "typical",
+   "look": "a long quilted open-front robe with vivid vertical stripes or ikat patterns, tied with a sash",
+   "tags": {
+    "area": [
+     "central_asia"
+    ],
+    "region": [
+     "central_asian"
+    ]
+   }
+  },
+  {
+   "text": "an Uzbek atlas dress with lozim",
+   "short": "atlas dress and lozim",
+   "tier": "plausible",
+   "look": "a loose silk ikat dress in bold blurred stripes over matching wide pants",
+   "tags": {
+    "area": [
+     "central_asia"
+    ],
+    "region": [
+     "central_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Kyrgyz chapan with an ak kalpak",
+   "short": "chapan and ak kalpak",
+   "tier": "plausible",
+   "look": "a dark long coat and boots topped by a tall white felt hat with black curved seams",
+   "tags": {
+    "area": [
+     "central_asia"
+    ],
+    "region": [
+     "central_asian"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a Kazakh dress with a kamzol",
+   "short": "Kazakh dress and kamzol",
+   "tier": "plausible",
+   "look": "a long flounced dress beneath a fitted sleeveless embroidered velvet vest, with a decorated cap",
+   "tags": {
+    "area": [
+     "central_asia"
+    ],
+    "region": [
+     "central_asian"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  }
+ ]
+}

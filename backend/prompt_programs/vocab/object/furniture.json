@@ -1,0 +1,1525 @@
+{
+ "id": "object.furniture",
+ "label": "Furniture",
+ "description": "Named seating, sofas, tables, desks, beds, storage furniture, lamps, and room furnishings.",
+ "pos": "noun phrase",
+ "frame": "the room contains ___",
+ "notes": "Furniture forms and recognizable construction types belong here, including the seats formerly in object.chair. Values include articles where needed and use generic names rather than brands or designer attributions. object.material, object.color, and object.pattern own surface variations; object.instrument owns musical instruments. Historical furniture remains usable in contemporary interiors, and local style tags describe appearance rather than geography.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "seating",
+   "sofa",
+   "table_desk",
+   "bed",
+   "storage",
+   "lighting_lamp",
+   "decor"
+  ],
+  "style": [
+   "modern",
+   "mid_century",
+   "antique",
+   "rustic",
+   "traditional_regional"
+  ]
+ },
+ "values": [
+  {
+   "text": "a wooden dining chair",
+   "short": "dining chair",
+   "tier": "typical",
+   "look": "an upright wooden chair with a narrow back and a flat seat at dining-table height",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a padded office chair",
+   "short": "office chair",
+   "tier": "typical",
+   "look": "a cushioned swivel seat with armrests, a high back, and a wheeled base",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a folding metal chair",
+   "short": "folding metal chair",
+   "tier": "typical",
+   "look": "a thin metal seat and back on a hinged frame that folds flat",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a molded plastic chair",
+   "short": "molded plastic chair",
+   "tier": "typical",
+   "look": "a smooth one-piece plastic seat and back on slender legs",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a fabric armchair",
+   "short": "fabric armchair",
+   "tier": "typical",
+   "look": "a deep upholstered seat with a padded back and two substantial arms",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen stool",
+   "short": "kitchen stool",
+   "tier": "typical",
+   "look": "a low backless seat on straight legs, sized to tuck under a kitchen table",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a wooden bench",
+   "short": "wooden bench",
+   "tier": "typical",
+   "look": "a long wooden seat on legs, wide enough for several people",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "rustic"
+    ]
+   }
+  },
+  {
+   "text": "a school chair",
+   "short": "school chair",
+   "tier": "plausible",
+   "look": "a small molded or plywood seat and separate back on a simple metal frame",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a stackable banquet chair",
+   "short": "banquet chair",
+   "tier": "plausible",
+   "look": "a slim padded seat with an oval or arched upholstered back on a stacking metal frame",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a rocking chair",
+   "short": "rocking chair",
+   "tier": "typical",
+   "look": "an armchair mounted on two curved runners instead of flat feet",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a wicker patio chair",
+   "short": "wicker patio chair",
+   "tier": "typical",
+   "look": "an outdoor armchair with an open woven body and rounded arms",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a swivel bar stool",
+   "short": "swivel bar stool",
+   "tier": "typical",
+   "look": "a tall rotating seat with a foot ring and a pedestal or long legs",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a wicker peacock chair",
+   "short": "peacock chair",
+   "tier": "plausible",
+   "look": "a woven chair with an enormous fan-shaped back and a narrow hourglass base",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "a leather club chair",
+   "short": "club chair",
+   "tier": "plausible",
+   "look": "a low leather armchair with a broad rounded back and thick arms",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a canvas director’s chair",
+   "short": "director’s chair",
+   "tier": "plausible",
+   "look": "a folding wooden X-frame with a canvas sling seat and a separate canvas back",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a folding camping chair",
+   "short": "camping chair",
+   "tier": "plausible",
+   "look": "a fabric bucket seat stretched over a collapsible tubular frame",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a beanbag chair",
+   "short": "beanbag chair",
+   "tier": "typical",
+   "look": "a large soft sack that slumps into a rounded seat without visible legs or frame",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a kneeling desk chair",
+   "short": "kneeling chair",
+   "tier": "plausible",
+   "look": "an angled seat above a separate padded knee rest on a low frame",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a bentwood café chair",
+   "short": "bentwood café chair",
+   "tier": "plausible",
+   "look": "a light wooden chair with a looped curved back and a round seat",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a ladder-back rush-seat chair",
+   "short": "ladder-back chair",
+   "tier": "plausible",
+   "look": "a wooden chair with horizontal back slats and a seat woven from rush",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "rustic"
+    ]
+   }
+  },
+  {
+   "text": "a slatted garden chair",
+   "short": "slatted garden chair",
+   "tier": "plausible",
+   "look": "a straight outdoor chair built from spaced wooden strips across the seat and back",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a leather recliner",
+   "short": "leather recliner",
+   "tier": "typical",
+   "look": "a bulky padded armchair with a tilting back and a footrest that lifts out from the front",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a wingback chair",
+   "short": "wingback chair",
+   "tier": "plausible",
+   "look": "a tall upholstered chair with projecting side wings beside the head",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a carved wooden throne",
+   "short": "carved throne",
+   "tier": "unusual",
+   "look": "an oversized ceremonial armchair with a high carved back and raised armrests",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a low floor cushion",
+   "short": "floor cushion",
+   "tier": "plausible",
+   "look": "a broad thick cushion placed directly on the floor, without legs or back",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a three-legged milking stool",
+   "short": "milking stool",
+   "tier": "plausible",
+   "look": "a small round wooden seat supported by three splayed legs",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "rustic"
+    ]
+   }
+  },
+  {
+   "text": "a cable-reel stool",
+   "short": "cable-reel stool",
+   "tier": "unusual",
+   "look": "a squat wooden cable spool used upright as a seat, with circular ends and a narrow middle",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "rustic"
+    ]
+   }
+  },
+  {
+   "text": "a hammock chair",
+   "short": "hammock chair",
+   "tier": "plausible",
+   "look": "a hanging fabric or rope seat suspended from a bar or a single overhead point",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a transparent acrylic chair",
+   "short": "acrylic chair",
+   "tier": "plausible",
+   "look": "a rigid see-through chair whose clear seat and back reveal the room behind it",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a driftwood chair",
+   "short": "driftwood chair",
+   "tier": "unusual",
+   "look": "a chair assembled from irregular weathered branches and pale twisted wood",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "rustic"
+    ]
+   }
+  },
+  {
+   "text": "a zaisu floor chair",
+   "short": "zaisu floor chair",
+   "tier": "plausible",
+   "look": "a legless Japanese chair with a low seat cushion and an upright back",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "a Chinese horseshoe-back chair",
+   "short": "horseshoe-back chair",
+   "tier": "plausible",
+   "look": "a wooden chair with one continuous rounded rail sweeping from the back into both arms",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "an Indian woven rope stool",
+   "short": "woven rope stool",
+   "tier": "plausible",
+   "look": "a short square wooden frame with a tightly interlaced rope seat",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "an Akan carved stool",
+   "short": "Akan stool",
+   "tier": "plausible",
+   "look": "a curved wooden seat raised above a rectangular base by a carved central support",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "a Moroccan leather pouf",
+   "short": "leather pouf",
+   "tier": "plausible",
+   "look": "a low round leather cushion with stitched panels and no legs",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "a Roman curule chair",
+   "short": "curule chair",
+   "tier": "unusual",
+   "look": "a backless folding seat with two pairs of curved X-shaped legs",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a Gothic carved choir chair",
+   "short": "Gothic choir chair",
+   "tier": "unusual",
+   "look": "a tall wooden church seat enclosed by carved side panels and a pointed canopy",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a gilded rococo armchair",
+   "short": "rococo armchair",
+   "tier": "plausible",
+   "look": "a padded chair edged with gilded scrollwork, curved legs, and an ornate open frame",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a tubular-steel cantilever chair",
+   "short": "cantilever chair",
+   "tier": "plausible",
+   "look": "a seat supported by a bent steel frame that curves under it without rear legs",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a Windsor chair",
+   "short": "Windsor chair",
+   "tier": "plausible",
+   "look": "a solid wooden seat with splayed legs and many thin spindles rising into a curved back",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a molded plywood lounge chair",
+   "short": "plywood lounge chair",
+   "tier": "plausible",
+   "look": "a low reclining chair with curved plywood shells, padded sections, and a swiveling base",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "mid_century"
+    ]
+   }
+  },
+  {
+   "text": "an egg-shaped swivel chair",
+   "short": "egg-shaped chair",
+   "tier": "plausible",
+   "look": "a curved upholstered shell wrapping around the sitter on a central swivel pedestal",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "mid_century"
+    ]
+   }
+  },
+  {
+   "text": "an Adirondack chair",
+   "short": "Adirondack chair",
+   "tier": "plausible",
+   "look": "a low outdoor chair with a sloping slatted seat, a tall fan-shaped back, and wide flat arms",
+   "tags": {
+    "kind": [
+     "seating"
+    ],
+    "style": [
+     "rustic"
+    ]
+   }
+  },
+  {
+   "text": "a papasan chair",
+   "short": "papasan chair",
+   "tier": "plausible",
+   "look": "a wide round bowl-shaped wicker frame holding a thick circular cushion",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a Chesterfield sofa",
+   "short": "Chesterfield sofa",
+   "tier": "plausible",
+   "look": "a deep button-tufted sofa with rolled arms as high as its back",
+   "tags": {
+    "kind": [
+     "sofa"
+    ]
+   }
+  },
+  {
+   "text": "a sectional sofa",
+   "short": "sectional sofa",
+   "tier": "typical",
+   "look": "a large sofa made of connected sections, usually forming an L or U",
+   "tags": {
+    "kind": [
+     "sofa"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a loveseat",
+   "short": "loveseat",
+   "tier": "typical",
+   "look": "a compact upholstered sofa wide enough for two people",
+   "tags": {
+    "kind": [
+     "sofa"
+    ]
+   }
+  },
+  {
+   "text": "a chaise longue",
+   "short": "chaise longue",
+   "tier": "plausible",
+   "look": "an elongated upholstered seat with a raised back at one end and space to stretch out the legs",
+   "tags": {
+    "kind": [
+     "sofa"
+    ]
+   }
+  },
+  {
+   "text": "a settee",
+   "short": "settee",
+   "tier": "plausible",
+   "look": "a small formal sofa with a visible wooden frame, upright back, and slender legs",
+   "tags": {
+    "kind": [
+     "sofa"
+    ]
+   }
+  },
+  {
+   "text": "a tuxedo sofa",
+   "short": "tuxedo sofa",
+   "tier": "plausible",
+   "look": "a boxy sofa whose straight arms and back rise to the same height",
+   "tags": {
+    "kind": [
+     "sofa"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a camelback sofa",
+   "short": "camelback sofa",
+   "tier": "plausible",
+   "look": "a formal sofa with an arched central hump along the upholstered back",
+   "tags": {
+    "kind": [
+     "sofa"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a modular floor sofa",
+   "short": "floor sofa",
+   "tier": "plausible",
+   "look": "low padded blocks forming a sofa directly above the floor, with no visible legs",
+   "tags": {
+    "kind": [
+     "sofa"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a fainting couch",
+   "short": "fainting couch",
+   "tier": "unusual",
+   "look": "an asymmetrical upholstered couch with a high headrest and a back curving down along one side",
+   "tags": {
+    "kind": [
+     "sofa"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a dining table",
+   "short": "dining table",
+   "tier": "typical",
+   "look": "a broad table at chair height with open space beneath for diners’ legs",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ]
+   }
+  },
+  {
+   "text": "a coffee table",
+   "short": "coffee table",
+   "tier": "typical",
+   "look": "a low broad table positioned in front of a sofa",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ]
+   }
+  },
+  {
+   "text": "a pedestal side table",
+   "short": "pedestal side table",
+   "tier": "typical",
+   "look": "a small round tabletop on a single central support",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ]
+   }
+  },
+  {
+   "text": "a console table",
+   "short": "console table",
+   "tier": "typical",
+   "look": "a shallow long table designed to stand against a wall or behind a sofa",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ]
+   }
+  },
+  {
+   "text": "a trestle table",
+   "short": "trestle table",
+   "tier": "plausible",
+   "look": "a long plank top resting on two broad braced supports",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ],
+    "style": [
+     "rustic"
+    ]
+   }
+  },
+  {
+   "text": "a drop-leaf table",
+   "short": "drop-leaf table",
+   "tier": "plausible",
+   "look": "a table with hinged side leaves that hang down or lift to enlarge the top",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ]
+   }
+  },
+  {
+   "text": "a gateleg table",
+   "short": "gateleg table",
+   "tier": "plausible",
+   "look": "a folding table with hinged leaves supported by legs that swing outward like gates",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a drafting table",
+   "short": "drafting table",
+   "tier": "plausible",
+   "look": "a broad tilted work surface on a tall adjustable frame",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ]
+   }
+  },
+  {
+   "text": "a writing desk",
+   "short": "writing desk",
+   "tier": "typical",
+   "look": "a flat worktop with shallow drawers and open knee space",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ]
+   }
+  },
+  {
+   "text": "a secretary desk",
+   "short": "secretary desk",
+   "tier": "plausible",
+   "look": "a tall cabinet whose slanted front folds down into a writing surface with small compartments",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a roll-top desk",
+   "short": "roll-top desk",
+   "tier": "plausible",
+   "look": "a writing desk with a curved slatted cover that slides down over its cubbies",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a pedestal desk",
+   "short": "pedestal desk",
+   "tier": "plausible",
+   "look": "a wide desktop resting on two solid banks of drawers",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ]
+   }
+  },
+  {
+   "text": "a standing desk",
+   "short": "standing desk",
+   "tier": "typical",
+   "look": "a high work surface raised above ordinary seated desk height",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a vanity table",
+   "short": "vanity table",
+   "tier": "typical",
+   "look": "a small dressing table with a mirror above it and shallow drawers below",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ]
+   }
+  },
+  {
+   "text": "nesting tables",
+   "short": "nesting tables",
+   "tier": "plausible",
+   "look": "a graduated set of small matching tables that slide underneath one another",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ]
+   }
+  },
+  {
+   "text": "a Japanese chabudai table",
+   "short": "chabudai table",
+   "tier": "plausible",
+   "look": "a low wooden dining table with short legs for people seated on the floor",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "a kotatsu table",
+   "short": "kotatsu table",
+   "tier": "plausible",
+   "look": "a low table with a thick quilt draped beneath its tabletop",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "a butcher-block island",
+   "short": "butcher-block island",
+   "tier": "plausible",
+   "look": "a freestanding kitchen worktable with a thick block-wood top and heavy legs",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ],
+    "style": [
+     "rustic"
+    ]
+   }
+  },
+  {
+   "text": "a bar cart",
+   "short": "bar cart",
+   "tier": "plausible",
+   "look": "a small wheeled serving trolley with two shelves and a handle",
+   "tags": {
+    "kind": [
+     "table_desk"
+    ]
+   }
+  },
+  {
+   "text": "a platform bed",
+   "short": "platform bed",
+   "tier": "typical",
+   "look": "a mattress on a low broad base without tall posts or a box spring",
+   "tags": {
+    "kind": [
+     "bed"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a four-poster bed",
+   "short": "four-poster bed",
+   "tier": "plausible",
+   "look": "a bed with four tall corner posts standing above the mattress",
+   "tags": {
+    "kind": [
+     "bed"
+    ]
+   }
+  },
+  {
+   "text": "a canopy bed",
+   "short": "canopy bed",
+   "tier": "plausible",
+   "look": "a bed with overhead rails supporting a fabric roof or curtains",
+   "tags": {
+    "kind": [
+     "bed"
+    ]
+   }
+  },
+  {
+   "text": "a sleigh bed",
+   "short": "sleigh bed",
+   "tier": "plausible",
+   "look": "a bed with a high headboard and footboard curling outward like a sleigh",
+   "tags": {
+    "kind": [
+     "bed"
+    ]
+   }
+  },
+  {
+   "text": "a bunk bed",
+   "short": "bunk bed",
+   "tier": "typical",
+   "look": "two bed frames stacked vertically and connected by a ladder",
+   "tags": {
+    "kind": [
+     "bed"
+    ]
+   }
+  },
+  {
+   "text": "a loft bed",
+   "short": "loft bed",
+   "tier": "plausible",
+   "look": "a single raised bed above an open space for a desk or seating",
+   "tags": {
+    "kind": [
+     "bed"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a trundle bed",
+   "short": "trundle bed",
+   "tier": "plausible",
+   "look": "a bed with a second low mattress on a wheeled frame pulled out beneath it",
+   "tags": {
+    "kind": [
+     "bed"
+    ]
+   }
+  },
+  {
+   "text": "a daybed",
+   "short": "daybed",
+   "tier": "typical",
+   "look": "a single mattress framed by a back and two ends so it can serve as a couch",
+   "tags": {
+    "kind": [
+     "bed"
+    ]
+   }
+  },
+  {
+   "text": "a Japanese futon",
+   "short": "Japanese futon",
+   "tier": "plausible",
+   "look": "a thin quilted sleeping mattress spread directly on the floor with folded bedding",
+   "tags": {
+    "kind": [
+     "bed"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "a tatami platform bed",
+   "short": "tatami platform bed",
+   "tier": "plausible",
+   "look": "a low rectangular wooden bed platform inset with woven tatami mats",
+   "tags": {
+    "kind": [
+     "bed"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "a charpai",
+   "short": "charpai",
+   "tier": "plausible",
+   "look": "a raised rectangular wooden cot with a tightly woven rope sleeping surface",
+   "tags": {
+    "kind": [
+     "bed"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "a folding camp cot",
+   "short": "camp cot",
+   "tier": "plausible",
+   "look": "a narrow fabric sleeping surface stretched across a folding metal frame",
+   "tags": {
+    "kind": [
+     "bed"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a sideboard",
+   "short": "sideboard",
+   "tier": "typical",
+   "look": "a waist-high dining-room cabinet with drawers and closed cupboards under a serving top",
+   "tags": {
+    "kind": [
+     "storage"
+    ]
+   }
+  },
+  {
+   "text": "a credenza",
+   "short": "credenza",
+   "tier": "plausible",
+   "look": "a long low cabinet with a flat front, sliding doors, and a shallow streamlined body",
+   "tags": {
+    "kind": [
+     "storage"
+    ],
+    "style": [
+     "mid_century",
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a hutch",
+   "short": "hutch",
+   "tier": "plausible",
+   "look": "a cabinet with a tall upper section of open shelves above a wider cupboard base",
+   "tags": {
+    "kind": [
+     "storage"
+    ]
+   }
+  },
+  {
+   "text": "a curio cabinet",
+   "short": "curio cabinet",
+   "tier": "plausible",
+   "look": "a tall narrow display cabinet with glass doors and glass sides",
+   "tags": {
+    "kind": [
+     "storage"
+    ]
+   }
+  },
+  {
+   "text": "an armoire",
+   "short": "armoire",
+   "tier": "plausible",
+   "look": "a tall freestanding wardrobe with heavy paneled doors, a projecting cornice, and short feet",
+   "tags": {
+    "kind": [
+     "storage"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a sliding-door wardrobe",
+   "short": "sliding-door wardrobe",
+   "tier": "typical",
+   "look": "a tall clothing cabinet with broad flat doors that slide sideways",
+   "tags": {
+    "kind": [
+     "storage"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a chest of drawers",
+   "short": "chest of drawers",
+   "tier": "typical",
+   "look": "a freestanding rectangular case filled with stacked horizontal drawers",
+   "tags": {
+    "kind": [
+     "storage"
+    ]
+   }
+  },
+  {
+   "text": "a tallboy dresser",
+   "short": "tallboy dresser",
+   "tier": "plausible",
+   "look": "a narrow chest with many drawers stacked in a tall column",
+   "tags": {
+    "kind": [
+     "storage"
+    ]
+   }
+  },
+  {
+   "text": "a blanket chest",
+   "short": "blanket chest",
+   "tier": "plausible",
+   "look": "a low wooden storage box with a broad hinged lid",
+   "tags": {
+    "kind": [
+     "storage"
+    ],
+    "style": [
+     "rustic"
+    ]
+   }
+  },
+  {
+   "text": "a tansu chest",
+   "short": "tansu chest",
+   "tier": "plausible",
+   "look": "a Japanese wooden chest with metal corner fittings, flat drawer fronts, and carrying handles",
+   "tags": {
+    "kind": [
+     "storage"
+    ],
+    "style": [
+     "traditional_regional"
+    ]
+   }
+  },
+  {
+   "text": "a bookcase",
+   "short": "bookcase",
+   "tier": "typical",
+   "look": "a tall open cabinet divided into rows of shelves for books",
+   "tags": {
+    "kind": [
+     "storage"
+    ]
+   }
+  },
+  {
+   "text": "a ladder shelf",
+   "short": "ladder shelf",
+   "tier": "plausible",
+   "look": "a leaning open shelf unit with narrow upper shelves and progressively deeper lower shelves",
+   "tags": {
+    "kind": [
+     "storage"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a cube shelving unit",
+   "short": "cube shelving unit",
+   "tier": "typical",
+   "look": "a grid of square open storage compartments",
+   "tags": {
+    "kind": [
+     "storage"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a china cabinet",
+   "short": "china cabinet",
+   "tier": "plausible",
+   "look": "a wide glass-fronted upper display case above a closed cupboard base",
+   "tags": {
+    "kind": [
+     "storage"
+    ]
+   }
+  },
+  {
+   "text": "a filing cabinet",
+   "short": "filing cabinet",
+   "tier": "typical",
+   "look": "a tall metal case with deep pull-out drawers for hanging folders",
+   "tags": {
+    "kind": [
+     "storage"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a metal locker",
+   "short": "metal locker",
+   "tier": "plausible",
+   "look": "a narrow upright metal cabinet with a vented door and a small latch",
+   "tags": {
+    "kind": [
+     "storage"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "an apothecary cabinet",
+   "short": "apothecary cabinet",
+   "tier": "plausible",
+   "look": "a wooden cabinet covered with many small labeled drawers",
+   "tags": {
+    "kind": [
+     "storage"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a baker’s rack",
+   "short": "baker’s rack",
+   "tier": "plausible",
+   "look": "an open metal kitchen rack with several shelves and a work surface in the middle",
+   "tags": {
+    "kind": [
+     "storage"
+    ]
+   }
+  },
+  {
+   "text": "a nightstand",
+   "short": "nightstand",
+   "tier": "typical",
+   "look": "a small bedside cabinet with a tabletop and one or more drawers",
+   "tags": {
+    "kind": [
+     "storage"
+    ]
+   }
+  },
+  {
+   "text": "a shoe rack",
+   "short": "shoe rack",
+   "tier": "typical",
+   "look": "a low open unit with shallow tiered shelves sized for pairs of shoes",
+   "tags": {
+    "kind": [
+     "storage"
+    ]
+   }
+  },
+  {
+   "text": "a shaded table lamp",
+   "short": "table lamp",
+   "tier": "typical",
+   "look": "a short lamp with a broad fabric shade above a narrow stem and base",
+   "tags": {
+    "kind": [
+     "lighting_lamp"
+    ]
+   }
+  },
+  {
+   "text": "a tripod floor lamp",
+   "short": "tripod floor lamp",
+   "tier": "plausible",
+   "look": "a tall shaded lamp balanced on three splayed legs",
+   "tags": {
+    "kind": [
+     "lighting_lamp"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "an arc floor lamp",
+   "short": "arc floor lamp",
+   "tier": "plausible",
+   "look": "a tall lamp with a long curved stem suspending its shade over a seating area",
+   "tags": {
+    "kind": [
+     "lighting_lamp"
+    ],
+    "style": [
+     "mid_century",
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a swing-arm desk lamp",
+   "short": "swing-arm desk lamp",
+   "tier": "typical",
+   "look": "a small task lamp with hinged arms and a tilting shade",
+   "tags": {
+    "kind": [
+     "lighting_lamp"
+    ],
+    "style": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a candelabra chandelier",
+   "short": "candelabra chandelier",
+   "tier": "plausible",
+   "look": "a hanging light with several branching arms ending in upright candle-shaped bulbs",
+   "tags": {
+    "kind": [
+     "lighting_lamp"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a crystal chandelier",
+   "short": "crystal chandelier",
+   "tier": "plausible",
+   "look": "a suspended light hung with tiers of faceted glass drops and bead chains",
+   "tags": {
+    "kind": [
+     "lighting_lamp"
+    ]
+   }
+  },
+  {
+   "text": "a paper lantern pendant",
+   "short": "paper lantern pendant",
+   "tier": "plausible",
+   "look": "a round ribbed paper shade hanging from a ceiling cord",
+   "tags": {
+    "kind": [
+     "lighting_lamp"
+    ]
+   }
+  },
+  {
+   "text": "a stained-glass table lamp",
+   "short": "stained-glass lamp",
+   "tier": "plausible",
+   "look": "a table lamp with a domed shade assembled from small colored glass pieces",
+   "tags": {
+    "kind": [
+     "lighting_lamp"
+    ]
+   }
+  },
+  {
+   "text": "a folding screen",
+   "short": "folding screen",
+   "tier": "plausible",
+   "look": "several tall hinged panels standing in a zigzag as a room divider",
+   "tags": {
+    "kind": [
+     "decor"
+    ]
+   }
+  },
+  {
+   "text": "a cheval mirror",
+   "short": "cheval mirror",
+   "tier": "plausible",
+   "look": "a full-length mirror pivoting between two upright posts on a freestanding base",
+   "tags": {
+    "kind": [
+     "decor"
+    ],
+    "style": [
+     "antique"
+    ]
+   }
+  },
+  {
+   "text": "a hall tree",
+   "short": "hall tree",
+   "tier": "plausible",
+   "look": "an entryway unit combining coat hooks, a tall back, and a small bench",
+   "tags": {
+    "kind": [
+     "decor"
+    ]
+   }
+  },
+  {
+   "text": "a coat stand",
+   "short": "coat stand",
+   "tier": "typical",
+   "look": "a freestanding upright pole branching into several hooks near the top",
+   "tags": {
+    "kind": [
+     "decor"
+    ]
+   }
+  },
+  {
+   "text": "an ottoman",
+   "short": "ottoman",
+   "tier": "typical",
+   "look": "a low upholstered footrest with a flat cushioned top and visible wooden legs",
+   "tags": {
+    "kind": [
+     "seating"
+    ]
+   }
+  },
+  {
+   "text": "a fireplace mantel",
+   "short": "fireplace mantel",
+   "tier": "plausible",
+   "look": "a projecting shelf and decorative upright surround framing a fireplace opening",
+   "tags": {
+    "kind": [
+     "decor"
+    ]
+   }
+  }
+ ]
+}

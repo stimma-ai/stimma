@@ -1,0 +1,144 @@
+{
+ "id": "person.hair_texture",
+ "label": "Hair texture",
+ "description": "Scalp hair curl patterns, density and surface texture, independent of length or hairstyle.",
+ "pos": "adjective",
+ "frame": "her ___ hair",
+ "notes": "Curl pattern, density and frizz belong here, phrased as adjectives before hair. person.hair_length owns length; person.hairstyle owns named cuts, arrangements and set curls or waves. Pattern tags and the texture context rule follow person.hair_length_texture, so descent weights patterns without excluding them. Density and frizz carry unspecified texture; sparse and thinning retain the existing life_stage drop treatment.",
+ "closed": true,
+ "facets": [
+  "age"
+ ],
+ "local_facets": {
+  "texture": [
+   "straight",
+   "wavy",
+   "curly",
+   "coily",
+   "unspecified"
+  ]
+ },
+ "values": [
+  {
+   "text": "straight",
+   "tier": "typical",
+   "look": "strands fall without visible bends or curls",
+   "tags": {
+    "texture": [
+     "straight"
+    ]
+   }
+  },
+  {
+   "text": "wavy",
+   "tier": "typical",
+   "look": "loose S-shaped bends along the strands",
+   "tags": {
+    "texture": [
+     "wavy"
+    ]
+   }
+  },
+  {
+   "text": "curly",
+   "tier": "typical",
+   "look": "distinct spirals and ringlets",
+   "tags": {
+    "texture": [
+     "curly"
+    ]
+   }
+  },
+  {
+   "text": "coily",
+   "tier": "typical",
+   "look": "small, tightly wound corkscrew coils",
+   "tags": {
+    "texture": [
+     "coily"
+    ]
+   }
+  },
+  {
+   "text": "kinky-coily",
+   "tier": "typical",
+   "look": "very tight bends and tiny zigzag coils with a compact outline",
+   "tags": {
+    "texture": [
+     "coily"
+    ]
+   }
+  },
+  {
+   "text": "thick",
+   "tier": "plausible",
+   "look": "dense, full hair with little scalp showing between strands",
+   "tags": {
+    "texture": [
+     "unspecified"
+    ]
+   }
+  },
+  {
+   "text": "fine",
+   "tier": "plausible",
+   "look": "delicate, thin individual strands that fall lightly",
+   "tags": {
+    "texture": [
+     "unspecified"
+    ]
+   }
+  },
+  {
+   "text": "thinning",
+   "tier": "plausible",
+   "look": "reduced coverage with scalp showing through the crown or part",
+   "tags": {
+    "texture": [
+     "unspecified"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "sparse",
+   "tier": "plausible",
+   "look": "widely separated strands with broad areas of visible scalp",
+   "tags": {
+    "texture": [
+     "unspecified"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "frizzy",
+   "tier": "plausible",
+   "look": "a fuzzy halo of lifted strands around the main hair shape",
+   "tags": {
+    "texture": [
+     "unspecified"
+    ]
+   }
+  }
+ ],
+ "context": {
+  "takes": {
+   "texture": {
+    "mismatch": "rare",
+    "factor": 0.05
+   },
+   "life_stage": {
+    "mismatch": "drop"
+   }
+  }
+ }
+}

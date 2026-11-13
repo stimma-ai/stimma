@@ -1,350 +1,453 @@
 {
-  "id": "person.feature.cheeks",
-  "label": "Cheeks",
-  "description": "The cheekbones, how full or hollow the cheeks are, and dimples at rest.",
-  "pos": "noun phrase",
-  "frame": "a person with ___",
-  "notes": "Merged from three independently written sets. Each value says what is visible: no attractiveness or character words, no expression, no color, no ancestry words. A person gets two or three face features (person.face), not every list. `life_stage` is the ages a value is seen at: a drawn age that doesn't fit removes it. `by_ancestry: unreviewed` marks values whose rate differs by ancestry and are not weighted yet. Closed: generated face options drift to praise.",
-  "facets": [],
-  "closed": true,
-  "strict": true,
-  "catalog": false,
-  "local_facets": {
-    "aspect": [
-      "bones",
-      "fullness",
-      "surface"
-    ]
-  },
-  "context": {
-    "takes": {
-      "life_stage": {
-        "mismatch": "drop"
-      }
-    }
-  },
-  "shares": {
-    "aspect": {
-      "bones": 0.35,
-      "fullness": 0.4,
-      "surface": 0.25
-    }
-  },
-  "values": [
-    {
-      "text": "high, prominent cheekbones",
-      "short": "high cheekbones",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "bones"
-        ],
-        "by_ancestry": [
-          "unreviewed"
-        ]
-      }
-    },
-    {
-      "text": "flat cheekbones that barely show",
-      "short": "flat cheekbones",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "bones"
-        ]
-      }
-    },
-    {
-      "text": "wide cheekbones",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "bones"
-        ],
-        "by_ancestry": [
-          "unreviewed"
-        ]
-      }
-    },
-    {
-      "text": "low cheekbones",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "bones"
-        ]
-      }
-    },
-    {
-      "text": "cheekbones that stand out sharply under thin skin",
-      "short": "sharp cheekbones",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "bones"
-        ]
-      }
-    },
-    {
-      "text": "narrow cheekbones set close to the nose",
-      "short": "narrow cheekbones",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "bones"
-        ]
-      }
-    },
-    {
-      "text": "rounded cheekbones",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "bones"
-        ]
-      }
-    },
-    {
-      "text": "cheekbones that stand forward of the rest of the face",
-      "short": "forward cheekbones",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "bones"
-        ],
-        "by_ancestry": [
-          "unreviewed"
-        ]
-      }
-    },
-    {
-      "text": "cheekbones that curve back in a long shallow line toward the ears",
-      "short": "long sweeping cheekbones",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "bones"
-        ]
-      }
-    },
-    {
-      "text": "a shelf of cheekbone with the cheek falling away beneath it",
-      "short": "shelf of cheekbone",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "bones"
-        ]
-      }
-    },
-    {
-      "text": "one cheekbone set slightly higher than the other",
-      "short": "uneven cheekbones",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "bones"
-        ]
-      }
-    },
-    {
-      "text": "full, round cheeks",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ]
-      }
-    },
-    {
-      "text": "flat cheeks",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ]
-      }
-    },
-    {
-      "text": "hollow cheeks",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "life_stage": [
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "soft cheeks that fill out toward the jaw",
-      "short": "soft full cheeks",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ]
-      }
-    },
-    {
-      "text": "sunken cheeks with a shadow under the cheekbones",
-      "short": "sunken cheeks",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "life_stage": [
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "plump cheeks that push up under the eyes",
-      "short": "plump cheeks",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ]
-      }
-    },
-    {
-      "text": "round, chubby cheeks",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "life_stage": [
-          "baby",
-          "child"
-        ]
-      }
-    },
-    {
-      "text": "thin, sagging cheeks",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "life_stage": [
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a pad of fullness high on each cheek, just under the eye",
-      "short": "high cheek fullness",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "by_ancestry": [
-          "unreviewed"
-        ]
-      }
-    },
-    {
-      "text": "fullness gathered low, in the bottom half of the cheeks",
-      "short": "low cheek fullness",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "one cheek a little fuller than the other",
-      "short": "one cheek fuller",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ]
-      }
-    },
-    {
-      "text": "wide cheeks, broader than the forehead",
-      "short": "wide cheeks",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ],
-        "by_ancestry": [
-          "unreviewed"
-        ]
-      }
-    },
-    {
-      "text": "cheeks that narrow from the cheekbones to the corners of the mouth",
-      "short": "tapering cheeks",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "fullness"
-        ]
-      }
-    },
-    {
-      "text": "a dimple in each cheek at rest",
-      "short": "dimple in each cheek",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "surface"
-        ]
-      }
-    },
-    {
-      "text": "a dimple in one cheek only",
-      "short": "one-cheek dimple",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "surface"
-        ]
-      }
-    },
-    {
-      "text": "a shallow dimple just above one corner of the mouth",
-      "short": "dimple by the mouth",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "surface"
-        ]
-      }
-    },
-    {
-      "text": "a long shallow dimple running down one cheek",
-      "short": "long cheek dimple",
-      "tier": "unusual",
-      "tags": {
-        "aspect": [
-          "surface"
-        ]
-      }
-    }
+ "id": "person.feature.cheeks",
+ "label": "Cheeks",
+ "description": "Cheekbone shape, cheek fullness, contours and dimples at rest.",
+ "pos": "noun phrase",
+ "frame": "a person with ___",
+ "notes": "Cheek structure and dimples visible at rest, phrased without expression or skin color. Overall face fullness belongs in person.feature.shape; scars and freckles belong in person.feature.skin_marks. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "facets": [],
+ "closed": true,
+ "strict": true,
+ "catalog": false,
+ "local_facets": {
+  "aspect": [
+   "bones",
+   "fullness",
+   "contour",
+   "dimples"
   ]
+ },
+ "context": {
+  "takes": {
+   "life_stage": {
+    "mismatch": "drop"
+   }
+  }
+ },
+ "shares": {
+  "aspect": {
+   "bones": 0.35,
+   "fullness": 0.3,
+   "contour": 0.2,
+   "dimples": 0.15
+  }
+ },
+ "values": [
+  {
+   "text": "slightly high cheekbones",
+   "short": "slightly high cheekbones",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "bones"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "softly rounded cheekbones",
+   "short": "rounded cheekbones",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "bones"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "subtly defined cheekbones",
+   "short": "subtle cheekbones",
+   "tier": "plausible",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "bones"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "prominent cheekbones",
+   "short": "prominent cheekbones",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bones"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "broadly spaced cheekbones",
+   "short": "broad cheekbones",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bones"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "low cheekbones",
+   "short": "low cheekbones",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bones"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "forward-projecting cheekbones",
+   "short": "projecting cheekbones",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bones"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "slightly full cheeks",
+   "short": "slightly full cheeks",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "fullness"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "slightly lean cheeks",
+   "short": "slightly lean cheeks",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "fullness"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "full, round cheeks",
+   "short": "full, round cheeks",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "fullness"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "hollow cheeks",
+   "short": "hollow cheeks",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "fullness"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "fullness high on the cheeks",
+   "short": "high cheek fullness",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "fullness"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "fullness low on the cheeks",
+   "short": "low cheek fullness",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "fullness"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "shallow hollows below the cheekbones",
+   "short": "shallow cheek hollows",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "contour"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "one cheek slightly fuller than the other",
+   "short": "uneven cheek fullness",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "contour"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "cheeks tapering sharply toward the mouth",
+   "short": "tapering cheeks",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "contour"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "flat cheek contours",
+   "short": "flat cheek contours",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "contour"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "cheeks sagging below the cheekbones",
+   "short": "sagging cheeks",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "contour"
+    ],
+    "life_stage": [
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a faint cheek dimple at rest",
+   "short": "faint cheek dimple",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "dimples"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "dimples in both cheeks at rest",
+   "short": "paired cheek dimples",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "dimples"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a deep dimple in one cheek at rest",
+   "short": "single deep dimple",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "dimples"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a long cheek dimple at rest",
+   "short": "long cheek dimple",
+   "tier": "unusual",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "dimples"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  }
+ ]
 }

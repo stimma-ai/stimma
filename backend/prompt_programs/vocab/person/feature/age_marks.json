@@ -1,0 +1,424 @@
+{
+ "id": "person.feature.age_marks",
+ "label": "Age marks",
+ "description": "Age-related facial lines, under-eye bags, skin folds and age spots.",
+ "pos": "noun phrase",
+ "frame": "a person with ___",
+ "notes": "Facial aging details at rest, phrased without expression or exact skin color. All values exclude babies, children and teens; crow’s feet start at middle age. General texture belongs in person.feature.skin_texture and non-age-related marks belong in person.feature.skin_marks. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "facets": [],
+ "closed": true,
+ "strict": true,
+ "catalog": false,
+ "local_facets": {
+  "aspect": [
+   "eye_lines",
+   "under_eye",
+   "forehead",
+   "between_brows",
+   "mouth_cheeks",
+   "spots"
+  ]
+ },
+ "context": {
+  "takes": {
+   "life_stage": {
+    "mismatch": "drop"
+   }
+  }
+ },
+ "shares": {
+  "aspect": {
+   "eye_lines": 0.2,
+   "under_eye": 0.15,
+   "forehead": 0.15,
+   "between_brows": 0.1,
+   "mouth_cheeks": 0.25,
+   "spots": 0.15
+  }
+ },
+ "values": [
+  {
+   "text": "faint crow’s feet at the outer eye corners",
+   "short": "faint crow’s feet",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "eye_lines"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "deep crow’s feet",
+   "short": "deep crow’s feet",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "eye_lines"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "fine lines beneath the eyes",
+   "short": "fine under-eye lines",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "eye_lines"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "loose, wrinkled skin beneath the eyes",
+   "short": "wrinkled under-eye skin",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "eye_lines"
+    ],
+    "life_stage": [
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "slight under-eye bags",
+   "short": "slight under-eye bags",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "under_eye"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "pronounced under-eye bags",
+   "short": "pronounced eye bags",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "under_eye"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "deep hollows beneath the eyes",
+   "short": "deep under-eye hollows",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "under_eye"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "faint horizontal forehead lines",
+   "short": "faint forehead lines",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "forehead"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "deep horizontal forehead lines",
+   "short": "deep forehead lines",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "forehead"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "fine crossing lines across the forehead",
+   "short": "crossing forehead lines",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "forehead"
+    ],
+    "life_stage": [
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a faint crease between the brows",
+   "short": "faint brow crease",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "between_brows"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a deep vertical crease between the brows",
+   "short": "deep brow crease",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "between_brows"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "paired vertical creases between the brows",
+   "short": "paired brow creases",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "between_brows"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "faint laugh lines beside the mouth",
+   "short": "faint laugh lines",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "mouth_cheeks"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "deep folds from the nose to the mouth corners",
+   "short": "deep nose-mouth folds",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "mouth_cheeks"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "fine vertical lines above the upper lip",
+   "short": "fine upper-lip lines",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "mouth_cheeks"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "deep vertical lines around the lips",
+   "short": "deep lip lines",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "mouth_cheeks"
+    ],
+    "life_stage": [
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "creases descending from the mouth corners",
+   "short": "mouth-corner creases",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "mouth_cheeks"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "fine crossing wrinkles on the cheeks",
+   "short": "fine cheek wrinkles",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "mouth_cheeks"
+    ],
+    "life_stage": [
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "deep vertical cheek creases",
+   "short": "deep cheek creases",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "mouth_cheeks"
+    ],
+    "life_stage": [
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "fine lines across the chin",
+   "short": "fine chin lines",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "mouth_cheeks"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a few small age spots at the temples",
+   "short": "small temple age spots",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "spots"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "age spots scattered across the cheeks",
+   "short": "cheek age spots",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "spots"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "age spots across the forehead",
+   "short": "forehead age spots",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "spots"
+    ],
+    "life_stage": [
+     "older",
+     "elderly"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,827 @@
+{
+ "id": "clothing.outerwear",
+ "label": "Outerwear",
+ "description": "Named coats, jackets, blazers, capes, ponchos and outer vests as individual garments.",
+ "pos": "noun phrase",
+ "frame": "wearing ___",
+ "notes": "Individual outer layers belong here, including tailored jackets and sleeveless outer vests. Complete ensembles belong in person.outfit.cold_weather or person.outfit.formal; hats belong in clothing.headwear and shoes in clothing.footwear. Values are single garment names that follow wearing, with no specified color. Revivable and ceremonial styles remain available in contemporary scenes, and garment names do not imply descent.",
+ "closed": false,
+ "facets": [
+  "presentation"
+ ],
+ "local_facets": {
+  "kind": [
+   "jacket",
+   "coat",
+   "blazer",
+   "rain",
+   "cold_weather",
+   "cape_poncho",
+   "vest",
+   "formal"
+  ]
+ },
+ "values": [
+  {
+   "text": "a trench coat",
+   "short": "trench coat",
+   "tier": "typical",
+   "look": "a belted, double-breasted coat with shoulder tabs, cuff straps and a storm flap",
+   "tags": {
+    "kind": [
+     "coat",
+     "rain"
+    ]
+   }
+  },
+  {
+   "text": "a peacoat",
+   "short": "peacoat",
+   "tier": "typical",
+   "look": "a short, double-breasted wool coat with broad lapels and large buttons",
+   "tags": {
+    "kind": [
+     "coat",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a duffle coat",
+   "short": "duffle coat",
+   "tier": "plausible",
+   "look": "a straight wool coat with a roomy hood, patch pockets and toggle fastenings",
+   "tags": {
+    "kind": [
+     "coat",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a Chesterfield coat",
+   "short": "Chesterfield coat",
+   "tier": "plausible",
+   "look": "a straight tailored overcoat with notched lapels and a velvet upper collar",
+   "tags": {
+    "kind": [
+     "coat",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a covert coat",
+   "short": "covert coat",
+   "tier": "plausible",
+   "look": "a fitted, thigh-length overcoat with a concealed button front and rows of stitching near the hem and cuffs",
+   "tags": {
+    "kind": [
+     "coat"
+    ]
+   }
+  },
+  {
+   "text": "a polo coat",
+   "short": "polo coat",
+   "tier": "plausible",
+   "look": "a roomy, double-breasted overcoat with broad lapels, patch pockets and a half belt at the back",
+   "tags": {
+    "kind": [
+     "coat",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a greatcoat",
+   "short": "greatcoat",
+   "tier": "plausible",
+   "look": "a heavy, long military-style overcoat with a double-breasted front and deep back pleat",
+   "tags": {
+    "kind": [
+     "coat",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a wrap coat",
+   "short": "wrap coat",
+   "tier": "typical",
+   "look": "a soft coat overlapping at the front and tied shut with a wide fabric belt",
+   "tags": {
+    "kind": [
+     "coat",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a cocoon coat",
+   "short": "cocoon coat",
+   "tier": "plausible",
+   "look": "a rounded coat with dropped shoulders, a generous middle and a hem that narrows inward",
+   "tags": {
+    "kind": [
+     "coat",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a swing coat",
+   "short": "swing coat",
+   "tier": "plausible",
+   "look": "a coat fitted at the shoulders that flares widely toward the hem",
+   "tags": {
+    "kind": [
+     "coat"
+    ]
+   }
+  },
+  {
+   "text": "a car coat",
+   "short": "car coat",
+   "tier": "plausible",
+   "look": "a simple, straight hip-to-thigh-length coat with a button front and a small collar",
+   "tags": {
+    "kind": [
+     "coat"
+    ]
+   }
+  },
+  {
+   "text": "a duster coat",
+   "short": "duster coat",
+   "tier": "plausible",
+   "look": "a lightweight, loose ankle-length coat with a long split at the back",
+   "tags": {
+    "kind": [
+     "coat"
+    ]
+   }
+  },
+  {
+   "text": "a belted leather coat",
+   "short": "belted leather coat",
+   "tier": "plausible",
+   "look": "a smooth leather overcoat with lapels and a belt cinching the waist",
+   "tags": {
+    "kind": [
+     "coat"
+    ]
+   }
+  },
+  {
+   "text": "a opera coat",
+   "short": "opera coat",
+   "tier": "unusual",
+   "look": "a voluminous evening coat in lustrous fabric, often with wide sleeves and a dramatic collar",
+   "tags": {
+    "kind": [
+     "coat",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a teddy coat",
+   "short": "teddy coat",
+   "tier": "typical",
+   "look": "an oversized coat covered in dense, short curly fleece with a plush, rounded outline",
+   "tags": {
+    "kind": [
+     "coat",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a fur coat",
+   "short": "fur coat",
+   "tier": "plausible",
+   "look": "a thick, long-pile fur outer layer with a broad collar and a softly bulky silhouette",
+   "tags": {
+    "kind": [
+     "coat",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a shearling jacket",
+   "short": "shearling jacket",
+   "tier": "typical",
+   "look": "a sheepskin jacket with a suede or leather outside and curly wool visible at the collar and cuffs",
+   "tags": {
+    "kind": [
+     "jacket",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a parka",
+   "short": "parka",
+   "tier": "typical",
+   "look": "a hooded, insulated coat extending below the hips with a drawstring waist and large pockets",
+   "tags": {
+    "kind": [
+     "coat",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "an anorak",
+   "short": "anorak",
+   "tier": "plausible",
+   "look": "a hooded pullover jacket with a short neck opening and a large pouch pocket",
+   "tags": {
+    "kind": [
+     "jacket",
+     "rain"
+    ]
+   }
+  },
+  {
+   "text": "a puffer jacket",
+   "short": "puffer jacket",
+   "tier": "typical",
+   "look": "a bulky insulated jacket divided into visibly inflated quilted channels",
+   "tags": {
+    "kind": [
+     "jacket",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a ski jacket",
+   "short": "ski jacket",
+   "tier": "plausible",
+   "look": "a hooded insulated sports jacket with zippered pockets, adjustable cuffs and a high storm collar",
+   "tags": {
+    "kind": [
+     "jacket",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a fleece jacket",
+   "short": "fleece jacket",
+   "tier": "typical",
+   "look": "a soft, fuzzy zip-front jacket with a standing collar",
+   "tags": {
+    "kind": [
+     "jacket",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a quilted riding jacket",
+   "short": "quilted riding jacket",
+   "tier": "plausible",
+   "look": "a fitted jacket with small diamond quilting, a corduroy collar and snapped rear vents",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a down vest",
+   "short": "down vest",
+   "tier": "typical",
+   "look": "a sleeveless insulated outer layer with thick horizontal quilted channels",
+   "tags": {
+    "kind": [
+     "vest",
+     "cold_weather"
+    ]
+   }
+  },
+  {
+   "text": "a quilted liner jacket",
+   "short": "quilted liner jacket",
+   "tier": "plausible",
+   "look": "a light collarless jacket with curved quilting, bound edges and a simple snap front",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a denim trucker jacket",
+   "short": "denim trucker jacket",
+   "tier": "typical",
+   "look": "a waist-length denim jacket with a pointed collar, chest flap pockets and vertical front seams",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a leather biker jacket",
+   "short": "leather biker jacket",
+   "tier": "typical",
+   "look": "a fitted leather jacket with an off-center zipper, wide snap lapels and a waist belt",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a leather bomber jacket",
+   "short": "leather bomber jacket",
+   "tier": "typical",
+   "look": "a waist-length leather flight jacket with a shirt collar, flap pockets and a ribbed waistband",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "an MA-1 bomber jacket",
+   "short": "MA-1 bomber jacket",
+   "tier": "plausible",
+   "look": "a rounded nylon flight jacket with a ribbed collar, ribbed cuffs and a zip pocket on the upper sleeve",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a Harrington jacket",
+   "short": "Harrington jacket",
+   "tier": "plausible",
+   "look": "a light waist-length jacket with a two-button stand collar, slanted flap pockets and a ribbed hem",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a varsity jacket",
+   "short": "varsity jacket",
+   "tier": "typical",
+   "look": "a wool-bodied jacket with leather sleeves, snap buttons and striped ribbing at the collar and cuffs",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a chore coat",
+   "short": "chore coat",
+   "tier": "typical",
+   "look": "a straight work jacket with a shirt collar, button front and large rectangular patch pockets",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a waxed cotton field jacket",
+   "short": "waxed field jacket",
+   "tier": "plausible",
+   "look": "a matte, slightly waxy field jacket with a corduroy collar, large flap pockets and a storm front",
+   "tags": {
+    "kind": [
+     "jacket",
+     "rain"
+    ]
+   }
+  },
+  {
+   "text": "a safari jacket",
+   "short": "safari jacket",
+   "tier": "plausible",
+   "look": "a belted jacket with four front flap pockets, shoulder tabs and a shirt collar",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a windbreaker",
+   "short": "windbreaker",
+   "tier": "typical",
+   "look": "a thin, lightweight zip jacket with a loose cut, elastic cuffs and a gathered hem",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a rain shell jacket",
+   "short": "rain shell jacket",
+   "tier": "typical",
+   "look": "a smooth waterproof hooded jacket with sealed zippers, a high neck and adjustable cuffs",
+   "tags": {
+    "kind": [
+     "jacket",
+     "rain"
+    ]
+   }
+  },
+  {
+   "text": "a softshell jacket",
+   "short": "softshell jacket",
+   "tier": "plausible",
+   "look": "a close-fitting stretch jacket with a smooth matte surface, stand collar and streamlined zipper pockets",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a track jacket",
+   "short": "track jacket",
+   "tier": "typical",
+   "look": "a knit athletic zip jacket with a standing collar, ribbed cuffs and stripes down the sleeves",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a coach jacket",
+   "short": "coach jacket",
+   "tier": "plausible",
+   "look": "a lightweight boxy jacket with a pointed collar, snap front and drawstring hem",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a shirt jacket",
+   "short": "shirt jacket",
+   "tier": "typical",
+   "look": "a thick overshirt with a shirt collar, button front and large chest pockets",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a kimono jacket",
+   "short": "kimono jacket",
+   "tier": "plausible",
+   "look": "a loose open-front jacket with broad rectangular sleeves and a flat band around the neckline",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a bolero jacket",
+   "short": "bolero jacket",
+   "tier": "plausible",
+   "look": "a short open-front jacket ending above the waist with curved front edges",
+   "tags": {
+    "kind": [
+     "jacket",
+     "formal"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a bed jacket",
+   "short": "bed jacket",
+   "tier": "unusual",
+   "look": "a soft, loose waist-length lounge jacket with a tie neck and lace-trimmed edges",
+   "tags": {
+    "kind": [
+     "jacket"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Nehru jacket",
+   "short": "Nehru jacket",
+   "tier": "plausible",
+   "look": "a hip-length tailored jacket with a short standing collar and a straight buttoned front",
+   "tags": {
+    "kind": [
+     "jacket",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a military tunic jacket",
+   "short": "military tunic jacket",
+   "tier": "plausible",
+   "look": "a fitted uniform jacket with a standing collar, shoulder tabs and a row of metal buttons",
+   "tags": {
+    "kind": [
+     "jacket",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a marching band jacket",
+   "short": "marching band jacket",
+   "tier": "unusual",
+   "look": "a structured jacket with a high collar, braided chest loops and ornamental shoulder details",
+   "tags": {
+    "kind": [
+     "jacket",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a Norfolk jacket",
+   "short": "Norfolk jacket",
+   "tier": "plausible",
+   "look": "a belted tweed jacket with vertical pleats from the shoulders and large patch pockets",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a matador jacket",
+   "short": "matador jacket",
+   "tier": "unusual",
+   "look": "a rigid, waist-cropped open jacket with ornate embroidery and heavily decorated shoulders",
+   "tags": {
+    "kind": [
+     "jacket",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a tailcoat",
+   "short": "tailcoat",
+   "tier": "unusual",
+   "look": "a fitted formal jacket cut short at the front with two long tails hanging behind",
+   "tags": {
+    "kind": [
+     "jacket",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a morning coat",
+   "short": "morning coat",
+   "tier": "plausible",
+   "look": "a fitted formal coat with a single front button and skirts curving away into long rear tails",
+   "tags": {
+    "kind": [
+     "jacket",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a single-breasted blazer",
+   "short": "single-breasted blazer",
+   "tier": "typical",
+   "look": "a tailored jacket with notched lapels and one vertical row of front buttons",
+   "tags": {
+    "kind": [
+     "blazer",
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a double-breasted blazer",
+   "short": "double-breasted blazer",
+   "tier": "typical",
+   "look": "a tailored jacket with a wide overlapping front, peaked lapels and two rows of buttons",
+   "tags": {
+    "kind": [
+     "blazer",
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a shawl-collar dinner jacket",
+   "short": "shawl-collar jacket",
+   "tier": "plausible",
+   "look": "a formal tailored jacket with a smooth curved satin collar continuing down the lapels",
+   "tags": {
+    "kind": [
+     "blazer",
+     "jacket",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a smoking jacket",
+   "short": "smoking jacket",
+   "tier": "plausible",
+   "look": "a soft velvet evening jacket with a shawl collar, turned-back cuffs and a sash or frog closures",
+   "tags": {
+    "kind": [
+     "jacket",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a collarless tweed jacket",
+   "short": "collarless tweed jacket",
+   "tier": "plausible",
+   "look": "a short, boxy woven jacket with a round neckline, braided edging and patch pockets",
+   "tags": {
+    "kind": [
+     "jacket"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a peplum jacket",
+   "short": "peplum jacket",
+   "tier": "plausible",
+   "look": "a fitted jacket with a nipped waist and a short flared skirt below it",
+   "tags": {
+    "kind": [
+     "jacket"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cape",
+   "short": "cape",
+   "tier": "plausible",
+   "look": "a sleeveless outer layer fastening at the neck and falling over the shoulders with open sides",
+   "tags": {
+    "kind": [
+     "cape_poncho"
+    ]
+   }
+  },
+  {
+   "text": "a poncho",
+   "short": "poncho",
+   "tier": "plausible",
+   "look": "a broad sheet of fabric with a central head opening and a continuous drape around the body",
+   "tags": {
+    "kind": [
+     "cape_poncho"
+    ]
+   }
+  },
+  {
+   "text": "a hooded cloak",
+   "short": "hooded cloak",
+   "tier": "unusual",
+   "look": "a long flowing wrap with an attached hood and a fastening at the throat",
+   "tags": {
+    "kind": [
+     "cape_poncho"
+    ]
+   }
+  },
+  {
+   "text": "a capelet",
+   "short": "capelet",
+   "tier": "plausible",
+   "look": "a short shoulder cape ending near the elbows with a small closure at the neck",
+   "tags": {
+    "kind": [
+     "cape_poncho",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a ruana",
+   "short": "ruana",
+   "tier": "plausible",
+   "look": "a rectangular blanket wrap split down the front into two long open panels",
+   "tags": {
+    "kind": [
+     "cape_poncho"
+    ]
+   }
+  },
+  {
+   "text": "an Inverness cape",
+   "short": "Inverness cape",
+   "tier": "unusual",
+   "look": "a long sleeveless outer coat with a shorter shoulder cape layered over its arm openings",
+   "tags": {
+    "kind": [
+     "cape_poncho",
+     "coat",
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a rain poncho",
+   "short": "rain poncho",
+   "tier": "plausible",
+   "look": "a loose waterproof sheet with an integrated hood and broad draped sides",
+   "tags": {
+    "kind": [
+     "rain",
+     "cape_poncho"
+    ]
+   }
+  },
+  {
+   "text": "an oilskin slicker",
+   "short": "oilskin slicker",
+   "tier": "plausible",
+   "look": "a long, glossy waterproof work coat with a storm flap and large snap fastenings",
+   "tags": {
+    "kind": [
+     "coat",
+     "rain"
+    ]
+   }
+  },
+  {
+   "text": "a motorcycle racing jacket",
+   "short": "motorcycle racing jacket",
+   "tier": "plausible",
+   "look": "a close-fitting leather sports jacket with a short collar and molded shoulder and elbow protection",
+   "tags": {
+    "kind": [
+     "jacket"
+    ]
+   }
+  },
+  {
+   "text": "a denim vest",
+   "short": "denim vest",
+   "tier": "plausible",
+   "look": "a sleeveless denim jacket with a shirt collar, metal buttons and chest flap pockets",
+   "tags": {
+    "kind": [
+     "vest"
+    ]
+   }
+  },
+  {
+   "text": "a fishing vest",
+   "short": "fishing vest",
+   "tier": "plausible",
+   "look": "a short sleeveless utility layer covered in small bellows pockets, loops and mesh panels",
+   "tags": {
+    "kind": [
+     "vest"
+    ]
+   }
+  },
+  {
+   "text": "a cape blazer",
+   "short": "cape blazer",
+   "tier": "plausible",
+   "look": "a tailored lapelled jacket with open sleeve slits and cape-like panels falling from the shoulders",
+   "tags": {
+    "kind": [
+     "blazer",
+     "cape_poncho"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  }
+ ]
+}

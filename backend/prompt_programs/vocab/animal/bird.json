@@ -1,0 +1,1655 @@
+{
+ "id": "animal.bird",
+ "label": "Bird kind",
+ "description": "Bird species and distinctive domestic breeds, from garden songbirds and parrots to seabirds and flightless birds.",
+ "pos": "noun phrase",
+ "frame": "a ___",
+ "notes": "Bird species and recognizable domestic breeds belong here as complete singular common names; a becomes an where pronunciation requires it. animal.species supplies broad animal choices, while this list distinguishes bird identities rather than poses or plumage mutations. Kind chips are browsing categories rather than a taxonomy and overlap for familiar garden birds, flightless waterbirds, and tropical parrots. Glosses describe characteristic adult plumage, often the brighter male where sexes differ.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "urban_garden",
+   "songbird",
+   "parrot",
+   "raptor_owl",
+   "waterbird",
+   "seabird",
+   "hummingbird_sunbird",
+   "game_fowl_poultry",
+   "exotic_tropical",
+   "flightless"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "house sparrow",
+   "tier": "typical",
+   "look": "a small brown-and-gray bird with a stout bill; males have a gray crown and black throat bib",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "American robin",
+   "tier": "typical",
+   "look": "a gray-brown thrush with a warm orange-red breast, pale belly, and yellow bill",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "European robin",
+   "tier": "typical",
+   "look": "a small round brown bird with a bright orange face and breast and a pale belly",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "northern cardinal",
+   "tier": "typical",
+   "look": "a crested songbird; the male is brilliant red with a black face mask and thick red bill",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "blue jay",
+   "tier": "typical",
+   "look": "a blue crested bird with a white face and belly, black neck band, and barred wings and tail",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "American goldfinch",
+   "tier": "typical",
+   "look": "a small finch; the breeding male is lemon yellow with a black cap and black wings",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "black-capped chickadee",
+   "tier": "typical",
+   "look": "a tiny gray bird with a black cap and bib, broad white cheeks, and buff sides",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "tufted titmouse",
+   "tier": "plausible",
+   "look": "a small gray bird with a pointed crest, large black eyes, pale belly, and rusty flanks",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "eastern bluebird",
+   "tier": "typical",
+   "look": "a small thrush; males have a bright blue back and head, rusty breast, and white belly",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "barn swallow",
+   "tier": "typical",
+   "look": "a sleek blue-backed bird with a rusty throat, pale belly, and deeply forked tail",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "tree swallow",
+   "tier": "plausible",
+   "look": "a streamlined bird with glossy blue-green upperparts and a sharply contrasting white underside",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "Baltimore oriole",
+   "tier": "plausible",
+   "look": "a songbird; males have a black head and back, vivid orange belly, and white wing bars",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "western meadowlark",
+   "tier": "plausible",
+   "look": "a brown-streaked grassland bird with a bright yellow breast crossed by a black V",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "red-winged blackbird",
+   "tier": "plausible",
+   "look": "a black marsh songbird; males have bright red shoulder patches edged with yellow",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "common grackle",
+   "tier": "plausible",
+   "look": "a long-tailed glossy black bird with a blue-purple head and pale yellow eyes",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "European starling",
+   "tier": "typical",
+   "look": "a compact dark bird with a short tail and glossy purple-green plumage dotted with pale spots",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "Eurasian magpie",
+   "tier": "typical",
+   "look": "a black-and-white bird with a very long iridescent green-blue tail and white shoulder patches",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "American crow",
+   "tier": "typical",
+   "look": "a solid-black bird with a sturdy bill, rounded fan-shaped tail, and glossy feathers",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "common raven",
+   "tier": "typical",
+   "look": "a large black bird with a heavy bill, shaggy throat feathers, and a wedge-shaped tail",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "cedar waxwing",
+   "tier": "plausible",
+   "look": "a sleek tan bird with a swept-back crest, black eye mask, red wing tips, and yellow tail tip",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "northern mockingbird",
+   "tier": "plausible",
+   "look": "a slim gray bird with a long tail and conspicuous white patches on the wings",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "Carolina wren",
+   "tier": "plausible",
+   "look": "a small warm-brown bird with a bold white eyebrow, buff underside, and cocked barred tail",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "white-breasted nuthatch",
+   "tier": "plausible",
+   "look": "a compact gray-backed bird with a white face and chest, black cap, and pointed bill",
+   "tags": {
+    "kind": [
+     "urban_garden",
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "scarlet tanager",
+   "tier": "plausible",
+   "look": "a forest songbird; breeding males have a vivid scarlet body with black wings and tail",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "painted bunting",
+   "tier": "unusual",
+   "look": "a small finchlike bird; males have a blue head, green back, and brilliant red underside",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "indigo bunting",
+   "tier": "plausible",
+   "look": "a small conical-billed songbird; breeding males are bright blue all over with darker wings",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "Gouldian finch",
+   "tier": "unusual",
+   "look": "a tiny finch with a red or black face, green back, purple breast, and yellow belly",
+   "tags": {
+    "kind": [
+     "songbird",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "zebra finch",
+   "tier": "plausible",
+   "look": "a small gray finch with an orange bill; males have orange cheeks and black-and-white throat barring",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "European goldfinch",
+   "tier": "plausible",
+   "look": "a buff-and-white finch with a red face, black-and-white head, and a bright yellow wing stripe",
+   "tags": {
+    "kind": [
+     "songbird",
+     "urban_garden"
+    ]
+   }
+  },
+  {
+   "text": "long-tailed tit",
+   "tier": "unusual",
+   "look": "a tiny fluffy bird with a round pale head, pinkish flanks, and an extremely long narrow black tail",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "bearded reedling",
+   "tier": "unusual",
+   "look": "a warm tawny, long-tailed reed bird; males have a blue-gray head and long black mustache marks",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "superb fairywren",
+   "tier": "unusual",
+   "look": "a tiny bird with an upright tail; breeding males have vivid blue crown and cheek patches against black",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "splendid fairywren",
+   "tier": "unusual",
+   "look": "a tiny long-tailed bird; breeding males are rich electric blue with black facial and chest bands",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "superb lyrebird",
+   "tier": "unusual",
+   "look": "a brown ground bird; the male has a long display tail with curved lyre-shaped outer feathers",
+   "tags": {
+    "kind": [
+     "songbird"
+    ]
+   }
+  },
+  {
+   "text": "greater bird-of-paradise",
+   "tier": "unusual",
+   "look": "a brown-and-yellow bird; males have an emerald throat and long golden flank plumes",
+   "tags": {
+    "kind": [
+     "songbird",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "Wilson’s bird-of-paradise",
+   "tier": "unusual",
+   "look": "a tiny display bird; males have a bare blue crown, red back, yellow nape, and two curled tail wires",
+   "short": "Wilson’s bird paradise",
+   "tags": {
+    "kind": [
+     "songbird",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "scarlet macaw",
+   "tier": "typical",
+   "look": "a large red parrot with a long tapered tail, pale bare face, and yellow-and-blue wings",
+   "tags": {
+    "kind": [
+     "parrot",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "blue-and-yellow macaw",
+   "tier": "typical",
+   "look": "a long-tailed parrot with blue upperparts, a golden-yellow belly, and a striped white face",
+   "tags": {
+    "kind": [
+     "parrot",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "hyacinth macaw",
+   "tier": "plausible",
+   "look": "a huge deep-blue parrot with a powerful black bill and bare yellow eye and bill rings",
+   "tags": {
+    "kind": [
+     "parrot",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "African grey parrot",
+   "tier": "typical",
+   "look": "a gray parrot with scalloped feathers, a pale bare face, black bill, and bright red tail",
+   "tags": {
+    "kind": [
+     "parrot"
+    ]
+   }
+  },
+  {
+   "text": "budgerigar",
+   "tier": "typical",
+   "look": "a small long-tailed parakeet with a hooked bill and fine dark scalloping on the head and wings",
+   "tags": {
+    "kind": [
+     "parrot"
+    ]
+   }
+  },
+  {
+   "text": "cockatiel",
+   "tier": "typical",
+   "look": "a slim gray parrot with a tall pointed crest, orange cheek patches, and long tapered tail",
+   "tags": {
+    "kind": [
+     "parrot"
+    ]
+   }
+  },
+  {
+   "text": "rose-ringed parakeet",
+   "tier": "plausible",
+   "look": "a slender green parakeet with a long pointed tail, red bill, and a dark neck ring on the male",
+   "tags": {
+    "kind": [
+     "parrot"
+    ]
+   }
+  },
+  {
+   "text": "peach-faced lovebird",
+   "tier": "plausible",
+   "look": "a small stocky green parrot with a peach-pink face, pale bill, and blue rump",
+   "tags": {
+    "kind": [
+     "parrot"
+    ]
+   }
+  },
+  {
+   "text": "rainbow lorikeet",
+   "tier": "plausible",
+   "look": "a blue-headed parrot with a green back, orange-yellow breast, and red bill",
+   "tags": {
+    "kind": [
+     "parrot",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "eclectus parrot",
+   "tier": "plausible",
+   "look": "a broad-tailed parrot; males are green with orange bills, females red with blue-purple chests",
+   "tags": {
+    "kind": [
+     "parrot",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "sun conure",
+   "tier": "plausible",
+   "look": "a small golden-yellow parrot with an orange face and belly and green-and-blue wings",
+   "tags": {
+    "kind": [
+     "parrot",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "green-cheeked conure",
+   "tier": "plausible",
+   "look": "a small long-tailed parrot with a dark crown, green cheeks, scalloped chest, and maroon tail",
+   "tags": {
+    "kind": [
+     "parrot"
+    ]
+   }
+  },
+  {
+   "text": "sulfur-crested cockatoo",
+   "tier": "typical",
+   "look": "a large white parrot with a tall curved yellow crest and black hooked bill",
+   "tags": {
+    "kind": [
+     "parrot"
+    ]
+   }
+  },
+  {
+   "text": "umbrella cockatoo",
+   "tier": "plausible",
+   "look": "a white parrot with a broad rounded crest that rises like a fan and a large black bill",
+   "tags": {
+    "kind": [
+     "parrot"
+    ]
+   }
+  },
+  {
+   "text": "galah",
+   "tier": "plausible",
+   "look": "a gray-winged cockatoo with a pink face, pink chest, and pale cap-like crest",
+   "tags": {
+    "kind": [
+     "parrot"
+    ]
+   }
+  },
+  {
+   "text": "palm cockatoo",
+   "tier": "unusual",
+   "look": "a charcoal-black cockatoo with a huge bill, pointed crest, and bare red cheek patch",
+   "tags": {
+    "kind": [
+     "parrot",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "Pesquet’s parrot",
+   "tier": "unusual",
+   "look": "a black parrot with a bare dark face, hooked bill, and vivid red belly and wing panels",
+   "tags": {
+    "kind": [
+     "parrot",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "kea",
+   "tier": "unusual",
+   "look": "a large olive-green mountain parrot with a long curved bill and orange-red feathers beneath the wings",
+   "tags": {
+    "kind": [
+     "parrot"
+    ]
+   }
+  },
+  {
+   "text": "kakapo",
+   "tier": "unusual",
+   "look": "a heavy moss-green parrot with mottled feathers, a broad owl-like face, and a short hooked bill",
+   "tags": {
+    "kind": [
+     "parrot",
+     "flightless"
+    ]
+   }
+  },
+  {
+   "text": "bald eagle",
+   "tier": "typical",
+   "look": "a large dark-brown eagle with a white head and tail and a heavy yellow bill",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "golden eagle",
+   "tier": "typical",
+   "look": "a large dark-brown eagle with golden nape feathers, broad wings, and a relatively small hooked bill",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "harpy eagle",
+   "tier": "unusual",
+   "look": "a massive eagle with a split gray crest, pale belly, dark chest band, and enormous yellow talons",
+   "tags": {
+    "kind": [
+     "raptor_owl",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "Philippine eagle",
+   "tier": "unusual",
+   "look": "a huge brown-and-white eagle with a shaggy pale crest and deep blue-gray hooked bill",
+   "tags": {
+    "kind": [
+     "raptor_owl",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "African fish eagle",
+   "tier": "plausible",
+   "look": "a chestnut-and-black eagle with a white head and breast and a yellow face around the bill",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "osprey",
+   "tier": "typical",
+   "look": "a long-winged fishing raptor with a white underside, brown back, and dark stripe through each eye",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "peregrine falcon",
+   "tier": "typical",
+   "look": "a compact falcon with pointed wings, dark hood and mustache marks, and a finely barred pale chest",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "American kestrel",
+   "tier": "plausible",
+   "look": "a small falcon with a rusty back and tail, striped face, and blue-gray wings on males",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "red-tailed hawk",
+   "tier": "typical",
+   "look": "a broad-winged brown hawk with a pale breast, streaked belly band, and rusty-red adult tail",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "Harris’s hawk",
+   "tier": "plausible",
+   "look": "a dark chocolate-brown hawk with chestnut shoulders and thighs and a white-banded tail",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "secretarybird",
+   "tier": "unusual",
+   "look": "a very long-legged gray raptor with black thigh feathers, orange facial skin, and a spiky black crest",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "Andean condor",
+   "tier": "unusual",
+   "look": "a huge black soaring bird with a white neck ruff, broad white wing panels, and a bare head",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "king vulture",
+   "tier": "unusual",
+   "look": "a broad-winged white-and-black vulture with a brightly colored bare head and an orange fleshy bill knob",
+   "tags": {
+    "kind": [
+     "raptor_owl",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "bearded vulture",
+   "tier": "unusual",
+   "look": "a long-winged vulture with a wedge-shaped tail, dark eye mask, black beard, and often rusty chest",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "barn owl",
+   "tier": "typical",
+   "look": "a pale owl with a heart-shaped white face, dark eyes, and golden-buff upperparts",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "snowy owl",
+   "tier": "typical",
+   "look": "a large white owl with yellow eyes, a rounded head, and variable dark barring",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "great horned owl",
+   "tier": "typical",
+   "look": "a large mottled brown owl with tall ear tufts, yellow eyes, and a white throat patch",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "Eurasian eagle-owl",
+   "tier": "plausible",
+   "look": "a very large orange-eyed owl with prominent ear tufts and densely streaked brown plumage",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "great gray owl",
+   "tier": "plausible",
+   "look": "a large gray owl with a huge concentric facial disk, small yellow eyes, and white throat bow tie",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "burrowing owl",
+   "tier": "plausible",
+   "look": "a small spotted brown owl with unusually long bare legs, yellow eyes, and white brows",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "northern saw-whet owl",
+   "tier": "unusual",
+   "look": "a tiny round-headed brown owl with large yellow eyes, white facial markings, and a streaked pale belly",
+   "tags": {
+    "kind": [
+     "raptor_owl"
+    ]
+   }
+  },
+  {
+   "text": "mallard duck",
+   "tier": "typical",
+   "look": "a stocky duck; drakes have a glossy green head, white neck ring, chestnut breast, and gray body",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "mandarin duck",
+   "tier": "plausible",
+   "look": "an ornate duck; drakes have orange cheek whiskers, white eye crescents, and raised orange wing sails",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "wood duck",
+   "tier": "plausible",
+   "look": "a crested duck; drakes have a green-purple head with crisp white lines and a chestnut spotted breast",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "northern pintail",
+   "tier": "plausible",
+   "look": "a slender duck; drakes have a brown head, white neck stripe, gray body, and long pointed tail",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "hooded merganser",
+   "tier": "plausible",
+   "look": "a small diving duck; males have an expandable black-and-white fan crest and chestnut sides",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "mute swan",
+   "tier": "typical",
+   "look": "a large white swan with a curved neck and an orange bill topped by a black knob",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "black swan",
+   "tier": "plausible",
+   "look": "a black swan with curled wing feathers, a long sinuous neck, and a bright red bill",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "Canada goose",
+   "tier": "typical",
+   "look": "a brown-gray goose with a long black neck, black head, and white chin strap",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "Egyptian goose",
+   "tier": "plausible",
+   "look": "a tan goose with dark eye patches, a brown chest patch, pink legs, and white wing panels",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "greater flamingo",
+   "tier": "typical",
+   "look": "a tall pale-pink wader with extremely long pink legs and a bent pink bill tipped in black",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "roseate spoonbill",
+   "tier": "plausible",
+   "look": "a pink wading bird with a pale bare head and a long flattened spoon-shaped bill",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "shoebill",
+   "tier": "unusual",
+   "look": "a tall slate-gray marsh bird with a massive shoe-shaped bill, pale eyes, and shaggy head feathers",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "great blue heron",
+   "tier": "typical",
+   "look": "a tall blue-gray wader with a daggerlike yellow bill, black head stripe, and long neck plumes",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "great egret",
+   "tier": "typical",
+   "look": "a tall slender white wader with a long yellow bill, black legs, and delicate back plumes",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "little blue heron",
+   "tier": "plausible",
+   "look": "a slim slate-blue wader with a purplish neck and a blue-gray bill tipped in black",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "black-crowned night heron",
+   "tier": "plausible",
+   "look": "a stocky short-necked heron with a black crown and back, gray wings, white belly, and red eyes",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   },
+   "short": "night heron"
+  },
+  {
+   "text": "sandhill crane",
+   "tier": "plausible",
+   "look": "a tall gray crane with a red forehead patch, pale cheeks, and loose drooping rump feathers",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "red-crowned crane",
+   "tier": "plausible",
+   "look": "a tall white crane with a red crown, black neck markings, and black trailing wing feathers",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "gray crowned crane",
+   "tier": "plausible",
+   "look": "a tall gray bird with a stiff golden crown, white cheek patches, and a red throat pouch",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "scarlet ibis",
+   "tier": "plausible",
+   "look": "a brilliant scarlet wader with a long downcurved bill and black tips on the outer wing feathers",
+   "tags": {
+    "kind": [
+     "waterbird",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "African jacana",
+   "tier": "unusual",
+   "look": "a chestnut waterbird with a white neck, blue frontal shield, and extremely long toes",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "American coot",
+   "tier": "plausible",
+   "look": "a round dark-gray waterbird with a white bill and forehead shield and broad lobed toes",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "great crested grebe",
+   "tier": "plausible",
+   "look": "a slender diving bird with a long white neck, dark double crest, and chestnut cheek frills",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "common loon",
+   "tier": "plausible",
+   "look": "a low-slung diving bird with a black head, white neck stripes, checkered back, and red eyes",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "pied avocet",
+   "tier": "unusual",
+   "look": "a slender black-and-white wader with long blue-gray legs and a fine upturned bill",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "Atlantic puffin",
+   "tier": "typical",
+   "look": "a compact black-and-white seabird with orange feet and a deep triangular orange-and-gray bill",
+   "tags": {
+    "kind": [
+     "seabird"
+    ]
+   }
+  },
+  {
+   "text": "tufted puffin",
+   "tier": "plausible",
+   "look": "a mostly black puffin with a white face, massive orange bill, and long yellow head plumes",
+   "tags": {
+    "kind": [
+     "seabird"
+    ]
+   }
+  },
+  {
+   "text": "emperor penguin",
+   "tier": "typical",
+   "look": "a very large upright penguin with a black head, white belly, and yellow-orange neck patches",
+   "tags": {
+    "kind": [
+     "seabird",
+     "flightless"
+    ]
+   }
+  },
+  {
+   "text": "king penguin",
+   "tier": "plausible",
+   "look": "a tall penguin with a slender bill, vivid orange cheek patches, and an orange upper chest",
+   "tags": {
+    "kind": [
+     "seabird",
+     "flightless"
+    ]
+   }
+  },
+  {
+   "text": "gentoo penguin",
+   "tier": "plausible",
+   "look": "a black-and-white penguin with a broad white head stripe and bright orange bill and feet",
+   "tags": {
+    "kind": [
+     "seabird",
+     "flightless"
+    ]
+   }
+  },
+  {
+   "text": "rockhopper penguin",
+   "tier": "plausible",
+   "look": "a small penguin with spiky yellow eyebrow plumes, red eyes, and a short orange-red bill",
+   "tags": {
+    "kind": [
+     "seabird",
+     "flightless"
+    ]
+   }
+  },
+  {
+   "text": "little blue penguin",
+   "tier": "plausible",
+   "look": "a tiny penguin with blue-gray upperparts, a white underside, and a small dark bill",
+   "tags": {
+    "kind": [
+     "seabird",
+     "flightless"
+    ]
+   }
+  },
+  {
+   "text": "wandering albatross",
+   "tier": "plausible",
+   "look": "an enormous long-winged seabird with a mostly white body, dark wing tips, and a large pale bill",
+   "tags": {
+    "kind": [
+     "seabird"
+    ]
+   }
+  },
+  {
+   "text": "blue-footed booby",
+   "tier": "plausible",
+   "look": "a brown-and-white seabird with a long pointed bill and vivid turquoise-blue webbed feet",
+   "tags": {
+    "kind": [
+     "seabird"
+    ]
+   }
+  },
+  {
+   "text": "northern gannet",
+   "tier": "plausible",
+   "look": "a large white seabird with black wing tips, a golden head, and a pointed blue-gray bill",
+   "tags": {
+    "kind": [
+     "seabird"
+    ]
+   }
+  },
+  {
+   "text": "brown pelican",
+   "tier": "typical",
+   "look": "a heavy gray-brown seabird with a long bill, huge throat pouch, and pale adult head",
+   "tags": {
+    "kind": [
+     "seabird"
+    ]
+   }
+  },
+  {
+   "text": "American white pelican",
+   "tier": "plausible",
+   "look": "a huge white bird with black flight feathers, a long orange bill, and a deep throat pouch",
+   "tags": {
+    "kind": [
+     "seabird",
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "magnificent frigatebird",
+   "tier": "plausible",
+   "look": "a black seabird with very long angular wings and a forked tail; males inflate a red throat pouch",
+   "tags": {
+    "kind": [
+     "seabird"
+    ]
+   }
+  },
+  {
+   "text": "Arctic tern",
+   "tier": "plausible",
+   "look": "a slim white-gray seabird with a black cap, red bill and feet, and very long forked tail streamers",
+   "tags": {
+    "kind": [
+     "seabird"
+    ]
+   }
+  },
+  {
+   "text": "herring gull",
+   "tier": "typical",
+   "look": "a large gull with a white head and body, gray back, pink legs, and a yellow bill with a red spot",
+   "tags": {
+    "kind": [
+     "seabird",
+     "urban_garden"
+    ]
+   }
+  },
+  {
+   "text": "black skimmer",
+   "tier": "unusual",
+   "look": "a black-and-white seabird with a red-and-black bill whose lower half is much longer than the upper half",
+   "tags": {
+    "kind": [
+     "seabird"
+    ]
+   }
+  },
+  {
+   "text": "oystercatcher",
+   "tier": "plausible",
+   "look": "a sturdy black-and-white shorebird with a long straight orange-red bill and pink legs",
+   "tags": {
+    "kind": [
+     "seabird"
+    ]
+   }
+  },
+  {
+   "text": "domestic chicken",
+   "tier": "typical",
+   "look": "a familiar plump farm bird with a red comb and wattles, stout legs, and short rounded wings",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "Silkie chicken",
+   "tier": "plausible",
+   "look": "a small chicken with fluffy fur-like plumage, a rounded crest, dark skin, and feathered feet",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "Polish chicken",
+   "tier": "plausible",
+   "look": "a slender chicken with an enormous rounded or spiky feather crest that can cover the eyes",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "Brahma chicken",
+   "tier": "plausible",
+   "look": "a very large chicken with a broad body, small pea comb, and heavily feathered legs and feet",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "Cochin chicken",
+   "tier": "plausible",
+   "look": "a heavy round chicken with loose fluffy plumage extending thickly down the legs and over the feet",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "Ayam Cemani chicken",
+   "tier": "unusual",
+   "look": "a chicken with black plumage, black comb and wattles, black skin, and dark legs",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "Sebright chicken",
+   "tier": "unusual",
+   "look": "a tiny upright bantam with neatly black-laced gold or silver feathers and a high fan-shaped tail",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "naked neck chicken",
+   "tier": "unusual",
+   "look": "a chicken with a conspicuously bare red neck and sparse feathers around the crop",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "Indian peacock",
+   "tier": "typical",
+   "look": "a blue-necked peafowl male with a tall head crest and a vast green train covered in eye spots",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "golden pheasant",
+   "tier": "plausible",
+   "look": "a pheasant; males have a golden crest, orange-and-black neck cape, red belly, and long barred tail",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "ring-necked pheasant",
+   "tier": "plausible",
+   "look": "a long-tailed game bird; males have a green head, red face, white neck ring, and coppery body",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "wild turkey",
+   "tier": "typical",
+   "look": "a large dark iridescent bird with a bare red-blue head, throat wattle, and broad fan-shaped tail",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "helmeted guineafowl",
+   "tier": "plausible",
+   "look": "a round dark bird dotted with white, with a small bare blue face and a bony brown head knob",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "California quail",
+   "tier": "plausible",
+   "look": "a plump gray-brown ground bird with a curved comma-shaped head plume and scaled belly markings",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "chukar partridge",
+   "tier": "plausible",
+   "look": "a round gray game bird with a black face-and-throat border, red bill, and boldly striped flanks",
+   "tags": {
+    "kind": [
+     "game_fowl_poultry"
+    ]
+   }
+  },
+  {
+   "text": "rock pigeon",
+   "tier": "typical",
+   "look": "a plump gray pigeon with an iridescent neck, two dark wing bars, and a dark tail band",
+   "tags": {
+    "kind": [
+     "urban_garden"
+    ]
+   }
+  },
+  {
+   "text": "mourning dove",
+   "tier": "typical",
+   "look": "a slim buff-gray dove with black wing spots, a small head, and a long pointed white-edged tail",
+   "tags": {
+    "kind": [
+     "urban_garden"
+    ]
+   }
+  },
+  {
+   "text": "Victoria crowned pigeon",
+   "tier": "unusual",
+   "look": "a large blue-gray ground pigeon with a maroon breast and a broad lace-like crest tipped in white",
+   "tags": {
+    "kind": [
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "Nicobar pigeon",
+   "tier": "unusual",
+   "look": "a dark pigeon with long iridescent green and bronze neck plumes and a short white tail",
+   "tags": {
+    "kind": [
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "hoopoe",
+   "tier": "plausible",
+   "look": "a buff-orange bird with a black-tipped fan crest, long curved bill, and black-and-white barred wings",
+   "tags": {
+    "kind": [
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "resplendent quetzal",
+   "tier": "unusual",
+   "look": "a green-and-red trogon; males have a shimmering green crest and extremely long streaming green tail coverts",
+   "tags": {
+    "kind": [
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "toco toucan",
+   "tier": "typical",
+   "look": "a black bird with a white throat and an enormous orange bill marked by a black tip",
+   "tags": {
+    "kind": [
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "rhinoceros hornbill",
+   "tier": "unusual",
+   "look": "a large black-and-white hornbill with a long pale bill topped by an upward-curving orange-red horn",
+   "tags": {
+    "kind": [
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "great hornbill",
+   "tier": "plausible",
+   "look": "a large black-and-white bird with a yellow neck, massive yellow bill, and broad yellow casque",
+   "tags": {
+    "kind": [
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "hoatzin",
+   "tier": "unusual",
+   "look": "a brown marsh bird with a spiky rusty crest, bare blue face, red eyes, and a buff-streaked neck",
+   "tags": {
+    "kind": [
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "laughing kookaburra",
+   "tier": "plausible",
+   "look": "a stocky brown-and-white kingfisher with a large pale bill and a dark stripe through the eye",
+   "tags": {
+    "kind": [
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "common kingfisher",
+   "tier": "typical",
+   "look": "a tiny kingfisher with electric blue upperparts, an orange belly, and a long dark daggerlike bill",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "belted kingfisher",
+   "tier": "plausible",
+   "look": "a blue-gray kingfisher with a shaggy crest, white collar, and a blue-gray band across its white chest",
+   "tags": {
+    "kind": [
+     "waterbird"
+    ]
+   }
+  },
+  {
+   "text": "lilac-breasted roller",
+   "tier": "plausible",
+   "look": "a stout bird with a lilac chest, green crown, turquoise wings, and long narrow outer tail feathers",
+   "tags": {
+    "kind": [
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "European bee-eater",
+   "tier": "plausible",
+   "look": "a slim bird with a chestnut crown, yellow throat, turquoise belly, and long pointed bill",
+   "tags": {
+    "kind": [
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "ruby-throated hummingbird",
+   "tier": "typical",
+   "look": "a tiny hovering bird with a green back; males have a brilliant red throat and pale belly",
+   "tags": {
+    "kind": [
+     "hummingbird_sunbird"
+    ]
+   },
+   "short": "ruby-throat hummingbird"
+  },
+  {
+   "text": "Anna’s hummingbird",
+   "tier": "plausible",
+   "look": "a tiny green hummingbird; males have a sparkling rose-pink crown and throat",
+   "tags": {
+    "kind": [
+     "hummingbird_sunbird"
+    ]
+   }
+  },
+  {
+   "text": "sword-billed hummingbird",
+   "tier": "unusual",
+   "look": "a green hummingbird with an exceptionally long straight bill that can exceed its body length",
+   "tags": {
+    "kind": [
+     "hummingbird_sunbird",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "violet-tailed sylph",
+   "tier": "unusual",
+   "look": "a small green hummingbird; males have long deeply forked violet-blue tail streamers",
+   "tags": {
+    "kind": [
+     "hummingbird_sunbird",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "splendid sunbird",
+   "tier": "unusual",
+   "look": "a slender curved-billed bird; males shine violet and blue with a green back and dark wings",
+   "tags": {
+    "kind": [
+     "hummingbird_sunbird",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "brown kiwi",
+   "tier": "plausible",
+   "look": "a round shaggy brown bird with tiny hidden wings, stout legs, and a very long slender bill",
+   "tags": {
+    "kind": [
+     "flightless"
+    ]
+   }
+  },
+  {
+   "text": "emu",
+   "tier": "typical",
+   "look": "a tall shaggy brown bird with long bare legs, a small dark head, and patches of blue neck skin",
+   "tags": {
+    "kind": [
+     "flightless"
+    ]
+   }
+  },
+  {
+   "text": "ostrich",
+   "tier": "typical",
+   "look": "a huge long-necked bird with powerful bare legs; males have black bodies and white wing and tail plumes",
+   "tags": {
+    "kind": [
+     "flightless"
+    ]
+   }
+  },
+  {
+   "text": "southern cassowary",
+   "tier": "plausible",
+   "look": "a large black bird with a bare blue neck, red wattles, and a tall brown helmet-like casque",
+   "tags": {
+    "kind": [
+     "flightless",
+     "exotic_tropical"
+    ]
+   }
+  },
+  {
+   "text": "greater rhea",
+   "tier": "unusual",
+   "look": "a tall gray-brown running bird with a feathered neck, long legs, and large loose-feathered wings",
+   "tags": {
+    "kind": [
+     "flightless"
+    ]
+   }
+  }
+ ]
+}

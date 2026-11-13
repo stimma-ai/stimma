@@ -1,0 +1,3251 @@
+{
+ "id": "exterior_space.outdoors",
+ "label": "Outdoors",
+ "description": "Outdoor settings: city streets, suburbs, farms, gardens, coasts, mountains, forests, deserts, waterways and ruins.",
+ "pos": "noun phrase",
+ "frame": "the setting is ___",
+ "notes": "Whole outdoor settings belong here, from ordinary streets and backyards to wild landscapes and imagined worlds. place.landform owns landform names in isolation; interior_space lists own enclosed rooms and cave interiors. Values are noun phrases naming a place with concrete, visible surroundings, ready to follow “the setting is.” Region and climate tags retain setting-specific constraints; era and genre tags are reserved for scenes that require a historical or imagined context.",
+ "closed": false,
+ "facets": [
+  "space",
+  "era",
+  "genre",
+  "region",
+  "locale",
+  "climate"
+ ],
+ "local_facets": {
+  "kind": [
+   "street_city",
+   "urban_spot",
+   "suburb",
+   "countryside_farm",
+   "park_garden",
+   "coast_beach",
+   "mountain",
+   "forest",
+   "desert",
+   "water_lake_river",
+   "wild_landscape",
+   "industrial_ruin"
+  ]
+ },
+ "untagged": {
+  "space": [
+   "outdoor"
+  ]
+ },
+ "context": {
+  "gives": [
+   "space",
+   "climate"
+  ]
+ },
+ "values": [
+  {
+   "text": "a city street with brick row houses and basement steps",
+   "short": "brick row-house street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a commercial street with awnings and curbside loading bays",
+   "short": "commercial street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a residential street with apartment balconies and parked scooters",
+   "short": "apartment street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a broad boulevard with plane trees and stone apartment blocks",
+   "short": "tree-lined boulevard",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a steep street with retaining walls and row houses",
+   "short": "steep row-house street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a shopping street with covered arcades and tiled storefronts",
+   "short": "arcaded shopping street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a street with warehouse facades and roll-up loading doors",
+   "short": "warehouse street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city",
+     "industrial_ruin"
+    ]
+   }
+  },
+  {
+   "text": "a street with tram tracks and overhead wires",
+   "short": "tram street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a pedestrian street with cafe tables and bicycle stands",
+   "short": "pedestrian cafe street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "an avenue with office towers and wide concrete sidewalks",
+   "short": "office-tower avenue",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a street with low-rise shops and tangled utility wires",
+   "short": "utility-wire street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a street with bollards and a protected bike lane",
+   "short": "protected bike lane",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a street with food kiosks and painted crosswalk stripes",
+   "short": "food-kiosk street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a street with a canal along one side",
+   "short": "canal-side street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city",
+     "water_lake_river"
+    ]
+   }
+  },
+  {
+   "text": "a street with elevated train tracks overhead",
+   "short": "elevated-train street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "an inner-city street with vacant lots and boarded storefronts",
+   "short": "boarded storefronts",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city",
+     "industrial_ruin"
+    ]
+   }
+  },
+  {
+   "text": "a street with prefabricated apartment blocks and concrete benches",
+   "short": "apartment-block street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a street with cobbled gutters and worn flagstone sidewalks",
+   "short": "flagstone sidewalks",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a street with bus lanes and glass bus shelters",
+   "short": "bus-lane street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a street threaded beneath interconnected apartment bridges",
+   "short": "apartment skybridges",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "locale": [
+     "urban"
+    ]
+   }
+  },
+  {
+   "text": "a street with a monorail guideway above its median",
+   "short": "monorail avenue",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "locale": [
+     "urban"
+    ]
+   }
+  },
+  {
+   "text": "a Japanese shopping street with fabric banners and tiled eaves",
+   "short": "Japanese shopping street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Chinese street with shophouse balconies and carved timber doors",
+   "short": "Chinese shophouse street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Korean street with tiled compound walls and wooden gates",
+   "short": "Korean walled street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Taiwanese street with arcaded sidewalks and scooter parking",
+   "short": "Taiwanese shop street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a street with jali balconies and carved sandstone facades",
+   "short": "jali-balcony street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a street with Portuguese-style verandas and tiled roofs",
+   "short": "veranda street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a street with Tamil courtyard houses and raised entrance platforms",
+   "short": "Tamil courtyard houses",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a street with five-foot walkways and pastel shophouses",
+   "short": "pastel shophouses",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a street with stilted timber houses and narrow footbridges",
+   "short": "stilt-house street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Balinese street with carved compound gates and brick walls",
+   "short": "Balinese compound gates",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a street with wind towers and thick plaster walls",
+   "short": "wind-tower street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a street with mashrabiya balconies and pointed stone doorways",
+   "short": "mashrabiya street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a street with mud-brick compounds and recessed wooden doors",
+   "short": "mud-brick street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a street with coral-stone facades and carved wooden doors",
+   "short": "coral-stone street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a street with Sahelian earthen houses and projecting timber beams",
+   "short": "Sahelian earthen street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a street with Cape Dutch gables and deep front verandas",
+   "short": "Cape Dutch street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a street with half-timbered houses and projecting upper stories",
+   "short": "half-timbered street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a street with narrow canal houses and stepped gables",
+   "short": "stepped-gable street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a street with whitewashed houses and blue doorframes",
+   "short": "whitewashed street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a street with stucco apartment blocks and enclosed balconies",
+   "short": "enclosed-balcony street",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a street with brightly painted facades and wrought-iron window grilles",
+   "short": "painted facades",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a street with tiled colonial mansions and broad wooden doors",
+   "short": "tiled colonial mansions",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a Roman street with stepping stones and plastered storefronts",
+   "short": "ancient Roman street",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "era": [
+     "ancient"
+    ]
+   }
+  },
+  {
+   "text": "a walled-town street with overhanging timber houses and open gutters",
+   "short": "walled-town street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a city street with horse-tram rails and cast-iron storefronts",
+   "short": "horse-tram street",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "era": [
+     "19th_century",
+     "1900s_1940s"
+    ]
+   }
+  },
+  {
+   "text": "a street with Art Deco movie theaters and tiled storefronts",
+   "short": "Art Deco theater street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a street with stacked pedestrian decks and holographic shop signs",
+   "short": "holographic shop street",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "street_city"
+    ],
+    "genre": [
+     "cyberpunk",
+     "scifi"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a street beneath megastructure pylons with automated freight lanes",
+   "short": "megastructure street",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "street_city",
+     "industrial_ruin"
+    ],
+    "genre": [
+     "cyberpunk",
+     "scifi"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a street with dragon-shaped waterspouts and crooked stone towers",
+   "short": "dragon-spout street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "street_city"
+    ]
+   }
+  },
+  {
+   "text": "a street with buckled pavement and abandoned vehicle barricades",
+   "short": "barricaded street",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "street_city",
+     "industrial_ruin"
+    ]
+   }
+  },
+  {
+   "text": "a rooftop enclosure with water tanks and concrete parapets",
+   "short": "water-tank rooftop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a rooftop parking deck with painted bays and ramp barriers",
+   "short": "rooftop parking deck",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "an alley with fire escapes and wheeled trash cans",
+   "short": "fire-escape alley",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a cobbled alley with arched passages and drain channels",
+   "short": "cobbled alley",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a train platform with benches and a corrugated canopy",
+   "short": "train platform",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "an elevated metro platform with glass barriers and steel columns",
+   "short": "elevated metro platform",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "an outdoor bus terminal with numbered bays and concrete shelters",
+   "short": "outdoor bus terminal",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a parking lot with shopping carts and painted arrows",
+   "short": "shopping-center lot",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a stone bridge gateway with carved parapets and shallow arches",
+   "short": "stone bridge gateway",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "an underpass with graffiti walls and drainage channels",
+   "short": "graffiti underpass",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "an urban plaza with a fountain and stone benches",
+   "short": "fountain plaza",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a market square with folding stalls and stacked produce crates",
+   "short": "produce market square",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a loading courtyard with dumpsters and pallet stacks",
+   "short": "loading courtyard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot",
+     "industrial_ruin"
+    ]
+   }
+  },
+  {
+   "text": "a schoolyard with painted games and basketball hoops",
+   "short": "painted schoolyard",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a skate plaza with concrete ledges and metal rails",
+   "short": "skate plaza",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "an outdoor basketball court with chain-link fencing",
+   "short": "basketball court",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "an industrial quay with bollards and cargo rails",
+   "short": "industrial quay",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot",
+     "industrial_ruin",
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a canal towpath cutting with mooring rings and brick warehouses",
+   "short": "warehouse canal towpath",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot",
+     "industrial_ruin",
+     "water_lake_river"
+    ]
+   }
+  },
+  {
+   "text": "an outdoor amphitheater with stepped concrete seating",
+   "short": "outdoor amphitheater",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a cemetery courtyard with stone tombs and gravel paths",
+   "short": "cemetery courtyard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "an open-air flea market with trestle tables and clothing racks",
+   "short": "open-air flea market",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a shipping-container courtyard with food counters and picnic benches",
+   "short": "container food court",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "an abandoned lot with broken masonry and volunteer shrubs",
+   "short": "abandoned lot",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot",
+     "industrial_ruin"
+    ]
+   }
+  },
+  {
+   "text": "a hutong courtyard entrance with stone drums and timber gates",
+   "short": "hutong entrance",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a stepped temple tank with stone landings and carved railings",
+   "short": "stepped temple tank",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot",
+     "water_lake_river"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a bazaar courtyard with fabric awnings and handcart bays",
+   "short": "bazaar courtyard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a caravanserai courtyard with arched galleries and a central trough",
+   "short": "caravanserai courtyard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a piazza with arcaded facades and a central well",
+   "short": "arcaded piazza",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a Roman forum with colonnades and raised speaker platforms",
+   "short": "Roman forum",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ],
+    "era": [
+     "ancient"
+    ]
+   }
+  },
+  {
+   "text": "a castle forecourt with a drawbridge and stone gatehouse",
+   "short": "castle forecourt",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a railroad freight yard with turntables and timber loading platforms",
+   "short": "railroad freight yard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "urban_spot",
+     "industrial_ruin"
+    ]
+   }
+  },
+  {
+   "text": "a transit platform with levitating rails and docking barriers",
+   "short": "levitating-rail platform",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a rooftop spacecraft landing pad with guidance markers and blast shields",
+   "short": "spacecraft landing pad",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a catwalk enclosure between megatowers with exposed coolant pipes",
+   "short": "megatower catwalk",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "urban_spot",
+     "industrial_ruin"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a floating plaza with carved balustrades and tethered skybridges",
+   "short": "floating plaza",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "urban_spot"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a street with detached houses and front yard fences",
+   "short": "fenced front yards",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "suburb"
+    ]
+   }
+  },
+  {
+   "text": "a street with timber porches and roadside mailboxes",
+   "short": "porches and mailboxes",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "suburb"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "a street with Queenslander houses and raised timber verandas",
+   "short": "Queenslander street",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "suburb"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "a suburban cul-de-sac with detached houses, clipped lawns and concrete driveways",
+   "short": "suburban cul-de-sac",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "suburb"
+    ],
+    "locale": [
+     "suburban"
+    ]
+   }
+  },
+  {
+   "text": "a fenced backyard with a wooden deck, patio chairs and a lawn",
+   "short": "backyard deck",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "suburb"
+    ],
+    "locale": [
+     "suburban"
+    ]
+   }
+  },
+  {
+   "text": "a townhouse courtyard with small patios and shared flower beds",
+   "short": "townhouse courtyard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "suburb"
+    ],
+    "locale": [
+     "suburban"
+    ]
+   }
+  },
+  {
+   "text": "a suburban strip mall with a broad parking lot and storefront awnings",
+   "short": "suburban strip mall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "suburb"
+    ],
+    "locale": [
+     "suburban"
+    ]
+   }
+  },
+  {
+   "text": "a mobile home park with narrow driveways and small front porches",
+   "short": "mobile home park",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "suburb"
+    ],
+    "locale": [
+     "suburban"
+    ]
+   }
+  },
+  {
+   "text": "a suburban community pool with lounge chairs and a chain-link fence",
+   "short": "community pool",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "suburb"
+    ],
+    "locale": [
+     "suburban"
+    ]
+   }
+  },
+  {
+   "text": "a suburban drainage canal with concrete banks, footbridges and houses beyond",
+   "short": "suburban drainage canal",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "suburb",
+     "water_lake_river"
+    ],
+    "locale": [
+     "suburban"
+    ]
+   }
+  },
+  {
+   "text": "a suburban playground with climbing frames, rubber paving and picnic tables",
+   "short": "suburban playground",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "suburb",
+     "park_garden"
+    ],
+    "locale": [
+     "suburban"
+    ]
+   }
+  },
+  {
+   "text": "a farmyard with a stone barn and stacked hay bales",
+   "short": "stone-barn farmyard",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a farm lane with hedgerows and muddy wheel ruts",
+   "short": "hedgerow farm lane",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a village green with a bulletin board and stone cottages",
+   "short": "village green",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a pasture with a water trough and split-rail fencing",
+   "short": "fenced pasture",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "an orchard with pruning ladders and grass between rows",
+   "short": "fruit orchard",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a vineyard with trellised vines and a gravel access road",
+   "short": "vineyard",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "an olive grove with twisted trunks and stone terraces",
+   "short": "olive grove",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "an allotment field with small plots and water barrels",
+   "short": "allotment plots",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a dairy farm with a milking shed and silage bunker",
+   "short": "dairy farm",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a sheepfold with stone walls and a narrow gate",
+   "short": "stone sheepfold",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a stable yard with stall doors and a mounting block",
+   "short": "stable yard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a hay meadow with a wooden barn and cut swaths",
+   "short": "hay meadow",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a market garden with hoop houses and irrigation pipes",
+   "short": "market garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a grain field with a silo and service track",
+   "short": "grain field",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "an irrigation district with terraced fields and stone-lined channels",
+   "short": "irrigated terraces",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a village square with a communal well and low houses",
+   "short": "village well square",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a mountain village with steep lanes and timber balconies",
+   "short": "mountain village",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "an abandoned farmstead with roofless barns and tangled yards",
+   "short": "abandoned farmstead",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm",
+     "industrial_ruin"
+    ]
+   }
+  },
+  {
+   "text": "a sugarcane farm with narrow tracks and irrigation ditches",
+   "short": "sugarcane farm",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a banana plantation with broad leaves and drainage channels",
+   "short": "banana plantation",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a date plantation with earthen channels and mud-brick walls",
+   "short": "date plantation",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a coffee farm with shade trees and drying patios",
+   "short": "coffee farm",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a cacao farm with low shade canopies and fermentation boxes",
+   "short": "cacao farm",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a rice-farming village with tiled roofs and irrigation channels",
+   "short": "rice-farming village",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a tea plantation with curved rows and narrow stone steps",
+   "short": "tea plantation",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a terraced rice valley with stone retaining walls and footpaths",
+   "short": "terraced rice valley",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a village with stilt houses and raised plank walkways",
+   "short": "stilt-house village",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a rubber plantation with tapping cups and straight tree rows",
+   "short": "rubber plantation",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a hill village with flat-roofed stone houses and cisterns",
+   "short": "stone hill village",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a qanat-fed orchard with mud-brick walls and narrow channels",
+   "short": "qanat-fed orchard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a village courtyard with earthen granaries and woven fencing",
+   "short": "granary courtyard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a sorghum field beside round storehouses and packed-earth paths",
+   "short": "sorghum field",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a village with half-timbered houses and cobbled lanes",
+   "short": "timber-framed village",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "an alpine farm with timber barns and fenced meadows",
+   "short": "alpine farm",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm",
+     "mountain"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a rural village with adobe houses and a cobbled square",
+   "short": "adobe village",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "an agave farm with parallel rows and volcanic stone walls",
+   "short": "agave farm",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a prairie farm with grain bins and a straight gravel road",
+   "short": "prairie farm",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "a ranch yard with timber corrals and a windmill",
+   "short": "ranch yard",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "a sheep station with corrugated sheds and timber stockyards",
+   "short": "sheep station",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "a village with thatched crofts and long strip fields",
+   "short": "thatched crofts",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a village with burrow doors and oversized vegetable patches",
+   "short": "burrow-door village",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "an open-air hydroponic farm with stacked growing trays and service gantries",
+   "short": "hydroponic farm",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a greenhouse complex with glass roofs, nutrient tanks and drone landing pads",
+   "short": "greenhouse complex",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a grain farm with autonomous harvesters and charging sheds",
+   "short": "autonomous grain farm",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "countryside_farm"
+    ]
+   }
+  },
+  {
+   "text": "a neighborhood park with winding paths and mature oaks",
+   "short": "neighborhood park",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a pocket park with raised planters and a bench",
+   "short": "pocket park",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a public garden with herbaceous borders and gravel paths",
+   "short": "perennial garden",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a walled garden with espaliered fruit trees and brick paths",
+   "short": "walled fruit garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen garden with raised vegetable beds and bean poles",
+   "short": "kitchen garden",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a rose garden with metal arches and clipped borders",
+   "short": "rose garden",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a rock garden with alpine plants and narrow stone steps",
+   "short": "rock garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a sculpture garden with abstract forms among clipped hedges",
+   "short": "sculpture garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a sensory garden with raised herb beds, textured paving and a pebble mosaic",
+   "short": "sensory garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a community garden with shared beds and a tool shed",
+   "short": "community garden",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a courtyard garden with a fig tree and tiled fountain",
+   "short": "fig-tree courtyard",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "park_garden",
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a rooftop garden with deep planters and timber walkways",
+   "short": "rooftop garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden",
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "an overgrown garden with a broken trellis and tangled roses",
+   "short": "overgrown garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a formal garden with clipped parterres and gravel avenues",
+   "short": "formal parterre garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a park with a duck pond and wooden footbridge",
+   "short": "duck-pond park",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "park_garden",
+     "water_lake_river"
+    ]
+   }
+  },
+  {
+   "text": "a park with exercise stations and looping footpaths",
+   "short": "exercise park",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a riverside park with willow trees and a towpath",
+   "short": "riverside park",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "park_garden",
+     "water_lake_river"
+    ]
+   }
+  },
+  {
+   "text": "a meadow garden with mown paths and seed-head borders",
+   "short": "meadow garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a cactus garden with volcanic rocks and winding paths",
+   "short": "cactus garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a tropical garden with heliconias and broad-leaved palms",
+   "short": "tropical garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a Japanese garden with a koi pond and stepping stones",
+   "short": "Japanese koi garden",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a dry landscape garden with raked gravel and grouped rocks",
+   "short": "raked gravel garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Chinese garden with a moon gate and scholar's rocks",
+   "short": "Chinese garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Korean garden with a lotus pond and open pavilion",
+   "short": "Korean lotus garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Mughal garden with water channels and symmetrical terraces",
+   "short": "Mughal garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a courtyard garden with a tulsi planter and stone seating",
+   "short": "tulsi courtyard garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden",
+     "urban_spot"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Balinese garden with split gates and lotus pools",
+   "short": "Balinese garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Persian garden with quadripartite paths and narrow rills",
+   "short": "Persian garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a riad garden with orange trees and tiled beds",
+   "short": "riad garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden",
+     "urban_spot"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a Cape garden with protea beds and sandstone paths",
+   "short": "protea garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a Renaissance garden with topiary cones and geometric beds",
+   "short": "Renaissance garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a Mexican courtyard garden with a tiled fountain and agaves",
+   "short": "Mexican courtyard garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden",
+     "urban_spot"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a prairie garden with tall grasses and coneflower beds",
+   "short": "prairie garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "a monastery garden with medicinal beds and wicker fencing",
+   "short": "monastery herb garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ]
+   }
+  },
+  {
+   "text": "a garden with giant flowers and spiral topiary creatures",
+   "short": "giant-flower garden",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a garden with crystal trees and a mosaic-lined pool",
+   "short": "crystal-tree garden",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "park_garden"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a rooftop garden with aeroponic towers and nutrient channels",
+   "short": "aeroponic roof garden",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "park_garden",
+     "urban_spot"
+    ]
+   }
+  },
+  {
+   "text": "a sandy beach with dune grass and a timber boardwalk",
+   "short": "boardwalk beach",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a rocky shore with tide pools and seaweed-covered shelves",
+   "short": "tide-pool shore",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a cliff-backed cove with a narrow gravel beach",
+   "short": "cliff-backed cove",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a broad tidal flat with winding channels and shell beds",
+   "short": "tidal flat",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach",
+     "water_lake_river"
+    ]
+   }
+  },
+  {
+   "text": "an estuary bank with saltmarsh and exposed mud",
+   "short": "saltmarsh estuary",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach",
+     "water_lake_river"
+    ]
+   }
+  },
+  {
+   "text": "an old harbor with stone steps and fishing-boat berths",
+   "short": "stone fishing harbor",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a fishing quay with rope coils and stacked lobster pots",
+   "short": "lobster-pot quay",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a marina edge with floating pontoons and sailboat masts",
+   "short": "sailboat marina",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a waterfront promenade with sea walls and concrete benches",
+   "short": "waterfront promenade",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a tidal causeway with marker poles and stone verges",
+   "short": "tidal causeway",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a rocky headland with low scrub and a narrow trail",
+   "short": "scrubby headland",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a coral-sand beach with coconut palms and shell fragments",
+   "short": "palm-lined coral beach",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a volcanic black-sand beach with basalt shelves",
+   "short": "black-sand beach",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a mangrove creek with arching roots and mud banks",
+   "short": "mangrove creek",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach",
+     "water_lake_river"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a coastal salt pan with crusted basins and narrow embankments",
+   "short": "coastal salt pans",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a coastal desert with dunes descending to a stony beach",
+   "short": "desert coast",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "a chalk-cliff shore with flint pebbles and fallen slabs",
+   "short": "chalk-cliff shore",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a granite coast with rounded boulders and heather patches",
+   "short": "granite coast",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a coastal pine wood bordering a dune-backed beach",
+   "short": "coastal pine wood",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach",
+     "forest"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a limestone coast with sea arches and pebble coves",
+   "short": "sea-arch coast",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a beach with weathered bathing huts and timber groins",
+   "short": "bathing-hut beach",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a fjord shore with steep rock walls and gravel margins",
+   "short": "fjord shore",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "climate": [
+     "cold"
+    ]
+   }
+  },
+  {
+   "text": "an arctic coast with raised beach ridges and dwarf willow",
+   "short": "arctic coast",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "climate": [
+     "cold"
+    ]
+   }
+  },
+  {
+   "text": "a glacial inlet with ice fragments and dark rock beaches",
+   "short": "glacial inlet",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "climate": [
+     "cold"
+    ]
+   }
+  },
+  {
+   "text": "a tidal shore with bamboo oyster racks and shallow channels",
+   "short": "oyster-rack shore",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a coastal boardwalk between stilt houses and moored longboats",
+   "short": "stilt-house boardwalk",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a coral-stone harbor with dhow berths and timber loading ramps",
+   "short": "dhow harbor",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a fishing cove with slipways and whitewashed boat sheds",
+   "short": "boat-shed cove",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a tropical fishing beach with painted skiffs and net racks",
+   "short": "painted-skiff beach",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a Roman harbor with stone mooring blocks and warehouse arcades",
+   "short": "Roman harbor",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "era": [
+     "ancient"
+    ]
+   }
+  },
+  {
+   "text": "a coast with enormous shell formations and a carved sea gate",
+   "short": "fantasy shell coast",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a shoreline with tidal turbines and elevated habitat platforms",
+   "short": "tidal habitat platforms",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "coast_beach"
+    ]
+   }
+  },
+  {
+   "text": "a coast with stranded freighters and collapsed seawalls",
+   "short": "shipwreck coast",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "coast_beach",
+     "industrial_ruin"
+    ]
+   }
+  },
+  {
+   "text": "an alpine valley with scree slopes and dwarf shrubs",
+   "short": "alpine valley",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "a mountain pass with jagged peaks and loose stone",
+   "short": "mountain pass",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "a glacial valley with moraine ridges and a turquoise lake",
+   "short": "glacial valley",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "a mountain meadow with wildflowers and exposed boulders",
+   "short": "mountain meadow",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "a páramo valley with frailejón plants and glacial pools",
+   "short": "páramo valley",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mountain"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a tropical rainforest with buttress roots and tangled lianas",
+   "short": "tropical rainforest",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a cloud forest with tree ferns and moss-covered branches",
+   "short": "cloud forest",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a deciduous forest with beech trunks and leaf-covered ground",
+   "short": "beech forest",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a pine forest with needle-covered ground and exposed roots",
+   "short": "pine forest",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a redwood grove with massive trunks and fern undergrowth",
+   "short": "redwood grove",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a eucalyptus forest with peeling bark and grass trees",
+   "short": "eucalyptus forest",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a bamboo grove with dense stems and a narrow track",
+   "short": "bamboo grove",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a temperate rainforest with mossy logs and giant ferns",
+   "short": "temperate rainforest",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a taiga forest with thin spruce and lichen-covered ground",
+   "short": "taiga forest",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "climate": [
+     "cold"
+    ]
+   }
+  },
+  {
+   "text": "a miombo woodland with broad-crowned trees and red soil",
+   "short": "miombo woodland",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "region": [
+     "african"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a cerrado landscape with twisted trees and red earth",
+   "short": "cerrado woodland",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a forest of giant mushrooms with gnarled roots and mossy paths",
+   "short": "giant-mushroom forest",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "forest"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a sandstone canyon with layered cliffs and a dry wash",
+   "short": "sandstone canyon",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "a badlands basin with eroded pinnacles and clay gullies",
+   "short": "badlands basin",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "a slot canyon with sculpted walls and a sandy floor",
+   "short": "slot canyon",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "a desert basin with crescent dunes and gravel flats",
+   "short": "dune desert",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "a salt flat with polygonal crusts and distant escarpments",
+   "short": "salt flat",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "a desert oasis with date palms and reed beds",
+   "short": "desert oasis",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "desert"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a polar desert with frost-shattered rock and gravel terraces",
+   "short": "polar desert",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "desert"
+    ],
+    "climate": [
+     "cold"
+    ]
+   }
+  },
+  {
+   "text": "a desert wadi with gravel terraces and scattered tamarisks",
+   "short": "desert wadi",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "desert"
+    ],
+    "region": [
+     "middle_eastern"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a crystalline desert with jagged spires and glassy sand",
+   "short": "crystalline desert",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "desert"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a broad valley with a braided river and gravel bars",
+   "short": "braided-river valley",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_lake_river"
+    ]
+   }
+  },
+  {
+   "text": "a palm swamp with shallow pools and tangled root mats",
+   "short": "palm swamp",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "water_lake_river"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a papyrus wetland with open channels and floating vegetation",
+   "short": "papyrus wetland",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "water_lake_river"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a freshwater marsh with reed beds and narrow channels",
+   "short": "freshwater marsh",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "water_lake_river"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a river bend with pebble beaches and leaning trees",
+   "short": "pebbled river bend",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_lake_river"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a waterfall basin with rounded rocks and fern-lined ledges",
+   "short": "waterfall basin",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_lake_river"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a remote lake with rocky islets and reed-fringed coves",
+   "short": "remote lake",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_lake_river"
+    ],
+    "locale": [
+     "wilderness"
+    ]
+   }
+  },
+  {
+   "text": "a river delta with branching channels and silt islands",
+   "short": "river delta",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "water_lake_river"
+    ],
+    "locale": [
+     "wilderness"
+    ]
+   }
+  },
+  {
+   "text": "a lakeside campground with tent pitches, picnic tables and a gravel boat ramp",
+   "short": "lakeside campground",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_lake_river"
+    ]
+   }
+  },
+  {
+   "text": "a limestone gorge with sheer walls and scrubby ledges",
+   "short": "limestone gorge",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ]
+   }
+  },
+  {
+   "text": "a basalt plateau with columnar cliffs and sparse grass",
+   "short": "basalt plateau",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ]
+   }
+  },
+  {
+   "text": "a volcanic caldera with a crater lake and broken ridges",
+   "short": "volcanic caldera",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ]
+   }
+  },
+  {
+   "text": "a lava field with rope-textured rock and fissures",
+   "short": "lava field",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ]
+   }
+  },
+  {
+   "text": "a karst basin with limestone towers and sinkholes",
+   "short": "karst basin",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ]
+   }
+  },
+  {
+   "text": "a cave entrance with hanging vines and a rocky streambed",
+   "short": "vine-hung cave mouth",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ]
+   }
+  },
+  {
+   "text": "a thorn savanna with acacia trees and termite mounds",
+   "short": "acacia savanna",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "a grass savanna with scattered baobabs and rocky outcrops",
+   "short": "baobab savanna",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "climate": [
+     "hot"
+    ]
+   }
+  },
+  {
+   "text": "an open heath with heather clumps and sandy hollows",
+   "short": "heather heath",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a moorland with peat pools and rocky tors",
+   "short": "peat moorland",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "climate": [
+     "temperate"
+    ]
+   }
+  },
+  {
+   "text": "a tundra plain with dwarf shrubs and patterned ground",
+   "short": "tundra plain",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "climate": [
+     "cold"
+    ]
+   }
+  },
+  {
+   "text": "a glacier margin with blue ice walls and rubble heaps",
+   "short": "glacier margin",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "climate": [
+     "cold"
+    ]
+   }
+  },
+  {
+   "text": "an icefield with crevasses and exposed rock islands",
+   "short": "crevassed icefield",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "climate": [
+     "cold"
+    ]
+   }
+  },
+  {
+   "text": "a loess landscape with steep gullies and rounded earthen ridges",
+   "short": "loess gullies",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Mediterranean scrubland with limestone shelves and aromatic shrubs",
+   "short": "Mediterranean scrubland",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a Patagonian steppe with tufted grasses and basalt ridges",
+   "short": "Patagonian steppe",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a tallgrass prairie with broad swales and scattered cottonwoods",
+   "short": "tallgrass prairie",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "a meteor crater with a raised rim and shattered rock",
+   "short": "meteor crater",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ]
+   }
+  },
+  {
+   "text": "a geothermal basin with mineral terraces and bubbling pools",
+   "short": "geothermal basin",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ]
+   }
+  },
+  {
+   "text": "a petrified forest with mineralized trunks and eroded clay beds",
+   "short": "petrified forest",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ]
+   }
+  },
+  {
+   "text": "a valley with floating rock islands and cascading streams",
+   "short": "floating-rock valley",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "an alien plain with branching silica growths and shallow craters",
+   "short": "alien silica plain",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "wild_landscape"
+    ],
+    "genre": [
+     "scifi"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "an abandoned factory yard with rusted pipework and weeds between concrete slabs",
+   "short": "abandoned factory yard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial_ruin"
+    ]
+   }
+  },
+  {
+   "text": "a disused quarry with terraced rock faces, flooded pits and rusted conveyors",
+   "short": "disused quarry",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "industrial_ruin",
+     "water_lake_river"
+    ]
+   }
+  },
+  {
+   "text": "a ruined abbey with roofless stone arches and grass-covered floors",
+   "short": "ruined abbey",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial_ruin"
+    ]
+   }
+  }
+ ]
+}

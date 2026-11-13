@@ -1,5 +1,5 @@
 {
  "id": "scene",
- "label": "Scene conditions",
- "description": "time of day, weather and season"
+ "label": "Scene",
+ "description": "Time of day, season, weather, studio backdrops and what is happening."
 }

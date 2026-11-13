@@ -1,0 +1,307 @@
+{
+ "id": "vehicle.spacecraft",
+ "label": "Spacecraft",
+ "description": "Real rockets, capsules, landers, rovers, satellites, and stations alongside science-fiction spacecraft.",
+ "pos": "noun phrase",
+ "frame": "a detailed view of the ___",
+ "notes": "Real space vehicles and exploration hardware belong here alongside distinct science-fiction spacecraft forms. vehicle.aircraft owns craft used primarily for atmospheric flight; vehicle.watercraft owns seagoing freighters. Values are bare generic type names, without mission names, manufacturers, or franchise references. Real hardware has no global tags, including historic equipment; every fictional entry is tagged scifi, and the look describes a recognizable visual convention.",
+ "facets": [
+  "genre"
+ ],
+ "closed": false,
+ "local_facets": {
+  "kind": [
+   "real_historic",
+   "real_modern",
+   "scifi"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "space rocket",
+   "look": "A tall cylindrical launch vehicle with a pointed payload fairing, stacked stages, and clustered engine bells.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "real_modern"
+    ]
+   }
+  },
+  {
+   "text": "space shuttle",
+   "look": "A winged orbital vehicle has a blunt nose, delta wings, a tall tail fin, and three large rear engines.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "real_historic"
+    ]
+   }
+  },
+  {
+   "text": "lunar lander",
+   "look": "A squat foil-covered landing module stands on four splayed legs beneath an angular crew cabin.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "real_historic"
+    ]
+   }
+  },
+  {
+   "text": "space capsule",
+   "look": "A compact blunt cone with a broad heat-shield base, small windows, and a narrow docking end.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "real_modern"
+    ]
+   }
+  },
+  {
+   "text": "space station",
+   "look": "Connected cylindrical modules and trusswork spread between large rectangular solar-panel arrays.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "real_modern"
+    ]
+   }
+  },
+  {
+   "text": "Mars rover",
+   "look": "A six-wheeled robotic explorer has a boxy instrument deck, jointed suspension, and a camera mast.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "real_modern"
+    ]
+   }
+  },
+  {
+   "text": "communications satellite",
+   "look": "A boxy orbital satellite has broad flat solar arrays and projecting dish antennas.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "real_modern"
+    ]
+   }
+  },
+  {
+   "text": "space telescope",
+   "look": "A large cylindrical optical instrument has an open front aperture and solar panels extending from its sides.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "real_modern"
+    ]
+   }
+  },
+  {
+   "text": "deep-space probe",
+   "look": "A robotic spacecraft has a large dish antenna, exposed instrument booms, and a compact central bus.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "real_modern"
+    ]
+   }
+  },
+  {
+   "text": "robotic lunar rover",
+   "look": "A small robotic Moon vehicle has chunky metal wheels, a low instrument body, cameras, and solar panels.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "real_modern"
+    ]
+   }
+  },
+  {
+   "text": "crewed lunar rover",
+   "look": "An open Moon buggy has wire-mesh wheels, two simple seats, a dish antenna, and exposed equipment racks.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "real_historic"
+    ]
+   }
+  },
+  {
+   "text": "space cargo vehicle",
+   "look": "An uncrewed cylindrical orbital supply craft has a docking nose, rounded cargo body, and paired solar arrays.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "real_modern"
+    ]
+   }
+  },
+  {
+   "text": "solar-sail spacecraft",
+   "look": "A small central spacecraft stretches a vast thin reflective sail across long lightweight booms.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "real_modern"
+    ]
+   }
+  },
+  {
+   "text": "planetary entry probe",
+   "look": "A squat instrument capsule sits within a broad saucer-shaped heat shield and protective rear shell.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "real_historic"
+    ]
+   }
+  },
+  {
+   "text": "starfighter",
+   "look": "A small futuristic combat craft has a pointed cockpit, compact wings, engine nozzles, and weapon mounts.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "scifi"
+    ],
+    "genre": [
+     "scifi"
+    ]
+   }
+  },
+  {
+   "text": "space freighter",
+   "look": "A bulky working spacecraft has exposed cargo containers, docking structures, and large rear engine clusters.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "scifi"
+    ],
+    "genre": [
+     "scifi"
+    ]
+   }
+  },
+  {
+   "text": "generation ship",
+   "look": "A vast elongated spacecraft carries rotating habitat drums, agricultural decks, and a distant propulsion section.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "scifi"
+    ],
+    "genre": [
+     "scifi"
+    ]
+   }
+  },
+  {
+   "text": "flying saucer",
+   "look": "A smooth circular disc has a raised central dome, shallow rim, and lights or landing legs underneath.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "scifi"
+    ],
+    "genre": [
+     "scifi"
+    ]
+   }
+  },
+  {
+   "text": "space battleship",
+   "look": "A huge armored spacecraft has heavy gun turrets, layered hull plating, and a massive bank of engines.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "scifi"
+    ],
+    "genre": [
+     "scifi"
+    ]
+   }
+  },
+  {
+   "text": "space carrier",
+   "look": "A vast spacecraft has open hangar bays, a broad launch deck, and clusters of small fighter craft nearby.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "scifi"
+    ],
+    "genre": [
+     "scifi"
+    ]
+   }
+  },
+  {
+   "text": "rotating habitat ring",
+   "look": "A large circular inhabited ring connects by spokes to a central docking hub.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "scifi"
+    ],
+    "genre": [
+     "scifi"
+    ]
+   }
+  },
+  {
+   "text": "interstellar colony ship",
+   "look": "A large long-range craft has clustered passenger modules and detachable surface-landing pods.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "scifi"
+    ],
+    "genre": [
+     "scifi"
+    ]
+   }
+  },
+  {
+   "text": "alien biomechanical spaceship",
+   "short": "biomechanical ship",
+   "look": "An organic-looking spacecraft has ribbed surfaces, curved appendages, and a shell-like hull.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "scifi"
+    ],
+    "genre": [
+     "scifi"
+    ]
+   }
+  },
+  {
+   "text": "spherical exploration ship",
+   "short": "spherical explorer",
+   "look": "A globular spacecraft has circular viewports, small landing legs, and thrusters arranged around its hull.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "scifi"
+    ],
+    "genre": [
+     "scifi"
+    ]
+   }
+  },
+  {
+   "text": "space mining ship",
+   "look": "A rugged industrial spacecraft has a forward drilling assembly, articulated grabber arms, and ore bins.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "scifi"
+    ],
+    "genre": [
+     "scifi"
+    ]
+   }
+  }
+ ]
+}

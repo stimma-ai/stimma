@@ -1,0 +1,1195 @@
+{
+ "id": "animal.mythical",
+ "label": "Mythical creatures",
+ "description": "Named creatures from mythology, folklore and cryptid imagery, grouped by origin and visible body form.",
+ "pos": "noun phrase",
+ "frame": "___",
+ "notes": "Mythological beings, folklore creatures and recognizable cryptids belong here; animal.species and animal.sea_life hold real animals. Values are singular named beings or creature kinds, with articles included where needed, and no genre restriction. Qilin and kirin share one entry, while look describes a recognizable visual interpretation rather than a single universal depiction. Origin chips indicate traditions associated with the names, not the setting in which a creature may appear; form chips can overlap.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "origin": [
+   "european",
+   "east_asian",
+   "south_asian",
+   "middle_east_africa",
+   "americas",
+   "modern_cryptid"
+  ],
+  "form": [
+   "beast",
+   "winged",
+   "serpent_dragon",
+   "humanoid",
+   "spirit"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "a Western dragon",
+   "short": "Western dragon",
+   "tier": "typical",
+   "look": "a large scaled reptile with four legs, batlike wings, horns and a long tail",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast",
+     "winged",
+     "serpent_dragon"
+    ]
+   }
+  },
+  {
+   "text": "a Chinese long dragon",
+   "short": "Chinese long dragon",
+   "tier": "typical",
+   "look": "a long sinuous dragon with four small clawed legs, antlers, whiskers and no wings",
+   "tags": {
+    "origin": [
+     "east_asian"
+    ],
+    "form": [
+     "serpent_dragon"
+    ]
+   }
+  },
+  {
+   "text": "a wyvern",
+   "short": "wyvern",
+   "tier": "plausible",
+   "look": "a dragon with two hind legs and a pair of wings in place of forelegs",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "winged",
+     "serpent_dragon"
+    ]
+   }
+  },
+  {
+   "text": "a phoenix",
+   "short": "phoenix",
+   "tier": "typical",
+   "look": "a radiant red-and-gold bird with a long tail and flames around its plumage",
+   "tags": {
+    "origin": [
+     "european",
+     "middle_east_africa"
+    ],
+    "form": [
+     "winged"
+    ]
+   }
+  },
+  {
+   "text": "a griffin",
+   "short": "griffin",
+   "tier": "typical",
+   "look": "an eagle's head, wings and front talons joined to a lion's hindquarters",
+   "tags": {
+    "origin": [
+     "european",
+     "middle_east_africa"
+    ],
+    "form": [
+     "beast",
+     "winged"
+    ]
+   }
+  },
+  {
+   "text": "a hippogriff",
+   "short": "hippogriff",
+   "tier": "plausible",
+   "look": "an eagle's head, wings and talons joined to a horse's hindquarters",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast",
+     "winged"
+    ]
+   }
+  },
+  {
+   "text": "a unicorn",
+   "short": "unicorn",
+   "tier": "typical",
+   "look": "a horse with a single long spiral horn rising from its forehead",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a pegasus",
+   "short": "pegasus",
+   "tier": "typical",
+   "look": "a horse with a pair of large feathered wings",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast",
+     "winged"
+    ]
+   }
+  },
+  {
+   "text": "a kitsune",
+   "short": "kitsune",
+   "tier": "typical",
+   "look": "a fox spirit often shown with several large flowing tails",
+   "tags": {
+    "origin": [
+     "east_asian"
+    ],
+    "form": [
+     "beast",
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "a qilin",
+   "short": "qilin / kirin",
+   "tier": "plausible",
+   "look": "a deerlike hooved creature with a dragonlike head, scales, a flowing mane and curling flames",
+   "tags": {
+    "origin": [
+     "east_asian"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a baku",
+   "short": "baku",
+   "tier": "plausible",
+   "look": "a stocky dream-eating beast with an elephantlike trunk, tusks and clawed tigerlike paws",
+   "tags": {
+    "origin": [
+     "east_asian"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a tanuki yokai",
+   "short": "tanuki yokai",
+   "tier": "plausible",
+   "look": "a round-bellied raccoon-dog spirit often wearing a straw hat and carrying a sake flask",
+   "tags": {
+    "origin": [
+     "east_asian"
+    ],
+    "form": [
+     "beast",
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "a kappa",
+   "short": "kappa",
+   "tier": "plausible",
+   "look": "a small turtle-backed river creature with a beak and a water-filled dish on its head",
+   "tags": {
+    "origin": [
+     "east_asian"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a tengu",
+   "short": "tengu",
+   "tier": "plausible",
+   "look": "a red-faced mountain being with a very long nose, feathered wings and a small black cap",
+   "tags": {
+    "origin": [
+     "east_asian"
+    ],
+    "form": [
+     "humanoid",
+     "winged"
+    ]
+   }
+  },
+  {
+   "text": "an oni",
+   "short": "oni",
+   "tier": "plausible",
+   "look": "a large horned ogre with red or blue skin, tusks, a tiger-skin loincloth and an iron club",
+   "tags": {
+    "origin": [
+     "east_asian"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a yuki-onna",
+   "short": "yuki-onna",
+   "tier": "plausible",
+   "look": "a pale snow spirit with long black hair and a flowing white kimono",
+   "tags": {
+    "origin": [
+     "east_asian"
+    ],
+    "form": [
+     "humanoid",
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "a jiangshi",
+   "short": "jiangshi",
+   "tier": "unusual",
+   "look": "a stiff corpse in Qing-style robes and a round cap, with both arms held straight forward",
+   "tags": {
+    "origin": [
+     "east_asian"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a nue",
+   "short": "nue",
+   "tier": "unusual",
+   "look": "a composite beast with a monkey's head, a tiger's limbs and a snake for a tail",
+   "tags": {
+    "origin": [
+     "east_asian"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a wendigo",
+   "short": "wendigo",
+   "tier": "plausible",
+   "look": "a towering emaciated humanlike being with sunken eyes, stretched skin and prominent ribs",
+   "tags": {
+    "origin": [
+     "americas"
+    ],
+    "form": [
+     "humanoid",
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "a selkie",
+   "short": "selkie",
+   "tier": "plausible",
+   "look": "a human figure slipping out of a seal skin or holding the shed skin beside the sea",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a kelpie",
+   "short": "kelpie",
+   "tier": "plausible",
+   "look": "a dark water horse with a dripping mane tangled in reeds and river weed",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast",
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "a banshee",
+   "short": "banshee",
+   "tier": "plausible",
+   "look": "a pale ghostly woman with long loose hair and an open wailing mouth",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid",
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "a mermaid",
+   "short": "mermaid",
+   "tier": "typical",
+   "look": "a human upper body joined at the waist to a long scaled fish tail",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a bird-bodied Greek siren",
+   "short": "Greek siren",
+   "tier": "unusual",
+   "look": "a woman's head on a feathered bird body with wings, talons and a bird's tail",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "winged",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a harpy",
+   "short": "harpy",
+   "tier": "plausible",
+   "look": "a woman's head and torso with feathered wings for arms and powerful bird legs",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "winged",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a centaur",
+   "short": "centaur",
+   "tier": "typical",
+   "look": "a human torso rising from the shoulders of a full four-legged horse body",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a minotaur",
+   "short": "minotaur",
+   "tier": "typical",
+   "look": "a powerful human body with a bull's head, muzzle and horns",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a satyr",
+   "short": "satyr",
+   "tier": "typical",
+   "look": "a humanlike woodland being with small horns, pointed ears and shaggy goat legs",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "an Egyptian sphinx",
+   "short": "Egyptian sphinx",
+   "tier": "typical",
+   "look": "a reclining lion's body with a human head wearing a striped royal headdress",
+   "tags": {
+    "origin": [
+     "middle_east_africa"
+    ],
+    "form": [
+     "beast",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a chimera",
+   "short": "chimera",
+   "tier": "plausible",
+   "look": "a lion-bodied monster with a goat's head rising from its back and a snake-headed tail",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a hydra",
+   "short": "hydra",
+   "tier": "typical",
+   "look": "a large reptilian monster with many long necks ending in separate serpent heads",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "serpent_dragon"
+    ]
+   }
+  },
+  {
+   "text": "a kraken",
+   "short": "kraken",
+   "tier": "typical",
+   "look": "an enormous sea monster with thick curling tentacles rising around ships",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a leviathan",
+   "short": "leviathan",
+   "tier": "plausible",
+   "look": "an immense armored sea serpent with a long coiling body and powerful jaws",
+   "tags": {
+    "origin": [
+     "middle_east_africa"
+    ],
+    "form": [
+     "serpent_dragon"
+    ]
+   }
+  },
+  {
+   "text": "an eight-legged basilisk",
+   "short": "basilisk",
+   "tier": "plausible",
+   "look": "a squat scaled reptile with eight legs, a crested head and a fixed piercing stare",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast",
+     "serpent_dragon"
+    ]
+   }
+  },
+  {
+   "text": "a cockatrice",
+   "short": "cockatrice",
+   "tier": "plausible",
+   "look": "a rooster-headed monster with reptilian wings, clawed feet and a long snake tail",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "winged",
+     "serpent_dragon"
+    ]
+   }
+  },
+  {
+   "text": "a thunderbird",
+   "short": "thunderbird",
+   "tier": "plausible",
+   "look": "an enormous eaglelike bird with a heavy hooked beak, outspread wings and lightning around it",
+   "tags": {
+    "origin": [
+     "americas"
+    ],
+    "form": [
+     "winged"
+    ]
+   }
+  },
+  {
+   "text": "Quetzalcoatl",
+   "short": "Quetzalcoatl",
+   "tier": "plausible",
+   "look": "a long coiling serpent covered in bright feathers with a large feathered crest",
+   "tags": {
+    "origin": [
+     "americas"
+    ],
+    "form": [
+     "winged",
+     "serpent_dragon"
+    ]
+   }
+  },
+  {
+   "text": "a Garuda",
+   "short": "Garuda",
+   "tier": "plausible",
+   "look": "a powerful eagle-headed being with a humanlike torso, broad wings and bird talons",
+   "tags": {
+    "origin": [
+     "south_asian"
+    ],
+    "form": [
+     "winged",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a naga",
+   "short": "naga",
+   "tier": "typical",
+   "look": "a human upper body above a long coiled serpent tail, often framed by a cobra hood",
+   "tags": {
+    "origin": [
+     "south_asian"
+    ],
+    "form": [
+     "serpent_dragon",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a rakshasa",
+   "short": "rakshasa",
+   "tier": "plausible",
+   "look": "a fierce humanlike being with protruding fangs, broad features and elaborate ornaments",
+   "tags": {
+    "origin": [
+     "south_asian"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a djinn",
+   "short": "djinn",
+   "tier": "typical",
+   "look": "a humanlike spirit whose lower body dissolves into swirling smoke or flame",
+   "tags": {
+    "origin": [
+     "middle_east_africa"
+    ],
+    "form": [
+     "humanoid",
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "a golem",
+   "short": "golem",
+   "tier": "typical",
+   "look": "a massive rough clay humanoid with heavy limbs and inscribed markings",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a troll",
+   "short": "troll",
+   "tier": "typical",
+   "look": "a huge hunched humanoid with a broad nose, coarse skin and long heavy arms",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "an ogre",
+   "short": "ogre",
+   "tier": "typical",
+   "look": "a giant bulky humanoid with a heavy brow, broad jaw and protruding teeth",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a goblin",
+   "short": "goblin",
+   "tier": "typical",
+   "look": "a small wiry humanoid with pointed ears, a sharp nose and a toothy grin",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a gnome",
+   "short": "gnome",
+   "tier": "typical",
+   "look": "a tiny bearded figure with a pointed cap, stout body and work clothes",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a fairy",
+   "short": "fairy",
+   "tier": "typical",
+   "look": "a tiny humanlike figure with delicate translucent wings",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid",
+     "winged"
+    ]
+   }
+  },
+  {
+   "text": "a wingless pixie",
+   "short": "wingless pixie",
+   "tier": "plausible",
+   "look": "a tiny pointed-eared woodland figure with a mischievous face and a pointed cap",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a dryad",
+   "short": "dryad",
+   "tier": "typical",
+   "look": "a humanlike tree spirit with bark-textured skin and leaves or branches growing from its body",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid",
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "a water nymph",
+   "short": "water nymph",
+   "tier": "plausible",
+   "look": "a humanlike freshwater spirit with wet flowing hair, reeds and translucent waterlike drapery",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid",
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "a yeti",
+   "short": "yeti",
+   "tier": "typical",
+   "look": "a large shaggy white or pale ape-shaped creature with broad shoulders and heavy feet",
+   "tags": {
+    "origin": [
+     "south_asian",
+     "modern_cryptid"
+    ],
+    "form": [
+     "beast",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "Bigfoot",
+   "short": "Bigfoot",
+   "tier": "plausible",
+   "look": "a towering dark-brown shaggy ape-shaped creature with long arms and oversized feet",
+   "tags": {
+    "origin": [
+     "americas",
+     "modern_cryptid"
+    ],
+    "form": [
+     "beast",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "Mothman",
+   "short": "Mothman",
+   "tier": "plausible",
+   "look": "a dark humanoid silhouette with huge mothlike wings and glowing red eyes",
+   "tags": {
+    "origin": [
+     "americas",
+     "modern_cryptid"
+    ],
+    "form": [
+     "winged",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a chupacabra",
+   "short": "chupacabra",
+   "tier": "unusual",
+   "look": "a lean hairless creature with large eyes, clawed limbs and spines along its back",
+   "tags": {
+    "origin": [
+     "americas",
+     "modern_cryptid"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a jackalope",
+   "short": "jackalope",
+   "tier": "plausible",
+   "look": "a jackrabbit with a pair of branching deer antlers",
+   "tags": {
+    "origin": [
+     "americas",
+     "modern_cryptid"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a werewolf",
+   "short": "werewolf",
+   "tier": "typical",
+   "look": "a wolf-headed humanoid with shaggy fur, clawed hands and powerful bent hind legs",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a vampire",
+   "short": "vampire",
+   "tier": "typical",
+   "look": "a pale humanlike figure with elongated canine fangs and dark formal clothing",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a gargoyle",
+   "short": "gargoyle",
+   "tier": "typical",
+   "look": "a crouching stone creature with batlike wings, horns, claws and a grotesque face",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "winged",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a manticore",
+   "short": "manticore",
+   "tier": "plausible",
+   "look": "a lion-bodied creature with a human face and a scorpion's curved stinging tail",
+   "tags": {
+    "origin": [
+     "middle_east_africa"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a roc",
+   "short": "roc",
+   "tier": "plausible",
+   "look": "an immense eaglelike bird with talons large enough to grasp an elephant",
+   "tags": {
+    "origin": [
+     "middle_east_africa"
+    ],
+    "form": [
+     "winged"
+    ]
+   }
+  },
+  {
+   "text": "Cerberus",
+   "short": "Cerberus",
+   "tier": "plausible",
+   "look": "a massive dark hound with three snarling dog heads",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a Fenrir-like giant wolf",
+   "short": "Fenrir-like giant wolf",
+   "tier": "plausible",
+   "look": "a colossal wolf with a heavy shaggy mane, massive jaws and broken chains",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "Ammit",
+   "short": "Ammit",
+   "tier": "unusual",
+   "look": "a crocodile's head on a lion's forequarters and a hippopotamus's hindquarters",
+   "tags": {
+    "origin": [
+     "middle_east_africa"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a lamassu",
+   "short": "lamassu",
+   "tier": "plausible",
+   "look": "a winged bull with a bearded human head and a tall patterned crown",
+   "tags": {
+    "origin": [
+     "middle_east_africa"
+    ],
+    "form": [
+     "beast",
+     "winged",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a simurgh",
+   "short": "simurgh",
+   "tier": "unusual",
+   "look": "a huge richly plumed bird with a flowing peacocklike tail and a crested head",
+   "tags": {
+    "origin": [
+     "middle_east_africa"
+    ],
+    "form": [
+     "winged"
+    ]
+   }
+  },
+  {
+   "text": "a peryton",
+   "short": "peryton",
+   "tier": "unusual",
+   "look": "a stag's antlered head and forequarters joined to feathered wings and bird hindquarters",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast",
+     "winged"
+    ]
+   }
+  },
+  {
+   "text": "Baba Yaga",
+   "short": "Baba Yaga",
+   "tier": "plausible",
+   "look": "a bony old witch with a long nose, often riding in a huge wooden mortar with a pestle",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a dullahan",
+   "short": "dullahan",
+   "tier": "unusual",
+   "look": "a headless rider carrying its own severed head",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid",
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "a nuckelavee",
+   "short": "nuckelavee",
+   "tier": "unusual",
+   "look": "a skinless horse-and-rider monster with exposed muscle and a human torso fused to its back",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a redcap",
+   "short": "redcap",
+   "tier": "unusual",
+   "look": "a squat wrinkled goblin with iron boots, a blood-red cap and a long weapon",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a will-o'-the-wisp",
+   "short": "will-o'-the-wisp",
+   "tier": "plausible",
+   "look": "a small floating blue-green flame hovering above marshy ground",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "spirit"
+    ]
+   }
+  },
+  {
+   "text": "an imp",
+   "short": "imp",
+   "tier": "plausible",
+   "look": "a small horned humanoid with a pointed tail, clawed feet and little batlike wings",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "winged",
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a zombie",
+   "short": "zombie",
+   "tier": "plausible",
+   "look": "a shambling decaying human corpse with torn clothing and clouded eyes",
+   "tags": {
+    "origin": [
+     "americas"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a skeleton warrior",
+   "short": "skeleton warrior",
+   "tier": "plausible",
+   "look": "an animated human skeleton carrying weapons and fragments of armor",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a mummy",
+   "short": "mummy",
+   "tier": "plausible",
+   "look": "an animated dried human body wrapped in fraying linen bandages",
+   "tags": {
+    "origin": [
+     "middle_east_africa"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "Medusa",
+   "short": "Medusa",
+   "tier": "plausible",
+   "look": "a woman with a mass of writhing living snakes in place of hair",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "a cyclops",
+   "short": "cyclops",
+   "tier": "plausible",
+   "look": "a huge humanlike giant with one large eye in the center of its forehead",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "humanoid"
+    ]
+   }
+  },
+  {
+   "text": "an ahuitzotl",
+   "short": "ahuitzotl",
+   "tier": "unusual",
+   "look": "a dark doglike water creature with a monkeylike face and a human hand at the end of its tail",
+   "tags": {
+    "origin": [
+     "americas"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "Sleipnir",
+   "short": "Sleipnir",
+   "tier": "plausible",
+   "look": "a powerful horse with eight legs arranged in four pairs",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "beast"
+    ]
+   }
+  },
+  {
+   "text": "a lindworm",
+   "short": "lindworm",
+   "tier": "unusual",
+   "look": "a long wingless dragon with two clawed forelegs and a coiling serpent body",
+   "tags": {
+    "origin": [
+     "european"
+    ],
+    "form": [
+     "serpent_dragon"
+    ]
+   }
+  }
+ ]
+}

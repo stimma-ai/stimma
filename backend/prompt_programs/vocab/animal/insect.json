@@ -1,0 +1,684 @@
+{
+ "id": "animal.insect",
+ "label": "Insects and spiders",
+ "description": "Named insects, spiders and other small terrestrial invertebrates, including scorpions, centipedes and snails.",
+ "pos": "noun phrase",
+ "frame": "___",
+ "notes": "Recognizable insects, arachnids and a few familiar small terrestrial invertebrates belong here. animal.sea_life holds aquatic invertebrates and animal.species holds the broader animal backbone. Values use singular common names with their own indefinite article; the kind chips are browsing groups rather than a strict taxonomy. Adult wing and body forms are used unless the name explicitly identifies a caterpillar.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "butterfly_moth",
+   "beetle",
+   "bee_wasp_ant",
+   "mantis_stick",
+   "dragonfly_fly",
+   "spider_scorpion",
+   "other"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "a monarch butterfly",
+   "short": "monarch butterfly",
+   "tier": "typical",
+   "look": "orange wings divided by black veins and bordered with rows of white dots",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a blue morpho butterfly",
+   "short": "blue morpho butterfly",
+   "tier": "typical",
+   "look": "large wings with brilliant metallic-blue upper surfaces and dark outer edges",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a swallowtail butterfly",
+   "short": "swallowtail butterfly",
+   "tier": "typical",
+   "look": "broad patterned wings with narrow tail-like extensions on the hindwings",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a glasswing butterfly",
+   "short": "glasswing butterfly",
+   "tier": "plausible",
+   "look": "mostly transparent wings outlined in dark brown with a white bar near each tip",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a peacock butterfly",
+   "short": "peacock butterfly",
+   "tier": "plausible",
+   "look": "rust-red wings bearing four large blue-centered eyespots",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a zebra longwing butterfly",
+   "short": "zebra longwing butterfly",
+   "tier": "plausible",
+   "look": "long narrow black wings crossed by pale yellow stripes",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a luna moth",
+   "short": "luna moth",
+   "tier": "typical",
+   "look": "pale green wings with small eyespots and long curved tails on the hindwings",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "an atlas moth",
+   "short": "atlas moth",
+   "tier": "plausible",
+   "look": "enormous rust-brown wings with triangular clear windows and hooked tips resembling snake heads",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a rosy maple moth",
+   "short": "rosy maple moth",
+   "tier": "plausible",
+   "look": "a small fuzzy moth with bright pink and soft yellow wings",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a hummingbird hawk-moth",
+   "short": "hummingbird hawk-moth",
+   "tier": "plausible",
+   "look": "a stout hovering moth with a long proboscis, gray forewings and orange hindwings",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a Madagascan sunset moth",
+   "short": "Madagascan sunset moth",
+   "tier": "unusual",
+   "look": "iridescent green, orange and blue wings with black bands and short white-edged tails",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a cecropia moth",
+   "short": "cecropia moth",
+   "tier": "plausible",
+   "look": "large reddish-brown wings with white crescent marks and red-and-white bands",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a death's-head hawkmoth",
+   "short": "death's-head hawkmoth",
+   "tier": "unusual",
+   "look": "mottled brown wings, a yellow-and-black abdomen and a pale skull-shaped thorax marking",
+   "tags": {
+    "kind": [
+     "butterfly_moth"
+    ]
+   }
+  },
+  {
+   "text": "a stag beetle",
+   "short": "stag beetle",
+   "tier": "typical",
+   "look": "a glossy dark beetle whose male has huge antlerlike jaws",
+   "tags": {
+    "kind": [
+     "beetle"
+    ]
+   }
+  },
+  {
+   "text": "a Hercules beetle",
+   "short": "Hercules beetle",
+   "tier": "plausible",
+   "look": "a large beetle whose male has two long opposing horns forming a pincer",
+   "tags": {
+    "kind": [
+     "beetle"
+    ]
+   }
+  },
+  {
+   "text": "a rhinoceros beetle",
+   "short": "rhinoceros beetle",
+   "tier": "plausible",
+   "look": "a thick glossy brown beetle whose male has a curved upright head horn",
+   "tags": {
+    "kind": [
+     "beetle"
+    ]
+   }
+  },
+  {
+   "text": "a jewel beetle",
+   "short": "jewel beetle",
+   "tier": "plausible",
+   "look": "a narrow hard-shelled beetle with an iridescent metallic green or rainbow sheen",
+   "tags": {
+    "kind": [
+     "beetle"
+    ]
+   }
+  },
+  {
+   "text": "a ladybug",
+   "short": "ladybug",
+   "tier": "typical",
+   "look": "a small domed beetle with red or orange wing covers dotted in black",
+   "tags": {
+    "kind": [
+     "beetle"
+    ]
+   }
+  },
+  {
+   "text": "a Goliath beetle",
+   "short": "Goliath beetle",
+   "tier": "plausible",
+   "look": "a bulky beetle with bold white-and-black striping on its thorax",
+   "tags": {
+    "kind": [
+     "beetle"
+    ]
+   }
+  },
+  {
+   "text": "a weevil",
+   "short": "weevil",
+   "tier": "plausible",
+   "look": "a small rounded beetle with a long curved snout and elbowed antennae",
+   "tags": {
+    "kind": [
+     "beetle"
+    ]
+   }
+  },
+  {
+   "text": "a firefly",
+   "short": "firefly",
+   "tier": "typical",
+   "look": "a soft dark beetle with a glowing yellow-green light at the tip of its abdomen",
+   "tags": {
+    "kind": [
+     "beetle"
+    ]
+   }
+  },
+  {
+   "text": "a tiger beetle",
+   "short": "tiger beetle",
+   "tier": "unusual",
+   "look": "a long-legged metallic beetle with prominent eyes and curved jaws",
+   "tags": {
+    "kind": [
+     "beetle"
+    ]
+   }
+  },
+  {
+   "text": "a honeybee",
+   "short": "honeybee",
+   "tier": "typical",
+   "look": "a fuzzy golden-brown bee with dark abdominal bands and translucent wings",
+   "tags": {
+    "kind": [
+     "bee_wasp_ant"
+    ]
+   }
+  },
+  {
+   "text": "a bumblebee",
+   "short": "bumblebee",
+   "tier": "typical",
+   "look": "a plump densely furry bee with bold black and yellow bands",
+   "tags": {
+    "kind": [
+     "bee_wasp_ant"
+    ]
+   }
+  },
+  {
+   "text": "a carpenter bee",
+   "short": "carpenter bee",
+   "tier": "plausible",
+   "look": "a large bee with a fuzzy thorax and a shiny mostly hairless black abdomen",
+   "tags": {
+    "kind": [
+     "bee_wasp_ant"
+    ]
+   }
+  },
+  {
+   "text": "a paper wasp",
+   "short": "paper wasp",
+   "tier": "plausible",
+   "look": "a slender wasp with a narrow waist, long dangling legs and brown-yellow markings",
+   "tags": {
+    "kind": [
+     "bee_wasp_ant"
+    ]
+   }
+  },
+  {
+   "text": "a yellowjacket",
+   "short": "yellowjacket",
+   "tier": "plausible",
+   "look": "a compact smooth wasp with sharply contrasting yellow-and-black bands",
+   "tags": {
+    "kind": [
+     "bee_wasp_ant"
+    ]
+   }
+  },
+  {
+   "text": "a velvet ant",
+   "short": "velvet ant",
+   "tier": "unusual",
+   "look": "a wingless female wasp with dense red or orange fuzz and black markings",
+   "tags": {
+    "kind": [
+     "bee_wasp_ant"
+    ]
+   }
+  },
+  {
+   "text": "a leafcutter ant",
+   "short": "leafcutter ant",
+   "tier": "plausible",
+   "look": "a reddish long-legged ant with a spiny thorax, often carrying a cut leaf overhead",
+   "tags": {
+    "kind": [
+     "bee_wasp_ant"
+    ]
+   }
+  },
+  {
+   "text": "a red wood ant",
+   "short": "red wood ant",
+   "tier": "typical",
+   "look": "a small ant with a reddish thorax, dark head and shiny dark abdomen",
+   "tags": {
+    "kind": [
+     "bee_wasp_ant"
+    ]
+   }
+  },
+  {
+   "text": "a praying mantis",
+   "short": "praying mantis",
+   "tier": "typical",
+   "look": "a long green or brown insect holding spiked grasping forelegs folded beneath its head",
+   "tags": {
+    "kind": [
+     "mantis_stick"
+    ]
+   }
+  },
+  {
+   "text": "an orchid mantis",
+   "short": "orchid mantis",
+   "tier": "plausible",
+   "look": "a white-and-pink mantis with broad petal-shaped leg lobes",
+   "tags": {
+    "kind": [
+     "mantis_stick"
+    ]
+   }
+  },
+  {
+   "text": "an Indian flower mantis",
+   "short": "Indian flower mantis",
+   "tier": "unusual",
+   "look": "a small mantis with a bold eyespot on each raised forewing",
+   "tags": {
+    "kind": [
+     "mantis_stick"
+    ]
+   }
+  },
+  {
+   "text": "a stick insect",
+   "short": "stick insect",
+   "tier": "typical",
+   "look": "a very thin twig-shaped insect with long jointed legs",
+   "tags": {
+    "kind": [
+     "mantis_stick"
+    ]
+   }
+  },
+  {
+   "text": "a leaf insect",
+   "short": "leaf insect",
+   "tier": "plausible",
+   "look": "a flattened green insect with leaf-veined wings and leaf-shaped leg lobes",
+   "tags": {
+    "kind": [
+     "mantis_stick"
+    ]
+   }
+  },
+  {
+   "text": "a ghost mantis",
+   "short": "ghost mantis",
+   "tier": "unusual",
+   "look": "a small brown mantis with a pointed head crest and crumpled dead-leaf outline",
+   "tags": {
+    "kind": [
+     "mantis_stick"
+    ]
+   }
+  },
+  {
+   "text": "a dragonfly",
+   "short": "dragonfly",
+   "tier": "typical",
+   "look": "a large-eyed insect with a long abdomen and four broad wings held out flat",
+   "tags": {
+    "kind": [
+     "dragonfly_fly"
+    ]
+   }
+  },
+  {
+   "text": "a damselfly",
+   "short": "damselfly",
+   "tier": "plausible",
+   "look": "a slender insect with separated eyes and narrow wings usually folded above its back",
+   "tags": {
+    "kind": [
+     "dragonfly_fly"
+    ]
+   }
+  },
+  {
+   "text": "a crane fly",
+   "short": "crane fly",
+   "tier": "plausible",
+   "look": "a delicate long-bodied fly with extremely long thin legs",
+   "tags": {
+    "kind": [
+     "dragonfly_fly"
+    ]
+   }
+  },
+  {
+   "text": "a hoverfly",
+   "short": "hoverfly",
+   "tier": "plausible",
+   "look": "a small yellow-and-black bee mimic with large eyes and a single pair of wings",
+   "tags": {
+    "kind": [
+     "dragonfly_fly"
+    ]
+   }
+  },
+  {
+   "text": "a robber fly",
+   "short": "robber fly",
+   "tier": "unusual",
+   "look": "a bristly predatory fly with a pointed abdomen, spiny legs and a stiff facial beard",
+   "tags": {
+    "kind": [
+     "dragonfly_fly"
+    ]
+   }
+  },
+  {
+   "text": "a mosquito",
+   "short": "mosquito",
+   "tier": "plausible",
+   "look": "a slim long-legged fly with narrow wings and a needlelike proboscis",
+   "tags": {
+    "kind": [
+     "dragonfly_fly"
+    ]
+   }
+  },
+  {
+   "text": "a peacock spider",
+   "short": "peacock spider",
+   "tier": "plausible",
+   "look": "a tiny jumping spider whose male raises a brilliantly patterned fan-shaped abdomen",
+   "tags": {
+    "kind": [
+     "spider_scorpion"
+    ]
+   }
+  },
+  {
+   "text": "a jumping spider",
+   "short": "jumping spider",
+   "tier": "typical",
+   "look": "a compact fuzzy spider with large forward-facing eyes and short powerful legs",
+   "tags": {
+    "kind": [
+     "spider_scorpion"
+    ]
+   }
+  },
+  {
+   "text": "a tarantula",
+   "short": "tarantula",
+   "tier": "typical",
+   "look": "a large heavy-bodied spider with thick hairy legs",
+   "tags": {
+    "kind": [
+     "spider_scorpion"
+    ]
+   }
+  },
+  {
+   "text": "an orb-weaver spider",
+   "short": "orb-weaver spider",
+   "tier": "plausible",
+   "look": "a spider with a rounded patterned abdomen, often centered in a circular wheel-shaped web",
+   "tags": {
+    "kind": [
+     "spider_scorpion"
+    ]
+   }
+  },
+  {
+   "text": "a black widow spider",
+   "short": "black widow spider",
+   "tier": "plausible",
+   "look": "a glossy black spider with a bulbous abdomen and red hourglass marking underneath",
+   "tags": {
+    "kind": [
+     "spider_scorpion"
+    ]
+   }
+  },
+  {
+   "text": "a spiny orb-weaver spider",
+   "short": "spiny orb-weaver spider",
+   "tier": "unusual",
+   "look": "a small spider with a broad bright abdomen edged in sharp projecting spines",
+   "tags": {
+    "kind": [
+     "spider_scorpion"
+    ]
+   }
+  },
+  {
+   "text": "a scorpion",
+   "short": "scorpion",
+   "tier": "typical",
+   "look": "an eight-legged arachnid with two large pincers and a segmented tail curled over its back",
+   "tags": {
+    "kind": [
+     "spider_scorpion"
+    ]
+   }
+  },
+  {
+   "text": "a whip scorpion",
+   "short": "whip scorpion",
+   "tier": "unusual",
+   "look": "a dark flattened arachnid with heavy pincers and a long thin whiplike tail",
+   "tags": {
+    "kind": [
+     "spider_scorpion"
+    ]
+   }
+  },
+  {
+   "text": "a cicada",
+   "short": "cicada",
+   "tier": "typical",
+   "look": "a stout insect with bulging eyes and large transparent veined wings held rooflike",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a katydid",
+   "short": "katydid",
+   "tier": "plausible",
+   "look": "a green insect with long antennae and broad leaflike forewings",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a grasshopper",
+   "short": "grasshopper",
+   "tier": "typical",
+   "look": "a thick-bodied insect with short antennae and oversized hind legs folded for jumping",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a cricket",
+   "short": "cricket",
+   "tier": "plausible",
+   "look": "a dark rounded insect with very long antennae and strong bent hind legs",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a lanternfly",
+   "short": "lanternfly",
+   "tier": "unusual",
+   "look": "a planthopper with a greatly elongated colorful snout and patterned wings",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "an earwig",
+   "short": "earwig",
+   "tier": "plausible",
+   "look": "a narrow brown insect with short wing covers and curved pincers at the tail",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a centipede",
+   "short": "centipede",
+   "tier": "plausible",
+   "look": "a flattened segmented crawler with one pair of long legs per body segment",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a millipede",
+   "short": "millipede",
+   "tier": "plausible",
+   "look": "a rounded many-segmented crawler with dense rows of short legs beneath its body",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a snail",
+   "short": "snail",
+   "tier": "typical",
+   "look": "a soft-bodied crawler with a coiled shell and two pairs of retractable head tentacles",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a monarch caterpillar",
+   "short": "monarch caterpillar",
+   "tier": "plausible",
+   "look": "a plump caterpillar banded in yellow, black and white, with paired black filaments at both ends",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  }
+ ]
+}

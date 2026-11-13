@@ -1,929 +1,872 @@
 {
-  "id": "lighting.natural",
-  "label": "Natural light",
-  "description": "Ambient sun, sky and moon light, including daylight entering through windows; choose for natural illumination rather than fixtures or photographic rigs.",
-  "pos": "noun phrase",
-  "frame": "lit by ___",
-  "notes": "Natural sources and their direction, diffusion or reflection belong here. Use scene.time_of_day for the hour itself, indoor_practical for visible lamps, studio for photographic equipment and dramatic for designed cinematic effects. Window light implies an indoor subject.",
-  "facets": [
-    "space",
-    "time_of_day",
-    "climate"
-  ],
-  "closed": false,
-  "values": [
-    {
-      "text": "soft overcast daylight",
-      "tier": "typical",
-      "tags": {
-        "time_of_day": [
-          "day"
-        ],
-        "mood": [
-          "soft",
-          "cool"
-        ],
-        "source": [
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "clear midday sunlight",
-      "tier": "typical",
-      "tags": {
-        "time_of_day": [
-          "day"
-        ],
-        "mood": [
-          "harsh"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "cool light from an open blue sky",
-      "short": "open blue sky light",
-      "tier": "typical",
-      "tags": {
-        "time_of_day": [
-          "day"
-        ],
-        "mood": [
-          "soft",
-          "cool"
-        ],
-        "source": [
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "dappled sunlight through a leafy canopy",
-      "short": "dappled canopy light",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight reflected from a pale stone wall",
-      "short": "bounce off a stone wall",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight filtered through a fabric awning",
-      "short": "light through an awning",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "slanting sunlight between tall buildings",
-      "short": "slanting between towers",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight reflected from rippling water",
-      "short": "rippling water light",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight spilling beneath a deep porch roof",
-      "short": "under a deep porch",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "soft daylight from a large window",
-      "short": "soft window light",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "window",
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "sunlight falling through sheer curtains",
-      "short": "through sheer curtains",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "window",
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "a narrow shaft of sunlight through a partly open door",
-      "short": "shaft from a door",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "window",
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight striped by window blinds",
-      "short": "striped by blinds",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "window",
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "diffuse daylight from a skylight",
-      "short": "skylight daylight",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "window",
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "low golden-hour sun raking across the scene",
-      "short": "golden hour",
-      "tier": "typical",
-      "tags": {
-        "time_of_day": [
-          "golden_hour"
-        ],
-        "mood": [
-          "warm",
-          "dramatic"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "warm sunset light beneath a bank of clouds",
-      "short": "sunset under clouds",
-      "tier": "typical",
-      "tags": {
-        "time_of_day": [
-          "golden_hour"
-        ],
-        "mood": [
-          "warm"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "the pale first light above the horizon",
-      "short": "first light",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "pink dawn light reflected from high clouds",
-      "short": "pink dawn",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn"
-        ],
-        "mood": [
-          "soft",
-          "warm"
-        ],
-        "source": [
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "sunrise breaking through a line of trees",
-      "short": "sunrise through trees",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn"
-        ],
-        "mood": [
-          "warm",
-          "dramatic"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "cool blue twilight after sunset",
-      "short": "blue hour",
-      "tier": "plausible",
-      "tags": {
-        "time_of_day": [
-          "dusk"
-        ],
-        "mood": [
-          "soft",
-          "cool",
-          "moody"
-        ],
-        "source": [
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "cold blue moonlight",
-      "tier": "plausible",
-      "tags": {
-        "time_of_day": [
-          "night"
-        ],
-        "mood": [
-          "soft",
-          "cool",
-          "moody"
-        ],
-        "source": [
-          "moon"
-        ]
-      }
-    },
-    {
-      "text": "silver moonlight reflected from still water",
-      "short": "moonlight on water",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "night"
-        ],
-        "mood": [
-          "soft",
-          "cool",
-          "moody"
-        ],
-        "source": [
-          "moon"
-        ]
-      }
-    },
-    {
-      "text": "faint starlight beneath a clear sky",
-      "short": "starlight",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "night"
-        ],
-        "mood": [
-          "soft",
-          "cool",
-          "moody"
-        ],
-        "source": [
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "a bar of moonlight across the floor",
-      "short": "bar of moonlight",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "night"
-        ],
-        "mood": [
-          "cool",
-          "dramatic",
-          "moody"
-        ],
-        "source": [
-          "moon"
-        ]
-      }
-    },
-    {
-      "text": "sunlight colored by a stained-glass window",
-      "short": "stained-glass light",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "window",
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight softened by a paper window screen",
-      "short": "paper-screen light",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "window",
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "green-tinted daylight through greenhouse glass",
-      "short": "greenhouse light",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft",
-          "cool"
-        ],
-        "source": [
-          "window",
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "daylight entering through high clerestory windows",
-      "short": "clerestory light",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "window",
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "sunlight broken into small patches by a carved screen",
-      "short": "carved-screen patches",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight through a round porthole",
-      "short": "porthole sunlight",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "window",
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight scattered by sea mist",
-      "short": "sea mist light",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight reflected upward from pale sand",
-      "short": "bounce off pale sand",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "harsh"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight streaming through gaps in storm clouds",
-      "short": "sun through storm clouds",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight cutting through tall reeds",
-      "short": "sun through reeds",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight diffused by a translucent canopy",
-      "short": "translucent canopy",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "soft"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "bright daylight reflected from fresh snow",
-      "short": "snow-bounced daylight",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "day"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "mood": [
-          "harsh",
-          "cool"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "blue daylight filtered through thick ice",
-      "short": "blue light through ice",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "day"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "mood": [
-          "soft",
-          "cool",
-          "moody"
-        ],
-        "source": [
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "green auroral light across the sky",
-      "short": "aurora",
-      "tier": "unusual",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "night"
-        ],
-        "mood": [
-          "soft",
-          "cool",
-          "moody"
-        ],
-        "source": [
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "the brief white flare of lightning",
-      "short": "lightning flash",
-      "tier": "unusual",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "night"
-        ],
-        "mood": [
-          "harsh",
-          "dramatic"
-        ],
-        "source": [
-          "sky"
-        ]
-      }
-    },
-    {
-      "text": "the dim copper light of a solar eclipse",
-      "short": "eclipse light",
-      "tier": "unusual",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "day"
-        ],
-        "mood": [
-          "warm",
-          "dramatic",
-          "moody"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight refracted into rainbow bands by a glass prism",
-      "short": "prism rainbow bands",
-      "tier": "unusual",
-      "tags": {
-        "space": [
-          "indoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "dramatic"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "low sunlight glowing through dry grasses",
-      "short": "backlit dry grass",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "golden_hour"
-        ],
-        "mood": [
-          "warm"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    },
-    {
-      "text": "sunlight reflected from copper-colored canyon walls",
-      "short": "copper canyon light",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day",
-          "golden_hour"
-        ],
-        "mood": [
-          "warm"
-        ],
-        "source": [
-          "sun"
-        ]
-      }
-    }
-  ],
-  "local_facets": {
+ "id": "lighting.natural",
+ "label": "Natural light",
+ "description": "Named sunlight, skylight, window light, twilight, moonlight, and weather-shaped natural lighting looks.",
+ "pos": "noun phrase",
+ "frame": "lit by ___",
+ "notes": "Named natural illumination belongs here, phrased to follow “lit by.” lighting.indoor_practical owns flames and visible fixtures; lighting.studio owns photographic setups, and lighting.dramatic owns designed cinematic effects. Time-of-day, space, and climate tags keep each look tied to compatible conditions. Window sources imply an indoor subject; the two golden-hour entries distinguish broad warmth from low raking light.",
+ "facets": [
+  "space",
+  "time_of_day",
+  "climate"
+ ],
+ "closed": false,
+ "values": [
+  {
+   "text": "golden hour sunlight",
+   "short": "golden hour sun",
+   "look": "Low warm sunlight bathes the scene in amber, with soft golden highlights and long shadows.",
+   "tier": "typical",
+   "tags": {
+    "time_of_day": [
+     "golden_hour"
+    ],
     "mood": [
-      "soft",
-      "cool",
-      "harsh",
-      "dramatic",
-      "warm",
-      "moody"
+     "warm",
+     "dramatic"
     ],
     "source": [
-      "sky",
-      "sun",
-      "window",
-      "moon"
+     "sun"
     ]
+   }
   },
-  "context": {
-    "takes": {
-      "time_of_day": {
-        "mismatch": "never"
-      },
-      "space": {
-        "mismatch": "never"
-      },
-      "climate": {
-        "mismatch": "rare",
-        "factor": 0.2
-      }
-    }
+  {
+   "text": "low golden-hour sun raking across the scene",
+   "short": "golden hour",
+   "look": "Nearly horizontal sunlight skims surfaces, emphasizing texture and casting very long lateral shadows.",
+   "tier": "plausible",
+   "tags": {
+    "time_of_day": [
+     "golden_hour"
+    ],
+    "mood": [
+     "warm",
+     "dramatic"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "overcast daylight",
+   "short": "overcast daylight",
+   "look": "A cloud-covered sky spreads soft, cool light evenly, with faint shadows and subdued highlights.",
+   "tier": "typical",
+   "tags": {
+    "time_of_day": [
+     "day"
+    ],
+    "mood": [
+     "soft",
+     "cool"
+    ],
+    "source": [
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "harsh midday sun",
+   "short": "midday sun",
+   "look": "Bright overhead sun makes short, hard shadows, deep eye sockets, and strong highlights.",
+   "tier": "typical",
+   "tags": {
+    "time_of_day": [
+     "day"
+    ],
+    "mood": [
+     "harsh"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "open shade",
+   "short": "open shade",
+   "look": "Cool skylight fills a shaded subject while the sunlit background stays brighter and warmer.",
+   "tier": "typical",
+   "tags": {
+    "time_of_day": [
+     "day"
+    ],
+    "mood": [
+     "soft",
+     "cool"
+    ],
+    "source": [
+     "sky"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "dappled sunlight through leaves",
+   "short": "dappled sunlight",
+   "look": "Small irregular patches of bright sun and leaf-shaped shadow scatter over the subject.",
+   "tier": "typical",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "dramatic"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "window light",
+   "short": "window light",
+   "look": "Daylight enters from one side through a window, falling off into soft shadow across the room.",
+   "tier": "typical",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "source": [
+     "window",
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "north-facing window light",
+   "short": "north window light",
+   "look": "Cool, steady indirect daylight from a window shapes the subject without a direct sun patch.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "source": [
+     "window",
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "sun backlight with lens flare",
+   "short": "sun flare backlight",
+   "look": "Sun behind the subject outlines hair and edges, with washed highlights and flare across the lens.",
+   "tier": "typical",
+   "tags": {
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "warm",
+     "dramatic"
+    ],
+    "source": [
+     "sun"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "bright-sky silhouette lighting",
+   "short": "sky silhouette",
+   "look": "A bright sky leaves the foreground subject as a nearly black outline with little interior detail.",
+   "tier": "plausible",
+   "tags": {
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour",
+     "dusk"
+    ],
+    "mood": [
+     "dramatic"
+    ],
+    "source": [
+     "sky"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "sunset afterglow",
+   "short": "sunset afterglow",
+   "look": "After the sun drops below the horizon, peach and rose sky light softly colors the scene without direct shadows.",
+   "tier": "typical",
+   "tags": {
+    "time_of_day": [
+     "dusk"
+    ],
+    "mood": [
+     "soft",
+     "warm"
+    ],
+    "source": [
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "blue hour light",
+   "short": "blue hour",
+   "look": "Deep blue twilight wraps the scene in cool, low-contrast light after sunset or before sunrise.",
+   "tier": "typical",
+   "tags": {
+    "time_of_day": [
+     "dawn",
+     "dusk"
+    ],
+    "mood": [
+     "soft",
+     "cool",
+     "moody"
+    ],
+    "source": [
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "moonlight",
+   "short": "moonlight",
+   "look": "Dim silvery light creates cool highlights and long shadows against a dark night scene.",
+   "tier": "typical",
+   "tags": {
+    "time_of_day": [
+     "night"
+    ],
+    "mood": [
+     "soft",
+     "cool",
+     "moody"
+    ],
+    "source": [
+     "moon"
+    ]
+   }
+  },
+  {
+   "text": "starlight",
+   "short": "starlight",
+   "look": "Extremely faint light leaves the landscape dark, with a clear star-filled sky and barely visible contours.",
+   "tier": "unusual",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "night"
+    ],
+    "mood": [
+     "soft",
+     "cool",
+     "moody"
+    ],
+    "source": [
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "foggy diffuse light",
+   "short": "foggy light",
+   "look": "Pale light fills thick fog, dissolving distant edges and greatly reducing contrast.",
+   "tier": "typical",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "source": [
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "snow-bounce light",
+   "short": "snow bounce",
+   "look": "Bright snow reflects cool daylight upward, filling shadows under faces and making the scene unusually luminous.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "day"
+    ],
+    "climate": [
+     "cold"
+    ],
+    "mood": [
+     "harsh",
+     "cool"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "post-rain sunlight",
+   "short": "after-rain sunlight",
+   "look": "Clear sunlight catches wet surfaces in bright reflections against freshly darkened ground.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "dramatic"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "god rays through mist",
+   "short": "mist god rays",
+   "look": "Distinct shafts of sunlight become visible in mist between trees, with soft glowing air around each beam.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "soft",
+     "dramatic"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "crepuscular rays",
+   "short": "crepuscular rays",
+   "look": "Broad fans of sunbeams spread from breaks in clouds toward the horizon.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "dramatic"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "dawn light",
+   "short": "dawn light",
+   "look": "Pale light gathers along the horizon before sunrise, leaving the foreground cool and dim.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "source": [
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "alpenglow",
+   "short": "alpenglow",
+   "look": "High peaks catch pink or reddish light while lower slopes remain in cool shadow.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "dusk"
+    ],
+    "mood": [
+     "soft",
+     "warm"
+    ],
+    "source": [
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "canyon bounce light",
+   "short": "canyon bounce",
+   "look": "Sunlit red rock reflects warm orange light into shaded canyon walls and recesses.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "warm"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "sand-bounced sunlight",
+   "short": "sand bounce",
+   "look": "Pale sand reflects warm sunlight upward, brightening lower faces and shadows beneath objects.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "harsh"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "water-bounced sunlight",
+   "short": "water bounce",
+   "look": "Sunlight reflected from nearby water throws a shimmering wash upward onto the subject.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "curtain-filtered daylight",
+   "short": "curtain-filtered light",
+   "look": "Sheer curtains spread window light into a broad gentle glow, with softened edges on shadows.",
+   "tier": "typical",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "source": [
+     "window",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "skylight daylight",
+   "short": "skylight",
+   "look": "Cool daylight falls from an opening overhead, brightening upper surfaces and leaving recesses below darker.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "source": [
+     "window",
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "sunlight through window blinds",
+   "short": "sun through blinds",
+   "look": "Parallel bars of direct sunlight and dark shadow cross the room and subject.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "harsh",
+     "dramatic"
+    ],
+    "source": [
+     "window",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "paper-screen daylight",
+   "short": "paper-screen daylight",
+   "look": "A translucent paper window becomes a softly glowing rectangle with flat, even light close to it.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "source": [
+     "window",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "clerestory window light",
+   "short": "clerestory light",
+   "look": "Daylight enters high side windows, making bright bands near the ceiling above a darker lower room.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "source": [
+     "window",
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "sunlight through a lattice",
+   "short": "lattice sunlight",
+   "look": "A lattice casts a repeating grid of small sunlit shapes across nearby surfaces.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "dramatic"
+    ],
+    "source": [
+     "window",
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "hazy sunlight",
+   "short": "hazy sunlight",
+   "look": "Thin atmospheric haze gives distant objects a pale warm veil while nearby shadows remain visible.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "soft",
+     "warm"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "storm light",
+   "short": "storm light",
+   "look": "A break in heavy clouds lights the foreground brightly against a dark blue-gray sky.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "mood": [
+     "dramatic",
+     "cool"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "ice-cave daylight",
+   "short": "ice-cave light",
+   "look": "Daylight passing through thick ice fills the scene with saturated blue and glowing translucent walls.",
+   "tier": "unusual",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "day"
+    ],
+    "climate": [
+     "cold"
+    ],
+    "mood": [
+     "soft",
+     "cool",
+     "moody"
+    ],
+    "source": [
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "aurora light",
+   "short": "aurora",
+   "look": "Green and violet curtains of light glow across the night sky above a dim landscape.",
+   "tier": "unusual",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "night"
+    ],
+    "mood": [
+     "soft",
+     "cool",
+     "moody"
+    ],
+    "source": [
+     "sky"
+    ]
+   }
+  },
+  {
+   "text": "solar-eclipse light",
+   "short": "eclipse light",
+   "look": "An eclipsed sun leaves the daytime landscape dim and eerie beneath a darkened sky.",
+   "tier": "unusual",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "day"
+    ],
+    "mood": [
+     "cool",
+     "dramatic",
+     "moody"
+    ],
+    "source": [
+     "sun"
+    ]
+   }
+  },
+  {
+   "text": "underwater sunlight",
+   "short": "underwater sunlight",
+   "look": "Sunbeams descend through blue-green water, fading with depth and catching suspended particles.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "day"
+    ],
+    "source": [
+     "sun"
+    ],
+    "mood": [
+     "cool",
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "forest shade",
+   "short": "forest shade",
+   "look": "A dense leafy canopy gives deep shade a green cast, with soft light reflected from surrounding foliage.",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "day"
+    ],
+    "source": [
+     "sky"
+    ],
+    "mood": [
+     "soft",
+     "cool"
+    ]
+   }
+  },
+  {
+   "text": "whiteout daylight",
+   "short": "whiteout daylight",
+   "look": "Snow and overcast sky merge into a nearly seamless white field with little horizon or shadow definition.",
+   "tier": "unusual",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "day"
+    ],
+    "climate": [
+     "cold"
+    ],
+    "mood": [
+     "soft",
+     "cool"
+    ],
+    "source": [
+     "sky"
+    ]
+   }
   }
+ ],
+ "local_facets": {
+  "source": [
+   "sun",
+   "sky",
+   "window",
+   "moon"
+  ],
+  "mood": [
+   "soft",
+   "cool",
+   "harsh",
+   "dramatic",
+   "warm",
+   "moody"
+  ]
+ },
+ "context": {
+  "takes": {
+   "time_of_day": {
+    "mismatch": "never"
+   },
+   "space": {
+    "mismatch": "never"
+   },
+   "climate": {
+    "mismatch": "rare",
+    "factor": 0.2
+   }
+  }
+ }
 }

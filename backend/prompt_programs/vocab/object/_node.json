@@ -1,5 +1,5 @@
 {
-  "id": "object",
-  "label": "Objects",
-  "description": "things in a scene: their color, material and pattern, and common props"
+ "id": "object",
+ "label": "Objects",
+ "description": "Things in a scene: furniture, instruments, weapons and armor, and their color, material and pattern."
 }

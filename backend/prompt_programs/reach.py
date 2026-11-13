@@ -31,31 +31,14 @@ WORDS_MAX = 18   # longer narrowing words don't name a setting ("What fits" does
 # facet of the list, or None for a list whose parts say nothing about likeness (a room's size).
 SIMILAR_BY: Dict[str, Optional[str]] = {
     "person.outfit.period": "period",
-    "interior_space.any_room": None,
-    "interior_space.bar": None,
-    "interior_space.bathroom": None,
-    "interior_space.bedroom": None,
-    "interior_space.cafe_restaurant": None,
-    "interior_space.kitchen": None,
-    "interior_space.library_study": None,
-    "interior_space.living_room": None,
-    "interior_space.office": None,
-    "interior_space.shop": None,
-    "interior_space.workshop_studio": None,
+    "person.build": "kind",
+    "interior_space.room": "kind",      # a room's size says nothing about likeness
+    "exterior_space.outdoors": "kind",
 }
 
 # Declared groups for lists whose values carry none: (group, values). Kept here, not in the
 # list's file, so declaring them changes no prepared program (the list files' bytes key them).
-SIMILAR_GROUPS: Dict[str, Tuple[Tuple[str, Tuple[str, ...]], ...]] = {
-    "person.build": (
-        ("slight", ("slender", "petite", "lanky", "small-framed", "narrow-shouldered", "narrow-hipped",
-                    "long-limbed")),
-        ("heavy", ("stocky", "plus-size", "round-bellied", "broad-hipped", "large-framed", "barrel-chested")),
-        ("strong", ("athletic", "muscular", "broad-shouldered", "broad-chested", "powerfully built")),
-        ("height", ("tall", "short", "medium-height")),
-        ("torso", ("long-waisted", "short-waisted", "straight-waisted")),
-    ),
-}
+SIMILAR_GROUPS: Dict[str, Tuple[Tuple[str, Tuple[str, ...]], ...]] = {}
 
 
 def _tags(leaf: Leaf, text: str, facet: str) -> Set[str]:

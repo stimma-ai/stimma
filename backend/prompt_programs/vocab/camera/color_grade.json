@@ -1,0 +1,336 @@
+{
+ "id": "camera.color_grade",
+ "label": "Color grade",
+ "description": "Photographic color palettes and tonal grades, including monochrome, film emulations and cinematic treatments.",
+ "pos": "adjective phrase",
+ "frame": "with a ___ color grade",
+ "notes": "Finished-image color and tonal treatments belong here, including process-inspired palettes and monochrome grades. camera.film_look owns grain, halation and physical surface artifacts; camera.genre owns shooting conventions, and camera.composition owns spatial symmetry. Values are adjectival grade names that follow “with a” and precede “color grade”; named film looks describe an emulation rather than requiring that capture medium. Grades remain available across depicted eras and genres, and the pastel storybook treatment names a palette without invoking a living director.",
+ "facets": [],
+ "closed": false,
+ "local_facets": {
+  "kind": [
+   "cinematic",
+   "film_emulation",
+   "monochrome",
+   "mood"
+  ]
+ },
+ "values": [
+  {
+   "text": "teal-and-orange",
+   "short": "teal and orange",
+   "look": "Teal shadows contrast with orange highlights and warm skin, separating cool surroundings from the subject.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cinematic"
+    ]
+   }
+  },
+  {
+   "text": "bleach bypass",
+   "look": "Deep blacks, bright highlights and drained color produce a harsh, silvery, high-contrast image.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "film_emulation",
+     "cinematic"
+    ]
+   }
+  },
+  {
+   "text": "cross-processed",
+   "look": "Colors shift unnaturally, with green shadows, yellow highlights and punchy contrast.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "film_emulation"
+    ]
+   }
+  },
+  {
+   "text": "day-for-night",
+   "look": "Daylight is darkened and shifted blue, with suppressed bright areas suggesting moonlit night.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "cinematic"
+    ]
+   }
+  },
+  {
+   "text": "sepia",
+   "look": "The image uses warm brown tones from pale cream highlights to dark chocolate shadows.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "monochrome"
+    ]
+   }
+  },
+  {
+   "text": "split-toned",
+   "look": "Plum shadows and pale gold highlights tint different parts of the tonal range while midtones stay subdued.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cinematic"
+    ]
+   }
+  },
+  {
+   "text": "monochrome",
+   "look": "Neutral grays replace color, with smooth midtones and detail retained in both shadows and highlights.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "monochrome"
+    ]
+   }
+  },
+  {
+   "text": "high-contrast black-and-white",
+   "short": "high-contrast B&W",
+   "look": "Hard whites and dense blacks dominate, with few middle grays and sharply separated shapes.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "monochrome"
+    ]
+   }
+  },
+  {
+   "text": "faded matte",
+   "look": "Lifted gray blacks and softened highlights flatten contrast, while colors appear gently washed out.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "mood"
+    ]
+   }
+  },
+  {
+   "text": "pastel",
+   "look": "Colors become pale and delicate, with soft contrast and bright, airy tones.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "mood"
+    ]
+   }
+  },
+  {
+   "text": "Technicolor three-strip",
+   "short": "three-strip Technicolor",
+   "look": "Rich reds, clear blues and lush greens stay strongly separated, with dense blacks and luminous highlights.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "film_emulation",
+     "cinematic"
+    ]
+   }
+  },
+  {
+   "text": "Kodachrome",
+   "look": "Warm reds and yellows, deep blues and firm contrast create a dense, saturated slide-film palette.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "film_emulation"
+    ]
+   }
+  },
+  {
+   "text": "muted earth-tone",
+   "short": "muted earth tones",
+   "look": "Dusty browns, ochres and olive greens dominate, with bright artificial hues subdued.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "mood"
+    ]
+   }
+  },
+  {
+   "text": "neon noir",
+   "look": "Electric cyan and magenta stand out against near-black shadows, with saturated colored highlights.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cinematic"
+    ]
+   }
+  },
+  {
+   "text": "cold desaturated",
+   "look": "Blue-gray tones spread through the image while warm colors and overall saturation are restrained.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "mood"
+    ]
+   }
+  },
+  {
+   "text": "warm golden",
+   "look": "Amber highlights and warm midtones give the scene a honey-colored cast without removing other colors.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "mood"
+    ]
+   }
+  },
+  {
+   "text": "Matrix-green",
+   "short": "Matrix green tint",
+   "look": "An olive-green cast covers skin, neutral surfaces and shadows, with deep blacks and yellow-green highlights.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "cinematic"
+    ]
+   }
+  },
+  {
+   "text": "pastel storybook",
+   "look": "Coordinated candy pink, butter yellow and mint green form distinct color blocks with creamy highlights.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cinematic"
+    ]
+   }
+  },
+  {
+   "text": "neutral natural-color",
+   "short": "neutral natural color",
+   "look": "White and gray stay neutral, skin tones remain balanced and colors retain moderate, believable saturation.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "mood"
+    ]
+   }
+  },
+  {
+   "text": "vibrant clean-color",
+   "short": "vibrant clean color",
+   "look": "Strong, clear colors retain neutral whites and crisp contrast without a dominant overall tint.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mood"
+    ]
+   }
+  },
+  {
+   "text": "selective-color",
+   "short": "selective color",
+   "look": "One subject or hue remains colored while the rest of the image is black and white.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "monochrome"
+    ]
+   }
+  },
+  {
+   "text": "cyanotype-blue",
+   "short": "cyanotype blue",
+   "look": "Prussian blue shadows and white highlights replace the original colors like a blue photographic print.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "monochrome"
+    ]
+   }
+  },
+  {
+   "text": "selenium-toned black-and-white",
+   "short": "selenium-toned B&W",
+   "look": "Mostly neutral black and white gains a restrained purple-brown cast in the darkest tones.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "monochrome"
+    ]
+   }
+  },
+  {
+   "text": "magenta-and-navy duotone",
+   "short": "magenta and navy",
+   "look": "A two-ink palette maps dark tones to navy and lighter tones to vivid magenta.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "mood"
+    ]
+   }
+  },
+  {
+   "text": "Technicolor two-strip",
+   "short": "two-strip Technicolor",
+   "look": "A restricted red-orange and blue-green palette turns blues teal and renders skin in warm peach tones.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "film_emulation"
+    ]
+   }
+  },
+  {
+   "text": "Kodak Ektachrome",
+   "look": "Cool blues, crisp whites and clean, moderately saturated colors give a cooler slide-film finish.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "film_emulation"
+    ]
+   }
+  },
+  {
+   "text": "tobacco-filter",
+   "short": "tobacco filter",
+   "look": "A dense amber-brown cast warms highlights and dirties blues and greens into smoky earth colors.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "cinematic"
+    ]
+   }
+  },
+  {
+   "text": "sickly yellow-green",
+   "look": "Pale yellow-green midtones and drained skin color create a stale, uneasy cast without deep green blacks.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "mood"
+    ]
+   }
+  },
+  {
+   "text": "cool lavender",
+   "look": "Violet-blue shadows and a pale lilac cast cool the image while keeping the brightest highlights nearly white.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mood"
+    ]
+   }
+  },
+  {
+   "text": "crushed-black saturated",
+   "short": "crushed blacks",
+   "look": "Shadow detail collapses into solid black while remaining colors stay rich and strongly saturated.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mood"
+    ]
+   }
+  }
+ ]
+}

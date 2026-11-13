@@ -1,0 +1,548 @@
+{
+ "id": "vehicle.watercraft",
+ "label": "Watercraft",
+ "description": "Boats and ships, from canoes and traditional sailing vessels to ferries, cargo ships, and submarines.",
+ "pos": "noun phrase",
+ "frame": "a view of the ___ on the water",
+ "notes": "Generic boat and ship types belong here, including human-powered craft, traditional hulls, working ships, and naval vessels. vehicle.aircraft owns seaplanes; vehicle.spacecraft owns fictional space freighters rather than seagoing ships. Values are bare vessel names without manufacturers, individual ship names, flags, or occupants. Sail and traditional chips can overlap, and preserved historical vessels remain available in contemporary scenes.",
+ "facets": [],
+ "closed": false,
+ "local_facets": {
+  "kind": [
+   "paddle_row",
+   "sail",
+   "traditional",
+   "power_small",
+   "ship_large",
+   "historic",
+   "military",
+   "special"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "kayak",
+   "look": "A narrow low boat with an enclosed deck and a small cockpit opening for a double-bladed paddle.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "paddle_row"
+    ]
+   }
+  },
+  {
+   "text": "canoe",
+   "look": "A long open boat with pointed ends, high sides, and simple crosswise seats for single-bladed paddles.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "paddle_row"
+    ]
+   }
+  },
+  {
+   "text": "rowboat",
+   "look": "A small open boat with bench seats and oars held in rowlocks on both sides.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "paddle_row"
+    ]
+   }
+  },
+  {
+   "text": "rowing shell",
+   "look": "An extremely long narrow racing boat with sliding seats and oars mounted on projecting outriggers.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "paddle_row"
+    ]
+   }
+  },
+  {
+   "text": "outrigger canoe",
+   "look": "A narrow canoe is stabilized by a slim float attached alongside it with curved crossbeams.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "paddle_row",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "inflatable raft",
+   "look": "A broad open raft with thick inflated tubes forming the sides and a flat flexible floor.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "paddle_row"
+    ]
+   }
+  },
+  {
+   "text": "stand-up paddleboard",
+   "look": "A long broad board with a standing deck and a single long-handled paddle.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "paddle_row"
+    ]
+   }
+  },
+  {
+   "text": "sailing dinghy",
+   "look": "A small open sailboat with one mast, a triangular mainsail, and a low hull close to the water.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "sail"
+    ]
+   }
+  },
+  {
+   "text": "sloop sailboat",
+   "look": "A single-masted sailboat with a triangular mainsail behind the mast and a headsail in front.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "sail"
+    ]
+   }
+  },
+  {
+   "text": "sailing catamaran",
+   "look": "A sailboat with two parallel hulls joined by a broad deck beneath a single mast.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "sail"
+    ]
+   }
+  },
+  {
+   "text": "trimaran",
+   "look": "A sailboat with one central hull and two smaller outer hulls linked by crossbeams.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "sail"
+    ]
+   }
+  },
+  {
+   "text": "ketch",
+   "look": "A sailing vessel with a tall mainmast and a smaller mizzenmast forward of the rudder.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "sail"
+    ]
+   }
+  },
+  {
+   "text": "schooner",
+   "look": "A sailing ship with two or more masts, the forward mast shorter, carrying mostly fore-and-aft sails.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "sail",
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "square-rigged tall ship",
+   "look": "A large sailing vessel with several masts crossed by horizontal yards carrying tiers of square sails.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "sail",
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "junk",
+   "look": "A broad wooden sailing vessel with high stern and fan-shaped sails reinforced by horizontal battens.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "sail",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "dhow",
+   "look": "A wooden sailing vessel with a long pointed bow and a large triangular lateen sail.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "sail",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "felucca",
+   "look": "A low narrow wooden river sailboat with a very tall angled yard supporting one triangular sail.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "sail",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "gondola",
+   "look": "A long narrow black boat with upturned ends, an ornate metal prow, and a standing rear rowing position.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "paddle_row",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "sampan",
+   "look": "A small flat-bottomed wooden boat with a low curved shelter over part of the deck.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "paddle_row",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "longtail boat",
+   "look": "A narrow wooden boat with a high prow and an exposed rear engine driving a propeller on a long shaft.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "power_small",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "coracle",
+   "look": "A tiny rounded basket-shaped boat with a skin or waterproof covering stretched over a woven frame.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "paddle_row",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "reed boat",
+   "look": "A boat made from thick bundles of reeds tied into a buoyant hull with upward-curving ends.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "paddle_row",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "Viking longship",
+   "look": "A long shallow wooden ship with a square sail, rows of oars, and high curling prow and stern.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "sail",
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "galleon",
+   "look": "A large multi-masted wooden ship with square sails, a high sterncastle, and rows of gunports.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "sail",
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "side-wheel paddle steamer",
+   "short": "side-wheel steamer",
+   "look": "A steam vessel with a large paddle wheel on each side, tall smokestacks, and stacked decks.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ship_large",
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "sternwheel riverboat",
+   "look": "A shallow river steamboat with tiered passenger decks and one broad paddle wheel at the stern.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ship_large",
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "steam launch",
+   "look": "A slender open passenger boat with a small central boiler, tall funnel, and low canopy.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "power_small",
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "speedboat",
+   "look": "A low sleek motorboat with a pointed bow, small windshield, and open rear seating.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "power_small"
+    ]
+   }
+  },
+  {
+   "text": "rigid inflatable boat",
+   "look": "A fast open boat with a rigid V-shaped hull surrounded by thick inflatable side tubes.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "power_small"
+    ]
+   }
+  },
+  {
+   "text": "cabin cruiser",
+   "look": "A small motorboat with an enclosed forward cabin, windshield, and open rear cockpit.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "power_small"
+    ]
+   }
+  },
+  {
+   "text": "motor yacht",
+   "look": "A sleek leisure vessel with an enclosed cabin, broad decks, and an elevated flybridge.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "power_small"
+    ]
+   }
+  },
+  {
+   "text": "sport-fishing boat",
+   "look": "A motorboat with a high steering tower, open rear fishing deck, and long projecting outriggers.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "power_small"
+    ]
+   }
+  },
+  {
+   "text": "personal watercraft",
+   "look": "A small saddle-seated motorcraft with handlebars, a pointed bow, and a jet outlet at the stern.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "power_small"
+    ]
+   }
+  },
+  {
+   "text": "pontoon boat",
+   "look": "A broad flat leisure deck with railings and seats rides on two long cylindrical floats.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "power_small"
+    ]
+   }
+  },
+  {
+   "text": "houseboat",
+   "look": "A floating home with a boxy cabin, domestic windows, roof deck, and perimeter walkway.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "power_small",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "narrowboat",
+   "look": "A very long narrow canal boat with a flat-bottomed hull, low cabin roof, and small rear steering deck.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "power_small",
+     "traditional"
+    ]
+   }
+  },
+  {
+   "text": "tugboat",
+   "look": "A short powerful workboat with a tall wheelhouse, stout hull, and heavy rubber fenders.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "ship_large"
+    ]
+   }
+  },
+  {
+   "text": "ferry",
+   "look": "A broad passenger and vehicle vessel with multiple decks and wide loading ramps.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "ship_large"
+    ]
+   }
+  },
+  {
+   "text": "container ship",
+   "look": "A huge cargo ship with tall stacks of rectangular containers and a bridge tower near the stern.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "ship_large"
+    ]
+   }
+  },
+  {
+   "text": "oil tanker",
+   "look": "A long heavy ship with a low open deck covered in pipes and a tall stern superstructure.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ship_large"
+    ]
+   }
+  },
+  {
+   "text": "cruise ship",
+   "look": "A huge passenger ship with stacked white decks, rows of balcony cabins, and large upper leisure areas.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "ship_large"
+    ]
+   }
+  },
+  {
+   "text": "fishing trawler",
+   "look": "A working fishing vessel with an enclosed wheelhouse, net winches, booms, and a large open aft deck.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "ship_large"
+    ]
+   }
+  },
+  {
+   "text": "bulk carrier",
+   "look": "A long cargo ship with a series of broad rectangular hatch covers across its deck.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ship_large"
+    ]
+   }
+  },
+  {
+   "text": "aircraft carrier",
+   "look": "A huge warship with a broad flat flight deck, parked aircraft, and a bridge island along one side.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ship_large",
+     "military"
+    ]
+   }
+  },
+  {
+   "text": "submarine",
+   "look": "A long cylindrical vessel with a rounded hull, raised sail, and small diving planes.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "military"
+    ]
+   }
+  },
+  {
+   "text": "destroyer",
+   "look": "A fast gray warship with an angular superstructure, radar mast, deck gun, and missile launchers.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ship_large",
+     "military"
+    ]
+   }
+  },
+  {
+   "text": "landing craft",
+   "look": "A shallow flat-bottomed military boat with a broad bow ramp that lowers onto a beach.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "military"
+    ]
+   }
+  },
+  {
+   "text": "hovercraft",
+   "look": "A broad flat craft rides on a flexible inflated skirt, with large rear propulsion fans.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "icebreaker",
+   "look": "A heavy ship with a sloping reinforced bow, tall bridge, and thick hull built to ride over sea ice.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ship_large",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "dredger",
+   "look": "A working vessel with deck pipes, cranes, and a long suction arm or bucket ladder reaching into the water.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "ship_large",
+     "special"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,444 @@
+{
+ "id": "person.body_art",
+ "label": "Tattoos and piercings",
+ "description": "Tattoo styles and placements, named body piercings, henna and decorative scarification.",
+ "pos": "noun phrase",
+ "frame": "with ___",
+ "notes": "Permanent tattoos, named piercings and lasting or temporary decorative skin markings belong here. Values use familiar style or placement names that fit after with, without implying the wearer’s descent. Applied facial cosmetics and theatrical fake wounds belong in person.makeup, while removable jewelry belongs in person.accessory. Tattoo styles describe linework and shading, placement entries describe coverage, and piercing entries name the visible location.",
+ "facets": [],
+ "closed": false,
+ "local_facets": {
+  "kind": [
+   "tattoo",
+   "piercing",
+   "other"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "American traditional tattoos",
+   "short": "American traditional",
+   "tier": "typical",
+   "look": "Bold black outlines enclose flat red, green and yellow motifs such as roses, anchors and swallows.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "neo-traditional tattoos",
+   "tier": "plausible",
+   "look": "Heavy outlines surround ornate flowers or animals with layered shading and a broad, rich color palette.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "fine-line tattoos",
+   "tier": "typical",
+   "look": "Thin, delicate outlines form small detailed designs with little solid fill or shading.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "blackwork tattoos",
+   "tier": "plausible",
+   "look": "Solid black shapes and bold high-contrast patterns cover areas of otherwise bare skin.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "dotwork tattoos",
+   "tier": "plausible",
+   "look": "Closely spaced dots build shaded patterns and gradients instead of continuous blocks of ink.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "geometric tattoos",
+   "tier": "typical",
+   "look": "Interlocking polygons, circles and precise repeating lines form structured patterns on the skin.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "a Japanese irezumi sleeve",
+   "short": "irezumi sleeve",
+   "tier": "plausible",
+   "look": "Dense colored dragons, koi or peonies wrap the arm against dark waves, clouds and wind bars.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "Polynesian tribal tattoos",
+   "short": "Polynesian tribal",
+   "tier": "plausible",
+   "look": "Bold black bands combine repeating triangles, chevrons and curved motifs around the limbs or torso.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "Māori tā moko",
+   "short": "Māori tā moko",
+   "tier": "plausible",
+   "look": "Dark curving lines and spiral motifs follow the contours of the cheeks, forehead and chin.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "a realism portrait tattoo",
+   "short": "realism portrait tattoo",
+   "tier": "plausible",
+   "look": "A carefully shaded human face appears photographic rather than outlined or cartoonlike.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "watercolor tattoos",
+   "tier": "plausible",
+   "look": "Translucent-looking colored washes, soft bleeding edges and splashes surround a tattoo motif.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "black-and-gray tattoos",
+   "tier": "typical",
+   "look": "Black ink and smooth gray shading create depth without colored pigment.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "illustrative tattoos",
+   "tier": "plausible",
+   "look": "Detailed drawn scenes use visible contour lines and hatching like an ink illustration on skin.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "biomechanical tattoos",
+   "tier": "unusual",
+   "look": "Shaded pipes, pistons and cables appear embedded beneath torn-skin shapes.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "blackout tattoos",
+   "tier": "unusual",
+   "look": "Large continuous areas of opaque black ink cover most of an arm or leg, sometimes leaving bare-skin gaps.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "lettering tattoos",
+   "tier": "typical",
+   "look": "Readable words or names are tattooed in prominent script or block lettering.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "a small wrist tattoo",
+   "short": "small wrist tattoo",
+   "tier": "typical",
+   "look": "One small isolated symbol or design sits at the wrist, with most surrounding skin bare.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "a full back tattoo",
+   "short": "full back piece",
+   "tier": "plausible",
+   "look": "One large continuous composition spans the upper and lower back from shoulder to shoulder.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "a patchwork tattoo sleeve",
+   "short": "patchwork sleeve",
+   "tier": "typical",
+   "look": "Many separate small tattoos scatter over the arm with visible gaps of bare skin between them.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "a chest tattoo",
+   "short": "chest tattoo",
+   "tier": "plausible",
+   "look": "A broad design spans the upper chest below the collarbones.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "knuckle tattoos",
+   "tier": "plausible",
+   "look": "Small letters or symbols form a row across the finger knuckles.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "a neck tattoo",
+   "short": "neck tattoo",
+   "tier": "plausible",
+   "look": "A prominent design covers the front or side of the neck above the clothing neckline.",
+   "tags": {
+    "kind": [
+     "tattoo"
+    ]
+   }
+  },
+  {
+   "text": "pierced earlobes",
+   "tier": "typical",
+   "look": "Small studs or hoops pass through the soft lower lobes of the ears.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "a septum piercing",
+   "short": "septum piercing",
+   "tier": "typical",
+   "look": "A ring or horseshoe-shaped bar hangs from the center of the nose between the nostrils.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "a nostril piercing",
+   "short": "nostril piercing",
+   "tier": "typical",
+   "look": "A small stud or fitted hoop sits through the side of one nostril.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "a helix piercing",
+   "short": "helix piercing",
+   "tier": "typical",
+   "look": "A small ring or stud passes through the outer upper rim of the ear.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "an industrial piercing",
+   "short": "industrial piercing",
+   "tier": "plausible",
+   "look": "A long straight bar crosses the upper ear and joins two cartilage piercings.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "a tragus piercing",
+   "short": "tragus piercing",
+   "tier": "plausible",
+   "look": "A small stud or ring sits in the cartilage flap directly in front of the ear canal.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "an eyebrow piercing",
+   "short": "eyebrow piercing",
+   "tier": "plausible",
+   "look": "A curved bar or ring passes through the outer eyebrow, showing jewelry above and below it.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "a labret piercing",
+   "short": "labret piercing",
+   "tier": "plausible",
+   "look": "A single stud sits centered below the lower lip, above the chin.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "stretched earlobes",
+   "tier": "plausible",
+   "look": "Large plugs or tunnels fill widened holes in the earlobes, visibly expanding the lobes.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "a vertical labret piercing",
+   "short": "vertical labret",
+   "tier": "plausible",
+   "look": "Two ends of a curved bar show at the center of the lower lip and directly beneath it.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "snake bite piercings",
+   "tier": "plausible",
+   "look": "Matching studs or rings sit beneath the lower lip, one near each corner of the mouth.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "a Medusa piercing",
+   "short": "Medusa piercing",
+   "tier": "plausible",
+   "look": "A single stud sits in the central groove between the upper lip and the nose.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "a bridge piercing",
+   "short": "bridge piercing",
+   "tier": "unusual",
+   "look": "A horizontal bar shows one bead on each side of the bridge of the nose, between the eyes.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "a daith piercing",
+   "short": "daith piercing",
+   "tier": "plausible",
+   "look": "A small hoop passes through the innermost ear cartilage fold above the ear canal.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "a conch piercing",
+   "short": "conch piercing",
+   "tier": "plausible",
+   "look": "A stud sits in the central bowl of the ear, or a ring circles from that bowl around the outer ear.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   }
+  },
+  {
+   "text": "a navel piercing",
+   "tier": "plausible",
+   "look": "A curved bar with a bead or dangling ornament sits through the upper rim of the navel.",
+   "tags": {
+    "kind": [
+     "piercing"
+    ]
+   },
+   "short": "navel piercing"
+  },
+  {
+   "text": "henna hand designs",
+   "tier": "typical",
+   "look": "Reddish-brown floral and paisley lines cover the palms, fingers or backs of the hands.",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "decorative scarification",
+   "short": "scarification",
+   "tier": "unusual",
+   "look": "Raised, skin-colored scars form deliberate geometric lines or repeated patterns on the skin.",
+   "tags": {
+    "kind": [
+     "other"
+    ]
+   }
+  }
+ ]
+}

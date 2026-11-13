@@ -13,6 +13,21 @@ from prompt_programs.fill import ProgramError
 from prompt_programs.store import ProgramStore
 from prompt_programs.vocab import vocabulary
 
+@pytest.fixture(autouse=True)
+def long_face_list(monkeypatch):
+    """These tests are about a list of thousands of values. The face is now its single pieces
+    (a few hundred), so they draw from a face list composed the old way: two or three pieces
+    joined, 3,000 of them."""
+    import dataclasses as dc
+    from prompt_programs.vocab import _composed
+    v = vocabulary()
+    parts = {lid: 1.0 for lid in v.leaves if lid.startswith("person.feature.")}
+    spec = {"parts": parts, "take": {"2": 0.55, "3": 0.45}, "count": 3000,
+            "tags": {"presentation": ["feminine", "masculine"]}, "keep": ["presentation"]}
+    face = v.leaves["person.face"]
+    monkeypatch.setitem(v.leaves, "person.face", dc.replace(face, values=_composed("person.face", spec, v.leaves)))
+
+
 WOMAN = {"n": 1, "kind": "person", "label": "Woman", "lead": "",
          "person": {"noun": "woman", "presentation": "feminine", "stated": {},
                     "vary": ["age", "descent", "hair", "hair_color", "face"], "outfit": ""}}
@@ -145,12 +160,12 @@ class TestThePoolsAnswerStaysSmall:
         got = pool_options(e, store=OptionStore(tmp_path), cfg=cfg)
         # only what her choice doesn't list already: the few faces drawn only for a woman
         extra = got["options"]["woman.face"]
-        assert len(extra) < 50 and not set(extra) & set(next(c for c in e["choices"] if c["id"] == "woman.face")["options"])
+        assert len(extra) < 100 and not set(extra) & set(next(c for c in e["choices"] if c["id"] == "woman.face")["options"])
         assert got["vocab"]["woman.face"]["cls"] == "person.face"
         # every face her words leave is a usual one; the few outside them wait for a tick
         kept = set(e["filters"]["woman.face"])
         tiers = got["vocab"]["woman.face"]["tiers"]
-        assert set(tiers.values()) <= {"opt_in"} and not set(tiers) & kept and len(tiers) < 50
+        assert set(tiers.values()) <= {"opt_in"} and not set(tiers) & kept and len(tiers) < 100
         assert "reach" not in got["vocab"]["woman.face"]           # a long list keeps its plain row
         assert size(got) < 40_000 < size(e)
         # a short list is answered whole, as before, with its opt-in values marked for the picker

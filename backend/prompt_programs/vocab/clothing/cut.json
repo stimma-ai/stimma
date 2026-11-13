@@ -1,0 +1,669 @@
+{
+ "id": "clothing.cut",
+ "label": "Necklines, sleeves and silhouettes",
+ "description": "Named garment necklines, collars, sleeve shapes, silhouettes, waist placements and hems.",
+ "pos": "noun phrase",
+ "frame": "a garment with ___",
+ "notes": "Individual construction features belong here, each phrased as a noun phrase after a garment with. clothing.fabric owns the cloth and object.pattern owns surface motifs; garment names and complete outfits belong in neighboring clothing lists. A value changes one feature rather than bundling a neckline, sleeve and silhouette together. Period construction details remain usable in contemporary clothing without era or presentation restrictions.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "neckline",
+   "sleeve",
+   "silhouette",
+   "collar",
+   "waist",
+   "hem"
+  ]
+ },
+ "values": [
+  {
+   "text": "a sweetheart neckline",
+   "short": "sweetheart neckline",
+   "tier": "typical",
+   "look": "Two curved lobes meet in a dip at the center of the chest.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "a boat neckline",
+   "short": "boat neckline",
+   "tier": "typical",
+   "look": "A wide, shallow opening runs almost horizontally between the shoulders.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "a square neckline",
+   "short": "square neckline",
+   "tier": "typical",
+   "look": "A straight lower edge meets upright sides, framing the chest in a square.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "a halter neckline",
+   "short": "halter neckline",
+   "tier": "typical",
+   "look": "The front rises toward straps that fasten behind the neck, leaving the shoulders exposed.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "a cowl neckline",
+   "short": "cowl neckline",
+   "tier": "plausible",
+   "look": "Loose fabric falls into soft, curved folds below the neck.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "a V-neckline",
+   "short": "V-neckline",
+   "tier": "typical",
+   "look": "Two diagonal edges meet in a pointed dip at the chest.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "a scoop neckline",
+   "short": "scoop neckline",
+   "tier": "typical",
+   "look": "A deep, rounded U-shaped opening curves below the collarbones.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "an off-the-shoulder neckline",
+   "short": "off-the-shoulder",
+   "tier": "typical",
+   "look": "The upper edge runs below both shoulders, leaving the collarbones exposed.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "an asymmetric one-shoulder neckline",
+   "short": "one-shoulder neckline",
+   "tier": "plausible",
+   "look": "One shoulder is covered while a diagonal upper edge leaves the other bare.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "a high neckline",
+   "short": "high neckline",
+   "tier": "typical",
+   "look": "The opening sits close to the base of the neck with little chest exposed.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "a keyhole neckline",
+   "short": "keyhole neckline",
+   "tier": "plausible",
+   "look": "A small enclosed oval or teardrop opening sits just below the neck.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "a plunging neckline",
+   "short": "plunging neckline",
+   "tier": "plausible",
+   "look": "A deep, narrow opening drops well below the upper chest.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "an illusion neckline",
+   "short": "illusion neckline",
+   "tier": "plausible",
+   "look": "Sheer fabric extends above an opaque bodice, making its upper edge appear to float.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "a strapless neckline",
+   "short": "strapless neckline",
+   "tier": "plausible",
+   "look": "The bodice ends across the upper chest with no shoulder straps.",
+   "tags": {
+    "kind": [
+     "neckline"
+    ]
+   }
+  },
+  {
+   "text": "a Peter Pan collar",
+   "short": "Peter Pan collar",
+   "tier": "plausible",
+   "look": "A small flat collar has rounded ends that meet at the front.",
+   "tags": {
+    "kind": [
+     "collar"
+    ]
+   }
+  },
+  {
+   "text": "a pointed shirt collar",
+   "short": "pointed shirt collar",
+   "tier": "typical",
+   "look": "Two crisp triangular points fold outward from a short band around the neck.",
+   "tags": {
+    "kind": [
+     "collar"
+    ]
+   }
+  },
+  {
+   "text": "a mandarin collar",
+   "short": "mandarin collar",
+   "tier": "plausible",
+   "look": "A short upright band circles the neck without turned-down points.",
+   "tags": {
+    "kind": [
+     "collar"
+    ]
+   }
+  },
+  {
+   "text": "a shawl collar",
+   "short": "shawl collar",
+   "tier": "plausible",
+   "look": "A continuous rounded fold runs around the neck and down the front opening.",
+   "tags": {
+    "kind": [
+     "collar"
+    ]
+   }
+  },
+  {
+   "text": "a sailor collar",
+   "short": "sailor collar",
+   "tier": "plausible",
+   "look": "A broad flat collar forms a square flap at the back and tapers toward the chest.",
+   "tags": {
+    "kind": [
+     "collar"
+    ]
+   }
+  },
+  {
+   "text": "a ruff collar",
+   "short": "ruff collar",
+   "tier": "unusual",
+   "look": "A ring of tightly gathered or pleated fabric projects outward around the neck.",
+   "tags": {
+    "kind": [
+     "collar"
+    ]
+   }
+  },
+  {
+   "text": "a notched lapel collar",
+   "short": "notched lapel collar",
+   "tier": "plausible",
+   "look": "Folded lapels meet the collar in distinct triangular notches at the upper chest.",
+   "tags": {
+    "kind": [
+     "collar"
+    ]
+   }
+  },
+  {
+   "text": "bishop sleeves",
+   "tier": "plausible",
+   "look": "Long sleeves billow loosely before gathering into close cuffs at the wrists.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "puff sleeves",
+   "tier": "typical",
+   "look": "Rounded volume swells at the upper arms, gathered at the shoulder and sleeve edge.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "cap sleeves",
+   "tier": "typical",
+   "look": "Tiny sleeves project just over the shoulder without covering much of the upper arm.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "bell sleeves",
+   "tier": "plausible",
+   "look": "Sleeves widen steadily toward open, flared cuffs.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "raglan sleeves",
+   "tier": "typical",
+   "look": "Diagonal seams run from the neckline to the underarms instead of circling the shoulder.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "dolman sleeves",
+   "tier": "plausible",
+   "look": "Very deep armholes flow from the torso into sleeves that narrow toward the wrists.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "leg-of-mutton sleeves",
+   "tier": "unusual",
+   "look": "Large, inflated upper sleeves narrow sharply into fitted forearms.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "a sleeveless cut",
+   "short": "sleeveless cut",
+   "tier": "typical",
+   "look": "Open armholes expose the shoulders and arms without any sleeve fabric.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "flutter sleeves",
+   "tier": "plausible",
+   "look": "Short, loose flounces fall from the shoulders in rippling, open folds.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "lantern sleeves",
+   "tier": "plausible",
+   "look": "Rounded sleeves balloon around the middle and taper at both the shoulder and cuff.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "juliet sleeves",
+   "tier": "unusual",
+   "look": "A rounded puff at the shoulder joins a long, closely fitted lower sleeve.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "petal sleeves",
+   "tier": "plausible",
+   "look": "Overlapping curved sleeve panels form a small split like two flower petals.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "cold-shoulder sleeves",
+   "tier": "plausible",
+   "look": "Openings expose the tops of the shoulders while fabric still covers the upper arms.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "trumpet sleeves",
+   "tier": "plausible",
+   "look": "Fitted upper sleeves flare dramatically from the elbow into wide cuffs.",
+   "tags": {
+    "kind": [
+     "sleeve"
+    ]
+   }
+  },
+  {
+   "text": "an A-line silhouette",
+   "short": "A-line silhouette",
+   "tier": "typical",
+   "look": "A narrow upper shape widens gradually toward the hem like the sides of a capital A.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "a mermaid silhouette",
+   "short": "mermaid silhouette",
+   "tier": "plausible",
+   "look": "The body fits closely through the knees before flaring into a broad lower skirt.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "a column silhouette",
+   "short": "column silhouette",
+   "tier": "typical",
+   "look": "A long, narrow outline falls almost straight from the shoulders or bust to the hem.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "a peplum silhouette",
+   "short": "peplum silhouette",
+   "tier": "plausible",
+   "look": "A short, flared overskirt projects outward from the fitted waist.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "a bias-cut silhouette",
+   "short": "bias-cut silhouette",
+   "tier": "plausible",
+   "look": "Diagonal grain lets the cloth skim the body and fall in long, fluid ripples.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "an oversized silhouette",
+   "short": "oversized silhouette",
+   "tier": "typical",
+   "look": "Extra width and length make the garment hang loosely beyond the body's outline.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "a boxy silhouette",
+   "short": "boxy silhouette",
+   "tier": "plausible",
+   "look": "Straight sides and a broad upper shape create a squared outline with little waist shaping.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "a bodycon silhouette",
+   "short": "bodycon silhouette",
+   "tier": "plausible",
+   "look": "Stretch fabric follows the bust, waist and hips closely with almost no loose volume.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "a fit-and-flare silhouette",
+   "short": "fit-and-flare",
+   "tier": "typical",
+   "look": "A fitted bodice and waist open into a distinctly full skirt.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "a trapeze silhouette",
+   "short": "trapeze silhouette",
+   "tier": "plausible",
+   "look": "Fabric swings outward from the shoulders in a broad tent shape without a fitted waist.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "a cocoon silhouette",
+   "short": "cocoon silhouette",
+   "tier": "unusual",
+   "look": "Rounded volume through the torso and hips tapers back inward near the hem.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "a balloon skirt silhouette",
+   "short": "balloon skirt",
+   "tier": "unusual",
+   "look": "A full skirt curves outward below the waist and gathers back into a narrower, tucked-under hem.",
+   "tags": {
+    "kind": [
+     "silhouette"
+    ]
+   }
+  },
+  {
+   "text": "an empire waist",
+   "short": "empire waist",
+   "tier": "plausible",
+   "look": "The waist seam sits directly below the bust, with fabric falling loosely beneath it.",
+   "tags": {
+    "kind": [
+     "waist"
+    ]
+   }
+  },
+  {
+   "text": "a drop waist",
+   "short": "drop waist",
+   "tier": "plausible",
+   "look": "The waist seam sits low on the hips below a lengthened bodice.",
+   "tags": {
+    "kind": [
+     "waist"
+    ]
+   }
+  },
+  {
+   "text": "a natural waist seam",
+   "short": "natural waist seam",
+   "tier": "typical",
+   "look": "The bodice and lower garment meet at the body's narrowest waist point.",
+   "tags": {
+    "kind": [
+     "waist"
+    ]
+   }
+  },
+  {
+   "text": "a basque waist",
+   "short": "basque waist",
+   "tier": "plausible",
+   "look": "The waist seam dips into a pointed V at the center front.",
+   "tags": {
+    "kind": [
+     "waist"
+    ]
+   }
+  },
+  {
+   "text": "a paperbag waist",
+   "short": "paperbag waist",
+   "tier": "plausible",
+   "look": "Fabric gathers above a cinched band, leaving a ruffled upper edge.",
+   "tags": {
+    "kind": [
+     "waist"
+    ]
+   }
+  },
+  {
+   "text": "a wrap waist",
+   "short": "wrap waist",
+   "tier": "plausible",
+   "look": "Overlapping front panels pull diagonally into a tied or fastened waist.",
+   "tags": {
+    "kind": [
+     "waist"
+    ]
+   }
+  },
+  {
+   "text": "a high-low hem",
+   "short": "high-low hem",
+   "tier": "plausible",
+   "look": "The front edge ends noticeably higher than the longer back edge.",
+   "tags": {
+    "kind": [
+     "hem"
+    ]
+   }
+  },
+  {
+   "text": "a handkerchief hem",
+   "short": "handkerchief hem",
+   "tier": "plausible",
+   "look": "Uneven pointed corners hang below the rest of a loose, draped hem.",
+   "tags": {
+    "kind": [
+     "hem"
+    ]
+   }
+  },
+  {
+   "text": "a scalloped hem",
+   "short": "scalloped hem",
+   "tier": "plausible",
+   "look": "A row of rounded curves shapes the lower edge.",
+   "tags": {
+    "kind": [
+     "hem"
+    ]
+   }
+  },
+  {
+   "text": "an asymmetrical hem",
+   "short": "asymmetrical hem",
+   "tier": "plausible",
+   "look": "The lower edge slopes or steps unevenly from one side to the other.",
+   "tags": {
+    "kind": [
+     "hem"
+    ]
+   }
+  },
+  {
+   "text": "a cropped hem",
+   "short": "cropped hem",
+   "tier": "typical",
+   "look": "The garment ends unusually high, leaving a gap above the waist or ankle.",
+   "tags": {
+    "kind": [
+     "hem"
+    ]
+   }
+  },
+  {
+   "text": "a floor-length hem",
+   "short": "floor-length hem",
+   "tier": "plausible",
+   "look": "The lower edge reaches the ground, hiding most or all of the feet.",
+   "tags": {
+    "kind": [
+     "hem"
+    ]
+   }
+  },
+  {
+   "text": "a train",
+   "short": "train",
+   "tier": "unusual",
+   "look": "Extra length trails behind the wearer across the ground.",
+   "tags": {
+    "kind": [
+     "hem"
+    ]
+   }
+  }
+ ]
+}

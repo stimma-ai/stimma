@@ -1,5 +1,5 @@
 {
-  "id": "place",
-  "label": "Places",
-  "description": "named places: countries, cities and US states"
+ "id": "place",
+ "label": "Places",
+ "description": "Countries, cities and US states, architecture styles, building types and landforms."
 }

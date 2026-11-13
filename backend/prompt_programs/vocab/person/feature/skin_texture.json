@@ -1,0 +1,479 @@
+{
+ "id": "person.feature.skin_texture",
+ "label": "Skin texture",
+ "description": "Facial skin smoothness, pores, sheen, dryness, surface bumps and active acne.",
+ "pos": "noun phrase",
+ "frame": "a person with ___",
+ "notes": "Visible facial skin texture, phrased without skin tone, cosmetic brands or inferred causes. Healed acne scars and other localized marks belong in person.feature.skin_marks; wrinkles and under-eye bags belong in person.feature.age_marks. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "facets": [],
+ "closed": true,
+ "strict": true,
+ "catalog": false,
+ "local_facets": {
+  "aspect": [
+   "surface",
+   "pores",
+   "sheen",
+   "dryness",
+   "bumps_acne"
+  ]
+ },
+ "context": {
+  "takes": {
+   "life_stage": {
+    "mismatch": "drop"
+   }
+  }
+ },
+ "shares": {
+  "aspect": {
+   "surface": 0.25,
+   "pores": 0.2,
+   "sheen": 0.15,
+   "dryness": 0.15,
+   "bumps_acne": 0.25
+  }
+ },
+ "values": [
+  {
+   "text": "smooth skin with fine natural texture",
+   "short": "smooth natural texture",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "surface"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "slightly uneven skin texture",
+   "short": "slight uneven texture",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "surface"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "coarse facial skin texture",
+   "short": "coarse skin texture",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "surface"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "thin, papery facial skin",
+   "short": "papery skin",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "surface"
+    ],
+    "life_stage": [
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "rough, weathered facial skin",
+   "short": "weathered skin",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "surface"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "faintly visible pores on the nose",
+   "short": "faint nose pores",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "pores"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "fine pores on the cheeks",
+   "short": "fine cheek pores",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "pores"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "enlarged pores across the nose and inner cheeks",
+   "short": "enlarged central pores",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "pores"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "prominent pores across the forehead",
+   "short": "prominent forehead pores",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "pores"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slight natural sheen on the forehead",
+   "short": "slight forehead sheen",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "sheen"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "mostly matte facial skin",
+   "short": "mostly matte skin",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "sheen"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "an oily sheen on the forehead and nose",
+   "short": "oily central sheen",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "sheen"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "an oily sheen across the cheeks",
+   "short": "oily cheek sheen",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "sheen"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "slightly dry cheeks",
+   "short": "slightly dry cheeks",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "dryness"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "fine flakes beside the nostrils",
+   "short": "flaky nostril edges",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "dryness"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "flaky skin across the forehead",
+   "short": "flaky forehead",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "dryness"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "rough, dry patches on the cheeks",
+   "short": "rough, dry cheek patches",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "dryness"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a few tiny bumps on the forehead",
+   "short": "tiny forehead bumps",
+   "tier": "plausible",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "bumps_acne"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a single small pimple on the chin",
+   "short": "small chin pimple",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "bumps_acne"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "blackheads clustered on the nose",
+   "short": "nose blackheads",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bumps_acne"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "small raised bumps beneath the eyes",
+   "short": "small under-eye bumps",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bumps_acne"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "acne clustered along the jawline",
+   "short": "jawline acne",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bumps_acne"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "inflamed acne across the cheeks",
+   "short": "inflamed cheek acne",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bumps_acne"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "acne scattered across the forehead",
+   "short": "forehead acne",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bumps_acne"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  }
+ ]
+}

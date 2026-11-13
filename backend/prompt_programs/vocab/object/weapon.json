@@ -1,442 +1,1156 @@
 {
-  "id": "object.weapon",
-  "label": "Weapon",
-  "description": "hand-held weapons and combat implements, filtered by weapon type",
-  "pos": "noun phrase",
-  "frame": "holding ___",
-  "notes": "Complete props with articles; no brands or real-world model names. The type facet is strict: hammers remain hammers, including fantasy variants. Crossbows group with bows; lances and tridents with spears; maces and flails are other. Untagged genre/era permits enduring designs, replicas and ceremonial use; explicitly historical mechanisms and speculative effects are tagged.",
-  "facets": [
-    "era",
-    "genre"
-  ],
-  "closed": false,
-  "local_facets": {
-    "type": [
-      "sword",
-      "axe",
-      "hammer",
-      "spear",
-      "bow",
-      "dagger",
-      "firearm",
-      "staff",
-      "other"
-    ]
-  },
-  "values": [
-    {
-      "text": "a straight longsword",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "sword"
-        ]
-      }
-    },
-    {
-      "text": "a curved saber",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "sword"
-        ]
-      }
-    },
-    {
-      "text": "a basket-hilted broadsword",
-      "tier": "plausible",
-      "tags": {
-        "type": [
-          "sword"
-        ]
-      }
-    },
-    {
-      "text": "a bronze short sword",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "ancient"
-        ],
-        "type": [
-          "sword"
-        ]
-      }
-    },
-    {
-      "text": "a sword with a blade of flame",
-      "tier": "unusual",
-      "tags": {
-        "genre": [
-          "fantasy",
-          "fairy_tale"
-        ],
-        "type": [
-          "sword"
-        ]
-      }
-    },
-    {
-      "text": "a single-bit battle axe",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "axe"
-        ]
-      }
-    },
-    {
-      "text": "a bearded axe",
-      "tier": "plausible",
-      "tags": {
-        "type": [
-          "axe"
-        ]
-      }
-    },
-    {
-      "text": "a two-handed poleaxe",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "medieval",
-          "early_modern"
-        ],
-        "type": [
-          "axe"
-        ]
-      }
-    },
-    {
-      "text": "a double-headed crystal axe",
-      "tier": "unusual",
-      "tags": {
-        "genre": [
-          "fantasy",
-          "fairy_tale"
-        ],
-        "type": [
-          "axe"
-        ]
-      }
-    },
-    {
-      "text": "a short-handled war hammer",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "hammer"
-        ]
-      }
-    },
-    {
-      "text": "a long-handled maul",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "hammer"
-        ]
-      }
-    },
-    {
-      "text": "a pick-backed war hammer",
-      "tier": "plausible",
-      "tags": {
-        "type": [
-          "hammer"
-        ]
-      }
-    },
-    {
-      "text": "a rune-carved stone war hammer",
-      "tier": "unusual",
-      "tags": {
-        "genre": [
-          "fantasy",
-          "fairy_tale"
-        ],
-        "type": [
-          "hammer"
-        ]
-      }
-    },
-    {
-      "text": "a leaf-bladed spear",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "spear"
-        ]
-      }
-    },
-    {
-      "text": "a barbed fishing spear",
-      "tier": "plausible",
-      "tags": {
-        "type": [
-          "spear"
-        ]
-      }
-    },
-    {
-      "text": "a long cavalry lance",
-      "tier": "plausible",
-      "tags": {
-        "type": [
-          "spear"
-        ]
-      }
-    },
-    {
-      "text": "a trident",
-      "tier": "unusual",
-      "tags": {
-        "type": [
-          "spear"
-        ]
-      }
-    },
-    {
-      "text": "a wooden longbow",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "bow"
-        ]
-      }
-    },
-    {
-      "text": "a recurved bow",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "bow"
-        ]
-      }
-    },
-    {
-      "text": "a crossbow",
-      "tier": "plausible",
-      "tags": {
-        "type": [
-          "bow"
-        ]
-      }
-    },
-    {
-      "text": "a compound bow",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "type": [
-          "bow"
-        ]
-      }
-    },
-    {
-      "text": "a double-edged dagger",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "dagger"
-        ]
-      }
-    },
-    {
-      "text": "a curved dagger",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "dagger"
-        ]
-      }
-    },
-    {
-      "text": "a triangular-bladed stiletto",
-      "tier": "plausible",
-      "tags": {
-        "type": [
-          "dagger"
-        ]
-      }
-    },
-    {
-      "text": "a chipped obsidian dagger",
-      "tier": "unusual",
-      "tags": {
-        "type": [
-          "dagger"
-        ]
-      }
-    },
-    {
-      "text": "a hunting rifle",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "type": [
-          "firearm"
-        ]
-      }
-    },
-    {
-      "text": "a double-barreled shotgun",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "type": [
-          "firearm"
-        ]
-      }
-    },
-    {
-      "text": "a revolver",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "type": [
-          "firearm"
-        ]
-      }
-    },
-    {
-      "text": "a flintlock pistol",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "early_modern",
-          "19th_century"
-        ],
-        "genre": [
-          "realistic",
-          "steampunk",
-          "fantasy"
-        ],
-        "type": [
-          "firearm"
-        ]
-      }
-    },
-    {
-      "text": "a compact plasma pistol",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "future"
-        ],
-        "genre": [
-          "scifi",
-          "cyberpunk"
-        ],
-        "type": [
-          "firearm"
-        ]
-      }
-    },
-    {
-      "text": "a plain quarterstaff",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "staff"
-        ]
-      }
-    },
-    {
-      "text": "a metal-shod fighting staff",
-      "tier": "plausible",
-      "tags": {
-        "type": [
-          "staff"
-        ]
-      }
-    },
-    {
-      "text": "a forked wooden spell staff",
-      "tier": "typical",
-      "tags": {
-        "genre": [
-          "fantasy",
-          "fairy_tale"
-        ],
-        "type": [
-          "staff"
-        ]
-      }
-    },
-    {
-      "text": "a crystal-tipped staff",
-      "tier": "plausible",
-      "tags": {
-        "genre": [
-          "fantasy",
-          "fairy_tale"
-        ],
-        "type": [
-          "staff"
-        ]
-      }
-    },
-    {
-      "text": "a spiked mace",
-      "tier": "typical",
-      "tags": {
-        "type": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "a leather sling",
-      "tier": "plausible",
-      "tags": {
-        "type": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "a chained flail",
-      "tier": "plausible",
-      "tags": {
-        "type": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "a weighted throwing net",
-      "tier": "unusual",
-      "tags": {
-        "type": [
-          "other"
-        ]
-      }
-    }
+ "id": "object.weapon",
+ "label": "Weapon",
+ "description": "Named swords, polearms, axes, bows, firearms, fighting implements, and fantasy or science-fiction weapons.",
+ "pos": "noun phrase",
+ "frame": "holding ___",
+ "notes": "Weapon types and recognizable named forms belong here; object.armor owns shields and protective equipment. Values use articles or natural plurals and avoid brands, model numbers, and fixed decorative finishes. The existing type chips are retained: spear includes bladed polearms, bow includes crossbows, and other includes maces, flails, and throwing weapons. Genre tags restrict visibly supernatural and speculative weapons, while historical weapons remain available as contemporary replicas or display pieces.",
+ "closed": false,
+ "facets": [
+  "genre"
+ ],
+ "local_facets": {
+  "type": [
+   "sword",
+   "axe",
+   "hammer",
+   "spear",
+   "bow",
+   "dagger",
+   "firearm",
+   "staff",
+   "other"
   ]
+ },
+ "values": [
+  {
+   "text": "a longsword",
+   "short": "longsword",
+   "tier": "typical",
+   "look": "a straight double-edged blade with a crossguard and a grip long enough for two hands",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a katana",
+   "short": "katana",
+   "tier": "typical",
+   "look": "a gently curved single-edged blade with a circular guard and a long wrapped grip",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a wakizashi",
+   "short": "wakizashi",
+   "tier": "plausible",
+   "look": "a short curved Japanese sword with a round guard and wrapped hilt",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a broad-bladed scimitar",
+   "short": "scimitar",
+   "tier": "plausible",
+   "look": "a wide curved blade swelling toward a swept-back pointed tip",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a shamshir",
+   "short": "shamshir",
+   "tier": "plausible",
+   "look": "a slim deeply curved blade with a small crossguard and a hooked pistol-shaped grip",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a khopesh",
+   "short": "khopesh",
+   "tier": "plausible",
+   "look": "a bronze-colored sword whose straight lower blade bends into a broad sickle-shaped upper half",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a rapier",
+   "short": "rapier",
+   "tier": "typical",
+   "look": "a long narrow straight blade with an elaborate swept metal guard around the hand",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a cavalry saber",
+   "short": "cavalry saber",
+   "tier": "typical",
+   "look": "a single-edged curved blade with a knuckle guard joining the grip to the crossguard",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a claymore sword",
+   "short": "claymore",
+   "tier": "plausible",
+   "look": "a broad two-handed straight sword with a long grip and downward-sloping quillons ending in lobed tips",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a gladius",
+   "short": "gladius",
+   "tier": "plausible",
+   "look": "a short broad straight blade with a pointed tip, small guard, and rounded pommel",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a falchion",
+   "short": "falchion",
+   "tier": "plausible",
+   "look": "a broad single-edged blade widening toward its clipped tip above a simple crossguard",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a jian",
+   "short": "jian",
+   "tier": "plausible",
+   "look": "a slender straight double-edged Chinese sword with a compact guard and a short grip",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a dao",
+   "short": "dao",
+   "tier": "plausible",
+   "look": "a broad slightly curved Chinese single-edged sword with a disk guard and a flared blade tip",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a tulwar",
+   "short": "tulwar",
+   "tier": "plausible",
+   "look": "a curved blade with a compact crossguard, short grip, and wide flat disk pommel",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a basket-hilted broadsword",
+   "short": "basket-hilt broadsword",
+   "tier": "plausible",
+   "look": "a broad straight blade with a rounded cage of metal bars completely enclosing the hand",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a flamberge",
+   "short": "flamberge",
+   "tier": "unusual",
+   "look": "a long sword with a conspicuously rippling flame-shaped blade",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a shotel",
+   "short": "shotel",
+   "tier": "unusual",
+   "look": "a narrow blade curved sharply into a deep crescent above a small unguarded grip",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "an executioner’s sword",
+   "short": "executioner’s sword",
+   "tier": "unusual",
+   "look": "a broad straight two-handed sword with a blunt squared-off blade end",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a pair of butterfly swords",
+   "short": "butterfly swords",
+   "tier": "plausible",
+   "look": "two short broad Chinese blades, each with a D-shaped hand guard and hooked upper quillon",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "an urumi",
+   "short": "urumi",
+   "tier": "unusual",
+   "look": "a sword with long flexible steel strips curling outward like metal ribbons",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a sword cane",
+   "short": "sword cane",
+   "tier": "plausible",
+   "look": "a walking-cane handle drawn away from its shaft to reveal a thin concealed blade",
+   "tags": {
+    "type": [
+     "sword"
+    ]
+   }
+  },
+  {
+   "text": "a double-edged dagger",
+   "short": "dagger",
+   "tier": "typical",
+   "look": "a short symmetrical pointed blade with two cutting edges and a compact crossguard",
+   "tags": {
+    "type": [
+     "dagger"
+    ]
+   }
+  },
+  {
+   "text": "a kukri",
+   "short": "kukri",
+   "tier": "plausible",
+   "look": "a heavy knife with a broad forward-curving blade and a sharply angled belly",
+   "tags": {
+    "type": [
+     "dagger"
+    ]
+   }
+  },
+  {
+   "text": "a jambiya",
+   "short": "jambiya",
+   "tier": "plausible",
+   "look": "a short wide curved dagger with a central ridge and a flared upright hilt",
+   "tags": {
+    "type": [
+     "dagger"
+    ]
+   }
+  },
+  {
+   "text": "a stiletto",
+   "short": "stiletto",
+   "tier": "plausible",
+   "look": "a very narrow rigid triangular blade above a slender grip and small crossguard",
+   "tags": {
+    "type": [
+     "dagger"
+    ]
+   }
+  },
+  {
+   "text": "a rondel dagger",
+   "short": "rondel dagger",
+   "tier": "plausible",
+   "look": "a narrow straight dagger whose grip is bounded by two flat circular disks",
+   "tags": {
+    "type": [
+     "dagger"
+    ]
+   }
+  },
+  {
+   "text": "a katar",
+   "short": "katar",
+   "tier": "plausible",
+   "look": "a broad triangular blade attached to an H-shaped handle with parallel side bars",
+   "tags": {
+    "type": [
+     "dagger"
+    ]
+   }
+  },
+  {
+   "text": "a sai",
+   "short": "sai",
+   "tier": "plausible",
+   "look": "a pointed metal baton with two short curved side prongs flanking the central shaft",
+   "tags": {
+    "type": [
+     "dagger"
+    ]
+   }
+  },
+  {
+   "text": "an obsidian dagger",
+   "short": "obsidian dagger",
+   "tier": "unusual",
+   "look": "a short black glass blade with visibly chipped irregular edges",
+   "tags": {
+    "type": [
+     "dagger"
+    ]
+   }
+  },
+  {
+   "text": "a single-bit battle axe",
+   "short": "battle axe",
+   "tier": "typical",
+   "look": "a single broad cutting head mounted sideways on a straight wooden haft",
+   "tags": {
+    "type": [
+     "axe"
+    ]
+   }
+  },
+  {
+   "text": "a bearded axe",
+   "short": "bearded axe",
+   "tier": "plausible",
+   "look": "an axe whose blade extends downward below its socket, leaving a deep notch beside the handle",
+   "tags": {
+    "type": [
+     "axe"
+    ]
+   }
+  },
+  {
+   "text": "a double-headed battle axe",
+   "short": "double-headed axe",
+   "tier": "plausible",
+   "look": "a symmetrical pair of broad crescent blades mounted on opposite sides of one haft",
+   "tags": {
+    "type": [
+     "axe"
+    ]
+   }
+  },
+  {
+   "text": "a tomahawk",
+   "short": "tomahawk",
+   "tier": "plausible",
+   "look": "a compact one-handed axe with a small narrow head on a straight slender handle",
+   "tags": {
+    "type": [
+     "axe"
+    ]
+   }
+  },
+  {
+   "text": "a Dane axe",
+   "short": "Dane axe",
+   "tier": "plausible",
+   "look": "a very broad thin crescent axe head on a long two-handed wooden shaft",
+   "tags": {
+    "type": [
+     "axe"
+    ]
+   }
+  },
+  {
+   "text": "a boarding axe",
+   "short": "boarding axe",
+   "tier": "plausible",
+   "look": "a short-handled axe with a compact blade on one side and a long rear spike",
+   "tags": {
+    "type": [
+     "axe"
+    ]
+   }
+  },
+  {
+   "text": "a double-headed crystal axe",
+   "short": "crystal axe",
+   "tier": "unusual",
+   "look": "two large translucent faceted crystal blades set on opposite sides of a haft",
+   "tags": {
+    "type": [
+     "axe"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a war hammer",
+   "short": "war hammer",
+   "tier": "typical",
+   "look": "a compact flat striking head on a long straight handle with a small opposing spike",
+   "tags": {
+    "type": [
+     "hammer"
+    ]
+   }
+  },
+  {
+   "text": "a maul",
+   "short": "maul",
+   "tier": "typical",
+   "look": "a large block-shaped hammer head on a thick two-handed haft",
+   "tags": {
+    "type": [
+     "hammer"
+    ]
+   }
+  },
+  {
+   "text": "a bec de corbin",
+   "short": "bec de corbin",
+   "tier": "plausible",
+   "look": "a pole-mounted hammer with a long curved beak, small opposing hammer face, and top spike",
+   "tags": {
+    "type": [
+     "hammer"
+    ]
+   }
+  },
+  {
+   "text": "a rune-carved stone war hammer",
+   "short": "rune stone hammer",
+   "tier": "unusual",
+   "look": "an oversized rough stone hammer head engraved with glowing runes on a heavy haft",
+   "tags": {
+    "type": [
+     "hammer"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a spear",
+   "short": "spear",
+   "tier": "typical",
+   "look": "a straight wooden shaft ending in a single pointed leaf-shaped metal blade",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a barbed fishing spear",
+   "short": "fishing spear",
+   "tier": "plausible",
+   "look": "a long pole ending in several slim barbed tines",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a cavalry lance",
+   "short": "cavalry lance",
+   "tier": "plausible",
+   "look": "an exceptionally long tapered shaft with a narrow point and a flared hand guard",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a trident",
+   "short": "trident",
+   "tier": "typical",
+   "look": "a long shaft ending in three pointed prongs",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a pike",
+   "short": "pike",
+   "tier": "plausible",
+   "look": "an extremely long straight pole with a small narrow metal spearhead",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a halberd",
+   "short": "halberd",
+   "tier": "typical",
+   "look": "a long pole topped by an axe blade, an opposing hook, and a straight spear point",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a glaive",
+   "short": "glaive",
+   "tier": "plausible",
+   "look": "a long pole ending in a single broad knife-like curved blade",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a naginata",
+   "short": "naginata",
+   "tier": "plausible",
+   "look": "a long wrapped Japanese pole with a slender curved sword blade at the end",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a guandao",
+   "short": "guandao",
+   "tier": "plausible",
+   "look": "a heavy broad crescent blade on a long pole, with a hook near the blade’s back and a tassel below",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a poleaxe",
+   "short": "poleaxe",
+   "tier": "plausible",
+   "look": "a long two-handed shaft with a compact axe blade, hammer face, and top spike",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a partisan",
+   "short": "partisan",
+   "tier": "unusual",
+   "look": "a pole topped by a broad central spear blade with two short upward-curving side blades",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a harpoon",
+   "short": "harpoon",
+   "tier": "plausible",
+   "look": "a long shaft ending in a large barbed point, with a retrieval line attached",
+   "tags": {
+    "type": [
+     "spear"
+    ]
+   }
+  },
+  {
+   "text": "a longbow",
+   "short": "longbow",
+   "tier": "typical",
+   "look": "a tall simple wooden bow forming one continuous shallow curve",
+   "tags": {
+    "type": [
+     "bow"
+    ]
+   }
+  },
+  {
+   "text": "a recurve bow",
+   "short": "recurve bow",
+   "tier": "typical",
+   "look": "a bow with a central grip and limb tips that curve away from the archer",
+   "tags": {
+    "type": [
+     "bow"
+    ]
+   }
+  },
+  {
+   "text": "a crossbow",
+   "short": "crossbow",
+   "tier": "typical",
+   "look": "a short bow mounted horizontally across a shoulder stock with a trigger below",
+   "tags": {
+    "type": [
+     "bow"
+    ]
+   }
+  },
+  {
+   "text": "a compound bow",
+   "short": "compound bow",
+   "tier": "typical",
+   "look": "a rigid modern bow with pulley wheels at its limb tips and several taut cables",
+   "tags": {
+    "type": [
+     "bow"
+    ]
+   }
+  },
+  {
+   "text": "a yumi bow",
+   "short": "yumi bow",
+   "tier": "plausible",
+   "look": "a very tall asymmetrical Japanese bow whose grip sits well below its midpoint",
+   "tags": {
+    "type": [
+     "bow"
+    ]
+   }
+  },
+  {
+   "text": "a repeating crossbow",
+   "short": "repeating crossbow",
+   "tier": "unusual",
+   "look": "a compact crossbow with a box-like bolt magazine above the stock and a large operating lever",
+   "tags": {
+    "type": [
+     "bow"
+    ]
+   }
+  },
+  {
+   "text": "a pistol crossbow",
+   "short": "pistol crossbow",
+   "tier": "plausible",
+   "look": "a small crossbow with short horizontal limbs above a pistol-shaped grip",
+   "tags": {
+    "type": [
+     "bow"
+    ]
+   }
+  },
+  {
+   "text": "a flintlock pistol",
+   "short": "flintlock pistol",
+   "tier": "plausible",
+   "look": "a single-shot pistol with a long barrel, curved wooden grip, and exposed flintlock mechanism",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a musket",
+   "short": "musket",
+   "tier": "plausible",
+   "look": "a long slim smoothbore gun with a full wooden stock and an exposed side lock",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a matchlock arquebus",
+   "short": "matchlock arquebus",
+   "tier": "unusual",
+   "look": "an early long gun with a thick wooden stock and an exposed curved match holder beside the barrel",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a blunderbuss",
+   "short": "blunderbuss",
+   "tier": "plausible",
+   "look": "a short wooden-stocked gun with an exaggerated trumpet-shaped muzzle",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a revolver",
+   "short": "revolver",
+   "tier": "typical",
+   "look": "a handgun with a rotating cylindrical chamber between its barrel and grip",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a semiautomatic pistol",
+   "short": "semiautomatic pistol",
+   "tier": "typical",
+   "look": "a compact handgun with a rectangular slide above a grip holding a magazine",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a lever-action rifle",
+   "short": "lever-action rifle",
+   "tier": "typical",
+   "look": "a slim rifle with a wooden stock and a large loop lever beneath the trigger",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a bolt-action rifle",
+   "short": "bolt-action rifle",
+   "tier": "typical",
+   "look": "a long rifle with a wooden stock and a small bolt handle projecting beside the receiver",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a double-barreled shotgun",
+   "short": "double-barrel shotgun",
+   "tier": "typical",
+   "look": "a long wooden-stocked gun with two parallel barrels side by side",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a pump-action shotgun",
+   "short": "pump-action shotgun",
+   "tier": "typical",
+   "look": "a long gun with a broad sliding fore-end and a tubular magazine beneath the barrel",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a sawed-off shotgun",
+   "short": "sawed-off shotgun",
+   "tier": "plausible",
+   "look": "a compact shotgun with visibly shortened barrels and a cut-down grip",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a submachine gun",
+   "short": "submachine gun",
+   "tier": "typical",
+   "look": "a compact automatic gun with a short barrel, projecting magazine, and folding shoulder stock",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "an assault rifle",
+   "short": "assault rifle",
+   "tier": "typical",
+   "look": "a shoulder-fired rifle with a pistol grip, detachable box magazine, and long barrel",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a sniper rifle",
+   "short": "sniper rifle",
+   "tier": "typical",
+   "look": "a long precision rifle with a large telescopic sight, extended barrel, and folding bipod",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a belt-fed machine gun",
+   "short": "belt-fed machine gun",
+   "tier": "plausible",
+   "look": "a heavy long-barreled gun with an ammunition belt feeding into its side and a supporting bipod",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a drum-fed grenade launcher",
+   "short": "grenade launcher",
+   "tier": "plausible",
+   "look": "a stock-mounted weapon with a large revolving drum and a short wide barrel",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a rocket launcher",
+   "short": "rocket launcher",
+   "tier": "plausible",
+   "look": "a long thick shoulder-mounted tube with a hand grip and sight",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a flamethrower",
+   "short": "flamethrower",
+   "tier": "unusual",
+   "look": "a hose-linked nozzle and hand grip attached to a pair of fuel tanks worn on the back",
+   "tags": {
+    "type": [
+     "firearm"
+    ]
+   }
+  },
+  {
+   "text": "a blaster pistol",
+   "short": "blaster pistol",
+   "tier": "plausible",
+   "look": "a compact futuristic handgun with a thick emitter muzzle and luminous power cells",
+   "tags": {
+    "type": [
+     "firearm"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ]
+   }
+  },
+  {
+   "text": "a plasma rifle",
+   "short": "plasma rifle",
+   "tier": "unusual",
+   "look": "a bulky futuristic rifle with glowing coils and a broad energy-emitter barrel",
+   "tags": {
+    "type": [
+     "firearm"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ]
+   }
+  },
+  {
+   "text": "a railgun",
+   "short": "railgun",
+   "tier": "unusual",
+   "look": "a futuristic long gun with two exposed parallel rails extending beyond its body",
+   "tags": {
+    "type": [
+     "firearm"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ]
+   }
+  },
+  {
+   "text": "an energy sword",
+   "short": "energy sword",
+   "tier": "unusual",
+   "look": "a compact mechanical hilt projecting a solid luminous blade with no metal cutting edge",
+   "tags": {
+    "type": [
+     "sword"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ]
+   }
+  },
+  {
+   "text": "a flaming sword",
+   "short": "flaming sword",
+   "tier": "unusual",
+   "look": "a metal sword whose blade is wrapped in bright flames along its full length",
+   "tags": {
+    "type": [
+     "sword"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a quarterstaff",
+   "short": "quarterstaff",
+   "tier": "typical",
+   "look": "a plain straight wooden fighting pole about as tall as its wielder",
+   "tags": {
+    "type": [
+     "staff"
+    ]
+   }
+  },
+  {
+   "text": "a magic staff",
+   "short": "magic staff",
+   "tier": "plausible",
+   "look": "a tall gnarled wooden staff with a glowing orb caught in forked branches at its top",
+   "tags": {
+    "type": [
+     "staff"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a crystal staff",
+   "short": "crystal staff",
+   "tier": "unusual",
+   "look": "a long translucent faceted shaft ending in a large angular crystal point",
+   "tags": {
+    "type": [
+     "staff"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a magic wand",
+   "short": "magic wand",
+   "tier": "plausible",
+   "look": "a slender short carved wand with a sparkling luminous tip",
+   "tags": {
+    "type": [
+     "staff"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a flanged mace",
+   "short": "flanged mace",
+   "tier": "typical",
+   "look": "a short rigid haft topped by several heavy metal fins radiating around a central head",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a spiked mace",
+   "short": "spiked mace",
+   "tier": "typical",
+   "look": "a short handle topped by a solid ball covered in projecting metal spikes",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a chained flail",
+   "short": "chained flail",
+   "tier": "plausible",
+   "look": "a wooden handle joined by a short chain to a heavy spiked metal ball",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a leather sling",
+   "short": "sling",
+   "tier": "plausible",
+   "look": "a small leather pouch suspended between two long cords",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a weighted throwing net",
+   "short": "throwing net",
+   "tier": "unusual",
+   "look": "a broad mesh net with small weights attached around its perimeter",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a boomerang",
+   "short": "boomerang",
+   "tier": "plausible",
+   "look": "a flat curved wooden throwing stick with two splayed arms",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a chakram",
+   "short": "chakram",
+   "tier": "plausible",
+   "look": "a flat circular metal throwing ring with a sharp outer rim",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a shuriken",
+   "short": "shuriken",
+   "tier": "plausible",
+   "look": "a flat metal throwing star with several sharp points surrounding a central hole",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "nunchaku",
+   "short": "nunchaku",
+   "tier": "plausible",
+   "look": "two short wooden batons linked at one end by a short chain or cord",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a kusarigama",
+   "short": "kusarigama",
+   "tier": "unusual",
+   "look": "a short sickle attached to a long chain ending in a heavy metal weight",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a spiked club",
+   "short": "spiked club",
+   "tier": "plausible",
+   "look": "a thick wooden cudgel studded with protruding metal spikes",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a bullwhip",
+   "short": "bullwhip",
+   "tier": "plausible",
+   "look": "a long tapering braided leather lash extending from a short rigid handle",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  },
+  {
+   "text": "a macuahuitl",
+   "short": "macuahuitl",
+   "tier": "unusual",
+   "look": "a broad flat wooden club edged on both sides with dark rectangular obsidian blades",
+   "tags": {
+    "type": [
+     "other"
+    ]
+   }
+  }
+ ]
 }

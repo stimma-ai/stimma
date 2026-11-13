@@ -1,0 +1,1237 @@
+{
+ "id": "art.movement",
+ "label": "Art movement",
+ "description": "Named art movements, historical schools, regional painting traditions, and graphic or internet aesthetics.",
+ "pos": "noun phrase",
+ "frame": "in the style of ___",
+ "notes": "Named movements, schools, visual traditions, and recognizable design aesthetics belong here; art.artist holds individual creators, art.medium holds materials, and art.style holds broader rendering styles. Values are short names that follow “in the style of,” with visual differences explained in look. Period is a local browsing group for origins or strongest association, not a restriction on the era of the depicted scene; non_western_traditions groups traditions that span several dates. Orientalist painting names the historical European genre and Aboriginal dot painting names the recognizable dot-based tradition rather than all Aboriginal art. Primitivism is the historical modernist label, not a label for the traditions it borrowed from.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "period": [
+   "ancient_medieval",
+   "renaissance_baroque",
+   "18th_19th_century",
+   "early_modern_20th",
+   "mid_20th",
+   "late_20th_contemporary",
+   "non_western_traditions",
+   "digital_internet"
+  ]
+ },
+ "values": [
+  {
+   "text": "Egyptian tomb painting",
+   "look": "Flat profile figures, frontal shoulders, horizontal registers, and crisp earth-colored outlines.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ]
+   }
+  },
+  {
+   "text": "ancient Greek red-figure pottery",
+   "look": "Terracotta-red figures stand against glossy black, with fine internal lines and curved vessel borders.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ]
+   },
+   "short": "Greek red-figure"
+  },
+  {
+   "text": "Roman fresco painting",
+   "look": "Muted red walls, illusionistic columns, and softly modeled figures in architectural panels.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ]
+   }
+  },
+  {
+   "text": "Byzantine icon painting",
+   "look": "Frontal sacred figures with elongated faces, gold grounds, and sharply folded robes.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ]
+   }
+  },
+  {
+   "text": "Romanesque painting",
+   "look": "Heavy outlines, flat earth colors, and monumental figures fitted into arches and bands.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ]
+   }
+  },
+  {
+   "text": "Gothic illumination",
+   "look": "Jewel-colored figures, gold leaf, patterned borders, and delicate scenes inside manuscript pages.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ]
+   }
+  },
+  {
+   "text": "Insular manuscript illumination",
+   "look": "Dense interlaced ribbons, spirals, animal knots, and ornate initials in bright flat colors.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ]
+   },
+   "short": "Insular illumination"
+  },
+  {
+   "text": "International Gothic",
+   "look": "Slender courtly figures, flowing garments, gold accents, and tiny decorative natural details.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "ancient_medieval"
+    ]
+   }
+  },
+  {
+   "text": "Renaissance painting",
+   "look": "Balanced figures occupy coherent perspective spaces, with natural anatomy and softly modeled light.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Northern Renaissance painting",
+   "look": "Minute surface detail, clear cool light, and symbolic objects fill carefully observed interiors.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_baroque"
+    ]
+   },
+   "short": "Northern Renaissance"
+  },
+  {
+   "text": "Mannerism",
+   "look": "Elongated bodies twist in compressed spaces with elegant poses and unexpected acidic colors.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Baroque painting",
+   "look": "Sweeping diagonals, rich surfaces, and dramatic light set muscular figures in motion.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Rococo painting",
+   "look": "Pastel colors, curling ornament, airy brushwork, and playful figures in lush settings.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Dutch Golden Age painting",
+   "look": "Quiet interiors and still lifes emerge from warm dark backgrounds with precise reflected light.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_baroque"
+    ]
+   },
+   "short": "Dutch Golden Age"
+  },
+  {
+   "text": "Caravaggism",
+   "look": "Ordinary-looking figures appear close to the viewer under a hard shaft of light in deep darkness.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "vanitas still-life painting",
+   "look": "Skulls, extinguished candles, flowers, and polished objects form densely arranged dark still lifes.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_baroque"
+    ]
+   },
+   "short": "Vanitas still life"
+  },
+  {
+   "text": "quadratura",
+   "look": "Painted columns, cornices, and open skies create the illusion of architecture continuing overhead.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "renaissance_baroque"
+    ]
+   }
+  },
+  {
+   "text": "Neoclassicism",
+   "look": "Sculptural figures, clear outlines, restrained colors, and orderly classical architecture.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Romanticism",
+   "look": "Turbulent skies, dramatic gestures, and sublime landscapes rendered with emotional light and color.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Pre-Raphaelite painting",
+   "look": "Luminous colors, detailed plants, and pale figures with flowing hair in richly patterned settings.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Academic painting",
+   "look": "Smoothly finished idealized anatomy, carefully staged poses, and polished historical settings.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Realism",
+   "look": "Unidealized people and everyday work appear in solid forms and earthy, closely observed colors.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Impressionism",
+   "look": "Broken brushstrokes and bright outdoor colors dissolve hard edges into flickering light.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Post-Impressionism",
+   "look": "Visible brushwork, simplified forms, and expressive color give ordinary scenes a structured rhythm.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Pointillism",
+   "look": "Small separate dots of pure color merge into luminous forms when viewed from a distance.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Symbolism",
+   "look": "Dreamlike figures, enigmatic objects, and rich decorative color create an uncanny, still atmosphere.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Hudson River School",
+   "look": "Vast detailed wilderness, distant mountains, and glowing skies surround small human figures.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Luminism",
+   "look": "Still water and distant horizons glow in clear atmospheric light with almost invisible brushwork.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Tonalism",
+   "look": "Soft silhouettes dissolve into close-valued browns, grays, and muted greens in misty landscapes.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Orientalist painting",
+   "look": "Detailed courtyards, textiles, and desert scenes with polished surfaces and theatrical warm light.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Biedermeier painting",
+   "look": "Tidy domestic rooms and precise portraits in clear light, with restrained color and smooth surfaces.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Arts and Crafts",
+   "look": "Stylized plants, repeating hand-drawn patterns, and sturdy ornamental borders in earthy colors.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Barbizon School",
+   "look": "Woodland paths, rough trees, and rural labor in subdued earth colors and soft natural light.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Nazarene painting",
+   "look": "Clear linear figures, simple religious groupings, and quiet colors recall early Renaissance frescoes.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Les Nabis",
+   "look": "Flat decorative color patches, intimate interiors, and interlocking silhouettes suppress deep perspective.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Art Nouveau",
+   "look": "Sinuous plant stems, flowing hair, flattened figures, and ornate curving borders.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Japonisme",
+   "look": "Asymmetric crops, flat color areas, diagonal views, and decorative patterns borrowed from Japanese prints.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "18th_19th_century"
+    ]
+   }
+  },
+  {
+   "text": "Primitivism",
+   "look": "Simplified mask-like faces, flattened bodies, coarse outlines, and strongly patterned earthy colors.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Fauvism",
+   "look": "Brilliant unnatural colors and broad loose strokes simplify faces and landscapes.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Expressionism",
+   "look": "Distorted forms, urgent brushwork, and intense colors make figures and spaces feel emotionally charged.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "German Expressionism",
+   "look": "Jagged contours, angular faces, clashing colors, and harsh woodcut-like shadows.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Cubism",
+   "look": "Objects fracture into overlapping geometric planes that show several viewpoints at once.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Futurism",
+   "look": "Repeated limbs, slashing diagonals, and interpenetrating shapes convey speed and mechanical motion.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Dada",
+   "look": "Cutout photos, mismatched lettering, found objects, and absurd juxtapositions disrupt orderly composition.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Surrealism",
+   "look": "Impossible objects and dreamlike transformations appear in convincingly painted, strangely empty spaces.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Art Deco",
+   "look": "Stepped geometry, sleek elongated figures, sunbursts, and polished metallic accents.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Bauhaus",
+   "look": "Simple circles, squares, primary colors, and spare sans-serif lettering in balanced geometric layouts.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "De Stijl",
+   "look": "Black horizontal and vertical lines divide white fields and rectangles of red, blue, and yellow.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Constructivism",
+   "look": "Red and black geometry, photomontage, and forceful diagonal typography.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Suprematism",
+   "look": "Floating squares, circles, and bars in pure colors occupy open white space.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Vienna Secession",
+   "look": "Stylized figures, gold ornament, square pattern grids, and flat decorative botanical shapes.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Precisionism",
+   "look": "Factories and city buildings become crisp geometric volumes with smooth surfaces and sharp shadows.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Ashcan School",
+   "look": "Crowded city streets and working-class interiors in dark, rough, energetic brushwork.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Socialist Realism",
+   "look": "Idealized workers and monumental figures stand in optimistic, brightly lit industrial or rural scenes.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Social Realism",
+   "look": "Working people and hardship appear in blunt, weighty forms with somber colors and direct gestures.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Mexican muralism",
+   "look": "Large sculptural figures, sweeping historical scenes, and bold earth colors fill wall-like compositions.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Harlem Renaissance art",
+   "look": "Rhythmic figures, angular city forms, rich colors, and music-filled social scenes.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Orphism",
+   "look": "Overlapping translucent circles and bright color contrasts create a spinning, luminous rhythm.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Rayonism",
+   "look": "Colored rays and intersecting diagonal beams dissolve objects into radiant shards.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Vorticism",
+   "look": "Hard-edged wedges and jagged machine-like forms converge in forceful angular compositions.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Purism",
+   "look": "Bottles and everyday objects become smooth, ordered geometric forms in restrained colors.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "New Objectivity",
+   "look": "Unsparing portraits and precise urban details appear with hard outlines and cool, unsettling clarity.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "metaphysical painting",
+   "look": "Empty arcades, long shadows, mannequins, and isolated objects create silent, dreamlike plazas.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Abstract Expressionism",
+   "look": "Large gestural marks, splashes, and dense fields of paint emphasize sweeping physical movement.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Color Field painting",
+   "look": "Broad expanses of saturated color meet in soft-edged or stained, luminous shapes.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Hard-edge painting",
+   "look": "Flat unmodulated colors form sharply bounded geometric shapes with clean edges.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Pop Art",
+   "look": "Familiar consumer images, bold flat colors, comic outlines, and repeated graphic motifs.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Op Art",
+   "look": "Repeated lines, contrasting grids, and warped patterns create optical vibration and apparent movement.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Minimalism",
+   "look": "Few simple geometric forms, broad empty areas, and repeated units in restrained colors.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Magic Realism",
+   "look": "Ordinary scenes contain uncanny details, still poses, and an unusually clear, dreamlike atmosphere.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "WPA poster art",
+   "look": "Flat layered color shapes, simplified scenery, and bold block lettering with a screen-printed texture.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Soviet propaganda poster art",
+   "look": "Heroic figures, red banners, strong foreshortening, and oversized declarative lettering.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   },
+   "short": "Soviet poster art"
+  },
+  {
+   "text": "Swiss International Style",
+   "look": "Asymmetric grids, sans-serif type, generous empty space, and precisely aligned photographs.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   },
+   "short": "Swiss Style"
+  },
+  {
+   "text": "CoBrA",
+   "look": "Rough childlike creatures, tangled lines, and thick patches of vivid, clashing color.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Art Informel",
+   "look": "Irregular earthy textures, scratched marks, and dense abstract surfaces without clear geometric order.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "Gutai",
+   "look": "Explosive paint trails, sweeping physical marks, and torn or heavily worked surfaces.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   }
+  },
+  {
+   "text": "mid-century modern illustration",
+   "look": "Angular simplified characters, textured flat colors, and playful abstract shapes in airy layouts.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ]
+   },
+   "short": "Mid-century illustration"
+  },
+  {
+   "text": "Pictorialism",
+   "look": "Soft-focus photographic scenes with hazy highlights, muted tones, and a painterly surface.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_modern_20th"
+    ]
+   }
+  },
+  {
+   "text": "Memphis design",
+   "look": "Bright clashing colors, squiggles, polka dots, and playful off-balance geometric shapes.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Photorealism",
+   "look": "Painted scenes closely mimic camera images, with precise reflections and uniformly sharp surface detail.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Hyperrealism",
+   "look": "Extreme surface detail, enlarged textures, and heightened clarity make ordinary subjects look almost tangible.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Lowbrow pop surrealism",
+   "look": "Big-eyed characters, polished cartoon forms, strange creatures, and candy-colored dream settings.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Outsider art",
+   "look": "Dense personal symbols, compulsive patterns, and unconventional figures crowd irregular compositions.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Naive art",
+   "look": "Simplified figures, flattened perspective, and clear bright colors give scenes a direct, childlike structure.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Folk art",
+   "look": "Decorative everyday motifs, bold outlines, and repeated handmade patterns in flat colors.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Brutalist graphic design",
+   "look": "Oversized raw typography, stark blocks, rough textures, and deliberately awkward layouts.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "psychedelic poster art",
+   "look": "Swirling rainbow colors, warped lettering, repeating curves, and densely interlocking shapes.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Neo-Expressionism",
+   "look": "Rough oversized figures, forceful brushwork, and raw, layered color with scratched or scrawled marks.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Afrofuturism",
+   "look": "African-derived patterns and silhouettes combine with cosmic imagery, metallic surfaces, and futuristic technology.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "Chicano lowrider art",
+   "look": "Airbrushed portraits, glossy highlights, roses, script lettering, and finely shaded monochrome details.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ]
+   }
+  },
+  {
+   "text": "ukiyo-e",
+   "look": "Bold woodblock outlines, flat color areas, stylized waves, and sharply cropped everyday scenes.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "sumi-e",
+   "look": "Spare black ink strokes, soft gray washes, and large untouched areas of paper.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Mughal miniature painting",
+   "look": "Minute courtly figures, fine outlines, jewel colors, and carefully observed plants within ornate borders.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   },
+   "short": "Mughal miniature"
+  },
+  {
+   "text": "Persian miniature painting",
+   "look": "Dense patterned gardens, jewel colors, delicate figures, and tilted architecture without a single vanishing point.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   },
+   "short": "Persian miniature"
+  },
+  {
+   "text": "Aboriginal dot painting",
+   "look": "Rhythmic fields of small earth-colored dots surround concentric circles, winding paths, and symbolic shapes.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Chinese gongbi painting",
+   "look": "Hair-fine outlines enclose meticulous flowers, birds, and figures filled with delicate layered color.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Chinese shan shui painting",
+   "look": "Layered mountains, tiny buildings, misty gaps, and textured ink strokes create vast vertical landscapes.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   },
+   "short": "Shan shui"
+  },
+  {
+   "text": "Rinpa",
+   "look": "Bold decorative flowers and flowing water sit against gold grounds with broad, pooled color.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Shin-hanga",
+   "look": "Delicate woodblock landscapes with soft atmospheric gradients, rain, snow, and luminous nighttime reflections.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "sōsaku-hanga",
+   "look": "Expressive carved lines, rough paper textures, and bold simplified shapes replace polished woodblock detail.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Pahari miniature painting",
+   "look": "Graceful lovers, rolling green hills, delicate trees, and bright flat colors inside intimate bordered scenes.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   },
+   "short": "Pahari miniature"
+  },
+  {
+   "text": "Rajput miniature painting",
+   "look": "Profile figures, vivid red and yellow grounds, and stylized palaces frame rhythmic narrative scenes.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   },
+   "short": "Rajput miniature"
+  },
+  {
+   "text": "Tanjore painting",
+   "look": "Frontal richly dressed deities, raised gold ornament, and jewel-like details against saturated backgrounds.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Kalighat painting",
+   "look": "Sweeping dark outlines and shaded rounded figures stand against mostly empty light backgrounds.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Madhubani painting",
+   "look": "Double outlines, packed geometric fills, and flat figures leave almost no empty ground.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Warli painting",
+   "look": "Small white stick figures made of triangles dance among trees and animals on an earthy background.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Kalamkari painting",
+   "look": "Flowing black outlines, earthy reds, and densely patterned textiles surround narrative figures and vines.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Pattachitra painting",
+   "look": "Fine pale ornament, strong red grounds, and outlined figures fill tightly bordered narrative panels.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Korean minhwa painting",
+   "look": "Stylized tigers, birds, flowers, and books appear in bright flat colors and playful skewed perspective.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Balinese Batuan painting",
+   "look": "Crowded village scenes, rounded foliage, and intricate dark shading fill the picture from edge to edge.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Tibetan thangka painting",
+   "look": "Central sacred figures sit amid symmetrical halos, dense miniature attendants, and jewel-colored ornament.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Ethiopian icon painting",
+   "look": "Large almond eyes, dark outlines, frontal figures, and vivid red, yellow, and green color fields.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Ndebele mural painting",
+   "look": "Bold black outlines separate symmetric geometric shapes in bright flat colors across a white ground.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "non_western_traditions"
+    ]
+   }
+  },
+  {
+   "text": "Vaporwave",
+   "look": "Pastel pink and cyan, classical busts, obsolete computer windows, and hazy digital collage.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "digital_internet"
+    ]
+   }
+  },
+  {
+   "text": "Synthwave",
+   "look": "Neon magenta and cyan, glowing horizon grids, chrome surfaces, and striped sunset discs.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "digital_internet"
+    ]
+   }
+  },
+  {
+   "text": "Glitch art",
+   "look": "Broken pixels, displaced color channels, scan lines, and corrupted bands disrupt the image.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "digital_internet"
+    ]
+   }
+  },
+  {
+   "text": "Frutiger Aero",
+   "look": "Glossy translucent bubbles, blue skies, vivid green grass, and watery glass-like interface shapes.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "digital_internet"
+    ]
+   }
+  },
+  {
+   "text": "Y2K futurism",
+   "look": "Liquid chrome, translucent plastic, icy blue highlights, and rounded futuristic lettering.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "digital_internet"
+    ]
+   }
+  },
+  {
+   "text": "Demoscene graphics",
+   "look": "Luminous fractals, metallic 3D lettering, procedural tunnels, and saturated computer-generated gradients.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "digital_internet"
+    ]
+   }
+  },
+  {
+   "text": "ASCII art",
+   "look": "Letters, numbers, and punctuation arranged in a monospaced grid form shaded images.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "digital_internet"
+    ]
+   }
+  }
+ ]
+}

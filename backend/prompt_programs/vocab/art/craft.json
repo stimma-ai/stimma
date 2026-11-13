@@ -1,0 +1,464 @@
+{
+ "id": "art.craft",
+ "label": "Crafts and decorative arts",
+ "description": "Named craft techniques and decorative traditions in glass, tile, textiles, paper, metal, lacquer, and ceramics.",
+ "pos": "noun phrase",
+ "frame": "made as ___",
+ "notes": "Named decorative techniques and craft traditions belong here, phrased as made objects after “made as.” art.medium provides broad material choices, while art.rendering owns simulated digital construction looks and art.style owns movements. Brief visual descriptions identify surfaces, stitches, cuts, and motifs rather than prescribing a subject. The wood_lacquer group also holds scrimshaw on bone, and glass_tile includes decorative stone inlay. Traditional techniques remain usable in contemporary scenes and carry no descent or regional restrictions.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "glass_tile",
+   "textile",
+   "paper",
+   "metal_enamel",
+   "wood_lacquer",
+   "ceramic",
+   "folk_painting"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "a stained-glass panel",
+   "short": "stained glass",
+   "tier": "typical",
+   "look": "colored translucent glass sections glow between dark lead outlines",
+   "tags": {
+    "kind": [
+     "glass_tile"
+    ]
+   }
+  },
+  {
+   "text": "a mosaic panel",
+   "short": "mosaic",
+   "tier": "typical",
+   "look": "small stone or glass tesserae build a picture with visible grout between pieces",
+   "tags": {
+    "kind": [
+     "glass_tile"
+    ]
+   }
+  },
+  {
+   "text": "an azulejo tile panel",
+   "short": "azulejo",
+   "tier": "plausible",
+   "look": "glazed square tiles carry painted scenes or repeating ornament across a regular grid",
+   "tags": {
+    "kind": [
+     "glass_tile"
+    ]
+   }
+  },
+  {
+   "text": "a zellige tile panel",
+   "short": "zellige",
+   "tier": "plausible",
+   "look": "small hand-cut glazed tiles interlock into intricate geometric stars and polygons",
+   "tags": {
+    "kind": [
+     "glass_tile"
+    ]
+   }
+  },
+  {
+   "text": "a pietra dura panel",
+   "short": "pietra dura",
+   "tier": "plausible",
+   "look": "precisely cut colored stones form a smooth fitted picture against a polished stone ground",
+   "tags": {
+    "kind": [
+     "glass_tile"
+    ]
+   }
+  },
+  {
+   "text": "a surface-embroidered textile",
+   "short": "embroidery",
+   "tier": "typical",
+   "look": "colored satin stitches and raised thread outlines make motifs on woven cloth",
+   "tags": {
+    "kind": [
+     "textile"
+    ]
+   }
+  },
+  {
+   "text": "a sashiko-stitched textile",
+   "short": "sashiko",
+   "tier": "plausible",
+   "look": "even white running stitches form repeating geometric lines across indigo cloth",
+   "tags": {
+    "kind": [
+     "textile"
+    ]
+   }
+  },
+  {
+   "text": "a batik textile",
+   "short": "batik",
+   "tier": "plausible",
+   "look": "wax-resist dye creates crisp light motifs and fine crackle lines through colored cloth",
+   "tags": {
+    "kind": [
+     "textile"
+    ]
+   }
+  },
+  {
+   "text": "a block-printed textile",
+   "short": "block printing",
+   "tier": "typical",
+   "look": "repeated stamped motifs have small registration shifts and slightly uneven ink coverage",
+   "tags": {
+    "kind": [
+     "textile"
+    ]
+   }
+  },
+  {
+   "text": "an appliqué textile",
+   "short": "appliqué",
+   "tier": "typical",
+   "look": "cut fabric shapes lie sewn onto a contrasting cloth ground with visible edge stitches",
+   "tags": {
+    "kind": [
+     "textile"
+    ]
+   }
+  },
+  {
+   "text": "a patchwork quilt",
+   "short": "quilting",
+   "tier": "typical",
+   "look": "joined fabric shapes form a padded composition crossed by fine quilting stitches",
+   "tags": {
+    "kind": [
+     "textile"
+    ]
+   }
+  },
+  {
+   "text": "a macramé wall hanging",
+   "short": "macramé",
+   "tier": "typical",
+   "look": "thick cords form open knotted diamonds, hanging loops, and long loose fringe",
+   "tags": {
+    "kind": [
+     "textile"
+    ]
+   }
+  },
+  {
+   "text": "a woven basketry sculpture",
+   "short": "basketry",
+   "tier": "typical",
+   "look": "interlaced reeds or willow strips curve into a form with a visible over-under weave",
+   "tags": {
+    "kind": [
+     "textile"
+    ]
+   }
+  },
+  {
+   "text": "a needlepoint panel",
+   "short": "needlepoint",
+   "tier": "plausible",
+   "look": "small diagonal yarn stitches densely cover a square mesh with a gridded picture",
+   "tags": {
+    "kind": [
+     "textile"
+    ]
+   }
+  },
+  {
+   "text": "a bead-embroidered textile",
+   "short": "bead embroidery",
+   "tier": "plausible",
+   "look": "shiny beads cluster along stitched motifs in raised lines and filled patches",
+   "tags": {
+    "kind": [
+     "textile"
+    ]
+   }
+  },
+  {
+   "text": "a wycinanki paper cut",
+   "short": "wycinanki",
+   "tier": "plausible",
+   "look": "layered bright paper cuts form symmetrical flowers, birds, and bold folk motifs",
+   "tags": {
+    "kind": [
+     "paper"
+    ]
+   }
+  },
+  {
+   "text": "a jianzhi paper cut",
+   "short": "jianzhi",
+   "tier": "plausible",
+   "look": "fine red paper lines connect dense floral or figurative motifs within a single cut sheet",
+   "tags": {
+    "kind": [
+     "paper"
+    ]
+   }
+  },
+  {
+   "text": "a papel picado panel",
+   "short": "papel picado",
+   "tier": "plausible",
+   "look": "thin bright tissue paper has lace-like punched openings and a scalloped lower edge",
+   "tags": {
+    "kind": [
+     "paper"
+    ]
+   }
+  },
+  {
+   "text": "a paper-quilled picture",
+   "short": "paper quilling",
+   "tier": "plausible",
+   "look": "thin paper strips stand on edge in tight coils, teardrops, and curling outlines",
+   "tags": {
+    "kind": [
+     "paper"
+    ]
+   }
+  },
+  {
+   "text": "an origami sculpture",
+   "short": "origami",
+   "tier": "typical",
+   "look": "one folded paper form has sharp creases, angular planes, and tucked overlapping flaps",
+   "tags": {
+    "kind": [
+     "paper"
+    ]
+   }
+  },
+  {
+   "text": "a cloisonné enamel panel",
+   "short": "cloisonné",
+   "tier": "plausible",
+   "look": "thin metal wires enclose small glossy pools of colored enamel",
+   "tags": {
+    "kind": [
+     "metal_enamel"
+    ]
+   }
+  },
+  {
+   "text": "a filigree metalwork panel",
+   "short": "filigree",
+   "tier": "plausible",
+   "look": "fine metal wires curl into delicate open spirals, loops, and lace-like ornament",
+   "tags": {
+    "kind": [
+     "metal_enamel"
+    ]
+   }
+  },
+  {
+   "text": "a repoussé metal relief",
+   "short": "repoussé",
+   "tier": "plausible",
+   "look": "hammered sheet metal rises into rounded relief with broad convex forms and soft tool marks",
+   "tags": {
+    "kind": [
+     "metal_enamel"
+    ]
+   }
+  },
+  {
+   "text": "a damascened metal panel",
+   "short": "damascening",
+   "tier": "unusual",
+   "look": "fine gold or silver wire patterns lie flush in a contrasting dark metal surface",
+   "tags": {
+    "kind": [
+     "metal_enamel"
+    ]
+   }
+  },
+  {
+   "text": "a champlevé enamel panel",
+   "short": "champlevé",
+   "tier": "unusual",
+   "look": "broad recessed enamel fields are divided by substantial exposed metal ridges",
+   "tags": {
+    "kind": [
+     "metal_enamel"
+    ]
+   }
+  },
+  {
+   "text": "a marquetry panel",
+   "short": "marquetry",
+   "tier": "typical",
+   "look": "closely fitted wood veneers form a picture through contrasting grain and natural wood colors",
+   "tags": {
+    "kind": [
+     "wood_lacquer"
+    ]
+   }
+  },
+  {
+   "text": "a mother-of-pearl inlay panel",
+   "short": "mother-of-pearl inlay",
+   "tier": "plausible",
+   "look": "iridescent shell pieces sit flush inside a darker ground in crisp fitted shapes",
+   "tags": {
+    "kind": [
+     "wood_lacquer"
+    ]
+   }
+  },
+  {
+   "text": "a lacquerware panel",
+   "short": "lacquerware",
+   "tier": "plausible",
+   "look": "deep polished lacquer gives painted decoration a smooth reflective surface",
+   "tags": {
+    "kind": [
+     "wood_lacquer"
+    ]
+   }
+  },
+  {
+   "text": "a maki-e lacquer panel",
+   "short": "maki-e",
+   "tier": "unusual",
+   "look": "fine gold or silver powder forms shimmering motifs over glossy dark lacquer",
+   "tags": {
+    "kind": [
+     "wood_lacquer"
+    ]
+   }
+  },
+  {
+   "text": "a scrimshaw engraving",
+   "short": "scrimshaw",
+   "tier": "unusual",
+   "look": "dark ink fills tiny incised lines on a pale tooth or bone surface",
+   "tags": {
+    "kind": [
+     "wood_lacquer"
+    ]
+   }
+  },
+  {
+   "text": "a pyrography panel",
+   "short": "pyrography",
+   "tier": "plausible",
+   "look": "burned brown lines and scorched shading form an image directly in pale wood",
+   "tags": {
+    "kind": [
+     "wood_lacquer"
+    ]
+   }
+  },
+  {
+   "text": "a wheel-thrown pottery piece",
+   "short": "wheel-thrown pottery",
+   "tier": "typical",
+   "look": "rounded clay walls show concentric throwing rings beneath a simple fired surface",
+   "tags": {
+    "kind": [
+     "ceramic"
+    ]
+   }
+  },
+  {
+   "text": "a raku ceramic piece",
+   "short": "raku",
+   "tier": "plausible",
+   "look": "smoke-darkened clay contrasts with crackled glaze and irregular metallic flashes",
+   "tags": {
+    "kind": [
+     "ceramic"
+    ]
+   }
+  },
+  {
+   "text": "a Delftware panel",
+   "short": "Delftware",
+   "tier": "plausible",
+   "look": "cobalt-blue painted scenes and floral borders sit on a milky white tin-glazed surface",
+   "tags": {
+    "kind": [
+     "ceramic"
+    ]
+   }
+  },
+  {
+   "text": "a Talavera ceramic panel",
+   "short": "Talavera",
+   "tier": "plausible",
+   "look": "bold blue, yellow, green, and orange painted ornament covers a creamy white glazed ground",
+   "tags": {
+    "kind": [
+     "ceramic"
+    ]
+   }
+  },
+  {
+   "text": "a kintsugi ceramic piece",
+   "short": "kintsugi",
+   "tier": "plausible",
+   "look": "gold-colored repair seams trace a branching network through broken glazed ceramic",
+   "tags": {
+    "kind": [
+     "ceramic"
+    ]
+   }
+  },
+  {
+   "text": "a sgraffito ceramic panel",
+   "short": "sgraffito",
+   "tier": "plausible",
+   "look": "scratched lines cut through a colored slip layer to expose contrasting clay underneath",
+   "tags": {
+    "kind": [
+     "ceramic"
+    ]
+   }
+  },
+  {
+   "text": "a tole-painted metal panel",
+   "short": "tole painting",
+   "tier": "plausible",
+   "look": "bright brushed flowers and leaves decorate a dark painted metal surface",
+   "tags": {
+    "kind": [
+     "folk_painting"
+    ]
+   }
+  },
+  {
+   "text": "a rosemaling panel",
+   "short": "rosemaling",
+   "tier": "plausible",
+   "look": "sweeping painted scrolls, shaded flowers, and curling leaves intertwine on a colored wood ground",
+   "tags": {
+    "kind": [
+     "folk_painting"
+    ]
+   }
+  },
+  {
+   "text": "an alebrije sculpture",
+   "short": "alebrijes",
+   "tier": "plausible",
+   "look": "a fantastic animal form is covered with vivid contrasting dots, stripes, and intricate painted patterns",
+   "tags": {
+    "kind": [
+     "folk_painting"
+    ]
+   }
+  }
+ ]
+}

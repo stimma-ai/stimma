@@ -1,197 +1,824 @@
 {
-  "id": "object.pattern",
-  "label": "Object pattern",
-  "description": "repeating motifs, prints and decorative surface arrangements on an object",
-  "pos": "adjective or noun-adjunct",
-  "frame": "a ___ scarf",
-  "notes": "Surface designs only, with no fixed colors or fiber requirements. Named culturally specific designs carry region tags; generic motifs remain untagged. object.material owns the physical substance.",
-  "facets": [
-    "region"
-  ],
-  "closed": false,
-  "values": [
-    {
-      "text": "striped",
-      "tier": "typical"
-    },
-    {
-      "text": "polka-dot",
-      "tier": "typical"
-    },
-    {
-      "text": "checked",
-      "tier": "typical"
-    },
-    {
-      "text": "floral",
-      "tier": "typical"
-    },
-    {
-      "text": "plaid",
-      "tier": "typical"
-    },
-    {
-      "text": "herringbone",
-      "tier": "typical"
-    },
-    {
-      "text": "houndstooth",
-      "tier": "typical"
-    },
-    {
-      "text": "geometric",
-      "tier": "typical"
-    },
-    {
-      "text": "pinstriped",
-      "tier": "plausible"
-    },
-    {
-      "text": "gingham",
-      "tier": "plausible"
-    },
-    {
-      "text": "chevron",
-      "tier": "plausible"
-    },
-    {
-      "text": "diamond argyle",
-      "tier": "plausible"
-    },
-    {
-      "text": "windowpane-check",
-      "tier": "plausible"
-    },
-    {
-      "text": "harlequin",
-      "tier": "plausible"
-    },
-    {
-      "text": "leopard-print",
-      "tier": "plausible"
-    },
-    {
-      "text": "zebra-print",
-      "tier": "plausible"
-    },
-    {
-      "text": "tiger-stripe",
-      "tier": "plausible"
-    },
-    {
-      "text": "snakeskin-print",
-      "tier": "plausible"
-    },
-    {
-      "text": "botanical",
-      "tier": "plausible"
-    },
-    {
-      "text": "star-print",
-      "tier": "plausible"
-    },
-    {
-      "text": "heart-print",
-      "tier": "plausible"
-    },
-    {
-      "text": "swirling abstract",
-      "tier": "plausible"
-    },
-    {
-      "text": "camouflage",
-      "tier": "plausible"
-    },
-    {
-      "text": "tie-dye",
-      "tier": "plausible"
-    },
-    {
-      "text": "gradient",
-      "tier": "plausible"
-    },
-    {
-      "text": "patchwork",
-      "tier": "plausible"
-    },
-    {
-      "text": "lace-patterned",
-      "tier": "plausible"
-    },
-    {
-      "text": "cable-knit",
-      "tier": "plausible"
-    },
-    {
-      "text": "marbled",
-      "tier": "unusual"
-    },
-    {
-      "text": "woodgrain-print",
-      "tier": "unusual"
-    },
-    {
-      "text": "trompe-l’oeil chain-print",
-      "tier": "unusual"
-    },
-    {
-      "text": "circuit-patterned",
-      "tier": "unusual"
-    },
-    {
-      "text": "paisley",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "south_asian",
-          "middle_eastern"
-        ]
-      }
-    },
-    {
-      "text": "Scottish tartan",
-      "tier": "typical",
-      "tags": {
-        "region": [
-          "european"
-        ]
-      }
-    },
-    {
-      "text": "Japanese shibori",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "east_asian"
-        ]
-      }
-    },
-    {
-      "text": "Japanese seigaiha wave-patterned",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "east_asian"
-        ]
-      }
-    },
-    {
-      "text": "Javanese batik",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "southeast_asian"
-        ]
-      }
-    },
-    {
-      "text": "Ghanaian kente-patterned",
-      "tier": "plausible",
-      "tags": {
-        "region": [
-          "african"
-        ]
-      }
-    }
+ "id": "object.pattern",
+ "label": "Surface pattern",
+ "description": "Named textile and surface motifs: checks, stripes, florals, geometrics, animal prints and resist-dyed designs.",
+ "pos": "adjective or noun-adjunct",
+ "frame": "a ___ fabric",
+ "notes": "Named motifs and visible surface arrangements belong here, phrased as adjectives or noun-adjuncts before fabric. clothing.fabric owns the underlying cloth and its physical texture; object.material owns nontextile substances. Regional names identify recognizable designs without implying the wearer’s descent or restricting where a motif can appear. Checks and stripes are specific constructions rather than generic duplicates, and the historical William Morris reference describes a dense botanical pattern rather than a fabric brand.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "checks_plaids",
+   "stripes",
+   "florals",
+   "geometric",
+   "animal",
+   "dyed_resist",
+   "regional",
+   "novelty"
   ]
+ },
+ "values": [
+  {
+   "text": "houndstooth",
+   "tier": "typical",
+   "look": "Small interlocking broken checks have jagged, four-pointed edges.",
+   "tags": {
+    "kind": [
+     "checks_plaids"
+    ]
+   }
+  },
+  {
+   "text": "tartan plaid",
+   "tier": "typical",
+   "look": "Broad crossing bands and fine lines form a repeating multicolored grid.",
+   "tags": {
+    "kind": [
+     "checks_plaids"
+    ]
+   }
+  },
+  {
+   "text": "gingham",
+   "tier": "typical",
+   "look": "Evenly spaced light and dark squares form a simple two-color check.",
+   "tags": {
+    "kind": [
+     "checks_plaids"
+    ]
+   }
+  },
+  {
+   "text": "Prince of Wales check",
+   "tier": "plausible",
+   "look": "Blocks of tiny broken checks form a larger grid, often crossed by a fine contrasting line.",
+   "tags": {
+    "kind": [
+     "checks_plaids"
+    ]
+   }
+  },
+  {
+   "text": "windowpane check",
+   "tier": "typical",
+   "look": "Widely spaced thin lines enclose large, plain squares.",
+   "tags": {
+    "kind": [
+     "checks_plaids"
+    ]
+   }
+  },
+  {
+   "text": "buffalo check",
+   "tier": "typical",
+   "look": "Large two-color checks alternate dark, light and blended squares.",
+   "tags": {
+    "kind": [
+     "checks_plaids"
+    ]
+   }
+  },
+  {
+   "text": "checkerboard",
+   "tier": "typical",
+   "look": "Equal solid squares alternate in a crisp two-tone grid.",
+   "tags": {
+    "kind": [
+     "checks_plaids",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "madras plaid",
+   "tier": "plausible",
+   "look": "Bright, irregularly sized bands cross into a lively multicolored grid.",
+   "tags": {
+    "kind": [
+     "checks_plaids"
+    ]
+   }
+  },
+  {
+   "text": "argyle",
+   "tier": "plausible",
+   "look": "Tall overlapping diamonds are crossed by thin diagonal lines.",
+   "tags": {
+    "kind": [
+     "checks_plaids",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "gun club check",
+   "tier": "plausible",
+   "look": "Small multicolored broken checks repeat in closely packed alternating blocks.",
+   "tags": {
+    "kind": [
+     "checks_plaids"
+    ]
+   }
+  },
+  {
+   "text": "pinstripe",
+   "tier": "typical",
+   "look": "Very fine, widely spaced parallel lines run across an otherwise solid ground.",
+   "tags": {
+    "kind": [
+     "stripes"
+    ]
+   }
+  },
+  {
+   "text": "Breton stripe",
+   "tier": "typical",
+   "look": "Even horizontal bands alternate dark and light at a medium width.",
+   "tags": {
+    "kind": [
+     "stripes"
+    ]
+   }
+  },
+  {
+   "text": "awning stripe",
+   "tier": "plausible",
+   "look": "Broad, equal-width light and dark bands make a bold, simple repeat.",
+   "tags": {
+    "kind": [
+     "stripes"
+    ]
+   }
+  },
+  {
+   "text": "candy stripe",
+   "tier": "plausible",
+   "look": "Narrow bright bands alternate evenly with white bands.",
+   "tags": {
+    "kind": [
+     "stripes"
+    ]
+   }
+  },
+  {
+   "text": "chalk stripe",
+   "tier": "plausible",
+   "look": "Soft-edged pale lines run in parallel with a slightly dusty, broken appearance.",
+   "tags": {
+    "kind": [
+     "stripes"
+    ]
+   }
+  },
+  {
+   "text": "barcode stripe",
+   "tier": "plausible",
+   "look": "Closely spaced parallel bars vary sharply in width like a printed barcode.",
+   "tags": {
+    "kind": [
+     "stripes"
+    ]
+   }
+  },
+  {
+   "text": "chevron",
+   "tier": "typical",
+   "look": "Continuous zigzag bands repeat in parallel rows of pointed Vs.",
+   "tags": {
+    "kind": [
+     "stripes",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "herringbone",
+   "tier": "typical",
+   "look": "Short diagonal lines meet in alternating directions to form broken, stacked zigzags.",
+   "tags": {
+    "kind": [
+     "stripes",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "wavy stripe",
+   "tier": "plausible",
+   "look": "Parallel bands flow in repeated soft curves rather than straight lines.",
+   "tags": {
+    "kind": [
+     "stripes"
+    ]
+   }
+  },
+  {
+   "text": "ditsy floral",
+   "tier": "typical",
+   "look": "Tiny scattered flowers form a dense, small-scale allover print.",
+   "tags": {
+    "kind": [
+     "florals"
+    ]
+   }
+  },
+  {
+   "text": "rose floral",
+   "tier": "typical",
+   "look": "Recognizable layered roses repeat with buds and leaves.",
+   "tags": {
+    "kind": [
+     "florals"
+    ]
+   }
+  },
+  {
+   "text": "tropical floral",
+   "tier": "typical",
+   "look": "Large hibiscus-like blooms and broad leaves overlap in a bold repeat.",
+   "tags": {
+    "kind": [
+     "florals"
+    ]
+   }
+  },
+  {
+   "text": "cherry blossom",
+   "tier": "plausible",
+   "look": "Small five-petaled blossoms cluster along slender branching stems.",
+   "tags": {
+    "kind": [
+     "florals"
+    ]
+   }
+  },
+  {
+   "text": "Jacobean floral",
+   "tier": "plausible",
+   "look": "Large stylized flowers, curling leaves and branching stems form an ornate scrolling repeat.",
+   "tags": {
+    "kind": [
+     "florals"
+    ]
+   }
+  },
+  {
+   "text": "William Morris-style floral",
+   "short": "Morris-style floral",
+   "tier": "plausible",
+   "look": "Dense, interlaced leaves and curling stems frame flat, richly detailed flowers.",
+   "tags": {
+    "kind": [
+     "florals"
+    ]
+   }
+  },
+  {
+   "text": "toile de Jouy",
+   "tier": "plausible",
+   "look": "Fine single-color pastoral scenes repeat on a pale ground with trees and figures.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "palm leaf",
+   "tier": "typical",
+   "look": "Large fan-shaped or feathered palm fronds spread across the surface.",
+   "tags": {
+    "kind": [
+     "florals"
+    ]
+   }
+  },
+  {
+   "text": "fern print",
+   "tier": "plausible",
+   "look": "Delicate branching fern fronds repeat with many small leaflets.",
+   "tags": {
+    "kind": [
+     "florals"
+    ]
+   }
+  },
+  {
+   "text": "acanthus scroll",
+   "tier": "plausible",
+   "look": "Deeply lobed leaves curl into broad, symmetrical ornamental scrolls.",
+   "tags": {
+    "kind": [
+     "florals"
+    ]
+   }
+  },
+  {
+   "text": "polka dot",
+   "tier": "typical",
+   "look": "Equal round dots repeat at regular intervals against a plain ground.",
+   "tags": {
+    "kind": [
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "pin dot",
+   "tier": "plausible",
+   "look": "Very tiny, widely spaced dots give a solid-looking surface a fine speckled rhythm.",
+   "tags": {
+    "kind": [
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "harlequin",
+   "tier": "plausible",
+   "look": "Tall, sharply outlined diamonds alternate in a regular diagonal grid.",
+   "tags": {
+    "kind": [
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "hexagonal honeycomb",
+   "tier": "plausible",
+   "look": "Six-sided cells join edge to edge in a regular mesh-like repeat.",
+   "tags": {
+    "kind": [
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "Greek key",
+   "tier": "plausible",
+   "look": "A continuous right-angled line turns back on itself in repeated squared spirals.",
+   "tags": {
+    "kind": [
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "quatrefoil",
+   "tier": "plausible",
+   "look": "Four rounded lobes form repeated clover-shaped outlines.",
+   "tags": {
+    "kind": [
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "concentric circle",
+   "tier": "plausible",
+   "look": "Groups of rings share a center and repeat across the surface.",
+   "tags": {
+    "kind": [
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "Bauhaus geometric",
+   "tier": "plausible",
+   "look": "Circles, rectangles and arcs form a spare, blocky arrangement of flat shapes.",
+   "tags": {
+    "kind": [
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "op-art",
+   "tier": "plausible",
+   "look": "Dense high-contrast lines bend or repeat to suggest vibration, bulges or optical movement.",
+   "tags": {
+    "kind": [
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "Memphis",
+   "tier": "unusual",
+   "look": "Bright squiggles, dots, triangles and bars float in a playful, scattered arrangement.",
+   "tags": {
+    "kind": [
+     "geometric",
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "damask",
+   "tier": "plausible",
+   "look": "Large symmetrical scrolling motifs repeat with a subtle contrast between shiny and dull areas.",
+   "tags": {
+    "kind": [
+     "geometric",
+     "florals"
+    ]
+   }
+  },
+  {
+   "text": "leopard print",
+   "tier": "typical",
+   "look": "Irregular dark rosettes surround lighter centers across a spotted ground.",
+   "tags": {
+    "kind": [
+     "animal"
+    ]
+   }
+  },
+  {
+   "text": "zebra print",
+   "tier": "typical",
+   "look": "Uneven branching stripes curve in alternating light and dark bands.",
+   "tags": {
+    "kind": [
+     "animal"
+    ]
+   }
+  },
+  {
+   "text": "tiger stripe",
+   "tier": "plausible",
+   "look": "Tapered dark stripes break across a warm-colored ground in uneven vertical groups.",
+   "tags": {
+    "kind": [
+     "animal"
+    ]
+   }
+  },
+  {
+   "text": "snakeskin print",
+   "tier": "plausible",
+   "look": "Overlapping small scale shapes form a dense repeat with larger markings along the center.",
+   "tags": {
+    "kind": [
+     "animal"
+    ]
+   }
+  },
+  {
+   "text": "cow print",
+   "tier": "plausible",
+   "look": "Large irregular dark patches sit widely spaced on a pale ground.",
+   "tags": {
+    "kind": [
+     "animal"
+    ]
+   }
+  },
+  {
+   "text": "giraffe print",
+   "tier": "plausible",
+   "look": "Large angular patches are separated by a network of pale narrow channels.",
+   "tags": {
+    "kind": [
+     "animal"
+    ]
+   }
+  },
+  {
+   "text": "peacock feather",
+   "tier": "plausible",
+   "look": "Overlapping feathers repeat with rounded, eye-like spots near their tips.",
+   "tags": {
+    "kind": [
+     "animal"
+    ]
+   }
+  },
+  {
+   "text": "Dalmatian spot",
+   "tier": "plausible",
+   "look": "Small irregular solid dark spots scatter unevenly across a white ground.",
+   "tags": {
+    "kind": [
+     "animal"
+    ]
+   }
+  },
+  {
+   "text": "butterfly print",
+   "tier": "plausible",
+   "look": "Recognizable butterflies with paired patterned wings repeat across the surface.",
+   "tags": {
+    "kind": [
+     "animal"
+    ]
+   }
+  },
+  {
+   "text": "camouflage",
+   "tier": "typical",
+   "look": "Interlocking irregular patches of muted colors break up the surface into uneven shapes.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "tie-dye",
+   "tier": "typical",
+   "look": "Bright colors radiate or spiral outward in soft-edged bands with uneven white breaks.",
+   "tags": {
+    "kind": [
+     "dyed_resist"
+    ]
+   }
+  },
+  {
+   "text": "shibori",
+   "tier": "plausible",
+   "look": "Deep blue and white resist marks form clustered rings, tiny spots or folded geometric bands.",
+   "tags": {
+    "kind": [
+     "dyed_resist",
+     "regional"
+    ]
+   }
+  },
+  {
+   "text": "batik",
+   "tier": "plausible",
+   "look": "Wax-resist motifs have fine outlines and a web of pale crackle lines through dyed areas.",
+   "tags": {
+    "kind": [
+     "dyed_resist",
+     "regional"
+    ]
+   }
+  },
+  {
+   "text": "ikat",
+   "tier": "plausible",
+   "look": "Repeated diamonds or elongated motifs have softly feathered, blurred edges along the threads.",
+   "tags": {
+    "kind": [
+     "dyed_resist",
+     "regional"
+    ]
+   }
+  },
+  {
+   "text": "dip-dye ombré",
+   "tier": "plausible",
+   "look": "A broad wash shifts gradually from a deep dyed edge into a much paler area.",
+   "tags": {
+    "kind": [
+     "dyed_resist"
+    ]
+   }
+  },
+  {
+   "text": "marbled",
+   "tier": "plausible",
+   "look": "Thin veins and swirling pools of color flow around one another like ink on water.",
+   "tags": {
+    "kind": [
+     "dyed_resist"
+    ]
+   }
+  },
+  {
+   "text": "bleach-splatter",
+   "tier": "unusual",
+   "look": "Irregular pale droplets and starburst stains interrupt a darker dyed ground.",
+   "tags": {
+    "kind": [
+     "dyed_resist"
+    ]
+   }
+  },
+  {
+   "text": "paisley",
+   "tier": "typical",
+   "look": "Curving teardrop-shaped motifs with curled tips contain small flowers and ornamental details.",
+   "tags": {
+    "kind": [
+     "regional"
+    ]
+   }
+  },
+  {
+   "text": "Fair Isle",
+   "tier": "plausible",
+   "look": "Narrow horizontal bands alternate small repeated diamonds, crosses and star-like motifs.",
+   "tags": {
+    "kind": [
+     "regional",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "kente-style strip weave",
+   "tier": "plausible",
+   "look": "Bright narrow bands alternate blocks of bars, diamonds and stepped geometric motifs.",
+   "tags": {
+    "kind": [
+     "regional",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "seigaiha wave",
+   "tier": "plausible",
+   "look": "Overlapping rows of concentric semicircles form evenly spaced fan-shaped waves.",
+   "tags": {
+    "kind": [
+     "regional",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "chinoiserie",
+   "tier": "plausible",
+   "look": "Delicate birds, flowering branches and pagoda-like structures form an ornamental scenic repeat.",
+   "tags": {
+    "kind": [
+     "regional",
+     "florals"
+    ]
+   }
+  },
+  {
+   "text": "mudcloth-inspired geometric",
+   "short": "mudcloth geometric",
+   "tier": "plausible",
+   "look": "Rows of pale dashes, dots and triangles mark a dark ground in uneven hand-drawn bands.",
+   "tags": {
+    "kind": [
+     "regional",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "nordic snowflake",
+   "tier": "plausible",
+   "look": "Large eight-pointed snowflakes repeat in horizontal bands with small diamonds and crosses.",
+   "tags": {
+    "kind": [
+     "regional",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "kilim geometric",
+   "tier": "plausible",
+   "look": "Stepped diamonds and angular hooked shapes form bold interlocking bands.",
+   "tags": {
+    "kind": [
+     "regional",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "azulejo tile",
+   "tier": "plausible",
+   "look": "Outlined square tile units repeat with blue-and-white floral or geometric centers.",
+   "tags": {
+    "kind": [
+     "regional",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "patchwork",
+   "tier": "plausible",
+   "look": "Distinct blocks of contrasting prints meet along visible straight or irregular boundaries.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "star print",
+   "tier": "typical",
+   "look": "Simple pointed stars repeat against a plain ground.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "heart print",
+   "tier": "typical",
+   "look": "Rounded heart shapes scatter or repeat in evenly spaced rows.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "cherry print",
+   "tier": "plausible",
+   "look": "Pairs of small round cherries hang from forked stems with occasional leaves.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "citrus print",
+   "tier": "plausible",
+   "look": "Whole lemons or oranges alternate with sliced fruit and small leaves.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "nautical anchor",
+   "tier": "plausible",
+   "look": "Small anchors repeat with curved flukes and a ring at the top.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "chain print",
+   "tier": "plausible",
+   "look": "Large linked loops interweave in draped or crossing rows.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "newspaper print",
+   "tier": "unusual",
+   "look": "Dense columns of small type, headlines and rectangular image blocks cover the surface.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "circuit board",
+   "tier": "unusual",
+   "look": "Thin right-angled tracks connect small circles and rectangular electronic shapes.",
+   "tags": {
+    "kind": [
+     "novelty",
+     "geometric"
+    ]
+   }
+  },
+  {
+   "text": "woodgrain print",
+   "tier": "unusual",
+   "look": "Long flowing lines curl around knots in a simulated cut-wood surface.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "celestial print",
+   "tier": "plausible",
+   "look": "Crescent moons, suns and scattered small stars share a night-sky-like repeat.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  },
+  {
+   "text": "terrazzo print",
+   "tier": "plausible",
+   "look": "Small angular chips in varied colors scatter across a contrasting solid ground.",
+   "tags": {
+    "kind": [
+     "novelty"
+    ]
+   }
+  }
+ ]
 }

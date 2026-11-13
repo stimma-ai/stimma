@@ -264,6 +264,9 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
             short = {o: leaf.short(o) for o in out[cid] if leaf.short(o) != o}
             if short:
                 vocab[cid]["short"] = short
+            looks = {o: leaf.look(o) for o in out[cid] if leaf.look(o)}
+            if looks:
+                vocab[cid]["looks"] = looks
             if bound_zones(entry, cid) is not None:
                 # Kinds: what the slot's words narrowed the list to; instead: the rest, as reach's "any".
                 keep = set(narrowed)

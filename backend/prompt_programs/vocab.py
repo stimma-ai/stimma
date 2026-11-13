@@ -65,7 +65,8 @@ ROOT = Path(__file__).parent / "vocab"
 TIER_WEIGHTS = {"typical": 1.0, "plausible": 0.3, "unusual": 0.03}
 OPEN_SHARE = 0.5      # an open leaf's list values' share of its pool's weight once generated options exist
 EXAMPLES = 10         # list values shown to the options generator for an open leaf
-CATALOG_ROOTS = ("person", "animal", "place", "scene", "camera.portrait_framing", "camera.selfie_framing", "camera.look", "art.style")   # what the writer is shown; the rest waits for an open() tool
+CATALOG_ROOTS = ("person", "clothing", "animal", "plant", "place", "interior_space", "exterior_space", "scene", "camera",
+                 "lighting", "art", "object", "vehicle", "food")   # every directory: what a slot may be bound to
 TYPO_CUTOFF = 0.85    # difflib ratio above which an unknown id is read as a typo of a known one
 AGE_LIST = "person.age_band"     # the list a person's age is drawn from
 MINOR = ("child", "teen")        # the age facet's values under 18
@@ -127,6 +128,8 @@ class Value:
     less_common: Dict[str, Any] = field(default_factory=dict)   # context facet -> families it gives as less common
     scale: float = 1.0         # its branch's share over the branch's tier weights (a leaf's `shares`)
     short: str = ""            # a pill-sized name for the chooser ("flannel shirt and jeans"); never drawn
+    look: str = ""             # one line on what it looks like, for a person browsing ("hair rolled up and pinned in a vertical fold"); never drawn
+    strength: int = 0          # a face piece's: 1 subtle, 2 marked (0: not rated)
 
     @property
     def weight(self) -> float:
@@ -163,6 +166,14 @@ class Leaf:
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
+
+    def look(self, text: str) -> str:
+        """A value's one line on what it looks like ("" when the list gives none); a filled
+        template reads as its template's."""
+        v = self.value(text)
+        if v is None and not is_template(text):
+            v = next((x for x in self.values if is_template(x.text) and template_matches(x.text, text)), None)
+        return v.look if v is not None else ""
 
     def short(self, text: str) -> str:
         """A value's short form for a small pill: its `short` when the list gives one, else the
@@ -361,9 +372,9 @@ class Vocabulary:
         return leaf
 
     def catalog(self, roots: Sequence[str] = CATALOG_ROOTS) -> str:
-        """The lists the writer may bind to, one line each: id, part of speech, where a
-        value fits, what it's for. No sample values: a fixed sample shown to every writer
-        ends up in every program's text."""
+        """The lists a slot may be bound to, one line each: id, part of speech, where a value
+        fits, what it's for. No sample values (a fixed sample shown to every reader ends up in
+        every prompt) and no groups (the slot's words narrow a list after it is bound)."""
         lines = []
         for lid in sorted(self.leaves):
             if not any(lid == r or lid.startswith(r + ".") for r in roots):
@@ -372,15 +383,10 @@ class Vocabulary:
             if any(other.slots == lid for other in self.leaves.values()):
                 continue  # a palette: drawn with the templates that use it, never bound by itself
             if not leaf.listed:
-                continue  # a part of a composed list: bindable, but the writer is shown the whole
+                continue  # a part of a composed list: bindable, but the reader is shown the whole
             line = f'- {lid}: {leaf.pos}, fits "{leaf.frame}". {leaf.description[:1].upper()}{leaf.description[1:].rstrip(".")}.'
-            parts = [f'{f} = {" | ".join(vals)}' for f, vals in leaf.local_facets.items()]
-            palette = self.leaves.get(leaf.slots) if leaf.slots else None
-            if palette is not None:
-                parts += [f'{f} = {" | ".join(vals)}' for f, vals in palette.local_facets.items()]
+            if leaf.slots and self.leaves.get(leaf.slots) is not None:
                 line += " Colors vary separately."
-            if parts:
-                line += " where: " + "; ".join(parts) + "."
             lines.append(line)
         return "\n".join(lines)
 
@@ -401,6 +407,7 @@ class Vocabulary:
                             **({"roles": v.roles} if v.roles else {}), **({"palette": v.palette} if v.palette else {}),
                             **({"opt_in": True} if v.opt_in else {}), **({"adult_only": True} if v.adult_only else {}),
                             **({"group": v.group} if v.group else {}), **({"short": v.short} if v.short else {}),
+                            **({"look": v.look} if v.look else {}), **({"strength": v.strength} if v.strength else {}),
                             **({"less_common": v.less_common} if v.less_common else {})}
                            for v in lf.values],
             } for lf in sorted(self.leaves.values(), key=lambda lf: lf.id)],
@@ -435,7 +442,8 @@ def _value(lid: str, v: Dict[str, Any], groups: Dict[str, Any]) -> Value:
                  {str(k): str(x) for k, x in (v.get("roles") or {}).items()}, dict(v.get("palette") or {}),
                  v.get("opt_in") is True, v.get("adult_only") is True, name,
                  {**(g.get("less_common") or {}), **(v.get("less_common") or {})},
-                 short=str(v.get("short") or "").strip())
+                 short=str(v.get("short") or "").strip(), look=str(v.get("look") or "").strip(),
+                 strength=int(v.get("strength") or 0))
 
 
 def _shared(lid: str, vals: Tuple[Value, ...], shares: Dict[str, Dict[str, float]]) -> Tuple[Value, ...]:
@@ -479,6 +487,8 @@ def _composed(lid: str, spec: Dict[str, Any], leaves: Dict[str, Leaf]) -> Tuple[
     said of them, not only in how. A combination keeps a tag only where its parts agree (the
     ages all of them fit); parts that share nothing are not combined. Sampling is seeded by
     the list id: the same data always composes the same values."""
+    if spec.get("each"):
+        return _pieces(spec, leaves)
     rng = random.Random(lid)
     parts = [(leaves[pid], float(w)) for pid, w in spec["parts"].items()]
     order = {lf.id: i for i, (lf, _) in enumerate(parts)}
@@ -507,6 +517,28 @@ def _composed(lid: str, spec: Dict[str, Any], leaves: Dict[str, Leaf]) -> Tuple[
         tags = {f: v for f, v in tags.items() if f in (spec.get("keep") or ()) or len(v) < len(fill_tags[f])}
         text = ", ".join(v.text for v in vals)   # a list, as a prompt lists things: no "and" to misread
         out.setdefault(text, Value(text, "typical", tags, opt_in=any(v.opt_in for v in vals)))
+    return tuple(out.values())
+
+
+def _pieces(spec: Dict[str, Any], leaves: Dict[str, Leaf]) -> Tuple[Value, ...]:
+    """A list of pieces: every value of every part list, one at a time. `"compose": {"each":
+    true, "parts": {list id: share}}`. A part's values share its share of the draws (by their
+    own weights), and each carries the part it came from as its "piece" tag (the last part of the
+    list id), so the chooser groups them. With "marked": "opt_in", a piece rated strength 2
+    (marked) is drawn only when asked for, so an open face is one subtle piece. "tags" gives what
+    a piece with no tag on a facet counts as (a piece of either sex). The face is
+    built this way: one piece reads as a face, three named features caricature."""
+    total = sum(float(w) for w in spec["parts"].values()) or 1.0
+    out: Dict[str, Value] = {}
+    for pid, share in spec["parts"].items():
+        lf = leaves[pid]
+        mass = sum(v.weight for v in lf.values) or 1.0
+        for v in lf.values:
+            marked = spec.get("marked") == "opt_in" and v.strength >= 2
+            tags = {**{f: list(x) for f, x in (spec.get("tags") or {}).items()}, **v.tags, "piece": [pid.rsplit(".", 1)[-1]]}
+            out.setdefault(v.text, replace(v, tags=tags, group="",
+                                           scale=v.weight / mass * float(share) / total / (TIER_WEIGHTS.get(v.tier) or 1.0),
+                                           opt_in=v.opt_in or marked))
     return tuple(out.values())
 
 

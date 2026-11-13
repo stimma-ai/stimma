@@ -1,0 +1,1619 @@
+{
+ "id": "place.architecture_style",
+ "label": "Architecture style",
+ "description": "Architectural styles and regional building traditions, from classical temples to contemporary structures.",
+ "pos": "adjective phrase",
+ "frame": "___ architecture",
+ "notes": "Named architectural styles and visually distinct building traditions belong here, phrased before “architecture.” Building functions and structural types belong in place.building; room decoration belongs in interior_space.style. Period groups describe stylistic origins, while area groups describe associations rather than location restrictions. Brutalism and Brutalist are represented by a single Brutalist entry; broad families and substyles emphasize different visible features.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "period": [
+   "ancient_classical",
+   "medieval",
+   "renaissance_to_19th",
+   "early_20th",
+   "mid_20th",
+   "late_20th_contemporary",
+   "vernacular_traditional"
+  ],
+  "area": [
+   "europe",
+   "americas",
+   "middle_east_north_africa",
+   "sub_saharan_africa",
+   "south_asia",
+   "east_asia",
+   "southeast_asia",
+   "global"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "Ancient Egyptian",
+   "look": "Massive sloping pylons, dense columns, carved reliefs, and flat stone roofs.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "ancient_classical"
+    ],
+    "area": [
+     "middle_east_north_africa"
+    ]
+   }
+  },
+  {
+   "text": "Ancient Greek",
+   "look": "Rows of stone columns support a triangular pediment and a straight entablature.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "ancient_classical"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Ancient Roman",
+   "look": "Round arches, vaults, domes, and monumental masonry arranged on strong axes.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "ancient_classical"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Minoan",
+   "look": "Terraced courtyards, red tapering columns, and colorful plaster walls.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "ancient_classical"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Maya",
+   "look": "Stepped stone platforms, steep stairs, corbelled openings, and carved roof combs.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "ancient_classical"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Aztec",
+   "look": "Broad stepped pyramids rise to paired shrines above steep central stairways.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "ancient_classical"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Inca",
+   "look": "Precisely fitted polygonal stone walls with trapezoidal doors and niches.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "ancient_classical"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Romanesque",
+   "look": "Heavy stone walls, round arches, small windows, and squat towers.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "medieval"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Gothic",
+   "look": "Pointed arches, flying buttresses, tall tracery windows, and spires.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "medieval"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Byzantine",
+   "look": "Clustered domes, rounded arches, patterned brickwork, and glittering mosaic surfaces.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "medieval"
+    ],
+    "area": [
+     "europe",
+     "middle_east_north_africa"
+    ]
+   }
+  },
+  {
+   "text": "Norman",
+   "look": "Square stone towers, deep round-arched portals, and zigzag carved bands.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "medieval"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Venetian Gothic",
+   "look": "Pointed ogee arches, delicate stone tracery, and airy arcaded waterfront facades.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "medieval"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Gothic Revival",
+   "look": "Pointed windows and spires applied to later brick or stone buildings with decorative tracery.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe",
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Renaissance",
+   "look": "Balanced facades, round arches, classical columns, and evenly spaced windows.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Baroque",
+   "look": "Curving facades, dramatic domes, deep relief, and elaborate sculptural ornament.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe",
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Rococo",
+   "look": "Delicate asymmetrical scrolls, shell motifs, pale stucco, and ornate curved window surrounds.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Palladian",
+   "look": "A central temple portico, symmetrical wings, and tall arched windows flanked by smaller openings.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe",
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Georgian",
+   "look": "Orderly brick or stone facades, sash windows, centered entrances, and restrained classical trim.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe",
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Federal",
+   "look": "Slender classical details, elliptical fanlights, brick walls, and balanced sash windows.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Greek Revival",
+   "look": "Bold temple fronts with large columns, triangular pediments, and broad plain cornices.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe",
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Victorian",
+   "look": "Steep roofs, projecting bay windows, patterned brickwork, and decorative trim.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe",
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Queen Anne",
+   "look": "Asymmetrical houses with corner turrets, wraparound porches, and mixed patterned siding.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Second Empire",
+   "look": "Tall mansard roofs with dormer windows above elaborate stone or brick facades.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe",
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Beaux-Arts",
+   "look": "Grand symmetrical fronts with paired columns, sculpted figures, and monumental entrances.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe",
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Haussmannian",
+   "look": "Cream stone apartment fronts, aligned wrought-iron balconies, and gray mansard roofs.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Italianate",
+   "look": "Low roofs with deep bracketed eaves, tall narrow windows, and occasional square towers.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe",
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Richardsonian Romanesque",
+   "short": "Richardsonian",
+   "look": "Rough-faced stone, huge recessed round arches, and broad conical-roofed towers.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Carpenter Gothic",
+   "look": "Steep wooden gables, pointed windows, and lacy cutout bargeboards.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Stick Style",
+   "look": "Decorative timber grids and diagonal braces laid over clapboard walls beneath steep gables.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Shingle Style",
+   "look": "Continuous wood shingles wrap broad gables, rounded bays, and deep porches.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Neoclassical",
+   "look": "Large classical columns, pediments, restrained relief, and symmetrical monumental masses.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Regency",
+   "look": "Pale stucco terraces, slender iron balconies, bow windows, and elegant classical doorways.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Dutch Colonial",
+   "look": "Broad gambrel roofs, flared eaves, dormers, and simple symmetrical house fronts.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Antebellum",
+   "look": "Large columned porticoes and stacked verandas frame a symmetrical mansion facade.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Art Nouveau",
+   "look": "Flowing plantlike ironwork, curved glass, and sculptural doorways merge into organic facades.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Art Deco",
+   "look": "Stepped silhouettes, vertical ribs, geometric reliefs, and sharply patterned ornament.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Streamline Moderne",
+   "look": "Rounded corners, flat roofs, horizontal bands, and nautical railings.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Bauhaus",
+   "look": "Plain interlocking boxes, white walls, strip windows, and exposed industrial glazing.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "europe",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "International Style",
+   "look": "Flat roofs, unornamented rectilinear volumes, and extensive glass curtain walls.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Constructivist",
+   "look": "Intersecting cylinders and angular volumes with bold glazing and exposed structural forms.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Expressionist",
+   "look": "Sculptural brick or concrete forms with sweeping curves, jagged peaks, and dramatic openings.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Amsterdam School",
+   "look": "Sculpted brickwork, rounded corners, decorative masonry, and unusual window shapes.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Vienna Secession",
+   "look": "Crisp pale facades with geometric gold ornament and stylized floral panels.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Craftsman",
+   "look": "Low gables, exposed rafter tails, broad porches, and tapered posts on masonry piers.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Prairie School",
+   "look": "Long horizontal lines, low hipped roofs, broad eaves, and bands of windows.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Spanish Colonial Revival",
+   "short": "Spanish Colonial Revival",
+   "look": "White stucco, red tile roofs, arched passages, and wrought-iron balcony rails.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Mission Revival",
+   "look": "Smooth stucco walls, curving mission parapets, bell towers, and red tile roofs.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Pueblo Revival",
+   "look": "Rounded earth-colored walls, stepped flat roofs, projecting vigas, and recessed windows.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Tudor Revival",
+   "look": "Steep cross gables, decorative dark half-timbering, tall chimneys, and leaded windows.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "europe",
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Colonial Revival",
+   "look": "Symmetrical clapboard or brick fronts with shuttered windows and a prominent classical doorway.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Mediterranean Revival",
+   "short": "Mediterranean Revival",
+   "look": "Stucco walls, tiled roofs, loggias, and richly framed arched entrances.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "early_20th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Châteauesque",
+   "look": "Steep slate roofs, conical turrets, elaborate dormers, and tall carved stone chimneys.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe",
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Mid-century modern",
+   "look": "Low open volumes, large glass panes, flat or shallow roofs, and indoor-outdoor continuity.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Brutalist",
+   "look": "Massive exposed concrete blocks, deep recesses, and strongly expressed structural surfaces.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Googie",
+   "look": "Upswept roofs, boomerang shapes, dramatic cantilevers, and starburst roadside signs.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Metabolist",
+   "look": "Stacked capsule-like units or repeated concrete modules attach to large structural cores.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "area": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "Soviet modernist",
+   "look": "Bold concrete civic forms with sweeping roofs, geometric screens, and monumental open plazas.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "area": [
+     "europe",
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "Khrushchyovka",
+   "look": "Plain low-rise apartment slabs with repetitive small windows and compact projecting balconies.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "area": [
+     "europe",
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "Usonian",
+   "look": "Low brick and wood houses with flat roofs, carports, clerestories, and deep eaves.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Desert modern",
+   "look": "Low glass-and-stone volumes with deep shade overhangs, breeze blocks, and open desert views.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Tropical modernist",
+   "look": "Deep roof overhangs, open verandas, brise-soleil screens, and airy concrete volumes.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "New Formalist",
+   "look": "Symmetrical modern buildings with tall slender columns, broad roof slabs, and formal plazas.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Dingbat apartment",
+   "look": "A boxy stucco apartment block stands over open parking with decorative facade panels.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "mid_20th"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Postmodern",
+   "look": "Oversized classical references, bright color blocks, playful geometry, and contrasting materials.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Deconstructivist",
+   "look": "Fragmented angular masses tilt and collide around irregular windows and sharp folds.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Parametric",
+   "look": "Continuous rippling surfaces, flowing lattices, and smoothly varying repeated components.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "High-tech",
+   "look": "Exposed steel frames, visible ducts, external bracing, and extensive glass.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Minimalist",
+   "look": "Simple clean volumes, few materials, concealed details, and large uninterrupted surfaces.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Organic",
+   "look": "Curving building forms blend with rock, terrain, and planted surfaces.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Blobitecture",
+   "look": "Bulging rounded volumes form smooth, amoeba-like shells with irregular openings.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Contemporary timber",
+   "look": "Large engineered wood beams, timber panels, and tall glazed openings reveal a warm structural grid.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Earth-sheltered",
+   "look": "Buildings tuck into slopes beneath planted roofs with exposed glazed fronts.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Tensile membrane",
+   "look": "Thin fabric roofs stretch into sharp peaks and sweeping curves between masts and cables.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Shipping-container",
+   "look": "Corrugated steel boxes stack or cantilever with large cutout windows and doors.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Rammed-earth",
+   "look": "Thick straight walls display horizontal layers of compacted earth beneath crisp modern roofs.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "late_20th_contemporary"
+    ],
+    "area": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Moorish",
+   "look": "Horseshoe arches, carved stucco, tiled courtyards, and intricate geometric screens.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "medieval"
+    ],
+    "area": [
+     "middle_east_north_africa",
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Mudéjar",
+   "look": "Patterned brickwork, glazed tile bands, horseshoe arches, and carved wooden ceilings.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "medieval"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Mughal",
+   "look": "Bulbous domes, symmetrical gardens, red sandstone, white marble, and delicate pierced screens.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "Ottoman",
+   "look": "Large central domes cascade into smaller half-domes beside slender pointed minarets.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "middle_east_north_africa",
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Persian",
+   "look": "Tall tiled entrance vaults, turquoise domes, arcaded courtyards, and patterned brickwork.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "middle_east_north_africa"
+    ]
+   }
+  },
+  {
+   "text": "Khmer",
+   "look": "Lotus-bud stone towers rise over stepped platforms covered in relief carvings.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "medieval"
+    ],
+    "area": [
+     "southeast_asia"
+    ]
+   }
+  },
+  {
+   "text": "Dravidian temple",
+   "look": "Tall pyramidal gateway towers are packed with brightly painted sculpted figures.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "Nagara temple",
+   "look": "Curving stone sanctuary towers rise in clustered ribs above richly carved walls.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "Chinese imperial",
+   "look": "Symmetrical courtyards, red columns, glazed tile roofs, and broad upturned eaves.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "Japanese temple",
+   "look": "Heavy tiled roofs, deep curved eaves, large timber columns, and raised wooden platforms.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "Minka",
+   "look": "Heavy timber farmhouses with steep thatched roofs, plaster infill, and broad low eaves.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "Hanok",
+   "look": "Curved tiled roofs sit over wood-framed rooms arranged around an open courtyard.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "Shikumen",
+   "look": "Brick lane houses have tall carved stone door frames and enclosed narrow courtyards.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "Peranakan shophouse",
+   "look": "Narrow colorful facades combine ornate plasterwork, shuttered windows, and covered ground-floor walkways.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "southeast_asia"
+    ]
+   }
+  },
+  {
+   "text": "Balinese",
+   "look": "Open timber pavilions, tiered thatch roofs, carved stone gates, and courtyard compounds.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "southeast_asia"
+    ]
+   }
+  },
+  {
+   "text": "Scandinavian vernacular",
+   "short": "Scandinavian vernacular",
+   "look": "Simple timber houses with steep roofs, painted siding, and bright white window trim.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Tudor",
+   "look": "Heavy timber frames, plaster infill, steep gables, and tall clustered brick chimneys.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "medieval"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Half-timbered",
+   "look": "Dark exposed wood grids and diagonal braces divide pale plaster or brick wall panels.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Cotswold stone",
+   "look": "Honey-colored stone cottages have steep stone-tile roofs, small casements, and clustered chimneys.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Cape Cod",
+   "look": "Compact clapboard houses with steep gabled roofs, a central chimney, and modest dormers.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "Adobe",
+   "look": "Thick sun-dried earth walls, small recessed openings, and weathered rounded corners.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "americas",
+     "middle_east_north_africa"
+    ]
+   }
+  },
+  {
+   "text": "Swahili coastal",
+   "look": "Coral-stone walls, shaded verandas, flat roofs, and elaborately carved wooden doors.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "sub_saharan_africa"
+    ]
+   }
+  },
+  {
+   "text": "Sudano-Sahelian",
+   "look": "Sculpted mud-brick walls taper upward with projecting wooden beams and buttressed towers.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "sub_saharan_africa"
+    ]
+   }
+  },
+  {
+   "text": "Cycladic",
+   "look": "Whitewashed cubic houses, rounded corners, flat roofs, and blue doors cluster along narrow lanes.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Alpine chalet",
+   "look": "Timber upper floors, deep pitched roofs, broad balconies, and stone ground floors.",
+   "tier": "typical",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Black Forest farmhouse",
+   "short": "Black Forest farmhouse",
+   "look": "Enormous low-sweeping hipped roofs shelter timber walls and deep sheltered balconies.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Trullo",
+   "look": "Whitewashed round stone rooms are capped by stacked gray conical stone roofs.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Scottish baronial",
+   "look": "Crow-stepped gables, conical corner turrets, rough stone walls, and battlemented parapets.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "renaissance_to_19th"
+    ],
+    "area": [
+     "europe"
+    ]
+   }
+  },
+  {
+   "text": "Bengali terracotta temple",
+   "short": "Bengali terracotta",
+   "look": "Curved cornices and clustered towers rise above walls covered in small terracotta relief panels.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "Kerala vernacular",
+   "look": "Wide sloping tile roofs, carved timber galleries, and open central courtyards.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "Thai temple",
+   "look": "Layered sweeping roofs with pointed finials, gilded gables, and bright mosaic ornament.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "southeast_asia"
+    ]
+   }
+  },
+  {
+   "text": "Burmese pyatthat",
+   "look": "Multiple diminishing tiers of ornate timber roofs rise to a tall pointed finial.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "southeast_asia"
+    ]
+   }
+  },
+  {
+   "text": "Javanese joglo",
+   "look": "A high central pyramidal timber roof steps down into broad low surrounding eaves.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "southeast_asia"
+    ]
+   }
+  },
+  {
+   "text": "Toraja tongkonan",
+   "look": "Dramatically upswept saddle roofs cover raised houses with carved red-and-black panels.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "southeast_asia"
+    ]
+   }
+  },
+  {
+   "text": "Minangkabau",
+   "look": "Repeated pointed roof peaks curve upward like buffalo horns above carved timber walls.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "southeast_asia"
+    ]
+   }
+  },
+  {
+   "text": "Fujian tulou",
+   "look": "Large circular earthen walls surround multistory timber galleries and an open central courtyard.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "Tibetan",
+   "look": "Thick inward-sloping white walls, dark window surrounds, flat roofs, and bright painted trim.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "Dzong",
+   "look": "High white fortress walls, red upper bands, inward courtyards, and broad tiered timber roofs.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "Hakka walled village",
+   "look": "Defensive masonry encloses rows of houses behind a gate, with square corner watchtowers.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "Yemenite tower house",
+   "look": "Tall brown masonry houses have white gypsum window tracery and stacked arched windows.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "middle_east_north_africa"
+    ]
+   }
+  },
+  {
+   "text": "Nubian",
+   "look": "Domed mud-brick roofs, vaulted rooms, and brightly painted geometric exterior walls.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "middle_east_north_africa",
+     "sub_saharan_africa"
+    ]
+   }
+  },
+  {
+   "text": "Asante traditional",
+   "look": "Steep thatched roofs cover courtyard buildings with geometric and figurative reliefs on earthen walls.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "sub_saharan_africa"
+    ]
+   }
+  },
+  {
+   "text": "Ndebele painted house",
+   "look": "Low plastered houses carry crisp black outlines around brightly colored geometric wall patterns.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "sub_saharan_africa"
+    ]
+   }
+  },
+  {
+   "text": "Gurunsi painted house",
+   "look": "Rounded earthen compounds have flat roofs and dense black, white, and red geometric wall painting.",
+   "tier": "unusual",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "sub_saharan_africa"
+    ]
+   }
+  },
+  {
+   "text": "Bermudian",
+   "look": "Pastel masonry houses have bright white stepped limestone roofs and neat shuttered windows.",
+   "tier": "plausible",
+   "tags": {
+    "period": [
+     "vernacular_traditional"
+    ],
+    "area": [
+     "americas"
+    ]
+   }
+  }
+ ]
+}

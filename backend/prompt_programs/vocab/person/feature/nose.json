@@ -1,320 +1,467 @@
 {
-  "id": "person.feature.nose",
-  "label": "Nose",
-  "description": "The size, bridge, tip and nostrils of the nose.",
-  "pos": "noun phrase",
-  "frame": "a person with ___",
-  "notes": "Merged from three independently written sets. Each value says what is visible: no attractiveness or character words, no expression, no color, no ancestry words. A person gets two or three face features (person.face), not every list. `life_stage` is the ages a value is seen at: a drawn age that doesn't fit removes it. `by_ancestry: unreviewed` marks values whose rate differs by ancestry and are not weighted yet. Closed: generated face options drift to praise. Image models overdraw any nose that is named, so the shapes are stated mildly and the ones that only render as caricature (hooked, drooping, very large or very wide) are not in the list.",
-  "facets": [],
-  "closed": true,
-  "strict": true,
-  "catalog": false,
-  "local_facets": {
-    "aspect": [
-      "size",
-      "bridge",
-      "tip",
-      "nostrils"
-    ]
-  },
-  "context": {
-    "takes": {
-      "life_stage": {
-        "mismatch": "drop"
-      }
-    }
-  },
-  "shares": {
-    "aspect": {
-      "size": 0.25,
-      "bridge": 0.3,
-      "tip": 0.25,
-      "nostrils": 0.2
-    }
-  },
-  "values": [
-    {
-      "text": "a small nose",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "size"
-        ]
-      }
-    },
-    {
-      "text": "a slightly long nose",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "size"
-        ],
-        "life_stage": [
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a broad nose",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "size"
-        ],
-        "by_ancestry": [
-          "unreviewed"
-        ]
-      }
-    },
-    {
-      "text": "a narrow nose",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "size"
-        ],
-        "by_ancestry": [
-          "unreviewed"
-        ]
-      }
-    },
-    {
-      "text": "a short, softly broad nose",
-      "short": "short, broad nose",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "size"
-        ]
-      }
-    },
-    {
-      "text": "a long, slender nose",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "size"
-        ],
-        "life_stage": [
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a straight nose bridge",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "bridge"
-        ]
-      }
-    },
-    {
-      "text": "a low nose bridge",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "bridge"
-        ],
-        "by_ancestry": [
-          "unreviewed"
-        ]
-      }
-    },
-    {
-      "text": "a high nose bridge",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "bridge"
-        ],
-        "life_stage": [
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ],
-        "by_ancestry": [
-          "unreviewed"
-        ]
-      }
-    },
-    {
-      "text": "a slight curve along the nose bridge",
-      "short": "slightly curved bridge",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "bridge"
-        ],
-        "life_stage": [
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a gently scooped nose bridge",
-      "short": "scooped bridge",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "bridge"
-        ]
-      }
-    },
-    {
-      "text": "a broad nose bridge",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "bridge"
-        ]
-      }
-    },
-    {
-      "text": "a slim nose bridge",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "bridge"
-        ]
-      }
-    },
-    {
-      "text": "a nose bent slightly to one side",
-      "short": "nose bent to one side",
-      "tier": "unusual",
-      "tags": {
-        "aspect": [
-          "bridge"
-        ],
-        "life_stage": [
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a nose with a thickened bridge, as if once broken",
-      "short": "once-broken nose",
-      "tier": "unusual",
-      "tags": {
-        "aspect": [
-          "bridge"
-        ],
-        "life_stage": [
-          "teen",
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a rounded nose tip",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "tip"
-        ]
-      }
-    },
-    {
-      "text": "a slightly upturned nose",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "tip"
-        ]
-      }
-    },
-    {
-      "text": "a soft, full nose tip",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "tip"
-        ]
-      }
-    },
-    {
-      "text": "a fine nose tip",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "tip"
-        ]
-      }
-    },
-    {
-      "text": "a short, slightly upturned nose",
-      "short": "short upturned nose",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "tip"
-        ]
-      }
-    },
-    {
-      "text": "softly rounded, full nostrils",
-      "short": "full round nostrils",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "nostrils"
-        ],
-        "by_ancestry": [
-          "unreviewed"
-        ]
-      }
-    },
-    {
-      "text": "narrow nostrils",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "nostrils"
-        ]
-      }
-    },
-    {
-      "text": "rounded nostrils",
-      "tier": "typical",
-      "tags": {
-        "aspect": [
-          "nostrils"
-        ]
-      }
-    },
-    {
-      "text": "a broad base to the nose",
-      "tier": "plausible",
-      "tags": {
-        "aspect": [
-          "nostrils"
-        ],
-        "by_ancestry": [
-          "unreviewed"
-        ]
-      }
-    }
+ "id": "person.feature.nose",
+ "label": "Nose",
+ "description": "Nose size, bridge, tip and nostril shape in restrained visual terms.",
+ "pos": "noun phrase",
+ "frame": "a person with ___",
+ "notes": "Short descriptions of visible nose anatomy, avoiding extreme shapes that invite caricature. Scars belong in person.feature.skin_marks and pores belong in person.feature.skin_texture. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "facets": [],
+ "closed": true,
+ "strict": true,
+ "catalog": false,
+ "local_facets": {
+  "aspect": [
+   "size",
+   "bridge",
+   "tip",
+   "nostrils"
   ]
+ },
+ "context": {
+  "takes": {
+   "life_stage": {
+    "mismatch": "drop"
+   }
+  }
+ },
+ "shares": {
+  "aspect": {
+   "size": 0.25,
+   "bridge": 0.3,
+   "tip": 0.25,
+   "nostrils": 0.2
+  }
+ },
+ "values": [
+  {
+   "text": "a slightly small nose",
+   "short": "slightly small nose",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "size"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slightly long nose",
+   "short": "slightly long nose",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "size"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a broad nose",
+   "short": "broad nose",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "size"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a narrow nose",
+   "short": "narrow nose",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "size"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a short nose",
+   "short": "short nose",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "size"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a gently curved nose bridge",
+   "short": "gently curved bridge",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "bridge"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a nearly straight nose bridge",
+   "short": "nearly straight bridge",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "bridge"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a low nose bridge",
+   "short": "low nose bridge",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bridge"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a high nose bridge",
+   "short": "high nose bridge",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bridge"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a broad nose bridge",
+   "short": "broad nose bridge",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bridge"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a narrow nose bridge",
+   "short": "narrow nose bridge",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bridge"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a small bump on the nose bridge",
+   "short": "bridge bump",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bridge"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a nose bridge bent to one side",
+   "short": "off-center nose bridge",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "bridge"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a softly rounded nose tip",
+   "short": "softly rounded tip",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "tip"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a slightly upturned nose tip",
+   "short": "slightly upturned tip",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "tip"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a full nose tip",
+   "short": "full nose tip",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "tip"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a narrow nose tip",
+   "short": "narrow nose tip",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "tip"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a shallow cleft in the nose tip",
+   "short": "cleft nose tip",
+   "tier": "unusual",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "tip"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "slightly narrow nostrils",
+   "short": "slightly narrow nostrils",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "nostrils"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "rounded nostrils",
+   "short": "rounded nostrils",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "nostrils"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a broad nostril base",
+   "short": "broad nostril base",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "nostrils"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "nostrils of visibly different sizes",
+   "short": "unequal nostrils",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "nostrils"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  }
+ ]
 }

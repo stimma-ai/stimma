@@ -116,28 +116,31 @@ class TestTheMarkers:
         assert minor_ages([v.text for v in ages().values]) == tuple(v.text for v in ages().values if v.minor)
         assert not is_minor("18-year-old") and is_minor("15-year-old") and is_minor("2-year-old")
 
-    def test_adult_coded_values_are_tagged_in_the_person_lists_only(self):
+    def test_adult_coded_values_are_tagged_where_people_are_dressed_and_shot(self):
         v = vocabulary()
         tagged = {lid: [x.text for x in lf.values if x.adult_only] for lid, lf in v.leaves.items()}
-        assert sum(map(len, tagged.values())) == 26
         assert "a {main} sequined crop top and a matching high-waisted mini skirt" in tagged["person.outfit.formal"]
-        assert "glossy brown lipstick" in tagged["person.makeup"]
-        assert all(lid.startswith("person.") for lid, t in tagged.items() if t)
+        assert "glossy brown lip makeup" in tagged["person.makeup"]
+        assert "a cupless bra" in tagged["clothing.top"] and "boudoir photography" in tagged["camera.genre"]
+        assert all(lid.startswith(("person.", "clothing.", "camera.genre")) for lid, t in tagged.items() if t)
+        # ordinary clothes and makeup are not
+        assert not v.get("clothing.bottom").value("boxer shorts").adult_only
+        assert not v.get("person.makeup").value("classic smoky eye makeup").adult_only
         assert "a {main} string bikini with a triangle top and tie-side bottoms" in tagged["person.outfit.summer"]
         assert "a sultry expression with heavy eyelids and softly parted lips" in tagged["person.expression"]
         # ordinary swimwear and sportswear children wear are not tagged
         for text in ("a {main} one-piece swimsuit with a square neckline", "a {main} bikini with a high-waisted bottom"):
             assert not v.get("person.outfit.summer").value(text).adult_only
         assert not any(x.adult_only for x in v.get("person.outfit.athletic").values)
-        # Besides ages under 18, only a feature of one sex and a part with no share are opt-in.
+        # Besides ages under 18, only a feature of one sex and a marked face piece are opt-in.
         for lid, lf in v.leaves.items():
             for x in lf.values:
                 if x.opt_in and lid != AGE_LIST:
-                    assert len(x.tags.get("presentation") or []) == 1 or lid == "camera.selfie_framing", (lid, x.text)
+                    assert len(x.tags.get("presentation") or []) == 1 or (lid == "person.face" and x.strength == 2), (lid, x.text)
 
     def test_the_newly_flagged_looks_leave_a_minors_pools(self):
         for cls, text in (("person.outfit.formal", "a {main} sequined crop top and a matching high-waisted mini skirt"),
-                          ("person.makeup", "glossy brown lipstick")):
+                          ("person.makeup", "glossy brown lip makeup"), ("clothing.top", "a cupless bra")):
             lf = vocabulary().get(cls)
             assert text in {x.text for x in lf.pool_values()[0]}, text
             assert text not in {x.text for vals in lf.pool_values(minor=True) for x in vals}, text

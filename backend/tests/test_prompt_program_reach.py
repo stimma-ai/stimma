@@ -88,10 +88,13 @@ class TestSimilar:
         v = vocabulary()
         eyes = v.get("person.eye_color")
         assert similar_values(eyes, "emerald", [x.text for x in eyes.values]) == []
-        lens = v.get("camera.lens")
-        assert similar_values(lens, lens.values[0].text, [x.text for x in lens.values]) == []
-        room = v.get("interior_space.bar")   # a room's size says nothing about likeness
-        assert similar_values(room, room.values[0].text, [x.text for x in room.values]) == []
+        month = v.get("scene.month")
+        assert similar_values(month, month.values[0].text, [x.text for x in month.values]) == []
+        # A room's size says nothing about likeness: rooms are similar by their kind alone.
+        room = v.get("interior_space.room")
+        first = room.values[0]
+        got = similar_values(room, first.text, [x.text for x in room.values])
+        assert got and all(set(room.value(o).tags["kind"]) & set(first.tags["kind"]) for o in got)
 
     def test_a_group_that_is_most_of_the_list_is_not_similar(self):
         coats = vocabulary().get("person.outfit.cold_weather")

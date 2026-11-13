@@ -1,0 +1,532 @@
+{
+ "id": "animal.horse_breed",
+ "label": "Horse breed",
+ "description": "Horse and pony breeds, plus familiar feral kinds, grouped by riding, draft, pony, and gaited type.",
+ "pos": "noun phrase",
+ "frame": "a ___",
+ "notes": "Horse and pony identities belong here as complete singular names, including horse or pony where it clarifies the name; a becomes an before vowel sounds. animal.species owns broad animal kinds, including donkeys and mules, which are left out of this horse-focused list. Type chips overlap for small gaited breeds and feral ponies, and wild_feral also includes the wild Przewalski’s horse. Glosses describe typical build and distinctive breed features without requiring every individual to have a particular coat color.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "type": [
+   "light",
+   "draft",
+   "pony",
+   "gaited",
+   "wild_feral"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "Arabian horse",
+   "tier": "typical",
+   "look": "a fine-boned horse with a dished face, arched neck, and high-carried tail",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Thoroughbred horse",
+   "tier": "typical",
+   "look": "a tall, lean racehorse with long legs, a deep chest, and a fine head",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "American quarter horse",
+   "tier": "typical",
+   "look": "a compact, muscular stock horse with a broad chest, powerful hindquarters, and a small refined head",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "American paint horse",
+   "tier": "typical",
+   "look": "a muscular stock horse with large, sharply defined patches of white and another coat color",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Appaloosa horse",
+   "tier": "typical",
+   "look": "a sturdy horse with a spotted or white-blanketed coat, mottled muzzle, and often a sparse mane",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Friesian horse",
+   "tier": "typical",
+   "look": "a tall black horse with an arched neck, flowing mane and tail, and feathered lower legs",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Andalusian horse",
+   "tier": "typical",
+   "look": "a rounded, powerful horse with a high arched neck, thick mane, and often a pale gray coat",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Morgan horse",
+   "tier": "typical",
+   "look": "a compact horse with a deep body, short back, upright neck, and expressive head",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Clydesdale horse",
+   "tier": "typical",
+   "look": "a towering draft horse with a long neck, broad white facial blaze, and heavily feathered white lower legs",
+   "tags": {
+    "type": [
+     "draft"
+    ]
+   }
+  },
+  {
+   "text": "Shire horse",
+   "tier": "typical",
+   "look": "an immense, long-legged draft horse with a broad head, deep body, and abundant silky leg feathering",
+   "tags": {
+    "type": [
+     "draft"
+    ]
+   }
+  },
+  {
+   "text": "Percheron horse",
+   "tier": "typical",
+   "look": "a massive gray or black draft horse with a muscular arched neck and relatively clean lower legs",
+   "tags": {
+    "type": [
+     "draft"
+    ]
+   }
+  },
+  {
+   "text": "Belgian draft horse",
+   "tier": "typical",
+   "look": "a broad, heavy chestnut draft horse with a thick neck and a flaxen mane and tail",
+   "tags": {
+    "type": [
+     "draft"
+    ]
+   }
+  },
+  {
+   "text": "Shetland pony",
+   "tier": "typical",
+   "look": "a very small, stocky pony with short legs, a thick coat, and an abundant mane",
+   "tags": {
+    "type": [
+     "pony"
+    ]
+   }
+  },
+  {
+   "text": "Welsh mountain pony",
+   "tier": "typical",
+   "look": "a small, compact pony with a dished face, small ears, and a lively high-carried tail",
+   "tags": {
+    "type": [
+     "pony"
+    ]
+   }
+  },
+  {
+   "text": "Mustang horse",
+   "tier": "typical",
+   "look": "a compact feral horse with a rugged build, strong legs, and a variable-colored coat",
+   "tags": {
+    "type": [
+     "wild_feral"
+    ]
+   }
+  },
+  {
+   "text": "Akhal-Teke horse",
+   "tier": "plausible",
+   "look": "a very lean, long-necked horse with a fine sparse mane and a coat that can have a metallic sheen",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Lusitano horse",
+   "tier": "plausible",
+   "look": "a compact, powerful horse with a rounded outline, convex profile, and upright arched neck",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Lipizzaner horse",
+   "tier": "plausible",
+   "look": "a compact baroque horse with a strong arched neck, muscular quarters, and usually a pale gray coat",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Marwari horse",
+   "tier": "plausible",
+   "look": "a lean horse with an arched neck and long inward-curving ears whose tips nearly meet",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Dutch warmblood horse",
+   "tier": "plausible",
+   "look": "a tall athletic sport horse with a rectangular body, long sloping shoulder, and strong hindquarters",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Hanoverian horse",
+   "tier": "plausible",
+   "look": "a substantial sport horse with a broad forehead, powerful topline, and deep, muscular body",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Trakehner horse",
+   "tier": "plausible",
+   "look": "a refined long-legged sport horse with a fine head, elegant neck, and lighter build than many warmbloods",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Standardbred horse",
+   "tier": "plausible",
+   "look": "a long-bodied harness horse with a plain straight-profiled head, strong legs, and muscular quarters",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Haflinger horse",
+   "tier": "plausible",
+   "look": "a sturdy small chestnut horse with a flaxen mane and tail, broad chest, and compact build",
+   "tags": {
+    "type": [
+     "pony",
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Fjord horse",
+   "tier": "plausible",
+   "look": "a stocky dun horse with a two-tone upright mane, dark dorsal stripe, and primitive leg markings",
+   "tags": {
+    "type": [
+     "pony",
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Icelandic horse",
+   "tier": "plausible",
+   "look": "a small, sturdy horse with a thick shaggy coat, full mane, and short strong legs",
+   "tags": {
+    "type": [
+     "pony",
+     "gaited"
+    ]
+   }
+  },
+  {
+   "text": "Mongolian horse",
+   "tier": "plausible",
+   "look": "a short, stocky horse with a large head, thick neck, dense mane, and compact legs",
+   "tags": {
+    "type": [
+     "pony"
+    ]
+   }
+  },
+  {
+   "text": "Connemara pony",
+   "tier": "plausible",
+   "look": "a strong riding pony with a deep body, short cannon bones, and a broad, kind-looking head",
+   "tags": {
+    "type": [
+     "pony"
+    ]
+   }
+  },
+  {
+   "text": "New Forest pony",
+   "tier": "plausible",
+   "look": "a sturdy riding pony with a straight profile, sloping shoulders, and a thick mane and tail",
+   "tags": {
+    "type": [
+     "pony"
+    ]
+   }
+  },
+  {
+   "text": "Dartmoor pony",
+   "tier": "plausible",
+   "look": "a small, solid-colored pony with a neat head, small ears, and a thick flowing mane",
+   "tags": {
+    "type": [
+     "pony"
+    ]
+   }
+  },
+  {
+   "text": "Exmoor pony",
+   "tier": "plausible",
+   "look": "a stocky brown pony with a mealy muzzle, pale eye rings, and a thick weatherproof coat",
+   "tags": {
+    "type": [
+     "pony",
+     "wild_feral"
+    ]
+   }
+  },
+  {
+   "text": "Highland pony",
+   "tier": "plausible",
+   "look": "a broad, strong pony with a heavy mane and tail, often dun with a dark dorsal stripe",
+   "tags": {
+    "type": [
+     "pony"
+    ]
+   }
+  },
+  {
+   "text": "Gypsy Vanner horse",
+   "tier": "plausible",
+   "look": "a compact cob with a short broad body, heavy mane and tail, and lavish silky feathering on the legs",
+   "tags": {
+    "type": [
+     "draft"
+    ]
+   }
+  },
+  {
+   "text": "Tennessee Walking Horse",
+   "tier": "plausible",
+   "look": "a tall smooth-gaited horse with a long sloping shoulder, long neck, and gently sloping croup",
+   "tags": {
+    "type": [
+     "gaited"
+    ]
+   }
+  },
+  {
+   "text": "American Saddlebred horse",
+   "tier": "plausible",
+   "look": "a refined, high-headed horse with a long upright neck, level topline, and high-carried tail",
+   "tags": {
+    "type": [
+     "light",
+     "gaited"
+    ]
+   },
+   "short": "American Saddlebred"
+  },
+  {
+   "text": "Paso Fino horse",
+   "tier": "plausible",
+   "look": "a compact, fine-legged horse with a short back, arched neck, and long flowing mane and tail",
+   "tags": {
+    "type": [
+     "gaited"
+    ]
+   }
+  },
+  {
+   "text": "Peruvian Paso horse",
+   "tier": "plausible",
+   "look": "a compact horse with a deep chest, heavy mane, low-carried tail, and outward-swinging foreleg action",
+   "tags": {
+    "type": [
+     "gaited"
+    ]
+   }
+  },
+  {
+   "text": "Missouri Fox Trotter",
+   "tier": "plausible",
+   "look": "a medium-built riding horse with a sloping shoulder and a smooth, diagonal broken-trot gait",
+   "tags": {
+    "type": [
+     "gaited"
+    ]
+   }
+  },
+  {
+   "text": "Suffolk Punch horse",
+   "tier": "unusual",
+   "look": "a solid chestnut draft horse with a barrel-shaped body, short strong legs, and little leg feathering",
+   "tags": {
+    "type": [
+     "draft"
+    ]
+   }
+  },
+  {
+   "text": "Boulonnais horse",
+   "tier": "unusual",
+   "look": "a heavy, usually gray draft horse with a finely shaped head, broad chest, and smooth muscular outline",
+   "tags": {
+    "type": [
+     "draft"
+    ]
+   }
+  },
+  {
+   "text": "Ardennes horse",
+   "tier": "unusual",
+   "look": "a short-legged, exceptionally broad draft horse with a massive neck and thick feathered legs",
+   "tags": {
+    "type": [
+     "draft"
+    ]
+   }
+  },
+  {
+   "text": "American cream draft horse",
+   "tier": "unusual",
+   "look": "a heavy cream-colored horse with pink skin, amber eyes, and a white mane and tail",
+   "short": "cream draft",
+   "tags": {
+    "type": [
+     "draft"
+    ]
+   }
+  },
+  {
+   "text": "Falabella miniature horse",
+   "tier": "unusual",
+   "look": "a tiny horse with comparatively fine legs and a more horse-shaped outline than a stocky pony",
+   "tags": {
+    "type": [
+     "pony"
+    ]
+   },
+   "short": "Falabella miniature"
+  },
+  {
+   "text": "Hackney pony",
+   "tier": "unusual",
+   "look": "a fine-headed harness pony with an upright neck, high tail carriage, and exaggerated high knee action",
+   "tags": {
+    "type": [
+     "pony"
+    ]
+   }
+  },
+  {
+   "text": "Dales pony",
+   "tier": "unusual",
+   "look": "a sturdy, usually black pony with a deep body, strong hindquarters, and flowing mane and leg feathering",
+   "tags": {
+    "type": [
+     "pony"
+    ]
+   }
+  },
+  {
+   "text": "Chincoteague pony",
+   "tier": "unusual",
+   "look": "a round-bellied, short-legged feral pony, often pinto, with a thick mane",
+   "tags": {
+    "type": [
+     "pony",
+     "wild_feral"
+    ]
+   }
+  },
+  {
+   "text": "Camargue horse",
+   "tier": "unusual",
+   "look": "a small, sturdy, pale gray marsh horse with a broad head, low-set neck, and full mane",
+   "tags": {
+    "type": [
+     "light",
+     "wild_feral"
+    ]
+   }
+  },
+  {
+   "text": "Przewalski’s horse",
+   "tier": "unusual",
+   "look": "a stocky dun wild horse with a short upright dark mane, pale muzzle, and no forelock",
+   "tags": {
+    "type": [
+     "wild_feral"
+    ]
+   }
+  },
+  {
+   "text": "Knabstrupper horse",
+   "tier": "unusual",
+   "look": "a substantial riding horse often covered in dark leopard spots over a white coat",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  },
+  {
+   "text": "Bashkir Curly horse",
+   "tier": "unusual",
+   "look": "a sturdy horse with a distinctly curly winter coat, curled mane, and wavy tail",
+   "tags": {
+    "type": [
+     "light"
+    ]
+   }
+  }
+ ]
+}

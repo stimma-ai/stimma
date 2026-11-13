@@ -1,6 +1,7 @@
 """Fluent vocabulary: curated lists picks bind to with cls=, their pools, the picker's
 view of them, the writer's catalog, and article agreement in emitted text."""
 
+import json
 import pytest
 
 from tests.slot_fixtures import entry_of as _fixture
@@ -15,7 +16,7 @@ from prompt_programs.options import (
 )
 from prompt_programs.fill import ProgramError, tidy_text
 from tests.slot_fixtures import discover, run
-from prompt_programs.vocab import OPEN_SHARE, TIER_WEIGHTS, load, vocabulary
+from prompt_programs.vocab import OPEN_SHARE, ROOT, TIER_WEIGHTS, load, vocabulary
 
 async def narrow_read(entry, cache, ask, *args, **kw):
     """narrow_entry with the fake model's reading as the slots' words (slots.build writes them)."""
@@ -88,7 +89,8 @@ class TestTheVocabulary:
 
     def test_the_catalog_lists_person_and_animal_ids_without_sample_values(self):
         cat = vocabulary().catalog()
-        assert "- person.eye_color: adjective" in cat and "interior_space" not in cat
+        assert "- person.eye_color: adjective" in cat and "- interior_space.room:" in cat and "- clothing.footwear:" in cat
+        assert "person.feature." not in cat   # the face's pieces are shown as the face
         assert "- animal.dog_breed: noun phrase" in cat and "- animal.cat_coat:" in cat
         assert "orange tabby" not in cat
         assert "medium brown" not in cat  # no fixed samples (a shade name like "hazel" is a facet, not a sample)
@@ -631,10 +633,10 @@ class TestTemplates:
         assert a[0] != b[0] and a[1] != b[1]  # revision keys and generated pools stay apart
         assert a[0].endswith("where {'sport': 'running'}")  # the key revisions recorded before
 
-    def test_the_catalog_shows_parts_and_hides_the_palette(self, dressed):
+    def test_the_catalog_names_lists_not_their_groups_and_hides_the_palette(self, dressed):
         cat = dressed.catalog()
         line = next(ln for ln in cat.splitlines() if ln.startswith("- person.outfit.test"))
-        assert "Colors vary separately" in line and "sport = running | formal" in line and "color_family = red" in line
+        assert "Colors vary separately" in line and "running" not in line and "color_family" not in line
         assert "- person.palette" not in cat
 
 
@@ -709,31 +711,34 @@ class TestSharesAndComposedLists:
     other lists' values (a face is two or three features)."""
 
     def test_a_parts_share_does_not_depend_on_how_many_values_it_has(self):
-        look = vocabulary().get("camera.look")
+        nose = vocabulary().get("person.feature.nose")
+        shares = json.loads((ROOT / "person" / "feature" / "nose.json").read_text())["shares"]["aspect"]
         by_part = {}
-        for v in look.values:
-            by_part.setdefault(v.tags["intent"][0], []).append(v)
-        total = sum(v.weight for v in look.values)
-        assert abs(sum(v.weight for v in by_part["sharp"]) / total - 0.2) < 1e-9
-        assert abs(sum(v.weight for v in by_part["soft_background"]) / total - 0.05) < 1e-9
-        assert len(by_part["sharp"]) != len(by_part["soft_background"])
+        for v in nose.values:
+            by_part.setdefault(v.tags["aspect"][0], []).append(v)
+        total = sum(v.weight for v in nose.values)
+        for part, share in shares.items():
+            assert abs(sum(v.weight for v in by_part[part]) / total - share / sum(shares.values())) < 1e-9
 
-    def test_a_part_with_no_share_is_drawn_only_when_asked_for(self):
-        selfie = vocabulary().get("camera.selfie_framing")
-        group = [v for v in selfie.values if v.tags["kind"] == ["group"]]
-        assert group and all(v.opt_in for v in group)
-        drawn, standby = selfie.pool_values()
-        assert not {v.text for v in group} & {v.text for v in drawn} and {v.text for v in group} <= {v.text for v in standby}
-        asked, _ = selfie.pool_values([v.text for v in group])
-        assert asked == group and all(v.weight > 0 for v in asked)
-
-    def test_a_face_is_two_or_three_features_of_different_lists(self):
+    def test_a_face_is_one_piece_from_the_feature_lists(self):
         v = vocabulary()
         face = v.get("person.face")
-        parts = {lid: {x.text for x in lf.values} for lid, lf in v.leaves.items() if lid.startswith("person.feature.")}
-        assert len(parts) == 9 and len(face.values) == 3000 and len({x.text for x in face.values}) == 3000
-        assert face.listed and not any(v.get(lid).listed for lid in parts)
+        parts = {lid: lf for lid, lf in v.leaves.items() if lid.startswith("person.feature.")}
+        assert len(parts) == 12 and {x.text for x in face.values} == {x.text for lf in parts.values() for x in lf.values}
+        assert face.listed and not any(lf.listed for lf in parts.values())
+        assert all(x.strength in (1, 2) for lf in parts.values() for x in lf.values)
+        for x in face.values:
+            assert x.tags["piece"] == [next(lid for lid, lf in parts.items() if lf.value(x.text)).rsplit(".", 1)[-1]]
         assert [x.text for x in face.values] == [x.text for x in load().get("person.face").values]
+
+    def test_an_open_face_draws_only_subtle_pieces_and_a_marked_one_when_ticked(self):
+        face = vocabulary().get("person.face")
+        drawn, standby = face.pool_values()
+        assert drawn and all(x.strength == 1 for x in drawn)
+        marked = [x for x in face.values if x.strength == 2]
+        assert marked and {x.text for x in marked} <= {x.text for x in standby}
+        asked, _ = face.pool_values([marked[0].text])
+        assert [x.text for x in asked] == [marked[0].text] and asked[0].weight > 0
 
     def test_a_face_fits_the_persons_age(self):
         v = vocabulary()
@@ -743,9 +748,10 @@ class TestSharesAndComposedLists:
         def at(band):
             return {o for o, w in face.weigh(pool, [("life_stage", age.context_tags(band, "life_stage"))]) if w > 0}
         child, old = at("5-year-old"), at("75-year-old")
-        lines = {x.text for x in face.values if "deep wrinkles" in x.text or "age spots" in x.text}
-        assert lines and not lines & child and lines <= old
-        assert {x.text for x in face.values if "baby-round" in x.text}.isdisjoint(old)
+        lines = {x.text for x in face.values if x.tags["piece"] == ["age_marks"]}
+        assert lines and not lines & child and {x.text for x in face.values if "elderly" in x.tags.get("life_stage", [])} & lines <= old
+        young = {x.text for x in face.values if set(x.tags.get("life_stage", ["elderly"])) <= {"baby", "child"}}
+        assert young.isdisjoint(old)
         # Removing what doesn't fit leaves the other faces their weight: nothing is scaled up to fill the gap.
         kept = dict(face.weigh(pool, [("life_stage", ("child",))]))
         assert all(kept[o] in (0.0, w) for o, w in pool)
@@ -753,6 +759,7 @@ class TestSharesAndComposedLists:
     def test_a_feature_of_one_sex_is_drawn_only_for_that_sex(self):
         face = vocabulary().get("person.face")
         gendered = [x for x in face.values if x.tags["presentation"] != ["feminine", "masculine"]]
+        assert all(x.tags["presentation"] for x in face.values)
         assert gendered and all(x.opt_in and len(x.tags["presentation"]) == 1 for x in gendered)
         men = {x.text for x in face.matching({"presentation": "masculine"})}
         assert {x.text for x in gendered if x.tags["presentation"] == ["masculine"]} <= men

@@ -1,775 +1,526 @@
 {
-  "id": "vehicle.aircraft",
-  "label": "Aircraft",
-  "description": "Generic aircraft forms, from balloons and early planes to contemporary and speculative craft.",
-  "pos": "noun phrase",
-  "frame": "a ___ overhead",
-  "notes": "Aircraft kinds only, independent of manufacturer, model, livery, pilot or maneuver. Era tags mark use or surviving examples; explicit genre tags distinguish real technologies from speculative flight. Hang gliders and rigid-wing sailplanes are distinct forms of unpowered flight.",
-  "facets": [
-    "era",
-    "genre"
-  ],
-  "closed": false,
-  "untagged": {},
-  "values": [
-    {
-      "text": "passenger jet",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "cargo jet",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "business jet",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "single-engine propeller plane",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "twin-engine propeller plane",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "helicopter",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "turboprop airliner",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "hang glider",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "stunt plane",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "floatplane",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "fighter jet",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "transport helicopter",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "rescue helicopter",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "police helicopter",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "news helicopter",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "heavy-lift helicopter",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "military attack helicopter",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "light sport plane",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "crop-dusting plane",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "water bomber",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "military transport plane",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "jet trainer",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "strategic bomber",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "reconnaissance plane",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "biplane",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror",
-          "steampunk",
-          "fantasy",
-          "fairy_tale"
-        ]
-      }
-    },
-    {
-      "text": "flying boat",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror",
-          "steampunk",
-          "fantasy",
-          "fairy_tale"
-        ]
-      }
-    },
-    {
-      "text": "gyroplane",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror",
-          "steampunk",
-          "fantasy",
-          "fairy_tale"
-        ]
-      }
-    },
-    {
-      "text": "sailplane",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror",
-          "steampunk",
-          "fantasy",
-          "fairy_tale"
-        ]
-      }
-    },
-    {
-      "text": "hot-air balloon",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "early_modern",
-          "19th_century",
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror",
-          "steampunk",
-          "fantasy",
-          "fairy_tale"
-        ]
-      }
-    },
-    {
-      "text": "rigid airship",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror",
-          "steampunk"
-        ]
-      }
-    },
-    {
-      "text": "tiltrotor aircraft",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "quadrotor drone",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "surveillance drone",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "triplane",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "contemporary"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror",
-          "steampunk"
-        ]
-      }
-    },
-    {
-      "text": "steam-powered dirigible",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "19th_century"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror",
-          "steampunk"
-        ]
-      }
-    },
-    {
-      "text": "rocket-powered research plane",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "human-powered aircraft",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "solar-powered plane",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "genre": [
-          "realistic",
-          "scifi",
-          "cyberpunk",
-          "post_apocalyptic",
-          "horror"
-        ]
-      }
-    },
-    {
-      "text": "gravity-defying shuttle",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "future"
-        ],
-        "genre": [
-          "scifi",
-          "cyberpunk"
-        ]
-      }
-    },
-    {
-      "text": "fusion-powered sky freighter",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "future"
-        ],
-        "genre": [
-          "scifi",
-          "cyberpunk"
-        ]
-      }
-    },
-    {
-      "text": "clockwork ornithopter",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "19th_century",
-          "future"
-        ],
-        "genre": [
-          "steampunk",
-          "fantasy"
-        ]
-      }
-    }
+ "id": "vehicle.aircraft",
+ "label": "Aircraft",
+ "description": "Generic jets, propeller planes, helicopters, balloons, airships, gliders, and fictional flying craft.",
+ "pos": "noun phrase",
+ "frame": "a view of the ___ overhead",
+ "notes": "Aircraft types belong here, independent of manufacturer, model, livery, occupants, or maneuver. vehicle.spacecraft owns orbital and interplanetary craft; vehicle.watercraft owns boats, while aircraft designed to land on water remain here. Values use bare type names, with gyrocopter and seaplane included under familiar names rather than duplicate synonyms. Real and preserved aircraft have no era or genre restrictions; speculative aircraft alone carry genre tags.",
+ "facets": [
+  "genre"
+ ],
+ "closed": false,
+ "local_facets": {
+  "kind": [
+   "jet",
+   "prop",
+   "helicopter",
+   "lighter_than_air",
+   "historic",
+   "military",
+   "small_private",
+   "special"
   ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "passenger jet",
+   "look": "A large airliner with swept wings, underwing engines, and a long row of cabin windows.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "jet"
+    ]
+   }
+  },
+  {
+   "text": "cargo jet",
+   "look": "A large jet with few cabin windows, a bulky fuselage, and oversized freight-loading doors.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "jet"
+    ]
+   }
+  },
+  {
+   "text": "business jet",
+   "look": "A small sleek jet with a narrow cabin, swept wings, and engines mounted near the tail.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "jet",
+     "small_private"
+    ]
+   }
+  },
+  {
+   "text": "single-engine propeller plane",
+   "short": "single-engine plane",
+   "look": "A small light plane with one propeller at the nose and a compact cabin.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "prop",
+     "small_private"
+    ]
+   }
+  },
+  {
+   "text": "twin-engine propeller plane",
+   "short": "twin-engine plane",
+   "look": "A light plane with one propeller engine mounted on each wing.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "prop",
+     "small_private"
+    ]
+   }
+  },
+  {
+   "text": "helicopter",
+   "look": "A compact cabin hangs beneath a large main rotor, with a tail boom and small tail rotor.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "helicopter"
+    ]
+   }
+  },
+  {
+   "text": "turboprop airliner",
+   "look": "A regional passenger plane with large propellers on its wings and a row of cabin windows.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "prop"
+    ]
+   }
+  },
+  {
+   "text": "hang glider",
+   "look": "A broad triangular fabric wing carries a pilot suspended beneath it in a harness.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "small_private",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "stunt plane",
+   "look": "A compact propeller plane with short wings, a small canopy, and a lightweight aerobatic shape.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "prop",
+     "small_private"
+    ]
+   }
+  },
+  {
+   "text": "seaplane with floats",
+   "short": "floatplane",
+   "look": "A propeller plane rests on two long narrow floats instead of conventional landing wheels.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "prop",
+     "small_private"
+    ]
+   }
+  },
+  {
+   "text": "fighter jet",
+   "look": "A fast swept-wing jet with a pointed nose, compact canopy, and weapon hardpoints beneath its wings.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "jet",
+     "military"
+    ]
+   }
+  },
+  {
+   "text": "transport helicopter",
+   "look": "A large helicopter with a long passenger cabin, broad side doors, and a heavy landing undercarriage.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "helicopter"
+    ]
+   }
+  },
+  {
+   "text": "rescue helicopter",
+   "look": "A brightly marked helicopter with a side-mounted winch, sliding cabin door, and rescue equipment.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "helicopter"
+    ]
+   }
+  },
+  {
+   "text": "police helicopter",
+   "look": "A light patrol helicopter with police markings, a searchlight, and a camera pod under the nose.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "helicopter"
+    ]
+   }
+  },
+  {
+   "text": "news helicopter",
+   "look": "A small helicopter with broadcast markings and a large stabilized camera sphere beneath the nose.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "helicopter"
+    ]
+   }
+  },
+  {
+   "text": "heavy-lift helicopter",
+   "look": "A large helicopter with an exposed lifting frame and a heavy load suspended on cables beneath it.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "helicopter"
+    ]
+   }
+  },
+  {
+   "text": "military attack helicopter",
+   "short": "attack helicopter",
+   "look": "A narrow armored helicopter with tandem cockpit seats, short weapon wings, and a nose-mounted cannon.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "helicopter",
+     "military"
+    ]
+   }
+  },
+  {
+   "text": "light sport plane",
+   "look": "A very small two-seat plane with a bubble canopy, light wings, and a simple wheeled undercarriage.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "prop",
+     "small_private"
+    ]
+   }
+  },
+  {
+   "text": "crop-dusting plane",
+   "look": "A sturdy low-flying propeller plane with spray booms running beneath its broad wings.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "prop"
+    ]
+   }
+  },
+  {
+   "text": "water bomber",
+   "look": "A large firefighting aircraft with a deep water-carrying fuselage and bright high-visibility markings.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "prop"
+    ]
+   }
+  },
+  {
+   "text": "military transport plane",
+   "look": "A bulky high-wing aircraft with multiple propellers and a large rear cargo ramp.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "prop",
+     "military"
+    ]
+   }
+  },
+  {
+   "text": "jet trainer",
+   "look": "A small military jet with a long tandem-seat canopy and compact wings.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "jet",
+     "military"
+    ]
+   }
+  },
+  {
+   "text": "strategic bomber",
+   "look": "A very large military jet with long swept wings, multiple engines, and an elongated fuselage.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "jet",
+     "military"
+    ]
+   }
+  },
+  {
+   "text": "reconnaissance plane",
+   "look": "A slender high-altitude jet with very long narrow wings and a small cockpit.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "jet",
+     "military"
+    ]
+   }
+  },
+  {
+   "text": "biplane",
+   "look": "A propeller plane with two stacked pairs of wings linked by struts and wires.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "prop",
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "flying boat",
+   "look": "An aircraft with a boat-shaped hull, high wings, and small stabilizing floats beneath the wings.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "prop"
+    ]
+   }
+  },
+  {
+   "text": "gyrocopter",
+   "look": "A tiny open or enclosed cockpit sits beneath an unpowered rotor, with a separate rear propeller.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "small_private",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "sailplane",
+   "look": "A sleek unpowered aircraft with an exceptionally long narrow wingspan and a small bubble cockpit.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "small_private",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "hot-air balloon",
+   "look": "A large colorful inflated envelope carries a small wicker passenger basket underneath.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "lighter_than_air"
+    ]
+   }
+  },
+  {
+   "text": "zeppelin",
+   "look": "A huge elongated rigid airship with a tapered tail, external engine pods, and a gondola below.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "lighter_than_air",
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "tiltrotor aircraft",
+   "look": "A fixed-wing aircraft has large rotors at both wingtips that tilt between vertical and forward flight.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "military",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "quadrotor drone",
+   "look": "A small unmanned craft with four short arms, each ending in a horizontal rotor.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "surveillance drone",
+   "look": "An unmanned fixed-wing aircraft with a bulbous nose, long wings, and a rear pusher propeller.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "military",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "triplane",
+   "look": "An early propeller aircraft with three stacked wings supported by thin struts.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "prop",
+     "historic"
+    ]
+   }
+  },
+  {
+   "text": "steam-powered dirigible",
+   "look": "An airship with exposed brass machinery, steam pipes, a smokestack, and a suspended cabin.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "lighter_than_air",
+     "special"
+    ],
+    "genre": [
+     "steampunk",
+     "fantasy"
+    ]
+   }
+  },
+  {
+   "text": "rocket-powered research plane",
+   "short": "rocket research plane",
+   "look": "A small needle-nosed experimental aircraft with stubby wings and a rocket exhaust at its tail.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "historic",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "human-powered aircraft",
+   "look": "An ultralight aircraft with vast delicate wings, a skeletal frame, and an enclosed pedal-powered cockpit.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "small_private",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "solar-powered plane",
+   "look": "An extremely light plane with an enormous slender wingspan covered in dark solar panels.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "prop",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "antigravity shuttle",
+   "look": "A compact futuristic passenger craft with a smooth hull and no visible wings or rotors.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ]
+   }
+  },
+  {
+   "text": "science-fiction sky freighter",
+   "short": "sky freighter",
+   "look": "A bulky airborne cargo craft with stacked freight modules and multiple downward-facing thrusters.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ]
+   }
+  },
+  {
+   "text": "clockwork ornithopter",
+   "look": "A mechanical flying craft with jointed birdlike wings, exposed gears, and a small suspended cockpit.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "special"
+    ],
+    "genre": [
+     "steampunk",
+     "fantasy"
+    ]
+   }
+  },
+  {
+   "text": "blimp",
+   "look": "A rounded advertising airship with a short gondola below and broad stabilizing tail fins.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "lighter_than_air"
+    ]
+   }
+  },
+  {
+   "text": "paraglider",
+   "look": "A curved fabric canopy supports a seated pilot hanging below on many thin lines.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "small_private",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "paramotor",
+   "look": "A pilot hangs beneath a paraglider canopy with a large caged propeller strapped behind the seat.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "small_private",
+     "special"
+    ]
+   }
+  },
+  {
+   "text": "flying-wing bomber",
+   "look": "A broad triangular military aircraft forms one continuous wing without a separate tail.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "jet",
+     "military"
+    ]
+   }
+  }
+ ]
 }

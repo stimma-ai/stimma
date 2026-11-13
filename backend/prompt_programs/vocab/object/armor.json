@@ -1,0 +1,593 @@
+{
+ "id": "object.armor",
+ "label": "Armor",
+ "description": "Named helmets, torso and limb armor, shields, full suits, modern protective gear, and fantasy armor.",
+ "pos": "noun phrase",
+ "frame": "equipped with ___",
+ "notes": "Protective pieces, shields, and complete armor ensembles belong here; object.weapon owns offensive weapons and fighting implements. Values are complete noun phrases with articles where needed, and paired limb pieces use a pair of. Historical armor remains usable as contemporary costume, replica, or display armor without era restrictions. Only visibly speculative suits have genre tags; a crested Corinthian helmet covers the familiar Spartan-style look without a duplicate entry.",
+ "closed": false,
+ "facets": [
+  "genre"
+ ],
+ "local_facets": {
+  "kind": [
+   "helmet",
+   "body",
+   "limbs",
+   "shield",
+   "full_suit",
+   "modern",
+   "fantasy_scifi"
+  ]
+ },
+ "values": [
+  {
+   "text": "a crested Corinthian helmet",
+   "short": "Corinthian helmet",
+   "tier": "typical",
+   "look": "a bronze helmet with narrow eye openings, a long nose guard, closed cheeks, and a tall horsehair crest",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a kabuto helmet",
+   "short": "kabuto helmet",
+   "tier": "typical",
+   "look": "a domed Japanese helmet with a flared segmented neck guard and a prominent brow ornament",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a great helm",
+   "short": "great helm",
+   "tier": "typical",
+   "look": "a tall flat-topped metal helmet enclosing the whole head, with narrow eye slits and small breathing holes",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a bascinet",
+   "short": "bascinet",
+   "tier": "plausible",
+   "look": "a pointed steel helmet with a projecting hinged visor and a curtain of mail around the neck",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a sallet",
+   "short": "sallet",
+   "tier": "plausible",
+   "look": "a smooth rounded steel helmet with a long swept-back tail protecting the neck",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a barbute",
+   "short": "barbute",
+   "tier": "plausible",
+   "look": "a deep rounded steel helmet with an open T-shaped face and long solid cheek sections",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a Viking spangenhelm",
+   "short": "spangenhelm",
+   "tier": "plausible",
+   "look": "a conical helmet built from metal panels joined by bands, with a central nose guard",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "an armet",
+   "short": "armet",
+   "tier": "plausible",
+   "look": "a close-fitting steel helmet with hinged cheek pieces meeting below a movable visor",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a morion helmet",
+   "short": "morion helmet",
+   "tier": "plausible",
+   "look": "an open-faced metal helmet with a high central comb and a brim curling upward at both ends",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a kettle hat helmet",
+   "short": "kettle hat",
+   "tier": "plausible",
+   "look": "a low domed metal helmet with a broad brim sloping outward all around",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a nasal helmet",
+   "short": "nasal helmet",
+   "tier": "plausible",
+   "look": "a plain conical steel cap with one narrow bar extending down over the nose",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a Roman imperial helmet",
+   "short": "Roman imperial helmet",
+   "tier": "plausible",
+   "look": "a rounded metal helmet with hinged cheek guards, embossed brows, and a projecting neck flange",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a chainmail coif",
+   "short": "chainmail coif",
+   "tier": "plausible",
+   "look": "a flexible hood of interlinked metal rings covering the head, neck, and shoulders around an open face",
+   "tags": {
+    "kind": [
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a cuirass",
+   "short": "cuirass",
+   "tier": "typical",
+   "look": "a rigid torso shell formed by matching front and back metal plates joined at the sides",
+   "tags": {
+    "kind": [
+     "body"
+    ]
+   }
+  },
+  {
+   "text": "a breastplate",
+   "short": "breastplate",
+   "tier": "typical",
+   "look": "a single shaped metal plate covering the front of the chest and abdomen",
+   "tags": {
+    "kind": [
+     "body"
+    ]
+   }
+  },
+  {
+   "text": "a chainmail hauberk",
+   "short": "chainmail hauberk",
+   "tier": "typical",
+   "look": "a knee-length shirt of interlinked metal rings with sleeves and a split lower hem",
+   "tags": {
+    "kind": [
+     "body"
+    ]
+   }
+  },
+  {
+   "text": "a brigandine",
+   "short": "brigandine",
+   "tier": "plausible",
+   "look": "a fitted fabric-covered armored jacket patterned with closely spaced rows of metal rivet heads",
+   "tags": {
+    "kind": [
+     "body"
+    ]
+   }
+  },
+  {
+   "text": "lamellar armor",
+   "short": "lamellar armor",
+   "tier": "plausible",
+   "look": "rows of small overlapping rectangular plates visibly laced together into a flexible torso covering",
+   "tags": {
+    "kind": [
+     "body"
+    ]
+   }
+  },
+  {
+   "text": "a gambeson",
+   "short": "gambeson",
+   "tier": "typical",
+   "look": "a thick quilted padded jacket with stitched channels, long sleeves, and a skirt below the waist",
+   "tags": {
+    "kind": [
+     "body"
+    ]
+   }
+  },
+  {
+   "text": "a gorget",
+   "short": "gorget",
+   "tier": "plausible",
+   "look": "a rigid curved metal collar covering the throat and the upper chest around the neck",
+   "tags": {
+    "kind": [
+     "body"
+    ]
+   }
+  },
+  {
+   "text": "Roman lorica segmentata",
+   "short": "lorica segmentata",
+   "tier": "plausible",
+   "look": "a Roman torso defense of broad horizontal metal bands with curved overlapping shoulder plates",
+   "tags": {
+    "kind": [
+     "body"
+    ]
+   }
+  },
+  {
+   "text": "scale armor",
+   "short": "scale armor",
+   "tier": "plausible",
+   "look": "small rounded overlapping scales attached in rows like fish scales over a fitted backing",
+   "tags": {
+    "kind": [
+     "body"
+    ]
+   }
+  },
+  {
+   "text": "a bevor",
+   "short": "bevor",
+   "tier": "plausible",
+   "look": "a curved metal defense rising from the upper chest to cup the throat, chin, and lower face",
+   "tags": {
+    "kind": [
+     "body"
+    ]
+   }
+  },
+  {
+   "text": "a pair of pauldrons",
+   "short": "pauldrons",
+   "tier": "typical",
+   "look": "large curved overlapping metal plates cupping both shoulders and extending onto the upper arms",
+   "tags": {
+    "kind": [
+     "limbs"
+    ]
+   }
+  },
+  {
+   "text": "a pair of gauntlets",
+   "short": "gauntlets",
+   "tier": "typical",
+   "look": "articulated metal gloves with plated fingers, broad knuckle guards, and flared wrist cuffs",
+   "tags": {
+    "kind": [
+     "limbs"
+    ]
+   }
+  },
+  {
+   "text": "a pair of greaves",
+   "short": "greaves",
+   "tier": "typical",
+   "look": "shaped metal plates wrapping the shins from below the knee down to the ankle",
+   "tags": {
+    "kind": [
+     "limbs"
+    ]
+   }
+  },
+  {
+   "text": "a pair of vambraces",
+   "short": "vambraces",
+   "tier": "plausible",
+   "look": "curved tubular armor enclosing the forearms between the wrist and elbow",
+   "tags": {
+    "kind": [
+     "limbs"
+    ]
+   }
+  },
+  {
+   "text": "a pair of rerebraces",
+   "short": "rerebraces",
+   "tier": "plausible",
+   "look": "curved metal sleeves covering the upper arms between shoulder and elbow",
+   "tags": {
+    "kind": [
+     "limbs"
+    ]
+   }
+  },
+  {
+   "text": "a pair of couters",
+   "short": "couters",
+   "tier": "plausible",
+   "look": "cupped elbow defenses with projecting side wings and short articulated plates",
+   "tags": {
+    "kind": [
+     "limbs"
+    ]
+   }
+  },
+  {
+   "text": "a pair of poleyns",
+   "short": "poleyns",
+   "tier": "plausible",
+   "look": "rounded knee plates with small projecting side wings and overlapping joints above and below",
+   "tags": {
+    "kind": [
+     "limbs"
+    ]
+   }
+  },
+  {
+   "text": "a pair of sabatons",
+   "short": "sabatons",
+   "tier": "plausible",
+   "look": "overlapping metal plates enclosing the feet from ankle to pointed or squared armored toes",
+   "tags": {
+    "kind": [
+     "limbs"
+    ]
+   }
+  },
+  {
+   "text": "a pair of tassets",
+   "short": "tassets",
+   "tier": "plausible",
+   "look": "segmented plate panels hanging from the waist over the fronts of the upper thighs",
+   "tags": {
+    "kind": [
+     "limbs"
+    ]
+   }
+  },
+  {
+   "text": "a kite shield",
+   "short": "kite shield",
+   "tier": "typical",
+   "look": "a long teardrop-shaped shield with rounded shoulders tapering to a pointed bottom",
+   "tags": {
+    "kind": [
+     "shield"
+    ]
+   }
+  },
+  {
+   "text": "a round shield",
+   "short": "round shield",
+   "tier": "typical",
+   "look": "a broad circular shield with a raised central metal boss and a reinforced rim",
+   "tags": {
+    "kind": [
+     "shield"
+    ]
+   }
+  },
+  {
+   "text": "a tower shield",
+   "short": "tower shield",
+   "tier": "plausible",
+   "look": "a tall broad rectangular shield covering most of the standing body",
+   "tags": {
+    "kind": [
+     "shield"
+    ]
+   }
+  },
+  {
+   "text": "a buckler",
+   "short": "buckler",
+   "tier": "typical",
+   "look": "a small round hand shield with a prominent central boss and a narrow surrounding rim",
+   "tags": {
+    "kind": [
+     "shield"
+    ]
+   }
+  },
+  {
+   "text": "a heater shield",
+   "short": "heater shield",
+   "tier": "plausible",
+   "look": "a compact shield with a flat upper edge and curved sides narrowing to a bottom point",
+   "tags": {
+    "kind": [
+     "shield"
+    ]
+   }
+  },
+  {
+   "text": "a pavise shield",
+   "short": "pavise shield",
+   "tier": "plausible",
+   "look": "a tall freestanding shield with a rounded top and a pronounced vertical central ridge",
+   "tags": {
+    "kind": [
+     "shield"
+    ]
+   }
+  },
+  {
+   "text": "a Roman scutum",
+   "short": "Roman scutum",
+   "tier": "plausible",
+   "look": "a tall curved rectangular shield with rounded corners and a central metal boss",
+   "tags": {
+    "kind": [
+     "shield"
+    ]
+   }
+  },
+  {
+   "text": "a Zulu hide shield",
+   "short": "Zulu hide shield",
+   "tier": "plausible",
+   "look": "a long pointed oval hide shield stretched around a central vertical wooden staff",
+   "tags": {
+    "kind": [
+     "shield"
+    ]
+   }
+  },
+  {
+   "text": "a suit of plate armor",
+   "short": "plate armor",
+   "tier": "typical",
+   "look": "a complete articulated metal shell enclosing the body from helmet to armored feet",
+   "tags": {
+    "kind": [
+     "full_suit"
+    ]
+   }
+  },
+  {
+   "text": "samurai o-yoroi armor",
+   "short": "samurai o-yoroi",
+   "tier": "plausible",
+   "look": "boxy Japanese armor with huge rectangular shoulder guards, laced plates, and a divided hanging skirt",
+   "tags": {
+    "kind": [
+     "full_suit"
+    ]
+   }
+  },
+  {
+   "text": "gladiator armor",
+   "short": "gladiator armor",
+   "tier": "plausible",
+   "look": "an asymmetrical arena outfit with a large helmet, one armored arm, and tall greaves on otherwise exposed limbs",
+   "tags": {
+    "kind": [
+     "full_suit"
+    ]
+   }
+  },
+  {
+   "text": "riot gear",
+   "short": "riot gear",
+   "tier": "plausible",
+   "look": "a dark padded protective suit with hard limb shells, a helmet, a clear face visor, and a tall shield",
+   "tags": {
+    "kind": [
+     "modern"
+    ]
+   }
+  },
+  {
+   "text": "a ballistic vest",
+   "short": "ballistic vest",
+   "tier": "typical",
+   "look": "a thick fitted torso vest with broad shoulder straps and rectangular protective panels",
+   "tags": {
+    "kind": [
+     "modern",
+     "body"
+    ]
+   }
+  },
+  {
+   "text": "a ballistic helmet",
+   "short": "ballistic helmet",
+   "tier": "plausible",
+   "look": "a compact matte combat helmet with a thick shell, side rails, and a chin strap",
+   "tags": {
+    "kind": [
+     "modern",
+     "helmet"
+    ]
+   }
+  },
+  {
+   "text": "a bomb disposal suit",
+   "short": "bomb disposal suit",
+   "tier": "unusual",
+   "look": "a very bulky padded protective suit with thick limb sections, an armored collar, and a heavy clear-fronted helmet",
+   "tags": {
+    "kind": [
+     "modern",
+     "full_suit"
+    ]
+   }
+  },
+  {
+   "text": "power armor",
+   "short": "power armor",
+   "tier": "unusual",
+   "look": "a massive powered armored shell with enlarged shoulder plates, mechanical joints, and glowing system lights",
+   "tags": {
+    "kind": [
+     "fantasy_scifi",
+     "full_suit"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk"
+    ]
+   }
+  },
+  {
+   "text": "elven armor",
+   "short": "elven armor",
+   "tier": "unusual",
+   "look": "slender fitted armor with leaf-shaped overlapping plates, sweeping edges, and delicate branching ornament",
+   "tags": {
+    "kind": [
+     "fantasy_scifi",
+     "full_suit"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "dragon-scale armor",
+   "short": "dragon-scale armor",
+   "tier": "unusual",
+   "look": "a fitted suit covered in large irregular reptilian scales with jagged ridges and horn-like projections",
+   "tags": {
+    "kind": [
+     "fantasy_scifi",
+     "full_suit"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  }
+ ]
+}

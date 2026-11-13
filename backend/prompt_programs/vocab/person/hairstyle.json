@@ -1,796 +1,3110 @@
 {
-  "id": "person.hairstyle",
-  "label": "Hairstyle",
-  "description": "How scalp hair is cut, parted, braided or arranged.",
-  "pos": "noun phrase",
-  "frame": "with her hair in ___",
-  "notes": "Cuts and arrangements only, phrased as a noun phrase after “in”; person.hair_color owns color and person.hair_length_texture owns loose length and texture. Shape words needed to identify a cut or arrangement may occur here. Culturally rooted styles remain available across regions and presentations; a hairstyle does not imply descent. Era tags mark styles strongly associated with a period, while revivals also allow contemporary use. Length/texture and arrangement picks still need writer compatibility checks: short hair cannot form every braid or bun.",
-  "facets": [
-    "era",
-    "genre"
+ "id": "person.hairstyle",
+ "label": "Hairstyle",
+ "description": "Named haircuts, braids, twists, locs, updos, ponytails, bangs, set curls and period hairstyles.",
+ "pos": "noun phrase",
+ "frame": "hair in ___",
+ "notes": "Named cuts and arrangements belong here, phrased as noun phrases after in; person.hair_length owns loose length, person.hair_texture owns curl pattern and density, and person.hair_color owns color. Short means above the chin, medium means chin through shoulder, and long means below the shoulder; length tags describe the loose hair needed before arrangement, without assuming extensions. A style lists every compatible length band, and long also includes waist-length and longer hair. Revivable period styles remain available in contemporary scenes, and hairstyles do not imply descent or restrict presentation. The legacy person.hair_length_texture list remains available during the transition.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "family": [
+   "cut",
+   "fade",
+   "braid",
+   "twist_locs",
+   "bun_updo",
+   "ponytail",
+   "curls_waves",
+   "bangs",
+   "period",
+   "natural",
+   "parted"
   ],
-  "closed": false,
-  "values": [
-    {
-      "text": "a low ponytail",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "ponytail"
-        ]
-      }
-    },
-    {
-      "text": "a high ponytail",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "ponytail"
-        ]
-      }
-    },
-    {
-      "text": "a loose side braid",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "braid"
-        ]
-      }
-    },
-    {
-      "text": "a single back braid",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "braid"
-        ]
-      }
-    },
-    {
-      "text": "two braids",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "braid"
-        ]
-      }
-    },
-    {
-      "text": "a messy bun",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a low bun",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a topknot",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a half-up ponytail",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "ponytail"
-        ]
-      }
-    },
-    {
-      "text": "a half-up bun",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a side part",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "parted"
-        ]
-      }
-    },
-    {
-      "text": "a center part",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "parted"
-        ]
-      }
-    },
-    {
-      "text": "a blunt bob",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "short cut"
-        ]
-      }
-    },
-    {
-      "text": "a layered cut",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "a pixie cut",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "short cut"
-        ]
-      }
-    },
-    {
-      "text": "a buzz cut",
-      "tier": "typical",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "short cut"
-        ]
-      }
-    },
-    {
-      "text": "a rounded Afro",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "loose"
-        ]
-      }
-    },
-    {
-      "text": "a tapered Afro",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "loose"
-        ]
-      }
-    },
-    {
-      "text": "box braids",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "braid",
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "cornrows",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "braid",
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "two-strand twists",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "locs",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "a French braid",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "braid"
-        ]
-      }
-    },
-    {
-      "text": "a Dutch braid",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "braid"
-        ]
-      }
-    },
-    {
-      "text": "a braided bun",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "braid",
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a low puff",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a high puff",
-      "tier": "typical",
-      "tags": {
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a side ponytail",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "ponytail"
-        ]
-      }
-    },
-    {
-      "text": "two low ponytails",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "ponytail"
-        ]
-      }
-    },
-    {
-      "text": "two high ponytails",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "ponytail"
-        ]
-      }
-    },
-    {
-      "text": "a bubble ponytail",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "ponytail"
-        ]
-      }
-    },
-    {
-      "text": "a braided ponytail",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "ponytail",
-          "braid"
-        ]
-      }
-    },
-    {
-      "text": "a twisted ponytail",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "ponytail"
-        ]
-      }
-    },
-    {
-      "text": "a fishtail braid",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "braid"
-        ]
-      }
-    },
-    {
-      "text": "a rope braid",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "braid"
-        ]
-      }
-    },
-    {
-      "text": "a crown braid",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "braid",
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a halo of flat twists",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "bun or updo",
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "a waterfall braid",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "loose",
-          "braid"
-        ]
-      }
-    },
-    {
-      "text": "two Dutch braids",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "braid"
-        ]
-      }
-    },
-    {
-      "text": "a French twist",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "two space buns",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a rolled updo",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a pinned half-up style",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a pompadour",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "a quiff",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "a slicked-back style",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "loose"
-        ]
-      }
-    },
-    {
-      "text": "a comb-over",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "parted"
-        ]
-      }
-    },
-    {
-      "text": "a faux hawk",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "a mohawk",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "an undercut",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "a bowl cut",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "short cut"
-        ]
-      }
-    },
-    {
-      "text": "a shag cut",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "a mullet",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "a flat top",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "short cut"
-        ]
-      }
-    },
-    {
-      "text": "a twist-out",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "loose"
-        ]
-      }
-    },
-    {
-      "text": "Bantu knots",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "bun or updo",
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "flat twists",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "microbraids",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "braid",
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "a braided bob",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "braid",
-          "short cut",
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "a crown of locs",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "bun or updo",
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "a loc bun",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "bun or updo",
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "two loc ponytails",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "ponytail",
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "a loc mohawk",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "1950s_1970s",
-          "1980s_1990s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "protective style"
-        ]
-      }
-    },
-    {
-      "text": "finger coils",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "loose"
-        ]
-      }
-    },
-    {
-      "text": "a frohawk",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "other"
-        ]
-      }
-    },
-    {
-      "text": "a curly pineapple updo",
-      "tier": "plausible",
-      "tags": {
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a beehive",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "bun or updo"
-        ]
-      }
-    },
-    {
-      "text": "a bouffant",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "1950s_1970s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "loose"
-        ]
-      }
-    },
-    {
-      "text": "finger waves",
-      "tier": "plausible",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "loose"
-        ]
-      }
-    },
-    {
-      "text": "victory rolls",
-      "tier": "unusual",
-      "tags": {
-        "era": [
-          "1900s_1940s",
-          "contemporary",
-          "future"
-        ],
-        "family": [
-          "bun or updo"
-        ]
-      }
-    }
-  ],
-  "local_facets": {
+  "hair_length": [
+   "short",
+   "medium",
+   "long",
+   "very_long"
+  ]
+ },
+ "values": [
+  {
+   "text": "a blunt bob",
+   "short": "blunt bob",
+   "tier": "typical",
+   "look": "a straight, even perimeter ending around the chin, with little layering",
+   "tags": {
     "family": [
-      "loose",
-      "ponytail",
-      "braid",
-      "bun or updo",
-      "short cut",
-      "protective style",
-      "parted",
-      "other"
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
     ]
+   }
+  },
+  {
+   "text": "a lob",
+   "short": "lob",
+   "tier": "typical",
+   "look": "a long bob ending near the shoulders",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a layered bob",
+   "short": "layered bob",
+   "tier": "typical",
+   "look": "a bob with stepped layers that break up the solid outline",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a pixie cut",
+   "short": "pixie cut",
+   "tier": "typical",
+   "look": "a close crop with a longer, shaped top and exposed ears and neck",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a buzz cut",
+   "short": "buzz cut",
+   "tier": "typical",
+   "look": "very short hair clipped evenly close to the scalp",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a crew cut",
+   "short": "crew cut",
+   "tier": "typical",
+   "look": "short upright hair on top with closely tapered sides",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "an undercut",
+   "short": "undercut",
+   "tier": "typical",
+   "look": "longer hair above an abrupt boundary with clipped or shaved sides",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a shag cut",
+   "short": "shag cut",
+   "tier": "typical",
+   "look": "many choppy layers with a full crown and thin, feathered ends",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a wolf cut",
+   "short": "wolf cut",
+   "tier": "typical",
+   "look": "a shaggy, full crown tapering into long, wispy layers at the nape",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a layered cut",
+   "short": "layered cut",
+   "tier": "typical",
+   "look": "visible steps of hair length that add movement and soften the outline",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a blunt cut",
+   "short": "blunt cut",
+   "tier": "typical",
+   "look": "an unlayered sheet of hair ending in one dense, straight horizontal line",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a quiff",
+   "short": "quiff",
+   "tier": "typical",
+   "look": "the front lifted up and back while the rest of the top stays lower",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a French bob",
+   "short": "French bob",
+   "tier": "plausible",
+   "look": "a jaw-skimming bob with short bangs and softly tucked ends",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "an A-line bob",
+   "short": "A-line bob",
+   "tier": "plausible",
+   "look": "a bob that slopes from shorter in back to longer at the front",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "an inverted bob",
+   "short": "inverted bob",
+   "tier": "plausible",
+   "look": "a bob with a stacked, rounded back and longer front sections",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "an asymmetrical bob",
+   "short": "asymmetrical bob",
+   "tier": "plausible",
+   "look": "a bob with one side noticeably longer than the other",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a long pixie cut",
+   "short": "long pixie cut",
+   "tier": "plausible",
+   "look": "a pixie with elongated top layers and a sweeping fringe",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a bixie cut",
+   "short": "bixie cut",
+   "tier": "plausible",
+   "look": "a short layered cut with a pixie crown and bob-like length around the ears",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a Caesar cut",
+   "short": "Caesar cut",
+   "tier": "plausible",
+   "look": "a short, even crop with a small straight fringe brushed forward",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a French crop",
+   "short": "French crop",
+   "tier": "plausible",
+   "look": "a textured top brushed forward over short sides and a blunt fringe",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "an Ivy League cut",
+   "short": "Ivy League cut",
+   "tier": "plausible",
+   "look": "a neat short cut with enough length on top for a side part",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a butch cut",
+   "short": "butch cut",
+   "tier": "plausible",
+   "look": "a uniform bristly crop left slightly longer than scalp-close stubble",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a high and tight",
+   "short": "high and tight",
+   "tier": "plausible",
+   "look": "very closely shaved sides and back beneath a small patch of short hair on top",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a bowl cut",
+   "short": "bowl cut",
+   "tier": "plausible",
+   "look": "a rounded cap of hair with a level fringe and a continuous rim around the head",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a side shave",
+   "short": "side shave",
+   "tier": "plausible",
+   "look": "one side shaved close while the opposite side stays visibly longer",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a mullet",
+   "short": "mullet",
+   "tier": "plausible",
+   "look": "short front and sides with a distinctly longer section down the back",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a butterfly cut",
+   "short": "butterfly cut",
+   "tier": "plausible",
+   "look": "short face-framing layers sweeping away from the face over long lower layers",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a hime cut",
+   "short": "hime cut",
+   "tier": "plausible",
+   "look": "long straight hair with blunt cheek-length side sections and a straight fringe",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a V-cut",
+   "short": "V-cut",
+   "tier": "plausible",
+   "look": "long hair whose back perimeter comes to a sharp central point",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a U-cut",
+   "short": "U-cut",
+   "tier": "plausible",
+   "look": "long hair whose back perimeter curves into a broad rounded U",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a feathered cut",
+   "short": "feathered cut",
+   "tier": "plausible",
+   "look": "light layers brushed outward into overlapping, feather-like edges",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a spiky crop",
+   "short": "spiky crop",
+   "tier": "plausible",
+   "look": "short hair separated into distinct upright points",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a faux hawk",
+   "short": "faux hawk",
+   "tier": "plausible",
+   "look": "short sides with the longer top pushed into a central ridge",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a flat top",
+   "short": "flat top",
+   "tier": "plausible",
+   "look": "upright short hair clipped into a level horizontal plane with squared corners",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a pompadour",
+   "short": "pompadour",
+   "tier": "plausible",
+   "look": "the front swept high and backward into a large rounded roll",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "an octopus cut",
+   "short": "octopus cut",
+   "tier": "plausible",
+   "look": "a rounded, heavily layered crown over a few thin, sharply separated long lower sections",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a jellyfish cut",
+   "short": "jellyfish cut",
+   "tier": "unusual",
+   "look": "a rounded bob-like upper layer above a separate curtain of much longer hair",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a mohawk",
+   "short": "mohawk",
+   "tier": "unusual",
+   "look": "a raised central strip of hair between shaved sides",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "liberty spikes",
+   "tier": "unusual",
+   "look": "hair divided into large rigid spikes radiating outward from the head",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a Chelsea cut",
+   "short": "Chelsea cut",
+   "tier": "unusual",
+   "look": "a shaved crown with a retained fringe and longer wisps around the ears and nape",
+   "tags": {
+    "family": [
+     "cut",
+     "bangs"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a rattail",
+   "short": "rattail",
+   "tier": "unusual",
+   "look": "short hair with one narrow long strand extending from the nape",
+   "tags": {
+    "family": [
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a taper fade",
+   "short": "taper fade",
+   "tier": "typical",
+   "look": "hair gradually shortened only around the sideburns and neckline",
+   "tags": {
+    "family": [
+     "fade"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a low fade",
+   "short": "low fade",
+   "tier": "typical",
+   "look": "closely clipped sides blending into longer hair just above the ears",
+   "tags": {
+    "family": [
+     "fade"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a mid fade",
+   "short": "mid fade",
+   "tier": "typical",
+   "look": "a close-to-long blend beginning halfway up the sides of the head",
+   "tags": {
+    "family": [
+     "fade"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a curly top fade",
+   "short": "curly top fade",
+   "tier": "typical",
+   "look": "a cap of defined curls above closely faded sides",
+   "tags": {
+    "family": [
+     "fade"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a high fade",
+   "short": "high fade",
+   "tier": "plausible",
+   "look": "a close-to-long blend beginning near the temples and upper sides",
+   "tags": {
+    "family": [
+     "fade"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a skin fade",
+   "short": "skin fade",
+   "tier": "plausible",
+   "look": "sides shaved to bare skin at the bottom and smoothly blended upward",
+   "tags": {
+    "family": [
+     "fade"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a burst fade",
+   "short": "burst fade",
+   "tier": "plausible",
+   "look": "a rounded fade radiating around each ear while length remains down the back",
+   "tags": {
+    "family": [
+     "fade"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a drop fade",
+   "short": "drop fade",
+   "tier": "plausible",
+   "look": "a fade line that dips downward behind the ears toward the nape",
+   "tags": {
+    "family": [
+     "fade"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a temple fade",
+   "short": "temple fade",
+   "tier": "plausible",
+   "look": "small faded patches at the temples with a sharply edged hairline",
+   "tags": {
+    "family": [
+     "fade"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a high-top fade",
+   "short": "high-top fade",
+   "tier": "plausible",
+   "look": "a tall vertical block of hair rising above tightly faded sides",
+   "tags": {
+    "family": [
+     "fade"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "a loose side braid",
+   "short": "loose side braid",
+   "tier": "typical",
+   "look": "one relaxed three-strand braid hanging over a shoulder",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a single back braid",
+   "short": "single back braid",
+   "tier": "typical",
+   "look": "one three-strand plait hanging straight down the center of the back",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "two braids",
+   "tier": "typical",
+   "look": "two separate three-strand plaits hanging on either side of the head",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a French braid",
+   "short": "French braid",
+   "tier": "typical",
+   "look": "one braid woven close to the scalp, with new strands tucked into its sides",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a Dutch braid",
+   "short": "Dutch braid",
+   "tier": "typical",
+   "look": "a raised braid woven outward from the scalp so the plait stands above the hair",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "two Dutch braids",
+   "tier": "typical",
+   "look": "two parallel raised scalp braids running from the forehead toward the nape",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a fishtail braid",
+   "short": "fishtail braid",
+   "tier": "typical",
+   "look": "a narrow braid made of many small crossing strands in a herringbone pattern",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "box braids",
+   "tier": "typical",
+   "look": "separate hanging braids rooted in a grid of square scalp sections",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "cornrows",
+   "tier": "typical",
+   "look": "narrow raised braids running in rows tight against the scalp",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "two French braids",
+   "tier": "typical",
+   "look": "two close scalp braids with the woven sections tucked inward along either side of a center part",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a rope braid",
+   "short": "rope braid",
+   "tier": "plausible",
+   "look": "two smooth sections twisted around each other into a spiral cord",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a crown braid",
+   "short": "crown braid",
+   "tier": "plausible",
+   "look": "a continuous scalp braid circling the head like a crown",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a milkmaid braid",
+   "short": "milkmaid braid",
+   "tier": "plausible",
+   "look": "two long plaits lifted over the top of the head and pinned across each other",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a waterfall braid",
+   "short": "waterfall braid",
+   "tier": "plausible",
+   "look": "a braid crossing the head with loose strands dropping through it like a curtain",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a four-strand braid",
+   "short": "four-strand braid",
+   "tier": "plausible",
+   "look": "a broad plait with four interlaced strands and an intricate repeating surface",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a pull-through braid",
+   "short": "pull-through braid",
+   "tier": "plausible",
+   "look": "a chain of rounded, overlapping hair loops forming a broad braid-like column",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a mermaid braid",
+   "short": "mermaid braid",
+   "tier": "plausible",
+   "look": "a wide loose central braid with airy side sections woven into its length",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "microbraids",
+   "tier": "plausible",
+   "look": "a dense curtain of very fine individual braids",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "jumbo box braids",
+   "tier": "plausible",
+   "look": "a small number of thick braids growing from large square sections",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "boho braids",
+   "tier": "plausible",
+   "look": "individual braids interspersed with loose flowing curls",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "Fulani braids",
+   "tier": "plausible",
+   "look": "a central scalp braid with side cornrows, hanging braids and often beads",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "Ghana braids",
+   "tier": "plausible",
+   "look": "thick scalp braids that widen gradually from fine starts near the hairline",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "stitch braids",
+   "tier": "plausible",
+   "look": "thick cornrows bordered by crisp horizontal parting lines like stitches",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "zigzag cornrows",
+   "tier": "plausible",
+   "look": "scalp braids following sharply angled zigzag paths",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "side-swept cornrows",
+   "tier": "plausible",
+   "look": "curved scalp braids flowing across the head toward one side",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a braided bob",
+   "short": "braided bob",
+   "tier": "plausible",
+   "look": "individual braids cut or tucked into a chin-length bob outline",
+   "tags": {
+    "family": [
+     "braid",
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a braided ponytail",
+   "short": "braided ponytail",
+   "tier": "plausible",
+   "look": "scalp braids gathered into one raised tail of hanging braids",
+   "tags": {
+    "family": [
+     "braid",
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a five-strand braid",
+   "short": "five-strand braid",
+   "tier": "unusual",
+   "look": "a wide flat braid with five sections woven into a dense basket-like pattern",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a ladder braid",
+   "short": "ladder braid",
+   "tier": "unusual",
+   "look": "two parallel braids connected by regularly spaced horizontal strands",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "heart-shaped cornrows",
+   "tier": "unusual",
+   "look": "curved scalp braids outlining a clearly visible heart shape",
+   "tags": {
+    "family": [
+     "braid"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "two-strand twists",
+   "tier": "typical",
+   "look": "separate rope-like sections made by winding pairs of strands together",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "locs",
+   "tier": "typical",
+   "look": "individual matted ropes of hair hanging separately",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "flat twists",
+   "tier": "plausible",
+   "look": "two-strand twists worked against the scalp in raised rows",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "mini twists",
+   "tier": "plausible",
+   "look": "many tiny two-strand twists with a soft, slightly fuzzy natural surface",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "jumbo twists",
+   "tier": "plausible",
+   "look": "a few large, thick two-strand twists with a pronounced spiral surface",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "Senegalese twists",
+   "tier": "plausible",
+   "look": "smooth, slender rope twists with a tight, even spiral",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "Marley twists",
+   "tier": "plausible",
+   "look": "chunky twists with a rough, fluffy surface and loosely defined edges",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "passion twists",
+   "tier": "plausible",
+   "look": "soft, springy twists with a loose wavy shape and curled ends",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "microlocs",
+   "tier": "plausible",
+   "look": "a dense fall of very thin, firmly locked strands",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "thick locs",
+   "tier": "plausible",
+   "look": "a small number of broad, heavy locked ropes",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "freeform locs",
+   "tier": "plausible",
+   "look": "irregular locked sections with varied thickness and uneven branching",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "goddess locs",
+   "tier": "plausible",
+   "look": "locs with loose curls left at the ends and along some strands",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a loc bob",
+   "short": "loc bob",
+   "tier": "plausible",
+   "look": "locs ending in a compact chin-length outline",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a crown of locs",
+   "short": "crown of locs",
+   "tier": "plausible",
+   "look": "locs wrapped and pinned around the head in a raised ring",
+   "tags": {
+    "family": [
+     "twist_locs",
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a loc bun",
+   "short": "loc bun",
+   "tier": "plausible",
+   "look": "locs gathered into one thick coiled bundle at the back or crown",
+   "tags": {
+    "family": [
+     "twist_locs",
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "two loc ponytails",
+   "tier": "plausible",
+   "look": "locs divided into two separate tied bunches",
+   "tags": {
+    "family": [
+     "twist_locs",
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a loc ponytail",
+   "short": "loc ponytail",
+   "tier": "plausible",
+   "look": "locs gathered together into one hanging tail",
+   "tags": {
+    "family": [
+     "twist_locs",
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a halo of flat twists",
+   "short": "halo of flat twists",
+   "tier": "plausible",
+   "look": "flat twists circling the head in a continuous close-fitting ring",
+   "tags": {
+    "family": [
+     "twist_locs",
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "wicks",
+   "tier": "unusual",
+   "look": "a few very thick, upright or outward-pointing cylindrical locs",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "loc petals",
+   "tier": "unusual",
+   "look": "locs folded into repeated flat loops shaped like flower petals",
+   "tags": {
+    "family": [
+     "twist_locs",
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a loc mohawk",
+   "short": "loc mohawk",
+   "tier": "unusual",
+   "look": "locs arranged in a central ridge with the sides closely shaved",
+   "tags": {
+    "family": [
+     "twist_locs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a messy bun",
+   "short": "messy bun",
+   "tier": "typical",
+   "look": "a loosely gathered knot with uneven loops and escaping strands",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a low bun",
+   "short": "low bun",
+   "tier": "typical",
+   "look": "a compact coil secured at the nape of the neck",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a topknot",
+   "short": "topknot",
+   "tier": "typical",
+   "look": "a single compact knot perched high on the crown",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a half-up top knot",
+   "short": "half-up top knot",
+   "tier": "typical",
+   "look": "the upper section tied into a crown knot while the lower hair hangs loose",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a chignon",
+   "short": "chignon",
+   "tier": "typical",
+   "look": "hair folded and pinned into a smooth, oblong bundle at the nape",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a pinned half-up style",
+   "short": "pinned half-up style",
+   "tier": "typical",
+   "look": "the side and crown sections pinned back while the rest hangs loose",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a claw-clip updo",
+   "short": "claw-clip updo",
+   "tier": "typical",
+   "look": "hair twisted upward and held with a large claw clip, with loose ends at the top",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a French twist",
+   "short": "French twist",
+   "tier": "plausible",
+   "look": "hair rolled up the back of the head and pinned in a vertical fold",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "two space buns",
+   "tier": "plausible",
+   "look": "a pair of rounded buns positioned high on either side of the head",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a braided bun",
+   "short": "braided bun",
+   "tier": "plausible",
+   "look": "a braid coiled into a bun with the plait visible across its surface",
+   "tags": {
+    "family": [
+     "bun_updo",
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a rolled updo",
+   "short": "rolled updo",
+   "tier": "plausible",
+   "look": "hair rolled inward into a horizontal tucked ridge along the nape",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a ballerina bun",
+   "short": "ballerina bun",
+   "tier": "plausible",
+   "look": "a sleek, round bun centered on the back of the head",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a sock bun",
+   "short": "sock bun",
+   "tier": "plausible",
+   "look": "a large, perfectly round doughnut-shaped bun with a smooth surface",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a figure-eight bun",
+   "short": "figure-eight bun",
+   "tier": "plausible",
+   "look": "a long twist folded into two stacked loops like the number eight",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a braided topknot",
+   "short": "braided topknot",
+   "tier": "plausible",
+   "look": "scalp braids running upward into a high coiled bun",
+   "tags": {
+    "family": [
+     "bun_updo",
+     "braid"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a Gibson tuck",
+   "short": "Gibson tuck",
+   "tier": "plausible",
+   "look": "hair folded inward into a soft horizontal pocket at the nape",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a banana bun",
+   "short": "banana bun",
+   "tier": "plausible",
+   "look": "a long, softly twisted off-center bun running diagonally down the back",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a double bun",
+   "short": "double bun",
+   "tier": "plausible",
+   "look": "two buns stacked vertically down the back of the head",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a half-up twist",
+   "short": "half-up twist",
+   "tier": "plausible",
+   "look": "the side sections twisted backward and joined above loose lower hair",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a knot bun",
+   "short": "knot bun",
+   "tier": "plausible",
+   "look": "hair visibly tied into a simple overhand knot with the ends tucked in",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a curly pineapple updo",
+   "short": "curly pineapple updo",
+   "tier": "plausible",
+   "look": "curls gathered at the very top so the loose ends spill forward",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "Bantu knots",
+   "tier": "plausible",
+   "look": "many small sections twisted into separate tight knots across the scalp",
+   "tags": {
+    "family": [
+     "bun_updo",
+     "twist_locs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a bow bun",
+   "short": "bow bun",
+   "tier": "unusual",
+   "look": "hair looped into two wide bow shapes with a central wrapped knot",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a rose bun",
+   "short": "rose bun",
+   "tier": "unusual",
+   "look": "overlapping curled sections pinned into a spiral of petal-like loops",
+   "tags": {
+    "family": [
+     "bun_updo"
+    ],
+    "hair_length": [
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a low ponytail",
+   "short": "low ponytail",
+   "tier": "typical",
+   "look": "one tail secured close to the nape",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a high ponytail",
+   "short": "high ponytail",
+   "tier": "typical",
+   "look": "one tail secured high on the crown and falling down the back",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a half-up ponytail",
+   "short": "half-up ponytail",
+   "tier": "typical",
+   "look": "the top half tied into a tail above a loose lower layer",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "two low ponytails",
+   "tier": "typical",
+   "look": "two tails tied near the nape, one on each side",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a side ponytail",
+   "short": "side ponytail",
+   "tier": "plausible",
+   "look": "one tail secured beside the head and falling over a shoulder",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "two high ponytails",
+   "tier": "plausible",
+   "look": "two tails tied high on opposite sides of the head",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a bubble ponytail",
+   "short": "bubble ponytail",
+   "tier": "plausible",
+   "look": "one tail divided by bands into a chain of rounded puffs",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a twisted ponytail",
+   "short": "twisted ponytail",
+   "tier": "plausible",
+   "look": "a ponytail formed from two large sections wound around each other",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a topsy-tail ponytail",
+   "short": "topsy-tail ponytail",
+   "tier": "plausible",
+   "look": "a low tail flipped through its base, leaving inward rolls above the tie",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a fountain ponytail",
+   "short": "fountain ponytail",
+   "tier": "plausible",
+   "look": "a very high tail spreading outward in a spray from the crown",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a segmented ponytail",
+   "short": "segmented ponytail",
+   "tier": "plausible",
+   "look": "a straight tail cinched at intervals with bands and kept narrow between them",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a looped ponytail",
+   "short": "looped ponytail",
+   "tier": "plausible",
+   "look": "a ponytail pulled only halfway through its tie to leave a long hanging loop",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a wrapped ponytail",
+   "short": "wrapped ponytail",
+   "tier": "plausible",
+   "look": "a tail with a broad spiral wrap of hair extending down from its base",
+   "tags": {
+    "family": [
+     "ponytail"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "beach waves",
+   "tier": "typical",
+   "look": "loose irregular waves with relaxed, tousled ends",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "spiral curls",
+   "tier": "typical",
+   "look": "defined corkscrew ringlets running down the length of the hair",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "flipped-out ends",
+   "tier": "typical",
+   "look": "the ends turned distinctly outward around the perimeter",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "curled-under ends",
+   "tier": "typical",
+   "look": "the ends turned inward toward the neck in a smooth rounded edge",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a straight blowout",
+   "short": "straight blowout",
+   "tier": "typical",
+   "look": "smooth loose hair with raised roots and a softly rounded silhouette",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "Hollywood waves",
+   "tier": "plausible",
+   "look": "large glossy waves aligned into a smooth repeating S pattern",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "pin curls",
+   "tier": "plausible",
+   "look": "small flat spirals curled against the head in a deliberate set",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "barrel curls",
+   "tier": "plausible",
+   "look": "large rounded cylindrical curls with open centers",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "crimped waves",
+   "tier": "plausible",
+   "look": "many small, regular zigzag bends running along each strand",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "mermaid waves",
+   "tier": "plausible",
+   "look": "deep, even waves repeated along long loose lengths",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a curly blowout",
+   "short": "curly blowout",
+   "tier": "plausible",
+   "look": "big, airy curls with lifted roots and rounded, bouncy ends",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a wet-look style",
+   "short": "wet-look style",
+   "tier": "plausible",
+   "look": "glossy, gel-defined strands lying in separated damp-looking sections",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a roller set",
+   "short": "roller set",
+   "tier": "plausible",
+   "look": "regular rounded curls arranged in a full, evenly lifted shape",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a side-swept curl set",
+   "short": "side-swept curl set",
+   "tier": "plausible",
+   "look": "defined curls gathered over one shoulder with the other side swept back",
+   "tags": {
+    "family": [
+     "curls_waves"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "curtain bangs",
+   "tier": "typical",
+   "look": "a center-split fringe curving away from the face on both sides",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "blunt bangs",
+   "tier": "typical",
+   "look": "a dense fringe cut in a straight line across the forehead",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "wispy bangs",
+   "tier": "typical",
+   "look": "a light, uneven fringe with visible spaces between fine strands",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "side-swept bangs",
+   "tier": "typical",
+   "look": "a long fringe brushed diagonally across the forehead",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "curly bangs",
+   "tier": "typical",
+   "look": "short curls falling forward over the forehead",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "baby bangs",
+   "tier": "plausible",
+   "look": "a very short fringe ending high above the eyebrows",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "choppy bangs",
+   "tier": "plausible",
+   "look": "a deliberately jagged fringe with alternating short and long pieces",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "arched bangs",
+   "tier": "plausible",
+   "look": "a fringe cut shorter in the center and longer toward the temples",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "asymmetrical bangs",
+   "tier": "plausible",
+   "look": "a fringe sloping from short on one side to long on the other",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "bottleneck bangs",
+   "tier": "plausible",
+   "look": "a short narrow center fringe that widens into longer cheek-framing pieces",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "peekaboo bangs",
+   "tier": "plausible",
+   "look": "a long sweeping fringe that falls across and partly covers one eye",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "V-shaped bangs",
+   "tier": "unusual",
+   "look": "a sharply edged fringe that comes to a point at the center of the forehead",
+   "tags": {
+    "family": [
+     "bangs"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "finger waves",
+   "tier": "plausible",
+   "look": "close, sculpted S-shaped ridges lying flat against the head",
+   "tags": {
+    "family": [
+     "period",
+     "curls_waves"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a bouffant",
+   "short": "bouffant",
+   "tier": "plausible",
+   "look": "a wide, lifted dome of teased hair with loose or turned-under ends",
+   "tags": {
+    "family": [
+     "period"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a pageboy cut",
+   "short": "pageboy cut",
+   "tier": "plausible",
+   "look": "a smooth rounded cut with a heavy fringe and the ends rolled under",
+   "tags": {
+    "family": [
+     "period",
+     "cut"
+    ],
+    "hair_length": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a ducktail",
+   "short": "ducktail",
+   "tier": "plausible",
+   "look": "both sides swept backward to meet in a vertical seam at the back",
+   "tags": {
+    "family": [
+     "period"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "victory rolls",
+   "tier": "unusual",
+   "look": "two large hollow rolls swept upward from the temples",
+   "tags": {
+    "family": [
+     "period",
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a beehive",
+   "short": "beehive",
+   "tier": "unusual",
+   "look": "a tall, rounded tower of teased hair pinned above the crown",
+   "tags": {
+    "family": [
+     "period",
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a Gibson girl updo",
+   "short": "Gibson girl updo",
+   "tier": "unusual",
+   "look": "a soft, puffed halo of hair swept up into a loose knot on the crown",
+   "tags": {
+    "family": [
+     "period",
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a poodle cut",
+   "short": "poodle cut",
+   "tier": "unusual",
+   "look": "tight curls piled high over the crown with short curled sides",
+   "tags": {
+    "family": [
+     "period",
+     "cut"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bumper bang",
+   "short": "bumper bang",
+   "tier": "unusual",
+   "look": "the front hair curled into one large horizontal roll above the forehead",
+   "tags": {
+    "family": [
+     "period",
+     "bangs"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a queue",
+   "short": "queue",
+   "tier": "unusual",
+   "look": "the front scalp shaved and the remaining back hair woven into one long braid",
+   "tags": {
+    "family": [
+     "period"
+    ],
+    "hair_length": [
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a chonmage",
+   "short": "chonmage",
+   "tier": "unusual",
+   "look": "a shaved crown with the remaining long hair folded into a small forward-facing topknot",
+   "tags": {
+    "family": [
+     "period",
+     "bun_updo"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a rounded Afro",
+   "short": "rounded Afro",
+   "tier": "typical",
+   "look": "loose coils shaped into an even rounded halo around the head",
+   "tags": {
+    "family": [
+     "natural"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a tapered Afro",
+   "short": "tapered Afro",
+   "tier": "typical",
+   "look": "a full coily crown narrowing into short sides and a close nape",
+   "tags": {
+    "family": [
+     "natural"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a low puff",
+   "short": "low puff",
+   "tier": "typical",
+   "look": "coils gathered at the nape into one soft rounded cluster",
+   "tags": {
+    "family": [
+     "natural"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a high puff",
+   "short": "high puff",
+   "tier": "typical",
+   "look": "coils gathered on the crown into a soft rounded cluster",
+   "tags": {
+    "family": [
+     "natural"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "two Afro puffs",
+   "tier": "typical",
+   "look": "coils gathered into two rounded clusters on opposite sides",
+   "tags": {
+    "family": [
+     "natural"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a twist-out",
+   "short": "twist-out",
+   "tier": "typical",
+   "look": "loose hair with chunky, separated spiral clumps left by unraveled twists",
+   "tags": {
+    "family": [
+     "natural",
+     "curls_waves"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a wash-and-go",
+   "short": "wash-and-go",
+   "tier": "typical",
+   "look": "loose natural curls or coils defined into small individual clumps",
+   "tags": {
+    "family": [
+     "natural"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a braid-out",
+   "short": "braid-out",
+   "tier": "plausible",
+   "look": "loose hair with defined crimp-like waves left by unraveled braids",
+   "tags": {
+    "family": [
+     "natural",
+     "curls_waves"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "finger coils",
+   "tier": "plausible",
+   "look": "many defined, narrow coils formed into separate smooth spirals",
+   "tags": {
+    "family": [
+     "natural"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a frohawk",
+   "short": "frohawk",
+   "tier": "plausible",
+   "look": "coils gathered into a raised central ridge with the sides pulled close",
+   "tags": {
+    "family": [
+     "natural"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a Bantu knot-out",
+   "short": "Bantu knot-out",
+   "tier": "plausible",
+   "look": "loose rounded corkscrew curls separated into distinct springy sections",
+   "tags": {
+    "family": [
+     "natural",
+     "curls_waves"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a side part",
+   "short": "side part",
+   "tier": "typical",
+   "look": "a visible part to one side, with hair falling in unequal sections",
+   "tags": {
+    "family": [
+     "parted"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a center part",
+   "short": "center part",
+   "tier": "typical",
+   "look": "a straight part dividing the hair into equal left and right sections",
+   "tags": {
+    "family": [
+     "parted"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a slicked-back style",
+   "short": "slicked-back style",
+   "tier": "typical",
+   "look": "hair brushed smoothly straight back from the forehead with no visible part",
+   "tags": {
+    "family": [
+     "parted"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a deep side part",
+   "short": "deep side part",
+   "tier": "plausible",
+   "look": "a part near one temple sweeping most of the hair across the head",
+   "tags": {
+    "family": [
+     "parted"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a zigzag part",
+   "short": "zigzag part",
+   "tier": "plausible",
+   "look": "a visible part that alternates left and right in a zigzag line",
+   "tags": {
+    "family": [
+     "parted"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a diagonal part",
+   "short": "diagonal part",
+   "tier": "plausible",
+   "look": "a straight part running at an angle from the forehead toward the opposite crown",
+   "tags": {
+    "family": [
+     "parted"
+    ],
+    "hair_length": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "a comb-over",
+   "short": "comb-over",
+   "tier": "plausible",
+   "look": "longer top hair combed sideways across the head over closely cut sides",
+   "tags": {
+    "family": [
+     "parted"
+    ],
+    "hair_length": [
+     "short",
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a flip-over style",
+   "short": "flip-over style",
+   "tier": "plausible",
+   "look": "loose hair thrown to one side with a high lifted root and no crisp part",
+   "tags": {
+    "family": [
+     "parted"
+    ],
+    "hair_length": [
+     "medium",
+     "long",
+     "very_long"
+    ]
+   }
   }
+ ],
+ "context": {
+  "takes": {
+   "hair_length": {
+    "mismatch": "drop"
+   }
+  }
+ }
 }

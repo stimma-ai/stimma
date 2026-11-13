@@ -1,0 +1,916 @@
+{
+ "id": "animal.sea_life",
+ "label": "Sea life",
+ "description": "Named marine and freshwater animals, corals and other aquatic life, with recognizable body forms.",
+ "pos": "noun phrase",
+ "frame": "___",
+ "notes": "Marine animals and corals belong here, alongside a freshwater group for aquarium fish and aquatic amphibians. animal.species holds the broader animal backbone, animal.insect holds terrestrial invertebrates, and animal.mythical holds invented aquatic creatures. Values are singular names with their own a or an so every complete phrase reads naturally; familiar synonyms share one entry. The kind chips combine body form and habitat, so deep-sea animals may also appear under their body-form group.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "fish",
+   "shark_ray",
+   "whale_dolphin_seal",
+   "cephalopod",
+   "jelly_coral",
+   "crustacean_shell",
+   "deep_sea",
+   "freshwater"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "a clownfish",
+   "short": "clownfish",
+   "tier": "typical",
+   "look": "a small orange reef fish with three white bands edged in black",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a blue tang",
+   "short": "blue tang",
+   "tier": "typical",
+   "look": "a flat royal-blue fish with a black palette-shaped marking and yellow tail",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a mandarinfish",
+   "short": "mandarinfish",
+   "tier": "plausible",
+   "look": "a small fish covered in swirling electric-blue lines over orange and green",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a lionfish",
+   "short": "lionfish",
+   "tier": "typical",
+   "look": "a striped reef fish with long radiating venomous spines and fanlike fins",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a pufferfish",
+   "short": "pufferfish",
+   "tier": "typical",
+   "look": "a blunt-headed fish that can swell into a round ball, with small fins and a beaklike mouth",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a porcupinefish",
+   "short": "porcupinefish",
+   "tier": "plausible",
+   "look": "a round-bodied fish covered in long spines that stand out when it inflates",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a seahorse",
+   "short": "seahorse",
+   "tier": "typical",
+   "look": "a tiny upright fish with a horse-shaped head, tubular snout and tightly curled tail",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a leafy sea dragon",
+   "short": "leafy sea dragon",
+   "tier": "plausible",
+   "look": "a slender seahorse relative camouflaged by elaborate leaflike flaps",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a ribbon eel",
+   "short": "ribbon eel",
+   "tier": "unusual",
+   "look": "a long ribbonlike eel with flared nostrils, often blue with a yellow dorsal edge",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a moray eel",
+   "short": "moray eel",
+   "tier": "plausible",
+   "look": "a thick snakelike fish with a large open jaw and no paired fins",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a parrotfish",
+   "short": "parrotfish",
+   "tier": "plausible",
+   "look": "a brightly colored reef fish with large scales and a fused parrotlike beak",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a butterflyfish",
+   "short": "butterflyfish",
+   "tier": "plausible",
+   "look": "a thin disk-shaped reef fish with bright bands and a pointed snout",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a Moorish idol",
+   "short": "Moorish idol",
+   "tier": "plausible",
+   "look": "a tall black-white-yellow fish with a long trailing white dorsal filament",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a Napoleon wrasse",
+   "short": "Napoleon wrasse",
+   "tier": "unusual",
+   "look": "a large blue-green reef fish with thick lips and a bulging forehead",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a swordfish",
+   "short": "swordfish",
+   "tier": "plausible",
+   "look": "a streamlined ocean fish with a very long flat swordlike upper jaw",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "an ocean sunfish",
+   "short": "ocean sunfish",
+   "tier": "unusual",
+   "look": "a huge flattened fish shaped like a blunt disk with tall dorsal and anal fins",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a flying fish",
+   "short": "flying fish",
+   "tier": "plausible",
+   "look": "a slim silver fish with greatly enlarged pectoral fins spread like wings",
+   "tags": {
+    "kind": [
+     "fish"
+    ]
+   }
+  },
+  {
+   "text": "a manta ray",
+   "short": "manta ray",
+   "tier": "typical",
+   "look": "a broad diamond-shaped ray with sweeping winglike fins and two rolled lobes beside its mouth",
+   "tags": {
+    "kind": [
+     "shark_ray"
+    ]
+   }
+  },
+  {
+   "text": "a spotted eagle ray",
+   "short": "spotted eagle ray",
+   "tier": "plausible",
+   "look": "a dark ray dotted with white spots, with a projecting snout and a long whiplike tail",
+   "tags": {
+    "kind": [
+     "shark_ray"
+    ]
+   }
+  },
+  {
+   "text": "a stingray",
+   "short": "stingray",
+   "tier": "typical",
+   "look": "a flat rounded ray with eyes on top and a thin tail bearing a sting",
+   "tags": {
+    "kind": [
+     "shark_ray"
+    ]
+   }
+  },
+  {
+   "text": "a whale shark",
+   "short": "whale shark",
+   "tier": "typical",
+   "look": "a massive broad-headed shark with pale spots and stripes on a dark back",
+   "tags": {
+    "kind": [
+     "shark_ray"
+    ]
+   }
+  },
+  {
+   "text": "a hammerhead shark",
+   "short": "hammerhead shark",
+   "tier": "typical",
+   "look": "a shark with a wide hammer-shaped head and eyes at the outer tips",
+   "tags": {
+    "kind": [
+     "shark_ray"
+    ]
+   }
+  },
+  {
+   "text": "a great white shark",
+   "short": "great white shark",
+   "tier": "typical",
+   "look": "a heavy gray-backed shark with a white underside, pointed snout and triangular teeth",
+   "tags": {
+    "kind": [
+     "shark_ray"
+    ]
+   }
+  },
+  {
+   "text": "a tiger shark",
+   "short": "tiger shark",
+   "tier": "plausible",
+   "look": "a broad-headed shark with dark vertical bars along its sides",
+   "tags": {
+    "kind": [
+     "shark_ray"
+    ]
+   }
+  },
+  {
+   "text": "a sawfish",
+   "short": "sawfish",
+   "tier": "unusual",
+   "look": "a flattened sharklike ray with a long flat snout edged in toothlike spikes",
+   "tags": {
+    "kind": [
+     "shark_ray"
+    ]
+   }
+  },
+  {
+   "text": "a goblin shark",
+   "short": "goblin shark",
+   "tier": "unusual",
+   "look": "a pale pink shark with a long blade-shaped snout and jaws that project forward",
+   "tags": {
+    "kind": [
+     "shark_ray",
+     "deep_sea"
+    ]
+   }
+  },
+  {
+   "text": "an orca",
+   "short": "orca",
+   "tier": "typical",
+   "look": "a black-and-white whale with a tall dorsal fin and white oval patches behind the eyes",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal"
+    ]
+   }
+  },
+  {
+   "text": "a humpback whale",
+   "short": "humpback whale",
+   "tier": "typical",
+   "look": "a bulky whale with knobby jaws, very long pectoral fins and a broad scalloped tail",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal"
+    ]
+   }
+  },
+  {
+   "text": "a blue whale",
+   "short": "blue whale",
+   "tier": "plausible",
+   "look": "an enormous mottled blue-gray whale with a long streamlined body and small dorsal fin",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal"
+    ]
+   }
+  },
+  {
+   "text": "a sperm whale",
+   "short": "sperm whale",
+   "tier": "plausible",
+   "look": "a large dark whale with a huge squared head and a narrow lower jaw",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal",
+     "deep_sea"
+    ]
+   }
+  },
+  {
+   "text": "a narwhal",
+   "short": "narwhal",
+   "tier": "plausible",
+   "look": "a pale mottled whale, with males often bearing a single long spiral tusk",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal"
+    ]
+   }
+  },
+  {
+   "text": "a beluga whale",
+   "short": "beluga whale",
+   "tier": "plausible",
+   "look": "a white whale with a rounded forehead, flexible neck and no dorsal fin",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal"
+    ]
+   }
+  },
+  {
+   "text": "a bottlenose dolphin",
+   "short": "bottlenose dolphin",
+   "tier": "typical",
+   "look": "a sleek gray dolphin with a short rounded beak and curved dorsal fin",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal"
+    ]
+   }
+  },
+  {
+   "text": "a harbor seal",
+   "short": "harbor seal",
+   "tier": "typical",
+   "look": "a spotted gray seal with a rounded head, short muzzle and small front flippers",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal"
+    ]
+   }
+  },
+  {
+   "text": "a sea lion",
+   "short": "sea lion",
+   "tier": "plausible",
+   "look": "a sleek brown pinniped with visible ear flaps and long front flippers",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal"
+    ]
+   }
+  },
+  {
+   "text": "a walrus",
+   "short": "walrus",
+   "tier": "typical",
+   "look": "a massive wrinkled brown pinniped with long ivory tusks and a bristly mustache",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal"
+    ]
+   }
+  },
+  {
+   "text": "a sea otter",
+   "short": "sea otter",
+   "tier": "typical",
+   "look": "a dense-furred brown marine mammal with a pale whiskered face, often floating on its back",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal"
+    ]
+   }
+  },
+  {
+   "text": "a manatee",
+   "short": "manatee",
+   "tier": "plausible",
+   "look": "a large gray aquatic mammal with a blunt whiskered muzzle and rounded paddle-shaped tail",
+   "tags": {
+    "kind": [
+     "whale_dolphin_seal",
+     "freshwater"
+    ]
+   }
+  },
+  {
+   "text": "an octopus",
+   "short": "octopus",
+   "tier": "typical",
+   "look": "a soft-bodied animal with a rounded mantle and eight flexible sucker-lined arms",
+   "tags": {
+    "kind": [
+     "cephalopod"
+    ]
+   }
+  },
+  {
+   "text": "a blue-ringed octopus",
+   "short": "blue-ringed octopus",
+   "tier": "plausible",
+   "look": "a small yellowish octopus patterned with vivid blue rings",
+   "tags": {
+    "kind": [
+     "cephalopod"
+    ]
+   }
+  },
+  {
+   "text": "a cuttlefish",
+   "short": "cuttlefish",
+   "tier": "plausible",
+   "look": "a broad oval cephalopod with a rippling fin skirt and short arms gathered around its mouth",
+   "tags": {
+    "kind": [
+     "cephalopod"
+    ]
+   }
+  },
+  {
+   "text": "a giant squid",
+   "short": "giant squid",
+   "tier": "plausible",
+   "look": "a long torpedo-shaped cephalopod with eight arms, two much longer tentacles and large eyes",
+   "tags": {
+    "kind": [
+     "cephalopod",
+     "deep_sea"
+    ]
+   }
+  },
+  {
+   "text": "a vampire squid",
+   "short": "vampire squid",
+   "tier": "unusual",
+   "look": "a dark red cephalopod with huge eyes and webbing that joins its arms into a cloak",
+   "tags": {
+    "kind": [
+     "cephalopod",
+     "deep_sea"
+    ]
+   }
+  },
+  {
+   "text": "a dumbo octopus",
+   "short": "dumbo octopus",
+   "tier": "unusual",
+   "look": "a small rounded deep-sea octopus with two large ear-shaped fins",
+   "tags": {
+    "kind": [
+     "cephalopod",
+     "deep_sea"
+    ]
+   }
+  },
+  {
+   "text": "a chambered nautilus",
+   "short": "chambered nautilus",
+   "tier": "plausible",
+   "look": "a tentacled cephalopod emerging from a cream spiral shell striped with brown",
+   "tags": {
+    "kind": [
+     "cephalopod",
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a moon jellyfish",
+   "short": "moon jellyfish",
+   "tier": "typical",
+   "look": "a translucent saucer-shaped jellyfish with four horseshoe-shaped rings inside its bell",
+   "tags": {
+    "kind": [
+     "jelly_coral"
+    ]
+   }
+  },
+  {
+   "text": "a sea nettle jellyfish",
+   "short": "sea nettle jellyfish",
+   "tier": "plausible",
+   "look": "a bell-shaped jellyfish trailing long thin tentacles and ruffled oral arms",
+   "tags": {
+    "kind": [
+     "jelly_coral"
+    ]
+   }
+  },
+  {
+   "text": "a Portuguese man o' war",
+   "short": "Portuguese man o' war",
+   "tier": "plausible",
+   "look": "a translucent blue-purple gas float with a raised sail and long trailing blue tentacles",
+   "tags": {
+    "kind": [
+     "jelly_coral"
+    ]
+   }
+  },
+  {
+   "text": "a comb jelly",
+   "short": "comb jelly",
+   "tier": "unusual",
+   "look": "a translucent oval body with eight rows of tiny paddles that shimmer in rainbow bands",
+   "tags": {
+    "kind": [
+     "jelly_coral"
+    ]
+   }
+  },
+  {
+   "text": "a brain coral",
+   "short": "brain coral",
+   "tier": "plausible",
+   "look": "a rounded stony coral covered in winding grooves like the folds of a brain",
+   "tags": {
+    "kind": [
+     "jelly_coral"
+    ]
+   }
+  },
+  {
+   "text": "a staghorn coral",
+   "short": "staghorn coral",
+   "tier": "plausible",
+   "look": "a branching stony coral with thin pointed limbs like a stag's antlers",
+   "tags": {
+    "kind": [
+     "jelly_coral"
+    ]
+   }
+  },
+  {
+   "text": "a sea fan",
+   "short": "sea fan",
+   "tier": "plausible",
+   "look": "a flat branching coral colony forming a delicate lacy fan",
+   "tags": {
+    "kind": [
+     "jelly_coral"
+    ]
+   }
+  },
+  {
+   "text": "a sea anemone",
+   "short": "sea anemone",
+   "tier": "typical",
+   "look": "a soft column topped by a flowerlike ring of flexible tentacles",
+   "tags": {
+    "kind": [
+     "jelly_coral"
+    ]
+   }
+  },
+  {
+   "text": "a sea urchin",
+   "short": "sea urchin",
+   "tier": "plausible",
+   "look": "a small round body bristling with stiff radiating spines",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a starfish",
+   "short": "starfish",
+   "tier": "typical",
+   "look": "a flattened sea animal with a central disk and usually five broad tapering arms",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a brittle star",
+   "short": "brittle star",
+   "tier": "plausible",
+   "look": "a small central disk with five long thin jointed arms",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a sea cucumber",
+   "short": "sea cucumber",
+   "tier": "unusual",
+   "look": "an elongated leathery body like a thick cucumber, sometimes covered in bumps",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a nudibranch",
+   "short": "nudibranch",
+   "tier": "plausible",
+   "look": "a shell-less sea slug with bright colors, paired head feelers and exposed feathery gills",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a blue dragon sea slug",
+   "short": "blue dragon sea slug",
+   "tier": "unusual",
+   "look": "a tiny blue-and-silver sea slug with six spreading clusters of fingerlike branches",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a mantis shrimp",
+   "short": "mantis shrimp",
+   "tier": "plausible",
+   "look": "a vividly colored crustacean with stalked eyes and folded striking forelimbs",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a hermit crab",
+   "short": "hermit crab",
+   "tier": "typical",
+   "look": "a small crab carrying a borrowed spiral shell with its claws and legs protruding",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a horseshoe crab",
+   "short": "horseshoe crab",
+   "tier": "plausible",
+   "look": "a broad domed brown shell with a hinged rear section and long straight tail spine",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a lobster",
+   "short": "lobster",
+   "tier": "typical",
+   "look": "a long armored crustacean with a segmented tail, antennae and two large front claws",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a Japanese spider crab",
+   "short": "Japanese spider crab",
+   "tier": "unusual",
+   "look": "a small orange armored body on extremely long thin jointed legs",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a fiddler crab",
+   "short": "fiddler crab",
+   "tier": "plausible",
+   "look": "a small crab whose male has one greatly enlarged claw",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a cleaner shrimp",
+   "short": "cleaner shrimp",
+   "tier": "plausible",
+   "look": "a slender red-and-white shrimp with very long white antennae",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "a giant clam",
+   "short": "giant clam",
+   "tier": "plausible",
+   "look": "a heavy ridged shell held open around a brightly colored rippling mantle",
+   "tags": {
+    "kind": [
+     "crustacean_shell"
+    ]
+   }
+  },
+  {
+   "text": "an anglerfish",
+   "short": "anglerfish",
+   "tier": "plausible",
+   "look": "a dark round-bodied deep-sea fish with a glowing lure above a wide toothy mouth",
+   "tags": {
+    "kind": [
+     "fish",
+     "deep_sea"
+    ]
+   }
+  },
+  {
+   "text": "a viperfish",
+   "short": "viperfish",
+   "tier": "unusual",
+   "look": "a slender deep-sea fish with huge needlelike teeth and a long dorsal ray",
+   "tags": {
+    "kind": [
+     "fish",
+     "deep_sea"
+    ]
+   }
+  },
+  {
+   "text": "a giant isopod",
+   "short": "giant isopod",
+   "tier": "unusual",
+   "look": "a pale armored crustacean like an oversized pill bug with overlapping shell plates",
+   "tags": {
+    "kind": [
+     "crustacean_shell",
+     "deep_sea"
+    ]
+   }
+  },
+  {
+   "text": "an axolotl",
+   "short": "axolotl",
+   "tier": "plausible",
+   "look": "an aquatic salamander with a broad smiling-looking mouth and feathery external gills",
+   "tags": {
+    "kind": [
+     "freshwater"
+    ]
+   }
+  },
+  {
+   "text": "a koi",
+   "short": "koi",
+   "tier": "typical",
+   "look": "a large pond carp with bold patches of white, orange, red or black",
+   "tags": {
+    "kind": [
+     "freshwater"
+    ]
+   }
+  },
+  {
+   "text": "a betta fish",
+   "short": "betta fish",
+   "tier": "typical",
+   "look": "a small aquarium fish with vivid colors and long flowing fanlike fins",
+   "tags": {
+    "kind": [
+     "freshwater"
+    ]
+   }
+  },
+  {
+   "text": "an arowana",
+   "short": "arowana",
+   "tier": "plausible",
+   "look": "a long large-scaled freshwater fish with an upturned mouth and two short chin barbels",
+   "tags": {
+    "kind": [
+     "freshwater"
+    ]
+   }
+  },
+  {
+   "text": "a piranha",
+   "short": "piranha",
+   "tier": "plausible",
+   "look": "a deep-bodied silver fish with a blunt head, strong jaw and sharp triangular teeth",
+   "tags": {
+    "kind": [
+     "freshwater"
+    ]
+   }
+  },
+  {
+   "text": "a goldfish",
+   "short": "goldfish",
+   "tier": "typical",
+   "look": "a rounded orange or gold freshwater fish with a forked tail",
+   "tags": {
+    "kind": [
+     "freshwater"
+    ]
+   }
+  },
+  {
+   "text": "a neon tetra",
+   "short": "neon tetra",
+   "tier": "plausible",
+   "look": "a tiny slender fish with a brilliant blue side stripe and red rear underside",
+   "tags": {
+    "kind": [
+     "freshwater"
+    ]
+   }
+  },
+  {
+   "text": "a discus fish",
+   "short": "discus fish",
+   "tier": "plausible",
+   "look": "a nearly circular freshwater fish with a flat body and vivid bands or wavy markings",
+   "tags": {
+    "kind": [
+     "freshwater"
+    ]
+   }
+  },
+  {
+   "text": "a freshwater stingray",
+   "short": "freshwater stingray",
+   "tier": "unusual",
+   "look": "a round brown ray patterned with pale spots or rings and a thick short tail",
+   "tags": {
+    "kind": [
+     "shark_ray",
+     "freshwater"
+    ]
+   }
+  },
+  {
+   "text": "a sturgeon",
+   "short": "sturgeon",
+   "tier": "plausible",
+   "look": "a long armored fish with rows of bony plates, a pointed snout and whiskerlike barbels",
+   "tags": {
+    "kind": [
+     "freshwater"
+    ]
+   }
+  }
+ ]
+}

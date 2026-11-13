@@ -1,0 +1,462 @@
+{
+ "id": "art.rendering",
+ "label": "3D and game looks",
+ "description": "Specific 3D rendering, pixel-art, retro-game, flat graphic, technical visualization, and digital glitch looks.",
+ "pos": "noun phrase",
+ "frame": "made as ___",
+ "notes": "Named digital rendering looks belong here, phrased as article-led noun phrases after “made as.” art.medium owns broad processes such as digital painting and 3D rendering; art.style owns movements and general illustration styles. Retro hardware looks use descriptive names without product or studio brands, and cel shading covers the overlapping toon-shading term. Technical and glitch entries change the depiction itself rather than the era or genre of its subject.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "3d_render",
+   "pixel_retro_game",
+   "flat_graphic",
+   "technical",
+   "glitch_digital"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "a low-poly 3D render",
+   "short": "low-poly 3D",
+   "tier": "typical",
+   "look": "large flat polygon faces form angular silhouettes with clearly faceted surfaces",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a voxel artwork",
+   "short": "voxel art",
+   "tier": "typical",
+   "look": "small colored cubes build chunky three-dimensional forms with stepped edges",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a cel-shaded 3D render",
+   "short": "cel-shaded 3D",
+   "tier": "typical",
+   "look": "modeled forms have hard bands of flat shadow and crisp dark contour lines",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a claymorphism render",
+   "short": "claymorphism",
+   "tier": "plausible",
+   "look": "plump rounded forms have soft matte surfaces, pillowy edges, and broad gentle shadows",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a glossy family-animation 3D render",
+   "short": "glossy animation 3D",
+   "tier": "typical",
+   "look": "rounded expressive characters have smooth colorful surfaces, bright eyes, and polished cinematic lighting",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a real-time game engine render",
+   "short": "real-time game render",
+   "tier": "typical",
+   "look": "detailed textured game assets have crisp edges, dynamic lighting, and readable material surfaces",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a photogrammetry scan render",
+   "short": "photogrammetry scan",
+   "tier": "plausible",
+   "look": "captured real surfaces retain uneven geometry, baked shadows, and highly detailed photographic textures",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a ray-traced render",
+   "short": "ray-traced",
+   "tier": "typical",
+   "look": "polished surfaces show detailed reflections, glass refractions, and softly bounced light",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a clay render",
+   "short": "clay render",
+   "tier": "typical",
+   "look": "all modeled surfaces share one matte neutral material, revealing form through light and shadow",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "an isometric 3D icon illustration",
+   "short": "isometric 3D icons",
+   "tier": "typical",
+   "look": "small simplified objects share a fixed angled view, clean materials, and compact floating shadows",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a papercraft 3D render",
+   "short": "papercraft 3D",
+   "tier": "typical",
+   "look": "folded paper-like planes show crisp creases, thin edges, and soft shadows at the joins",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a miniature diorama render",
+   "short": "miniature diorama",
+   "tier": "typical",
+   "look": "a tiny complete scene sits on a visible base with model-scale detail and shallow focus",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a point-cloud render",
+   "short": "point cloud",
+   "tier": "plausible",
+   "look": "thousands of separate colored dots describe three-dimensional surfaces with gaps between points",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a chrome 3D render",
+   "short": "chrome 3D",
+   "tier": "plausible",
+   "look": "mirror-bright metallic forms reflect their surroundings in sharp warped bands",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a glass 3D render",
+   "short": "glass 3D",
+   "tier": "plausible",
+   "look": "transparent modeled forms bend the background and catch bright reflections along their edges",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a crosshatch-shaded 3D render",
+   "short": "crosshatch shader",
+   "tier": "plausible",
+   "look": "curved modeled surfaces are shaded with layered drawn hatch marks that follow their form",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "a 1990s low-resolution 3D game render",
+   "short": "1990s low-res 3D",
+   "tier": "plausible",
+   "look": "angular models carry blurry small textures, jagged edges, and visibly warped surface mapping",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "an early-2000s CGI render",
+   "short": "early-2000s CGI",
+   "tier": "plausible",
+   "look": "smooth plastic-looking models have simple textures, hard specular highlights, and stiff synthetic surfaces",
+   "tags": {
+    "kind": [
+     "3d_render"
+    ]
+   }
+  },
+  {
+   "text": "an 8-bit pixel-art illustration",
+   "short": "8-bit pixel art",
+   "tier": "typical",
+   "look": "very small sprites use a few flat colors, chunky stepped contours, and sparse detail",
+   "tags": {
+    "kind": [
+     "pixel_retro_game"
+    ]
+   }
+  },
+  {
+   "text": "a 16-bit pixel-art illustration",
+   "short": "16-bit pixel art",
+   "tier": "typical",
+   "look": "detailed sprites use richer color ramps, fine pixel shading, and layered scenery",
+   "tags": {
+    "kind": [
+     "pixel_retro_game"
+    ]
+   }
+  },
+  {
+   "text": "an isometric pixel-art illustration",
+   "short": "isometric pixel art",
+   "tier": "plausible",
+   "look": "pixel-built objects share a diagonal overhead view with diamond-shaped floor tiles",
+   "tags": {
+    "kind": [
+     "pixel_retro_game"
+    ]
+   }
+  },
+  {
+   "text": "a 1-bit pixel-art illustration",
+   "short": "1-bit pixel art",
+   "tier": "plausible",
+   "look": "only black and white pixels form stark shapes, stippled shadows, and sharp silhouettes",
+   "tags": {
+    "kind": [
+     "pixel_retro_game"
+    ]
+   }
+  },
+  {
+   "text": "an ordered-dither pixel illustration",
+   "short": "ordered dithering",
+   "tier": "plausible",
+   "look": "repeating checkerboard and dot matrices turn a small palette into patterned tonal gradients",
+   "tags": {
+    "kind": [
+     "pixel_retro_game"
+    ]
+   }
+  },
+  {
+   "text": "a monochrome handheld-game illustration",
+   "short": "monochrome handheld",
+   "tier": "plausible",
+   "look": "tiny low-resolution sprites use four muted green-gray tones within a compact game scene",
+   "tags": {
+    "kind": [
+     "pixel_retro_game"
+    ]
+   }
+  },
+  {
+   "text": "a pre-rendered adventure-game background",
+   "short": "pre-rendered game scene",
+   "tier": "plausible",
+   "look": "a fixed cinematic view of modeled scenery has softly compressed textures and painted-looking pixel detail",
+   "tags": {
+    "kind": [
+     "pixel_retro_game"
+    ]
+   }
+  },
+  {
+   "text": "a flat vector illustration",
+   "short": "flat vector",
+   "tier": "typical",
+   "look": "simple geometric shapes use solid colors and clean edges without modeled volume",
+   "tags": {
+    "kind": [
+     "flat_graphic"
+    ]
+   }
+  },
+  {
+   "text": "a gradient-mesh vector illustration",
+   "short": "gradient mesh",
+   "tier": "plausible",
+   "look": "smooth flowing color gradients fill precise vector shapes with soft luminous volume",
+   "tags": {
+    "kind": [
+     "flat_graphic"
+    ]
+   }
+  },
+  {
+   "text": "a halftone comic illustration",
+   "short": "halftone comic",
+   "tier": "plausible",
+   "look": "bold ink outlines contain regular dots that build shadows and limited printed colors",
+   "tags": {
+    "kind": [
+     "flat_graphic"
+    ]
+   }
+  },
+  {
+   "text": "a duotone poster illustration",
+   "short": "duotone poster",
+   "tier": "plausible",
+   "look": "two contrasting inks divide the scene into bold shadow shapes and tinted highlights",
+   "tags": {
+    "kind": [
+     "flat_graphic"
+    ]
+   }
+  },
+  {
+   "text": "an ASCII artwork",
+   "short": "ASCII art",
+   "tier": "unusual",
+   "look": "rows of letters, numbers, and punctuation form a picture through character density",
+   "tags": {
+    "kind": [
+     "flat_graphic"
+    ]
+   }
+  },
+  {
+   "text": "a wireframe render",
+   "short": "wireframe",
+   "tier": "plausible",
+   "look": "thin lines expose a model's polygon edges with visible geometry through open surfaces",
+   "tags": {
+    "kind": [
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "a blueprint drawing",
+   "short": "blueprint",
+   "tier": "plausible",
+   "look": "precise white construction lines and dimension marks sit on a deep blue ground",
+   "tags": {
+    "kind": [
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "an exploded-view technical illustration",
+   "short": "exploded view",
+   "tier": "plausible",
+   "look": "separated parts float along shared assembly axes with fine alignment guides",
+   "tags": {
+    "kind": [
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "a cutaway technical illustration",
+   "short": "cutaway",
+   "tier": "plausible",
+   "look": "an outer shell is sliced away to reveal clearly separated internal structures",
+   "tags": {
+    "kind": [
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "a topographic contour drawing",
+   "short": "topographic contours",
+   "tier": "plausible",
+   "look": "nested elevation lines trace a surface with tight spacing on steep slopes",
+   "tags": {
+    "kind": [
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "a depth-map render",
+   "short": "depth map",
+   "tier": "unusual",
+   "look": "smooth grayscale bands encode distance, with nearby and distant forms separated by tone",
+   "tags": {
+    "kind": [
+     "technical"
+    ]
+   }
+  },
+  {
+   "text": "a holographic projection render",
+   "short": "holographic projection",
+   "tier": "plausible",
+   "look": "translucent blue-green forms glow with horizontal scan lines and broken luminous edges",
+   "tags": {
+    "kind": [
+     "glitch_digital"
+    ]
+   }
+  },
+  {
+   "text": "a datamosh artwork",
+   "short": "datamosh",
+   "tier": "unusual",
+   "look": "blocky motion smears drag colors and fragments of one image across another",
+   "tags": {
+    "kind": [
+     "glitch_digital"
+    ]
+   }
+  },
+  {
+   "text": "a pixel-sorted artwork",
+   "short": "pixel sorting",
+   "tier": "unusual",
+   "look": "image regions stretch into long aligned streaks of sorted color with abrupt jagged boundaries",
+   "tags": {
+    "kind": [
+     "glitch_digital"
+    ]
+   }
+  },
+  {
+   "text": "a CRT scanline artwork",
+   "short": "CRT scanlines",
+   "tier": "plausible",
+   "look": "horizontal scan lines, glowing phosphor dots, and slight color fringing cover a curved-screen image",
+   "tags": {
+    "kind": [
+     "glitch_digital"
+    ]
+   }
+  }
+ ]
+}

@@ -227,6 +227,16 @@
      "full"
     ],
     "about": "how gray a person's hair is at their drawn age: on an age, the amounts seen at it (none before thirty, some from the thirties as a less common sight, mostly gray or white late in life); on a hair color, the amount it shows. Dyed colors carry no tag and fit every age."
+   },
+   "hair_length": {
+    "scope": "person",
+    "values": [
+     "short",
+     "medium",
+     "long",
+     "very_long"
+    ],
+    "about": "how long a person's drawn hair is: a hairstyle that can't be done at that length leaves their pool."
    }
   }
  }

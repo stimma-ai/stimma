@@ -1,0 +1,578 @@
+{
+ "id": "person.feature.skin_marks",
+ "label": "Skin marks",
+ "description": "Facial freckles, moles, scars, birthmarks, vitiligo patches and flush.",
+ "pos": "noun phrase",
+ "frame": "a person with ___",
+ "notes": "Localized marks on facial skin, phrased without specifying skin tone or hue. Surface texture and active acne belong in person.feature.skin_texture; age spots belong in person.feature.age_marks. Scars are healed marks, including lip and eyebrow scars. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "facets": [],
+ "closed": true,
+ "strict": true,
+ "catalog": false,
+ "local_facets": {
+  "aspect": [
+   "freckles",
+   "moles",
+   "scars",
+   "birthmarks",
+   "patches",
+   "flush"
+  ]
+ },
+ "context": {
+  "takes": {
+   "life_stage": {
+    "mismatch": "drop"
+   }
+  }
+ },
+ "shares": {
+  "aspect": {
+   "freckles": 0.25,
+   "moles": 0.2,
+   "scars": 0.2,
+   "birthmarks": 0.1,
+   "patches": 0.1,
+   "flush": 0.15
+  }
+ },
+ "values": [
+  {
+   "text": "a faint scatter of freckles across the nose",
+   "short": "faint nose freckles",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "freckles"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a few freckles on the cheekbones",
+   "short": "cheekbone freckles",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "freckles"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "dense freckles across the nose and cheeks",
+   "short": "dense central freckles",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "freckles"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "freckles across the forehead and temples",
+   "short": "forehead freckles",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "freckles"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "freckles scattered over the whole face",
+   "short": "all-over freckles",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "freckles"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a small mole on one cheek",
+   "short": "small cheek mole",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "moles"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a small beauty mark above the lip",
+   "short": "beauty mark above lip",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "moles"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a tiny mole beside the nose",
+   "short": "mole beside nose",
+   "tier": "plausible",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "moles"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a small mole on the chin",
+   "short": "small chin mole",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "moles"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "several moles scattered over the face",
+   "short": "scattered facial moles",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "moles"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a raised mole near the jaw",
+   "short": "raised jaw mole",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "moles"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a faint scar through one eyebrow",
+   "short": "faint eyebrow scar",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "scars"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a small healed scar on the chin",
+   "short": "small chin scar",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "scars"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a faint scar across the nose bridge",
+   "short": "faint nose scar",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "scars"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a scar crossing the upper lip",
+   "short": "upper-lip scar",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "scars"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a long scar down one cheek",
+   "short": "long cheek scar",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "scars"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a patch of healed burn scars on one cheek",
+   "short": "cheek burn scars",
+   "tier": "unusual",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "scars"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a raised scar on the forehead",
+   "short": "raised forehead scar",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "scars"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "pitted acne scars on the cheeks",
+   "short": "pitted acne scars",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "scars"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a small flat birthmark near one temple",
+   "short": "small temple birthmark",
+   "tier": "plausible",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "birthmarks"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a broad birthmark on one cheek",
+   "short": "broad cheek birthmark",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "birthmarks"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a birthmark across one side of the forehead",
+   "short": "forehead birthmark",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "birthmarks"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a small vitiligo patch beside the mouth",
+   "short": "small vitiligo patch",
+   "tier": "plausible",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "patches"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "vitiligo patches around the eyes and mouth",
+   "short": "central vitiligo patches",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "patches"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a broad vitiligo patch on one cheek",
+   "short": "cheek vitiligo patch",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "patches"
+    ],
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a faint flush across the cheeks",
+   "short": "faint cheek flush",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "flush"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a pronounced flush across the nose and cheeks",
+   "short": "central facial flush",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "flush"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "blotchy flushing on the cheeks",
+   "short": "blotchy cheek flush",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "flush"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,656 @@
+{
+ "id": "animal.cat_breed",
+ "label": "Cat breed",
+ "description": "Domestic cat breeds and everyday nonpedigree kinds, grouped by coat structure and approximate adult size.",
+ "pos": "noun phrase",
+ "frame": "a ___ cat",
+ "notes": "Breed identity and everyday domestic coat-length kinds belong here, phrased as names before cat. animal.cat_coat owns color and pattern choices; animal.species owns other animals. Coat chips describe breed varieties, including both lengths where appropriate, while size is a broad adult comparison. Glosses describe recognizable breed tendencies rather than promising that every individual has the same markings.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "coat": [
+   "short",
+   "long",
+   "rex_curly",
+   "hairless"
+  ],
+  "size": [
+   "medium",
+   "large",
+   "small"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "domestic shorthair",
+   "tier": "typical",
+   "look": "a familiar short-coated house cat with variable markings and no fixed pedigree shape",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "domestic longhair",
+   "tier": "typical",
+   "look": "a nonpedigree house cat with a long coat and fluffy tail, in many colors",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Maine Coon",
+   "tier": "typical",
+   "look": "a very large, long-bodied cat with a shaggy ruff, tufted ears, and a square muzzle",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "large"
+    ]
+   }
+  },
+  {
+   "text": "Siamese",
+   "tier": "typical",
+   "look": "a sleek, long-bodied cat with large ears, blue eyes, and dark points on a pale coat",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Persian",
+   "tier": "typical",
+   "look": "a round, low-set cat with a very long dense coat, small ears, and a short flat face",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Bengal",
+   "tier": "typical",
+   "look": "a muscular, sleek cat with bold leopardlike rosettes or broad marbled markings",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Sphynx",
+   "tier": "typical",
+   "look": "a nearly hairless cat with wrinkled skin, large ears, and a rounded belly",
+   "tags": {
+    "coat": [
+     "hairless"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Ragdoll",
+   "tier": "typical",
+   "look": "a large blue-eyed cat with silky semilong fur, dark points, and often a white inverted V on the face",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "large"
+    ]
+   }
+  },
+  {
+   "text": "British Shorthair",
+   "tier": "typical",
+   "look": "a stocky cat with a round face, full cheeks, small ears, and a dense plush coat",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Scottish Fold",
+   "tier": "typical",
+   "look": "a round-faced cat with small ears folded forward against the head and large round eyes",
+   "tags": {
+    "coat": [
+     "short",
+     "long"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Abyssinian",
+   "tier": "typical",
+   "look": "a lean, large-eared cat with a short ticked coat that looks warm and finely speckled",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Russian Blue",
+   "tier": "typical",
+   "look": "a slender gray cat with a plush silver-tipped coat, green eyes, and a wedge-shaped head",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Norwegian Forest",
+   "tier": "typical",
+   "look": "a large cat with a triangular face, a heavy neck ruff, tufted ears, and a long waterproof outer coat",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "large"
+    ]
+   }
+  },
+  {
+   "text": "Devon Rex",
+   "tier": "typical",
+   "look": "a small cat with a short rippled coat, very large low-set ears, and prominent cheekbones",
+   "tags": {
+    "coat": [
+     "rex_curly"
+    ],
+    "size": [
+     "small"
+    ]
+   }
+  },
+  {
+   "text": "Birman",
+   "tier": "typical",
+   "look": "a blue-eyed, colorpoint cat with silky fur and neat white gloves on all four paws",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "American Shorthair",
+   "tier": "plausible",
+   "look": "a sturdy, broad-faced cat with a dense short coat, often silver with bold dark tabby swirls",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Oriental Shorthair",
+   "tier": "plausible",
+   "look": "a very slender cat with a long wedge-shaped face, enormous ears, and a close smooth coat",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Savannah",
+   "tier": "plausible",
+   "look": "a tall, long-legged spotted cat with very large upright ears and a slender neck",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "large"
+    ]
+   }
+  },
+  {
+   "text": "Siberian",
+   "tier": "plausible",
+   "look": "a substantial cat with a rounded head, a dense triple coat, and a full bushy tail",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "large"
+    ]
+   }
+  },
+  {
+   "text": "Turkish Angora",
+   "tier": "plausible",
+   "look": "a fine-boned cat with a silky flowing coat, a small wedge-shaped face, and a feathery tail",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Turkish Van",
+   "tier": "plausible",
+   "look": "a sturdy, semilonghaired white cat with color concentrated on the head and plumed tail",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "large"
+    ]
+   }
+  },
+  {
+   "text": "Bombay",
+   "tier": "plausible",
+   "look": "a sleek solid-black cat with a rounded head, close glossy coat, and copper to gold eyes",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Burmese",
+   "tier": "plausible",
+   "look": "a compact, muscular cat with a rounded head, large golden eyes, and a close satin coat",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Tonkinese",
+   "tier": "plausible",
+   "look": "a balanced, muscular cat with soft mink-colored points and often blue-green eyes",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Egyptian Mau",
+   "tier": "plausible",
+   "look": "a short-coated spotted cat with a dark forehead marking, green eyes, and a loose belly skin flap",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Cornish Rex",
+   "tier": "plausible",
+   "look": "a very lean, high-legged cat with a narrow head, huge ears, and close rows of soft coat waves",
+   "tags": {
+    "coat": [
+     "rex_curly"
+    ],
+    "size": [
+     "small"
+    ]
+   }
+  },
+  {
+   "text": "Selkirk Rex",
+   "tier": "plausible",
+   "look": "a round, sturdy cat with a thick tousled coat of loose curls and curly whiskers",
+   "tags": {
+    "coat": [
+     "rex_curly"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "LaPerm",
+   "tier": "plausible",
+   "look": "a cat with loose ringlets, a curly neck ruff, and a textured plume of a tail",
+   "tags": {
+    "coat": [
+     "rex_curly"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Somali",
+   "tier": "plausible",
+   "look": "a foxlike cat with warm ticked fur, a full ruff, large ears, and a bushy tail",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Balinese",
+   "tier": "plausible",
+   "look": "a slender Siamese-shaped cat with blue eyes, dark points, and a silky plumed tail",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Manx",
+   "tier": "plausible",
+   "look": "a rounded, broad-rumped cat with high hindquarters and a very short tail or no visible tail",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Japanese Bobtail",
+   "tier": "plausible",
+   "look": "a lean, high-legged cat with a triangular head and a short curled pom-pom tail",
+   "tags": {
+    "coat": [
+     "short",
+     "long"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "American Curl",
+   "tier": "plausible",
+   "look": "a cat whose ear tips curve backward in a smooth arc above a softly wedge-shaped face",
+   "tags": {
+    "coat": [
+     "short",
+     "long"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Exotic Shorthair",
+   "tier": "plausible",
+   "look": "a short-coated Persian type with a broad flat face, round eyes, and a dense plush coat",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Himalayan",
+   "tier": "plausible",
+   "look": "a flat-faced, longhaired Persian type with blue eyes and dark colorpoints",
+   "tags": {
+    "coat": [
+     "long"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Singapura",
+   "tier": "unusual",
+   "look": "a very small, fine-coated cat with large ears, large eyes, and a pale sepia ticked coat",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "small"
+    ]
+   }
+  },
+  {
+   "text": "Ocicat",
+   "tier": "unusual",
+   "look": "an athletic cat with dark thumbprint spots in rows across a smooth tawny or silver coat",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Toyger",
+   "tier": "unusual",
+   "look": "a muscular cat with bold branching black stripes over a warm orange-brown coat",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Chausie",
+   "tier": "unusual",
+   "look": "a tall, long-legged cat with large ears, a long muzzle, and a short ticked coat",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "large"
+    ]
+   }
+  },
+  {
+   "text": "Chartreux",
+   "tier": "unusual",
+   "look": "a broad-shouldered blue-gray cat with a woolly coat, tapered muzzle, and copper eyes",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Korat",
+   "tier": "unusual",
+   "look": "a silver-blue cat with a heart-shaped face, very large green eyes, and a close single coat",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "small"
+    ]
+   }
+  },
+  {
+   "text": "Khao Manee",
+   "tier": "unusual",
+   "look": "a sleek pure-white cat with prominent ears and jewel-bright eyes that may be different colors",
+   "tags": {
+    "coat": [
+     "short"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Lykoi",
+   "tier": "unusual",
+   "look": "a partly hairless cat with a bare eye mask and sparse black-and-white roan fur",
+   "tags": {
+    "coat": [
+     "short",
+     "hairless"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Peterbald",
+   "tier": "unusual",
+   "look": "a slender, long-faced cat with large pointed ears and bare skin or a fine velvety coat",
+   "tags": {
+    "coat": [
+     "hairless"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "Donskoy",
+   "tier": "unusual",
+   "look": "a muscular hairless cat with deeply wrinkled skin, large ears, and almond-shaped eyes",
+   "tags": {
+    "coat": [
+     "hairless"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "American Wirehair",
+   "tier": "unusual",
+   "look": "a sturdy cat with a springy crimped coat and bent or curled whiskers",
+   "tags": {
+    "coat": [
+     "rex_curly"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "American Bobtail",
+   "tier": "unusual",
+   "look": "a broad, rugged-looking cat with a shaggy coat, heavy brow, and short expressive tail",
+   "tags": {
+    "coat": [
+     "short",
+     "long"
+    ],
+    "size": [
+     "large"
+    ]
+   }
+  },
+  {
+   "text": "Pixie-bob",
+   "tier": "unusual",
+   "look": "a brown spotted cat with a heavy brow, pear-shaped body, and short tail",
+   "tags": {
+    "coat": [
+     "short",
+     "long"
+    ],
+    "size": [
+     "large"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,293 @@
+{
+ "id": "camera.composition",
+ "label": "Photographic composition",
+ "description": "Ways to arrange subjects, lines, shapes, depth and empty space within a photographic frame.",
+ "pos": "noun phrase",
+ "frame": "composed with ___",
+ "notes": "Spatial arrangements within a single photographic frame belong here. camera.angle owns camera viewpoint, camera.shot_size owns framing distance, and camera.genre owns the photographic use or shooting convention. Values are noun phrases that follow “composed with”; lighting and color appear only where needed to define an arrangement, such as a silhouette or a reflection. This closed list favors visibly distinct structures over alternate names for the same composition.",
+ "facets": [],
+ "closed": true,
+ "local_facets": {
+  "kind": [
+   "placement",
+   "lines_shapes",
+   "depth",
+   "space"
+  ]
+ },
+ "values": [
+  {
+   "text": "the rule of thirds",
+   "short": "rule of thirds",
+   "look": "The main subject sits near a third-line intersection, with the horizon often on a horizontal third.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "placement"
+    ]
+   }
+  },
+  {
+   "text": "centered symmetry",
+   "look": "The subject sits on the centerline, with matching shapes or masses on either side.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "placement",
+     "lines_shapes"
+    ]
+   }
+  },
+  {
+   "text": "leading lines",
+   "look": "Roads, rails or other strong edges guide the eye through the frame toward the subject.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "lines_shapes",
+     "depth"
+    ]
+   }
+  },
+  {
+   "text": "negative space",
+   "look": "A small subject is surrounded by a broad, quiet area of sky, wall or another nearly empty surface.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "space"
+    ]
+   }
+  },
+  {
+   "text": "a frame within a frame",
+   "short": "frame within a frame",
+   "look": "A doorway, window or other complete opening encloses the main subject inside the photograph.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "depth"
+    ]
+   }
+  },
+  {
+   "text": "a golden spiral",
+   "short": "golden spiral",
+   "look": "Curving forms lead inward along a tightening spiral toward an off-center focal point.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "lines_shapes",
+     "placement"
+    ]
+   }
+  },
+  {
+   "text": "a diagonal composition",
+   "short": "diagonal composition",
+   "look": "The main forms run on a strong slant across the image, giving the frame directional energy.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "lines_shapes"
+    ]
+   }
+  },
+  {
+   "text": "foreground framing",
+   "look": "Nearby branches, curtains or rocks partly border the view, placing the subject beyond them.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "depth"
+    ]
+   }
+  },
+  {
+   "text": "layered depth",
+   "look": "Distinct foreground, middle-ground and background elements overlap to create a sense of distance.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "depth"
+    ]
+   }
+  },
+  {
+   "text": "a minimalist arrangement",
+   "short": "minimalist arrangement",
+   "look": "The image contains only a few simple forms, with distracting textures and secondary objects stripped away.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "space"
+    ]
+   }
+  },
+  {
+   "text": "a frame-filling subject",
+   "short": "fill the frame",
+   "look": "The subject occupies almost the entire image, leaving little surrounding background visible.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "space"
+    ]
+   }
+  },
+  {
+   "text": "a low horizon",
+   "short": "low horizon",
+   "look": "A narrow strip of ground sits below a large expanse of sky.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "placement",
+     "space"
+    ]
+   }
+  },
+  {
+   "text": "a high horizon",
+   "short": "high horizon",
+   "look": "Ground or water occupies most of the image beneath a narrow strip of sky.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "placement",
+     "space"
+    ]
+   }
+  },
+  {
+   "text": "mirrored reflections",
+   "look": "Water, glass or a mirror visibly doubles the subject, building the arrangement around the reflected image.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "lines_shapes",
+     "depth"
+    ]
+   }
+  },
+  {
+   "text": "a silhouette against the sky",
+   "short": "sky silhouette",
+   "look": "A dark, readable outline stands against bright sky, with little detail inside the subject.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "placement"
+    ]
+   }
+  },
+  {
+   "text": "repetition and pattern",
+   "look": "Similar windows, objects or forms repeat across the frame in a visible rhythm.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "lines_shapes"
+    ]
+   }
+  },
+  {
+   "text": "an odd-numbered grouping",
+   "short": "odd-numbered grouping",
+   "look": "Three or five main elements form a group without splitting into equal pairs.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "placement"
+    ]
+   }
+  },
+  {
+   "text": "a triangular composition",
+   "short": "triangle composition",
+   "look": "Three prominent points or forms define a stable triangle, directing attention around its corners.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "lines_shapes",
+     "placement"
+    ]
+   }
+  },
+  {
+   "text": "radial symmetry",
+   "look": "Repeated forms radiate outward from one central point like spokes or petals.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "lines_shapes"
+    ]
+   }
+  },
+  {
+   "text": "an S-curve",
+   "short": "S-curve",
+   "look": "A winding path, river or body line snakes through the frame in a loose S shape.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "lines_shapes",
+     "depth"
+    ]
+   }
+  },
+  {
+   "text": "asymmetrical visual balance",
+   "short": "asymmetrical balance",
+   "look": "One large form on one side is balanced by several smaller forms or a strong accent on the other.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "placement"
+    ]
+   }
+  },
+  {
+   "text": "deliberate edge cropping",
+   "look": "Important forms are cut by the image edges, making their continuation outside the frame part of the design.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "space"
+    ]
+   }
+  },
+  {
+   "text": "scale juxtaposition",
+   "look": "A small familiar figure or object sits beside something much larger, making the size difference unmistakable.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "depth"
+    ]
+   }
+  },
+  {
+   "text": "a corner composition",
+   "short": "corner composition",
+   "look": "The subject is anchored close to one corner, leaving the frame to extend mainly in the opposite direction.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "placement",
+     "space"
+    ]
+   }
+  },
+  {
+   "text": "horizontal bands",
+   "look": "Broad parallel strips of land, water, architecture or color divide the image into stacked layers.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "lines_shapes"
+    ]
+   }
+  }
+ ]
+}

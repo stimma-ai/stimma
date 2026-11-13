@@ -1,0 +1,774 @@
+{
+ "id": "place.landform",
+ "label": "Landforms and biomes",
+ "description": "Natural landforms, biomes, coastlines, caves, and cultivated rice-terrace landscapes.",
+ "pos": "noun phrase",
+ "frame": "a ___ landscape",
+ "notes": "Landforms, biomes, and distinctive natural settings belong here, with rice terraces included as a cultivated landscape. Values are short landscape names that follow “a” and precede “landscape”; plural features use a singular modifier form. Named geographic destinations belong in place.country and place.city, while built structures belong in place.building. Kind groups overlap when a feature spans environments; glosses distinguish forms such as mesas, buttes, and tepuis.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "mountain_volcano",
+   "canyon_rock",
+   "desert",
+   "water_coast",
+   "ice_cold",
+   "forest_jungle",
+   "grassland_wetland",
+   "cave_underground"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "high alpine mountain",
+   "short": "alpine mountains",
+   "look": "Jagged high peaks, exposed rock, and patches of snow rise above the tree line.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "mountain_volcano"
+    ]
+   }
+  },
+  {
+   "text": "rolling hill",
+   "short": "rolling hills",
+   "look": "Smooth rounded hills overlap in broad curves, usually covered in grass or low vegetation.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "volcanic cone",
+   "short": "volcanic cone",
+   "look": "A steep-sided cone rises to a circular summit crater above dark volcanic slopes.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mountain_volcano"
+    ]
+   }
+  },
+  {
+   "text": "volcanic caldera",
+   "short": "caldera",
+   "look": "A broad bowl-shaped volcanic depression is enclosed by a broken ring of high walls.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mountain_volcano"
+    ]
+   }
+  },
+  {
+   "text": "lava field",
+   "look": "Dark wrinkled or jagged cooled lava spreads across a largely bare plain.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mountain_volcano"
+    ]
+   }
+  },
+  {
+   "text": "basalt column",
+   "short": "basalt columns",
+   "look": "Closely packed polygonal stone pillars form vertical cliffs or stepped geometric pavements.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "canyon_rock"
+    ]
+   }
+  },
+  {
+   "text": "mesa",
+   "look": "A broad flat-topped upland ends abruptly in steep layered rock cliffs.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "canyon_rock",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "butte",
+   "look": "An isolated narrow flat-topped rock hill rises sharply above a lower plain.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "canyon_rock",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "tepui",
+   "look": "A huge isolated tabletop mountain has sheer walls and a flat, often mist-covered green summit.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "mountain_volcano",
+     "canyon_rock"
+    ]
+   }
+  },
+  {
+   "text": "karst tower",
+   "short": "karst towers",
+   "look": "Steep limestone towers stand separately above a flatter plain, often draped in vegetation.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "canyon_rock"
+    ]
+   }
+  },
+  {
+   "text": "slot canyon",
+   "look": "Very narrow twisting passages run between tall smooth rock walls with only a ribbon of sky above.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "canyon_rock"
+    ]
+   }
+  },
+  {
+   "text": "river canyon",
+   "look": "A river winds far below high exposed cliffs and layered canyon walls.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "canyon_rock",
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "badlands",
+   "look": "Bare ridges, gullies, and sharply eroded clay slopes form a maze of banded terrain.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "canyon_rock",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "hoodoo",
+   "short": "hoodoos",
+   "look": "Tall thin rock spires carry harder capstones above irregularly eroded bases.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "canyon_rock"
+    ]
+   }
+  },
+  {
+   "text": "sand dune",
+   "short": "sand dunes",
+   "look": "Wind-shaped sand ridges form smooth slopes, sharp crests, and fine surface ripples.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "salt flat",
+   "look": "A vast nearly level white salt crust stretches toward the horizon with polygonal cracks.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "desert oasis",
+   "short": "oasis",
+   "look": "A small pool and dense green vegetation interrupt surrounding dry sand or rock.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "desert",
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "rocky desert",
+   "look": "Bare gravel plains and angular exposed stone dominate, with little vegetation and few sand dunes.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "desert playa",
+   "look": "A dry lake bed forms a broad pale basin with cracked mud and sparse vegetation around its margins.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "fjord",
+   "look": "A long narrow sea inlet cuts between steep high mountain walls.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "coral atoll",
+   "short": "atoll",
+   "look": "A low ring of coral islands surrounds a shallow turquoise lagoon.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "coastal archipelago",
+   "short": "archipelago",
+   "look": "Many separate islands cluster across open water, divided by channels and straits.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "coral reef",
+   "look": "Branching and rounded corals form a colorful shallow underwater ridge above pale sand.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "sea stack",
+   "look": "An isolated steep rock pillar rises from coastal water near a cliff-lined shore.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "water_coast",
+     "canyon_rock"
+    ]
+   }
+  },
+  {
+   "text": "sea arch",
+   "look": "A coastal rock headland has a large natural opening through which the sea is visible.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "water_coast",
+     "canyon_rock"
+    ]
+   }
+  },
+  {
+   "text": "waterfall",
+   "look": "A sheet or stream of water drops over a rock edge into a lower pool or river.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "river delta",
+   "look": "A river branches into many sediment-lined channels before reaching a lake or sea.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "water_coast",
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "river estuary",
+   "short": "estuary",
+   "look": "A broad tidal river mouth mixes muddy channels, exposed banks, and open coastal water.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "water_coast",
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "tidal flat",
+   "look": "Shallow tidal water retreats across broad wet mud or sand cut by small winding channels.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "water_coast",
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "lagoon",
+   "look": "A shallow sheltered pool of coastal water lies behind a narrow reef, sandbar, or island barrier.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "sandy beach",
+   "look": "A broad strip of pale sand slopes into breaking waves along an open shore.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "rocky coastline",
+   "look": "Broken rock ledges, tide pools, and sea cliffs meet surf along an uneven shoreline.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_coast",
+     "canyon_rock"
+    ]
+   }
+  },
+  {
+   "text": "meandering river",
+   "look": "A winding river loops across a broad floodplain with sweeping bends and sandbars.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "glacier",
+   "look": "A thick river of blue-white ice fills a valley, scored with crevasses and dark debris bands.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "ice_cold"
+    ]
+   }
+  },
+  {
+   "text": "blue ice cave",
+   "short": "ice cave",
+   "look": "Translucent blue ice forms smooth scalloped walls and a low curved roof.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ice_cold",
+     "cave_underground"
+    ]
+   }
+  },
+  {
+   "text": "tundra",
+   "look": "Treeless open ground carries low mosses, lichens, small shrubs, and scattered shallow pools.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ice_cold"
+    ]
+   }
+  },
+  {
+   "text": "polar ice cap",
+   "look": "A continuous gently domed ice sheet stretches to the horizon with almost no exposed land.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ice_cold"
+    ]
+   }
+  },
+  {
+   "text": "floating iceberg",
+   "short": "icebergs",
+   "look": "Large sculpted blocks of blue-white floating ice rise from cold open water.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ice_cold",
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "pack ice",
+   "look": "Irregular flat plates of sea ice crowd together with dark narrow channels between them.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ice_cold",
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "glacial cirque",
+   "look": "A steep semicircular mountain bowl holds snow, ice, or a small lake at its rocky base.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "ice_cold",
+     "mountain_volcano"
+    ]
+   }
+  },
+  {
+   "text": "taiga",
+   "look": "Dense dark conifers cover broad cold terrain, with sparse undergrowth and occasional boggy openings.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest_jungle",
+     "ice_cold"
+    ]
+   }
+  },
+  {
+   "text": "tropical rainforest",
+   "look": "Dense layers of broad leaves, vines, and tall trees form a closed green canopy.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "forest_jungle"
+    ]
+   }
+  },
+  {
+   "text": "cloud forest",
+   "look": "Misty mountain woodland has moss-coated trunks, ferns, and abundant hanging epiphytes.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest_jungle"
+    ]
+   }
+  },
+  {
+   "text": "bamboo forest",
+   "look": "Closely spaced tall bamboo stems support a high fine-leaved canopy above a shaded floor.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "forest_jungle"
+    ]
+   }
+  },
+  {
+   "text": "mangrove forest",
+   "short": "mangroves",
+   "look": "Coastal trees stand in shallow brackish water on tangled exposed prop roots.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest_jungle",
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "temperate deciduous forest",
+   "short": "deciduous forest",
+   "look": "Broadleaf trees form a layered canopy above leaf litter and a varied green understory.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "forest_jungle"
+    ]
+   }
+  },
+  {
+   "text": "redwood forest",
+   "look": "Enormous straight reddish trunks rise far above a shaded floor of ferns and fallen timber.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest_jungle"
+    ]
+   }
+  },
+  {
+   "text": "cork oak woodland",
+   "look": "Widely spaced broad-crowned oaks have thick rough bark above dry grasses and low shrubs.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "forest_jungle"
+    ]
+   }
+  },
+  {
+   "text": "savanna",
+   "look": "Tall grasses spread across open land dotted with widely spaced flat-topped trees.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "steppe",
+   "look": "A vast treeless plain carries low grasses with dry earth showing between tussocks.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "prairie",
+   "look": "Deep grasses and scattered wildflowers cover a broad gently rolling open plain.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "moor",
+   "look": "Open uplands have coarse grasses, low shrubs, dark peat patches, and exposed rock.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "heath",
+   "look": "Low dense heather and gorse blanket open ground in small-leaved scrub and seasonal flower color.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "bog",
+   "look": "Spongy moss carpets surround dark still pools, low shrubs, and scattered stunted trees.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "reed marsh",
+   "look": "Tall reeds emerge from shallow standing water crossed by narrow open channels.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "cypress swamp",
+   "look": "Broad-based cypress trunks and projecting root knees rise from dark still water.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "grassland_wetland",
+     "forest_jungle"
+    ]
+   }
+  },
+  {
+   "text": "high alpine meadow",
+   "short": "alpine meadow",
+   "look": "Low grasses and small wildflowers fill an open high mountain basin below rocky peaks.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "grassland_wetland",
+     "mountain_volcano"
+    ]
+   }
+  },
+  {
+   "text": "rice terrace",
+   "short": "rice terraces",
+   "look": "Narrow planted or flooded rice paddies form stepped contour bands around hillsides.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "grassland_wetland"
+    ]
+   }
+  },
+  {
+   "text": "limestone cave",
+   "look": "Pale rock chambers contain hanging stalactites, rising stalagmites, and irregular mineral columns.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cave_underground"
+    ]
+   }
+  },
+  {
+   "text": "cenote",
+   "look": "A clear freshwater pool sits in a steep limestone sinkhole, often partly open to daylight.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cave_underground",
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "sinkhole",
+   "look": "A round or irregular ground depression drops abruptly into a deep pit with exposed sides.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cave_underground"
+    ]
+   }
+  },
+  {
+   "text": "lava tube",
+   "look": "A long dark tunnel has rounded volcanic walls and hardened lava ridges along its floor.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cave_underground",
+     "mountain_volcano"
+    ]
+   }
+  },
+  {
+   "text": "grotto",
+   "look": "A small rock cavern opens beside a pool or shoreline with reflected light on its walls.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cave_underground",
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "geyser",
+   "look": "A narrow jet of hot water and steam erupts from a mineral-lined opening in the ground.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mountain_volcano",
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "hot spring terrace",
+   "short": "hot spring terraces",
+   "look": "Pale mineral steps hold shallow steaming pools that spill water from one rim to the next.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mountain_volcano",
+     "water_coast"
+    ]
+   }
+  },
+  {
+   "text": "mountain scree slope",
+   "short": "scree slope",
+   "look": "Loose angular rock fragments blanket a steep mountain slope below a broken cliff.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "mountain_volcano",
+     "canyon_rock"
+    ]
+   }
+  },
+  {
+   "text": "limestone pavement",
+   "look": "Flat pale limestone slabs form a natural mosaic divided by deep straight cracks.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "canyon_rock"
+    ]
+   }
+  },
+  {
+   "text": "desert alluvial fan",
+   "short": "alluvial fan",
+   "look": "A broad fan-shaped spread of gravel and branching dry channels opens below a mountain gully.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "desert",
+     "canyon_rock"
+    ]
+   }
+  },
+  {
+   "text": "fumarole field",
+   "look": "Steam vents pierce bare volcanic ground stained yellow and white by mineral deposits.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "mountain_volcano"
+    ]
+   }
+  },
+  {
+   "text": "limestone pinnacle",
+   "short": "limestone pinnacles",
+   "look": "Dense blade-like limestone spires form a jagged stone forest with deep narrow fissures.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "canyon_rock"
+    ]
+   }
+  }
+ ]
+}

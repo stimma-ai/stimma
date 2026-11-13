@@ -1,0 +1,1330 @@
+{
+ "id": "clothing.top",
+ "label": "Top",
+ "description": "Named shirts, blouses, T-shirts, sweaters, cardigans, tanks, vests, corset tops and lingerie tops.",
+ "pos": "noun phrase",
+ "frame": "wearing ___",
+ "notes": "Single upper-body garments belong here, including knitwear and structured tops worn as clothing. clothing.bottom owns separate lower-body garments, clothing.dress owns dresses and full one-pieces, and clothing.outerwear owns coats and jackets. Values are short garment names that follow wearing, with no chosen color or complete outfit; intrinsic knit structures and signature patterns distinguish named types. Presentation tags follow clearly gendered garment conventions, while untagged garments fit any presentation; lingerie and fetish tops are adult-only.",
+ "closed": false,
+ "facets": [
+  "presentation"
+ ],
+ "local_facets": {
+  "kind": [
+   "t_shirt",
+   "shirt",
+   "blouse",
+   "knit",
+   "sweatshirt",
+   "tank_cami",
+   "crop",
+   "corset_bustier",
+   "vest",
+   "lingerie"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "a crew-neck T-shirt",
+   "short": "crew-neck T-shirt",
+   "tier": "typical",
+   "look": "a short-sleeved jersey shirt with a close round neckline",
+   "tags": {
+    "kind": [
+     "t_shirt"
+    ]
+   }
+  },
+  {
+   "text": "a V-neck T-shirt",
+   "short": "V-neck T-shirt",
+   "tier": "typical",
+   "look": "a short-sleeved jersey shirt with a pointed V neckline",
+   "tags": {
+    "kind": [
+     "t_shirt"
+    ]
+   }
+  },
+  {
+   "text": "a scoop-neck T-shirt",
+   "short": "scoop-neck T-shirt",
+   "tier": "plausible",
+   "look": "a jersey shirt with a deep, rounded neckline",
+   "tags": {
+    "kind": [
+     "t_shirt"
+    ]
+   }
+  },
+  {
+   "text": "a boat-neck T-shirt",
+   "short": "boat-neck T-shirt",
+   "tier": "plausible",
+   "look": "a jersey shirt with a wide, shallow neckline running toward both shoulders",
+   "tags": {
+    "kind": [
+     "t_shirt"
+    ]
+   }
+  },
+  {
+   "text": "a ringer T-shirt",
+   "short": "ringer T-shirt",
+   "tier": "plausible",
+   "look": "a short-sleeved tee with contrasting bands around the neckline and sleeve edges",
+   "tags": {
+    "kind": [
+     "t_shirt"
+    ]
+   }
+  },
+  {
+   "text": "a baseball T-shirt",
+   "short": "baseball T-shirt",
+   "tier": "plausible",
+   "look": "a jersey tee with three-quarter raglan sleeves contrasting with the body",
+   "tags": {
+    "kind": [
+     "t_shirt"
+    ]
+   }
+  },
+  {
+   "text": "a pocket T-shirt",
+   "short": "pocket T-shirt",
+   "tier": "typical",
+   "look": "a simple short-sleeved tee with a single patch pocket on the chest",
+   "tags": {
+    "kind": [
+     "t_shirt"
+    ]
+   }
+  },
+  {
+   "text": "an oversized T-shirt",
+   "short": "oversized T-shirt",
+   "tier": "typical",
+   "look": "a loose tee with dropped shoulders, wide sleeves and a long, boxy body",
+   "tags": {
+    "kind": [
+     "t_shirt"
+    ]
+   }
+  },
+  {
+   "text": "a muscle T-shirt",
+   "short": "muscle T-shirt",
+   "tier": "plausible",
+   "look": "a sleeveless tee with a crew neck and deep, open armholes",
+   "tags": {
+    "kind": [
+     "t_shirt"
+    ]
+   }
+  },
+  {
+   "text": "a thermal shirt",
+   "short": "thermal shirt",
+   "tier": "plausible",
+   "look": "a close-fitting long-sleeved shirt with a small waffle-textured surface",
+   "tags": {
+    "kind": [
+     "t_shirt"
+    ]
+   }
+  },
+  {
+   "text": "an Oxford button-down shirt",
+   "short": "Oxford shirt",
+   "tier": "typical",
+   "look": "a collared button-front shirt with collar points fastened to the chest by small buttons",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a dress shirt",
+   "short": "dress shirt",
+   "tier": "typical",
+   "look": "a smooth, tailored button-front shirt with a stiff pointed collar and buttoned cuffs",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a camp-collar shirt",
+   "short": "camp-collar shirt",
+   "tier": "typical",
+   "look": "a loose short-sleeved button-front shirt with a flat, open notched collar",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a henley shirt",
+   "short": "henley shirt",
+   "tier": "typical",
+   "look": "a collarless jersey shirt with a short button placket below a round neck",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a polo shirt",
+   "short": "polo shirt",
+   "tier": "typical",
+   "look": "a short-sleeved knit shirt with a soft collar and a short button placket",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a rugby shirt",
+   "short": "rugby shirt",
+   "tier": "plausible",
+   "look": "a heavy long-sleeved jersey shirt with broad horizontal stripes and a contrasting collar",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a Western shirt",
+   "short": "Western shirt",
+   "tier": "plausible",
+   "look": "a snap-front collared shirt with pointed shoulder yokes and flap chest pockets",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a plaid flannel shirt",
+   "short": "flannel shirt",
+   "tier": "typical",
+   "look": "a softly brushed, long-sleeved button-front shirt with a large plaid pattern",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a denim shirt",
+   "short": "denim shirt",
+   "tier": "typical",
+   "look": "a collared button-front shirt with visible denim twill, sturdy seams and chest pockets",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a mandarin-collar shirt",
+   "short": "mandarin-collar shirt",
+   "tier": "plausible",
+   "look": "a button-front shirt with a short upright band collar and no folded collar points",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a popover shirt",
+   "short": "popover shirt",
+   "tier": "plausible",
+   "look": "a loose woven shirt with a collar and a button placket ending partway down the chest",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a safari shirt",
+   "short": "safari shirt",
+   "tier": "plausible",
+   "look": "a collared shirt with shoulder epaulets, rolled sleeve tabs and large flap pockets",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a poet shirt",
+   "short": "poet shirt",
+   "tier": "unusual",
+   "look": "a loose shirt with a gathered open neckline, billowing sleeves and fitted cuffs",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a guayabera shirt",
+   "short": "guayabera",
+   "tier": "plausible",
+   "look": "a straight-hemmed collared shirt with four front patch pockets and vertical rows of fine pleats",
+   "tags": {
+    "kind": [
+     "shirt"
+    ]
+   }
+  },
+  {
+   "text": "a pleated tuxedo shirt",
+   "short": "tuxedo shirt",
+   "tier": "plausible",
+   "look": "a formal shirt with a vertically pleated front bib, stud closures and crisp cuffs",
+   "tags": {
+    "kind": [
+     "shirt"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "a Peter Pan collar blouse",
+   "short": "Peter Pan collar blouse",
+   "tier": "plausible",
+   "look": "a blouse with a flat collar made of two small rounded lobes",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a pussy-bow blouse",
+   "short": "pussy-bow blouse",
+   "tier": "plausible",
+   "look": "a blouse with long neck ties fastened in a large bow below the chin",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a peasant blouse",
+   "short": "peasant blouse",
+   "tier": "typical",
+   "look": "a loose blouse with a gathered neckline and full sleeves gathered at the wrists",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a wrap blouse",
+   "short": "wrap blouse",
+   "tier": "typical",
+   "look": "a blouse with overlapping front panels tied at the waist to form a V neckline",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a peplum blouse",
+   "short": "peplum blouse",
+   "tier": "plausible",
+   "look": "a fitted blouse with a short flared ruffle extending below the waist",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cowl-neck blouse",
+   "short": "cowl-neck blouse",
+   "tier": "plausible",
+   "look": "a draped blouse with loose folds of fabric hanging around the neckline",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an off-shoulder blouse",
+   "short": "off-shoulder blouse",
+   "tier": "typical",
+   "look": "a blouse with a low neckline sitting below both bare shoulders",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cold-shoulder blouse",
+   "short": "cold-shoulder blouse",
+   "tier": "plausible",
+   "look": "a blouse with shoulder cutouts while the neckline and sleeves remain connected",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a one-shoulder blouse",
+   "short": "one-shoulder blouse",
+   "tier": "plausible",
+   "look": "an asymmetric blouse covering one shoulder and leaving the other bare",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a bishop-sleeve blouse",
+   "short": "bishop-sleeve blouse",
+   "tier": "plausible",
+   "look": "a blouse with sleeves that swell toward the wrist and gather into narrow cuffs",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a batwing blouse",
+   "short": "batwing blouse",
+   "tier": "plausible",
+   "look": "a blouse with very deep armholes and wide sleeves tapering toward the wrists",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a bell-sleeve blouse",
+   "short": "bell-sleeve blouse",
+   "tier": "plausible",
+   "look": "a blouse with sleeves widening into bell-shaped openings below the elbows",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a ruffle-front blouse",
+   "short": "ruffle-front blouse",
+   "tier": "plausible",
+   "look": "a blouse with rows of ruffles cascading down the center front",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a smocked blouse",
+   "short": "smocked blouse",
+   "tier": "plausible",
+   "look": "a blouse with a densely gathered, stretchy bodice and looser sleeves",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sailor-collar blouse",
+   "short": "sailor-collar blouse",
+   "tier": "plausible",
+   "look": "a blouse with a broad collar forming a square flap across the upper back",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a jabot blouse",
+   "short": "jabot blouse",
+   "tier": "unusual",
+   "look": "a high-necked blouse with a projecting cascade of frilled fabric at the throat",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cape-sleeve blouse",
+   "short": "cape-sleeve blouse",
+   "tier": "unusual",
+   "look": "a blouse with loose cape-like panels falling over the shoulders and upper arms",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a tie-front blouse",
+   "short": "tie-front blouse",
+   "tier": "plausible",
+   "look": "a blouse with elongated front hem ends knotted together at the waist",
+   "tags": {
+    "kind": [
+     "blouse"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a crew-neck sweater",
+   "short": "crew-neck sweater",
+   "tier": "typical",
+   "look": "a knitted pullover with long sleeves and a close round neckline",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a V-neck sweater",
+   "short": "V-neck sweater",
+   "tier": "typical",
+   "look": "a knitted pullover with a pointed V opening at the neck",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a turtleneck sweater",
+   "short": "turtleneck sweater",
+   "tier": "typical",
+   "look": "a fitted or loose sweater with a tall neck folded over around the throat",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a mock-neck sweater",
+   "short": "mock-neck sweater",
+   "tier": "plausible",
+   "look": "a sweater with a short upright neck that stands without folding over",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a cowl-neck sweater",
+   "short": "cowl-neck sweater",
+   "tier": "plausible",
+   "look": "a sweater with a large, loose collar hanging in soft folds below the neck",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a boat-neck sweater",
+   "short": "boat-neck sweater",
+   "tier": "plausible",
+   "look": "a sweater with a broad, shallow neckline exposing the collarbones",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a cable-knit sweater",
+   "short": "cable-knit sweater",
+   "tier": "typical",
+   "look": "a thick sweater covered in raised, interlacing rope-like knit patterns",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a fisherman's rib sweater",
+   "short": "fisherman's rib sweater",
+   "tier": "plausible",
+   "look": "a thick pullover with deep, evenly spaced vertical knit ribs",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a Fair Isle sweater",
+   "short": "Fair Isle sweater",
+   "tier": "plausible",
+   "look": "a sweater with repeating bands of small, multicolored geometric knit motifs",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "an argyle sweater",
+   "short": "argyle sweater",
+   "tier": "plausible",
+   "look": "a sweater patterned with large overlapping diamonds crossed by thin diagonal lines",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a funnel-neck sweater",
+   "short": "funnel-neck sweater",
+   "tier": "plausible",
+   "look": "a sweater with a tall, wide, upright collar that flares away from the neck",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a shawl-collar sweater",
+   "short": "shawl-collar sweater",
+   "tier": "plausible",
+   "look": "a pullover with a thick rolled collar curving into a low front opening",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a polo sweater",
+   "short": "polo sweater",
+   "tier": "plausible",
+   "look": "a long-sleeved fine-knit pullover with a folded collar and short button placket",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a button-front cardigan",
+   "short": "button-front cardigan",
+   "tier": "typical",
+   "look": "a waist- or hip-length knitted sweater opening fully down the front with buttons",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a shawl-collar cardigan",
+   "short": "shawl-collar cardigan",
+   "tier": "plausible",
+   "look": "a button-front knitted sweater with a thick rolled collar curving down the chest",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a duster cardigan",
+   "short": "duster cardigan",
+   "tier": "plausible",
+   "look": "an open-front knitted cardigan with a long straight hem reaching toward the calves",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a waterfall cardigan",
+   "short": "waterfall cardigan",
+   "tier": "plausible",
+   "look": "an open cardigan with loose front edges cascading in uneven folds",
+   "tags": {
+    "kind": [
+     "knit"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a bolero cardigan",
+   "short": "bolero cardigan",
+   "tier": "plausible",
+   "look": "a short knitted cardigan ending above the waist, with curved open front edges",
+   "tags": {
+    "kind": [
+     "knit"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a wrap cardigan",
+   "short": "wrap cardigan",
+   "tier": "plausible",
+   "look": "a knitted cardigan with overlapping front panels secured by waist ties",
+   "tags": {
+    "kind": [
+     "knit"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a hooded cardigan",
+   "short": "hooded cardigan",
+   "tier": "plausible",
+   "look": "an open-front knitted sweater with a soft hood attached at the neck",
+   "tags": {
+    "kind": [
+     "knit"
+    ]
+   }
+  },
+  {
+   "text": "a crew-neck sweatshirt",
+   "short": "crew-neck sweatshirt",
+   "tier": "typical",
+   "look": "a soft, roomy pullover with a round neck and ribbed cuffs and waistband",
+   "tags": {
+    "kind": [
+     "sweatshirt"
+    ]
+   }
+  },
+  {
+   "text": "a pullover hoodie",
+   "short": "pullover hoodie",
+   "tier": "typical",
+   "look": "a fleece pullover with a hood, drawstrings and a front kangaroo pocket",
+   "tags": {
+    "kind": [
+     "sweatshirt"
+    ]
+   }
+  },
+  {
+   "text": "a zip-up hoodie",
+   "short": "zip-up hoodie",
+   "tier": "typical",
+   "look": "a hooded sweatshirt opening fully down the front with a zipper",
+   "tags": {
+    "kind": [
+     "sweatshirt"
+    ]
+   }
+  },
+  {
+   "text": "a quarter-zip sweatshirt",
+   "short": "quarter-zip sweatshirt",
+   "tier": "typical",
+   "look": "a sweatshirt with a short chest zipper rising into a stand collar",
+   "tags": {
+    "kind": [
+     "sweatshirt"
+    ]
+   }
+  },
+  {
+   "text": "a cropped sweatshirt",
+   "short": "cropped sweatshirt",
+   "tier": "plausible",
+   "look": "a roomy sweatshirt with long sleeves and a hem ending above the waist",
+   "tags": {
+    "kind": [
+     "sweatshirt"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sleeveless hoodie",
+   "short": "sleeveless hoodie",
+   "tier": "plausible",
+   "look": "a hooded sweatshirt with the sleeves removed and broad open armholes",
+   "tags": {
+    "kind": [
+     "sweatshirt"
+    ]
+   }
+  },
+  {
+   "text": "a ribbed tank top",
+   "short": "ribbed tank top",
+   "tier": "typical",
+   "look": "a close-fitting sleeveless jersey top with broad straps and narrow vertical ribs",
+   "tags": {
+    "kind": [
+     "tank_cami"
+    ]
+   }
+  },
+  {
+   "text": "a racerback tank top",
+   "short": "racerback tank top",
+   "tier": "typical",
+   "look": "a sleeveless top whose back straps meet between the shoulder blades",
+   "tags": {
+    "kind": [
+     "tank_cami"
+    ]
+   }
+  },
+  {
+   "text": "a spaghetti-strap camisole",
+   "short": "spaghetti-strap camisole",
+   "tier": "typical",
+   "look": "a light sleeveless top suspended from very thin shoulder straps",
+   "tags": {
+    "kind": [
+     "tank_cami"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cowl-neck camisole",
+   "short": "cowl-neck camisole",
+   "tier": "plausible",
+   "look": "a thin-strapped top with a loose draped fold across the chest",
+   "tags": {
+    "kind": [
+     "tank_cami"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a lace-trim camisole",
+   "short": "lace-trim camisole",
+   "tier": "plausible",
+   "look": "a fine-strapped top edged with scalloped lace along the neckline and hem",
+   "tags": {
+    "kind": [
+     "tank_cami"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a halter top",
+   "short": "halter top",
+   "tier": "typical",
+   "look": "a sleeveless top held by straps around the neck, leaving the shoulders and upper back bare",
+   "tags": {
+    "kind": [
+     "tank_cami"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a handkerchief top",
+   "short": "handkerchief top",
+   "tier": "plausible",
+   "look": "a scarf-like top with a pointed front hem and ties securing it behind the body",
+   "tags": {
+    "kind": [
+     "tank_cami"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an apron top",
+   "short": "apron top",
+   "tier": "plausible",
+   "look": "a sleeveless front panel with a neck strap and waist ties, leaving the back largely open",
+   "tags": {
+    "kind": [
+     "tank_cami"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a shell top",
+   "short": "shell top",
+   "tier": "typical",
+   "look": "a simple sleeveless woven blouse with a high neckline and clean, straight sides",
+   "tags": {
+    "kind": [
+     "tank_cami"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cropped T-shirt",
+   "short": "cropped T-shirt",
+   "tier": "typical",
+   "look": "a short-sleeved jersey tee ending above the waist and exposing the midriff",
+   "tags": {
+    "kind": [
+     "crop"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a tube top",
+   "short": "tube top",
+   "tier": "typical",
+   "look": "a strapless close-fitting band of fabric around the chest",
+   "tags": {
+    "kind": [
+     "crop"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a one-shoulder crop top",
+   "short": "one-shoulder crop top",
+   "tier": "plausible",
+   "look": "a short fitted top with one shoulder covered and the other bare",
+   "tags": {
+    "kind": [
+     "crop"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a wrap crop top",
+   "short": "wrap crop top",
+   "tier": "plausible",
+   "look": "a short top with crossing front panels and ties wrapping around the waist",
+   "tags": {
+    "kind": [
+     "crop"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a keyhole crop top",
+   "short": "keyhole crop top",
+   "tier": "plausible",
+   "look": "a fitted short top with a conspicuous cutout at the center of the chest",
+   "tags": {
+    "kind": [
+     "crop"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a long-sleeve crop top",
+   "short": "long-sleeve crop top",
+   "tier": "typical",
+   "look": "a fitted top with full-length sleeves and a hem well above the waist",
+   "tags": {
+    "kind": [
+     "crop"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a crochet crop top",
+   "short": "crochet crop top",
+   "tier": "plausible",
+   "look": "a short top made of visible looped crochet stitches and openwork motifs",
+   "tags": {
+    "kind": [
+     "crop"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a corset top",
+   "short": "corset top",
+   "tier": "plausible",
+   "look": "a structured, waist-length top with vertical boning and a sharply shaped waist",
+   "tags": {
+    "kind": [
+     "corset_bustier"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a bustier top",
+   "short": "bustier top",
+   "tier": "plausible",
+   "look": "a fitted structured top with molded bust cups and a waist-length bodice",
+   "tags": {
+    "kind": [
+     "corset_bustier"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an underbust corset",
+   "short": "underbust corset",
+   "tier": "unusual",
+   "look": "a rigid laced garment encircling the waist and ending below the bust",
+   "tags": {
+    "kind": [
+     "corset_bustier"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a longline corset",
+   "short": "longline corset",
+   "tier": "unusual",
+   "look": "a boned, laced corset extending from the bust down over the upper hips",
+   "tags": {
+    "kind": [
+     "corset_bustier"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a ribbon corset",
+   "short": "ribbon corset",
+   "tier": "unusual",
+   "look": "a tightly shaped waist garment built from horizontal ribbon bands held by vertical stays",
+   "tags": {
+    "kind": [
+     "corset_bustier"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a cupless corset",
+   "short": "cupless corset",
+   "tier": "unusual",
+   "look": "a boned waist-and-torso garment with open spaces where bust cups would sit",
+   "tags": {
+    "kind": [
+     "corset_bustier"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a sweater vest",
+   "short": "sweater vest",
+   "tier": "typical",
+   "look": "a sleeveless knitted pullover with a V neckline and ribbed waist",
+   "tags": {
+    "kind": [
+     "vest"
+    ]
+   }
+  },
+  {
+   "text": "a tailored waistcoat",
+   "short": "waistcoat",
+   "tier": "plausible",
+   "look": "a fitted sleeveless vest with a buttoned front and pointed lower front edges",
+   "tags": {
+    "kind": [
+     "vest"
+    ]
+   }
+  },
+  {
+   "text": "an argyle sweater vest",
+   "short": "argyle sweater vest",
+   "tier": "plausible",
+   "look": "a sleeveless knitted vest with large diamond motifs crossed by fine diagonal lines",
+   "tags": {
+    "kind": [
+     "vest"
+    ]
+   }
+  },
+  {
+   "text": "a fringed vest",
+   "short": "fringed vest",
+   "tier": "plausible",
+   "look": "an open sleeveless vest with long dangling fringe along the hem or chest",
+   "tags": {
+    "kind": [
+     "vest"
+    ]
+   }
+  },
+  {
+   "text": "a crochet vest",
+   "short": "crochet vest",
+   "tier": "plausible",
+   "look": "an open-front sleeveless vest made from looped crochet stitches and openwork",
+   "tags": {
+    "kind": [
+     "vest"
+    ]
+   }
+  },
+  {
+   "text": "a longline tailored vest",
+   "short": "longline vest",
+   "tier": "plausible",
+   "look": "a sleeveless tailored vest with lapels and straight panels extending past the hips",
+   "tags": {
+    "kind": [
+     "vest"
+    ]
+   }
+  },
+  {
+   "text": "a bralette",
+   "short": "bralette",
+   "tier": "plausible",
+   "look": "a soft, unstructured bra-shaped top with narrow straps and a short underbust band",
+   "tags": {
+    "kind": [
+     "lingerie"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a full-cup underwire bra",
+   "short": "full-cup underwire bra",
+   "tier": "unusual",
+   "look": "a bra with full-coverage shaped cups supported by curved wires and narrow shoulder straps",
+   "tags": {
+    "kind": [
+     "lingerie"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a balconette bra",
+   "short": "balconette bra",
+   "tier": "unusual",
+   "look": "a low-cut bra with horizontal cup edges and widely set shoulder straps",
+   "tags": {
+    "kind": [
+     "lingerie"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a bullet bra",
+   "short": "bullet bra",
+   "tier": "unusual",
+   "look": "a bra with strongly pointed conical cups and circular stitching",
+   "tags": {
+    "kind": [
+     "lingerie"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a longline bra",
+   "short": "longline bra",
+   "tier": "unusual",
+   "look": "a bra whose fitted band extends several inches below the bust",
+   "tags": {
+    "kind": [
+     "lingerie"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a cupless bra",
+   "short": "cupless bra",
+   "tier": "unusual",
+   "look": "a bra frame with straps and underbust support surrounding exposed cup openings",
+   "tags": {
+    "kind": [
+     "lingerie"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a sheer mesh top",
+   "short": "sheer mesh top",
+   "tier": "unusual",
+   "look": "a transparent close-fitting top made of fine net fabric",
+   "tags": {
+    "kind": [
+     "lingerie"
+    ]
+   },
+   "adult_only": true
+  }
+ ]
+}

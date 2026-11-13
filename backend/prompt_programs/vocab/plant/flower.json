@@ -1,0 +1,1651 @@
+{
+ "id": "plant.flower",
+ "label": "Flowers",
+ "description": "Named flowers, orchid and tulip forms, wildflowers, and flowering shrubs and trees, described in bloom.",
+ "pos": "noun phrase",
+ "frame": "___ in bloom",
+ "notes": "Named blossoms and visibly different flower forms belong here, including flowering trees when their blooms are the subject. plant.tree holds whole-tree identity and silhouette, and plant.houseplant holds plants chosen chiefly as indoor specimens. Values are plural or mass flower names that read before in bloom, without implying a bouquet or cut stems. Synonyms such as plumeria and frangipani share one entry; kind chips overlap where a flower is both a garden plant and a familiar cut flower.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "garden",
+   "wildflower",
+   "tropical",
+   "bulb",
+   "flowering_shrub_tree",
+   "water",
+   "cut_flower"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "garden roses",
+   "tier": "typical",
+   "look": "full rounded blooms packed with layered petals, often opening into a rosette",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "climbing roses",
+   "tier": "plausible",
+   "look": "rose blooms carried along long arching canes that climb over a support",
+   "tags": {
+    "kind": [
+     "garden",
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "hybrid tea roses",
+   "tier": "plausible",
+   "look": "large high-centered roses with pointed spiraling petals, usually one main bloom per stem",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "dog roses",
+   "tier": "plausible",
+   "look": "simple five-petaled pale pink flowers with open golden centers on thorny arching stems",
+   "tags": {
+    "kind": [
+     "wildflower",
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "peonies",
+   "tier": "typical",
+   "look": "large soft globes of many ruffled petals above deeply divided green leaves",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "ranunculus",
+   "tier": "typical",
+   "look": "round blooms built from many tightly nested paper-thin petals",
+   "tags": {
+    "kind": [
+     "garden",
+     "bulb",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "decorative dahlias",
+   "tier": "typical",
+   "look": "large full flower heads with broad overlapping petals arranged in regular layers",
+   "tags": {
+    "kind": [
+     "garden",
+     "bulb",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "cactus dahlias",
+   "tier": "plausible",
+   "look": "spiky dahlia heads with long narrow petals rolled into pointed quills",
+   "tags": {
+    "kind": [
+     "garden",
+     "bulb",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "ball dahlias",
+   "tier": "plausible",
+   "look": "nearly spherical flower heads made of tightly curled petals in a honeycomb pattern",
+   "tags": {
+    "kind": [
+     "garden",
+     "bulb",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "cushion chrysanthemums",
+   "tier": "typical",
+   "look": "dense rounded flower heads made of many short overlapping petals",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "spider chrysanthemums",
+   "tier": "plausible",
+   "look": "large flower heads with long narrow tubular petals curling outward like legs",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "zinnias",
+   "tier": "typical",
+   "look": "bright upright flower heads with stiff layered petals and a small raised central disk",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "cosmos",
+   "tier": "typical",
+   "look": "airy daisy-shaped flowers with notched petals above fine feathery foliage",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "marigolds",
+   "tier": "typical",
+   "look": "golden or orange ruffled flower heads above pungent-looking divided leaves",
+   "tags": {
+    "kind": [
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "sunflowers",
+   "tier": "typical",
+   "look": "large yellow ray petals surrounding a broad dark seed-filled center",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "lavender",
+   "tier": "typical",
+   "look": "slender spikes of tiny purple flowers above narrow silvery gray-green leaves",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "anemones",
+   "tier": "typical",
+   "look": "broad papery petals surrounding a dark rounded center ringed with fine stamens",
+   "tags": {
+    "kind": [
+     "garden",
+     "bulb",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "hellebores",
+   "tier": "plausible",
+   "look": "nodding bowl-shaped flowers with five broad sepals and a central ring of stamens",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "lisianthus",
+   "tier": "typical",
+   "look": "soft rose-shaped ruffled flowers on slender branching stems with gray-green leaves",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "sweet peas",
+   "tier": "typical",
+   "look": "delicate butterfly-shaped blooms with wavy petals on climbing tendrils",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "delphiniums",
+   "tier": "typical",
+   "look": "tall dense spires of blue, purple or white flowers with small contrasting centers",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "lupines",
+   "tier": "typical",
+   "look": "upright tapered spikes of pea-shaped flowers above fanlike divided leaves",
+   "tags": {
+    "kind": [
+     "garden",
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "foxgloves",
+   "tier": "typical",
+   "look": "tall one-sided spikes of drooping bell-shaped flowers with spotted throats",
+   "tags": {
+    "kind": [
+     "garden",
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "snapdragons",
+   "tier": "typical",
+   "look": "upright spikes of two-lipped flowers shaped like small opening jaws",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "hollyhocks",
+   "tier": "plausible",
+   "look": "very tall stalks lined with broad open cup-shaped flowers and rounded leaves",
+   "tags": {
+    "kind": [
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "carnations",
+   "tier": "typical",
+   "look": "rounded blooms with densely fringed and ruffled petals on jointed stems",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "sweet William",
+   "tier": "plausible",
+   "look": "flat clusters of small five-petaled flowers with toothed edges, often ringed in contrasting colors",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "gerbera daisies",
+   "tier": "typical",
+   "look": "large flat daisy heads with neat rows of broad bright petals and a prominent round center",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "Shasta daisies",
+   "tier": "typical",
+   "look": "broad white ray petals around flat yellow centers on upright leafy stems",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "black-eyed Susans",
+   "tier": "typical",
+   "look": "golden yellow petals surrounding a raised dark brown central cone",
+   "tags": {
+    "kind": [
+     "garden",
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "coneflowers",
+   "tier": "typical",
+   "look": "drooping pink or purple petals around a large prickly orange-brown cone",
+   "tags": {
+    "kind": [
+     "garden",
+     "wildflower",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "blanket flowers",
+   "tier": "plausible",
+   "look": "daisy heads with red centers and yellow-tipped petals around a domed central disk",
+   "tags": {
+    "kind": [
+     "garden",
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "coreopsis",
+   "tier": "plausible",
+   "look": "small golden daisy flowers with notched petal tips on fine branching stems",
+   "tags": {
+    "kind": [
+     "garden",
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "scabiosa",
+   "tier": "plausible",
+   "look": "rounded pincushion centers dotted with protruding stamens and surrounded by scalloped petals",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "astrantia",
+   "tier": "plausible",
+   "look": "tiny clustered flowers cupped by a star-shaped collar of pointed papery bracts",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "veronica",
+   "tier": "plausible",
+   "look": "slim pointed spikes densely covered with tiny blue, pink or white flowers",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "salvias",
+   "tier": "plausible",
+   "look": "slender vertical spikes of small two-lipped flowers above aromatic green foliage",
+   "tags": {
+    "kind": [
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "penstemons",
+   "tier": "plausible",
+   "look": "upright stems carrying loose clusters of tubular flowers with flared lower lips",
+   "tags": {
+    "kind": [
+     "garden",
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "campanulas",
+   "tier": "plausible",
+   "look": "bell-shaped blue, violet or white flowers with five pointed lobes",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "balloon flowers",
+   "tier": "plausible",
+   "look": "inflated balloonlike buds opening into broad five-pointed blue or white stars",
+   "tags": {
+    "kind": [
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "columbines",
+   "tier": "plausible",
+   "look": "nodding flowers with backward-pointing spurs and contrasting inner petals",
+   "tags": {
+    "kind": [
+     "garden",
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "bleeding hearts",
+   "tier": "plausible",
+   "look": "arching stems hung with pink heart-shaped flowers ending in a white teardrop",
+   "tags": {
+    "kind": [
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "fuchsias",
+   "tier": "plausible",
+   "look": "dangling lanternlike flowers with swept-back sepals and a contrasting petal skirt",
+   "tags": {
+    "kind": [
+     "garden",
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "nasturtiums",
+   "tier": "plausible",
+   "look": "bright funnel-shaped flowers with rear spurs above round shieldlike leaves",
+   "tags": {
+    "kind": [
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "petunias",
+   "tier": "typical",
+   "look": "broad flared trumpet flowers spreading over soft leafy trailing stems",
+   "tags": {
+    "kind": [
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "pansies",
+   "tier": "typical",
+   "look": "flat five-petaled flowers with overlapping petals and dark face-like center blotches",
+   "tags": {
+    "kind": [
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "primroses",
+   "tier": "plausible",
+   "look": "low clusters of five-petaled flowers with yellow eyes above wrinkled leaf rosettes",
+   "tags": {
+    "kind": [
+     "garden",
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "cyclamen",
+   "tier": "plausible",
+   "look": "upswept twisted petals rising from nodding flowers above patterned heart-shaped leaves",
+   "tags": {
+    "kind": [
+     "garden",
+     "bulb"
+    ]
+   }
+  },
+  {
+   "text": "begonias",
+   "tier": "plausible",
+   "look": "clusters of waxy flowers with rounded unequal petals above asymmetrical leaves",
+   "tags": {
+    "kind": [
+     "garden",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "impatiens",
+   "tier": "plausible",
+   "look": "flat bright five-petaled flowers with a slender curved rear spur among soft oval leaves",
+   "tags": {
+    "kind": [
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "zonal geraniums",
+   "tier": "plausible",
+   "look": "rounded clusters of small flowers above scalloped leaves marked with dark circular bands",
+   "tags": {
+    "kind": [
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "mophead hydrangeas",
+   "tier": "typical",
+   "look": "huge rounded clusters of closely packed four-sepaled florets",
+   "tags": {
+    "kind": [
+     "garden",
+     "flowering_shrub_tree",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "lacecap hydrangeas",
+   "tier": "plausible",
+   "look": "flat heads of tiny central flowers ringed by much larger showy florets",
+   "tags": {
+    "kind": [
+     "garden",
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "lilacs",
+   "tier": "plausible",
+   "look": "dense cone-shaped clusters of tiny four-lobed purple or white flowers",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "rhododendrons",
+   "tier": "plausible",
+   "look": "large rounded trusses of flared flowers above thick glossy evergreen leaves",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "azaleas",
+   "tier": "plausible",
+   "look": "masses of open funnel-shaped flowers with long stamens on fine leafy twigs",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "camellias",
+   "tier": "plausible",
+   "look": "rounded rose-shaped flowers with smooth waxy petals among glossy dark leaves",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "gardenias",
+   "tier": "plausible",
+   "look": "creamy white layered flowers with thick waxy petals and glossy dark foliage",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree",
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "magnolia blossoms",
+   "tier": "plausible",
+   "look": "large upright goblet-shaped flowers with thick broad petals on woody branches",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "cherry blossoms",
+   "tier": "typical",
+   "look": "clouds of small pale pink or white five-petaled flowers clustered along slender branches",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "wisteria",
+   "tier": "typical",
+   "look": "long dangling clusters of pea-shaped purple or white flowers on twisting woody vines",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "bougainvillea",
+   "tier": "plausible",
+   "look": "masses of thin papery magenta, red or orange bracts surrounding tiny pale flowers",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "hibiscus",
+   "tier": "typical",
+   "look": "large flared five-petaled flowers with a long prominent staminal column",
+   "tags": {
+    "kind": [
+     "tropical",
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "plumeria",
+   "short": "plumeria / frangipani",
+   "tier": "typical",
+   "look": "clusters of five thick rounded pinwheel petals with warm yellow centers",
+   "tags": {
+    "kind": [
+     "tropical",
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "jacaranda blossoms",
+   "tier": "plausible",
+   "look": "airy clusters of lavender-blue trumpet flowers among fine fernlike leaves",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "flame tree blossoms",
+   "tier": "plausible",
+   "look": "brilliant red-orange flowers with broad spreading petals and long curved stamens",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "dogwood blossoms",
+   "tier": "plausible",
+   "look": "four broad white or pink bracts with notched tips surrounding a small green flower cluster",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "redbud blossoms",
+   "tier": "plausible",
+   "look": "tiny bright pink pea-shaped flowers packed directly along bare twigs and branches",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "forsythia",
+   "tier": "plausible",
+   "look": "bare arching branches crowded with small golden yellow four-lobed flowers",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "jasmine",
+   "tier": "plausible",
+   "look": "small white star-shaped flowers on slender stems among glossy green leaves",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "oleanders",
+   "tier": "plausible",
+   "look": "clusters of five-petaled pinwheel flowers above long narrow leathery leaves",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "mock orange blossoms",
+   "tier": "plausible",
+   "look": "four broad white petals around golden stamens on arching leafy branches",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "butterfly bush flowers",
+   "tier": "plausible",
+   "look": "long tapered clusters of tiny purple flowers with orange eyes",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "heather",
+   "tier": "plausible",
+   "look": "low wiry stems crowded with tiny pink or purple bell-shaped flowers",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "king proteas",
+   "tier": "plausible",
+   "look": "huge bowl-shaped heads with stiff pointed pink bracts around a soft pale central dome",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "pincushion proteas",
+   "tier": "unusual",
+   "look": "round orange or yellow flower heads studded with long curved pinlike styles",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "birds of paradise",
+   "tier": "typical",
+   "look": "orange and blue pointed petals projecting from a horizontal beak-shaped green bract",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "heliconias",
+   "tier": "plausible",
+   "look": "upright or hanging spikes of thick red and yellow claw-shaped bracts",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "torch gingers",
+   "tier": "unusual",
+   "look": "tall waxy pink or red cones of overlapping bracts opening into broad layered blooms",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "anthuriums",
+   "tier": "plausible",
+   "look": "glossy heart-shaped red or pink spathes with a projecting fingerlike central spadix",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "ginger lilies",
+   "tier": "plausible",
+   "look": "clusters of butterfly-shaped flowers with long delicate projecting stamens",
+   "tags": {
+    "kind": [
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "tuberoses",
+   "tier": "plausible",
+   "look": "upright stems lined with thick waxy white tubular flowers",
+   "tags": {
+    "kind": [
+     "bulb",
+     "cut_flower",
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "cannas",
+   "tier": "plausible",
+   "look": "bold asymmetrical red, orange or yellow flowers above broad paddle-shaped leaves",
+   "tags": {
+    "kind": [
+     "tropical",
+     "garden",
+     "bulb"
+    ]
+   }
+  },
+  {
+   "text": "lantanas",
+   "tier": "plausible",
+   "look": "small rounded clusters of tubular florets in mixed yellow, orange, pink or red",
+   "tags": {
+    "kind": [
+     "tropical",
+     "flowering_shrub_tree"
+    ]
+   }
+  },
+  {
+   "text": "passionflowers",
+   "tier": "plausible",
+   "look": "complex star-shaped flowers with a ring of fine filaments and raised crosslike central structures",
+   "tags": {
+    "kind": [
+     "tropical",
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "moth orchids",
+   "tier": "typical",
+   "look": "arching sprays of broad rounded orchid flowers with a small contrasting central lip",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "Cattleya orchids",
+   "tier": "plausible",
+   "look": "large orchids with broad petals and a prominent ruffled trumpet-shaped lip",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "Paphiopedilum orchids",
+   "short": "lady's slipper orchids",
+   "tier": "plausible",
+   "look": "orchids with a deep pouch-shaped lower petal beneath striped or spotted upper segments",
+   "tags": {
+    "kind": [
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "Dendrobium orchids",
+   "tier": "plausible",
+   "look": "sprays of smaller star-shaped orchids lining long slender canes",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "Vanda orchids",
+   "tier": "unusual",
+   "look": "upright sprays of round thick-petaled orchids often patterned with a fine colored grid",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "Brassia spider orchids",
+   "tier": "unusual",
+   "look": "orchid flowers with extremely long narrow sepals and petals radiating like spider legs",
+   "tags": {
+    "kind": [
+     "tropical"
+    ]
+   }
+  },
+  {
+   "text": "dancing lady orchids",
+   "tier": "plausible",
+   "look": "branching sprays of small yellow orchids with broad skirt-shaped lower lips",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "Cymbidium orchids",
+   "tier": "plausible",
+   "look": "arching spikes of waxy thick-petaled orchids with cupped boat-shaped lips",
+   "tags": {
+    "kind": [
+     "tropical",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "lotuses",
+   "tier": "typical",
+   "look": "large pink or white flowers held above round water-repelling leaves on tall stems",
+   "tags": {
+    "kind": [
+     "water"
+    ]
+   }
+  },
+  {
+   "text": "water lilies",
+   "tier": "typical",
+   "look": "many-petaled flowers resting near the water surface among round leaves with a deep notch",
+   "tags": {
+    "kind": [
+     "water"
+    ]
+   }
+  },
+  {
+   "text": "water hyacinths",
+   "tier": "plausible",
+   "look": "upright spikes of pale lavender flowers with a yellow-centered eye above bulbous leaf stems",
+   "tags": {
+    "kind": [
+     "water"
+    ]
+   }
+  },
+  {
+   "text": "yellow flag irises",
+   "tier": "plausible",
+   "look": "bright yellow iris flowers with three drooping falls above tall sword-shaped waterside leaves",
+   "tags": {
+    "kind": [
+     "water",
+     "bulb"
+    ]
+   }
+  },
+  {
+   "text": "pickerelweed",
+   "tier": "unusual",
+   "look": "dense short spikes of tiny violet flowers above glossy heart-shaped aquatic leaves",
+   "tags": {
+    "kind": [
+     "water"
+    ]
+   }
+  },
+  {
+   "text": "tulips",
+   "tier": "typical",
+   "look": "smooth upright cup-shaped flowers with broad rounded petals above straplike leaves",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "parrot tulips",
+   "tier": "plausible",
+   "look": "large tulips with twisted, deeply cut and feather-edged petals",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "fringed tulips",
+   "tier": "plausible",
+   "look": "cup-shaped tulips with fine crystalline-looking fringes along each petal edge",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "lily-flowered tulips",
+   "tier": "plausible",
+   "look": "slender tulip cups with sharply pointed petals curling outward at their tips",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "double tulips",
+   "tier": "plausible",
+   "look": "full rounded tulips packed with extra petals like small peonies",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "daffodils",
+   "tier": "typical",
+   "look": "six spreading petals surrounding a long central trumpet, usually yellow or white",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "paperwhites",
+   "tier": "plausible",
+   "look": "clusters of small white narcissus flowers with short cups on each slender stem",
+   "tags": {
+    "kind": [
+     "bulb",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "crocuses",
+   "tier": "typical",
+   "look": "small goblet-shaped flowers rising close to the ground beside thin grasslike leaves",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "snowdrops",
+   "tier": "typical",
+   "look": "small nodding white flowers with three long outer petals around a green-marked inner cup",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "hyacinths",
+   "tier": "typical",
+   "look": "dense upright cylinders of tightly packed waxy star-shaped flowers",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "grape hyacinths",
+   "tier": "plausible",
+   "look": "short spikes of tiny blue beadlike bells with pale rims",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "bluebells",
+   "tier": "plausible",
+   "look": "arching stems carrying one-sided rows of nodding blue bells with curled petal tips",
+   "tags": {
+    "kind": [
+     "bulb",
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "lilies of the valley",
+   "tier": "plausible",
+   "look": "slender arching stalks hung with tiny white bells above broad smooth leaves",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "bearded irises",
+   "tier": "typical",
+   "look": "three upright petals and three broad drooping falls with fuzzy beards down their centers",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "freesias",
+   "tier": "plausible",
+   "look": "one-sided branching sprays of funnel-shaped flowers curving from slender stems",
+   "tags": {
+    "kind": [
+     "bulb",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "gladioli",
+   "tier": "plausible",
+   "look": "tall spikes of large flared flowers stacked above sword-shaped leaves",
+   "tags": {
+    "kind": [
+     "bulb",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "ornamental alliums",
+   "tier": "plausible",
+   "look": "large spherical clusters of tiny star-shaped flowers on tall bare stems",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "crown imperials",
+   "tier": "unusual",
+   "look": "a ring of hanging orange or yellow bells beneath a spiky crown of green leaves",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "snake's head fritillaries",
+   "short": "checkered fritillaries",
+   "tier": "unusual",
+   "look": "nodding bell flowers patterned with a fine purple-and-white checkerboard",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "amaryllis",
+   "tier": "typical",
+   "look": "huge trumpet-shaped flowers clustered atop a thick leafless stalk",
+   "tags": {
+    "kind": [
+     "bulb",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "calla lilies",
+   "tier": "typical",
+   "look": "smooth sculptural funnel-shaped spathes curling around a yellow central spike",
+   "tags": {
+    "kind": [
+     "bulb",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "Oriental lilies",
+   "tier": "plausible",
+   "look": "large open star-shaped lilies with broad recurving petals and prominent long stamens",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "tiger lilies",
+   "tier": "plausible",
+   "look": "orange heavily spotted lilies with petals curling far backward around dangling stamens",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "red spider lilies",
+   "tier": "unusual",
+   "look": "round clusters of red flowers with thin curled petals and extremely long radiating stamens",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "nerines",
+   "tier": "unusual",
+   "look": "loose clusters of pink flowers with six narrow crinkled petals curling backward",
+   "tags": {
+    "kind": [
+     "bulb",
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "California poppies",
+   "tier": "typical",
+   "look": "silky orange cup-shaped flowers above finely divided blue-green leaves",
+   "tags": {
+    "kind": [
+     "wildflower",
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "corn poppies",
+   "tier": "typical",
+   "look": "thin scarlet crinkled petals around a dark center on slender hairy stems",
+   "tags": {
+    "kind": [
+     "wildflower",
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "Oriental poppies",
+   "tier": "plausible",
+   "look": "huge papery flowers with dark blotches at the petal bases and a broad dark center",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "Iceland poppies",
+   "tier": "plausible",
+   "look": "delicate crinkled cups in cream, yellow or orange with bright yellow stamens",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "Himalayan blue poppies",
+   "tier": "unusual",
+   "look": "sky-blue papery petals surrounding golden stamens on bristly stems",
+   "tags": {
+    "kind": [
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "cornflowers",
+   "tier": "plausible",
+   "look": "small blue flower heads with finely divided spiky outer florets",
+   "tags": {
+    "kind": [
+     "wildflower",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "Queen Anne's lace",
+   "tier": "plausible",
+   "look": "broad flat white lace-like flower clusters above finely divided leaves",
+   "tags": {
+    "kind": [
+     "wildflower",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "yarrow",
+   "tier": "plausible",
+   "look": "flat-topped clusters of tiny flowers above fernlike feathery leaves",
+   "tags": {
+    "kind": [
+     "wildflower",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "chicory",
+   "tier": "plausible",
+   "look": "pale blue daisy flowers with square-toothed petal tips spaced along wiry branched stems",
+   "tags": {
+    "kind": [
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "chamomile",
+   "tier": "plausible",
+   "look": "small white daisies with raised yellow button centers above fine feathery foliage",
+   "tags": {
+    "kind": [
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "forget-me-nots",
+   "tier": "plausible",
+   "look": "tiny sky-blue five-petaled flowers with yellow eyes on low branching stems",
+   "tags": {
+    "kind": [
+     "wildflower",
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "borage",
+   "tier": "plausible",
+   "look": "nodding five-pointed blue stars with dark central cones on hairy stems",
+   "tags": {
+    "kind": [
+     "wildflower",
+     "garden"
+    ]
+   }
+  },
+  {
+   "text": "viper's bugloss",
+   "tier": "unusual",
+   "look": "upright spikes of blue tubular flowers with long projecting pink-red stamens",
+   "tags": {
+    "kind": [
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "fireweed",
+   "tier": "plausible",
+   "look": "tall tapered spikes of bright pink four-petaled flowers above narrow leaves",
+   "tags": {
+    "kind": [
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "Indian paintbrush",
+   "tier": "plausible",
+   "look": "short spikes tipped with vivid red-orange leaflike bracts surrounding small green flowers",
+   "tags": {
+    "kind": [
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "trilliums",
+   "tier": "plausible",
+   "look": "a single three-petaled flower above a whorl of three broad leaves",
+   "tags": {
+    "kind": [
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "buttercups",
+   "tier": "plausible",
+   "look": "small glossy yellow five-petaled cups above divided green leaves",
+   "tags": {
+    "kind": [
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "shooting stars",
+   "tier": "unusual",
+   "look": "nodding flowers with sharply swept-back pink petals and long pointed central cones",
+   "tags": {
+    "kind": [
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "edelweiss",
+   "tier": "unusual",
+   "look": "small yellow flower clusters surrounded by woolly white pointed bracts forming a star",
+   "tags": {
+    "kind": [
+     "wildflower"
+    ]
+   }
+  },
+  {
+   "text": "sea holly",
+   "tier": "plausible",
+   "look": "metallic blue spiny cones surrounded by stiff sharply pointed bracts",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "globe thistles",
+   "tier": "plausible",
+   "look": "perfect round blue flower heads covered with tiny spikes on stiff branching stems",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "statice",
+   "tier": "plausible",
+   "look": "branched sprays of tiny white flowers held in papery purple, pink or yellow cups",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "baby's breath",
+   "tier": "typical",
+   "look": "clouds of tiny white flowers on very fine branching stems",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "stock flowers",
+   "tier": "plausible",
+   "look": "upright spikes of densely ruffled flowers above narrow gray-green leaves",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "waxflowers",
+   "tier": "plausible",
+   "look": "small five-petaled waxy flowers with dark cup-shaped centers on fine needle-leaved twigs",
+   "tags": {
+    "kind": [
+     "flowering_shrub_tree",
+     "cut_flower"
+    ]
+   }
+  },
+  {
+   "text": "billy buttons",
+   "tier": "plausible",
+   "look": "round golden-yellow flower balls on tall thin nearly leafless stems",
+   "tags": {
+    "kind": [
+     "garden",
+     "cut_flower"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,428 @@
+{
+ "id": "person.feature.ears",
+ "label": "Ears",
+ "description": "Ear size, placement, outer shape and earlobe structure.",
+ "pos": "noun phrase",
+ "frame": "a person with ___",
+ "notes": "Visible external ear anatomy, phrased without jewelry or fantasy shapes. Forehead and hairline details belong in person.feature.forehead; scars and birthmarks belong in person.feature.skin_marks. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "facets": [],
+ "closed": true,
+ "strict": true,
+ "catalog": false,
+ "local_facets": {
+  "aspect": [
+   "size",
+   "position",
+   "shape",
+   "lobes"
+  ]
+ },
+ "context": {
+  "takes": {
+   "life_stage": {
+    "mismatch": "drop"
+   }
+  }
+ },
+ "shares": {
+  "aspect": {
+   "size": 0.2,
+   "position": 0.3,
+   "shape": 0.25,
+   "lobes": 0.25
+  }
+ },
+ "values": [
+  {
+   "text": "slightly small ears",
+   "short": "slightly small ears",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "size"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "slightly large ears",
+   "short": "slightly large ears",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "size"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "long, narrow ears",
+   "short": "long, narrow ears",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "size"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "short, broad ears",
+   "short": "short, broad ears",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "size"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "ears lying close to the head",
+   "short": "close-lying ears",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "position"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "ears standing slightly away from the head",
+   "short": "slightly prominent ears",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "position"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "prominent ears",
+   "short": "prominent ears",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "position"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "low-set ears",
+   "short": "low-set ears",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "position"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "high-set ears",
+   "short": "high-set ears",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "position"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "one ear more prominent than the other",
+   "short": "uneven ear projection",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "position"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "gently rounded ear rims",
+   "short": "rounded ear rims",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "shape"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "ears with thick outer rims",
+   "short": "thick ear rims",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "shape"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "ears with folded upper rims",
+   "short": "folded upper rims",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "shape"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "cauliflower ears",
+   "short": "cauliflower ears",
+   "tier": "unusual",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "shape"
+    ],
+    "life_stage": [
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "ears with angular upper rims",
+   "short": "angular upper rims",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "shape"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "small earlobes",
+   "short": "small earlobes",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "lobes"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "attached earlobes",
+   "short": "attached earlobes",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "lobes"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "free-hanging earlobes",
+   "short": "free-hanging lobes",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "lobes"
+    ],
+    "life_stage": [
+     "baby",
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "long earlobes",
+   "short": "long earlobes",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "lobes"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a deep crease across each earlobe",
+   "short": "creased earlobes",
+   "tier": "plausible",
+   "strength": 2,
+   "tags": {
+    "aspect": [
+     "lobes"
+    ],
+    "life_stage": [
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  }
+ ]
+}

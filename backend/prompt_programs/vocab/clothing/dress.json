@@ -1,0 +1,978 @@
+{
+ "id": "clothing.dress",
+ "label": "Dress and one-piece",
+ "description": "Named day dresses, evening dresses, formal gowns, jumpsuits, rompers, catsuits and bodysuits.",
+ "pos": "noun phrase",
+ "frame": "wearing ___",
+ "notes": "Dresses and garments joining the upper and lower body in one piece belong here, from daywear to formal gowns and fitted bodysuits. clothing.top and clothing.bottom own separate garments, with bib overalls in clothing.bottom; clothing.traditional also catalogs culturally specific dress such as the cheongsam and kaftan. Values are single garment names that follow wearing, without a chosen color, accessories or a complete outfit. Dress silhouettes carry feminine presentation tags, work coveralls remain unrestricted, and sheer or fetish one-pieces are adult-only. Revivable silhouettes stay available in contemporary settings without an era restriction.",
+ "closed": false,
+ "facets": [
+  "presentation"
+ ],
+ "local_facets": {
+  "kind": [
+   "day",
+   "evening",
+   "formal_gown",
+   "one_piece"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "an A-line dress",
+   "short": "A-line dress",
+   "tier": "typical",
+   "look": "a dress widening gradually from the upper body into a triangular skirt",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a shift dress",
+   "short": "shift dress",
+   "tier": "typical",
+   "look": "a short straight dress hanging loosely from the shoulders without a defined waist",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sheath dress",
+   "short": "sheath dress",
+   "tier": "typical",
+   "look": "a tailored dress following the body closely with a defined waist and a narrow knee-length skirt",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a wrap dress",
+   "short": "wrap dress",
+   "tier": "typical",
+   "look": "a dress with overlapping front panels tied at the waist and a diagonal V neckline",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a shirt dress",
+   "short": "shirt dress",
+   "tier": "typical",
+   "look": "a dress shaped like a long button-front shirt, with a collar and cuffs",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sundress",
+   "short": "sundress",
+   "tier": "typical",
+   "look": "a light sleeveless dress with thin straps, a fitted bodice and a loose summer skirt",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a fit-and-flare dress",
+   "short": "fit-and-flare dress",
+   "tier": "typical",
+   "look": "a dress with a fitted bodice, a sharply defined waist and a full flaring skirt",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an empire-waist maxi dress",
+   "short": "empire-waist maxi dress",
+   "tier": "plausible",
+   "look": "a long dress with the waist seam just below the bust and fabric flowing freely to the ankles",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a babydoll dress",
+   "short": "babydoll dress",
+   "tier": "plausible",
+   "look": "a short dress with a high waist just beneath the bust and a loose, puffed-out skirt",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a smock dress",
+   "short": "smock dress",
+   "tier": "plausible",
+   "look": "a roomy dress gathered beneath a chest yoke, with loose sleeves and no fitted waist",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a tent dress",
+   "short": "tent dress",
+   "tier": "plausible",
+   "look": "a voluminous dress spreading broadly from the shoulders to a wide hem",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a drop-waist dress",
+   "short": "drop-waist dress",
+   "tier": "plausible",
+   "look": "a dress with a long straight bodice and a skirt joined low across the hips",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a pinafore dress",
+   "short": "pinafore dress",
+   "tier": "plausible",
+   "look": "a sleeveless dress with a square front bib and broad straps over an open-sided bodice",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sweater dress",
+   "short": "sweater dress",
+   "tier": "typical",
+   "look": "a long knitted pullover extending into a dress, with a round neck and long sleeves",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a turtleneck sweater dress",
+   "short": "turtleneck sweater dress",
+   "tier": "plausible",
+   "look": "a knitted dress with long sleeves and a tall folded collar enclosing the neck",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a T-shirt dress",
+   "short": "T-shirt dress",
+   "tier": "typical",
+   "look": "a loose jersey dress with a round neck and short sleeves, shaped like an elongated tee",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a polo dress",
+   "short": "polo dress",
+   "tier": "plausible",
+   "look": "a short knit dress with a folded polo collar and a short button placket",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sweatshirt dress",
+   "short": "sweatshirt dress",
+   "tier": "plausible",
+   "look": "a roomy fleece dress with ribbed cuffs, a ribbed hem and dropped shoulders",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a tunic dress",
+   "short": "tunic dress",
+   "tier": "typical",
+   "look": "a short, loose straight dress with side slits and a simple open neckline",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a peasant dress",
+   "short": "peasant dress",
+   "tier": "plausible",
+   "look": "a loose dress with a gathered neckline, full sleeves and a softly gathered waist",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a prairie dress",
+   "short": "prairie dress",
+   "tier": "plausible",
+   "look": "a long dress with a high neckline, full sleeves and ruffled or tiered skirt panels",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sailor dress",
+   "short": "sailor dress",
+   "tier": "plausible",
+   "look": "a dress with a broad square-backed sailor collar and a tie at the front neckline",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a tennis dress",
+   "short": "tennis dress",
+   "tier": "typical",
+   "look": "a sleeveless fitted athletic dress with a short, flared or pleated skirt",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cheongsam dress",
+   "short": "cheongsam",
+   "tier": "plausible",
+   "look": "a close-fitting dress with a standing collar, diagonal neck fastening and side skirt slits",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a kaftan dress",
+   "short": "kaftan dress",
+   "tier": "plausible",
+   "look": "a long, loose robe-like dress with wide sleeves and a straight flowing body",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a handkerchief-hem dress",
+   "short": "handkerchief dress",
+   "tier": "plausible",
+   "look": "a flowing dress with an uneven skirt ending in several long pointed corners",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a blouson dress",
+   "short": "blouson dress",
+   "tier": "plausible",
+   "look": "a dress with a loose bodice billowing over a fitted or elastic waist",
+   "tags": {
+    "kind": [
+     "day"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a slip dress",
+   "short": "slip dress",
+   "tier": "typical",
+   "look": "a fluid dress with thin shoulder straps, a simple neckline and a lightly flared skirt",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a bodycon dress",
+   "short": "bodycon dress",
+   "tier": "typical",
+   "look": "a stretchy dress clinging closely to the torso, hips and thighs",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a bandage dress",
+   "short": "bandage dress",
+   "tier": "plausible",
+   "look": "a tight dress constructed from broad overlapping elastic bands that wrap around the body",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cowl-neck dress",
+   "short": "cowl-neck dress",
+   "tier": "plausible",
+   "look": "a dress with loose folds of fabric draped across a low front neckline",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a halter-neck dress",
+   "short": "halter-neck dress",
+   "tier": "typical",
+   "look": "a dress with straps meeting behind the neck and bare shoulders",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a one-shoulder dress",
+   "short": "one-shoulder dress",
+   "tier": "plausible",
+   "look": "an asymmetric dress with one shoulder covered and the other left bare",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an off-shoulder dress",
+   "short": "off-shoulder dress",
+   "tier": "typical",
+   "look": "a dress with a wide neckline sitting below both shoulders",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a strapless dress",
+   "short": "strapless dress",
+   "tier": "typical",
+   "look": "a dress supported by a fitted bodice with no sleeves or shoulder straps",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cutout dress",
+   "short": "cutout dress",
+   "tier": "plausible",
+   "look": "a fitted dress with deliberate openings in the fabric at the waist or torso",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a backless dress",
+   "short": "backless dress",
+   "tier": "plausible",
+   "look": "a dress with a low open back extending toward the waist",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a corset dress",
+   "short": "corset dress",
+   "tier": "plausible",
+   "look": "a dress with a rigid boned bodice, shaped waist and visible lacing or bust seams",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a blazer dress",
+   "short": "blazer dress",
+   "tier": "plausible",
+   "look": "a short dress shaped like a tailored jacket, with lapels and an overlapping buttoned front",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a high-low cocktail dress",
+   "short": "high-low cocktail dress",
+   "tier": "plausible",
+   "look": "a party dress with a skirt short in front and extending into a longer back hem",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sequin dress",
+   "short": "sequin dress",
+   "tier": "plausible",
+   "look": "a dress covered in small reflective sequins that form a glittering surface",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a fringed flapper dress",
+   "short": "flapper dress",
+   "tier": "plausible",
+   "look": "a short, straight, dropped-waist dress covered in tiers of swinging fringe",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a chainmail dress",
+   "short": "chainmail dress",
+   "tier": "unusual",
+   "look": "a draped dress formed from linked metallic rings, with an open mesh surface",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sheer dress",
+   "short": "sheer dress",
+   "tier": "unusual",
+   "look": "a dress made of transparent fabric through which the body is visible",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a latex dress",
+   "short": "latex dress",
+   "tier": "unusual",
+   "look": "a tight dress with a smooth, highly reflective latex surface",
+   "tags": {
+    "kind": [
+     "evening"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a ball gown",
+   "short": "ball gown",
+   "tier": "typical",
+   "look": "a formal floor-length dress with a fitted bodice and a very full, rounded skirt",
+   "tags": {
+    "kind": [
+     "formal_gown"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a mermaid gown",
+   "short": "mermaid gown",
+   "tier": "plausible",
+   "look": "a floor-length gown fitted tightly through the knees before flaring into a broad hem",
+   "tags": {
+    "kind": [
+     "formal_gown"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a trumpet gown",
+   "short": "trumpet gown",
+   "tier": "plausible",
+   "look": "a fitted gown whose skirt begins flaring around the middle of the thighs",
+   "tags": {
+    "kind": [
+     "formal_gown"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a column gown",
+   "short": "column gown",
+   "tier": "typical",
+   "look": "a long narrow gown with a nearly straight silhouette extending to the floor",
+   "tags": {
+    "kind": [
+     "formal_gown"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a Grecian draped gown",
+   "short": "Grecian draped gown",
+   "tier": "plausible",
+   "look": "a long gown with gathered, flowing fabric draped diagonally across the bodice",
+   "tags": {
+    "kind": [
+     "formal_gown"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a portrait-collar gown",
+   "short": "portrait-collar gown",
+   "tier": "plausible",
+   "look": "a long formal gown with a broad folded collar framing the shoulders and upper chest",
+   "tags": {
+    "kind": [
+     "formal_gown"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a tea-length formal dress",
+   "short": "tea-length formal dress",
+   "tier": "plausible",
+   "look": "a formal dress with a structured bodice and a full skirt ending around the middle of the calves",
+   "tags": {
+    "kind": [
+     "formal_gown"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a cape gown",
+   "short": "cape gown",
+   "tier": "plausible",
+   "look": "a floor-length gown with a cape attached at the shoulders and falling behind the arms",
+   "tags": {
+    "kind": [
+     "formal_gown"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "an overskirt gown",
+   "short": "overskirt gown",
+   "tier": "unusual",
+   "look": "a narrow gown beneath a second full skirt that opens at the front to reveal it",
+   "tags": {
+    "kind": [
+     "formal_gown"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a bustle gown",
+   "short": "bustle gown",
+   "tier": "unusual",
+   "look": "a long fitted gown with gathered fabric forming a large projection behind the hips",
+   "tags": {
+    "kind": [
+     "formal_gown"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a high-neck lace gown",
+   "short": "high-neck lace gown",
+   "tier": "plausible",
+   "look": "a floor-length gown with a high collar, long sleeves and visible floral lace openwork",
+   "tags": {
+    "kind": [
+     "formal_gown"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a tailored jumpsuit",
+   "short": "tailored jumpsuit",
+   "tier": "typical",
+   "look": "a one-piece outfit with a fitted bodice, defined waist and neatly tailored trouser legs",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a boilersuit",
+   "short": "boilersuit",
+   "tier": "plausible",
+   "look": "a one-piece work garment with long sleeves, a front fastening and utility pockets",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ]
+   }
+  },
+  {
+   "text": "a wide-leg jumpsuit",
+   "short": "wide-leg jumpsuit",
+   "tier": "typical",
+   "look": "a one-piece garment with a fitted upper body and broad flowing trouser legs",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a halter-neck jumpsuit",
+   "short": "halter jumpsuit",
+   "tier": "plausible",
+   "look": "a trouser one-piece held at the neck, leaving the shoulders and upper back bare",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a strapless jumpsuit",
+   "short": "strapless jumpsuit",
+   "tier": "plausible",
+   "look": "a trouser one-piece supported by a fitted bodice with no sleeves or shoulder straps",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a romper",
+   "short": "romper",
+   "tier": "typical",
+   "look": "a short one-piece garment combining a fitted top with loose shorts",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a culotte jumpsuit",
+   "short": "culotte jumpsuit",
+   "tier": "plausible",
+   "look": "a one-piece garment with very wide trouser legs ending around the middle of the calves",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a catsuit",
+   "short": "catsuit",
+   "tier": "plausible",
+   "look": "a stretch one-piece garment fitting closely over the torso, arms and full-length legs",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ]
+   }
+  },
+  {
+   "text": "a bodysuit",
+   "short": "bodysuit",
+   "tier": "plausible",
+   "look": "a close-fitting one-piece top extending over the torso and fastening at the crotch",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "a sheer bodysuit",
+   "short": "sheer bodysuit",
+   "tier": "unusual",
+   "look": "a close-fitting one-piece top made of transparent mesh and fastening at the crotch",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a latex catsuit",
+   "short": "latex catsuit",
+   "tier": "unusual",
+   "look": "a skin-tight full-body one-piece with long sleeves and a highly reflective latex surface",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ]
+   },
+   "adult_only": true
+  },
+  {
+   "text": "a harem jumpsuit",
+   "short": "harem jumpsuit",
+   "tier": "unusual",
+   "look": "a one-piece garment with a loose, deeply dropped crotch and trouser legs gathered at the ankles",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ]
+   }
+  },
+  {
+   "text": "a hooded onesie",
+   "short": "hooded onesie",
+   "tier": "plausible",
+   "look": "a loose full-body lounge garment with a front zipper, long sleeves and an attached hood",
+   "tags": {
+    "kind": [
+     "one_piece"
+    ]
+   }
+  }
+ ]
+}

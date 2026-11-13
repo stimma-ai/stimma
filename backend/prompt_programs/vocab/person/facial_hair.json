@@ -1,480 +1,985 @@
 {
-  "id": "person.facial_hair",
-  "label": "Facial hair",
-  "description": "The shape and grooming of a beard, mustache or stubble.",
-  "pos": "noun phrase",
-  "frame": "a person with ___",
-  "notes": "Facial hair only; scalp hair belongs to person.hair_color, person.hair_length_texture and person.hairstyle. Shapes may include density and grooming needed to distinguish them. Values do not imply descent. Age tags exclude children; lighter growth and some grooming styles also allow teens, while developed beards are limited to adults and elders. The masculine presentation default is a visual styling filter, not a restriction on gender identity; the writer may override the subject wording. Includes a clean-shaven face, so a bound facial-hair pick can draw no facial hair (children, teens, most adults).",
-  "facets": [
-    "age",
-    "era",
-    "presentation"
-  ],
-  "closed": true,
-  "values": [
-    {
-      "text": "a clean-shaven face",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "masculine",
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "light stubble",
-      "tier": "typical",
-      "tags": {
-        "age": [
-          "teen",
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "heavy stubble",
-      "tier": "typical",
-      "tags": {
-        "age": [
-          "teen",
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a short full beard",
-      "tier": "typical",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a sculpted jawline beard",
-      "tier": "typical",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a full mustache",
-      "tier": "typical",
-      "tags": {
-        "age": [
-          "teen",
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a goatee",
-      "tier": "typical",
-      "tags": {
-        "age": [
-          "teen",
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a medium-length beard",
-      "tier": "typical",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a long full beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a pointed beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a square-cut beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a forked beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a braided beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a chinstrap beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a circle beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a mustache and soul patch",
-      "short": "mustache and soul patch",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "teen",
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a pencil mustache",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "teen",
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a chevron mustache",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a handlebar mustache",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a horseshoe mustache",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a walrus mustache",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a ducktail beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "an anchor beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a wispy beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "teen",
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a patchy beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "teen",
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "a bushy beard",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "mutton-chop sideburns",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    },
-    {
-      "text": "long narrow sideburns",
-      "tier": "plausible",
-      "tags": {
-        "age": [
-          "teen",
-          "adult",
-          "elderly"
-        ],
-        "life_stage": [
-          "young adult",
-          "middle-aged",
-          "older",
-          "elderly"
-        ]
-      }
-    }
-  ],
-  "untagged": {
-    "presentation": [
-      "masculine"
-    ]
-  },
-  "context": {
-    "takes": {
-      "life_stage": {
-        "mismatch": "drop"
-      }
-    }
+ "id": "person.facial_hair",
+ "label": "Facial hair",
+ "description": "Named beard, mustache and sideburn styles, stubble lengths, and a clean-shaven face.",
+ "pos": "noun phrase",
+ "frame": "a person with ___",
+ "notes": "Beard, mustache and sideburn shapes belong here; scalp styling belongs in person.hairstyle and cosmetics in person.makeup. Values are short noun phrases, including a clean-shaven face for no facial hair, with visual explanations of named styles. Age and life_stage tags retain the existing growth filters, and untagged presentation defaults to masculine while clean-shaven fits both presentations. Styles imply no descent, and names describe grooming rather than gender identity.",
+ "facets": [
+  "age",
+  "presentation"
+ ],
+ "closed": true,
+ "local_facets": {
+  "style": [
+   "stubble",
+   "mustache",
+   "goatee_chin",
+   "full_beard",
+   "sideburns",
+   "none"
+  ]
+ },
+ "untagged": {
+  "presentation": [
+   "masculine"
+  ]
+ },
+ "context": {
+  "takes": {
+   "life_stage": {
+    "mismatch": "drop"
+   }
   }
+ },
+ "values": [
+  {
+   "text": "a clean-shaven face",
+   "short": "clean-shaven",
+   "tier": "typical",
+   "look": "Bare cheeks, chin and upper lip with no visible beard or mustache.",
+   "tags": {
+    "style": [
+     "none"
+    ],
+    "presentation": [
+     "masculine",
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "light stubble",
+   "tier": "typical",
+   "look": "A faint, evenly cropped shadow of facial hair, with skin clearly showing through.",
+   "tags": {
+    "style": [
+     "stubble"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "medium stubble",
+   "tier": "typical",
+   "look": "Visible short bristles across the cheeks, chin and upper lip, between a shadow and dense stubble.",
+   "tags": {
+    "style": [
+     "stubble"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "heavy stubble",
+   "tier": "typical",
+   "look": "Dense coarse bristles covering the jaw and cheeks without forming a flowing beard.",
+   "tags": {
+    "style": [
+     "stubble"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a chevron mustache",
+   "short": "chevron mustache",
+   "tier": "typical",
+   "look": "A thick inverted-V mustache spanning the upper lip, with a broad center and downward-sloping ends.",
+   "tags": {
+    "style": [
+     "mustache"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a pencil mustache",
+   "short": "pencil mustache",
+   "tier": "plausible",
+   "look": "A very thin, neatly edged line of hair just above the upper lip.",
+   "tags": {
+    "style": [
+     "mustache"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a handlebar mustache",
+   "short": "handlebar mustache",
+   "tier": "plausible",
+   "look": "A full mustache with long ends curled upward into loops.",
+   "tags": {
+    "style": [
+     "mustache"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a horseshoe mustache",
+   "short": "horseshoe mustache",
+   "tier": "plausible",
+   "look": "A mustache with two vertical strips descending beside the mouth to the jaw; the chin stays bare.",
+   "tags": {
+    "style": [
+     "mustache"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a walrus mustache",
+   "short": "walrus mustache",
+   "tier": "plausible",
+   "look": "A thick, bushy mustache hanging over the upper lip and drooping at both corners.",
+   "tags": {
+    "style": [
+     "mustache"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "an English mustache",
+   "short": "English mustache",
+   "tier": "unusual",
+   "look": "A center-parted mustache with long, narrow ends extending straight out to the sides.",
+   "tags": {
+    "style": [
+     "mustache"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "an imperial mustache",
+   "short": "imperial mustache",
+   "tier": "unusual",
+   "look": "A broad mustache rising into hair on the upper cheeks, with both ends swept upward.",
+   "tags": {
+    "style": [
+     "mustache"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a lampshade mustache",
+   "short": "lampshade mustache",
+   "tier": "plausible",
+   "look": "A compact trapezoid of hair, narrow under the nose and wider along the upper lip.",
+   "tags": {
+    "style": [
+     "mustache"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a pyramid mustache",
+   "short": "pyramid mustache",
+   "tier": "plausible",
+   "look": "A triangular mustache tapering to a narrow peak beneath the nose and widening toward the lip.",
+   "tags": {
+    "style": [
+     "mustache"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a toothbrush mustache",
+   "short": "toothbrush mustache",
+   "tier": "unusual",
+   "look": "A short rectangular block of hair centered beneath the nose, with the sides of the upper lip shaved.",
+   "tags": {
+    "style": [
+     "mustache"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a Fu Manchu mustache",
+   "short": "Fu Manchu mustache",
+   "tier": "unusual",
+   "look": "Two long, thin mustache tails hang below the chin, with the chin and skin beside the mouth shaved.",
+   "tags": {
+    "style": [
+     "mustache"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a goatee",
+   "short": "goatee",
+   "tier": "typical",
+   "look": "Hair on the chin beneath the lower lip, with shaved cheeks and no mustache.",
+   "tags": {
+    "style": [
+     "goatee_chin"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a circle beard",
+   "short": "circle beard",
+   "tier": "typical",
+   "look": "A mustache connected to a rounded chin beard, forming a continuous ring around the mouth.",
+   "tags": {
+    "style": [
+     "goatee_chin"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a Van Dyke beard",
+   "short": "Van Dyke beard",
+   "tier": "plausible",
+   "look": "A pointed chin beard and a separate mustache, with clean gaps at the mouth corners and bare cheeks.",
+   "tags": {
+    "style": [
+     "goatee_chin"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "an anchor beard",
+   "short": "anchor beard",
+   "tier": "plausible",
+   "look": "A pointed chin beard spreads in narrow strips along the jaw, beneath a separate pencil mustache.",
+   "tags": {
+    "style": [
+     "goatee_chin"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a Balbo beard",
+   "short": "Balbo beard",
+   "tier": "plausible",
+   "look": "A broad shaped chin beard with a soul patch and separate mustache; cheeks and sideburns are shaved.",
+   "tags": {
+    "style": [
+     "goatee_chin"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a soul patch",
+   "short": "soul patch",
+   "tier": "plausible",
+   "look": "A small isolated patch of hair centered directly below the lower lip.",
+   "tags": {
+    "style": [
+     "goatee_chin"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a chin puff",
+   "short": "chin puff",
+   "tier": "plausible",
+   "look": "A small tuft centered on the bottom of the chin, with a bare gap below the lower lip.",
+   "tags": {
+    "style": [
+     "goatee_chin"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "an extended goatee",
+   "short": "extended goatee",
+   "tier": "plausible",
+   "look": "A connected mustache and chin beard extending outward along the lower jaw, without sideburns.",
+   "tags": {
+    "style": [
+     "goatee_chin"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a mustache and soul patch",
+   "short": "mustache and soul patch",
+   "tier": "typical",
+   "look": "A mustache above the lip and a separate small patch below it, with a bare chin and cheeks.",
+   "tags": {
+    "style": [
+     "mustache",
+     "goatee_chin"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a short full beard",
+   "short": "short full beard",
+   "tier": "typical",
+   "look": "Close-cropped hair covers the cheeks, chin and jaw and connects to the mustache.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a medium-length beard",
+   "short": "medium-length beard",
+   "tier": "typical",
+   "look": "A full beard with visible depth below the chin, without reaching the chest.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a long full beard",
+   "short": "long full beard",
+   "tier": "plausible",
+   "look": "A full cheek-and-chin beard extending well below the jaw toward the chest.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a short boxed beard",
+   "short": "short boxed beard",
+   "tier": "typical",
+   "look": "A short dense beard with sharply edged cheek lines and a tidy, squared jaw outline.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a square-cut beard",
+   "short": "square-cut beard",
+   "tier": "plausible",
+   "look": "A longer full beard trimmed into a broad, flat horizontal bottom with squared corners.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a forked beard",
+   "short": "forked beard",
+   "tier": "unusual",
+   "look": "A long beard divided down the center into two pointed ends.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a braided beard",
+   "short": "braided beard",
+   "tier": "unusual",
+   "look": "Long chin hair woven into a visible braid below the jaw.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a ducktail beard",
+   "short": "ducktail beard",
+   "tier": "plausible",
+   "look": "A full beard with shorter cheek hair tapering into one rounded point beneath the chin.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a Garibaldi beard",
+   "short": "Garibaldi beard",
+   "tier": "plausible",
+   "look": "A wide, full beard with a broad rounded bottom and a naturally grown mustache.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a faded beard",
+   "short": "faded beard",
+   "tier": "typical",
+   "look": "A beard that graduates from very short sideburns to denser, longer hair toward the chin.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a wispy beard",
+   "short": "wispy beard",
+   "tier": "plausible",
+   "look": "Sparse, fine strands hang below the chin and along the jaw, with skin visible between them.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a patchy beard",
+   "short": "patchy beard",
+   "tier": "typical",
+   "look": "Uneven areas of beard growth leave clearly visible bare patches on the cheeks or jaw.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a bushy beard",
+   "short": "bushy beard",
+   "tier": "plausible",
+   "look": "A dense full beard with a wide, fluffy silhouette and flyaway hairs rather than a clipped outline.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a chin curtain beard",
+   "short": "chin curtain beard",
+   "tier": "plausible",
+   "look": "A continuous beard follows the jaw from sideburn to sideburn, with the upper lip shaved.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a beardstache",
+   "short": "beardstache",
+   "tier": "plausible",
+   "look": "A thick, prominent mustache sits above much shorter stubble on the cheeks and chin.",
+   "tags": {
+    "style": [
+     "mustache",
+     "stubble"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a Hollywoodian beard",
+   "short": "Hollywoodian beard",
+   "tier": "plausible",
+   "look": "A mustache joins a broad beard along the lower cheeks and chin, while both sideburns are shaved.",
+   "tags": {
+    "style": [
+     "full_beard"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "a chinstrap beard",
+   "short": "chin strap beard",
+   "tier": "plausible",
+   "look": "A narrow strip follows the jaw from ear to ear, with shaved cheeks and no mustache.",
+   "tags": {
+    "style": [
+     "goatee_chin"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "short sideburns",
+   "tier": "typical",
+   "look": "Trimmed strips of hair end near the middle of each ear, leaving the jaw and chin bare.",
+   "tags": {
+    "style": [
+     "sideburns"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "long narrow sideburns",
+   "tier": "plausible",
+   "look": "Slender strips of hair run down in front of the ears toward the jaw, with a bare chin.",
+   "tags": {
+    "style": [
+     "sideburns"
+    ],
+    "age": [
+     "teen",
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "mutton-chop sideburns",
+   "short": "mutton chops",
+   "tier": "plausible",
+   "look": "Broad flared sideburns spread over the lower cheeks, with a shaved chin and upper lip.",
+   "tags": {
+    "style": [
+     "sideburns"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  },
+  {
+   "text": "friendly mutton chops",
+   "tier": "unusual",
+   "look": "Broad sideburns connect to a mustache across the cheeks, while the chin remains shaved.",
+   "tags": {
+    "style": [
+     "sideburns",
+     "mustache"
+    ],
+    "age": [
+     "adult",
+     "elderly"
+    ],
+    "life_stage": [
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ]
+   }
+  }
+ ]
 }

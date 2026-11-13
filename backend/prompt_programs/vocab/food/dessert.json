@@ -1,0 +1,1315 @@
+{
+ "id": "food.dessert",
+ "label": "Desserts and baked goods",
+ "description": "Named desserts, sweet pastries, confections, frozen treats, and savory or plain breads from world cuisines.",
+ "pos": "noun phrase",
+ "frame": "a serving of ___",
+ "notes": "Desserts, sweet baked goods, and named bread forms belong here; food.dish holds savory meals and filled savory dishes, while food.drink holds beverages. Values are recognizable names that follow “a serving of,” with visual glosses describing the finished food. Kind chips overlap when useful, such as fried pastries, and region tags describe culinary associations rather than exclusive origins. Tiers reflect expected dessert and bakery imagery, not cultural importance.",
+ "closed": false,
+ "facets": [
+  "region"
+ ],
+ "local_facets": {
+  "kind": [
+   "pastry",
+   "cake",
+   "cookie_small",
+   "bread",
+   "frozen",
+   "fried",
+   "custard_pudding",
+   "confection"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "croissant",
+   "look": "A golden crescent pastry with flaky layers and a rolled center.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "pain au chocolat",
+   "look": "A rectangular flaky pastry with dark chocolate bars visible at the ends.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "kouign-amann",
+   "look": "A squat layered pastry with a deeply caramelized crisp sugar crust.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "éclair",
+   "look": "An oblong choux pastry filled with cream and topped with shiny icing.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "mille-feuille",
+   "look": "Three crisp puff-pastry layers sandwich pale cream beneath striped icing.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "tarte tatin",
+   "look": "An upside-down tart with glossy caramelized apple wedges over a pastry base.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "fruit tart",
+   "look": "A shallow pastry shell filled with cream and neatly arranged fresh fruit.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "profiteroles",
+   "look": "Small round cream-filled choux puffs topped with chocolate sauce.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "cannoli",
+   "look": "Crisp hollow pastry tubes with white ricotta cream protruding from both ends.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "sfogliatella",
+   "look": "A shell-shaped pastry with many thin ridged layers and a dense pale filling.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "pastel de nata",
+   "look": "A small flaky pastry cup holding yellow custard with dark blistered spots.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "apple strudel",
+   "look": "A long flaky pastry roll cut to reveal layered apples and raisins.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "cinnamon roll",
+   "look": "A soft spiral bun with brown cinnamon seams and white icing.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "kanelbulle",
+   "look": "A golden cinnamon bun twisted into a knot and sprinkled with pearl sugar.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "baklava",
+   "look": "Diamond-cut layers of crisp golden phyllo with chopped nuts and shiny syrup.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "middle_eastern",
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "kunafa",
+   "look": "A round golden nest of fine shredded pastry over soft cheese with green pistachio crumbs.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "middle_eastern",
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "mooncake",
+   "look": "A round or square stamped golden pastry with a dense dark filling visible when sliced.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "apple pie",
+   "look": "A deep golden pastry pie with a crimped or lattice top and chunky apple filling.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "pecan pie",
+   "look": "A brown syrupy tart covered with shiny pecan halves.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "guava cheese pastry",
+   "look": "A flaky golden pastry square with pink guava paste and a white cheese filling.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pastry"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "Black Forest cake",
+   "look": "Dark chocolate sponge layers with white whipped cream, red cherries, and chocolate shavings.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "Basque cheesecake",
+   "look": "A tall crustless cheesecake with a deeply browned top and a pale creamy center.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "tiramisu",
+   "look": "Layers of pale cream and soaked sponge fingers with a cocoa-dusted top.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "Sachertorte",
+   "look": "A neat dark chocolate cake under smooth chocolate glaze, often with whipped cream.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "Victoria sponge",
+   "look": "Two pale sponge layers sandwich red jam and white cream beneath powdered sugar.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "Swiss roll",
+   "look": "A rolled sponge cake cut to show a clean spiral of cream or jam.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "crêpe cake",
+   "look": "A tall cake made of many very thin crêpes alternating with cream.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "croquembouche",
+   "look": "A tall cone of small golden choux puffs bound with caramel and spun sugar.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "layer cake",
+   "look": "Several stacked sponge layers with frosting between them and over the outside.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "red velvet cake",
+   "look": "Deep red sponge layers separated by thick white frosting.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "carrot cake",
+   "look": "Brown-orange cake flecked with carrot and nuts beneath cream cheese frosting.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "New York cheesecake",
+   "look": "A thick pale cheesecake slice with a compact golden crumb crust.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "brownies",
+   "look": "Dense dark chocolate squares with thin crackly tops.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "angel food cake",
+   "look": "A tall pale ring cake with an airy white crumb and a lightly browned crust.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "tres leches cake",
+   "look": "A pale milk-soaked sponge cake topped with white whipped cream.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "pavlova",
+   "look": "A crisp white meringue mound with a soft center, whipped cream, and fresh fruit.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "lamingtons",
+   "look": "Square sponge cakes coated in chocolate and rough white shredded coconut.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "pandan chiffon cake",
+   "look": "A tall airy ring cake with a pale green interior and thin brown crust.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "kue lapis",
+   "look": "A glossy steamed cake sliced into many alternating colored horizontal layers.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "cake"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "babka",
+   "look": "A loaf with twisted chocolate or cinnamon ribbons running through the crumb.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cake",
+     "bread"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "macarons",
+   "look": "Small pastel-colored almond sandwich cookies with smooth domed tops and ruffled edges.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "madeleines",
+   "look": "Small golden sponge cakes with scalloped shell ridges.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "shortbread",
+   "look": "Pale buttery cookies with straight edges and tiny fork-prick holes.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "biscotti",
+   "look": "Long twice-baked cookie slices with visible nuts and browned edges.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "stroopwafels",
+   "look": "Thin round waffle cookies sandwiching a line of brown caramel.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "chocolate chip cookies",
+   "look": "Golden round cookies studded with dark chocolate chips.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "whoopie pies",
+   "look": "Two soft dark chocolate rounds sandwich a thick layer of white cream.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "maamoul",
+   "look": "Small pale molded cookies with ridged or stamped patterns and a date or nut center.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "alfajores",
+   "look": "Two pale round cookies sandwich caramel, sometimes edged with shredded coconut.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "dorayaki",
+   "look": "Two small golden pancakes sandwich a thick layer of dark red bean paste.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "taiyaki",
+   "look": "A golden fish-shaped waffle with molded scales and a sweet filling.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "Anzac biscuits",
+   "look": "Flat golden oat cookies with a rough coconut-speckled surface.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cookie_small"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "sourdough loaf",
+   "look": "A round crusty loaf with a scored top and large irregular air pockets inside.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "baguette",
+   "look": "A long narrow bread loaf with diagonal slashes and a golden crust.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "focaccia",
+   "look": "A thick flat bread with oil-filled dimples, herbs, and a golden top.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "pretzel",
+   "look": "A dark brown knotted bread with coarse salt crystals and a pale split crust.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "rye bread",
+   "look": "A dense dark loaf with a close brown crumb, often sliced thinly.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "brioche",
+   "look": "A glossy deep golden loaf with a rich yellow soft crumb.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "bagel",
+   "look": "A smooth shiny bread ring with a dense interior and a central hole.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "european",
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "challah",
+   "look": "A braided loaf with a glossy deep golden crust.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "european",
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "naan",
+   "look": "A soft oval flatbread with large bubbles and scattered charred spots.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "pita bread",
+   "look": "Round pale flatbreads that puff into pockets and show light brown griddle spots.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "pão de queijo",
+   "look": "Small round golden cheese breads with craggy tops and airy pale centers.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "damper",
+   "look": "A rustic round bread with a rough floury crust and a cross cut across the top.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bread"
+    ],
+    "region": [
+     "oceanian"
+    ]
+   }
+  },
+  {
+   "text": "gelato",
+   "look": "Dense smooth frozen cream in soft rounded scoops or piled folds.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "frozen"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "sorbet",
+   "look": "Brightly colored frozen fruit scoops with a smooth slightly icy surface.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "frozen"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "semifreddo",
+   "look": "A sliceable pale frozen mousse loaf, often showing nuts or fruit within.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "frozen"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "soft-serve ice cream",
+   "look": "A tall smooth spiral of soft ice cream rising from a wafer cone.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "frozen"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "banana split",
+   "look": "A split banana cradles scoops of ice cream, sauces, cream, and cherries.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "frozen"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "ice cream sandwich",
+   "look": "A slab of pale ice cream held between two dark cookie rectangles.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "frozen"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "sundae",
+   "look": "Scoops of ice cream in a dish with sauce, whipped cream, and a cherry.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "frozen"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "kulfi",
+   "look": "Dense pale frozen milk on a stick or molded into a cone, often flecked with pistachios.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "frozen"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "bingsu",
+   "look": "A high mound of fine shaved milk ice with fruit, beans, or powdered toppings.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "frozen"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "kakigori",
+   "look": "A fluffy heap of shaved ice soaked in bright syrup and served in a small bowl.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "frozen"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "halo-halo",
+   "look": "A clear glass layered with colorful jellies, beans, shaved ice, milk, and purple ice cream.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "frozen"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "churros",
+   "look": "Long ridged golden fried dough sticks rolled in sugar beside chocolate sauce.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "fried",
+     "pastry"
+    ],
+    "region": [
+     "european",
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "glazed doughnut",
+   "look": "A round fried dough ring with a shiny translucent sugar glaze.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "fried",
+     "pastry"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "beignets",
+   "look": "Puffy square fried pastries under a heavy coating of powdered sugar.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "fried",
+     "pastry"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "funnel cake",
+   "look": "A flat tangled nest of fried batter strands dusted with powdered sugar.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "fried",
+     "pastry"
+    ],
+    "region": [
+     "north_american"
+    ]
+   }
+  },
+  {
+   "text": "gulab jamun",
+   "look": "Deep brown round milk-dough balls resting in clear golden syrup.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "fried",
+     "confection"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "jalebi",
+   "look": "Bright orange tight spirals of fried batter with a shiny syrup coating.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "fried",
+     "confection"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "sopaipillas",
+   "look": "Puffed golden fried dough pillows served with a drizzle of honey or syrup.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "fried",
+     "pastry"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "crème brûlée",
+   "look": "Pale custard in a shallow ramekin beneath a thin crackled amber sugar crust.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "custard_pudding"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "panna cotta",
+   "look": "A smooth white unmolded cream pudding, often topped with red berry sauce.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "custard_pudding"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "trifle",
+   "look": "A clear bowl showing layers of cake, fruit, custard, and whipped cream.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "custard_pudding"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "bread pudding",
+   "look": "A golden baked mass of soaked bread cubes with a soft custardy interior.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "custard_pudding"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "flan",
+   "look": "A smooth pale custard turned out beneath a glossy amber caramel cap and sauce.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "custard_pudding"
+    ],
+    "region": [
+     "latin_american",
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "kheer",
+   "look": "A pale creamy rice pudding topped with nuts, raisins, and saffron strands.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "custard_pudding"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "mango sticky rice",
+   "look": "A mound of white sticky rice with yellow mango slices and coconut cream.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "custard_pudding"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "bubur cha cha",
+   "look": "Orange sweet potato and purple taro cubes with translucent pearls in white coconut milk.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "custard_pudding"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "mochi",
+   "look": "Soft round rice cakes with a powdery white surface and a dense sweet center.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "confection"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "tanghulu",
+   "look": "Red fruit threaded on skewers under a hard glassy sugar shell.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "confection"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "Turkish delight",
+   "look": "Translucent pink or amber jelly cubes dusted with white starch or powdered sugar.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "confection"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "halva",
+   "look": "A pale crumbly sesame confection cut into slabs with fine fibrous layers.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "confection"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "chocolate truffles",
+   "look": "Small dark chocolate balls with a rough cocoa-powder coating.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "confection"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "marzipan fruits",
+   "look": "Small smooth almond-paste sweets shaped and colored like miniature fruit.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "confection"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "nougat",
+   "look": "A pale dense bar with whole nuts embedded throughout.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "confection"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "kaju katli",
+   "look": "Thin ivory diamond-shaped cashew sweets with a reflective edible silver top.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "confection"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,178 @@
+{
+ "id": "person.hair_length",
+ "label": "Hair length",
+ "description": "Scalp hair length, from buzzed and cropped to shoulder-length, waist-length and floor-length.",
+ "pos": "adjective",
+ "frame": "her ___ hair",
+ "notes": "Length alone belongs here, phrased as an adjective before hair. person.hair_texture owns curl pattern and density; person.hairstyle owns named cuts and arrangements. Length describes loose hair at rest, including the visible shrinkage of curls and coils. The age facet declaration and life_stage drop rule follow person.hair_length_texture; ear-length and longer values exclude the baby life stage.",
+ "closed": true,
+ "facets": [
+  "age"
+ ],
+ "local_facets": {
+  "hair_length": [
+   "short",
+   "medium",
+   "long",
+   "very_long"
+  ]
+ },
+ "values": [
+  {
+   "text": "buzzed",
+   "tier": "plausible",
+   "tags": {
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "cropped",
+   "tier": "plausible",
+   "tags": {
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "short",
+   "tier": "typical",
+   "tags": {
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "ear-length",
+   "tier": "plausible",
+   "tags": {
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ],
+    "hair_length": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "chin-length",
+   "tier": "typical",
+   "tags": {
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ],
+    "hair_length": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "shoulder-length",
+   "tier": "typical",
+   "tags": {
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ],
+    "hair_length": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "mid-back",
+   "tier": "plausible",
+   "tags": {
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ],
+    "hair_length": [
+     "long"
+    ]
+   }
+  },
+  {
+   "text": "waist-length",
+   "tier": "plausible",
+   "tags": {
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ],
+    "hair_length": [
+     "long"
+    ]
+   }
+  },
+  {
+   "text": "hip-length",
+   "tier": "plausible",
+   "tags": {
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ],
+    "hair_length": [
+     "very_long"
+    ]
+   }
+  },
+  {
+   "text": "floor-length",
+   "tier": "plausible",
+   "tags": {
+    "life_stage": [
+     "child",
+     "teen",
+     "young adult",
+     "middle-aged",
+     "older",
+     "elderly"
+    ],
+    "hair_length": [
+     "very_long"
+    ]
+   }
+  }
+ ],
+ "context": {
+  "takes": {
+   "life_stage": {
+    "mismatch": "drop"
+   }
+  },
+  "gives": [
+   "hair_length"
+  ]
+ }
+}

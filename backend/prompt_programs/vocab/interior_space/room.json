@@ -1,0 +1,5297 @@
+{
+ "id": "interior_space.room",
+ "label": "Rooms",
+ "description": "Rooms and indoor places in homes, workplaces, shops, dining venues, public buildings, and imagined settings.",
+ "pos": "noun phrase",
+ "frame": "in ___",
+ "notes": "Rooms and indoor places belong here, including vehicle cabins, public facilities, and speculative interiors. Values are noun phrases with an article and concrete layout or fixture details; interior_space.style owns decorative style and interior_space.tidiness owns cleanliness, clutter, and signs of abandonment. Kind groups describe use and may overlap, while size describes usable room scale. Era and genre restrict incompatible historical or speculative settings; surviving architecture and revival furnishings remain available in contemporary scenes.",
+ "closed": false,
+ "facets": [
+  "era",
+  "genre",
+  "region",
+  "budget",
+  "formality",
+  "space"
+ ],
+ "local_facets": {
+  "kind": [
+   "home",
+   "kitchen_dining",
+   "bath",
+   "bedroom",
+   "work_office",
+   "shop_retail",
+   "food_drink",
+   "hospitality_lodging",
+   "culture_learning",
+   "workshop_studio",
+   "transit_utility",
+   "industrial",
+   "institutional",
+   "unusual"
+  ],
+  "size": [
+   "cramped",
+   "medium",
+   "spacious"
+  ]
+ },
+ "untagged": {
+  "space": [
+   "indoor"
+  ],
+  "genre": [
+   "realistic"
+  ],
+  "era": [
+   "contemporary"
+  ]
+ },
+ "context": {
+  "gives": [
+   "space"
+  ]
+ },
+ "values": [
+  {
+   "text": "a cramped hallway with coat hooks and a shoe bench",
+   "short": "entry hallway",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a cramped entrance vestibule with mailboxes and a tiled floor",
+   "short": "entrance vestibule",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home",
+     "transit_utility"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a laundry room with washing machines and drying racks",
+   "short": "laundry room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home",
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a conservatory with wicker seating and potted citrus trees",
+   "short": "conservatory",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious Roman atrium with a central basin and painted columns",
+   "short": "Roman atrium",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "home",
+     "unusual"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "era": [
+     "ancient"
+    ]
+   }
+  },
+  {
+   "text": "a spacious castle great hall with trestle tables and a raised dais",
+   "short": "castle great hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a living room with a sectional sofa and low bookcase",
+   "short": "sectional living room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a narrow living room with two armchairs facing a fireplace",
+   "short": "fireside armchairs",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a living room with floor cushions around a low table",
+   "short": "floor-cushion lounge",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a living room with a piano and framed sheet music",
+   "short": "piano living room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a living room with a wall of books and rolling ladder",
+   "short": "book-lined living room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious living room with a sunken conversation pit",
+   "short": "conversation pit",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a living room with a dining table behind the sofa",
+   "short": "living-dining room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped apartment living room with a futon and modular shelving",
+   "short": "futon living room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a living room with a brick fireplace and log basket",
+   "short": "brick-hearth living room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a living room with a toy chest and foam play mat",
+   "short": "play-mat living room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a living room with a record player and vinyl shelves",
+   "short": "record-player lounge",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a double-height living room with a mezzanine gallery",
+   "short": "double-height lounge",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a living room with a tiled stove and wool rugs",
+   "short": "tiled-stove living room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a living room with exposed ceiling beams and stone flooring",
+   "short": "beamed living room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a living room with a projecting bay of stained glass",
+   "short": "stained-glass lounge",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious penthouse living room with bookmatched stone and sculptural seating",
+   "short": "penthouse living room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "budget": [
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "a tatami living room with zabuton cushions and sliding screens",
+   "short": "tatami living room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Chinese living room with rosewood chairs and porcelain display shelves",
+   "short": "rosewood living room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a living room with a carved swing and brass vessels",
+   "short": "swing-seat living room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a living room with bolstered divans and block-printed cushions",
+   "short": "divan living room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a spacious majlis with perimeter seating and geometric woven carpets",
+   "short": "majlis",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a spacious Moroccan salon with zellige walls and cedar tables",
+   "short": "Moroccan salon",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a salon with wax-print upholstery and carved wooden stools",
+   "short": "wax-print salon",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a living room with equipal chairs and patterned tile flooring",
+   "short": "equipal living room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a spacious habitat lounge with magnetic furniture and a panoramic viewport",
+   "short": "habitat lounge",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "home",
+     "unusual"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk",
+     "horror"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a spacious commercial bakery kitchen with dough mixers and oven racks",
+   "short": "commercial bakery",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining",
+     "industrial"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a galley kitchen with open shelves and a narrow counter",
+   "short": "galley kitchen",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a spacious kitchen with a central island and hanging pots",
+   "short": "island kitchen",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a cramped kitchenette with a two-burner stove and mini fridge",
+   "short": "kitchenette",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with stainless counters and a tiled backsplash",
+   "short": "stainless kitchen",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with a farmhouse sink and butcher-block countertop",
+   "short": "farmhouse-sink kitchen",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious kitchen with a walk-in pantry and labeled glass jars",
+   "short": "pantry kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with a low accessible counter and knee clearance",
+   "short": "accessible kitchen",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "an apartment kitchen with a pass-through hatch and bar stools",
+   "short": "pass-through kitchen",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with pull-out drawers and an induction cooktop",
+   "short": "induction kitchen",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with a wood-fired range and stacked firewood",
+   "short": "wood-range kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious open-plan kitchen with a long communal worktable",
+   "short": "communal kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with mesh-front cupboards and a stone mortar",
+   "short": "mesh-cupboard kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped kitchen with a portable hotplate and plastic storage tubs",
+   "short": "hotplate kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "budget": [
+     "modest"
+    ]
+   }
+  },
+  {
+   "text": "a spacious kitchen with a stone waterfall island and integrated appliances",
+   "short": "waterfall-island kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "budget": [
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "a Japanese kitchen with a fish grill and sliding pantry doors",
+   "short": "Japanese kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Chinese kitchen with a wok burner and cleaver block",
+   "short": "wok kitchen",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Korean kitchen with a kimchi refrigerator and steel countertop",
+   "short": "kimchi-fridge kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with a sunken earthen hearth and hanging kettle",
+   "short": "sunken-hearth kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with a tandoor and a rolling board",
+   "short": "tandoor kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with steel spice tins and a stone grinding slab",
+   "short": "spice-tin kitchen",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with a dosa griddle and stacked stainless vessels",
+   "short": "dosa-griddle kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with a charcoal brazier and woven food covers",
+   "short": "brazier kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with a domed bread oven and tiled preparation bench",
+   "short": "bread-oven kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with a clay cooking hearth and woven storage baskets",
+   "short": "clay-hearth kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with an injera griddle and stacked wicker trays",
+   "short": "injera kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with a built-in comal and painted tile counters",
+   "short": "comal kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a kitchen with a brick fogão and hanging enamel pans",
+   "short": "fogão kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a cottage kitchen with an open hearth and iron crane",
+   "short": "hearth kitchen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a Roman kitchen with masonry burners and terracotta storage jars",
+   "short": "Roman kitchen",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "kitchen_dining",
+     "unusual"
+    ],
+    "size": [
+     "medium"
+    ],
+    "era": [
+     "ancient"
+    ]
+   }
+  },
+  {
+   "text": "a cramped spacecraft galley with restraint rails and recessed appliances",
+   "short": "spacecraft galley",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "kitchen_dining",
+     "unusual"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "genre": [
+     "scifi",
+     "horror"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a burrow kitchen with root shelves and round cabinet doors",
+   "short": "burrow kitchen",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "kitchen_dining",
+     "unusual"
+    ],
+    "size": [
+     "medium"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a sauna with tiered timber benches and a stone heater",
+   "short": "sauna",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a Korean bathhouse with tiled pools and washing stations",
+   "short": "Korean bathhouse",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a spacious hammam with marble platforms and domed washing chambers",
+   "short": "hammam",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a narrow bathroom with a shower stall and pedestal sink",
+   "short": "shower-stall bathroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with a bathtub beneath a frosted window",
+   "short": "bathtub bathroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with a walk-in shower and floating vanity",
+   "short": "walk-in shower",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with a deep soaking tub and wooden stool",
+   "short": "soaking-tub bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with cracked tiles and exposed plumbing",
+   "short": "exposed-pipe bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with twin sinks and mirrored cabinets",
+   "short": "double-vanity bathroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with grab bars and a roll-in shower",
+   "short": "roll-in shower",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with a clawfoot tub and checkerboard floor",
+   "short": "clawfoot bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with a tiled wet-room floor and drainage channel",
+   "short": "wet room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with a bidet and wall-mounted toilet",
+   "short": "bidet bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a shared bathroom with cubicle showers and metal lockers",
+   "short": "shared shower room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with a bucket shower and plastic dipper",
+   "short": "bucket-shower bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ],
+    "budget": [
+     "modest"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with a plastic basin and squat toilet",
+   "short": "squat-toilet bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ],
+    "budget": [
+     "modest"
+    ]
+   }
+  },
+  {
+   "text": "a spacious bathroom with an onyx vanity and steam shower",
+   "short": "steam-shower bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "budget": [
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "a Japanese bathroom with a hinoki tub and washing stool",
+   "short": "hinoki-tub bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a compact unit bathroom with molded fixtures and integrated shelving",
+   "short": "unit bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with tadelakt walls and a hammered brass basin",
+   "short": "tadelakt bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with a high cistern and pull chain",
+   "short": "pull-chain bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a Roman washing room with a mosaic floor and stone basin",
+   "short": "Roman washing room",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "bath",
+     "unusual"
+    ],
+    "size": [
+     "medium"
+    ],
+    "era": [
+     "ancient"
+    ]
+   }
+  },
+  {
+   "text": "an Art Deco bathroom with black tile borders and chrome fittings",
+   "short": "Art Deco bathroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with a sealed sonic shower and molded surfaces",
+   "short": "sonic-shower bathroom",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "bath",
+     "unusual"
+    ],
+    "size": [
+     "medium"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk",
+     "horror"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a bathroom with a giant shell tub and vine-wrapped faucets",
+   "short": "shell-tub bathroom",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "bath",
+     "unusual"
+    ],
+    "size": [
+     "medium"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a cramped capsule washroom with retractable fixtures and water reclamation tanks",
+   "short": "capsule washroom",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "bath",
+     "unusual"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk",
+     "horror"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a castle washroom with a wooden tub and linen screens",
+   "short": "castle washroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bath"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bunker dormitory with ration lockers and stacked cots",
+   "short": "bunker dormitory",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "bedroom",
+     "institutional"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped attic bedroom with exposed rafters",
+   "short": "attic bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a narrow bedroom with a bed tucked into an alcove",
+   "short": "alcove bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a shared bedroom with two mismatched single beds",
+   "short": "shared bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with a wall of built-in wardrobes",
+   "short": "wardrobe bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a basement bedroom with high rectangular windows",
+   "short": "basement bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with a brass bedstead and patchwork quilt",
+   "short": "brass-bed bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with a low wooden bed and woven rug",
+   "short": "low-bed bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "an apartment bedroom with a balcony door and laundry basket",
+   "short": "balcony bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with a vanity table and oval mirror",
+   "short": "vanity bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious bedroom with a wheelchair clearance aisle beside the bed",
+   "short": "accessible bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "an upstairs bedroom with a bay window and window seat",
+   "short": "bay-window bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with a four-poster bed and carved chest",
+   "short": "four-poster bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with a floor mattress and bedding storage",
+   "short": "floor-mattress bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with floral wallpaper and painted wooden furniture",
+   "short": "floral bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "an open-plan sleeping area behind a bookcase divider",
+   "short": "divided sleeping area",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with sliding doors opening onto a courtyard",
+   "short": "courtyard bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with a mosquito net over the bed",
+   "short": "mosquito-net bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious bedroom with a walk-in closet and dressing island",
+   "short": "dressing-suite bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a rented bedroom with a metal bed and plastic drawers",
+   "short": "rented bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "budget": [
+     "modest"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with a pallet bed and milk-crate shelves",
+   "short": "pallet-bed bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "budget": [
+     "modest"
+    ]
+   }
+  },
+  {
+   "text": "a spacious bedroom with a sculptural headboard and custom walnut cabinetry",
+   "short": "walnut bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "budget": [
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "a tatami bedroom with folded futons and sliding paper screens",
+   "short": "tatami bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with an elevated kang bed and storage niches",
+   "short": "kang-bed bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Korean bedroom with floor bedding and a low dresser",
+   "short": "Korean floor bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with a carved teak bed and block-printed coverlet",
+   "short": "carved-teak bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with a charpoy and a metal storage trunk",
+   "short": "charpoy bedroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with mashrabiya screens and a mother-of-pearl chest",
+   "short": "mashrabiya bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a riad bedroom with plaster niches and a carved cedar bed",
+   "short": "riad bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a chalet bedroom with pine paneling and a tiled stove",
+   "short": "chalet bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with woven bamboo walls and a raised sleeping platform",
+   "short": "bamboo bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with carved Javanese bedposts and batik bedding",
+   "short": "Javanese bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom with Swahili carved bedposts and plaster wall niches",
+   "short": "Swahili bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a spacious hacienda bedroom with brick vaulting and a heavy carved wardrobe",
+   "short": "hacienda bedroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a bedchamber with a carved tester bed and oak coffer",
+   "short": "tester-bed chamber",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bedroom inside a hollow tree with carved root furniture",
+   "short": "hollow-tree bedroom",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "bedroom",
+     "unusual"
+    ],
+    "size": [
+     "medium"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a spacious open-plan office with desk clusters and cable trays",
+   "short": "open-plan office",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a private office with a wooden desk and filing cabinets",
+   "short": "private office",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a shared office with partitioned cubicles and swivel chairs",
+   "short": "cubicle office",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped home office with a corner desk and storage shelves",
+   "short": "home office",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a meeting room with a long table and whiteboard",
+   "short": "meeting room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "an office with standing desks and acoustic screens",
+   "short": "standing-desk office",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a reception office with a counter and pigeonhole shelves",
+   "short": "reception office",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped warehouse office with wire-glass windows and dispatch boards",
+   "short": "warehouse office",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "an office with drafting tables and flat-file drawers",
+   "short": "drafting office",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious office with glass partitions and phone booths",
+   "short": "glass-partitioned office",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "an office with map drawers and pinned survey charts",
+   "short": "survey office",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped portable office with plywood walls and metal storage lockers",
+   "short": "portable office",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "budget": [
+     "modest"
+    ]
+   }
+  },
+  {
+   "text": "a spacious corner office with a stone desk and leather seating",
+   "short": "corner office",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "budget": [
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "a spacious Japanese office with island desks and partitioned manager seating",
+   "short": "island-desk office",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a municipal office with steel almirahs and string-tied files",
+   "short": "municipal office",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a countinghouse with tall desks and leather-bound ledgers",
+   "short": "countinghouse",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a telegraph office with brass instruments and message cubbies",
+   "short": "telegraph office",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a typing office with manual typewriters and steel filing drawers",
+   "short": "typing office",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a computer office with beige terminals and dot-matrix printers",
+   "short": "beige-computer office",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a scribal office with reed pens and clay tablet shelves",
+   "short": "scribal office",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "work_office",
+     "unusual"
+    ],
+    "size": [
+     "medium"
+    ],
+    "era": [
+     "ancient"
+    ]
+   }
+  },
+  {
+   "text": "a spacious corporate boardroom with holographic planning tables and retinal access panels",
+   "short": "holographic boardroom",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "work_office",
+     "unusual"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "genre": [
+     "scifi",
+     "cyberpunk",
+     "horror"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a castle chancery with seal presses and pigeonholes for parchment",
+   "short": "castle chancery",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a laundromat with coin-operated machines and folding counters",
+   "short": "laundromat",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail",
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a grocery store with produce crates and narrow aisles",
+   "short": "grocery store",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a spacious supermarket with tall shelving and checkout belts",
+   "short": "supermarket",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a cramped convenience store with display racks and glass-front refrigerators",
+   "short": "convenience store",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a bookshop with floor-to-ceiling shelves and a reading stool",
+   "short": "bookshop",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a clothing shop with clothing racks and curtained changing booths",
+   "short": "clothing shop",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a shoe shop with wall displays and fitting benches",
+   "short": "shoe shop",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a hardware shop with drawer cabinets and hanging tools",
+   "short": "hardware shop",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a florist shop with flower buckets and wrapping counters",
+   "short": "florist shop",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a pharmacy with medicine drawers and a consultation counter",
+   "short": "pharmacy",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a toy shop with low shelves and model displays",
+   "short": "toy shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "an electronics shop with locked display cases and cable hooks",
+   "short": "electronics shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a thrift store with mismatched racks and donated dishes",
+   "short": "thrift store",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a stationery shop with paper drawers and pen displays",
+   "short": "stationery shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a fabric shop with stacked bolts and a cutting table",
+   "short": "fabric shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a pet shop with aquarium racks and feed sacks",
+   "short": "pet shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a garden shop with seed racks and terracotta pots",
+   "short": "garden shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious music shop with guitar stands and keyboard displays",
+   "short": "music shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a record shop with browsing bins and listening stations",
+   "short": "record shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped antique shop with display cabinets and stacked picture frames",
+   "short": "antique shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a bicycle shop with hanging frames and accessory racks",
+   "short": "bicycle shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious outdoor gear shop with boot displays and backpack walls",
+   "short": "outdoor gear shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a jewelry shop with glass counters and velvet display trays",
+   "short": "jewelry shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped indoor market stall with spice sacks and scoops",
+   "short": "spice stall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a cramped covered fish stall with tiled slabs and weighing scales",
+   "short": "fish stall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a butcher shop with refrigerated cases and a chopping block",
+   "short": "butcher shop",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bakery shop with bread racks and a glass pastry case",
+   "short": "bakery shop",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a candy store with glass jars and a brass scale",
+   "short": "candy store",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a tea shop with storage tins and a sampling counter",
+   "short": "tea shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a wine shop with bottle cubbies and wooden cases",
+   "short": "wine shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a perfumery with glass bottles and sampling strips",
+   "short": "perfumery",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a salvage shop with reclaimed doors and old plumbing fixtures",
+   "short": "salvage shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ],
+    "budget": [
+     "modest"
+    ]
+   }
+  },
+  {
+   "text": "a boutique with stone plinths and widely spaced clothing racks",
+   "short": "boutique",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "budget": [
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "a kimono shop with textile drawers and a tatami fitting area",
+   "short": "kimono shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Chinese apothecary with herb drawers and porcelain jars",
+   "short": "Chinese apothecary",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a spacious sari shop with fabric stacks and a padded viewing platform",
+   "short": "sari shop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a cramped covered souk stall with copper trays and pierced metal lanterns",
+   "short": "souk stall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "shop_retail"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a potion shop with stoppered bottles and a carved ingredient cabinet",
+   "short": "potion shop",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "shop_retail",
+     "unusual"
+    ],
+    "size": [
+     "medium"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a neighborhood bar with scuffed stools and a pool table",
+   "short": "neighborhood bar",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a pub with a wooden counter and upholstered settles",
+   "short": "pub",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cocktail bar with a brass rail and velvet booths",
+   "short": "cocktail bar",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a wine bar with bottle racks and a marble counter",
+   "short": "wine bar",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a sports bar with television screens and signed jerseys",
+   "short": "sports bar",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious brewery taproom with fermentation tanks and communal benches",
+   "short": "brewery taproom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a cramped basement bar with exposed brick and low arches",
+   "short": "basement bar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a hotel bar with leather armchairs and a polished counter",
+   "short": "hotel bar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a karaoke bar with padded booths and microphone stands",
+   "short": "karaoke bar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped jazz bar with a small stage and close-set tables",
+   "short": "jazz bar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a beach bar with a thatched roof and driftwood counter",
+   "short": "beach bar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped dive bar with torn vinyl seats and a dartboard",
+   "short": "dive bar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a listening bar with record shelves and large speakers",
+   "short": "listening bar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a piano bar with a grand piano and curved banquette",
+   "short": "piano bar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a saloon with swinging doors and a long wooden counter",
+   "short": "saloon",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bar in a converted bank vault with steel doors",
+   "short": "bank vault bar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped standing sake bar with wooden cup shelves and fabric dividers",
+   "short": "standing sake bar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "an izakaya with counter seats and hanging wooden menu plaques",
+   "short": "izakaya",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "an Irish pub with carved partitions and a tiled hearth",
+   "short": "Irish pub",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a spacious German beer hall with long benches and ceramic steins",
+   "short": "German beer hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a cramped Spanish vermouth bar with casks and tiled walls",
+   "short": "vermouth bar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a cantina with swinging doors and painted tile murals",
+   "short": "cantina",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a pulqueria with barrel tables and colorful paper decorations",
+   "short": "pulqueria",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a cramped shebeen with crate seating and a corrugated metal counter",
+   "short": "shebeen",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a cramped subterranean tavern with stone mugs and mushroom tables",
+   "short": "mushroom tavern",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "food_drink",
+     "unusual"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a corner cafe with a pastry case and bentwood chairs",
+   "short": "corner cafe",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a diner with vinyl booths and a long counter",
+   "short": "diner",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious restaurant with communal tables and an open kitchen",
+   "short": "open-kitchen restaurant",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious cafeteria with tray rails and bolted tables",
+   "short": "cafeteria",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a pizzeria with a brick oven and flour-dusted workbench",
+   "short": "pizzeria",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a steakhouse with leather booths and paneled walls",
+   "short": "steakhouse",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "an ice cream parlor with a glass freezer counter",
+   "short": "ice cream parlor",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a fast-food restaurant with molded seats and ordering kiosks",
+   "short": "fast-food restaurant",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a conservatory cafe with climbing plants and tiled flooring",
+   "short": "conservatory cafe",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped espresso bar with a standing counter and grinder shelves",
+   "short": "espresso bar",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a restaurant with an indoor charcoal grill and extraction hood",
+   "short": "grill restaurant",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious restaurant with an indoor courtyard and central fountain",
+   "short": "courtyard restaurant",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious food hall with shared seating and individual serving stalls",
+   "short": "food hall",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a tea room with tiered cake stands and floral china",
+   "short": "tea room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a dining room with linen tablecloths and silver service carts",
+   "short": "formal dining room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink",
+     "kitchen_dining"
+    ],
+    "size": [
+     "medium"
+    ],
+    "budget": [
+     "luxury"
+    ],
+    "formality": [
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a tasting restaurant with a curved counter and ceramic place settings",
+   "short": "tasting counter",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "budget": [
+     "luxury"
+    ],
+    "formality": [
+     "formal"
+    ]
+   }
+  },
+  {
+   "text": "a cramped ramen shop with ticket machines and counter seating",
+   "short": "ramen shop",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a sushi restaurant with a cypress counter and fish display",
+   "short": "sushi restaurant",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a spacious dim sum restaurant with round tables and serving carts",
+   "short": "dim sum restaurant",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a hotpot restaurant with individual burners and tiled booths",
+   "short": "hotpot restaurant",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a Korean barbecue restaurant with tabletop grills and extraction ducts",
+   "short": "Korean barbecue",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a tea house with bamboo chairs and stone tea trays",
+   "short": "tea house",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a thali restaurant with steel plate stacks and marble tables",
+   "short": "thali restaurant",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a dosa restaurant with a long griddle and washbasin",
+   "short": "dosa restaurant",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a kopitiam with marble tables and wooden coffee cabinets",
+   "short": "kopitiam",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a pho restaurant with condiment caddies and metal stools",
+   "short": "pho restaurant",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a spacious covered hawker dining hall with tiled stalls and fixed tables",
+   "short": "hawker dining hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a padang restaurant with stacked dishes in its window",
+   "short": "padang restaurant",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "southeast_asian"
+    ]
+   }
+  },
+  {
+   "text": "a kebab restaurant with a charcoal grill and tiled counter",
+   "short": "kebab restaurant",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a tea house with carpeted platforms and low tables",
+   "short": "carpeted tea house",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a restaurant with woven mesob tables and low stools",
+   "short": "mesob-table restaurant",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a cramped taqueria with a griddle counter and metal stools",
+   "short": "taqueria",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a spacious churrascaria with a carving station and broad wooden tables",
+   "short": "churrascaria",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "latin_american"
+    ]
+   }
+  },
+  {
+   "text": "a trattoria with terracotta floors and hanging copper pans",
+   "short": "trattoria",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a brasserie with mirrored walls and red leather banquettes",
+   "short": "brasserie",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "food_drink"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a corridor with numbered doors and a carpet runner",
+   "short": "hotel corridor",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "hospitality_lodging",
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a hotel room with twin beds and a luggage stand",
+   "short": "twin hotel room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "hospitality_lodging",
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped motel room with a bedspread and roadside-facing door",
+   "short": "motel room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "hospitality_lodging",
+     "bedroom"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a hostel dormitory with bunk beds and lockable cubbies",
+   "short": "hostel dormitory",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "hospitality_lodging",
+     "bedroom"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped capsule hotel room with stacked sleeping compartments",
+   "short": "capsule hotel",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "hospitality_lodging",
+     "bedroom"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a classroom with grouped desks and a whiteboard",
+   "short": "classroom",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "culture_learning",
+     "institutional"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious lecture hall with tiered benches and fold-down desks",
+   "short": "lecture hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning",
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious museum gallery with display cases and freestanding partitions",
+   "short": "museum gallery",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious movie theater auditorium with tiered seats and a projection screen",
+   "short": "movie theater",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious theater auditorium with balconies and velvet seats",
+   "short": "theater auditorium",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a dressing room with mirrors and costume racks",
+   "short": "backstage dressing room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious concert hall with a raised stage and acoustic panels",
+   "short": "concert hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious planetarium with reclining seats and a domed screen",
+   "short": "planetarium",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious public library with book stacks and communal reading tables",
+   "short": "public library",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious university library with study carrels and reference shelves",
+   "short": "university library",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a private study with a writing desk and book-lined walls",
+   "short": "private study",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a reading room with leather chairs and newspaper racks",
+   "short": "reading room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious law library with bound volumes and rolling ladders",
+   "short": "law library",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a music library with score cabinets and listening desks",
+   "short": "music library",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious map library with flat drawers and oversized reading tables",
+   "short": "map library",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "an archive reading room with document cradles and numbered desks",
+   "short": "archive reading room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a library with compact shelving and rolling handwheels",
+   "short": "compact-shelf library",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a spacious library with a mezzanine walkway and spiral stairs",
+   "short": "mezzanine library",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious library with wooden card catalogs and broad worktables",
+   "short": "card-catalog library",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a cramped shipboard library with retaining rails across its shelves",
+   "short": "shipboard library",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a spacious private library with carved galleries and a marble fireplace",
+   "short": "carved-gallery library",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "budget": [
+     "luxury"
+    ]
+   }
+  },
+  {
+   "text": "a reading room with tatami mats and low bookstands",
+   "short": "tatami reading room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a manuscript library with tiled alcoves and carved bookstands",
+   "short": "manuscript library",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a palm-leaf manuscript library with bundle shelves and low desks",
+   "short": "palm-leaf library",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a scriptorium with sloped desks and parchment storage chests",
+   "short": "scriptorium",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a chained library with iron book rods and timber stalls",
+   "short": "chained library",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "culture_learning"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a wizard's study with levitating folios and a stone lectern",
+   "short": "wizard's study",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "culture_learning",
+     "unusual"
+    ],
+    "size": [
+     "medium"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a spacious library carved into a giant tree with spiral shelves",
+   "short": "giant-tree library",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "culture_learning",
+     "unusual"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "a spacious dance studio with a mirrored wall and ballet barres",
+   "short": "dance studio",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio",
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a woodworking shop with a workbench and lumber racks",
+   "short": "woodworking shop",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious metal workshop with welding benches and steel stock",
+   "short": "metal workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a pottery studio with wheels and drying shelves",
+   "short": "pottery studio",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a painting studio with easels and paint-splattered flooring",
+   "short": "painting studio",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a sculpture studio with clay stands and plaster molds",
+   "short": "sculpture studio",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a printmaking studio with a press and drying racks",
+   "short": "printmaking studio",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a sewing studio with cutting tables and dress forms",
+   "short": "sewing studio",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a weaving studio with floor looms and yarn cones",
+   "short": "weaving studio",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped jewelry workshop with bench pins and tiny tool drawers",
+   "short": "jewelry workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a glass studio with kilns and racks of colored rods",
+   "short": "glass studio",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious auto garage with a hydraulic lift and tool chests",
+   "short": "auto garage",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a bicycle workshop with repair stands and hanging wheels",
+   "short": "bicycle workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped electronics workshop with soldering benches and component drawers",
+   "short": "electronics workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a leather workshop with hide racks and stitching benches",
+   "short": "leather workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a luthier's workshop with instrument molds and hanging clamps",
+   "short": "luthier's workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious boatbuilding shed with timber ribs and steaming equipment",
+   "short": "boatbuilding shed",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a stonecarving workshop with chisels and half-finished blocks",
+   "short": "stonecarving workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious photography studio with seamless backdrops and equipment stands",
+   "short": "photography studio",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a recording studio with mixing consoles and acoustic panels",
+   "short": "recording studio",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a rehearsal studio with amplifiers and coiled instrument cables",
+   "short": "rehearsal studio",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious film workshop with prop racks and scenery flats",
+   "short": "film set workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "an animation studio with drawing desks and character maquettes",
+   "short": "animation studio",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "an upholstery workshop with stripped chairs and fabric rolls",
+   "short": "upholstery workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped clock repair workshop with magnifiers and partitioned parts trays",
+   "short": "clock repair workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a spacious communal makerspace with laser cutters and shared workbenches",
+   "short": "makerspace",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a robotics workshop with wheeled prototypes and parts organizers",
+   "short": "robotics workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped home garage with a pegboard and workbench",
+   "short": "home garage",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a textile dye studio with deep sinks and drying rods",
+   "short": "textile dye studio",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bookbinding workshop with presses and folded paper signatures",
+   "short": "bookbinding workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a neon workshop with glass tubes and bending stations",
+   "short": "neon workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a lacquer workshop with drying cabinets and wooden bowls",
+   "short": "lacquer workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a spacious block-printing workshop with carved stamps and long fabric tables",
+   "short": "block-printing workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a kente weaving workshop with narrow looms and thread racks",
+   "short": "kente weaving workshop",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "workshop_studio"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "african"
+    ]
+   }
+  },
+  {
+   "text": "a stairwell with concrete steps and steel handrails",
+   "short": "concrete stairwell",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious airport terminal with check-in kiosks and stanchions",
+   "short": "airport terminal",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a train car with facing seats and luggage racks",
+   "short": "train car",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a subway car with hanging straps and molded benches",
+   "short": "subway car",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a bus interior with grab poles and patterned seats",
+   "short": "bus interior",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a ferry cabin with fixed tables and portholes",
+   "short": "ferry cabin",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped sleeper compartment with stacked berths and a folding basin",
+   "short": "sleeper compartment",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transit_utility",
+     "hospitality_lodging"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "an airplane cabin with overhead bins and narrow aisles",
+   "short": "airplane cabin",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a spacious station concourse with ticket machines and departure boards",
+   "short": "station concourse",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "an indoor greenhouse with planting benches and seedling trays",
+   "short": "greenhouse",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped utility room with boilers and exposed pipework",
+   "short": "boiler room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a cramped maintenance tunnel with cable trays and inspection hatches",
+   "short": "maintenance tunnel",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a cramped elevator cabin with a handrail and mirrored panels",
+   "short": "elevator",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a spacious parking garage with painted bays and concrete columns",
+   "short": "parking garage",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a pedestrian tunnel with tiled walls and direction signs",
+   "short": "pedestrian tunnel",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a train station waiting hall with iron columns and wooden benches",
+   "short": "station waiting hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a cramped spacecraft airlock with pressure doors and suit racks",
+   "short": "spacecraft airlock",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "transit_utility",
+     "unusual"
+    ],
+    "size": [
+     "cramped"
+    ],
+    "genre": [
+     "scifi",
+     "horror"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a spacious industrial warehouse with pallet racks and concrete aisles",
+   "short": "warehouse",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a cold-storage room with insulated doors and steel shelving",
+   "short": "cold-storage room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a server room with equipment racks and raised floor panels",
+   "short": "server room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial",
+     "work_office"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious postal sorting hall with wheeled cages and pigeonholes",
+   "short": "postal sorting hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial",
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious factory floor with conveyor belts and safety railings",
+   "short": "factory floor",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious grain mill interior with hoppers and flour sacks",
+   "short": "grain mill",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious water-treatment hall with pipe manifolds and inspection walkways",
+   "short": "water-treatment hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a ferry engine room with pipework and grated walkways",
+   "short": "ferry engine room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial",
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious orbital greenhouse with rotating crop racks and nutrient pipes",
+   "short": "orbital greenhouse",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "industrial",
+     "unusual"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "genre": [
+     "scifi",
+     "horror"
+    ],
+    "era": [
+     "future"
+    ]
+   }
+  },
+  {
+   "text": "a waiting room with molded chairs and magazine racks",
+   "short": "waiting room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a clinic examination room with a couch and instrument cart",
+   "short": "exam room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious hospital ward with curtained bays and equipment cabinets",
+   "short": "hospital ward",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a dental office with a reclining chair and instrument trays",
+   "short": "dental office",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a rehabilitation room with parallel bars and exercise mats",
+   "short": "rehabilitation room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious indoor gym with squat racks and rubber flooring",
+   "short": "gym",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious basketball gymnasium with court markings and retractable bleachers",
+   "short": "basketball gym",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious indoor climbing gym with colored holds and padded flooring",
+   "short": "climbing gym",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious swimming hall with tiled lanes and spectator benches",
+   "short": "swimming hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a locker room with benches and perforated metal cabinets",
+   "short": "locker room",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious community hall with stackable chairs and folding tables",
+   "short": "community hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a cramped prison cell with a steel bunk and fixed desk",
+   "short": "prison cell",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "cramped"
+    ]
+   }
+  },
+  {
+   "text": "a spacious courtroom with a raised bench and wooden railings",
+   "short": "courtroom",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious indoor sports arena with tiered seating and a scoreboard",
+   "short": "sports arena",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious fire station bay with equipment lockers and hose racks",
+   "short": "fire station bay",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious laboratory with fume hoods and chemical storage cabinets",
+   "short": "laboratory",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious Buddhist temple hall with timber pillars and an incense altar",
+   "short": "Buddhist temple hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a spacious Shinto worship hall with rope ornaments and wooden railings",
+   "short": "Shinto worship hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "east_asian"
+    ]
+   }
+  },
+  {
+   "text": "a spacious Hindu temple hall with carved columns and a shrine alcove",
+   "short": "Hindu temple hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a spacious gurdwara hall with carpeted aisles and a raised canopy",
+   "short": "gurdwara hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "south_asian"
+    ]
+   }
+  },
+  {
+   "text": "a spacious mosque prayer hall with patterned carpets and a mihrab",
+   "short": "mosque prayer hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "middle_eastern"
+    ]
+   }
+  },
+  {
+   "text": "a spacious church nave with wooden pews and a stone font",
+   "short": "church nave",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a chapel with carved choir stalls and a tiled aisle",
+   "short": "chapel",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "medium"
+    ],
+    "region": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a spacious synagogue sanctuary with an ark and a raised reading platform",
+   "short": "synagogue sanctuary",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a spacious meditation hall with cushion rows and a wooden dais",
+   "short": "meditation hall",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "spacious"
+    ]
+   }
+  },
+  {
+   "text": "a monastery cloister passage with stone arches and wall niches",
+   "short": "cloister passage",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional",
+     "transit_utility"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious cavern shrine with crystal pillars and a carved stone altar",
+   "short": "cavern shrine",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "institutional",
+     "unusual"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  },
+  {
+   "text": "an operating room with cracked tiles and rusted instruments",
+   "short": "worn operating room",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a veterinary treatment room with steel tables and supply cupboards",
+   "short": "veterinary room",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "institutional"
+    ],
+    "size": [
+     "medium"
+    ]
+   }
+  },
+  {
+   "text": "a spacious throne hall with antler arches and a root-grown dais",
+   "short": "root throne hall",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "unusual"
+    ],
+    "size": [
+     "spacious"
+    ],
+    "genre": [
+     "fantasy",
+     "fairy_tale"
+    ]
+   }
+  }
+ ]
+}

@@ -1,256 +1,411 @@
 {
-  "id": "person.build",
-  "label": "Build",
-  "description": "Body proportions, stature and visible muscularity described respectfully.",
-  "pos": "adjective phrase",
-  "frame": "the ___ person",
-  "notes": "Neutral physique and stature only, independent of descent, gender, age and health. Writer must choose a/an from the first spoken sound of the composed phrase when using an indefinite article.",
-  "facets": [],
-  "closed": true,
-  "values": [
-    {
-      "text": "slender",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "stocky",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "athletic",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "plus-size",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "petite",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "broad-shouldered",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "narrow-shouldered",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "tall",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "short",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "medium-height",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "muscular",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "round-bellied",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "broad-hipped",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine"
-        ]
-      }
-    },
-    {
-      "text": "narrow-hipped",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "long-limbed",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "broad-chested",
-      "tier": "typical",
-      "tags": {
-        "presentation": [
-          "masculine"
-        ]
-      },
-      "opt_in": true
-    },
-    {
-      "text": "powerfully built",
-      "tier": "plausible",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "long-waisted",
-      "tier": "plausible",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "short-waisted",
-      "tier": "plausible",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "lanky",
-      "tier": "plausible",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "barrel-chested",
-      "tier": "plausible",
-      "tags": {
-        "presentation": [
-          "masculine"
-        ]
-      },
-      "opt_in": true
-    },
-    {
-      "text": "straight-waisted",
-      "tier": "plausible",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "small-framed",
-      "tier": "plausible",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    },
-    {
-      "text": "large-framed",
-      "tier": "plausible",
-      "tags": {
-        "presentation": [
-          "feminine",
-          "masculine"
-        ]
-      }
-    }
-  ],
-  "local_facets": {
+ "id": "person.build",
+ "label": "Build",
+ "description": "Body frame, proportions, fullness and visible muscularity, independent of height.",
+ "pos": "adjective phrase",
+ "frame": "the ___ person",
+ "notes": "Body frame, proportions, fullness and visible muscularity belong here; overall stature, including the shortness implied by petite, belongs in person.height. Long-limbed, lanky and willowy describe elongated proportions here, while waist-length terms describe torso proportions rather than overall height. Values are adjective phrases, retaining existing presentation filters and opt-in chest descriptions without implying descent, age or health. Facial structure belongs in person.face.",
+ "facets": [
+  "presentation"
+ ],
+ "closed": true,
+ "values": [
+  {
+   "text": "slender",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "slim"
+    ],
     "presentation": [
-      "feminine",
-      "masculine"
+     "feminine",
+     "masculine"
     ]
+   }
+  },
+  {
+   "text": "stocky",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "curvy_heavy"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "athletic",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "strong"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "plus-size",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "curvy_heavy"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "broad-shouldered",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "narrow-shouldered",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "muscular",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "strong"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "round-bellied",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "curvy_heavy"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "broad-hipped",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "curvy_heavy"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "narrow-hipped",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "long-limbed",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "broad-chested",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "strong"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   },
+   "opt_in": true
+  },
+  {
+   "text": "powerfully built",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "strong"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "long-waisted",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "short-waisted",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "lanky",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "slim"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "barrel-chested",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "strong"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   },
+   "opt_in": true
+  },
+  {
+   "text": "straight-waisted",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "other"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "small-framed",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "slim"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "large-framed",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "curvy_heavy"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "willowy",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "slim"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "wiry",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "slim"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "burly",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "strong"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "curvy",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "curvy_heavy"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "pear-shaped",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "curvy_heavy"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "hourglass-shaped",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "curvy_heavy"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   }
+  },
+  {
+   "text": "soft-bodied",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "curvy_heavy"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "lean",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "slim"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "heavyset",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "curvy_heavy"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
+  },
+  {
+   "text": "average-built",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "average"
+    ],
+    "presentation": [
+     "feminine",
+     "masculine"
+    ]
+   }
   }
+ ],
+ "local_facets": {
+  "kind": [
+   "slim",
+   "average",
+   "curvy_heavy",
+   "strong",
+   "other"
+  ],
+  "presentation": [
+   "feminine",
+   "masculine"
+  ]
+ }
 }

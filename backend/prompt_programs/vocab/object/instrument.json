@@ -1,0 +1,1577 @@
+{
+ "id": "object.instrument",
+ "label": "Musical instruments",
+ "description": "Named musical instruments, from orchestral and regional acoustic instruments to electronic performance gear.",
+ "pos": "noun phrase",
+ "frame": "playing ___",
+ "notes": "Instrument names include articles or natural plurals so every value follows playing; object.furniture owns ordinary furnishings rather than instruments. Family chips follow the visible playing form, with electric strings and electronic keyboards also tagged electronic. Origin chips indicate broad musical traditions, not where a player must be or their descent, and widely shared forms may also be global. Oceania is left untagged rather than assigned an unrelated origin. Brand names are replaced by generic types, including tonewheel organ and handpan.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "family": [
+   "strings",
+   "woodwind",
+   "brass",
+   "percussion",
+   "keyboard",
+   "electronic"
+  ],
+  "origin": [
+   "european",
+   "middle_east",
+   "south_asia",
+   "east_asia",
+   "africa",
+   "americas",
+   "global"
+  ]
+ },
+ "values": [
+  {
+   "text": "an acoustic guitar",
+   "short": "acoustic guitar",
+   "tier": "typical",
+   "look": "a hollow waisted wooden body with a round sound hole, a long fretted neck, and six strings",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "an electric guitar",
+   "short": "electric guitar",
+   "tier": "typical",
+   "look": "a thin solid body with pickups, control knobs, a fretted neck, and an output cable",
+   "tags": {
+    "family": [
+     "strings",
+     "electronic"
+    ],
+    "origin": [
+     "americas",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a bass guitar",
+   "short": "bass guitar",
+   "tier": "typical",
+   "look": "a long-necked electric guitar with four thick strings and a large solid body",
+   "tags": {
+    "family": [
+     "strings",
+     "electronic"
+    ],
+    "origin": [
+     "americas",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a twelve-string guitar",
+   "short": "twelve-string guitar",
+   "tier": "plausible",
+   "look": "an acoustic guitar with paired strings and a long headstock crowded with twelve tuning pegs",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a resonator guitar",
+   "short": "resonator guitar",
+   "tier": "plausible",
+   "look": "a guitar with a large circular metal resonator plate in its body instead of an open sound hole",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a lap steel guitar",
+   "short": "lap steel guitar",
+   "tier": "plausible",
+   "look": "a compact horizontal guitar with raised strings, played flat across the lap with a steel bar",
+   "tags": {
+    "family": [
+     "strings",
+     "electronic"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a ukulele",
+   "short": "ukulele",
+   "tier": "typical",
+   "look": "a small guitar-shaped wooden body with a short neck and four strings",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a banjo",
+   "short": "banjo",
+   "tier": "typical",
+   "look": "a circular skin-covered body joined to a long narrow fretted neck",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a mandolin",
+   "short": "mandolin",
+   "tier": "typical",
+   "look": "a small pear-shaped stringed body with a short fretted neck and paired strings",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a bouzouki",
+   "short": "bouzouki",
+   "tier": "plausible",
+   "look": "a pear-shaped bowl body with a very long narrow fretted neck and paired strings",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a violin",
+   "short": "violin",
+   "tier": "typical",
+   "look": "a small waisted wooden body with f-shaped sound holes, held under the chin and played with a bow",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a viola",
+   "short": "viola",
+   "tier": "plausible",
+   "look": "a broad violin-shaped instrument with a longer body and bow, held beneath the chin",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a cello",
+   "short": "cello",
+   "tier": "typical",
+   "look": "a large bowed wooden body held upright between the knees on a short floor spike",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a double bass",
+   "short": "double bass",
+   "tier": "typical",
+   "look": "a towering bowed string instrument with sloping shoulders, played standing behind its long neck",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a concert harp",
+   "short": "concert harp",
+   "tier": "typical",
+   "look": "a tall triangular frame with a curved neck, many vertical strings, and pedals at the base",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a lute",
+   "short": "lute",
+   "tier": "plausible",
+   "look": "a pear-shaped ribbed bowl with a pierced sound hole and a short neck ending in a bent-back pegbox",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "an oud",
+   "short": "oud",
+   "tier": "plausible",
+   "look": "a deep pear-shaped bowl with ornate sound holes, a short fretless neck, and a bent-back pegbox",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "middle_east"
+    ]
+   }
+  },
+  {
+   "text": "a sitar",
+   "short": "sitar",
+   "tier": "plausible",
+   "look": "a long fretted neck with many tuning pegs above a large round gourd body",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "a sarod",
+   "short": "sarod",
+   "tier": "plausible",
+   "look": "a short-necked lute with a skin-covered rounded body and a smooth unfretted metal fingerboard",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "a veena",
+   "short": "veena",
+   "tier": "plausible",
+   "look": "a long fretted wooden body with a large rounded resonator and a smaller support gourd under the neck",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "a tanpura",
+   "short": "tanpura",
+   "tier": "plausible",
+   "look": "a tall fretless neck with a few long strings above a large rounded gourd body",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "an erhu",
+   "short": "erhu",
+   "tier": "plausible",
+   "look": "a thin upright neck with two strings, a small skin-covered sound box, and a bow threaded between the strings",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "a guzheng",
+   "short": "guzheng",
+   "tier": "plausible",
+   "look": "a long curved wooden zither with many strings resting on a row of separate movable bridges",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "a koto",
+   "short": "koto",
+   "tier": "plausible",
+   "look": "a long low wooden zither with thirteen strings over tall angular movable bridges",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "a shamisen",
+   "short": "shamisen",
+   "tier": "plausible",
+   "look": "a square skin-covered body and long thin fretless neck with three strings and large tuning pegs",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "a pipa",
+   "short": "pipa",
+   "tier": "plausible",
+   "look": "an upright pear-shaped wooden lute with four strings and raised frets across its neck and body",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "a balalaika",
+   "short": "balalaika",
+   "tier": "plausible",
+   "look": "a sharply triangular wooden body with a long fretted neck and three strings",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a kora",
+   "short": "kora",
+   "tier": "plausible",
+   "look": "a large skin-covered calabash with a long neck and two planes of strings rising from a tall bridge",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "africa"
+    ]
+   }
+  },
+  {
+   "text": "a hurdy-gurdy",
+   "short": "hurdy-gurdy",
+   "tier": "unusual",
+   "look": "a wooden string box with a side keyboard and a hand crank projecting from its rounded end",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a hammered dulcimer",
+   "short": "hammered dulcimer",
+   "tier": "plausible",
+   "look": "a broad trapezoidal box with many horizontal strings struck by two thin handheld beaters",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "an Appalachian dulcimer",
+   "short": "Appalachian dulcimer",
+   "tier": "plausible",
+   "look": "a narrow hourglass-shaped wooden box with frets along its top, laid across the lap",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a nyckelharpa",
+   "short": "nyckelharpa",
+   "tier": "unusual",
+   "look": "a bowed wooden instrument with rows of wooden keys projecting sideways beneath its strings",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a morin khuur",
+   "short": "morin khuur",
+   "tier": "plausible",
+   "look": "a two-string bowed instrument with a trapezoidal sound box and a carved horse-head scroll",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "a charango",
+   "short": "charango",
+   "tier": "plausible",
+   "look": "a tiny rounded lute with a short fretted neck and five pairs of strings",
+   "tags": {
+    "family": [
+     "strings"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a berimbau",
+   "short": "berimbau",
+   "tier": "plausible",
+   "look": "a single tall wooden bow strung with wire and fitted with a round gourd near its lower end",
+   "tags": {
+    "family": [
+     "strings",
+     "percussion"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a concert flute",
+   "short": "concert flute",
+   "tier": "typical",
+   "look": "a long silver tube with a line of keys, held sideways at the mouth",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a piccolo",
+   "short": "piccolo",
+   "tier": "plausible",
+   "look": "a very short transverse flute with a compact keyed body, held sideways",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a clarinet",
+   "short": "clarinet",
+   "tier": "typical",
+   "look": "a straight dark woodwind with silver keys, a narrow mouthpiece, and a small flared bell",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a bass clarinet",
+   "short": "bass clarinet",
+   "tier": "plausible",
+   "look": "a long dark keyed tube with a curved metal neck and an upturned metal bell near the floor",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "an alto saxophone",
+   "short": "alto saxophone",
+   "tier": "typical",
+   "look": "a curved brass-colored keyed instrument with a bent neck and a large upturned bell",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a soprano saxophone",
+   "short": "soprano saxophone",
+   "tier": "plausible",
+   "look": "a straight tapered brass-colored keyed tube ending in a flared bell",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a baritone saxophone",
+   "short": "baritone saxophone",
+   "tier": "plausible",
+   "look": "a large low-slung saxophone with a looped upper neck and a deep body ending in an upturned bell",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "an oboe",
+   "short": "oboe",
+   "tier": "typical",
+   "look": "a slender dark keyed tube with a tiny exposed double reed and a gently flared bell",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a bassoon",
+   "short": "bassoon",
+   "tier": "plausible",
+   "look": "a tall doubled-back wooden tube with silver keys and a thin curved metal reed pipe",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a recorder",
+   "short": "recorder",
+   "tier": "typical",
+   "look": "a straight narrow flute with open finger holes and a beaked mouthpiece",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a pan flute",
+   "short": "pan flute",
+   "tier": "plausible",
+   "look": "a row of open vertical pipes arranged from longest to shortest",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "an ocarina",
+   "short": "ocarina",
+   "tier": "plausible",
+   "look": "a small hollow ceramic vessel with finger holes and a short projecting mouthpiece",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a harmonica",
+   "short": "harmonica",
+   "tier": "typical",
+   "look": "a palm-sized rectangular metal instrument with a row of small mouth holes",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "Great Highland bagpipes",
+   "short": "Highland bagpipes",
+   "tier": "plausible",
+   "look": "an inflated bag held under the arm with three long drones rising over the shoulder and a chanter below",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a didgeridoo",
+   "short": "didgeridoo",
+   "tier": "plausible",
+   "look": "a long thick hollow wooden tube, often slightly flared and painted, blown from one end",
+   "tags": {
+    "family": [
+     "woodwind"
+    ]
+   }
+  },
+  {
+   "text": "a shakuhachi",
+   "short": "shakuhachi",
+   "tier": "plausible",
+   "look": "a thick end-blown bamboo flute with root bumps at its base and an angled open mouthpiece",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "a dizi",
+   "short": "dizi",
+   "tier": "plausible",
+   "look": "a slim transverse bamboo flute with finger holes, binding bands, and a membrane-covered hole near the mouth",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "a bansuri",
+   "short": "bansuri",
+   "tier": "plausible",
+   "look": "a long plain transverse bamboo flute with widely spaced open finger holes and no keys",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "a ney",
+   "short": "ney",
+   "tier": "plausible",
+   "look": "a long slender reed flute held diagonally, with simple finger holes and an open blowing end",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "middle_east"
+    ]
+   }
+  },
+  {
+   "text": "a sheng",
+   "short": "sheng",
+   "tier": "plausible",
+   "look": "a cluster of upright narrow pipes rising from a small bowl-shaped wind chamber with a mouth tube",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "a duduk",
+   "short": "duduk",
+   "tier": "unusual",
+   "look": "a short wooden pipe with finger holes and a broad flattened double reed",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "middle_east"
+    ]
+   }
+  },
+  {
+   "text": "a quena",
+   "short": "quena",
+   "tier": "plausible",
+   "look": "a straight wooden flute with open finger holes and a U-shaped notch cut into its blowing end",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a trumpet",
+   "short": "trumpet",
+   "tier": "typical",
+   "look": "a compact loop of brass tubing with three valves and a forward-facing flared bell",
+   "tags": {
+    "family": [
+     "brass"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a flugelhorn",
+   "short": "flugelhorn",
+   "tier": "plausible",
+   "look": "a compact valved brass horn with a broad rounded tube loop and a wide bell",
+   "tags": {
+    "family": [
+     "brass"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a trombone",
+   "short": "trombone",
+   "tier": "typical",
+   "look": "a brass horn with a long U-shaped slide extending forward beside its bell",
+   "tags": {
+    "family": [
+     "brass"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a French horn",
+   "short": "French horn",
+   "tier": "typical",
+   "look": "a tightly coiled circular brass instrument with rotary valves and a broad sideways bell",
+   "tags": {
+    "family": [
+     "brass"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a tuba",
+   "short": "tuba",
+   "tier": "typical",
+   "look": "a huge upright coil of broad brass tubing with valves and a large upward-facing bell",
+   "tags": {
+    "family": [
+     "brass"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a sousaphone",
+   "short": "sousaphone",
+   "tier": "plausible",
+   "look": "a large circular brass instrument worn around the body with a forward-facing bell above the head",
+   "tags": {
+    "family": [
+     "brass"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "an alphorn",
+   "short": "alphorn",
+   "tier": "plausible",
+   "look": "an extremely long straight wooden horn ending in an upturned flared bell resting on the ground",
+   "tags": {
+    "family": [
+     "brass"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a drum kit",
+   "short": "drum kit",
+   "tier": "typical",
+   "look": "a seated setup of bass drum, snare, toms, cymbals, and foot pedals",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a snare drum",
+   "short": "snare drum",
+   "tier": "typical",
+   "look": "a shallow cylindrical drum with metal tension rods and a wire strainer along its lower head",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a marching bass drum",
+   "short": "marching bass drum",
+   "tier": "plausible",
+   "look": "a large deep drum with two broad heads, suspended upright in front of the player",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "timpani",
+   "short": "timpani",
+   "tier": "plausible",
+   "look": "large copper bowl-shaped drums with taut heads and pedal mechanisms at their bases",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a gong",
+   "short": "gong",
+   "tier": "plausible",
+   "look": "a large round metal disk suspended vertically in a frame and struck with a padded mallet",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "east_asia",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a steelpan",
+   "short": "steelpan",
+   "tier": "plausible",
+   "look": "a shallow concave metal drum face divided into hammered note areas and mounted on a stand",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a marimba",
+   "short": "marimba",
+   "tier": "plausible",
+   "look": "a broad keyboard of wooden bars above rows of long resonator tubes",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a xylophone",
+   "short": "xylophone",
+   "tier": "typical",
+   "look": "a raised keyboard of short wooden bars in two staggered rows, struck with mallets",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a glockenspiel",
+   "short": "glockenspiel",
+   "tier": "plausible",
+   "look": "a compact keyboard of bright metal bars arranged like piano keys",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a vibraphone",
+   "short": "vibraphone",
+   "tier": "plausible",
+   "look": "a large keyboard of metal bars over vertical resonator tubes with a foot pedal below",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a handpan",
+   "short": "handpan",
+   "tier": "plausible",
+   "look": "two joined steel domes with a central boss and a ring of hammered oval tone fields",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a djembe",
+   "short": "djembe",
+   "tier": "plausible",
+   "look": "a tall goblet-shaped wooden drum with a broad skin head held by rope lacing",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "africa"
+    ]
+   }
+  },
+  {
+   "text": "a pair of tabla drums",
+   "short": "tabla",
+   "tier": "plausible",
+   "look": "two hand drums of unequal size with dark circular patches centered on their skin heads",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "a mridangam",
+   "short": "mridangam",
+   "tier": "plausible",
+   "look": "a barrel-shaped double-headed wooden drum with cord lacing and dark centers on its heads",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "south_asia"
+    ]
+   }
+  },
+  {
+   "text": "a darbuka",
+   "short": "darbuka",
+   "tier": "plausible",
+   "look": "a goblet drum with a narrow stem and a broad head set into a smooth flared rim",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "middle_east"
+    ]
+   }
+  },
+  {
+   "text": "a pair of congas",
+   "short": "congas",
+   "tier": "plausible",
+   "look": "two tall tapered barrel drums with skin heads, standing vertically side by side",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "bongos",
+   "short": "bongos",
+   "tier": "typical",
+   "look": "two small open-bottomed hand drums joined side by side by a short wooden block",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a taiko drum",
+   "short": "taiko drum",
+   "tier": "plausible",
+   "look": "a large barrel-shaped drum with thick wooden sides and a broad hide head secured around the rim",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "a bodhrán",
+   "short": "bodhrán",
+   "tier": "plausible",
+   "look": "a shallow round frame drum with one skin head, held upright and played with a short double-ended stick",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a tambourine",
+   "short": "tambourine",
+   "tier": "typical",
+   "look": "a handheld circular frame with paired metal jingles around its rim",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a pair of maracas",
+   "short": "maracas",
+   "tier": "typical",
+   "look": "two bulb-shaped rattles on short handles",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "castanets",
+   "short": "castanets",
+   "tier": "plausible",
+   "look": "small pairs of concave wooden shells tied together at one end with cord",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "an mbira",
+   "short": "mbira",
+   "tier": "plausible",
+   "look": "rows of metal tongues mounted on a small wooden soundboard, often set inside a gourd resonator",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "africa"
+    ]
+   }
+  },
+  {
+   "text": "a güiro",
+   "short": "güiro",
+   "tier": "plausible",
+   "look": "a hollow elongated gourd with parallel ridges scraped by a thin stick",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "a slit drum",
+   "short": "slit drum",
+   "tier": "unusual",
+   "look": "a hollow wooden log with a long narrow opening cut along the top",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a grand piano",
+   "short": "grand piano",
+   "tier": "typical",
+   "look": "a large horizontal piano with a curved wing-shaped case and a raised lid",
+   "tags": {
+    "family": [
+     "keyboard"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "an upright piano",
+   "short": "upright piano",
+   "tier": "typical",
+   "look": "a tall rectangular piano case standing vertically behind its keyboard",
+   "tags": {
+    "family": [
+     "keyboard"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a harpsichord",
+   "short": "harpsichord",
+   "tier": "plausible",
+   "look": "a long narrow wing-shaped keyboard instrument with a decorated raised lid and thin legs",
+   "tags": {
+    "family": [
+     "keyboard"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a pipe organ",
+   "short": "pipe organ",
+   "tier": "plausible",
+   "look": "a bank of keyboards and foot pedals beneath tall ranks of vertical metal pipes",
+   "tags": {
+    "family": [
+     "keyboard"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a tonewheel organ",
+   "short": "tonewheel organ",
+   "tier": "plausible",
+   "look": "a wooden electric organ console with two stacked keyboards, rows of drawbars, and bass pedals",
+   "tags": {
+    "family": [
+     "keyboard"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  },
+  {
+   "text": "an accordion",
+   "short": "accordion",
+   "tier": "typical",
+   "look": "a chest-held instrument with expanding pleated bellows between a keyboard and a button board",
+   "tags": {
+    "family": [
+     "keyboard"
+    ],
+    "origin": [
+     "european",
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a concertina",
+   "short": "concertina",
+   "tier": "plausible",
+   "look": "a small squeezebox with hexagonal button-covered ends connected by pleated bellows",
+   "tags": {
+    "family": [
+     "keyboard"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a harmonium",
+   "short": "harmonium",
+   "tier": "plausible",
+   "look": "a small box-shaped reed organ with a keyboard, pull stops, and hand-pumped bellows",
+   "tags": {
+    "family": [
+     "keyboard"
+    ],
+    "origin": [
+     "south_asia",
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a synthesizer keyboard",
+   "short": "synthesizer",
+   "tier": "typical",
+   "look": "an electronic keyboard with rows of knobs, sliders, and small displays above the keys",
+   "tags": {
+    "family": [
+     "keyboard",
+     "electronic"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a modular synthesizer",
+   "short": "modular synthesizer",
+   "tier": "plausible",
+   "look": "racks of small electronic modules covered in knobs and joined by a web of patch cables",
+   "tags": {
+    "family": [
+     "electronic"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a theremin",
+   "short": "theremin",
+   "tier": "plausible",
+   "look": "an electronic box with one upright rod antenna and one horizontal loop antenna, played without touching",
+   "tags": {
+    "family": [
+     "electronic"
+    ],
+    "origin": [
+     "european"
+    ]
+   }
+  },
+  {
+   "text": "a keytar",
+   "short": "keytar",
+   "tier": "plausible",
+   "look": "a compact keyboard worn on a shoulder strap with a projecting grip like a guitar neck",
+   "tags": {
+    "family": [
+     "electronic",
+     "keyboard"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "DJ turntables",
+   "short": "DJ turntables",
+   "tier": "plausible",
+   "look": "two record decks with flat circular platters and tonearms positioned beside a mixer",
+   "tags": {
+    "family": [
+     "electronic"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a drum machine",
+   "short": "drum machine",
+   "tier": "plausible",
+   "look": "a tabletop electronic box with a grid of pads, rows of small step buttons, and control knobs",
+   "tags": {
+    "family": [
+     "electronic"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "an electronic drum kit",
+   "short": "electronic drum kit",
+   "tier": "plausible",
+   "look": "a rack holding small rubber or mesh drum pads, flat cymbal pads, and a compact control module",
+   "tags": {
+    "family": [
+     "electronic"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a melodica",
+   "short": "melodica",
+   "tier": "plausible",
+   "look": "a small handheld piano keyboard with a mouthpiece or flexible blowing tube at one end",
+   "tags": {
+    "family": [
+     "woodwind",
+     "keyboard"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a suona",
+   "short": "suona",
+   "tier": "plausible",
+   "look": "a short conical wooden pipe with finger holes, a small exposed reed, and a wide metal bell",
+   "tags": {
+    "family": [
+     "woodwind"
+    ],
+    "origin": [
+     "east_asia"
+    ]
+   }
+  },
+  {
+   "text": "a musical saw",
+   "short": "musical saw",
+   "tier": "unusual",
+   "look": "a broad flexible hand-saw blade held upright in a curve and played along its smooth edge with a bow",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a singing bowl",
+   "short": "singing bowl",
+   "tier": "plausible",
+   "look": "a rounded metal bowl with an open rim and a short wooden striker held beside it",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "global"
+    ]
+   }
+  },
+  {
+   "text": "a washboard",
+   "short": "washboard",
+   "tier": "plausible",
+   "look": "a small rectangular wooden frame holding a ridged metal panel, played with thimbles or scrapers",
+   "tags": {
+    "family": [
+     "percussion"
+    ],
+    "origin": [
+     "americas"
+    ]
+   }
+  }
+ ]
+}

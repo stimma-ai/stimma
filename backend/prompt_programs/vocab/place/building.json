@@ -1,0 +1,861 @@
+{
+ "id": "place.building",
+ "label": "Building type",
+ "description": "Building types and recognizable structures: homes, places of worship, civic buildings, industry, and transport.",
+ "pos": "noun phrase",
+ "frame": "a ___",
+ "notes": "Buildings and freestanding built structures belong here, named as singular types after “a.” A few vowel-initial names carry a short identifying modifier so the frame reads naturally. Architectural treatments belong in place.architecture_style, and decorated room settings belong in interior_space.style. Less familiar structures have visual glosses, as do common ones for consistent browsing; multifunctional buildings may appear in several kind groups.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "home",
+   "religious",
+   "civic_public",
+   "commercial",
+   "industrial_farm",
+   "historic_fortified",
+   "transport",
+   "unusual"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "single-family house",
+   "short": "single-family house",
+   "look": "A detached dwelling with its own entrance, windows, roof, and surrounding yard.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "brownstone townhouse",
+   "short": "brownstone",
+   "look": "A narrow masonry townhouse with a brown stone facade and a raised front stoop.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "row house",
+   "look": "A narrow house shares side walls with matching neighboring homes in a continuous street frontage.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "shotgun house",
+   "look": "A very narrow house has a front porch and rooms arranged one behind another.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "tenement",
+   "look": "A dense apartment building has repetitive windows, shared entrances, and exterior fire escapes.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "Victorian painted lady",
+   "short": "painted lady",
+   "look": "An ornate Victorian wooden house is painted in several contrasting colors that highlight its trim.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "timber A-frame cabin",
+   "short": "A-frame cabin",
+   "look": "Two steep roof slopes extend almost to the ground, forming a triangular house.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "log cabin",
+   "look": "Stacked horizontal logs form a small dwelling with visible notched corners and a pitched roof.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "bungalow",
+   "look": "A low house has a broad roof, a sheltered front porch, and most rooms on one floor.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "longhouse",
+   "look": "A long narrow communal dwelling has a continuous roof over many bays and a series of entrances.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "yurt",
+   "look": "A round felt-covered dwelling has a low conical roof and a central roof opening.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "snow igloo",
+   "short": "igloo",
+   "look": "A small rounded shelter is built from fitted snow blocks with a low tunnel entrance.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "home",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "treehouse",
+   "look": "A small elevated dwelling rests among tree branches with a ladder or raised walkway.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "stilt house",
+   "look": "A dwelling stands on tall posts above water or sloping ground, reached by steps.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "houseboat",
+   "look": "A floating dwelling has cabin windows, deck railings, and a broad buoyant hull.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "tiny house",
+   "look": "A compact dwelling has a small porch, closely packed windows, and often a trailer base.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "shipping-container home",
+   "short": "container home",
+   "look": "A home uses corrugated steel cargo boxes with doors and windows cut into the sides.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "self-sufficient earthship",
+   "short": "earthship",
+   "look": "A bermed home has a long sloping glass front, thick earth walls, and embedded bottle details.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "home",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "hobbit-style earth house",
+   "short": "hobbit-style earth house",
+   "look": "A low grass-covered mound encloses a cozy house with a round front door and small round windows.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "home",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "riad",
+   "look": "A house encloses a planted courtyard with a fountain, tiled surfaces, and inward-facing balconies.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "palazzo",
+   "look": "A large urban residence has a heavy masonry street front, tall windows, and an inner courtyard.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home",
+     "historic_fortified"
+    ]
+   }
+  },
+  {
+   "text": "château",
+   "look": "A grand country residence has steep roofs, stone facades, formal grounds, and towers or turrets.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "home",
+     "historic_fortified"
+    ]
+   }
+  },
+  {
+   "text": "castle keep",
+   "look": "A massive fortified stone tower has thick walls, narrow openings, and a battlemented top.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "historic_fortified"
+    ]
+   }
+  },
+  {
+   "text": "moated castle",
+   "look": "Fortified walls and towers rise behind a surrounding water-filled moat and bridge.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "historic_fortified"
+    ]
+   }
+  },
+  {
+   "text": "star fort",
+   "look": "Low thick defensive walls form pointed bastions in a star-shaped earthwork plan.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "historic_fortified"
+    ]
+   }
+  },
+  {
+   "text": "watchtower",
+   "look": "A tall narrow defensive tower has small windows and an elevated lookout platform.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "historic_fortified"
+    ]
+   }
+  },
+  {
+   "text": "mosque",
+   "look": "A prayer hall has a broad entrance, often accompanied by domes, a courtyard, and minarets.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "religious"
+    ]
+   }
+  },
+  {
+   "text": "minaret",
+   "look": "A tall slender tower has one or more small balconies and a pointed or domed cap.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "religious"
+    ]
+   }
+  },
+  {
+   "text": "cathedral",
+   "look": "A large church has a long nave, a monumental entrance, and prominent towers or a dome.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "religious"
+    ]
+   }
+  },
+  {
+   "text": "stave church",
+   "look": "A dark timber church has steep layered roofs, vertical plank walls, and carved roof finials.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "religious"
+    ]
+   }
+  },
+  {
+   "text": "Russian onion-dome church",
+   "short": "onion-dome church",
+   "look": "Bulb-shaped domes taper to crosses above colorful towers and arched church walls.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "religious"
+    ]
+   }
+  },
+  {
+   "text": "pagoda",
+   "look": "A tall tower has multiple stacked roofs with projecting, often upturned eaves.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "religious"
+    ]
+   }
+  },
+  {
+   "text": "stupa",
+   "look": "A solid domed Buddhist monument sits on a raised base beneath a spire and small square railing.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "religious"
+    ]
+   }
+  },
+  {
+   "text": "ziggurat",
+   "look": "A massive mud-brick temple platform rises in broad rectangular stepped terraces.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "religious",
+     "historic_fortified"
+    ]
+   }
+  },
+  {
+   "text": "pyramid",
+   "look": "A monumental structure has sloping triangular faces that meet at a high point.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "historic_fortified"
+    ]
+   }
+  },
+  {
+   "text": "Hindu temple",
+   "look": "A sculpted sanctuary tower rises above a columned hall and carved stone walls.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "religious"
+    ]
+   }
+  },
+  {
+   "text": "Shinto shrine",
+   "look": "A timber sanctuary has a steep roof, a raised veranda, and a freestanding torii gate nearby.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "religious"
+    ]
+   }
+  },
+  {
+   "text": "synagogue",
+   "look": "A Jewish worship building has a main sanctuary entrance, often marked with Hebrew lettering or a Star of David.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "religious"
+    ]
+   }
+  },
+  {
+   "text": "monastery",
+   "look": "A religious compound encloses courtyards or cloisters surrounded by halls, cells, and a place of worship.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "religious"
+    ]
+   }
+  },
+  {
+   "text": "Greek temple",
+   "look": "A rectangular stone sanctuary has a surrounding colonnade and a triangular pediment.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "religious",
+     "historic_fortified"
+    ]
+   }
+  },
+  {
+   "text": "town hall",
+   "look": "A prominent public building has a formal entrance, broad steps, and often a central clock tower.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "civic_public"
+    ]
+   }
+  },
+  {
+   "text": "public library",
+   "look": "A public reading building has generous windows, a welcoming entrance, and visible book-lined interiors.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "civic_public"
+    ]
+   }
+  },
+  {
+   "text": "courthouse",
+   "look": "A formal civic building has broad entrance steps, imposing doors, and often a columned front.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "civic_public"
+    ]
+   }
+  },
+  {
+   "text": "fire station",
+   "look": "Wide vehicle bays line a public building with firefighting equipment or engines visible inside.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "civic_public"
+    ]
+   }
+  },
+  {
+   "text": "schoolhouse",
+   "look": "A small classroom building has tall regular windows, a simple entrance, and often a bell tower.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "civic_public"
+    ]
+   }
+  },
+  {
+   "text": "museum",
+   "look": "A public exhibition building has a broad entrance and large gallery volumes, often with banners outside.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "civic_public"
+    ]
+   }
+  },
+  {
+   "text": "bathhouse",
+   "look": "A communal bathing building has a sheltered entrance, steam vents, and tiled or domed bathing halls.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "civic_public"
+    ]
+   }
+  },
+  {
+   "text": "glass office tower",
+   "short": "glass office tower",
+   "look": "A tall rectilinear office building has reflective glass curtain walls and a regular floor grid.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "skyscraper",
+   "look": "A very tall urban building rises far above its neighbors with many stacked floors.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "diner",
+   "look": "A compact roadside restaurant has large windows, counter seating, and a long narrow footprint.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "gas station",
+   "look": "Fuel pumps stand under a broad canopy beside a small roadside shop.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "commercial",
+     "transport"
+    ]
+   }
+  },
+  {
+   "text": "motel",
+   "look": "A low roadside lodging block has repeated exterior room doors facing a parking lot.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "drive-in movie theater",
+   "short": "drive-in theater",
+   "look": "A large outdoor movie screen faces rows of parking spaces and a small projection building.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "commercial",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "shopping arcade",
+   "look": "A covered pedestrian passage is lined with shopfronts beneath glass or vaulted roofing.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "commercial"
+    ]
+   }
+  },
+  {
+   "text": "market hall",
+   "look": "A broad roof spans rows of vendor stalls with wide aisles and large public entrances.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "commercial",
+     "civic_public"
+    ]
+   }
+  },
+  {
+   "text": "Quonset hut",
+   "look": "A long semicylindrical corrugated-metal shell meets the ground on both sides.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial_farm",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "greenhouse",
+   "look": "A transparent glass or plastic shell covers rows of plants beneath a pitched or curved roof.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "windmill",
+   "look": "Large rotating sails rise above a tower or mill building, often with a cap that faces the wind.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "water tower",
+   "look": "An elevated tank sits on tall legs or a masonry shaft above the surrounding buildings.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "grain silo",
+   "look": "A tall cylindrical grain store has smooth metal or concrete walls and a conical or domed top.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "barn",
+   "look": "A large farm building has broad doors, a high roof, and open interior storage bays.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "factory",
+   "look": "Large industrial sheds have repetitive window bays, loading doors, and chimneys or rooftop vents.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "warehouse",
+   "look": "A broad storage building has few windows, large loading bays, and truck access.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "watermill",
+   "look": "A mill building stands beside moving water with a large paddle wheel fixed to one wall.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "cooling tower",
+   "look": "A huge hollow concrete tower narrows at the middle and releases a broad white plume.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "power substation",
+   "look": "An open fenced installation holds transformers, ceramic insulators, and steel electrical gantries.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "train station",
+   "look": "A passenger building opens onto covered rail platforms with tracks and station signs.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transport",
+     "civic_public"
+    ]
+   }
+  },
+  {
+   "text": "commercial airport terminal",
+   "short": "airport terminal",
+   "look": "A large glazed passenger hall connects to boarding bridges and aircraft on a broad apron.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transport"
+    ]
+   }
+  },
+  {
+   "text": "lighthouse",
+   "look": "A tall coastal tower has a glazed lantern room and balcony above a narrow stair-filled shaft.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "transport"
+    ]
+   }
+  },
+  {
+   "text": "boathouse",
+   "look": "A waterside building has wide doors or open bays that let boats enter directly from the water.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transport"
+    ]
+   }
+  },
+  {
+   "text": "plane hangar",
+   "short": "aircraft hangar",
+   "look": "A huge clear-span shed has exceptionally wide sliding doors facing an airfield.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transport",
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "tollbooth",
+   "look": "A small glazed booth stands between vehicle lanes under a protective canopy.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transport"
+    ]
+   }
+  },
+  {
+   "text": "railway roundhouse",
+   "look": "A semicircular engine shed has radiating tracks that meet at a central turntable.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transport",
+     "industrial_farm"
+    ]
+   }
+  },
+  {
+   "text": "domed observatory",
+   "short": "observatory dome",
+   "look": "A rounded rotating dome has a narrow open slit for a telescope above a supporting building.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "civic_public",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "stadium",
+   "look": "Tiered seating forms a large bowl around a sports field, often ringed by floodlights.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "civic_public"
+    ]
+   }
+  },
+  {
+   "text": "planetarium",
+   "look": "A low public building is topped by a broad smooth hemispherical projection dome.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "civic_public",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "bandstand",
+   "look": "An open raised pavilion has a roof on slender posts and space for musicians.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "civic_public"
+    ]
+   }
+  },
+  {
+   "text": "caravanserai",
+   "look": "A fortified roadside inn encloses a large courtyard behind a monumental arched gateway.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "commercial",
+     "historic_fortified"
+    ]
+   }
+  },
+  {
+   "text": "trullo",
+   "look": "A small whitewashed stone dwelling has one or more pointed conical roofs of layered gray stone.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "home",
+     "unusual"
+    ]
+   }
+  },
+  {
+   "text": "covered bridge",
+   "look": "A roofed timber passage crosses water on a bridge deck, with side openings admitting light.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "transport"
+    ]
+   }
+  }
+ ]
+}

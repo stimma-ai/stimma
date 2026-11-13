@@ -1,699 +1,2010 @@
 {
-  "id": "animal.species",
-  "label": "Animal kind",
-  "description": "Animal species and familiar kinds, spanning pets, farm animals and wildlife.",
-  "pos": "noun phrase",
-  "frame": "a ___ in the grass",
-  "notes": "Animal identity only; coat patterns and dog breeds have separate leaves. Kind tags may overlap husbandry and taxonomy. The sample grass frame tests grammar rather than habitat: sea-life picks need a suitable aquatic or coastal setting.",
-  "facets": [],
-  "closed": false,
-  "untagged": {},
-  "values": [
-    {
-      "text": "cat",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "pet"
-        ]
-      }
-    },
-    {
-      "text": "dog",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "pet"
-        ]
-      }
-    },
-    {
-      "text": "rabbit",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "pet"
-        ]
-      }
-    },
-    {
-      "text": "guinea pig",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "pet"
-        ]
-      }
-    },
-    {
-      "text": "hamster",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "pet"
-        ]
-      }
-    },
-    {
-      "text": "gerbil",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "pet"
-        ]
-      }
-    },
-    {
-      "text": "chinchilla",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "pet"
-        ]
-      }
-    },
-    {
-      "text": "ferret",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "pet"
-        ]
-      }
-    },
-    {
-      "text": "sugar glider",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "pet"
-        ]
-      }
-    },
-    {
-      "text": "cow",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "farm"
-        ]
-      }
-    },
-    {
-      "text": "sheep",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "farm"
-        ]
-      }
-    },
-    {
-      "text": "goat",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "farm"
-        ]
-      }
-    },
-    {
-      "text": "pig",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "farm"
-        ]
-      }
-    },
-    {
-      "text": "horse",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "farm"
-        ]
-      }
-    },
-    {
-      "text": "donkey",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "farm"
-        ]
-      }
-    },
-    {
-      "text": "llama",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "farm"
-        ]
-      }
-    },
-    {
-      "text": "water buffalo",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "farm"
-        ]
-      }
-    },
-    {
-      "text": "yak",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "farm"
-        ]
-      }
-    },
-    {
-      "text": "red fox",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "gray wolf",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "brown bear",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "red deer",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "gray squirrel",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "raccoon",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "badger",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "hedgehog",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "lion",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "tiger",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "giraffe",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "kangaroo",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "zebra",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "red panda",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "pangolin",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "tapir",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "wild mammal"
-        ]
-      }
-    },
-    {
-      "text": "sparrow",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "robin",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "pigeon",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "chicken",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "duck",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "goose",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "barn owl",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "red-tailed hawk",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "peacock",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "flamingo",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "penguin",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "parrot",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "cassowary",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "bird"
-        ]
-      }
-    },
-    {
-      "text": "frog",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "reptile or amphibian"
-        ]
-      }
-    },
-    {
-      "text": "toad",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "reptile or amphibian"
-        ]
-      }
-    },
-    {
-      "text": "tortoise",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "reptile or amphibian"
-        ]
-      }
-    },
-    {
-      "text": "lizard",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "reptile or amphibian"
-        ]
-      }
-    },
-    {
-      "text": "salamander",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "reptile or amphibian"
-        ]
-      }
-    },
-    {
-      "text": "newt",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "reptile or amphibian"
-        ]
-      }
-    },
-    {
-      "text": "chameleon",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "reptile or amphibian"
-        ]
-      }
-    },
-    {
-      "text": "crocodile",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "reptile or amphibian"
-        ]
-      }
-    },
-    {
-      "text": "tuatara",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "reptile or amphibian"
-        ]
-      }
-    },
-    {
-      "text": "crab",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "sea life"
-        ]
-      }
-    },
-    {
-      "text": "shrimp",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "sea life"
-        ]
-      }
-    },
-    {
-      "text": "seahorse",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "sea life"
-        ]
-      }
-    },
-    {
-      "text": "clownfish",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "sea life"
-        ]
-      }
-    },
-    {
-      "text": "sea turtle",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "sea life"
-        ]
-      }
-    },
-    {
-      "text": "starfish",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "sea life"
-        ]
-      }
-    },
-    {
-      "text": "ray",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "sea life"
-        ]
-      }
-    },
-    {
-      "text": "dolphin",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "sea life"
-        ]
-      }
-    },
-    {
-      "text": "seal",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "sea life"
-        ]
-      }
-    },
-    {
-      "text": "cuttlefish",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "sea life"
-        ]
-      }
-    },
-    {
-      "text": "horseshoe crab",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "sea life"
-        ]
-      }
-    },
-    {
-      "text": "butterfly",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "insect"
-        ]
-      }
-    },
-    {
-      "text": "ladybug",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "insect"
-        ]
-      }
-    },
-    {
-      "text": "grasshopper",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "insect"
-        ]
-      }
-    },
-    {
-      "text": "bumblebee",
-      "tier": "typical",
-      "tags": {
-        "kind": [
-          "insect"
-        ]
-      }
-    },
-    {
-      "text": "dragonfly",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "insect"
-        ]
-      }
-    },
-    {
-      "text": "praying mantis",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "insect"
-        ]
-      }
-    },
-    {
-      "text": "stag beetle",
-      "tier": "plausible",
-      "tags": {
-        "kind": [
-          "insect"
-        ]
-      }
-    },
-    {
-      "text": "stick insect",
-      "tier": "unusual",
-      "tags": {
-        "kind": [
-          "insect"
-        ]
-      }
-    }
+ "id": "animal.species",
+ "label": "Animal kind",
+ "description": "Animal species and familiar kinds, including pets, farm animals, wildlife, birds, fish, and invertebrates.",
+ "pos": "noun phrase",
+ "frame": "a ___",
+ "notes": "Common animal identities belong here, phrased as singular names after an indefinite article; a becomes an where pronunciation requires it. animal.dog_breed, animal.cat_breed, animal.horse_breed, and animal.bird offer finer kinds, while animal.cat_coat owns coat colors and patterns. Kind chips overlap where an animal is also kept as a pet or on a farm; habitat chips describe familiar settings rather than strict range limits. Visual glosses explain unusual animals, and tiers favor familiar subjects without ranking conservation status.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "pet",
+   "farm",
+   "wild_mammal",
+   "bird",
+   "reptile_amphibian",
+   "aquatic_life",
+   "insect_other"
   ],
-  "local_facets": {
+  "habitat": [
+   "home",
+   "farm",
+   "forest",
+   "savanna_grassland",
+   "desert",
+   "mountain",
+   "polar",
+   "wetland_river",
+   "ocean",
+   "rainforest"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "cat",
+   "tier": "typical",
+   "tags": {
     "kind": [
-      "pet",
-      "farm",
-      "wild mammal",
-      "bird",
-      "reptile or amphibian",
-      "sea life",
-      "insect"
+     "pet"
+    ],
+    "habitat": [
+     "home",
+     "farm"
     ]
+   }
+  },
+  {
+   "text": "dog",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "pet"
+    ],
+    "habitat": [
+     "home",
+     "farm"
+    ]
+   }
+  },
+  {
+   "text": "rabbit",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "pet",
+     "wild_mammal"
+    ],
+    "habitat": [
+     "home",
+     "farm",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "guinea pig",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "pet"
+    ],
+    "habitat": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "hamster",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "pet"
+    ],
+    "habitat": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "gerbil",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet"
+    ],
+    "habitat": [
+     "home",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "chinchilla",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet"
+    ],
+    "habitat": [
+     "home",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "ferret",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet"
+    ],
+    "habitat": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "sugar glider",
+   "tier": "unusual",
+   "look": "a small gray gliding marsupial with large eyes and a skin membrane between its legs",
+   "tags": {
+    "kind": [
+     "pet",
+     "wild_mammal"
+    ],
+    "habitat": [
+     "home",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "fancy rat",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet"
+    ],
+    "habitat": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "cow",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "sheep",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "savanna_grassland",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "goat",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "pig",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm"
+    ]
+   }
+  },
+  {
+   "text": "horse",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "donkey",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "mule",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "llama",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "alpaca",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "water buffalo",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "yak",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "dromedary camel",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "Bactrian camel",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "farm"
+    ],
+    "habitat": [
+     "farm",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "red fox",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "gray wolf",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "coyote",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "brown bear",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "American black bear",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "polar bear",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "polar",
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "giant panda",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "red panda",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "white-tailed deer",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "elk",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "mountain",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "moose",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "reindeer",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "polar",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "gray squirrel",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "chipmunk",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "raccoon",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "badger",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "striped skunk",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "hedgehog",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet",
+     "wild_mammal"
+    ],
+    "habitat": [
+     "home",
+     "forest",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "beaver",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "wetland_river",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "river otter",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "capybara",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "wetland_river",
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "porcupine",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "opossum",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "armadillo",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "pangolin",
+   "tier": "unusual",
+   "look": "an elongated mammal covered in overlapping scales, with a narrow snout and long tapering tail",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "aardvark",
+   "tier": "unusual",
+   "look": "a stocky pinkish-gray mammal with tall ears, a piglike snout, and a thick tapering tail",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "giant anteater",
+   "tier": "unusual",
+   "look": "a long-snouted mammal with a broad black shoulder stripe and a huge bushy tail",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland",
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "sloth",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "koala",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "kangaroo",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "wombat",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "platypus",
+   "tier": "unusual",
+   "look": "a low brown swimming mammal with a broad ducklike bill, webbed feet, and a flat tail",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "Tasmanian devil",
+   "tier": "unusual",
+   "look": "a squat black marsupial with a broad head, pink ears, and a white chest marking",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "lion",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "tiger",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "leopard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "cheetah",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "snow leopard",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "jaguar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "rainforest",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "cougar",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "mountain",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "Eurasian lynx",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "caracal",
+   "tier": "unusual",
+   "look": "a tawny wildcat with very long black ear tufts and long legs",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "African elephant",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "giraffe",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "zebra",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "white rhinoceros",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "hippopotamus",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "American bison",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "African buffalo",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "bighorn sheep",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "mountain goat",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "ibex",
+   "tier": "unusual",
+   "look": "a sure-footed wild goat with enormous ridged horns sweeping backward",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "saiga antelope",
+   "tier": "unusual",
+   "look": "a pale antelope with a large, drooping inflatable-looking nose and slender legs",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "okapi",
+   "tier": "unusual",
+   "look": "a dark brown, long-necked mammal with zebra-striped hindquarters and legs",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "Malayan tapir",
+   "tier": "unusual",
+   "look": "a barrel-shaped mammal with a short flexible trunk and a broad white saddle across a black body",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "rainforest",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "meerkat",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "desert",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "spotted hyena",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "ring-tailed lemur",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "chimpanzee",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "rainforest",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "gorilla",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "rainforest",
+     "mountain"
+    ]
+   }
+  },
+  {
+   "text": "orangutan",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "mandrill",
+   "tier": "unusual",
+   "look": "a large monkey with a red-and-blue ridged muzzle, yellow beard, and brightly colored rump",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "golden snub-nosed monkey",
+   "tier": "unusual",
+   "look": "a golden-furred monkey with a pale blue face and a tiny upturned nose",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "mountain",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "little red flying fox",
+   "tier": "unusual",
+   "look": "a large rusty-brown fruit bat with a doglike face and broad dark wings",
+   "tags": {
+    "kind": [
+     "wild_mammal"
+    ],
+    "habitat": [
+     "forest",
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "chicken",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "farm",
+     "bird"
+    ],
+    "habitat": [
+     "farm"
+    ]
+   }
+  },
+  {
+   "text": "duck",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "farm",
+     "bird"
+    ],
+    "habitat": [
+     "farm",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "goose",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "farm",
+     "bird"
+    ],
+    "habitat": [
+     "farm",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "turkey",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "farm",
+     "bird"
+    ],
+    "habitat": [
+     "farm",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "peacock",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bird"
+    ],
+    "habitat": [
+     "farm",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "pigeon",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bird"
+    ],
+    "habitat": [
+     "home",
+     "farm"
+    ]
+   }
+  },
+  {
+   "text": "house sparrow",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bird"
+    ],
+    "habitat": [
+     "home",
+     "farm",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "American robin",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bird"
+    ],
+    "habitat": [
+     "forest",
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "barn owl",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "bird"
+    ],
+    "habitat": [
+     "farm",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "bald eagle",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bird"
+    ],
+    "habitat": [
+     "forest",
+     "wetland_river",
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "hummingbird",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bird"
+    ],
+    "habitat": [
+     "forest",
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "scarlet macaw",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet",
+     "bird"
+    ],
+    "habitat": [
+     "home",
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "flamingo",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bird"
+    ],
+    "habitat": [
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "emperor penguin",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bird"
+    ],
+    "habitat": [
+     "polar",
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "ostrich",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "bird"
+    ],
+    "habitat": [
+     "savanna_grassland",
+     "farm"
+    ]
+   }
+  },
+  {
+   "text": "frog",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "wetland_river",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "toad",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "forest",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "fire salamander",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "forest",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "axolotl",
+   "tier": "unusual",
+   "look": "an aquatic salamander with feathery external gills, a broad smiling-looking face, and a finned tail",
+   "tags": {
+    "kind": [
+     "pet",
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "home",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "tortoise",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "pet",
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "home",
+     "desert",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "sea turtle",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "reptile_amphibian",
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "red-eared slider",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet",
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "home",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "green iguana",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet",
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "home",
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "chameleon",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "forest",
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "leopard gecko",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet",
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "home",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "bearded dragon",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet",
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "home",
+     "desert"
+    ]
+   }
+  },
+  {
+   "text": "frilled lizard",
+   "tier": "unusual",
+   "look": "a long-tailed lizard with a broad circular skin frill that opens around its head",
+   "tags": {
+    "kind": [
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "savanna_grassland",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "Komodo dragon",
+   "tier": "unusual",
+   "look": "a massive, low-slung monitor lizard with pebbled skin, strong claws, and a long forked tongue",
+   "tags": {
+    "kind": [
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "savanna_grassland",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "cobra",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "forest",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "ball python",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet",
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "home",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "rattlesnake",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "desert",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "crocodile",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "American alligator",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "reptile_amphibian"
+    ],
+    "habitat": [
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "goldfish",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "pet",
+     "aquatic_life"
+    ],
+    "habitat": [
+     "home"
+    ]
+   }
+  },
+  {
+   "text": "koi",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet",
+     "aquatic_life"
+    ],
+    "habitat": [
+     "home",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "clownfish",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "betta fish",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet",
+     "aquatic_life"
+    ],
+    "habitat": [
+     "home",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "great white shark",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "hammerhead shark",
+   "tier": "unusual",
+   "look": "a gray shark with a wide flattened head projecting sideways like a hammer",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "whale shark",
+   "tier": "unusual",
+   "look": "an enormous broad-headed shark with white dots and pale stripes across its dark back",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "manta ray",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "seahorse",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "bottlenose dolphin",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "orca",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean",
+     "polar"
+    ]
+   }
+  },
+  {
+   "text": "humpback whale",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "harbor seal",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "walrus",
+   "tier": "unusual",
+   "look": "a huge whiskered marine mammal with wrinkled skin and two long downward-pointing tusks",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "polar",
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "sea otter",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wild_mammal",
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "octopus",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "cuttlefish",
+   "tier": "unusual",
+   "look": "a broad-bodied cephalopod with rippling side fins, a W-shaped pupil, and short arms around its mouth",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "jellyfish",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "starfish",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "crab",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean",
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "lobster",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "horseshoe crab",
+   "tier": "unusual",
+   "look": "a low armored animal with a broad horseshoe-shaped shell and a long pointed tail spine",
+   "tags": {
+    "kind": [
+     "aquatic_life"
+    ],
+    "habitat": [
+     "ocean"
+    ]
+   }
+  },
+  {
+   "text": "monarch butterfly",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "insect_other"
+    ],
+    "habitat": [
+     "savanna_grassland",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "luna moth",
+   "tier": "unusual",
+   "look": "a pale green moth with eye spots and long trailing tails on its hindwings",
+   "tags": {
+    "kind": [
+     "insect_other"
+    ],
+    "habitat": [
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "ladybug",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "insect_other"
+    ],
+    "habitat": [
+     "home",
+     "farm",
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "bumblebee",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "insect_other"
+    ],
+    "habitat": [
+     "home",
+     "farm",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "dragonfly",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "insect_other"
+    ],
+    "habitat": [
+     "wetland_river"
+    ]
+   }
+  },
+  {
+   "text": "praying mantis",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "insect_other"
+    ],
+    "habitat": [
+     "forest",
+     "savanna_grassland"
+    ]
+   }
+  },
+  {
+   "text": "stag beetle",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "insect_other"
+    ],
+    "habitat": [
+     "forest"
+    ]
+   }
+  },
+  {
+   "text": "stick insect",
+   "tier": "unusual",
+   "look": "a very thin twig-shaped insect with long angular legs",
+   "tags": {
+    "kind": [
+     "insect_other"
+    ],
+    "habitat": [
+     "forest",
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "tarantula",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "pet",
+     "insect_other"
+    ],
+    "habitat": [
+     "home",
+     "desert",
+     "rainforest"
+    ]
+   }
+  },
+  {
+   "text": "garden snail",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "insect_other"
+    ],
+    "habitat": [
+     "home",
+     "forest"
+    ]
+   }
   }
+ ]
 }

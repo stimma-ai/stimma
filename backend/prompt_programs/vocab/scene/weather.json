@@ -1,485 +1,642 @@
 {
-  "id": "scene.weather",
-  "label": "Weather",
-  "description": "Weather, atmospheric visibility and outdoor temperature conditions.",
-  "pos": "noun phrase",
-  "frame": "in ___",
-  "notes": "Precipitation, wind, cloud, fog and heat belong here. scene.season owns the annual phase; scene.time_of_day owns the hour; lighting.natural owns the resulting illumination. Outdoor tags mark conditions surrounding an exposed subject rather than a view through a window.",
-  "facets": [
-    "space",
-    "climate",
-    "time_of_day"
-  ],
-  "closed": true,
-  "values": [
-    {
-      "text": "light drizzle",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "steady rain",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "a heavy downpour",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "thick fog",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "thin mist",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "time_of_day": [
-          "dawn",
-          "day"
-        ]
-      }
-    },
-    {
-      "text": "bright clear weather",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "overcast weather",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "a gentle breeze",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "strong gusty wind",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "humid weather",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "a light snowfall",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "season": [
-          "late_autumn",
-          "early_winter",
-          "deep_winter",
-          "early_spring"
-        ]
-      }
-    },
-    {
-      "text": "a heavy snowfall",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "season": [
-          "late_autumn",
-          "early_winter",
-          "deep_winter",
-          "early_spring"
-        ]
-      }
-    },
-    {
-      "text": "crisp frosty weather",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "season": [
-          "late_autumn",
-          "early_winter",
-          "deep_winter",
-          "early_spring",
-          "late_spring",
-          "early_autumn"
-        ]
-      }
-    },
-    {
-      "text": "dry heat",
-      "tier": "typical",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "hot"
-        ],
-        "season": [
-          "late_spring",
-          "early_summer",
-          "high_summer",
-          "early_autumn",
-          "dry_season"
-        ]
-      }
-    },
-    {
-      "text": "wind-driven rain",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "a passing shower",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "sea spray blown inland",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "a gathering thunderstorm",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "a break between rain showers",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "fine rain beneath a bright sky",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "cool damp weather",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "temperate",
-          "cold"
-        ]
-      }
-    },
-    {
-      "text": "rain mixed with hail",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "gusts carrying fallen leaves",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "season": [
-          "early_autumn",
-          "late_autumn",
-          "early_winter"
-        ]
-      }
-    },
-    {
-      "text": "blowing powder snow",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "season": [
-          "late_autumn",
-          "early_winter",
-          "deep_winter",
-          "early_spring"
-        ]
-      }
-    },
-    {
-      "text": "sleet",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "season": [
-          "late_autumn",
-          "early_winter",
-          "deep_winter",
-          "early_spring"
-        ]
-      }
-    },
-    {
-      "text": "freezing rain",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "season": [
-          "late_autumn",
-          "early_winter",
-          "deep_winter",
-          "early_spring"
-        ]
-      }
-    },
-    {
-      "text": "icy wind",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "season": [
-          "late_autumn",
-          "early_winter",
-          "deep_winter",
-          "early_spring"
-        ]
-      }
-    },
-    {
-      "text": "a thaw with dripping snow",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "season": [
-          "deep_winter",
-          "early_spring",
-          "late_spring"
-        ]
-      }
-    },
-    {
-      "text": "freezing fog",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "season": [
-          "late_autumn",
-          "early_winter",
-          "deep_winter",
-          "early_spring"
-        ]
-      }
-    },
-    {
-      "text": "shimmering desert heat",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "hot"
-        ],
-        "season": [
-          "late_spring",
-          "early_summer",
-          "high_summer",
-          "early_autumn",
-          "dry_season"
-        ]
-      }
-    },
-    {
-      "text": "a hot dusty wind",
-      "tier": "plausible",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "hot"
-        ],
-        "season": [
-          "late_spring",
-          "early_summer",
-          "high_summer",
-          "early_autumn",
-          "dry_season"
-        ]
-      }
-    },
-    {
-      "text": "a whiteout blizzard",
-      "tier": "unusual",
-      "tags": {
-        "space": [
-          "outdoor"
-        ],
-        "climate": [
-          "cold"
-        ],
-        "season": [
-          "late_autumn",
-          "early_winter",
-          "deep_winter",
-          "early_spring"
-        ]
-      }
-    },
-    {
-      "text": "a violent hailstorm",
-      "tier": "unusual",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "a dense dust storm",
-      "tier": "unusual",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    },
-    {
-      "text": "windblown volcanic ash",
-      "tier": "unusual",
-      "tags": {
-        "space": [
-          "outdoor"
-        ]
-      }
-    }
-  ],
-  "context": {
-    "gives": [
-      "climate"
+ "id": "scene.weather",
+ "label": "Weather",
+ "description": "Visible weather: clear skies, clouds, fog, rain, snow, ice, wind, storms, heat haze, and airborne dust.",
+ "pos": "noun phrase",
+ "frame": "the scene shows ___",
+ "notes": "Visible atmospheric conditions and their immediate traces belong here, phrased as noun phrases after “the scene shows.” scene.season owns recurring landscape changes, scene.time_of_day owns daily phases, and lighting.natural owns illumination. Sensations such as humidity or chill are omitted unless visible as haze, frost, precipitation, or moving vegetation. Space tags describe weather around an exposed subject; cold and hot tags appear only where the condition implies that temperature.",
+ "facets": [
+  "climate",
+  "space",
+  "time_of_day"
+ ],
+ "closed": true,
+ "values": [
+  {
+   "text": "cloudless weather",
+   "short": "cloudless sky",
+   "look": "An uninterrupted clear sky leaves distant outlines crisp and unobscured.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "clear"
     ],
-    "stated": true,
-    "takes": {
-      "time_of_day": {
-        "mismatch": "rare",
-        "factor": 0.2
-      },
-      "space": {
-        "mismatch": "rare",
-        "factor": 0.1
-      },
-      "season": {
-        "mismatch": "rare",
-        "factor": 0.05
-      }
-    }
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "partly cloudy weather",
+   "short": "partly cloudy",
+   "look": "Separate white cumulus clouds float across broad gaps of clear blue sky.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "clear",
+     "cloud_fog"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "a rainbow after rain",
+   "short": "rainbow",
+   "look": "A colored arc spans clearing clouds above wet ground.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "clear",
+     "rain"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "overcast weather",
+   "short": "overcast",
+   "look": "An unbroken gray cloud ceiling flattens shadows and mutes colors.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cloud_fog"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "thick fog",
+   "short": "thick fog",
+   "look": "Dense white-gray fog hides the distance and reduces nearby forms to soft silhouettes.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "cloud_fog"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "thin mist",
+   "short": "thin mist",
+   "look": "A translucent veil softens distant outlines while nearby objects remain distinct.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cloud_fog"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day"
+    ]
+   }
+  },
+  {
+   "text": "low ground fog",
+   "short": "ground fog",
+   "look": "A shallow white layer hugs the ground while treetops and higher ground remain clear.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cloud_fog"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "sea fog rolling ashore",
+   "short": "coastal fog",
+   "look": "A thick bank of fog advances from the water, partly swallowing the shoreline.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "cloud_fog"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "light drizzle",
+   "short": "drizzle",
+   "look": "Fine droplets bead on surfaces and lightly speckle the damp ground.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "rain"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "steady rain",
+   "short": "steady rain",
+   "look": "Visible rain streaks fall across wet surfaces, puddles, and small splashes.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "rain"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "a heavy downpour",
+   "short": "downpour",
+   "look": "Dense curtains of rain veil the background as water splashes and runs across the ground.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "rain"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "wind-driven rain",
+   "short": "wind-driven rain",
+   "look": "Slanted rain streaks sweep past bending vegetation and rippling puddles.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "rain",
+     "wind_storm"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "a sunshower",
+   "short": "sunshower",
+   "look": "Fine rain falls through direct sunlight beneath a partly bright sky.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "rain"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "clearing weather after rain",
+   "short": "clearing after rain",
+   "look": "Broken clouds reveal bright sky above reflective puddles and dripping surfaces, with no rain falling.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "rain",
+     "clear"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "a light snowfall",
+   "short": "light snowfall",
+   "look": "Scattered flakes drift through the air above a thin dusting of snow.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "snow_ice"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "climate": [
+     "cold"
+    ],
+    "season": [
+     "late_autumn",
+     "early_winter",
+     "deep_winter",
+     "early_spring"
+    ]
+   }
+  },
+  {
+   "text": "a heavy snowfall",
+   "short": "heavy snowfall",
+   "look": "Large, densely falling flakes obscure the distance and build soft white layers on surfaces.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "snow_ice"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "climate": [
+     "cold"
+    ],
+    "season": [
+     "late_autumn",
+     "early_winter",
+     "deep_winter",
+     "early_spring"
+    ]
+   }
+  },
+  {
+   "text": "hoarfrost",
+   "short": "hoarfrost",
+   "look": "White feathery ice crystals coat grass, twigs, and exposed edges without a blanket of snow.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "snow_ice"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "climate": [
+     "cold"
+    ],
+    "season": [
+     "early_winter",
+     "deep_winter",
+     "late_autumn"
+    ]
+   }
+  },
+  {
+   "text": "blowing powder snow",
+   "short": "blowing snow",
+   "look": "Loose snow streams sideways close to the ground and curls off existing drifts.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "snow_ice",
+     "wind_storm"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "climate": [
+     "cold"
+    ],
+    "season": [
+     "late_autumn",
+     "early_winter",
+     "deep_winter",
+     "early_spring"
+    ]
+   }
+  },
+  {
+   "text": "sleet",
+   "short": "sleet",
+   "look": "Small hard ice pellets scatter across the ground rather than forming soft flakes.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "snow_ice"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "climate": [
+     "cold"
+    ],
+    "season": [
+     "late_autumn",
+     "early_winter",
+     "deep_winter",
+     "early_spring"
+    ]
+   }
+  },
+  {
+   "text": "freezing rain",
+   "short": "freezing rain",
+   "look": "Falling rain leaves clear glassy ice encasing branches, wires, and exposed surfaces.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "snow_ice",
+     "rain"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "climate": [
+     "cold"
+    ],
+    "season": [
+     "late_autumn",
+     "early_winter",
+     "deep_winter",
+     "early_spring"
+    ]
+   }
+  },
+  {
+   "text": "a thaw with dripping snow",
+   "short": "snowmelt",
+   "look": "Snowbanks shrink into slush and puddles while wet icicles drip from edges.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "snow_ice"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "season": [
+     "deep_winter",
+     "early_spring",
+     "late_spring"
+    ]
+   }
+  },
+  {
+   "text": "freezing fog",
+   "short": "freezing fog",
+   "look": "Dense fog obscures the distance while white rime coats branches and railings.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "snow_ice",
+     "cloud_fog"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "climate": [
+     "cold"
+    ],
+    "season": [
+     "late_autumn",
+     "early_winter",
+     "deep_winter",
+     "early_spring"
+    ]
+   }
+  },
+  {
+   "text": "a whiteout blizzard",
+   "short": "whiteout blizzard",
+   "look": "Wind-whipped snow erases the horizon and leaves only faint nearby silhouettes.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "snow_ice",
+     "wind_storm"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "climate": [
+     "cold"
+    ],
+    "season": [
+     "late_autumn",
+     "early_winter",
+     "deep_winter",
+     "early_spring"
+    ]
+   }
+  },
+  {
+   "text": "a gentle breeze",
+   "short": "gentle breeze",
+   "look": "Leaves flutter, fine hair lifts, and loose fabric stirs while larger branches stay still.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wind_storm"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "strong gusty wind",
+   "short": "gusty wind",
+   "look": "Branches bend and clothing streams sideways as loose debris blows across the scene.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "wind_storm"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "sea spray blown inland",
+   "short": "sea spray",
+   "look": "Wind tears white spray from breaking waves and carries droplets across the shore.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wind_storm"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "a thunderstorm with lightning",
+   "short": "lightning storm",
+   "look": "Branching lightning flashes beneath a towering dark cloud bank and sheets of rain.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wind_storm",
+     "rain"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "gusts carrying fallen leaves",
+   "short": "windblown leaves",
+   "look": "Fallen leaves swirl through the air and skitter over the ground.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "wind_storm"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "season": [
+     "early_autumn",
+     "late_autumn",
+     "early_winter"
+    ]
+   }
+  },
+  {
+   "text": "a violent hailstorm",
+   "short": "hailstorm",
+   "look": "Large white hailstones streak through the air, bounce off surfaces, and collect in piles.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "wind_storm",
+     "snow_ice"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "a tornado",
+   "short": "tornado",
+   "look": "A dark rotating funnel reaches from a low storm cloud to a swirling debris cloud on the ground.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "wind_storm"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "heat haze",
+   "short": "heat haze",
+   "look": "Rising hot air makes distant edges shimmer and ripple just above the ground.",
+   "tier": "typical",
+   "tags": {
+    "kind": [
+     "heat_dust"
+    ],
+    "space": [
+     "outdoor"
+    ],
+    "climate": [
+     "hot"
+    ],
+    "season": [
+     "early_summer",
+     "high_summer",
+     "dry_season"
+    ]
+   }
+  },
+  {
+   "text": "a dusty wind",
+   "short": "dusty wind",
+   "look": "Thin brown veils of airborne dust sweep near the ground without hiding the whole landscape.",
+   "tier": "plausible",
+   "tags": {
+    "kind": [
+     "heat_dust",
+     "wind_storm"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "a dense dust storm",
+   "short": "dust storm",
+   "look": "A broad ocher wall of dust blots out the distance and stains the sky brown.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "heat_dust",
+     "wind_storm"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "windblown volcanic ash",
+   "short": "volcanic ash",
+   "look": "Gray ash falls through a dim sky and leaves a powdery coating on the ground and vegetation.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "heat_dust"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "a dust devil",
+   "short": "dust devil",
+   "look": "A narrow spiral of dust rises from the ground under an otherwise clear sky.",
+   "tier": "unusual",
+   "tags": {
+    "kind": [
+     "heat_dust",
+     "wind_storm"
+    ],
+    "space": [
+     "outdoor"
+    ]
+   }
   }
+ ],
+ "context": {
+  "gives": [
+   "climate"
+  ],
+  "stated": true,
+  "takes": {
+   "time_of_day": {
+    "mismatch": "rare",
+    "factor": 0.2
+   },
+   "space": {
+    "mismatch": "rare",
+    "factor": 0.1
+   },
+   "season": {
+    "mismatch": "rare",
+    "factor": 0.05
+   }
+  }
+ },
+ "local_facets": {
+  "kind": [
+   "clear",
+   "cloud_fog",
+   "rain",
+   "snow_ice",
+   "wind_storm",
+   "heat_dust"
+  ]
+ }
 }

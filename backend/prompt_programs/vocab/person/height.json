@@ -1,0 +1,78 @@
+{
+ "id": "person.height",
+ "label": "Height",
+ "description": "Overall human stature from very short to towering, independent of body build.",
+ "pos": "adjective phrase",
+ "frame": "a ___ person",
+ "notes": "Overall stature belongs here; body frame, muscularity and relative limb or torso proportions belong in person.build. Values are short adjective phrases, with medium-height shown as average height in the chooser so every value fits the frame a ___ person. Very tall is markedly above surrounding people, while towering is an exaggerated scale contrast best shown beside other people or familiar objects.",
+ "facets": [],
+ "closed": true,
+ "local_facets": {
+  "stature": [
+   "average",
+   "short",
+   "tall",
+   "very_short",
+   "very_tall",
+   "towering"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "medium-height",
+   "short": "average height",
+   "tier": "typical",
+   "tags": {
+    "stature": [
+     "average"
+    ]
+   }
+  },
+  {
+   "text": "short",
+   "tier": "typical",
+   "tags": {
+    "stature": [
+     "short"
+    ]
+   }
+  },
+  {
+   "text": "tall",
+   "tier": "typical",
+   "tags": {
+    "stature": [
+     "tall"
+    ]
+   }
+  },
+  {
+   "text": "very short",
+   "tier": "plausible",
+   "tags": {
+    "stature": [
+     "very_short"
+    ]
+   }
+  },
+  {
+   "text": "very tall",
+   "tier": "plausible",
+   "tags": {
+    "stature": [
+     "very_tall"
+    ]
+   }
+  },
+  {
+   "text": "towering",
+   "tier": "unusual",
+   "tags": {
+    "stature": [
+     "towering"
+    ]
+   }
+  }
+ ]
+}

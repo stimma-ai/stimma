@@ -1,0 +1,594 @@
+{
+ "id": "plant.houseplant",
+ "label": "Houseplants",
+ "description": "Named indoor foliage plants, trailing plants, ferns, succulents, cacti, flowering houseplants and bonsai.",
+ "pos": "noun phrase",
+ "frame": "___",
+ "notes": "Indoor plant identities and recognizable specimen forms belong here, including named succulents, cacti and bonsai types. plant.flower holds blossoms as the main subject and plant.tree holds outdoor whole-tree forms. Values are singular common or botanical names with articles included; plants are not assigned a pot, room or decor style. Kind chips overlap for trailing succulents and flowering specimens, and bonsai entries name the species as well as the trained form.",
+ "closed": false,
+ "facets": [],
+ "local_facets": {
+  "kind": [
+   "foliage",
+   "trailing",
+   "succulent_cactus",
+   "fern",
+   "flowering",
+   "bonsai_specimen"
+  ]
+ },
+ "untagged": {},
+ "values": [
+  {
+   "text": "a Monstera deliciosa",
+   "short": "Monstera deliciosa",
+   "tier": "typical",
+   "look": "large glossy heart-shaped leaves split deeply at the edges and pierced with oval holes",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a Monstera adansonii",
+   "short": "Monstera adansonii",
+   "tier": "plausible",
+   "look": "thin climbing stems carrying smaller oval leaves perforated with many enclosed holes",
+   "tags": {
+    "kind": [
+     "foliage",
+     "trailing"
+    ]
+   }
+  },
+  {
+   "text": "a fiddle-leaf fig",
+   "short": "fiddle-leaf fig",
+   "tier": "typical",
+   "look": "an upright woody stem with huge dark glossy leaves shaped like violins",
+   "tags": {
+    "kind": [
+     "foliage",
+     "bonsai_specimen"
+    ]
+   }
+  },
+  {
+   "text": "a snake plant",
+   "short": "snake plant",
+   "tier": "typical",
+   "look": "stiff upright sword-shaped leaves with gray-green bands, sometimes edged in yellow",
+   "tags": {
+    "kind": [
+     "foliage",
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "a golden pothos",
+   "short": "golden pothos",
+   "tier": "typical",
+   "look": "trailing vines with smooth heart-shaped green leaves splashed with yellow",
+   "tags": {
+    "kind": [
+     "foliage",
+     "trailing"
+    ]
+   }
+  },
+  {
+   "text": "a Philodendron gloriosum",
+   "short": "Philodendron gloriosum",
+   "tier": "plausible",
+   "look": "huge velvety heart-shaped green leaves crossed by bold pale veins",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a ZZ plant",
+   "short": "ZZ plant",
+   "tier": "typical",
+   "look": "arching fleshy stems lined with pairs of thick glossy dark green oval leaflets",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a bird's nest fern",
+   "short": "bird's nest fern",
+   "tier": "typical",
+   "look": "a broad rosette of shiny undivided strap-shaped fronds with dark central ribs",
+   "tags": {
+    "kind": [
+     "fern"
+    ]
+   }
+  },
+  {
+   "text": "a Boston fern",
+   "short": "Boston fern",
+   "tier": "typical",
+   "look": "a fountain of long arching fronds made of many small closely spaced leaflets",
+   "tags": {
+    "kind": [
+     "fern"
+    ]
+   }
+  },
+  {
+   "text": "a staghorn fern",
+   "short": "staghorn fern",
+   "tier": "plausible",
+   "look": "forked antler-shaped fronds rise above round shield fronds that clasp a mount",
+   "tags": {
+    "kind": [
+     "fern",
+     "bonsai_specimen"
+    ]
+   }
+  },
+  {
+   "text": "a maidenhair fern",
+   "short": "maidenhair fern",
+   "tier": "plausible",
+   "look": "delicate black wiry stems carrying tiny fan-shaped green leaflets",
+   "tags": {
+    "kind": [
+     "fern"
+    ]
+   }
+  },
+  {
+   "text": "a string of pearls",
+   "short": "string of pearls",
+   "tier": "typical",
+   "look": "thin trailing stems hung with round green beadlike leaves",
+   "tags": {
+    "kind": [
+     "trailing",
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "a string of hearts",
+   "short": "string of hearts",
+   "tier": "plausible",
+   "look": "fine purple trailing stems carrying pairs of small silver-patterned heart-shaped leaves",
+   "tags": {
+    "kind": [
+     "trailing"
+    ]
+   }
+  },
+  {
+   "text": "a string of bananas",
+   "short": "string of bananas",
+   "tier": "plausible",
+   "look": "cascading stems covered with curved fleshy leaves shaped like tiny green bananas",
+   "tags": {
+    "kind": [
+     "trailing",
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "a Calathea orbifolia",
+   "short": "Calathea orbifolia",
+   "tier": "plausible",
+   "look": "large round leaves with broad alternating silver and green stripes",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a rattlesnake plant",
+   "short": "rattlesnake plant",
+   "tier": "plausible",
+   "look": "long narrow wavy-edged leaves patterned with dark oval spots and purple undersides",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a red prayer plant",
+   "short": "red prayer plant",
+   "tier": "plausible",
+   "look": "low spreading oval leaves with vivid red branching veins and dark central patches",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a peace lily",
+   "short": "peace lily",
+   "tier": "typical",
+   "look": "a clump of glossy lance-shaped leaves with upright white spathes around pale central spikes",
+   "tags": {
+    "kind": [
+     "foliage",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a rubber plant",
+   "short": "rubber plant",
+   "tier": "typical",
+   "look": "a woody upright plant with thick glossy oval leaves and pointed reddish new-leaf sheaths",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a Chinese money plant",
+   "short": "Chinese money plant",
+   "tier": "plausible",
+   "look": "round flat coin-shaped leaves held on long slender stalks from a central stem",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a spider plant",
+   "short": "spider plant",
+   "tier": "typical",
+   "look": "arching striped ribbon leaves and long runners ending in small dangling plantlets",
+   "tags": {
+    "kind": [
+     "foliage",
+     "trailing"
+    ]
+   }
+  },
+  {
+   "text": "a cast iron plant",
+   "short": "cast iron plant",
+   "tier": "plausible",
+   "look": "sturdy clumps of broad dark green lance-shaped leaves on long upright stalks",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a Chinese evergreen",
+   "short": "Chinese evergreen",
+   "tier": "plausible",
+   "look": "upright stems with broad pointed leaves patterned in silver and dark green",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "an Alocasia Polly",
+   "short": "Alocasia Polly",
+   "tier": "plausible",
+   "look": "dark glossy arrow-shaped leaves with deeply scalloped edges and bright pale veins",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a zebra plant",
+   "short": "zebra plant",
+   "tier": "plausible",
+   "look": "dark oval leaves striped with bold white veins beneath upright yellow bracted flower spikes",
+   "tags": {
+    "kind": [
+     "foliage",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a bird of paradise plant",
+   "short": "bird of paradise plant",
+   "tier": "plausible",
+   "look": "large upright banana-like leaves on long stiff stalks, sometimes with orange-and-blue beaked flowers",
+   "tags": {
+    "kind": [
+     "foliage",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a croton",
+   "short": "croton",
+   "tier": "plausible",
+   "look": "thick glossy leaves patterned in vivid yellow, orange, red and green",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a polka dot plant",
+   "short": "polka dot plant",
+   "tier": "plausible",
+   "look": "small soft oval leaves densely speckled with pink or white against green",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a parlor palm",
+   "short": "parlor palm",
+   "tier": "typical",
+   "look": "a compact cluster of slender green stems carrying fine arching featherlike fronds",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "an air plant",
+   "short": "air plant",
+   "tier": "plausible",
+   "look": "a rosette of narrow curling silvery leaves with fine fuzzy surfaces and small anchoring roots",
+   "tags": {
+    "kind": [
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a Spanish moss",
+   "short": "Spanish moss",
+   "tier": "unusual",
+   "look": "long loose curtains of thin branching silver-gray strands hanging without a soil-rooted stem",
+   "tags": {
+    "kind": [
+     "trailing"
+    ]
+   }
+  },
+  {
+   "text": "a juniper bonsai",
+   "short": "juniper bonsai",
+   "tier": "plausible",
+   "look": "a miniature tree with a twisted trunk, exposed deadwood and compact pads of scale-like foliage",
+   "tags": {
+    "kind": [
+     "bonsai_specimen"
+    ]
+   }
+  },
+  {
+   "text": "a ficus bonsai",
+   "short": "ficus bonsai",
+   "tier": "plausible",
+   "look": "a small trained tree with thick exposed roots, a stout trunk and glossy oval leaves",
+   "tags": {
+    "kind": [
+     "bonsai_specimen",
+     "foliage"
+    ]
+   }
+  },
+  {
+   "text": "a Japanese maple bonsai",
+   "short": "Japanese maple bonsai",
+   "tier": "plausible",
+   "look": "a miniature branching tree with a tapered trunk and small finely lobed leaves",
+   "tags": {
+    "kind": [
+     "bonsai_specimen"
+    ]
+   }
+  },
+  {
+   "text": "an echeveria",
+   "short": "echeveria",
+   "tier": "typical",
+   "look": "a low symmetrical rosette of thick spoon-shaped leaves coated in a pale waxy bloom",
+   "tags": {
+    "kind": [
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "a zebra haworthia",
+   "short": "zebra haworthia",
+   "tier": "plausible",
+   "look": "a small spiky rosette of stiff dark leaves banded with raised white bumps",
+   "tags": {
+    "kind": [
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "a jade plant",
+   "short": "jade plant",
+   "tier": "typical",
+   "look": "a branching woody succulent with thick oval glossy leaves arranged in opposite pairs",
+   "tags": {
+    "kind": [
+     "succulent_cactus",
+     "bonsai_specimen"
+    ]
+   }
+  },
+  {
+   "text": "an aloe vera",
+   "short": "aloe vera",
+   "tier": "typical",
+   "look": "a rosette of thick pointed gray-green leaves with small teeth along the edges",
+   "tags": {
+    "kind": [
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "a lithops",
+   "short": "lithops",
+   "tier": "unusual",
+   "look": "pairs of squat fleshy leaf bodies resembling patterned pebbles split down the middle",
+   "tags": {
+    "kind": [
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "a ponytail palm",
+   "short": "ponytail palm",
+   "tier": "plausible",
+   "look": "a swollen bulbous trunk topped by a fountain of long thin curling leaves",
+   "tags": {
+    "kind": [
+     "foliage",
+     "succulent_cactus",
+     "bonsai_specimen"
+    ]
+   }
+  },
+  {
+   "text": "a desert rose",
+   "short": "desert rose",
+   "tier": "plausible",
+   "look": "a thick swollen sculptural trunk with sparse glossy leaves and pink trumpet flowers",
+   "tags": {
+    "kind": [
+     "succulent_cactus",
+     "flowering",
+     "bonsai_specimen"
+    ]
+   }
+  },
+  {
+   "text": "a burro's tail",
+   "short": "burro's tail",
+   "tier": "plausible",
+   "look": "long hanging stems densely packed with plump overlapping blue-green teardrop leaves",
+   "tags": {
+    "kind": [
+     "trailing",
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "a Christmas cactus",
+   "short": "Christmas cactus",
+   "tier": "plausible",
+   "look": "arching chains of flattened leaflike stem segments ending in bright layered tubular flowers",
+   "tags": {
+    "kind": [
+     "succulent_cactus",
+     "trailing",
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a bunny ears cactus",
+   "short": "bunny ears cactus",
+   "tier": "plausible",
+   "look": "paired flat oval green pads covered with evenly spaced tufts of tiny pale spines",
+   "tags": {
+    "kind": [
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "a golden barrel cactus",
+   "short": "golden barrel cactus",
+   "tier": "plausible",
+   "look": "a round deeply ribbed green cactus densely covered in golden spines",
+   "tags": {
+    "kind": [
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "a moon cactus",
+   "short": "moon cactus",
+   "tier": "unusual",
+   "look": "a bright red, orange or yellow round cactus grafted onto a plain upright green stem",
+   "tags": {
+    "kind": [
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "an old man cactus",
+   "short": "old man cactus",
+   "tier": "unusual",
+   "look": "an upright ribbed cactus column covered in long soft white hairlike spines",
+   "tags": {
+    "kind": [
+     "succulent_cactus"
+    ]
+   }
+  },
+  {
+   "text": "an African violet",
+   "short": "African violet",
+   "tier": "plausible",
+   "look": "a low rosette of fuzzy rounded leaves beneath clusters of small velvety purple, pink or white flowers",
+   "tags": {
+    "kind": [
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a moth orchid",
+   "short": "moth orchid",
+   "tier": "typical",
+   "look": "thick broad basal leaves and arching stems lined with rounded moth-shaped flowers",
+   "tags": {
+    "kind": [
+     "flowering"
+    ]
+   }
+  },
+  {
+   "text": "a flaming Katy kalanchoe",
+   "short": "flaming Katy kalanchoe",
+   "tier": "plausible",
+   "look": "a compact succulent with scalloped glossy leaves and dense clusters of small bright flowers",
+   "tags": {
+    "kind": [
+     "succulent_cactus",
+     "flowering"
+    ]
+   }
+  }
+ ]
+}
