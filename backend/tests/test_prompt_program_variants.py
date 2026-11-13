@@ -761,3 +761,14 @@ def test_top_ups_build_on_the_list_values_the_pool_has_not_used_first():
     b = V.Bank("x", "X", tuple((f"v{i}", 1.0) for i in range(10)))
     got = V._spread(random.Random(1), b, 6, used=[f"v{i}" for i in range(6)])
     assert set(got) == {"v6", "v7", "v8", "v9"} | set(got[4:]) and set(got[:4]) == {"v6", "v7", "v8", "v9"}
+
+
+def test_a_persons_look_ideas_fit_their_age():
+    young = [f"{a}-year-old" for a in range(18, 30)]
+    old = [f"{a}-year-old" for a in range(70, 90)]
+    ideas = [("person.hair_color", None), ("person.hair_texture", None)]
+    y = {b.list_id: set(b.texts()) for b in V.person_seeds(ages=young, ideas=ideas).ideas}
+    o = {b.list_id: set(b.texts()) for b in V.person_seeds(ages=old, ideas=ideas).ideas}
+    assert "salt-and-pepper" not in y["person.hair_color"] and "gray" not in y["person.hair_color"]
+    assert "thinning" not in y["person.hair_texture"] and "thinning" in o["person.hair_texture"]
+    assert "gray" in o["person.hair_color"]

@@ -43,7 +43,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-8"   # variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-9"   # variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -234,14 +234,23 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
     states of the scene (bank). `minor`: ages under 18 they may be besides their own (a user list
     of ages on their line). `clothes_owned`: the prompt or another part says what they wear, so no
     variant develops their clothes."""
-    from prompt_programs.vocab import minor_ages
+    from prompt_programs.vocab import minor_ages, vocabulary
     minor = tuple(dict.fromkeys([*(minor_ages(list(ages)) if ages else ()), *minor]))
+    # What their age gives the lists of their look (graying, life stage: vocab tags), so a young
+    # woman's ideas hold no salt-and-pepper or thinning hair.
+    look = dict(stated or {})
+    age_leaf = vocabulary().get(AGE)
+    if ages and age_leaf is not None:
+        for facet in age_leaf.gives:
+            fams = sorted({f for a in ages for f in (age_leaf.context_tags(a, facet) or ())})
+            if fams:
+                look[facet] = fams
     d = bank(DESCENT, descent, minor=bool(minor))
     if d is not None and stated_descent and len(d.values) == 1:
         d = None   # their words name it already
     return Seeds(descent=d, gender=bank(GENDER, gender), person=True, clothes_owned=clothes_owned,
                  age=bank(AGE, ages, minor=bool(minor)) if ages is not None and _open_age(ages) else None, minor=minor,
-                 ideas=tuple(b for b in (bank(lid, n, minor=bool(minor), stated=stated) for lid, n in ideas)
+                 ideas=tuple(b for b in (bank(lid, n, minor=bool(minor), stated=look) for lid, n in ideas)
                              if b is not None))
 
 
