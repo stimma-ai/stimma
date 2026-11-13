@@ -43,7 +43,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-2"   # variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-3"   # variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -382,7 +382,7 @@ Words. Every variant contains the words you are told to keep, exactly, in order,
 
 Rules:
 - Vary only the thing the marked words name. For a single property (a camera angle, a shot size, a lens, a light, a time of day), say only that property: an angle says where the camera is, a shot size says how much of the subject is in frame, a light says only the light. No grain, style, lens, framing, mood or anything else.
-- Each variant must read correctly in its place in the prompt.
+- Each variant must read correctly in its exact place in the prompt: read the words right before the marks and right after them. When the words before already begin the phrase the part ends ("a low quality cell phone ⟦type of selfie⟧", "her ⟦outfit⟧", "two ⟦women⟧"), the variant continues that phrase: no article or determiner of its own, and never a word repeated from just before the marks.
 - Fit the whole prompt: its place, time, medium, framing, number of people, and the notes (lines starting with #). Never move the scene somewhere else.
 - Other parts in <angle brackets> vary on their own: don't fill them in, and don't repeat what the rest of the prompt already says.
 - Never add a person or an animal the prompt doesn't have, including through framing: no group selfie, group portrait, two-shot or crowd unless the prompt has that many people.
@@ -441,6 +441,16 @@ class Slot:
     def marked(self) -> str:
         return self.prompt[:self.span[0]] + f"⟦{self.words}⟧" + self.prompt[self.span[1]:]
 
+    def around(self, n: int = 6) -> Tuple[str, str]:
+        """The words right before and right after the slot on its line (up to `n` each), as typed."""
+        a, b = self.span
+        line_start = self.prompt.rfind("\n", 0, a) + 1
+        line_end = self.prompt.find("\n", b)
+        line_end = len(self.prompt) if line_end < 0 else line_end
+        left = self.prompt[line_start:a].split(" ")
+        right = self.prompt[b:line_end].split(" ")
+        return " ".join(left[-n:]).strip() or "(start of line)", " ".join(right[:n]).strip() or "(end of line)"
+
     def keep(self) -> List[str]:
         return kept_chunks(self.words, valid_category(self.words, self.category, self.kind))
 
@@ -450,7 +460,10 @@ def messages(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -
     n = len(drawn.specs)
     cat = valid_category(slot.words, slot.category, slot.kind)
     keep = kept_chunks(slot.words, cat)
-    lines = ["Prompt:", '"""', slot.marked(), '"""', "", f'Marked part: "{slot.words}".']
+    before, after = slot.around()
+    lines = ["Prompt:", '"""', slot.marked(), '"""', "", f'Marked part: "{slot.words}".',
+             f'It stands between "{before}" and "{after}": each variant must read correctly there, '
+             'as one continuous phrase.']
     if not cat:
         lines.append(f'No category word: every variant contains exactly these words: "{slot.words}".')
     elif keep:

@@ -51,7 +51,8 @@ SEEDS_KEPT = 500    # draws with an explicit draw seed remembered per prompt
 def pool_key(model: Optional[str], words: str, marked: str, notes: Sequence[str], minor: Sequence[str] = ()) -> str:
     """A pool's key: the model, the slot's words, the line its reading was made in (marked) and
     the prompt's notes; a person who may be under 18 has a pool of their own."""
-    parts: Dict[str, Any] = {"v": POOL_VERSION, "model": model, "words": words, "marked": marked, "notes": list(notes)}
+    parts: Dict[str, Any] = {"v": POOL_VERSION, "writer": VARIANTS_VERSION, "model": model, "words": words,
+                             "marked": marked, "notes": list(notes)}
     if minor:
         parts["minor"] = sorted(minor)
     blob = json.dumps(parts, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
