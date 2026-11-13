@@ -103,6 +103,9 @@ export interface ChoicePool {
   /** facet -> part -> its options. An option may sit in several parts. The facet `group`
       holds the list's declared groups (descent's heritages). */
   groups?: Record<string, Record<string, string[]>>
+  /** The facet of `groups` the chooser is browsed by (descent's `region`): it opens on a row per
+      part, each leading to its options, and shows no group chips. */
+  browse?: string
   cls?: string
   label?: string
   closed?: boolean

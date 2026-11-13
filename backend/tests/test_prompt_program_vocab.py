@@ -1,6 +1,7 @@
 """Fluent vocabulary: curated lists picks bind to with cls=, their pools, the picker's
 view of them, the writer's catalog, and article agreement in emitted text."""
 
+import collections
 import json
 import pytest
 
@@ -290,9 +291,13 @@ class TestThePicker:
         facet = next(iter(groups))
         several = [o for o in shown if len(leaf.value(o).tags.get(facet) or []) > 1]
         assert several and all(sum(o in os for os in groups[facet].values()) > 1 for o in several)
-        # descent has no local facets: its declared heritages are its groups
-        eth = out["vocab"]["eth"]["groups"]
-        assert list(eth) == ["group"] and "Korean" in eth["group"]["east_asian"]
+        # descent is browsed by world region; its declared heritages stay groups, for choices made of them
+        eth = out["vocab"]["eth"]
+        assert list(eth["groups"]) == ["region", "group"] and eth["browse"] == "region"
+        assert list(eth["groups"]["region"]) == list(vocabulary().get("person.ethnicity").local_facets["region"])
+        assert "Korean" in eth["groups"]["region"]["East Asia"] and "Korean" in eth["groups"]["group"]["east_asian"]
+        assert sorted(o for os in eth["groups"]["region"].values() for o in os) == sorted(out["options"]["eth"])
+        assert "browse" not in out["vocab"]["eyes"]
 
     def test_list_groups_skip_long_lists_and_untagged_values(self):
         from prompt_programs.fluent import PARTS_MAX, list_groups
@@ -704,6 +709,51 @@ class TestArticleTidy:
 
 # --------------------------------------------------------------------------- the Colors id before US spelling
 
+
+
+class TestDescentRegions:
+    """Descent is browsed by world region: each value in one region, the chooser a row per region."""
+
+    REGIONS = {"East Asia": 6, "Southeast Asia": 8, "South Asia": 10, "Central Asia": 5, "Middle East and North Africa": 16,
+               "Sub-Saharan Africa": 14, "Europe": 19, "North America": 4, "Latin America and the Caribbean": 16, "Oceania": 7}
+
+    def test_every_descent_sits_in_one_region(self):
+        eth = vocabulary().get("person.ethnicity")
+        assert eth.browse == "region" and list(eth.local_facets["region"]) == list(self.REGIONS)
+        count = collections.Counter(v.tags["region"][0] for v in eth.values)
+        assert all(len(v.tags["region"]) == 1 for v in eth.values) and dict(count) == self.REGIONS
+        assert eth.value("Moroccan").tags["region"] == ["Middle East and North Africa"]
+        assert eth.value("Ethiopian").tags["region"] == ["Sub-Saharan Africa"]
+        assert vocabulary().to_dict()["leaves"][[lf["id"] for lf in vocabulary().to_dict()["leaves"]].index("person.ethnicity")]["browse"] == "region"
+
+    def test_with_nothing_chosen_a_region_is_drawn_as_often_as_it_has_values(self):
+        """Regions organize the chooser; they don't weigh the draw. Every descent is typical and
+        unscaled, so a region's share is its count of values (as before regions were added)."""
+        eth = vocabulary().get("person.ethnicity")
+        drawn, standby = eth.pool_values()
+        assert not standby and len(drawn) == 105 and {v.weight for v in drawn} == {1.0}
+        from tests.test_slots_fill import DORM_PROMPT, DORM_READING, draw as fill_draw, entry_of as fill_entry
+        e = fill_entry(DORM_PROMPT, DORM_READING)
+        n = 1200
+        got = collections.Counter(eth.value({d.id: d.value for d in fill_draw(e, s).draws}["young_man.descent"]).tags["region"][0]
+                                  for s in range(n))
+        for region, k in self.REGIONS.items():
+            assert abs(got[region] / n - k / 105) < 0.035, (region, got[region] / n, k / 105)
+
+    @pytest.mark.parametrize("browse,values,error", [
+        ("area", [{"text": "a", "tier": "typical", "tags": {"region": ["x"]}}], "isn't one of its local facets"),
+        ("region", [{"text": "a", "tier": "typical", "tags": {"region": ["x", "y"]}}], "needs exactly one"),
+        ("region", [{"text": "a", "tier": "typical"}], "needs exactly one"),
+        ("region", [{"text": "a", "tier": "typical", "tags": {"region": ["z"]}}], "needs exactly one"),
+    ])
+    def test_a_list_browsed_by_a_facet_puts_every_value_in_one_part(self, tmp_path, browse, values, error):
+        d = tmp_path / "person"
+        d.mkdir()
+        (d / "x.json").write_text(json.dumps({"id": "person.x", "label": "X", "description": "", "pos": "adjective",
+                                              "frame": "___", "notes": "", "closed": True, "facets": [],
+                                              "local_facets": {"region": ["x", "y"]}, "browse": browse, "values": values}))
+        with pytest.raises(ValueError, match=error):
+            load((tmp_path,))
 
 
 class TestSharesAndComposedLists:

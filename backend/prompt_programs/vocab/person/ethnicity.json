@@ -4,9 +4,24 @@
   "description": "National or ethnic descent adjectives, sampled with a uniform prior.",
   "pos": "adjective",
   "frame": "the ___ person",
-  "notes": "National or ethnic descent adjectives at a named people or country level, never continental categories. A descent word means that heritage's typical look: each value belongs to a named group that declares the coloring families typical of that heritage for drawing (skin_family, eye_family, hair_family, texture) and, where a heritage is mostly one look but often another, the families seen less commonly (less_common). A person's skin tone, eye color, hair color and texture drawn after it are weighted toward the typical families, the less common ones are drawn less often, and anything else stays possible, rarely. Groups are named per people or region, never merged across unrelated regions because their coloring coincides. These are drawing defaults, not claims about any person; nations with wide variation carry every family. Membership categories can overlap and are neither exhaustive nor a claim about citizenship. Bengali and Bangladeshi, Punjabi and Indian, Tamil and Indian or Sri Lankan, and Pashtun and Pakistani or Afghan are retained as distinct ethnic and national descent labels with overlapping membership. Values also read before woman or man. Mixed descent is left to explicit composition rather than enumerating pairs.",
+  "notes": "National or ethnic descent adjectives at a named people or country level, never continental categories. A descent word means that heritage's typical look: each value belongs to a named group that declares the coloring families typical of that heritage for drawing (skin_family, eye_family, hair_family, texture) and, where a heritage is mostly one look but often another, the families seen less commonly (less_common). A person's skin tone, eye color, hair color and texture drawn after it are weighted toward the typical families, the less common ones are drawn less often, and anything else stays possible, rarely. Groups are named per people or region, never merged across unrelated regions because their coloring coincides. These are drawing defaults, not claims about any person; nations with wide variation carry every family. Membership categories can overlap and are neither exhaustive nor a claim about citizenship. Bengali and Bangladeshi, Punjabi and Indian, Tamil and Indian or Sri Lankan, and Pashtun and Pakistani or Afghan are retained as distinct ethnic and national descent labels with overlapping membership. Each value sits in one world region (the local facet region), the way the chooser is browsed: a region is where a person looks for a descent, never its coloring, which stays with the value's group. Values also read before woman or man. Mixed descent is left to explicit composition rather than enumerating pairs.",
   "facets": [],
   "closed": true,
+  "local_facets": {
+    "region": [
+      "East Asia",
+      "Southeast Asia",
+      "South Asia",
+      "Central Asia",
+      "Middle East and North Africa",
+      "Sub-Saharan Africa",
+      "Europe",
+      "North America",
+      "Latin America and the Caribbean",
+      "Oceania"
+    ]
+  },
+  "browse": "region",
   "groups": {
     "east_asian": {
       "about": "Korean, Japanese, Chinese, Taiwanese.",
@@ -905,7 +920,7 @@
       "group": "east_asian",
       "tags": {
         "region": [
-          "east_asian"
+          "East Asia"
         ]
       }
     },
@@ -915,7 +930,7 @@
       "group": "east_asian",
       "tags": {
         "region": [
-          "east_asian"
+          "East Asia"
         ]
       }
     },
@@ -925,7 +940,7 @@
       "group": "east_asian",
       "tags": {
         "region": [
-          "east_asian"
+          "East Asia"
         ]
       }
     },
@@ -935,7 +950,7 @@
       "group": "east_asian",
       "tags": {
         "region": [
-          "east_asian"
+          "East Asia"
         ]
       }
     },
@@ -945,7 +960,7 @@
       "group": "mongolian_tibetan",
       "tags": {
         "region": [
-          "east_asian"
+          "East Asia"
         ]
       }
     },
@@ -955,7 +970,7 @@
       "group": "mongolian_tibetan",
       "tags": {
         "region": [
-          "east_asian"
+          "East Asia"
         ]
       }
     },
@@ -965,7 +980,7 @@
       "group": "central_asian",
       "tags": {
         "region": [
-          "central_asian"
+          "Central Asia"
         ]
       }
     },
@@ -975,7 +990,7 @@
       "group": "central_asian",
       "tags": {
         "region": [
-          "central_asian"
+          "Central Asia"
         ]
       }
     },
@@ -985,7 +1000,7 @@
       "group": "afghan",
       "tags": {
         "region": [
-          "central_asian"
+          "Central Asia"
         ]
       }
     },
@@ -995,7 +1010,7 @@
       "group": "central_asian",
       "tags": {
         "region": [
-          "central_asian"
+          "Central Asia"
         ]
       }
     },
@@ -1005,7 +1020,7 @@
       "group": "central_asian",
       "tags": {
         "region": [
-          "central_asian"
+          "Central Asia"
         ]
       }
     },
@@ -1015,7 +1030,7 @@
       "group": "southeast_asian",
       "tags": {
         "region": [
-          "southeast_asian"
+          "Southeast Asia"
         ]
       }
     },
@@ -1025,7 +1040,7 @@
       "group": "southeast_asian",
       "tags": {
         "region": [
-          "southeast_asian"
+          "Southeast Asia"
         ]
       }
     },
@@ -1035,7 +1050,7 @@
       "group": "southeast_asian",
       "tags": {
         "region": [
-          "southeast_asian"
+          "Southeast Asia"
         ]
       }
     },
@@ -1045,7 +1060,7 @@
       "group": "southeast_asian",
       "tags": {
         "region": [
-          "southeast_asian"
+          "Southeast Asia"
         ]
       }
     },
@@ -1055,7 +1070,7 @@
       "group": "southeast_asian",
       "tags": {
         "region": [
-          "southeast_asian"
+          "Southeast Asia"
         ]
       }
     },
@@ -1065,7 +1080,7 @@
       "group": "southeast_asian",
       "tags": {
         "region": [
-          "southeast_asian"
+          "Southeast Asia"
         ]
       }
     },
@@ -1075,7 +1090,7 @@
       "group": "southeast_asian",
       "tags": {
         "region": [
-          "southeast_asian"
+          "Southeast Asia"
         ]
       }
     },
@@ -1085,7 +1100,7 @@
       "group": "southeast_asian",
       "tags": {
         "region": [
-          "southeast_asian"
+          "Southeast Asia"
         ]
       }
     },
@@ -1095,7 +1110,7 @@
       "group": "indian",
       "tags": {
         "region": [
-          "south_asian"
+          "South Asia"
         ]
       }
     },
@@ -1105,7 +1120,7 @@
       "group": "pakistani_punjabi",
       "tags": {
         "region": [
-          "south_asian"
+          "South Asia"
         ]
       }
     },
@@ -1115,7 +1130,7 @@
       "group": "bengali_south_indian",
       "tags": {
         "region": [
-          "south_asian"
+          "South Asia"
         ]
       }
     },
@@ -1125,7 +1140,7 @@
       "group": "bengali_south_indian",
       "tags": {
         "region": [
-          "south_asian"
+          "South Asia"
         ]
       }
     },
@@ -1135,7 +1150,7 @@
       "group": "nepali",
       "tags": {
         "region": [
-          "south_asian"
+          "South Asia"
         ]
       }
     },
@@ -1145,7 +1160,7 @@
       "group": "pakistani_punjabi",
       "tags": {
         "region": [
-          "south_asian"
+          "South Asia"
         ]
       }
     },
@@ -1155,7 +1170,7 @@
       "group": "bengali_south_indian",
       "tags": {
         "region": [
-          "south_asian"
+          "South Asia"
         ]
       }
     },
@@ -1165,7 +1180,7 @@
       "group": "bengali_south_indian",
       "tags": {
         "region": [
-          "south_asian"
+          "South Asia"
         ]
       }
     },
@@ -1175,8 +1190,7 @@
       "group": "afghan",
       "tags": {
         "region": [
-          "south_asian",
-          "central_asian"
+          "South Asia"
         ]
       }
     },
@@ -1186,8 +1200,7 @@
       "group": "afghan",
       "tags": {
         "region": [
-          "south_asian",
-          "central_asian"
+          "South Asia"
         ]
       }
     },
@@ -1197,7 +1210,7 @@
       "group": "middle_eastern",
       "tags": {
         "region": [
-          "middle_eastern"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1207,7 +1220,7 @@
       "group": "caucasus_anatolia",
       "tags": {
         "region": [
-          "middle_eastern"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1217,7 +1230,7 @@
       "group": "middle_eastern",
       "tags": {
         "region": [
-          "middle_eastern"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1227,7 +1240,7 @@
       "group": "caucasus_anatolia",
       "tags": {
         "region": [
-          "middle_eastern"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1237,7 +1250,7 @@
       "group": "caucasus_anatolia",
       "tags": {
         "region": [
-          "middle_eastern"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1247,7 +1260,7 @@
       "group": "middle_eastern",
       "tags": {
         "region": [
-          "middle_eastern"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1257,7 +1270,7 @@
       "group": "middle_eastern",
       "tags": {
         "region": [
-          "middle_eastern"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1267,7 +1280,7 @@
       "group": "middle_eastern",
       "tags": {
         "region": [
-          "middle_eastern"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1277,7 +1290,7 @@
       "group": "middle_eastern",
       "tags": {
         "region": [
-          "middle_eastern"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1287,7 +1300,7 @@
       "group": "arabian_peninsula",
       "tags": {
         "region": [
-          "middle_eastern"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1297,7 +1310,7 @@
       "group": "arabian_peninsula",
       "tags": {
         "region": [
-          "middle_eastern"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1307,7 +1320,7 @@
       "group": "west_central_east_african",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1317,7 +1330,7 @@
       "group": "west_central_east_african",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1327,7 +1340,7 @@
       "group": "west_central_east_african",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1337,7 +1350,7 @@
       "group": "horn_of_africa",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1347,7 +1360,7 @@
       "group": "horn_of_africa",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1357,7 +1370,7 @@
       "group": "horn_of_africa",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1367,7 +1380,7 @@
       "group": "horn_of_africa",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1377,7 +1390,7 @@
       "group": "west_central_east_african",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1387,7 +1400,7 @@
       "group": "west_central_east_african",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1397,7 +1410,7 @@
       "group": "west_central_east_african",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1407,7 +1420,7 @@
       "group": "west_central_east_african",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1417,7 +1430,7 @@
       "group": "west_central_east_african",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1427,7 +1440,7 @@
       "group": "west_central_east_african",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1437,7 +1450,7 @@
       "group": "south_african",
       "tags": {
         "region": [
-          "african"
+          "Sub-Saharan Africa"
         ]
       }
     },
@@ -1447,7 +1460,7 @@
       "group": "north_african",
       "tags": {
         "region": [
-          "african"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1457,7 +1470,7 @@
       "group": "north_african",
       "tags": {
         "region": [
-          "african"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1467,7 +1480,7 @@
       "group": "north_african",
       "tags": {
         "region": [
-          "african"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1477,7 +1490,7 @@
       "group": "north_african",
       "tags": {
         "region": [
-          "african"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1487,7 +1500,7 @@
       "group": "north_african",
       "tags": {
         "region": [
-          "african"
+          "Middle East and North Africa"
         ]
       }
     },
@@ -1497,7 +1510,7 @@
       "group": "irish_scottish_welsh",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1507,7 +1520,7 @@
       "group": "irish_scottish_welsh",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1517,7 +1530,7 @@
       "group": "irish_scottish_welsh",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1527,7 +1540,7 @@
       "group": "english",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1537,7 +1550,7 @@
       "group": "french",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1547,7 +1560,7 @@
       "group": "german_dutch",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1557,7 +1570,7 @@
       "group": "german_dutch",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1567,7 +1580,7 @@
       "group": "east_slavic_polish",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1577,7 +1590,7 @@
       "group": "southern_european",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1587,7 +1600,7 @@
       "group": "east_slavic_polish",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1597,7 +1610,7 @@
       "group": "east_slavic_polish",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1607,7 +1620,7 @@
       "group": "southern_european",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1617,7 +1630,7 @@
       "group": "southern_european",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1627,7 +1640,7 @@
       "group": "southern_european",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1637,7 +1650,7 @@
       "group": "southern_european",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1647,7 +1660,7 @@
       "group": "nordic",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1657,7 +1670,7 @@
       "group": "nordic",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1667,7 +1680,7 @@
       "group": "nordic",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1677,7 +1690,7 @@
       "group": "nordic",
       "tags": {
         "region": [
-          "european"
+          "Europe"
         ]
       }
     },
@@ -1687,7 +1700,7 @@
       "group": "african_american",
       "tags": {
         "region": [
-          "north_american"
+          "North America"
         ]
       }
     },
@@ -1697,7 +1710,7 @@
       "group": "mexican",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1707,7 +1720,7 @@
       "group": "central_andean_american",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1717,7 +1730,7 @@
       "group": "central_andean_american",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1727,7 +1740,7 @@
       "group": "jamaican_haitian",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1737,7 +1750,7 @@
       "group": "jamaican_haitian",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1747,7 +1760,7 @@
       "group": "hispanic_caribbean",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1757,7 +1770,7 @@
       "group": "hispanic_caribbean",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1767,7 +1780,7 @@
       "group": "hispanic_caribbean",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1777,7 +1790,7 @@
       "group": "brazilian",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1787,7 +1800,7 @@
       "group": "colombian_venezuelan",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1797,7 +1810,7 @@
       "group": "colombian_venezuelan",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1807,7 +1820,7 @@
       "group": "central_andean_american",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1817,7 +1830,7 @@
       "group": "central_andean_american",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1827,7 +1840,7 @@
       "group": "central_andean_american",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1837,7 +1850,7 @@
       "group": "southern_cone",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1847,7 +1860,7 @@
       "group": "southern_cone",
       "tags": {
         "region": [
-          "latin_american"
+          "Latin America and the Caribbean"
         ]
       }
     },
@@ -1857,7 +1870,7 @@
       "group": "polynesian",
       "tags": {
         "region": [
-          "oceanian"
+          "Oceania"
         ]
       }
     },
@@ -1867,7 +1880,7 @@
       "group": "polynesian",
       "tags": {
         "region": [
-          "oceanian"
+          "Oceania"
         ]
       }
     },
@@ -1877,7 +1890,7 @@
       "group": "polynesian",
       "tags": {
         "region": [
-          "oceanian"
+          "Oceania"
         ]
       }
     },
@@ -1887,7 +1900,7 @@
       "group": "polynesian",
       "tags": {
         "region": [
-          "oceanian"
+          "Oceania"
         ]
       }
     },
@@ -1897,7 +1910,7 @@
       "group": "melanesian",
       "tags": {
         "region": [
-          "oceanian"
+          "Oceania"
         ]
       }
     },
@@ -1907,7 +1920,7 @@
       "group": "melanesian",
       "tags": {
         "region": [
-          "oceanian"
+          "Oceania"
         ]
       }
     },
@@ -1917,7 +1930,7 @@
       "group": "aboriginal_australian",
       "tags": {
         "region": [
-          "oceanian"
+          "Oceania"
         ]
       }
     },
@@ -1927,7 +1940,7 @@
       "group": "native_american",
       "tags": {
         "region": [
-          "north_american"
+          "North America"
         ]
       }
     },
@@ -1937,7 +1950,7 @@
       "group": "native_american",
       "tags": {
         "region": [
-          "north_american"
+          "North America"
         ]
       }
     },
@@ -1947,7 +1960,7 @@
       "group": "inuit",
       "tags": {
         "region": [
-          "north_american"
+          "North America"
         ]
       }
     }

@@ -270,6 +270,10 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
             groups = list_groups(leaf, seen)
             if groups:
                 vocab[cid]["groups"] = groups
+            if leaf.browse in groups:
+                # The chooser opens on a row per part (descent's regions); the list's other
+                # groups (descent's heritages) stay on the wire for choices made of them before.
+                vocab[cid]["browse"] = leaf.browse
             short = {o: leaf.short(o) for o in out[cid] if leaf.short(o) != o}
             if short:
                 vocab[cid]["short"] = short

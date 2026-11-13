@@ -2,7 +2,9 @@
   <!-- One choice's chooser. Nothing is ticked to begin with: the lit row at the top says what
        images get now, and clicking an option chooses it; clicking more adds them, and shift-click takes a range. What is
        chosen stays in view as chips above the list. Group chips filter the list; with only
-       chips on, the top row chooses those groups whole. -->
+       chips on, the top row chooses those groups whole. A list browsed by region (descent) lists
+       its regions instead, each a row saying what is chosen in it and leading to its values,
+       with a top row there that chooses the region whole; a search looks through every region. -->
   <div class="min-h-0 flex flex-col" :data-chooser="choice.id">
     <div v-if="searchable" class="shrink-0 px-2 pb-1.5" @keydown="onSearchKey">
       <SearchField ref="searchRef" v-model="query" placeholder="Search" />
@@ -38,8 +40,12 @@
     </div>
 
     <div ref="listRef" :style="listStyle" class="shrink-0 overflow-y-auto overscroll-contain px-1.5 pb-1.5 flex flex-col gap-px">
-      <!-- The lit row: what images get when nothing is chosen -->
-      <button v-if="!filtered" type="button" :class="rowClass" data-default @click="chooseDefault">
+      <!-- The lit row: what images get when nothing is chosen; in a region, the region whole -->
+      <button v-if="!filtered && within" type="button" :class="rowClass" data-default @click="chooseWithin">
+        <span :class="tickClass"><CheckIcon v-if="withinLit" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
+        <span :class="['flex-1 min-w-0', withinLit ? 'text-content font-medium' : 'text-content-secondary']">Any from {{ partLabel(within) }}</span>
+      </button>
+      <button v-else-if="!filtered" type="button" :class="rowClass" data-default @click="chooseDefault">
         <span :class="tickClass"><CheckIcon v-if="defaultLit" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
         <span :class="['flex-1 min-w-0', defaultLit ? 'text-content font-medium' : 'text-content-secondary']">{{ defaultLabel }}</span>
       </button>
@@ -48,9 +54,16 @@
         <span :class="['flex-1 min-w-0', partsChosen ? 'text-content font-medium' : 'text-content-secondary']">Any {{ shownPartNames }}</span>
       </button>
 
+      <!-- Browsed by region: the other zones whole, options in no region (the user's own), then a row per region -->
+      <template v-if="byRegion">
+        <button v-for="z in zones.slice(1)" :key="z.id" type="button" :class="rowClass" :data-zone-any="z.id" @click="toggle({ kind: 'zone', zone: z.id })">
+          <span :class="tickClass"><CheckIcon v-if="hasToken(state, { kind: 'zone', zone: z.id })" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
+          <span :class="['flex-1 min-w-0', hasToken(state, { kind: 'zone', zone: z.id }) ? 'text-content font-medium' : 'text-content-secondary']">{{ z.title }}</span>
+        </button>
+      </template>
       <template v-for="(z, i) in shownZones" :key="z.id">
-        <div v-if="i > 0 || (filtered && zones.length > 1)" class="px-2 pt-2.5 pb-1 text-[11px] font-semibold text-content-tertiary">{{ z.title }}</div>
-        <button v-if="z.id !== first && !filtered" type="button" :class="rowClass" :data-zone-any="z.id" @click="toggle({ kind: 'zone', zone: z.id })">
+        <div v-if="!byRegion && (i > 0 || (filtered && zones.length > 1))" class="px-2 pt-2.5 pb-1 text-[11px] font-semibold text-content-tertiary">{{ z.title }}</div>
+        <button v-if="z.id !== first && !filtered && !within && !byRegion" type="button" :class="rowClass" :data-zone-any="z.id" @click="toggle({ kind: 'zone', zone: z.id })">
           <span :class="tickClass"><CheckIcon v-if="hasToken(state, { kind: 'zone', zone: z.id })" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
           <span :class="['flex-1 min-w-0', hasToken(state, { kind: 'zone', zone: z.id }) ? 'text-content font-medium' : 'text-content-secondary']">Any of these</span>
         </button>
@@ -90,8 +103,22 @@
           </button>
         </div>
       </template>
+      <template v-if="byRegion">
+        <ProgramDrillRow
+          v-for="r in regions"
+          :key="r.part"
+          wide
+          :data-region="r.part"
+          :label="partLabel(r.part)"
+          :text="browsePartText(pool, state, r.part)"
+          :changed="!!browsePartText(pool, state, r.part)"
+          :reset-key="r.part"
+          @open="emit('drill-part', r.part)"
+          @reset="resetRegion(r.part)"
+        />
+      </template>
 
-      <div v-if="hidden > 0" class="px-2 pt-1.5 text-[11px] text-content-muted font-mono tabular-nums" data-more-rows>{{ count(shownCount) }} of {{ count(matchCount) }}</div>
+      <div v-if="hidden > 0 && !byRegion" class="px-2 pt-1.5 text-[11px] text-content-muted font-mono tabular-nums" data-more-rows>{{ count(shownCount) }} of {{ count(matchCount) }}</div>
       <div v-if="writingOptions" class="flex items-center gap-2 px-2 py-1.5 text-xs text-content-muted" data-writing><Spinner size="sm" /> Writing options…</div>
       <template v-if="filtered && !matchCount">
         <div class="px-2 py-1.5 text-xs text-content-muted">No matches</div>
@@ -132,12 +159,13 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { CheckIcon, ChevronRightIcon, PlusIcon, SparklesIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import SearchField from '../ui/SearchField.vue'
 import Spinner from '../ui/Spinner.vue'
+import ProgramDrillRow from './ProgramDrillRow.vue'
 import { useViewport } from '../../composables/useViewport'
 import { MANY_OPTIONS, MAX_ROWS, matchesQuery, shownOption } from '../../utils/programVocab'
 import {
   PALETTE_CLS, asWrittenState, defaultZone, drawable, groupMembers, hasToken, isAsWritten, isChanged, isOff, leaveOut, partLabel,
   pillValue, resetState, standsAsWritten, swatchesOf, toggleToken, tokenText, tokensOf, turnOn, valueText, zonesOf, type Token,
-  detailsAsWritten, toggleDetailsAsWritten,
+  detailsAsWritten, toggleDetailsAsWritten, browseOf, browseParts, browsePartText, clearBrowsePart, toggleBrowsePart,
 } from '../../utils/programChoices'
 import type { PromptProgram, ProgramChoice, ProgramSlot } from '../../composables/usePromptProgram'
 
@@ -148,8 +176,10 @@ const props = defineProps<{
   ownSlot?: ProgramSlot | null
   /** Where the card hangs from, for the list's height. */
   anchorBottom?: number
+  /** The part of a list browsed by region (descent's "East Asia") this chooser shows. */
+  within?: string | null
 }>()
-const emit = defineEmits<{ (e: 'drill', id: string): void; (e: 'left-out'): void }>()
+const emit = defineEmits<{ (e: 'drill', id: string): void; (e: 'drill-part', part: string): void; (e: 'left-out'): void }>()
 
 const rowClass = 'w-full flex items-start gap-2 px-2 py-1.5 coarse:py-2.5 rounded-md text-left text-xs coarse:text-[13px] cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60'
 const tickClass = 'shrink-0 w-3.5 h-4 flex items-center justify-center'
@@ -167,7 +197,15 @@ const writeError = ref('')
 
 const pool = computed(() => props.program.poolOf(props.choice))
 const state = computed(() => props.program.states.value[props.choice.id] || null)
-const zones = computed(() => zonesOf(props.choice, pool.value, state.value))
+// Browsed by region: the regions, or one region's options.
+const browse = computed(() => browseOf(pool.value))
+const regions = computed(() => browseParts(pool.value))
+const inRegion = computed(() => (props.within && browse.value ? new Set(groupMembers(pool.value, browse.value, props.within)) : null))
+const zones = computed(() => {
+  const all = zonesOf(props.choice, pool.value, state.value)
+  const keep = inRegion.value
+  return keep ? all.map(z => ({ ...z, options: z.options.filter(o => keep.has(o)) })) : all
+})
 const first = computed(() => defaultZone(props.choice))
 const options = computed(() => zones.value.flatMap(z => z.options))
 const tokens = computed(() => tokensOf(state.value))
@@ -185,8 +223,8 @@ const listStyle = computed(() => ({
     : `max(10rem, min(24rem, calc(100dvh - ${Math.round((props.anchorBottom || 0) + 270)}px)))`,
 }))
 
-// Groups --------------------------------------------------------------------------------
-const parts = computed(() => Object.entries(pool.value?.groups || {}).flatMap(([facet, byPart]) =>
+// Groups (none shown as chips for a list browsed by region) ---------------------------
+const parts = computed(() => browse.value ? [] : Object.entries(pool.value?.groups || {}).flatMap(([facet, byPart]) =>
   Object.keys(byPart).filter(p => byPart[p]?.length).map(part => ({ key: JSON.stringify([facet, part]), facet, part }))))
 const partOf = (key: string) => { const [facet, part] = JSON.parse(key) as [string, string]; return { facet, part } }
 const inShownParts = computed(() => {
@@ -195,6 +233,16 @@ const inShownParts = computed(() => {
   return out
 })
 const filtered = computed(() => !!query.value.trim() || shownParts.value.size > 0)
+/** The regions, one row each: browsed by region, at its top, with no search. */
+const byRegion = computed(() => !!regions.value.length && !props.within && !filtered.value)
+const withinToken = computed<Token | null>(() => (props.within && browse.value ? { kind: 'group', facet: browse.value, part: props.within } : null))
+const withinLit = computed(() => !!withinToken.value && hasToken(state.value, withinToken.value))
+function resetRegion(part: string) {
+  props.program.setState(props.choice.id, clearBrowsePart(props.choice, pool.value, state.value, part))
+}
+function chooseWithin() {
+  if (props.within) props.program.setState(props.choice.id, toggleBrowsePart(props.choice, pool.value, state.value, props.within))
+}
 const partsOnly = computed(() => shownParts.value.size > 0 && !query.value.trim())
 const partsChosen = computed(() => [...shownParts.value].every(k => hasToken(state.value, { kind: 'group', ...partOf(k) })))
 const shownPartNames = computed(() => [...shownParts.value].map(k => partLabel(partOf(k).part)).join(' or '))
@@ -220,7 +268,11 @@ const matches = (o: string) => {
   if (q && !matchesQuery(valueText(pool.value, o), q) && !matchesQuery(o, q) && !matchesQuery(pool.value?.looks?.[o] || '', q)) return false
   return !shownParts.value.size || inShownParts.value.has(o)
 }
-const matched = computed(() => zones.value.map(z => ({ ...z, rows: filtered.value ? z.options.filter(matches) : z.options })))
+// Browsed by region, the top lists only the options in no region (the user's own) beside the regions.
+const inSomeRegion = computed(() => new Set(regions.value.flatMap(r => r.options)))
+const listed = (z: { options: string[] }) => filtered.value ? z.options.filter(matches)
+  : byRegion.value ? z.options.filter(o => !inSomeRegion.value.has(o)) : z.options
+const matched = computed(() => zones.value.map(z => ({ ...z, rows: listed(z) })))
 const matchCount = computed(() => matched.value.reduce((n, z) => n + z.rows.length, 0))
 // A long list (thousands of faces) renders its first rows; the search narrows it.
 const shownZones = computed(() => {

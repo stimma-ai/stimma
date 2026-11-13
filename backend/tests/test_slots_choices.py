@@ -128,6 +128,12 @@ async def test_pools_sends_both_zones_of_a_free_slot_and_every_group(profile, mo
     descent = got["choices"][f"{MAN}.descent"]
     assert set(descent["zones"]["kinds"]) == set(AFRICAN) and "Korean" in descent["zones"]["instead"]
     assert "Korean" in descent["groups"]["group"]["east_asian"]
+    # The chooser's rows: a row per world region, each value in one, in the list's order
+    regions = vocabulary().get("person.ethnicity").local_facets["region"]
+    assert descent["browse"] == "region" and list(descent["groups"]["region"]) == list(regions)
+    assert "Korean" in descent["groups"]["region"]["East Asia"] and "Kenyan" in descent["groups"]["region"]["Sub-Saharan Africa"]
+    shown = [o for os in descent["groups"]["region"].values() for o in os]
+    assert len(shown) == len(set(shown)) == len(descent["options"]) - len(descent.get("mine") or [])
     outfit = got["choices"][f"{MAN}.outfit"]
     assert "presentation" in outfit["groups"] and outfit["short"]
     leaf = vocabulary().get("person.outfit.casual")

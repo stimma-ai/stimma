@@ -10,8 +10,9 @@ import type { ChoicePool, PreparedProgram, ProgramChoice, ProgramSlot } from '..
 // The real composable and components, against a stand-in server that answers /prepare and
 // /pools in the shapes the routes give (routes/prompt_programs.py): a slot's span holds its
 // brackets, a bound pick names its list and tiers, a list's declared groups are the facet
-// "group". The base prompt is read; a slot added to it is `reading` until a prepare that isn't
-// cache-only reads it, in the background (`working`). `window.calls` records what was sent.
+// "group", and descent is browsed by region. The base prompt is read; a slot added to it is
+// `reading` until a prepare that isn't cache-only reads it, in the background (`working`).
+// `window.calls` records what was sent.
 
 const words = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix} ${i + 1}`)
 const PROMPT = 'dorm room with a <young man> and his <pet>, lit by <light>, {summer|autumn}'
@@ -30,7 +31,13 @@ const cat: ProgramSlot = { id: 'cat', n: 4, kind: 'free', label: 'Cat', words: '
 const youngAges = ['18-year-old', '21-year-old', '24-year-old', '27-year-old']
 const otherAges = ['35-year-old', '48-year-old', '62-year-old', '75-year-old']
 const descents = ['Korean', 'Japanese', 'Chinese', 'Vietnamese', 'Indian', 'Iranian', 'Turkish', 'Nigerian', 'Kenyan', 'Irish',
-  'Scottish', 'Welsh', 'English', 'French', 'German', 'Italian', 'Greek', 'Swedish', 'Mexican', 'Brazilian']
+  'Scottish', 'Welsh', 'English', 'French', 'German', 'Italian', 'Greek', 'Swedish', 'Mexican', 'Brazilian', 'Kazakh', 'Navajo', 'Samoan']
+// Descent is browsed by world region (its `browse`); its heritages stay groups, for choices made of them before.
+const regions: Record<string, string[]> = {
+  'East Asia': descents.slice(0, 3), 'Southeast Asia': ['Vietnamese'], 'South Asia': ['Indian'], 'Central Asia': ['Kazakh'],
+  'Middle East and North Africa': ['Iranian', 'Turkish'], 'Sub-Saharan Africa': ['Nigerian', 'Kenyan'], Europe: descents.slice(9, 18),
+  'North America': ['Navajo'], 'Latin America and the Caribbean': ['Mexican', 'Brazilian'], Oceania: ['Samoan'],
+}
 const hair = ['buzz cut', 'crew cut', 'side part', 'man bun', 'long waves', 'shoulder-length curls']
 const outfits = ['a {main} flannel shirt and {neutral} jeans', 'a {main} hoodie and {neutral} joggers', 'a {main} suit with a {accent} tie']
 const palettes = ['burgundy, cream and charcoal', 'navy, white and gray', 'olive, tan and black']
@@ -62,7 +69,7 @@ const bound = (cls: string, label: string, options: string[], extra: Partial<Cho
 })
 const pools: Record<string, ChoicePool> = {
   'young_man.age': bound('person.age_band', 'Age', [...youngAges, ...otherAges], { zones: { kinds: youngAges, instead: otherAges } }),
-  'young_man.descent': bound('person.ethnicity', 'Descent', descents, { groups: { group: { 'East Asian': descents.slice(0, 4), European: descents.slice(9, 18) } } }),
+  'young_man.descent': bound('person.ethnicity', 'Descent', descents, { groups: { region: regions, group: { east_asian: descents.slice(0, 3), nordic: ['Swedish'] } }, browse: 'region' }),
   'young_man.build': bound('person.build', 'Build', ['slim', 'stocky', 'athletic']),
   'young_man.hair': bound('person.hairstyle', 'Hairstyle', hair, { groups: { length: { short: hair.slice(0, 3), long: hair.slice(3) }, style: { tied: ['man bun'] } } }),
   'young_man.face.eyes': bound('person.feature.eyes', 'Eye shape', eyes, { short: { [eyes[0]]: 'nothing notable', [eyes[1]]: 'almond eyes' }, groups: { aspect: { shape: eyes.slice(1, 3), lids: [eyes[3]] } } }),

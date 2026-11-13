@@ -52,6 +52,10 @@ A list whose values share settings can declare them once as "groups" ({name: {ab
 tags, less_common}}); a value's "group" names one, and its own tags add to the group's.
 The descent list uses them, so every heritage's coloring is declared and reviewed by name.
 
+A list may name one of its local facets as the one it is browsed by ("browse": "region"): every
+value sits in exactly one part of it, and the chooser opens on a row per part (descent's world
+regions), each leading to its values. Its declared groups then aren't offered as chips.
+
 More roots can be added (a stimpack's vocabulary); ids must not collide.
 """
 
@@ -176,6 +180,7 @@ class Leaf:
     strict: bool = False       # never drawn without the list: words nothing in it fits leave it whole (narrow.py)
     plain: str = ""            # the value that goes without saying (an animal's "adult"): drawn unasked, it adds no word (fill.py)
     parts: Tuple[str, ...] = ()   # a list of pieces ("compose": {"each": true}): its part lists, in order (a face's shape, eyes…)
+    browse: str = ""           # the local facet the chooser is browsed by: a row per part (descent's regions)
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
@@ -416,6 +421,7 @@ class Vocabulary:
                 **({"slots": lf.slots} if lf.slots else {}),
                 **({"context": _context_dict(lf)} if lf.gives or lf.takes else {}),
                 **({"groups": lf.groups} if lf.groups else {}),
+                **({"browse": lf.browse} if lf.browse else {}),
                 "values": [{"text": v.text, "tier": v.tier, **({"tags": v.tags} if v.tags else {}),
                             **({"roles": v.roles} if v.roles else {}), **({"palette": v.palette} if v.palette else {}),
                             **({"opt_in": True} if v.opt_in else {}), **({"adult_only": True} if v.adult_only else {}),
@@ -579,6 +585,18 @@ def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
                 gives, takes, stated, less=less, groups=groups)
 
 
+def _browse(lid: str, leaf: Leaf, facet: str) -> str:
+    """The local facet a list is browsed by, once every value is known to sit in exactly one of its parts."""
+    parts = set(leaf.local_facets.get(facet) or ())
+    if not parts:
+        raise ValueError(f"vocabulary: {lid} is browsed by {facet!r}, which isn't one of its local facets")
+    for v in leaf.values:
+        tagged = v.tags.get(facet)
+        if not isinstance(tagged, (list, tuple)) or len(tagged) != 1 or str(tagged[0]) not in parts:
+            raise ValueError(f"vocabulary: {lid} is browsed by {facet}; {v.text!r} needs exactly one of its parts")
+    return facet
+
+
 def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
     nodes: Dict[str, Node] = {}
     leaves: Dict[str, Leaf] = {}
@@ -621,6 +639,8 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
                     if leaves[lid].value(str(d["plain"])) is None:
                         raise ValueError(f"vocabulary: {lid}'s plain value {d['plain']!r} is not one of its values")
                     leaves[lid] = replace(leaves[lid], plain=str(d["plain"]))
+                if d.get("browse"):
+                    leaves[lid] = replace(leaves[lid], browse=_browse(lid, leaves[lid], str(d["browse"])))
                 if d.get("compose"):
                     composed[lid] = d["compose"]
     for lid, spec in composed.items():

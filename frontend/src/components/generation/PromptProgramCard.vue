@@ -1,7 +1,8 @@
 <template>
   <!-- A slot's card. A person or a camera opens on its details, one row each with what it is
        set to; a row leads to that detail's chooser, with a back arrow. A detail made of parts
-       (a face) leads to its parts, one row each, and each part to its chooser. Anything else, a
+       (a face) leads to its parts, one row each, and each part to its chooser; a list browsed by
+       region (descent) leads to its regions, each to its values. Anything else, a
        builder with only one detail too, opens its chooser directly. A slot just typed shows "Writing options…" until it is read; one
        that couldn't be read went in as written, and offers to try again.
        Anchored to its pill (or the slot in the text) on desktop; a bottom sheet on touch. -->
@@ -51,23 +52,17 @@
         <!-- A builder: its details -->
         <template v-else-if="view.kind === 'panel'">
           <div :style="panelStyle" class="shrink-0 overflow-y-auto overscroll-contain px-1.5 pb-1.5 flex flex-col gap-px" data-panel>
-            <button v-for="d in details" :key="d.id" type="button" :class="rowClass" :data-row="d.id" @click="drill(d.id)">
-              <span class="w-24 shrink-0 text-content">{{ d.label }}</span>
-              <span :class="['flex-1 min-w-0 truncate', rowChanged(d) ? 'text-selection' : 'text-content-muted']">{{ rowText(d) }}</span>
-              <span
-                v-if="rowChanged(d)"
-                role="button"
-                tabindex="0"
-                class="shrink-0 p-0.5 coarse:p-2 coarse:-my-1.5 rounded-full text-selection hover:bg-selection/20"
-                :aria-label="`Reset ${d.label}`"
-                :data-reset="d.id"
-                @click.stop="resetRow(d)"
-                @keydown.enter.stop.prevent="resetRow(d)"
-              >
-                <XMarkIcon class="w-3 h-3" />
-              </span>
-              <ChevronRightIcon class="w-3.5 h-4 shrink-0 text-content-muted" />
-            </button>
+            <ProgramDrillRow
+              v-for="d in details"
+              :key="d.id"
+              :data-row="d.id"
+              :label="d.label"
+              :text="rowText(d)"
+              :changed="rowChanged(d)"
+              :reset-key="d.id"
+              @open="drill(d.id)"
+              @reset="resetRow(d)"
+            />
           </div>
           <div class="shrink-0 border-t border-edge-subtle px-2 py-1.5 flex items-center gap-1">
             <span class="flex-1" />
@@ -91,23 +86,17 @@
                 </button>
               </span>
             </div>
-            <button v-for="d in partRows" :key="d.id" type="button" :class="rowClass" :data-row="d.id" @click="drill(d.id)">
-              <span class="w-24 shrink-0 text-content">{{ d.label }}</span>
-              <span :class="['flex-1 min-w-0 truncate', isChanged(program.states.value[d.id]) ? 'text-selection' : 'text-content-muted']">{{ partText(d, program.poolOf(d), program.states.value[d.id]) }}</span>
-              <span
-                v-if="isChanged(program.states.value[d.id])"
-                role="button"
-                tabindex="0"
-                class="shrink-0 p-0.5 coarse:p-2 coarse:-my-1.5 rounded-full text-selection hover:bg-selection/20"
-                :aria-label="`Reset ${d.label}`"
-                :data-reset="d.id"
-                @click.stop="program.reset([d.id])"
-                @keydown.enter.stop.prevent="program.reset([d.id])"
-              >
-                <XMarkIcon class="w-3 h-3" />
-              </span>
-              <ChevronRightIcon class="w-3.5 h-4 shrink-0 text-content-muted" />
-            </button>
+            <ProgramDrillRow
+              v-for="d in partRows"
+              :key="d.id"
+              :data-row="d.id"
+              :label="d.label"
+              :text="partText(d, program.poolOf(d), program.states.value[d.id])"
+              :changed="isChanged(program.states.value[d.id])"
+              :reset-key="d.id"
+              @open="drill(d.id)"
+              @reset="program.reset([d.id])"
+            />
           </div>
           <div v-if="wholeOn" class="shrink-0 border-t border-edge-subtle px-2 py-1.5 flex items-center gap-1">
             <span class="flex-1" />
@@ -119,12 +108,14 @@
         <PromptProgramOptions
           v-else
           ref="optionsRef"
-          :key="view.choice.id"
+          :key="`${view.choice.id}|${view.within || ''}`"
           :choice="view.choice"
           :own-slot="view.slot"
+          :within="view.within"
           :program="program"
           :anchor-bottom="card.anchor.bottom"
           @drill="drill"
+          @drill-part="drillPart"
           @left-out="afterLeaveOut"
         />
       </div>
@@ -134,12 +125,13 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
-import { ArrowPathIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, CheckIcon, ChevronLeftIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import Spinner from '../ui/Spinner.vue'
 import PromptProgramOptions from './PromptProgramOptions.vue'
+import ProgramDrillRow from './ProgramDrillRow.vue'
 import { useAnchoredMenuPosition } from '../../composables/useContextMenuPosition'
 import { useViewport } from '../../composables/useViewport'
-import { detailsAsWritten, isChanged, isOff, leaveOut, offLabel, partText, partsText, pillValue, resetState, toggleDetailsAsWritten, toggleToken, tokenText, tokensOf, turnOn, type Token } from '../../utils/programChoices'
+import { detailsAsWritten, isChanged, isOff, leaveOut, offLabel, partLabel, partText, partsText, pillValue, resetState, toggleDetailsAsWritten, toggleToken, tokenText, tokensOf, turnOn, type Token } from '../../utils/programChoices'
 import type { PromptProgram, ProgramChoice, ProgramSlot } from '../../composables/usePromptProgram'
 
 const props = defineProps<{ program: PromptProgram }>()
@@ -160,8 +152,10 @@ const panelStyle = computed(() => ({
     : `max(12rem, min(32rem, calc(100dvh - ${Math.round((anchorRect.value?.bottom || 0) + 80)}px)))`,
 }))
 
-// Where the card opened, and what was stepped through to get here (choice ids).
-const stack = ref<string[]>([])
+// Where the card opened, and what was stepped through to get here: choices, and a part of
+// one (a region of descent).
+type Step = { id: string; part?: string }
+const stack = ref<Step[]>([])
 watch(() => card.value, () => { stack.value = [] })
 
 type View =
@@ -169,15 +163,15 @@ type View =
   | { kind: 'written'; words: string }
   | { kind: 'panel'; slot: ProgramSlot }
   | { kind: 'parts'; choice: ProgramChoice }
-  | { kind: 'choice'; choice: ProgramChoice; slot: ProgramSlot | null }
+  | { kind: 'choice'; choice: ProgramChoice; slot: ProgramSlot | null; within?: string }
 
-function choiceView(c: ProgramChoice): View {
+function choiceView(c: ProgramChoice, within?: string): View {
   if (props.program.partsOf(c).length) return { kind: 'parts', choice: c }
   const slot = c.slot ? props.program.slotById.value[c.slot] : null
   // A slot that is this one choice can be drawn as written; what goes with it (an outfit's
   // colors) is a choice of its own.
   const own = slot && !props.program.isBuilder(slot) && props.program.detailsOf(slot)[0]?.id === c.id
-  return { kind: 'choice', choice: c, slot: own ? slot : null }
+  return { kind: 'choice', choice: c, slot: own ? slot : null, ...(within ? { within } : {}) }
 }
 const topView = computed<View | null>(() => {
   const t = card.value?.target
@@ -197,17 +191,17 @@ const topView = computed<View | null>(() => {
   return { kind: slot.degraded || slot.state === 'ready' || stuck ? 'written' : 'pending', words: t.slot.words }
 })
 const view = computed<View>(() => {
-  const id = stack.value[stack.value.length - 1]
-  const c = id ? props.program.byId.value[id] : null
-  return c ? choiceView(c) : topView.value || { kind: 'pending', words: '' }
+  const step = stack.value[stack.value.length - 1]
+  const c = step ? props.program.byId.value[step.id] : null
+  return c ? choiceView(c, step!.part) : topView.value || { kind: 'pending', words: '' }
 })
 // A slot not read yet is titled by its words, as its label would start.
-const labelOf = (v: View | null) => !v ? '' : v.kind === 'pending' || v.kind === 'written' ? v.words.charAt(0).toUpperCase() + v.words.slice(1) : v.kind === 'panel' ? v.slot.label : v.kind === 'parts' ? v.choice.label : (v.slot?.label || v.choice.label)
+const labelOf = (v: View | null) => !v ? '' : v.kind === 'pending' || v.kind === 'written' ? v.words.charAt(0).toUpperCase() + v.words.slice(1) : v.kind === 'panel' ? v.slot.label : v.kind === 'parts' ? v.choice.label : v.within ? partLabel(v.within) : (v.slot?.label || v.choice.label)
 const title = computed(() => labelOf(view.value))
 const backLabel = computed(() => {
   const prev = stack.value[stack.value.length - 2]
-  const c = prev ? props.program.byId.value[prev] : null
-  return c ? c.label : labelOf(topView.value)
+  const c = prev ? props.program.byId.value[prev.id] : null
+  return c ? (prev!.part ? partLabel(prev!.part) : c.label) : labelOf(topView.value)
 })
 const wide = computed(() => view.value.kind === 'choice' && props.program.optionsOf(view.value.choice).some(o => o.length > 32))
 
@@ -217,7 +211,11 @@ function readAgain() {
 }
 
 function drill(id: string) {
-  stack.value = [...stack.value, id]
+  stack.value = [...stack.value, { id }]
+}
+/** Into one part of the choice shown (a region of descent). */
+function drillPart(part: string) {
+  if (view.value.kind === 'choice') stack.value = [...stack.value, { id: view.value.choice.id, part }]
 }
 function back() {
   stack.value = stack.value.slice(0, -1)

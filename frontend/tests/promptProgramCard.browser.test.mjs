@@ -246,49 +246,89 @@ test('search finds, Add chooses the user’s own option, Escape steps back out',
   await expect(card).toHaveCount(0)
 })
 
-async function openDescent(t) {
+async function openDescent(t, region = 'Europe') {
   const opened = await open(t)
   await opened.pill('young_man').click()
   await opened.card.locator('[data-row="young_man.descent"]').click()
+  if (region) await opened.card.locator(`[data-region="${region}"]`).click()
   return opened
 }
 const descentValues = state => async () => (await state())['young_man.descent']?.values || []
 
+test('descent opens on its regions; a region opens on its values and can be chosen whole', async t => {
+  const { page, card, option, row, state } = await openDescent(t, null)
+  await expect(card.locator('[data-default]')).toHaveText('Any descent')
+  await expect(card.locator('[data-default] svg')).toHaveCount(1)
+  assert.deepEqual(await card.locator('[data-region]').evaluateAll(rs => rs.map(r => r.dataset.region)), ['East Asia', 'Southeast Asia',
+    'South Asia', 'Central Asia', 'Middle East and North Africa', 'Sub-Saharan Africa', 'Europe', 'North America',
+    'Latin America and the Caribbean', 'Oceania'])
+  await expect(card.locator('[data-part]')).toHaveCount(0)     // heritages are no chips
+  await expect(card.locator('[data-option]')).toHaveCount(0)
+  // A region: its values only, titled by it, with a way back.
+  await card.locator('[data-region="East Asia"]').click()
+  await expect(card).toHaveAttribute('aria-label', 'East Asia')
+  await expect(card.locator('[data-back]')).toHaveText('Descent')
+  await expect(card.locator('[data-default]')).toHaveText('Any from East Asia')
+  assert.deepEqual(await card.locator('[data-option]').evaluateAll(rs => rs.map(r => r.dataset.option)), ['Korean', 'Japanese', 'Chinese'])
+  await option('Korean').click()
+  await expect.poll(state).toEqual({ 'young_man.descent': { values: ['Korean'] } })
+  await card.locator('[data-back]').click()
+  await expect(card.locator('[data-region="East Asia"]')).toContainText('Korean')
+  await expect(card.locator('[data-default] svg')).toHaveCount(0)
+  // A whole region: its row and the pill name it.
+  await card.locator('[data-region="Europe"]').click()
+  await card.locator('[data-default]').click()
+  await expect.poll(state).toEqual({ 'young_man.descent': { values: ['Korean'], groups: { region: ['Europe'] } } })
+  await expect(option('Swedish').locator('svg')).toHaveCount(1)   // in play, quietly
+  await card.locator('[data-back]').click()
+  await expect(card.locator('[data-region="Europe"]')).toContainText('Any')
+  await expect(row.locator('[data-choice="young_man.descent"]')).toHaveText('DescentEurope, Korean')
+  // A region row's × puts that region back.
+  await card.locator('[data-region="Europe"] [data-reset]').click()
+  await expect.poll(state).toEqual({ 'young_man.descent': { values: ['Korean'] } })
+  // A heritage chosen before descent had regions still reads, and can be removed.
+  await page.evaluate(() => window.setState({ 'young_man.descent': { groups: { group: ['nordic'] } } }))
+  await expect(row.locator('[data-choice="young_man.descent"]')).toHaveText('Descentany nordic')
+  await expect(card.locator('[data-chosen]')).toContainText('any nordic')
+  await card.locator('[aria-label="Remove any nordic"]').click()
+  await expect.poll(state).toEqual({})
+})
+
 test('a plain click toggles one option and leaves the rest alone', async t => {
   const { option, state } = await openDescent(t)
   const values = descentValues(state)
-  await option('Korean').click()
-  await option('Indian').click()
-  await expect.poll(values).toEqual(['Korean', 'Indian'])
-  await option('Korean').click()
-  await expect.poll(values).toEqual(['Indian'])
+  await option('Irish').click()
+  await option('French').click()
+  await expect.poll(values).toEqual(['Irish', 'French'])
+  await option('Irish').click()
+  await expect.poll(values).toEqual(['French'])
 })
 
 test('shift-click chooses every option from the last one clicked, without selecting text', async t => {
   const { page, option, state } = await openDescent(t)
-  await option('Japanese').click()
-  await option('Iranian').click({ modifiers: ['Shift'] })
-  await expect.poll(descentValues(state)).toEqual(['Japanese', 'Chinese', 'Vietnamese', 'Indian', 'Iranian'])
+  await option('Scottish').click()
+  await option('German').click({ modifiers: ['Shift'] })
+  await expect.poll(descentValues(state)).toEqual(['Scottish', 'Welsh', 'English', 'French', 'German'])
   assert.equal(await page.evaluate(() => String(window.getSelection())), '')
 })
 
 test('shift-click on a chosen option un-chooses the range', async t => {
   const { option, state } = await openDescent(t)
   const values = descentValues(state)
-  await option('Korean').click()
-  await option('Indian').click({ modifiers: ['Shift'] })
-  await expect.poll(values).toEqual(['Korean', 'Japanese', 'Chinese', 'Vietnamese', 'Indian'])
-  await option('Chinese').click()
-  await option('Korean').click({ modifiers: ['Shift'] })
-  await expect.poll(values).toEqual(['Vietnamese', 'Indian'])
+  await option('Irish').click()
+  await option('French').click({ modifiers: ['Shift'] })
+  await expect.poll(values).toEqual(['Irish', 'Scottish', 'Welsh', 'English', 'French'])
+  await option('Welsh').click()
+  await option('Irish').click({ modifiers: ['Shift'] })
+  await expect.poll(values).toEqual(['English', 'French'])
 })
 
 test('a shift-click range starts from an option the search has since hidden, and takes only what is shown', async t => {
   const { card, option, state } = await openDescent(t)
-  await option('Korean').click()
+  await option('Welsh').click()
   await card.getByPlaceholder('Search').fill('ish')
-  await option('Scottish').click({ modifiers: ['Shift'] })
-  await expect.poll(descentValues(state)).toEqual(['Korean', 'Turkish', 'Irish', 'Scottish'])
+  await option('Swedish').click({ modifiers: ['Shift'] })
+  await expect.poll(descentValues(state)).toEqual(['Welsh', 'English', 'Swedish'])
 })
 
 test('a shift-click range runs across both zones', async t => {
@@ -302,15 +342,15 @@ test('a shift-click range runs across both zones', async t => {
 test('ctrl- or cmd-click toggles one option and becomes where a shift-click range starts', async t => {
   const { option, state } = await openDescent(t)
   const values = descentValues(state)
-  await option('Korean').click()
-  await option('Indian').click({ modifiers: ['Control'] })
-  await expect.poll(values).toEqual(['Korean', 'Indian'])
-  await option('Chinese').click({ modifiers: ['Shift'] })
-  await expect.poll(values).toEqual(['Korean', 'Indian', 'Chinese', 'Vietnamese'])
+  await option('Irish').click()
+  await option('French').click({ modifiers: ['Control'] })
+  await expect.poll(values).toEqual(['Irish', 'French'])
+  await option('Scottish').click({ modifiers: ['Shift'] })
+  await expect.poll(values).toEqual(['Irish', 'French', 'Scottish', 'Welsh', 'English'])
+  await option('Greek').click({ modifiers: ['Meta'] })
+  await expect.poll(values).toEqual(['Irish', 'French', 'Scottish', 'Welsh', 'English', 'Greek'])
   await option('Irish').click({ modifiers: ['Meta'] })
-  await expect.poll(values).toEqual(['Korean', 'Indian', 'Chinese', 'Vietnamese', 'Irish'])
-  await option('Korean').click({ modifiers: ['Meta'] })
-  await expect.poll(values).toEqual(['Indian', 'Chinese', 'Vietnamese', 'Irish'])
+  await expect.poll(values).toEqual(['French', 'Scottish', 'Welsh', 'English', 'Greek'])
 })
 
 test('More like these adds options to the list', async t => {

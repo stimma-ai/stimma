@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   asWrittenState, carriedIds, carryChoices, changedCount, cleanState, drawable, isAsWritten, isChanged, keptPools, leaveOut, numberRepeats, optionsOf, pillsOf, pillValue,
-  detailsAsWritten, isBuilder, isOff, partText, partsText, resetState, rowsOf, standsAsWritten, swatchesOf, toggleDetailsAsWritten, toggleToken, tokenText, turnOn, zonesOf, PALETTE_CLS,
+  browseOf, browseParts, browsePartText, clearBrowsePart, toggleBrowsePart, detailsAsWritten, isBuilder, isOff, partText, partsText, resetState, rowsOf, standsAsWritten, swatchesOf, toggleDetailsAsWritten, toggleToken, tokenText, turnOn, zonesOf, PALETTE_CLS,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
 
@@ -277,4 +277,36 @@ test('a face’s parts are said in the face’s pill: each part chosen, by its v
   // Untouched, the face is no pill; turned on alone it reads as its label.
   assert.equal(pillsOf({ slots: [w], choices: [age, face, eyes, nose], states: {}, pools }).length, 1)
   assert.deepEqual(pillsOf({ slots: [w], choices: [age, face, eyes, nose], states: { 'w.face': { on: true } }, pools }).map(p => p.label), ['Woman', 'Face'])
+})
+
+test('a list browsed by region: a row per region says what is chosen in it; the pill names regions and values', () => {
+  const descent: ProgramChoice = { id: 'man.descent', slot: 'man', kind: 'pick', label: 'Descent', options: [] }
+  const pool: ChoicePool = {
+    options: ['Korean', 'Japanese', 'Irish', 'Swedish', 'Basque'],
+    groups: { region: { 'East Asia': ['Korean', 'Japanese'], Europe: ['Irish', 'Swedish'] }, group: { east_asian: ['Korean', 'Japanese'], nordic: ['Swedish'] } },
+    browse: 'region',
+  }
+  assert.equal(browseOf(pool), 'region')
+  assert.equal(browseOf({ ...pool, browse: 'area' }), '')
+  assert.deepEqual(browseParts(pool).map(p => p.part), ['East Asia', 'Europe'])
+  let s = toggleToken(descent, null, { kind: 'value', value: 'Swedish' })
+  s = toggleToken(descent, s, { kind: 'value', value: 'Irish' })
+  assert.equal(browsePartText(pool, s, 'Europe'), 'Swedish, Irish')
+  assert.equal(browsePartText(pool, s, 'East Asia'), '')
+  // A region whole: its values chosen one by one go, and its row says Any.
+  s = toggleToken(descent, s, { kind: 'value', value: 'Korean' })
+  s = toggleBrowsePart(descent, pool, s, 'East Asia')
+  assert.deepEqual(s, { values: ['Swedish', 'Irish'], groups: { region: ['East Asia'] } })
+  assert.equal(browsePartText(pool, s, 'East Asia'), 'Any')
+  assert.deepEqual([...drawable(descent, pool, s)!].sort(), ['Irish', 'Japanese', 'Korean', 'Swedish'])
+  assert.equal(pillValue(descent, pool, s), 'East Asia, Swedish +1')
+  assert.equal(tokenText(descent, pool, { kind: 'group', facet: 'region', part: 'East Asia' }), 'East Asia')
+  // Its row's × puts the region back; toggling the whole region again does too.
+  assert.deepEqual(clearBrowsePart(descent, pool, s, 'Europe'), { groups: { region: ['East Asia'] } })
+  assert.deepEqual(toggleBrowsePart(descent, pool, s, 'East Asia'), { values: ['Swedish', 'Irish'] })
+  assert.equal(pillValue(descent, pool, { values: ['Korean', 'Swedish'] }), 'Korean, Swedish')
+  // A heritage chosen before regions (its coloring group) still reads and draws.
+  const old = { groups: { group: ['nordic'] } }
+  assert.equal(pillValue(descent, pool, old), 'any nordic')
+  assert.deepEqual([...drawable(descent, pool, old)!], ['Swedish'])
 })

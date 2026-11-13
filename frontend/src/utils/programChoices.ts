@@ -146,6 +146,52 @@ export function groupMembers(pool: ChoicePool | null | undefined, facet: string,
   return pool?.groups?.[facet]?.[part] || []
 }
 
+// Browsing by a facet (descent by world region) -------------------------------------------
+
+/** The facet a choice's chooser is browsed by (descent's `region`), '' when it lists its
+    options plainly. */
+export function browseOf(pool: ChoicePool | null | undefined): string {
+  const f = pool?.browse
+  return f && pool?.groups?.[f] ? f : ''
+}
+
+/** The parts a chooser is browsed by, in order, each with its options. */
+export function browseParts(pool: ChoicePool | null | undefined): Array<{ part: string; options: string[] }> {
+  const f = browseOf(pool)
+  return f ? Object.entries(pool!.groups![f]).filter(([, os]) => os?.length).map(([part, options]) => ({ part, options })) : []
+}
+
+/** What is chosen in one part (a region): "Any" when the whole part is, else its options
+    chosen, short; '' when nothing in it is. */
+export function browsePartText(pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined, part: string): string {
+  const f = browseOf(pool)
+  if (!f || !s || s.off) return ''
+  if (s.groups?.[f]?.includes(part)) return 'Any'
+  const members = new Set(groupMembers(pool, f, part))
+  return (s.values || []).filter(v => members.has(v)).map(v => valueText(pool, v)).join(', ')
+}
+
+/** The state with nothing in one part chosen: neither the part whole nor any of its options. */
+export function clearBrowsePart(c: ChoiceShape, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined,
+                                part: string): ChoiceState | null {
+  const f = browseOf(pool)
+  if (!f || !s || s.off) return s || null
+  const members = new Set(groupMembers(pool, f, part))
+  return cleanState(c, { ...s, values: (s.values || []).filter(v => !members.has(v)),
+    groups: { ...(s.groups || {}), [f]: (s.groups?.[f] || []).filter(p => p !== part) } })
+}
+
+/** Choose a part whole (a region), or un-choose it. Chosen whole, its options chosen one by one
+    go: the part says them all. */
+export function toggleBrowsePart(c: ChoiceShape, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined,
+                                 part: string): ChoiceState | null {
+  const f = browseOf(pool)
+  if (!f) return s || null
+  const t: Token = { kind: 'group', facet: f, part }
+  if (hasToken(s, t)) return toggleToken(c, s, t)
+  return toggleToken(c, clearBrowsePart(c, pool, s, part), t)
+}
+
 /** What an image can draw now. Null when the choice is left out. */
 export function drawable(c: ProgramChoice, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined): Set<string> | null {
   if (isOff(c, s)) return null
@@ -215,10 +261,11 @@ function zoneTitle(c: ProgramChoice, zone: string): string {
   return c.zones?.find(z => z.id === zone)?.title || `Any ${c.label.toLowerCase()}`
 }
 
-/** A chosen token in words: "sporty" as "any sporty", a zone by its title, an option short. */
+/** A chosen token in words: "sporty" as "any sporty", a part the chooser is browsed by as its
+    name ("East Asia"), a zone by its title, an option short. */
 export function tokenText(c: ProgramChoice, pool: ChoicePool | null | undefined, t: Token): string {
   if (t.kind === 'value') return valueText(pool, t.value)
-  if (t.kind === 'group') return `any ${partLabel(t.part)}`
+  if (t.kind === 'group') return t.facet === browseOf(pool) ? partLabel(t.part) : `any ${partLabel(t.part)}`
   return zoneTitle(c, t.zone)
 }
 
@@ -238,6 +285,11 @@ export function pillValue(c: ProgramChoice, pool: ChoicePool | null | undefined,
   if (isAsWritten(slot, s)) return 'as written'
   const tokens = tokensOf(s)
   if (!tokens.length) return ''
+  if (browseOf(pool) && tokens.every(t => t.kind !== 'zone')) {
+    // A chooser browsed by region names what is chosen: "East Asia, Swedish +1".
+    const said = tokens.map(t => tokenText(c, pool, t))
+    return said.slice(0, 2).join(', ') + (said.length > 2 ? ` +${said.length - 2}` : '')
+  }
   if (tokens.every(t => t.kind === 'value')) {
     return valueText(pool, (tokens[0] as { value: string }).value) + (tokens.length > 1 ? ` +${tokens.length - 1}` : '')
   }

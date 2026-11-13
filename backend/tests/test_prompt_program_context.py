@@ -151,6 +151,9 @@ class TestTheData:
                 assert eth.context_tags(x.text, f), f"{x.text} has no {f}"
             assert x.tags.get("region"), f"{x.text} has no region"
 
+    # The one group across a region border: Afghan and Pashtun (South Asia) with Tajik (Central Asia).
+    NEIGHBORS = {"afghan": {"South Asia", "Central Asia"}}
+
     def test_every_descent_is_in_a_declared_group_of_one_region(self):
         """Coloring is declared per named group, and a group never lumps peoples of unrelated
         regions together because their coloring coincides."""
@@ -162,7 +165,8 @@ class TestTheData:
         assert set(members) == set(eth.groups), "a declared group with no member"
         for name, xs in members.items():
             assert eth.groups[name].get("about"), name
-            assert set.intersection(*[set(x.tags["region"]) for x in xs]), (name, [x.text for x in xs])
+            regions = {r for x in xs for r in x.tags["region"]}
+            assert len(regions) == 1 or regions == self.NEIGHBORS.get(name), (name, regions)
 
     def test_native_american_descents_have_their_own_group(self):
         eth = V().get("person.ethnicity")
@@ -172,7 +176,9 @@ class TestTheData:
     def test_central_asian_descents_are_tagged_central_asian(self):
         eth = V().get("person.ethnicity")
         for d in ("Kazakh", "Uzbek", "Kyrgyz", "Turkmen", "Tajik"):
-            assert eth.value(d).tags["region"] == ["central_asian"], d
+            assert eth.value(d).tags["region"] == ["Central Asia"], d
+        for d in ("Afghan", "Pashtun"):
+            assert eth.value(d).tags["region"] == ["South Asia"], d
 
     def test_mixed_populations_favor_everything_on_purpose(self):
         eth = V().get("person.ethnicity")
