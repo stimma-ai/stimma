@@ -109,7 +109,7 @@ class TestTheStore:
 
     def test_only_lists_keep_additions_and_typos_land_on_the_list(self):
         assert list_id("person.hairstyle") == "person.hairstyle"
-        assert list_id("person.eye_colour") == "person.eye_color"   # the binding's own typo repair
+        assert list_id("person.eye_colr") == "person.eye_color"   # the binding's own typo repair
         assert list_id("person.palette") is None                      # a look's Colors: schemes carry roles
         assert list_id("") is None and list_id("not.a.list") is None
 

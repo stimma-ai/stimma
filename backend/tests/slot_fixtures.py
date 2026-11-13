@@ -83,7 +83,7 @@ def entry_of(src: str, prompt: str = "", **extra: Any) -> Dict[str, Any]:
         if leaf is not None and leaf.slots and vocabulary().get(leaf.slots) is not None:
             made.append({"id": value + COLORS, "kind": "pick", "label": "Colors", "phase": p["phase"],
                          "source": p["source"], "cls": leaf.slots, "slot": value, "follows": value,
-                         "about": f"the colours of {p['about'] or p['label']}"})
+                         "about": f"the colors of {p['about'] or p['label']}"})
         slots.append({"id": value, "n": len(slots) + 1, "kind": "one", "label": p["label"], "words": value,
                       "state": "ready", "lead": lead, "details": [m["id"] for m in made],
                       "form": {"kind": "one", "id": value}, **({"zones": p["zones"]} if p.get("zones") else {})})

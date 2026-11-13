@@ -19,7 +19,7 @@ DORM_READING = {"slots": [
      "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "young"},
                 "vary": ["age", "descent", "build", "hair", "hair_color"], "outfit": "person.outfit.casual"}},
     {"n": 2, "kind": "light", "label": "Light", "lead": ", lit by",
-     "light": {"examples": ["warm desk-lamp light", "grey morning light through blinds", "blue screen glow"]}},
+     "light": {"examples": ["warm desk-lamp light", "gray morning light through blinds", "blue screen glow"]}},
 ]}
 
 PORCH_PROMPT = ("# she is his granddaughter, visiting\n"
@@ -29,7 +29,7 @@ PORCH_READING = {"slots": [
      "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "elderly", "descent": "African"},
                 "vary": ["age", "descent", "build", "hair", "hair_color", "facial_hair"], "outfit": "person.outfit.casual"}},
     {"n": 2, "kind": "free", "label": "Pet", "lead": " with his",
-     "free": {"about": "his pet, with him on the porch", "kinds": ["ginger tabby cat", "old basset hound", "grey parrot"],
+     "free": {"about": "his pet, with him on the porch", "kinds": ["ginger tabby cat", "old basset hound", "gray parrot"],
               "instead": ["stack of library books", "mug of coffee", "transistor radio"]}},
 ], "lists": [{"n": 1, "label": "Season"}]}
 
@@ -247,3 +247,45 @@ def test_spans_say_where_each_drawn_value_stands():
         for start, end, cid in r.spans:
             assert r.prompt[start:end].lower() in (drawn[cid].lower(), tidy_text([drawn[cid]]).lower())
         assert "[Kodak Portra 400]" in r.prompt
+
+
+PET = {"n": 1, "kind": "animal", "label": "Pet", "lead": " with his",
+       "animal": {"noun": "pet", "vary": ["species", "life_stage"], "breed": "", "stated": {}}}
+DOG = {"n": 1, "kind": "animal", "label": "Dog", "lead": "",
+       "animal": {"noun": "dog", "vary": ["breed", "life_stage"], "breed": "animal.dog_breed", "stated": {}}}
+
+
+def test_an_animal_is_its_life_stage_and_its_kind_narrowed_by_the_slots_words():
+    pets = ["cat", "dog", "rabbit"]
+    e = entry_of("an old man with his <pet> on a porch", {"slots": [PET]}, {"pet.species": pets})
+    assert [c["id"] for c in e["choices"]] == ["pet.species", "pet.life_stage"]
+    assert e["slot_words"] == {"pet.species": "pet"} and e["slots"][0]["kind"] == "animal"
+    stages = {v.text for v in vocabulary().get("animal.life_stage").values}
+    assert stages == {"baby", "juvenile", "adult", "elderly"}
+    for s in range(12):
+        got = values(draw(e, s))
+        assert got["pet.species"] in pets and got["pet.life_stage"] in stages
+        assert draw(e, s).prompt == f"An old man with his {got['pet.life_stage']} {got['pet.species']} on a porch"
+    off = draw(e, 1, edits={"pet.species": {"off": True}, "pet.life_stage": {"off": True}}).prompt
+    assert off == "An old man with his pet on a porch"
+
+
+def test_an_animal_of_one_kind_draws_its_breed():
+    e = entry_of("a <dog> in a park", {"slots": [DOG]})
+    breeds = {v.text for v in vocabulary().get("animal.dog_breed").values}
+    for s in range(8):
+        got = values(draw(e, s))
+        assert got["dog.breed"] in breeds and draw(e, s).prompt.endswith(f"{got['dog.breed']} in a park")
+    no_breed = draw(e, 2, edits={"dog.breed": {"off": True}}).prompt
+    assert no_breed.endswith(" dog in a park")
+
+
+def test_light_is_one_named_look_from_a_lighting_list_or_its_examples():
+    bound = {"n": 1, "kind": "light", "label": "Light", "lead": ", lit by",
+             "light": {"list": "lighting.studio", "examples": []}}
+    e = entry_of("a portrait, lit by <light>", {"slots": [bound]})
+    assert [c["id"] for c in e["choices"]] == ["light"] and e["choices"][0]["cls"] == "lighting.studio"
+    looks = {v.text for v in vocabulary().get("lighting.studio").values}
+    assert {values(draw(e, s))["light"] for s in range(10)} <= looks
+    written = entry_of(DORM_PROMPT, DORM_READING)
+    assert {values(draw(written, s))["light"] for s in range(10)} <= set(DORM_READING["slots"][1]["light"]["examples"])

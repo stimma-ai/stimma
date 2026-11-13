@@ -141,9 +141,9 @@ class TestBinding:
     def test_a_near_certain_typo_resolves_and_a_far_one_does_not(self):
         v = vocabulary()
         assert v.resolve("person.eye_eye_color").id == "person.eye_color"
-        assert v.resolve("person.eye_colour").id == "person.eye_color"
+        assert v.resolve("person.eye_colr").id == "person.eye_color"
         assert v.resolve("person.nostril") is None and v.resolve("interior.bedroom") is None
-        src = PORTRAIT.replace("person.eye_color", "person.eye_colour")
+        src = PORTRAIT.replace("person.eye_color", "person.eye_colr")
         eyes = next(d for d in run(src, 1).draws if d.id == "eyes")
         assert eyes.cls == "person.eye_color"
 

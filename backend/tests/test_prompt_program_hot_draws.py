@@ -227,7 +227,7 @@ class TestPool:
         queue.take_fluent_draw("gen-1", "sig-b", spec_for(entry, pins={"job": ["surgeon"]}))
         gate.set()
         await settle(queue, "gen-1")
-        await asyncio.sleep(0.1)  # the old refill's thread finishes after its task was cancelled
+        await asyncio.sleep(0.1)  # the old refill's thread finishes after its task was canceled
         ready = queue._prompt_warm_ready["gen-1"]
         assert len(ready) == 3 and all(values(h["result"])["job"] == "surgeon" for h in ready)
 

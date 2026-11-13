@@ -1,0 +1,29 @@
+{
+  "id": "animal.life_stage",
+  "label": "Life stage",
+  "description": "How far along in life an animal is, from newborn to old.",
+  "pos": "adjective",
+  "frame": "a ___ dog",
+  "notes": "Life stage only; species, breed and coat have their own lists. Values read before the animal's own word, so a puppy or a kitten is a baby dog or cat here.",
+  "facets": [],
+  "closed": true,
+  "untagged": {},
+  "values": [
+    {
+      "text": "adult",
+      "tier": "typical"
+    },
+    {
+      "text": "juvenile",
+      "tier": "typical"
+    },
+    {
+      "text": "baby",
+      "tier": "plausible"
+    },
+    {
+      "text": "elderly",
+      "tier": "plausible"
+    }
+  ]
+}

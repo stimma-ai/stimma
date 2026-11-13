@@ -178,10 +178,10 @@ class TestAdd:
         assert got["prompt"] == written and got["prompt"].endswith("\n# keep it calm")
 
     async def test_a_comment_line_is_not_written_on(self):
-        prompt = "a cat\n# soft colours"
-        bad = {"prompt": "a cat\n# soft colours, <light>"}
+        prompt = "a cat\n# soft colors"
+        bad = {"prompt": "a cat\n# soft colors, <light>"}
         got = await sg.add(prompt, "light", Fake(bad, bad))
-        assert got["prompt"] == "a cat, <light>\n# soft colours"
+        assert got["prompt"] == "a cat, <light>\n# soft colors"
 
     async def test_no_text_makes_no_call(self):
         ask = Fake()

@@ -185,8 +185,8 @@ async def test_a_prompt_with_nothing_to_vary_goes_straight_to_the_improver(tool,
 
 async def test_agent_keep_choices_are_choices_of_values(tool, monkeypatch, profile):
     await _read(monkeypatch, profile)
-    out = await _submit(keep_choices={"Pet": "grey parrot"})
-    assert {d["id"]: d["value"] for d in out["prompt_program"]["draws"]}["pet"] == "grey parrot"
+    out = await _submit(keep_choices={"Pet": "gray parrot"})
+    assert {d["id"]: d["value"] for d in out["prompt_program"]["draws"]}["pet"] == "gray parrot"
     with pytest.raises(UnknownChoiceError):
         await _submit(keep_choices={"hat": "bowler"})
 

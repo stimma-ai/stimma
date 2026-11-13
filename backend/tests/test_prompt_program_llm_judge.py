@@ -126,23 +126,23 @@ def test_everything_refused_in_a_round_is_rerolled_together(monkeypatch, loop, t
 
 def test_a_call_that_takes_too_long_is_given_up_not_left_running(monkeypatch, loop):
     lp = loop(lambda k: "no")
-    state = {"cancelled": False}
+    state = {"canceled": False}
 
     async def slow(judge, head, chunk):
         try:
             await asyncio.sleep(30)
         except asyncio.CancelledError:
-            state["cancelled"] = True
+            state["canceled"] = True
             raise
     monkeypatch.setattr(llm_judge.LlmJudge, "_call", slow)
     monkeypatch.setattr(llm_judge, "TIMEOUT", 0.2)
     with pytest.raises(Exception):
         lp.judge.p_wrong(items("hazel"))
     for _ in range(50):
-        if state["cancelled"]:
+        if state["canceled"]:
             break
         threading.Event().wait(0.02)
-    assert state["cancelled"]
+    assert state["canceled"]
 
 
 class TestReady:

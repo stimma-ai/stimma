@@ -610,3 +610,30 @@ async def test_a_group_named_beside_its_own_items_keeps_only_those_items():
         return await nothing(messages, project_id, max_tokens)
     assert await subset(leaf, "Martian", None, counted) == [] and len(asked) == 1   # an empty answer stands
 
+
+
+async def test_an_animal_reading_is_checked_for_its_shape():
+    animal = {"n": 1, "kind": "animal", "label": "Pet", "lead": "",
+              "animal": {"noun": "pet", "vary": ["species", "life_stage"], "breed": "", "stated": {}}}
+    got = await reader.read(parse("a girl walking her <pet>"), ask=FakeModel(json.dumps({"slots": [animal]})),
+                            project_id=None, model="m")
+    assert got["slots"][0]["animal"] == {"noun": "pet", "vary": ["species", "life_stage"], "breed": "", "stated": {}}
+    both = {**animal, "animal": {"noun": "pet", "vary": ["species", "breed"], "breed": "animal.dog_breed", "stated": {}}}
+    model = FakeModel(json.dumps({"slots": [both]}), json.dumps({"slots": [animal]}))
+    await reader.read(parse("a girl walking her <pet>"), ask=model, project_id=None, model="m")
+    assert "never beside species" in model.asked[1][-1]["content"]
+    old = {**animal, "animal": {"noun": "dog", "vary": ["breed"], "breed": "animal.dog_breed", "stated": {"life_stage": "old"}}}
+    got = await reader.read(parse("an <old dog> asleep"), ask=FakeModel(json.dumps({"slots": [old]})), project_id=None, model="m")
+    assert got["slots"][0]["animal"]["vary"] == ["breed", "life_stage"]
+
+
+async def test_a_light_reading_may_name_a_lighting_list():
+    light = {"n": 1, "kind": "light", "label": "Light", "lead": "",
+             "light": {"list": "lighting.studio", "examples": ["softbox", "flash", "ring light"]}}
+    got = await reader.read(parse("a portrait in <light>"), ask=FakeModel(json.dumps({"slots": [light]})),
+                            project_id=None, model="m")
+    assert got["slots"][0]["light"]["list"] == "lighting.studio"
+    wrong = {**light, "light": {"list": "person.hairstyle", "examples": []}}
+    model = FakeModel(json.dumps({"slots": [wrong]}), json.dumps({"slots": [light]}))
+    await reader.read(parse("a portrait in <light>"), ask=model, project_id=None, model="m")
+    assert "not one of the lighting lists" in model.asked[1][-1]["content"]

@@ -646,7 +646,7 @@ async def _apply_generation_prompt_pipeline(
     from lora_notes import lora_context_for, prepend_missing_triggers
     raw = bool((prompt_options or {}).get("raw"))
     # The prompt menu's LoRA choices. Absent (older clients, the agent, builds without
-    # Fluent) means the classic behaviour: the enhancer is told triggers and notes, and
+    # Fluent) means the classic behavior: the enhancer is told triggers and notes, and
     # nothing is added after. Fluent builds send both explicitly.
     lora_choice = (prompt_options or {}).get("loraTriggers")
     lora_triggers = lora_choice is not False

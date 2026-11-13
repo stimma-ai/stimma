@@ -664,7 +664,7 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
                     fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
                     profile_id: Optional[str] = None, project_id: Optional[int] = None,
                     revision: Optional[Dict[str, Any]] = None, cfg: Any = None,
-                    judge: Any = None, cancelled: Optional[Callable[[], bool]] = None,
+                    judge: Any = None, canceled: Optional[Callable[[], bool]] = None,
                     zones: Optional[Dict[str, List[str]]] = None) -> Tuple[Any, Optional[Dict[str, Any]]]:
     """realize(), then the fix pass when a fix judge is set (fix_model) and the program
     has pick specs. An exact replay (`revision`) is never fixed. Returns the result and
@@ -677,7 +677,7 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
                        profile_id=profile_id, project_id=project_id, revision=revision, zones=zones), None
     out = realize_and_fix_many(entry, seeds=[seed], pins=pins, fixed=fixed, edits=edits,
                                profile_id=profile_id, project_id=project_id, cfg=cfg, judge=judge,
-                               cancelled=cancelled, zones=zones)[0]
+                               canceled=canceled, zones=zones)[0]
     if isinstance(out, Exception):
         raise out
     return out
@@ -687,7 +687,7 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
                          fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
                          profile_id: Optional[str] = None, project_id: Optional[int] = None,
                          cfg: Any = None, judge: Any = None,
-                         cancelled: Optional[Callable[[], bool]] = None,
+                         canceled: Optional[Callable[[], bool]] = None,
                          zones: Optional[Dict[str, List[str]]] = None) -> List[Any]:
     """realize_and_fix() for several seeds of one program, their fix loops sharing each
     judge pass. Per seed: (result, fix record or None), exactly what realize_and_fix

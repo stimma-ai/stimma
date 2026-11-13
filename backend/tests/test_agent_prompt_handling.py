@@ -229,8 +229,8 @@ class TestVary:
 
     async def test_keep_choices_hold(self, writer):
         for _ in range(8):
-            out = await _vary(keep_choices={"pet": "grey parrot"})
-            assert out.choices["pet"] == "grey parrot"
+            out = await _vary(keep_choices={"pet": "gray parrot"})
+            assert out.choices["pet"] == "gray parrot"
         out = await _vary(keep_choices={"Season": ["summer"]})  # by label
         assert out.choices["list1"] == "summer"
 

@@ -32,10 +32,11 @@ CONTEXT_VERSION = "ctx-2"
 RANK_DECAY = 0.86
 SOURCES = ("text", "list", "added")
 COLORS = ".colors"
-# The Colors pick's about, as the pick judge reads it ("Colors (the colours of her outfit)"). The
-# judge was trained on this wording, so it keeps the old spelling until the judge is retrained.
-COLORS_ABOUT = "the colours of {}"
-KINDS = ("person", "camera", "light", "list", "free")
+# The Colors pick's about, as the pick judge reads it ("Colors (the colors of her outfit)").
+COLORS_ABOUT = "the colors of {}"
+KINDS = ("person", "animal", "camera", "light", "list", "free")
+ANIMAL = ("species", "breed", "life_stage")
+ANIMAL_LISTS = {"species": "animal.species", "life_stage": "animal.life_stage"}
 CAMERA = ("shot_size", "lens", "angle", "film_look")
 MAX_PROMPT_CHARS = 100_000
 
@@ -532,8 +533,32 @@ def picks_of(cid: str, words: str, reading: Dict[str, Any], *, close: str = "") 
                        about=f"the camera's {vocab.get(f'camera.{d}').label.lower()}", cls=f"camera.{d}", slot=cid)
                  for d in vary]
         return picks, {"form": {"kind": "camera", "keys": [p["id"] for p in picks]}}
+    if kind == "animal":
+        noun = str(got.get("noun") or words)
+        vary = [d for d in ANIMAL if d in (got.get("vary") or [])]
+        breed = str(got.get("breed") or "")
+        if "breed" in vary:
+            listed(breed)
+        lists = {**ANIMAL_LISTS, **({"breed": breed} if breed else {})}
+        vary = [d for d in vary if d in lists]
+        stated = {d: str(w) for d, w in (got.get("stated") or {}).items() if d in vary and str(w).strip()}
+        picks = [_pick(f"{cid}.{d}", label=vocab.get(lists[d]).label if d != "species" else "Kind",
+                       about=f"the {noun}'s {'kind' if d == 'species' else d.replace('_', ' ')}", phase=1 if d != "life_stage" else 2,
+                       cls=lists[d], slot=cid) for d in vary]
+        # The slot's words narrow what kind of animal it is ("pet" keeps pets), unless they say more of it.
+        said = {f"{cid}.{d}": w for d, w in stated.items()}
+        if "species" in vary:
+            said.setdefault(f"{cid}.species", words)
+        form = {"kind": "animal", "noun": noun, "words": words, "keys": [p["id"] for p in picks]}
+        return picks, {"form": form, "stated": stated, "slot_words": said}
     if kind == "light":
-        p = _pick(cid, label=label, about=words, seed=_strings(got.get("examples") or [], "examples"), slot=cid)
+        # One choice of named looks (softbox, golden hour light): a lighting list, or written options.
+        lid = str(got.get("list") or "")
+        if lid:
+            p = _pick(cid, label=label, about=words, cls=listed(lid), seed=_strings(got.get("examples") or [], "examples") or None,
+                      slot=cid)
+        else:
+            p = _pick(cid, label=label, about=words, seed=_strings(got.get("examples") or [], "examples"), slot=cid)
         return [p], {"form": {"kind": "one", "id": cid}, "slot_words": {cid: words}}
     if kind == "list":
         lid = listed(got.get("list"))
@@ -622,6 +647,10 @@ def text_parts(entry: Dict[str, Any], value: Any) -> List[Part]:
             flush()
             parts.append(person_parts(form, value))
             continue
+        if form["kind"] == "animal":
+            flush()
+            parts.append(animal_parts(form, value))
+            continue
         lead = flush(str(s.get("lead") or ""))
         if form["kind"] == "camera":
             group = [Opt((value(k),)) if i == 0 else Opt((",", value(k))) for i, k in enumerate(form["keys"])]
@@ -657,6 +686,17 @@ def person_parts(form: Dict[str, Any], value: Any) -> List[Part]:
     else:
         parts += tail
     return parts
+
+
+def animal_parts(form: Dict[str, Any], value: Any) -> List[Part]:
+    """An animal described: its life stage, then its breed, else its kind, else the user's word
+    for it ("elderly golden retriever", "juvenile rabbit", "dog"); with every detail off, the
+    user's own words."""
+    v = {k.rsplit(".", 1)[-1]: value(k) for k in form["keys"]}
+    if v and all(x.value is None for x in v.values()):
+        return [form["words"]]
+    main = next((v[d] for d in ("breed", "species") if d in v and v[d].value is not None), None)
+    return [v.get("life_stage"), main if main is not None else form["noun"]]
 
 
 def template_text(entry: Dict[str, Any]) -> str:

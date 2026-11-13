@@ -27,7 +27,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-8"   # reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-9"   # reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -51,7 +51,8 @@ For each numbered part, say what it is and how it varies. Only the numbered part
 words outside them stay as the user wrote them, and are never a part, even when they name a
 person. Reply with JSON only, with nothing
 before or after it, in the shape shown at the end. Each part's own fields go in an object named
-after its kind: "person": {...}, "camera": {...}, "light": {...}, "list": {...} or "free": {...}.
+after its kind: "person": {...}, "animal": {...}, "camera": {...}, "light": {...}, "list": {...} or
+"free": {...}.
 
 kind:
 - "person": someone the prompt doesn't already have, named by the part's own words: "young
@@ -62,8 +63,11 @@ kind:
   "a knight in ⟨armor⟩"), are never a person, even when that is all the part is about: the
   person is already in the prompt's own words. They are a "list" when a list below covers
   them, else "free".
+- "animal": an animal the prompt doesn't already have, named by the part's own words: "pet",
+  "dog", "old cat", "animal".
 - "camera": how the picture is taken: shot size, lens, angle, film look.
-- "light": the light in the scene.
+- "light": the light in the scene, as one named look (a softbox, flash, chiaroscuro, golden
+  hour light), never split into its source, direction or color.
 - "list": something one of the lists below holds: the list's items are kinds of the very thing
   the words name, not of something like it. Give its id.
 - "free": anything else. Options will be written for it.
@@ -89,11 +93,22 @@ For a person:
 - outfit_examples: when outfit is "written", three outfits that suit the scene, each as it
   would read after "wearing"; else [].
 
+For an animal:
+- noun: what it is, in one word from its words ("pet", "dog", "cat").
+- vary: what changes from image to image, from: species (what kind of animal, when the words
+  leave it open: "pet", "animal"), breed (when the words name one kind that has a breed list
+  below: "dog"; never beside species), life_stage (baby, juvenile, adult, elderly).
+- breed: the id of that kind's breed list below, or "".
+- stated: for each of those the words settle, the words that settle it, copied exactly:
+  {"life_stage": "old"}.
+  "animal": {"noun": "dog", "vary": ["breed", "life_stage"], "breed": "<a breed list's id>", "stated": {}}
+
 For a camera: vary, the parts of it that change, from: shot_size, lens, angle, film_look.
   "camera": {"vary": ["shot_size", "angle"]}
 
-For light: examples, three kinds of light that fit this scene.
-  "light": {"examples": ["...", "...", "..."]}
+For light: list, the id of the lighting list below whose looks suit this scene, or "" when
+none does; and examples, three looks of light that fit this scene.
+  "light": {"list": "<a lighting list's id, or empty>", "examples": ["...", "...", "..."]}
 
 For a list: list (its id) and about (what it is in this image, and whose, in a few words, with
 what the prompt and notes say of them: "the girl's hairstyle", "a middle-aged man's hairstyle",
@@ -103,11 +118,11 @@ what the prompt and notes say of them: "the girl's hairstyle", "a middle-aged ma
 For free: about (what it is in this image, a few words), kinds (three specific kinds of the
 thing the words name) and instead: up to three other things that would naturally stand in the
 same place instead, only when something does ("on a ⟨bench⟩" could be "low stone wall"). Often
-nothing does (what stands instead of a pet?): then instead is [].
+nothing does (what stands instead of a hat?): then instead is [].
 
 Write every example (light, kinds, instead) so it replaces exactly the bracketed words: the
-same form, no article unless the words have one. "with his ⟨pet⟩" gives "ginger tabby cat",
-not "a cat".
+same form, no article unless the words have one. "in his ⟨hat⟩" gives "battered fedora",
+not "a fedora".
 
 For every part:
 - label: two or three words naming it for a menu.
@@ -139,10 +154,8 @@ SHAPE = {
          "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "elderly", "descent": "African"},
                     "vary": ["age", "descent", "build", "hair", "hair_color", "facial_hair"],
                     "outfit": "person.outfit.casual", "outfit_examples": []}},
-        {"n": 2, "kind": "free", "label": "Pet", "lead": " with his",
-         "free": {"about": "his pet, with him on the porch",
-                  "kinds": ["ginger tabby cat", "old basset hound", "grey parrot"],
-                  "instead": []}},
+        {"n": 2, "kind": "animal", "label": "Pet", "lead": " with his",
+         "animal": {"noun": "pet", "vary": ["species", "life_stage"], "breed": "", "stated": {}}},
     ],
     "lists": [{"n": 1, "label": "Season"}],
 }
@@ -158,7 +171,7 @@ TAGS = {
 }
 
 # The lists the reader may bind a slot to (vocab.catalog's roots, the outfit and hairstyle lists among them).
-CATALOG_ROOTS = ("person", "animal", "place", "scene", "camera", "art.style")
+CATALOG_ROOTS = ("person", "animal", "place", "scene", "camera", "lighting", "art.style")
 
 
 def system_text() -> str:
@@ -334,11 +347,34 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
         if not vary:
             raise _Bad(f"part {n}: a camera must vary some of {', '.join(CAMERA)}")
         out["camera"] = {"vary": vary}
-    elif kind == "light":   # a free slot for now (its examples are its seeds), shown as light
+    elif kind == "animal":
+        from prompt_programs.fill import ANIMAL, ANIMAL_LISTS
+        noun = str(got.get("noun") or "").strip()
+        if not noun or not _copied(noun, sources):
+            raise _Bad(f'part {n}: an animal\'s noun is one of its own words, and "{noun}" is not among the words "{seg.words}"')
+        vary = [d for d in dict.fromkeys(_strings(got.get("vary"), f"part {n}: vary")) if d in ANIMAL]
+        breed = got.get("breed") if isinstance(got.get("breed"), str) else ""
+        if breed and (vocab.get(breed) is None or breed in ANIMAL_LISTS.values() or not breed.startswith("animal.")):
+            raise _Bad(f'part {n}: breed "{breed}" is not one of the animal lists')
+        if "breed" in vary and not breed:
+            raise _Bad(f"part {n}: a breed that varies needs its list's id in breed")
+        if "breed" in vary and "species" in vary:
+            raise _Bad(f"part {n}: breed varies only when the words name one kind, so never beside species")
+        stated = got.get("stated") if isinstance(got.get("stated"), dict) else {}
+        kept = {d: w.strip() for d, w in stated.items()
+                if d in ANIMAL and isinstance(w, str) and w.strip() and _copied(w, sources)}
+        vary = list(dict.fromkeys([*vary, *(d for d in kept if d != "breed" or breed)]))
+        if not vary:
+            raise _Bad(f"part {n}: an animal needs something to vary, from {', '.join(ANIMAL)}")
+        out["animal"] = {"noun": noun, "vary": vary, "breed": breed if "breed" in vary else "", "stated": kept}
+    elif kind == "light":   # one named look of light: a lighting list's, or written for the scene
         examples = _strings(got.get("examples"), f"part {n}: examples")
-        if not examples:
+        lid = got.get("list") if isinstance(got.get("list"), str) else ""
+        if lid and (vocab.get(lid) is None or not lid.startswith("lighting.")):
+            raise _Bad(f'part {n}: light list "{lid}" is not one of the lighting lists')
+        if not examples and not lid:
             raise _Bad(f"part {n}: light needs three examples")
-        out["light"] = {"examples": examples}
+        out["light"] = {"list": lid, "examples": examples}
     elif kind == "list":
         lid = got.get("list")
         if not isinstance(lid, str) or vocab.get(lid) is None:

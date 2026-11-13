@@ -88,12 +88,12 @@ def test_any_is_no_choice(porch):
 
 
 def test_keep_choices_map_to_values(porch):
-    assert kept(porch, {"pet": "grey parrot", "Season": ["autumn"]}) == {"pet": {"values": ["grey parrot"]},
+    assert kept(porch, {"pet": "gray parrot", "Season": ["autumn"]}) == {"pet": {"values": ["gray parrot"]},
                                                                          "list1": {"values": ["autumn"]}}
     with pytest.raises(UnknownChoiceError, match="isn't a choice"):
         kept(porch, {"hat": "a fedora"})
     from routes.generation import pins_for_kept_choices
-    assert pins_for_kept_choices(porch, {"pet": "grey parrot"}) == {"pet": ["grey parrot"]}
+    assert pins_for_kept_choices(porch, {"pet": "gray parrot"}) == {"pet": ["gray parrot"]}
 
 
 # --------------------------------------------------------------------------- the routes
