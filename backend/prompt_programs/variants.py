@@ -368,7 +368,8 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_c
     cores = _spread(rng, seeds.core, n, used_cores) if seeds.core is not None else []
     aspects = [a for a in ASPECTS if not (seeds.clothes_owned and a == CLOTHES)
                and not (a == AGE_SHOWS and seeds.age is None)]   # words that state an age carry it ("young")
-    rng.shuffle(aspects)
+    pairs = [(a, b) for i, a in enumerate(aspects) for b in aspects[i + 1:]]   # every pair, in a shuffled cycle
+    rng.shuffle(pairs)
     specs: List[Spec] = []
     for i in range(n):
         s = Spec()
@@ -377,8 +378,8 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_c
         if seeds.gender is not None:
             s.gender = _weighted(rng, seeds.gender.values)
             s.gender_needs = tuple(t for t in tokens(gender_mark(s.gender)) if t not in tokens(words))
-        if seeds.person and aspects:
-            s.develop = (aspects[(2 * i) % len(aspects)], aspects[(2 * i + 1) % len(aspects)])
+        if seeds.person and pairs:
+            s.develop = pairs[i % len(pairs)]
         if seeds.age is not None:
             s.age = _weighted(rng, seeds.age.values)
         if cores:
