@@ -10,7 +10,8 @@ import type { ChoicePool, PreparedProgram, ProgramChoice, ProgramSlot } from '..
 // The real composable and components, against a stand-in server that answers /prepare and
 // /pools in the shapes the routes give (routes/prompt_programs.py): a slot's span holds its
 // brackets, a bound pick names its list and tiers, a list's declared groups are the facet
-// "group", a cache-only miss is {key: null}. `window.calls` records what was sent.
+// "group". The base prompt is read; a slot added to it is `reading` until a prepare that isn't
+// cache-only reads it, in the background (`working`). `window.calls` records what was sent.
 
 const words = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix} ${i + 1}`)
 const PROMPT = 'dorm room with a <young man> and his <pet>, lit by <light>, {summer|autumn}'
@@ -70,6 +71,10 @@ const calls: Array<{ url: string; body: any }> = ((window as any).calls = [])
 const prompt = ref(PROMPT)
 // How long a model call takes here.
 const prepareMs = ref(0)
+// <cat> and <broken>: 'working' while the server reads them, then 'read'.
+const reads = new Map<string, 'working' | 'read'>()
+const unread = (slot: ProgramSlot): ProgramSlot => ({ ...slot, kind: 'free', label: slot.words, details: [], state: 'reading' })
+const broken: ProgramSlot = { id: 'broken', n: 1, kind: 'free', label: 'broken', words: 'broken', span: [2, 10], line: 1, details: [] }
 
 axios.defaults.adapter = async (config: any) => {
   const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data || {}
@@ -81,14 +86,18 @@ axios.defaults.adapter = async (config: any) => {
     // A prompt with nothing in it that varies has no program, and is no error.
     if (!/[<{]/.test(body.prompt || '')) return ok({ key: null, slots: [], choices: [] })
     if (body.prompt?.includes('<broken>')) {
-      if (body.cache_only) return ok({ key: null })
+      if (body.cache_only) return ok({ key: 'kb', slots: [unread(broken)], choices: [], reading: true, working: false })
       const e: any = new Error('424')
       e.response = { status: 424, data: { detail: { code: 'reader_failed', message: 'The chat model’s reading of this prompt couldn’t be used.' } } }
       throw e
     }
-    if (body.cache_only && withCat) return ok({ key: null })
-    if (!body.cache_only) await new Promise(r => setTimeout(r, prepareMs.value))
-    return ok(withCat ? program([man, pet, light, cat], [ch('cat', 'Cat', { slot: 'cat', options: ['cat'], zones: [{ id: 'kinds', title: 'Kinds of cat' }, { id: 'instead', title: 'Instead of cat' }] })]) : program([man, pet, light]))
+    if (!withCat) return ok(program([man, pet, light]))
+    if (!body.cache_only && !reads.has('cat')) {
+      reads.set('cat', 'working')
+      setTimeout(() => reads.set('cat', 'read'), prepareMs.value)
+    }
+    if (reads.get('cat') !== 'read') return ok({ ...program([man, pet, light, unread(cat)]), reading: true, working: reads.get('cat') === 'working' })
+    return ok(program([man, pet, light, cat], [ch('cat', 'Cat', { slot: 'cat', options: ['cat'], zones: [{ id: 'kinds', title: 'Kinds of cat' }, { id: 'instead', title: 'Instead of cat' }] })]))
   }
   if (url === 'pools') {
     const have = new Set((withCat ? [...choices, { id: 'cat' }] : choices).map(c => c.id))

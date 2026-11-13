@@ -1,4 +1,4 @@
-import { computed, createApp, defineComponent, h, provide, ref } from 'vue'
+import { computed, createApp, defineComponent, h, provide, ref, watch } from 'vue'
 import axios from 'axios'
 import '../../src/style.css'
 import AIPromptEditor from '../../src/components/generation/AIPromptEditor.vue'
@@ -15,7 +15,8 @@ import { mediaMenuActions, useMediaMenuAction } from '../../src/composables/useM
 // Tool View's prompt card in Fluent, wired as ToolView.vue wires it: the real editor with
 // the real Fluent menu in its mode slot and the pill row under the text, the slot card, the
 // prompt program composable, and a Generate button that shapes the submit's promptOptions
-// the way ToolView's submit does (utils/fluentSubmit.ts). The page's routes answer the
+// the way ToolView's submit does (utils/fluentSubmit.ts). As in ToolView, the prompt is read
+// when the user pauses in the box or leaves it, not while they type. The page's routes answer the
 // backend's endpoints in their real shapes; what Generate sent lands in window.sent.
 
 const prompt = ref((window as any).START ?? '')
@@ -45,6 +46,8 @@ const App = defineComponent({
     })
     const raw = computed(() => !!promptOptions.value.raw)
     const direct = computed(() => !!promptOptions.value.direct)
+    const editorEl = () => document.querySelector('[data-prompt-editor]')
+    const inEditor = () => !!editorEl()?.contains(document.activeElement)
     const program = usePromptProgram({
       toolId: ref('local/krea-2'),
       prompt,
@@ -52,7 +55,24 @@ const App = defineComponent({
       projectId: ref(7),
       promptOptions,
       setPromptOptions: (next: any) => { promptOptions.value = next },
-      prepareWhenFound: () => true,
+      prepareWhenFound: () => !inEditor(),
+    })
+    // ToolView's handlePromptFocusOut, preparePromptNow and its typing pause.
+    let pause: ReturnType<typeof setTimeout> | null = null
+    const clearPause = () => { if (pause) clearTimeout(pause); pause = null }
+    function prepareNow() {
+      clearPause()
+      if (program.status.value === 'busy' || program.needsRead()) void program.prepare()
+    }
+    function onFocusout(e: FocusEvent) {
+      if (editorEl()?.contains(e.relatedTarget as Node | null)) return
+      clearPause()
+      if (program.needsRead()) void program.prepare()
+    }
+    watch(prompt, () => {
+      clearPause()
+      if (!inEditor()) return
+      pause = setTimeout(() => { pause = null; if (inEditor()) prepareNow() }, 1500)
     })
     const enhance = computed<EnhanceLevel>(() => {
       const ai = promptOptions.value.autoImprove
@@ -70,8 +90,13 @@ const App = defineComponent({
       const { data } = await axios.post('/api/generate', { tool_id: 'local/krea-2', parameters: { prompt: prompt.value }, promptOptions: shaped })
       sent.push(data)
     }
+    // Generate with the cursor still in the prompt (a shortcut), so leaving it reads nothing.
+    ;(window as any).generate = generate
     return () => h('div', { class: 'p-4 w-full max-w-[520px] flex flex-col gap-3' }, [
       h(AIPromptEditor, {
+        'data-prompt-editor': '',
+        onFocusout,
+        onSave: prepareNow,
         modelValue: prompt.value,
         'onUpdate:modelValue': (v: string) => { prompt.value = v },
         promptOptions: promptOptions.value,

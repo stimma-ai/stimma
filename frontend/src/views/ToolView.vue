@@ -4217,7 +4217,7 @@ function handlePromptFocusOut(event: FocusEvent) {
   clearPromptPause()
   // Fluent reads a changed prompt as soon as you're done typing, so the first run
   // usually doesn't wait. Same request as a run's, shared if both happen.
-  if (promptProgram.status.value === 'stale') void promptProgram.prepare()
+  if (promptProgram.needsRead()) void promptProgram.prepare()
 }
 
 // Detail Level changes what the program writes, so read the prompt again right away,
@@ -4234,8 +4234,7 @@ function setDetailLevel(level: EnhanceLevel) {
 // for an edit.
 function preparePromptNow() {
   clearPromptPause()
-  const s = promptProgram.status.value
-  if (s === 'stale' || s === 'busy') void promptProgram.prepare()
+  if (promptProgram.status.value === 'busy' || promptProgram.needsRead()) void promptProgram.prepare()
 }
 
 // Done typing also means a pause with the cursor still in the field. Long enough to

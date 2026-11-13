@@ -68,7 +68,8 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   const calls = { prepare: [], suggest: [], add: [], pools: [] }
-  const prepared = new Set()
+  // The slots the server has read, by their words: 'working' while it reads one, then 'read'.
+  const reads = new Map()
   await page.route('**/*', async route => {
     const url = route.request().url()
     const body = route.request().method() === 'POST' ? route.request().postDataJSON() : null
@@ -89,9 +90,21 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
       calls.prepare.push(body)
       const read = readSlots(body.prompt)
       if (!read.key) return json({ key: null, slots: [], choices: [] })
-      if (body.cache_only && !prepared.has(read.key)) return json({ key: null })
-      if (!body.cache_only) { await new Promise(r => setTimeout(r, 700)); prepared.add(read.key) }
-      return json({ ...read, example: 'A dorm room with a 24-year-old Korean man', seconds: 0.7,
+      // As slots.prepare answers: at once, every slot from the parse, each `reading` until it
+      // is read (a slot read for an earlier prompt is read here too). Only a prepare that isn't
+      // cache-only starts reading, in the background (`working`) for 700 ms.
+      if (!body.cache_only) for (const sl of read.slots) if (!reads.has(sl.words)) {
+        reads.set(sl.words, 'working')
+        setTimeout(() => reads.set(sl.words, 'read'), 700)
+      }
+      const done = new Set(read.slots.filter(sl => reads.get(sl.words) === 'read').map(sl => sl.id))
+      if (done.size < read.slots.length) {
+        const slots = read.slots.map(sl => done.has(sl.id) ? { ...sl, state: 'ready' }
+          : { id: sl.id, n: sl.n, kind: 'free', label: sl.words, words: sl.words, span: sl.span, line: sl.line, details: [], state: 'reading' })
+        const choices = read.choices.filter(c => done.has(c.slot))
+        return json({ key: read.key, slots, choices, reading: true, working: read.slots.some(sl => reads.get(sl.words) === 'working') })
+      }
+      return json({ ...read, slots: read.slots.map(s => ({ ...s, state: 'ready' })), reading: false, working: false, example: 'A dorm room with a 24-year-old Korean man', seconds: 0.7,
         ...(body.include_program ? { picks: [{ id: 'young_man.age', cls: 'person.age_band' }], example: 'Dorm room with a 21-year-old man', readings: { slots: [{ n: 1, kind: 'person', label: 'Young man' }] } } : {}) })
     }
     if (url.endsWith('/prompt-programs/pools')) {
@@ -194,9 +207,56 @@ test('the main story, desktop light', async t => { await story(t, { theme: 'ligh
 test('the main story, phone dark', async t => { await story(t, { width: 390, height: 844, mobile: true, tag: 'phone-dark' }) })
 test('the main story, phone light', async t => { await story(t, { width: 390, height: 844, mobile: true, theme: 'light', tag: 'phone-light' }) })
 
+// A look-up never starts reading: it finds a slot just typed `reading`, with nothing reading
+// it. The prompt is read once the user pauses in the box, leaves it, or generates, and only once.
+async function typeSlot(t) {
+  const o = await open(t)
+  await o.editor.click()
+  await o.page.keyboard.type('a <young man')
+  await o.page.keyboard.type('>')
+  await expect.poll(() => text(o.page)).toBe('a <young man>')
+  // The look-up has found it unread: a pill that is still reading, and nothing asked to read it.
+  await expect(o.pills.locator('[data-choice="young_man"] [data-reading]')).toBeVisible({ timeout: 2000 })
+  assert.deepEqual(o.calls.prepare.filter(b => !b.cache_only), [])
+  return o
+}
+const reads = calls => calls.prepare.filter(b => !b.cache_only).map(b => b.prompt)
+async function filledIn({ pills, calls }) {
+  await expect(pills.locator('[data-choice="young_man"]')).toHaveText('Young man', { timeout: 4000 })
+  await expect(pills.locator('[data-reading]')).toHaveCount(0)
+  assert.deepEqual(reads(calls), ['a <young man>'])
+}
+
+test('a slot typed is read once the user pauses in the prompt', async t => {
+  const o = await typeSlot(t)
+  await expect.poll(() => reads(o.calls), { timeout: 2500 }).toEqual(['a <young man>'])
+  assert.ok(await o.page.evaluate(() => document.querySelector('[data-prompt-editor]').contains(document.activeElement)))
+  await filledIn(o)
+  await o.page.waitForTimeout(1600)
+  assert.deepEqual(reads(o.calls), ['a <young man>'])
+})
+
+test('a slot typed is read when the user leaves the prompt', async t => {
+  const o = await typeSlot(t)
+  await o.page.mouse.click(880, 740)
+  await expect.poll(() => reads(o.calls), { timeout: 500 }).toEqual(['a <young man>'])
+  await filledIn(o)
+})
+
+test('a slot typed is read when the user generates at once', async t => {
+  const o = await typeSlot(t)
+  await o.page.evaluate(() => window.generate())
+  await expect.poll(() => reads(o.calls), { timeout: 500 }).toEqual(['a <young man>'])
+  await expect.poll(() => o.page.evaluate(() => window.sent.length)).toBe(1)
+  await filledIn(o)
+  await o.page.waitForTimeout(1600)
+  assert.deepEqual(reads(o.calls), ['a <young man>'])
+})
+
 test('the developer view shows the slot reading and the picks made from it', async t => {
   const { page, card } = await open(t, { start: 'dorm room with a <young man>', dev: true })
   await expect(page.locator('[data-program-choices] [data-choice="young_man"]')).toBeVisible({ timeout: 4000 })
+  await expect(page.locator('[data-program-choices] [data-reading]')).toHaveCount(0, { timeout: 4000 })
   await expect(card).toHaveCount(0)
   await page.locator('[data-fluent-chip]').click()
   await page.getByRole('button', { name: 'Show readings' }).click()

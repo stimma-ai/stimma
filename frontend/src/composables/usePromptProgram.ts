@@ -267,9 +267,16 @@ export function usePromptProgram(o: Options) {
     return false
   }
 
+  /** The prompt in the box hasn't been sent for reading: stale, or looked up with slots still
+      unread and nothing reading them (a look-up never starts reading). */
+  function needsRead(): boolean {
+    if (status.value === 'stale') return true
+    return status.value === 'ready' && !!program.value?.reading && !program.value?.working && startedSig !== signature.value
+  }
+
   /** Before a run: start reading the prompt if it isn't yet, and go on at once. */
   async function ensureReady(): Promise<boolean> {
-    if (status.value === 'stale' && startedSig !== signature.value) void prepare()
+    if (needsRead()) void prepare()
     return true
   }
 
@@ -436,7 +443,7 @@ export function usePromptProgram(o: Options) {
   // the slot has reached us (the editor may say so before or after the text changes).
   watch([openCard, status], () => {
     const t = openCard.value?.target
-    if (t && 'slot' in t && status.value === 'stale' && !slotFor(t.slot)) void nextTick(() => { if (status.value === 'stale') void prepare() })
+    if (t && 'slot' in t && needsRead() && slotFor(t.slot)?.state !== 'ready') void nextTick(() => { if (needsRead()) void prepare() })
   })
   // A choice card closes itself when its choice goes (a prepare without it).
   watch(() => {
@@ -471,7 +478,7 @@ export function usePromptProgram(o: Options) {
 
   return {
     program, status, error, unsupported, slots, choices, byId, slotById, followers, pools, states, openCard,
-    lookup, prepare, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns,
+    lookup, prepare, needsRead, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns,
     poolOf, optionsOf, suggestOptions, isOwn, addOwn, forgetOwn, setState, setStates, setValues, reset, resetAll,
     slotFor, detailsOf, isBuilder, openSlot, openChoice, openEditorSlot, close,
   }
