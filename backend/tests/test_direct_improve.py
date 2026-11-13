@@ -105,12 +105,70 @@ def test_a_saved_value_with_lists_of_its_own_is_kept_whole():
 
 
 def test_saved_wildcards_inside_segments_are_drawn_and_kept_and_the_segment_stays_editable():
-    segments = [{"name": "scene", "content": "a photo of {{animal}} on {a|a} lawn"},
-                {"name": "loop", "content": "more {{loop}}"}]
-    text, spans = pp.draw_marked("{{scene}}, {{loop}}", WILDCARDS, segments)
+    segments = [{"name": "scene", "content": "a photo of {{animal}} on {a|a} lawn"}]
+    text, spans = pp.draw_marked("{{scene}}", WILDCARDS, segments)
     animal = "a corgi" if "a corgi" in text else "a tabby cat"
-    assert text == f"a photo of {animal} on a lawn, more {{{{loop}}}}"
+    assert text == f"a photo of {animal} on a lawn"
     assert [text[a:b] for a, b in spans] == [animal, "a"]
+
+
+def _as_direct_sends(prompt, wildcards, segments):
+    """What Direct sends with no improver: the shared resolver, then the final pass."""
+    return pp.process_final_prompt(pp.resolve_wildcards_for_llm(prompt, wildcards, segments), wildcards, segments)
+
+
+PARITY_SOURCES = (
+    [{"name": "outfit", "values": ["a {red|blue|green} silk dress", "a {gray|black} suit"]},
+     {"name": "animal", "values": ["a corgi", "a tabby cat", "a {young|old} parrot"]},
+     {"name": "split", "values": ["x|y"]},
+     {"name": "empty", "values": [""]}],
+    [{"name": "scene", "content": "a photo of {{animal}} on a {wet|dry} lawn"},
+     {"name": "deep", "content": "{{sky}} over {a|the} {{outfit}}"},
+     {"name": "sky", "content": "a {gray|blue} sky"}],
+)
+
+
+@pytest.mark.parametrize("prompt", [
+    "{{outfit}} with {{animal}}",                                  # compound values
+    "{{scene}}, {{outfit}}",                                       # a wildcard inside a segment
+    "{{deep}} and {{scene}}",                                      # a segment inside a segment
+    "a {red|blue} hat, {big|small|tiny} {dog|cat}",                 # plain lists
+    "a <young woman> in {{outfit}}\n# make it {dim|bright} {{animal}}\n[{a|b} sign] {{unknown}}",
+    "{a|{{animal}}|{{outfit}}} beside {{split}} and {x|{{split}}} {{empty}}",
+])
+def test_the_fill_draws_exactly_what_direct_draws_without_the_improver(prompt):
+    wildcards, segments = PARITY_SOURCES
+    for seed in range(40):
+        random.seed(seed)
+        expected = _as_direct_sends(prompt, wildcards, segments)
+        random.seed(seed)
+        text, spans = pp.draw_marked(prompt, wildcards, segments)
+        assert pp.process_final_prompt(text, wildcards, segments) == expected, seed
+        assert "⟦" not in text and "⟧" not in text
+        assert all(0 <= a < b <= len(text) for a, b in spans)
+
+
+def test_the_same_seed_draws_the_same_text_as_before():
+    wildcards = [{"name": "outfit", "values": ["a {red|blue} silk dress"]}] + WILDCARDS
+    random.seed(0)
+    text, spans = pp.draw_marked("{{outfit}} with {{animal}}", wildcards, [])
+    assert text == "a red silk dress with a tabby cat"
+    assert [text[a:b] for a, b in spans] == ["a red silk dress", "a tabby cat"]
+
+
+async def test_the_fallback_sends_what_direct_sends_without_the_improver(tool, monkeypatch):
+    import routes.prompt_enhancement as pe
+
+    wildcards = [{"name": "outfit", "values": ["a {red|blue} silk dress"]}] + WILDCARDS
+    monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: (wildcards, []))
+
+    async def broken(request, session):
+        raise RuntimeError("the chat model went away")
+    monkeypatch.setattr(pe, "improve_prompt", broken)
+    random.seed(0)
+    out = await _submit("{{outfit}} with {{animal}}")
+    assert out["prompt"] == "a red silk dress with a tabby cat"
+    assert out["prompt_direct"]["improve"]["improved"] == "fallback"
 
 
 async def test_improve_that_changes_a_compound_value_or_one_from_a_segment_falls_back(tool, monkeypatch):

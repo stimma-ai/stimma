@@ -243,69 +243,91 @@ def draw_marked(
     """Direct's fill for the per-image improver: the prompt with its lists and saved
     wildcards drawn and its <slots> as their words, comment lines and [exact text] still
     in place; and where each drawn value stands in it, for the improver to keep exactly.
-    A value drawn inside a comment line or [exact text] is not one of them: the first
-    is never repeated and the second is already kept."""
-    lookups = ({str(w["name"]).lower(): w.get("values") or [] for w in (wildcards or [])},
-               {str(sg["name"]).lower(): sg.get("content", "") for sg in (segments or [])})
-    text, spans = spans_of_marks(unwrap_slots(_resolve_marked(prompt, *lookups)))
+
+    It draws exactly as Direct does without the improver (resolve_wildcards_for_llm,
+    then process_final_prompt's second pass), in the same order, so the same seed draws
+    the same text. Each saved value and each list option is one value, marked whole
+    with whatever it drew inside it; a segment's own words are not a draw. A value drawn
+    inside a comment line or [exact text] is not one of them: the first is never
+    repeated and the second is already kept."""
+    has_sources = bool(wildcards or segments)
+    wildcard_lookup = {str(w["name"]).lower(): w.get("values") or [] for w in (wildcards or [])}
+    segment_lookup = {str(sg["name"]).lower(): sg.get("content", "") for sg in (segments or [])}
+
+    def named(text: str) -> str:  # expand_named_wildcards, marking each drawn value
+        if not has_sources:
+            return text
+
+        def repl(match: re.Match) -> str:
+            key = match.group(1).strip().lower()
+            if key in segment_lookup:
+                return segment_lookup[key]
+            values = wildcard_lookup.get(key)
+            if not values:
+                return match.group(0)
+            return _marked(random.choice(values))
+        return _NAMED_RE.sub(repl, text)
+
+    def lists(text: str, *, skip_comments: bool) -> str:  # expand_wildcards, marking each option
+        protected: List[str] = []
+
+        def protect(match: re.Match) -> str:
+            protected.append(match.group(0))
+            return f"\x00{len(protected) - 1}\x00"
+        text = _NAMED_RE.sub(protect, text)
+
+        def pick(match: re.Match) -> str:
+            # The second pass runs after comment lines are gone: a list on one draws nothing.
+            if skip_comments:
+                line = text[text.rfind("\n", 0, match.start()) + 1:]
+                if _unmarked(line).lstrip().startswith("#"):
+                    return match.group(0)
+            return _marked(random.choice([c.strip() for c in match.group(1).split("|")]))
+        text = _LIST_RE.sub(pick, text)
+        return re.sub("\x00(\\d+)\x00", lambda m: protected[int(m.group(1))], text)
+
+    text = lists(named(prompt), skip_comments=False)
+    text = lists(named(text), skip_comments=True)
+    text, spans = spans_of_marks(unwrap_slots(_outermost_marks(text)))
     kept = [(m.start(), m.end()) for m in re.finditer(r"\[[^\[\]]+\]", text)]
     kept += [(m.start(), m.end()) for m in re.finditer(r"(?m)^[ \t]*#.*$", text)]
-    return text, [s for s in spans if not any(a <= s[0] and s[1] <= b for a, b in kept)]
+    return text, [sp for sp in spans if sp[1] > sp[0] and text[sp[0]:sp[1]].strip()
+                  and not any(a <= sp[0] and sp[1] <= b for a, b in kept)]
 
 
 _NAMED_RE = re.compile(r"\{\{([^{}]+)\}\}")
 _LIST_RE = re.compile(r"\{([^{}]+)\}")
-# How deep saved wildcards and segments may refer to one another.
-_MAX_NESTING = 8
 
 
 def _unmarked(text: str) -> str:
     return text.replace(_MARK_OPEN, "").replace(_MARK_CLOSE, "")
 
 
-def _mark_whole(value: str) -> str:
-    """A drawn value, all of it in one pair of ⟦ ⟧ marks, whatever it drew inside. A blank
-    value has nothing to keep; one still holding a reference that resolves to nothing
-    keeps the marks it has."""
-    plain = _unmarked(value)
-    if not plain.strip() or any(c in plain for c in "{}\x00"):
-        return value
-    return f"{_MARK_OPEN}{plain}{_MARK_CLOSE}"
+def _marked(value: str) -> str:
+    return f"{_MARK_OPEN}{value}{_MARK_CLOSE}"
 
 
-def _resolve_marked(text: str, wildcards: Dict[str, List[str]], segments: Dict[str, str],
-                    within: Tuple[str, ...] = ()) -> str:
-    """The text with every saved wildcard, segment and inline list resolved, nested ones
-    too, each drawn value marked whole: a saved value ("a {red|blue} silk dress") or a
-    list's option is one value, its own lists drawn first. A segment's text is the user's
-    words, not a draw: only what it draws is marked. A reference to itself (directly or
-    through others), or one nested too deep, is left as written."""
-    def named(match: re.Match) -> str:
-        key = match.group(1).strip().lower()
-        if key in within or len(within) >= _MAX_NESTING:
-            return match.group(0)
-        if key in segments:
-            return _resolve_marked(segments[key], wildcards, segments, within + (key,))
-        values = wildcards.get(key)
-        if not values:
-            return match.group(0)
-        return _mark_whole(_resolve_marked(random.choice(values), wildcards, segments, within + (key,)))
-
-    text = _NAMED_RE.sub(named, text)
-    # Inline lists, innermost first; references left as written are kept out of the way.
-    protected: List[str] = []
-
-    def protect(match: re.Match) -> str:
-        protected.append(match.group(0))
-        return f"\x00{len(protected) - 1}\x00"
-
-    text = _NAMED_RE.sub(protect, text)
-    for _ in range(_MAX_NESTING):
-        drawn = _LIST_RE.sub(lambda m: _mark_whole(random.choice([c.strip() for c in m.group(1).split("|")])), text)
-        if drawn == text:
-            break
-        text = drawn
-    return re.sub("\x00(\\d+)\x00", lambda m: protected[int(m.group(1))], text)
+def _outermost_marks(text: str) -> str:
+    """Only the outermost pair of each nest of marks: a value that drew inside it (a saved
+    value with a list of its own, a list option that was a saved value) is one value."""
+    out: List[str] = []
+    depth = 0
+    opened = -1
+    for ch in text:
+        if ch == _MARK_OPEN:
+            depth += 1
+            if depth == 1:
+                opened = len(out)
+                out.append(ch)
+        elif ch == _MARK_CLOSE:
+            if depth == 1:
+                out.append(ch)
+            depth = max(0, depth - 1)
+        else:
+            out.append(ch)
+    if depth:  # a mark never closed (a value split by a list's "|"): it marks nothing
+        del out[opened]
+    return "".join(out)
 
 
 # --- Ideogram 4 detection (mirrors isIdeogram4 in ToolView.vue) ----------------
