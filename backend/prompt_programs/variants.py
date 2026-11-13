@@ -43,7 +43,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-1"
+VARIANTS_VERSION = "variants-2"   # variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -236,9 +236,19 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
     if d is not None and stated_descent and len(d.values) == 1:
         d = None   # their words name it already
     return Seeds(descent=d, gender=bank(GENDER, gender),
-                 age=bank(AGE, ages, minor=bool(minor)) if ages is not None else None, minor=minor,
+                 age=bank(AGE, ages, minor=bool(minor)) if ages is not None and _open_age(ages) else None, minor=minor,
                  ideas=tuple(b for b in (bank(lid, n, minor=bool(minor), stated=stated) for lid, n in ideas)
                              if b is not None))
+
+
+def _open_age(ages: Sequence[str]) -> bool:
+    """Whether a person's words leave their age open: narrowing kept every adult age ("chef",
+    "person"). Words that state an age ("young woman", "elderly man", "a little girl") carry it, and
+    a number beside them reads awkwardly; their narrowing still says who may be under 18."""
+    from prompt_programs.vocab import vocabulary
+    leaf = vocabulary().get(AGE)
+    adults = {v.text for v in leaf.values if not v.opt_in} if leaf is not None else set()
+    return bool(adults) and adults <= set(ages)
 
 
 def list_seeds(lists: Sequence[Tuple[str, Optional[Sequence[str]]]], *, single: bool = False,
@@ -389,7 +399,7 @@ Ideas. You may get ideas drawn at random from vocabulary lists, for breadth and 
 Per-variant seeds, one line per variant when given:
 - a quoted descent: write that exact word or words into the variant, meaning that heritage's look. If the marked words name several people, it applies to one of them.
 - gender: who the person is; write them as that, in words that fit their own words and the picture.
-- age: about how old the person is; say it in words that fit their words (a number, or "in her forties"). Their own words about age always hold.
+- age: about how old the person looks; work it in before their words ("a 34-year-old chef") or say it another natural way ("a chef in her forties"), never as a number tacked on at the end.
 - core: build this variant on that value, adding a few words that place it in this prompt. If it can't be true in this prompt, use another value of the same kind and list the core under "rejected".
 
 Reply with JSON only, no other text:
@@ -519,9 +529,9 @@ def repair(text: str, left: Sequence[str], right: Sequence[str], *, words: str =
     if "<" in t:
         t = t[:t.index("<")]
         did.append("markup")
-    for k in (len(left), 4, 3, 2):
+    for k in (len(left), 4, 3, 2, 1):
         lw = list(left[-k:]) if k <= len(left) else []
-        if len(lw) >= 2:
+        if lw and (len(lw) >= 2 or lw[-1].lower() not in _ARTICLES):   # one word too: "two <women>" -> no "two two"
             m = re.match(r"^\W*(?:" + r"\W+".join(re.escape(w) for w in lw) + r")\b\W*", t, re.I)
             if m:
                 t = t[m.end():]

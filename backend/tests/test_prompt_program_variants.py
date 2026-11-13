@@ -121,6 +121,10 @@ def test_repair_cuts_copied_context_markup_and_a_doubled_article():
     left, right = V.context_words(prompt, (2, 10))
     text, did = V.repair("a young couple holding hands", left, right)
     assert text == "young couple holding hands" and "article" in did
+    prompt = "two <women> kissing in a steamy shower"
+    left, right = V.context_words(prompt, (4, 11))
+    text, did = V.repair("two Somali women", left, right)   # one copied word before the slot
+    assert text == "Somali women" and "left" in did
 
 
 def test_repair_cuts_a_label_and_the_article_of_a_phrase_the_slot_heads():
@@ -217,7 +221,7 @@ def test_a_person_who_may_be_a_minor_gets_no_adult_only_seed_and_the_writer_is_t
     seeds = V.person_seeds(ages=["8-year-old", "9-year-old", "10-year-old"], ideas=[("person.makeup", None)])
     assert seeds.minor == ("8-year-old", "9-year-old", "10-year-old")
     assert not set(seeds.ideas[0].texts()) & adult
-    assert {s.age for s in V.draw_seeds(random.Random(1), seeds, 50).specs} <= set(seeds.minor)
+    assert seeds.age is None   # their words state their age ("little girl"): no number beside them
     msg = V.messages(slot_of("a <little girl> at the beach", "person"), V.draw_seeds(random.Random(1), seeds, 5), seeds)
     assert "under 18 (8, 9 or 10 years old)" in msg[1]["content"]
     # an adult keeps every value; the rule about who is an adult is always said
@@ -325,13 +329,15 @@ def test_the_writer_sees_the_whole_prompt_marked_with_its_notes_and_reasoning_of
 def test_a_person_gets_40_and_its_descent_checked():
     fake = FakeWriter()
     sl = slot_of(PROMPT, "person")
-    young = [f"{a}-year-old" for a in range(18, 30)]
-    batches = run(V.write_first(sl, V.person_seeds(ages=young), ask=fake, key="k" * 32))
+    adults = [v.text for v in vocabulary().get(V.AGE).values if not v.opt_in]   # words that leave age open
+    batches = run(V.write_first(sl, V.person_seeds(ages=adults), ask=fake, key="k" * 32))
     assert len(fake.calls) == 1 and fake.calls[0]["n"] == V.N_PERSON
     vs = batches[0].variants
     assert len(vs) == 40
     assert all(V.has_run(v["text"], v["seeds"]["descent"]) and V.has_run(v["text"], "dominant young woman") for v in vs)
-    assert all(v["seeds"].get("gender") and v["seeds"]["age"] in young for v in vs)
+    assert all(v["seeds"].get("gender") and v["seeds"]["age"] in adults for v in vs)
+    # words that state an age ("young") carry it: no age seed beside them
+    assert V.person_seeds(ages=[f"{a}-year-old" for a in range(18, 30)]).age is None
 
 
 def test_a_slip_degrades_never_raises():

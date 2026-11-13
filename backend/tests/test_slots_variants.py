@@ -107,7 +107,8 @@ async def test_each_slot_draws_a_variant_of_its_words(monkeypatch, profile):
     person = slot(entry, "dominant_young_woman")
     assert len(store.variants(person["pool"])) == 40
     seeds = [v["seeds"] for v in store.variants(person["pool"])]
-    assert {s["gender"] for s in seeds} <= {"woman", "trans woman"} and all(s["age"] in YOUNG for s in seeds)
+    assert {s["gender"] for s in seeds} <= {"woman", "trans woman"}
+    assert not any("age" in s for s in seeds)   # "young" states her age: no number beside it
     # a person whose clothes are another slot gets no outfit ideas
     banks = entry["seeds"]["dominant_young_woman"]["banks"]
     assert not any(b["list"].startswith(("person.outfit", "clothing.")) for b in banks)
