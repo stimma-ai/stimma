@@ -25,13 +25,16 @@ export function defaultZone(c: Pick<ProgramChoice, 'zones'>): string {
   return c.zones?.[0]?.id ?? 'all'
 }
 
+type ChoiceShape = Pick<ProgramChoice, 'zones'> & { starts_off?: boolean }
+
 /** A state as stored: empty parts dropped, the default zone alone dropped, `off` alone with
-    the user's own options. Null when nothing is left. */
-export function cleanState(c: Pick<ProgramChoice, 'zones'>, s: ChoiceState | null | undefined): ChoiceState | null {
+    the user's own options. A choice that starts left out keeps `on` and stores no `off` (that
+    is how it starts). Null when nothing is left. */
+export function cleanState(c: ChoiceShape, s: ChoiceState | null | undefined): ChoiceState | null {
   if (!s) return null
   const add = uniq(s.add || [])
   const own = add.length ? { add } : {}
-  if (s.off) return { off: true, ...own }
+  if (s.off) return c.starts_off ? (add.length ? { add } : null) : { off: true, ...own }
   const values = uniq(s.values || [])
   const groups: Record<string, string[]> = {}
   for (const [facet, parts] of Object.entries(s.groups || {})) {
@@ -42,6 +45,7 @@ export function cleanState(c: Pick<ProgramChoice, 'zones'>, s: ChoiceState | nul
   let zones = uniq(s.zones || [])
   if (!values.length && !grouped && zones.length === 1 && zones[0] === defaultZone(c)) zones = []
   const out: ChoiceState = {
+    ...(c.starts_off && s.on ? { on: true } : {}),
     ...(values.length ? { values } : {}),
     ...(grouped ? { groups } : {}),
     ...(zones.length ? { zones } : {}),
@@ -52,7 +56,12 @@ export function cleanState(c: Pick<ProgramChoice, 'zones'>, s: ChoiceState | nul
 
 /** The user changed what the choice draws (their own options alone change nothing). */
 export function isChanged(s: ChoiceState | null | undefined): boolean {
-  return !!s && (!!s.off || !!s.values?.length || !!s.zones?.length || Object.values(s.groups || {}).some(p => p.length))
+  return !!s && (!!s.off || !!s.on || !!s.values?.length || !!s.zones?.length || Object.values(s.groups || {}).some(p => p.length))
+}
+
+/** Left out now: by the user, or a choice that starts left out and wasn't turned on. */
+export function isOff(c: { starts_off?: boolean } | null | undefined, s: ChoiceState | null | undefined): boolean {
+  return !!s?.off || (!!c?.starts_off && !isChanged(s))
 }
 
 /** A list longer than this (thousands of faces) comes whole with /prepare, and /pools sends
@@ -91,9 +100,9 @@ export function groupMembers(pool: ChoicePool | null | undefined, facet: string,
 
 /** What an image can draw now. Null when the choice is left out. */
 export function drawable(c: ProgramChoice, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined): Set<string> | null {
-  if (s?.off) return null
+  if (isOff(c, s)) return null
   const zones = zonesOf(c, pool, s)
-  if (!isChanged(s)) return new Set(zones.find(z => z.id === defaultZone(c))?.options || zones[0]?.options || [])
+  if (!tokensOf(s).length) return new Set(zones.find(z => z.id === defaultZone(c))?.options || zones[0]?.options || [])
   const out = new Set<string>(s!.values || [])
   for (const [facet, parts] of Object.entries(s!.groups || {})) for (const p of parts) for (const o of groupMembers(pool, facet, p)) out.add(o)
   for (const z of zones) if (s!.zones?.includes(z.id)) for (const o of z.options) out.add(o)
@@ -119,7 +128,7 @@ export function hasToken(s: ChoiceState | null | undefined, t: Token): boolean {
 const flip = (xs: string[] | undefined, x: string) => (xs || []).includes(x) ? (xs || []).filter(v => v !== x) : [...(xs || []), x]
 
 /** Choose a token, or un-choose it when it is chosen. Choosing brings a left-out choice back. */
-export function toggleToken(c: Pick<ProgramChoice, 'zones'>, s: ChoiceState | null | undefined, t: Token): ChoiceState | null {
+export function toggleToken(c: ChoiceShape, s: ChoiceState | null | undefined, t: Token): ChoiceState | null {
   const base: ChoiceState = s?.off ? { add: s.add } : { ...(s || {}) }
   if (t.kind === 'value') base.values = flip(base.values, t.value)
   else if (t.kind === 'zone') base.zones = flip(base.zones, t.zone)
@@ -132,8 +141,14 @@ export function resetState(s: ChoiceState | null | undefined): ChoiceState | nul
   return s?.add?.length ? { add: s.add } : null
 }
 
-export function leaveOut(s: ChoiceState | null | undefined): ChoiceState {
+export function leaveOut(s: ChoiceState | null | undefined, c?: { starts_off?: boolean } | null): ChoiceState | null {
+  if (c?.starts_off) return resetState(s)   // how it starts
   return s?.add?.length ? { off: true, add: s.add } : { off: true }
+}
+
+/** "Any", for a choice that starts left out: drawn from all its options. */
+export function turnOn(s: ChoiceState | null | undefined): ChoiceState {
+  return { on: true, ...(s?.add?.length ? { add: s.add } : {}) }
 }
 
 // Words ----------------------------------------------------------------------------------
@@ -171,7 +186,7 @@ export function isAsWritten(slot: Pick<ProgramSlot, 'words'> | null | undefined,
 /** What the pill says after its label; '' when the label says it all. */
 export function pillValue(c: ProgramChoice, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined,
                           slot?: ProgramSlot | null): string {
-  if (!s || s.off) return ''
+  if (!s || isOff(c, s)) return ''
   if (isAsWritten(slot, s)) return 'as written'
   const tokens = tokensOf(s)
   if (!tokens.length) return ''
@@ -229,6 +244,8 @@ export interface Pill {
   resets: string[]
   /** A person (or camera) with several details chosen, as one pill. */
   folded: boolean
+  /** Its slot is still being read, or went in as written because it couldn't be. */
+  pending?: 'reading' | 'written'
 }
 
 export interface ChoiceWorld {
@@ -269,7 +286,7 @@ export function pillsOf(w: ChoiceWorld): Pill[] {
 
   function choicePill(c: ProgramChoice, label: string, slot: ProgramSlot | null, open: Pill['open']): Pill {
     const s = st(c.id)
-    const off = !!s?.off
+    const off = isOff(c, s)
     const value = pillValue(c, pool(c.id), s, slot)
     const tokens = tokensOf(s)
     const swatches = c.cls === PALETTE_CLS && tokens.length === 1 && tokens[0].kind === 'value' ? swatchesOf(tokens[0].value) : null
@@ -285,8 +302,9 @@ export function pillsOf(w: ChoiceWorld): Pill[] {
     details.forEach(c => inSlot.add(c.id))
     // A slot still being read (or read as written) is a pill with its label and nothing chosen yet.
     if (!details.length) {
-      out.push({ id: slot.id, open: { slot: slot.id }, label: slot.label, value: '', swatches: null, changed: false,
-        resets: [], folded: false, title: slot.label })
+      const pending = slot.degraded || slot.state === 'ready' ? 'written' : 'reading'
+      out.push({ id: slot.id, open: { slot: slot.id }, label: slot.label, value: pending === 'written' ? 'as written' : '',
+        swatches: null, changed: false, resets: [], folded: false, title: slot.label, pending })
       continue
     }
     if (!isBuilder(slot)) {
@@ -296,10 +314,10 @@ export function pillsOf(w: ChoiceWorld): Pill[] {
     const ids = details.map(c => c.id)
     const changed = details.filter(c => isChanged(st(c.id)))
     const base = { id: slot.id, open: { slot: slot.id }, swatches: null, resets: ids }
-    if (details.length && details.every(c => st(c.id)?.off)) {
+    if (details.length && details.every(c => isOff(c, st(c.id))) && details.some(c => st(c.id)?.off)) {
       out.push({ ...base, label: slot.label, value: 'as written', title: `${slot.label}\nas written`, changed: true, folded: false })
     } else if (changed.length >= FOLD) {
-      const said = changed.map(c => st(c.id)?.off ? offLabel(c.label).toLowerCase() : pillValue(c, pool(c.id), st(c.id)))
+      const said = changed.map(c => isOff(c, st(c.id)) ? offLabel(c.label).toLowerCase() : pillValue(c, pool(c.id), st(c.id)) || 'any')
       const lines = changed.map((c, i) => `${c.label}: ${said[i]}`)
       out.push({ ...base, label: slot.label, value: said.join(', '), title: [slot.label, ...lines].join('\n'), changed: true, folded: true })
     } else {

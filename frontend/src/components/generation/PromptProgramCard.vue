@@ -1,7 +1,8 @@
 <template>
   <!-- A slot's card. A person or a camera opens on its details, one row each with what it is
        set to; a row leads to that detail's chooser, with a back arrow. Anything else opens
-       its chooser directly. A slot just typed shows "Writing options…" until it is read.
+       its chooser directly. A slot just typed shows "Writing options…" until it is read; one
+       that couldn't be read went in as written, and offers to try again.
        Anchored to its pill (or the slot in the text) on desktop; a bottom sheet on touch. -->
   <Teleport to="body">
     <div v-if="card" class="fixed inset-0 z-menu" @click="program.close()">
@@ -31,8 +32,19 @@
 
         <!-- Not read yet -->
         <div v-if="view.kind === 'pending'" class="px-3 pb-3 flex items-center gap-2 text-xs text-content-muted" data-writing>
-          <template v-if="program.status.value === 'error'">{{ program.error.value?.message || 'Couldn’t read this prompt.' }}</template>
-          <template v-else><Spinner size="sm" /> Writing options…</template>
+          <Spinner size="sm" /> Writing options…
+        </div>
+
+        <!-- Went in as written: it couldn't be read this time -->
+        <div v-else-if="view.kind === 'written'" class="px-1.5 pb-1.5 flex flex-col gap-px" data-written>
+          <div :class="[rowClass, 'cursor-default hover:bg-transparent']">
+            <span class="shrink-0 w-3.5 h-4 flex items-center justify-center"><CheckIcon class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
+            <span class="flex-1 min-w-0 text-content font-medium">As written</span>
+          </div>
+          <button type="button" :class="[rowClass, 'text-accent']" data-read-again @click="readAgain">
+            <span class="shrink-0 w-3.5 h-4 flex items-center justify-center"><ArrowPathIcon class="w-3.5 h-3.5" /></span>
+            <span class="flex-1 min-w-0">Try again</span>
+          </button>
         </div>
 
         <!-- A builder: its details -->
@@ -81,12 +93,12 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
-import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import Spinner from '../ui/Spinner.vue'
 import PromptProgramOptions from './PromptProgramOptions.vue'
 import { useAnchoredMenuPosition } from '../../composables/useContextMenuPosition'
 import { useViewport } from '../../composables/useViewport'
-import { isChanged, offLabel, pillValue, resetState } from '../../utils/programChoices'
+import { isChanged, isOff, offLabel, pillValue, resetState } from '../../utils/programChoices'
 import type { PromptProgram, ProgramChoice, ProgramSlot } from '../../composables/usePromptProgram'
 
 const props = defineProps<{ program: PromptProgram }>()
@@ -113,6 +125,7 @@ watch(() => card.value, () => { stack.value = [] })
 
 type View =
   | { kind: 'pending'; words: string }
+  | { kind: 'written'; words: string }
   | { kind: 'panel'; slot: ProgramSlot }
   | { kind: 'choice'; choice: ProgramChoice; slot: ProgramSlot | null }
 
@@ -129,10 +142,13 @@ const topView = computed<View | null>(() => {
     return c ? choiceView(c) : null
   }
   const slot = props.program.slotFor(t.slot)
-  if (!slot) return { kind: 'pending', words: t.slot.words }
-  if (props.program.isBuilder(slot)) return { kind: 'panel', slot }
+  // Stuck: the prompt couldn't be read, or its reading stopped without this slot.
+  const stuck = props.program.status.value === 'error' || (props.program.status.value === 'ready' && !props.program.program.value?.working)
+  if (!slot) return { kind: stuck ? 'written' : 'pending', words: t.slot.words }
+  if (props.program.isBuilder(slot) && slot.details.length) return { kind: 'panel', slot }
   const c = props.program.byId.value[slot.details[0]]
-  return c ? choiceView(c) : { kind: 'pending', words: t.slot.words }
+  if (c) return choiceView(c)
+  return { kind: slot.degraded || slot.state === 'ready' || stuck ? 'written' : 'pending', words: t.slot.words }
 })
 const view = computed<View>(() => {
   const id = stack.value[stack.value.length - 1]
@@ -140,7 +156,7 @@ const view = computed<View>(() => {
   return c ? choiceView(c) : topView.value || { kind: 'pending', words: '' }
 })
 // A slot not read yet is titled by its words, as its label would start.
-const labelOf = (v: View | null) => !v ? '' : v.kind === 'pending' ? v.words.charAt(0).toUpperCase() + v.words.slice(1) : v.kind === 'panel' ? v.slot.label : (v.slot?.label || v.choice.label)
+const labelOf = (v: View | null) => !v ? '' : v.kind === 'pending' || v.kind === 'written' ? v.words.charAt(0).toUpperCase() + v.words.slice(1) : v.kind === 'panel' ? v.slot.label : (v.slot?.label || v.choice.label)
 const title = computed(() => labelOf(view.value))
 const backLabel = computed(() => {
   const prev = stack.value[stack.value.length - 2]
@@ -148,6 +164,11 @@ const backLabel = computed(() => {
   return c ? c.label : labelOf(topView.value)
 })
 const wide = computed(() => view.value.kind === 'choice' && props.program.optionsOf(view.value.choice).some(o => o.length > 32))
+
+/** Read the slot again: the next prepare reads what went in as written. */
+function readAgain() {
+  void props.program.prepare()
+}
 
 function drill(id: string) {
   stack.value = [...stack.value, id]
@@ -168,7 +189,7 @@ const withFollowers = (d: ProgramChoice) => [d, ...(props.program.followers.valu
 const rowChanged = (d: ProgramChoice) => withFollowers(d).some(c => isChanged(props.program.states.value[c.id]))
 function rowText(d: ProgramChoice): string {
   const s = props.program.states.value[d.id]
-  if (s?.off) return offLabel(d.label).toLowerCase()
+  if (isOff(d, s)) return offLabel(d.label).toLowerCase()
   const said = pillValue(d, props.program.poolOf(d), s)
   if (said) return said
   if (rowChanged(d)) return 'Any'
@@ -181,7 +202,9 @@ function resetRow(d: ProgramChoice) {
 }
 // As written: every detail left out, which leaves the slot's own words.
 const allIds = computed(() => panelSlot.value?.details.filter(id => props.program.byId.value[id]) || [])
-const slotAsWritten = computed(() => allIds.value.length > 0 && allIds.value.every(id => props.program.states.value[id]?.off))
+const slotAsWritten = computed(() => allIds.value.length > 0
+  && allIds.value.every(id => isOff(props.program.byId.value[id], props.program.states.value[id]))
+  && allIds.value.some(id => props.program.states.value[id]?.off))
 function toggleSlotAsWritten() {
   const st = props.program.states.value
   props.program.setStates(Object.fromEntries(allIds.value.map(id => [id, slotAsWritten.value ? resetState(st[id]) : { off: true, ...(st[id]?.add?.length ? { add: st[id].add } : {}) }])))

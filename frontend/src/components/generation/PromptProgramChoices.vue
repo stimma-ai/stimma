@@ -4,7 +4,8 @@
        tooltip), and its × puts it back. A person's chosen details are pills of their own,
        folding into the person's pill at three. On a touch screen each pill, its × and Reset
        are 44px targets that reach past the pill's edge; the row's gaps leave them room, so
-       the pills look as they do elsewhere and no two targets overlap. -->
+       the pills look as they do elsewhere and no two targets overlap. A slot still being read
+       shows a small spinner beside its dimmed label. -->
   <div
     v-if="program.status.value !== 'off' && pills.length"
     :class="['px-3 pt-1 pb-2 coarse:pt-2 coarse:pb-2.5 flex flex-wrap items-center gap-1.5 coarse:gap-x-2 coarse:gap-y-3.5 transition-opacity', program.status.value === 'ready' ? '' : 'opacity-50']"
@@ -23,7 +24,8 @@
         @click="open(p, $event.currentTarget as Element)"
       >
         <UserIcon v-if="p.folded" class="w-3 h-3 shrink-0 opacity-70" />
-        <span :class="['shrink-0', p.value || p.swatches ? 'opacity-70' : '']">{{ p.label }}</span>
+        <Spinner v-if="p.pending === 'reading'" size="sm" class="opacity-70" data-reading />
+        <span :class="['shrink-0', p.value || p.swatches || p.pending === 'reading' ? 'opacity-70' : '']">{{ p.label }}</span>
         <span v-if="p.swatches" class="shrink-0 flex -space-x-1" data-swatches>
           <span v-for="(c, i) in p.swatches" :key="i" class="w-3 h-3 rounded-full border border-surface" :style="{ background: c }" />
         </span>
@@ -54,6 +56,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { UserIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import Spinner from '../ui/Spinner.vue'
 import { changedCount, pillsOf, type ChoiceWorld, type Pill } from '../../utils/programChoices'
 import type { PromptProgram } from '../../composables/usePromptProgram'
 

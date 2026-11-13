@@ -132,8 +132,8 @@ import Spinner from '../ui/Spinner.vue'
 import { useViewport } from '../../composables/useViewport'
 import { MANY_OPTIONS, MAX_ROWS, matchesQuery, shownOption } from '../../utils/programVocab'
 import {
-  PALETTE_CLS, asWrittenState, defaultZone, drawable, groupMembers, hasToken, isAsWritten, isChanged, leaveOut, partLabel,
-  pillValue, resetState, swatchesOf, toggleToken, tokenText, tokensOf, valueText, zonesOf, type Token,
+  PALETTE_CLS, asWrittenState, defaultZone, drawable, groupMembers, hasToken, isAsWritten, isChanged, isOff, leaveOut, partLabel,
+  pillValue, resetState, swatchesOf, toggleToken, tokenText, tokensOf, turnOn, valueText, zonesOf, type Token,
 } from '../../utils/programChoices'
 import type { PromptProgram, ProgramChoice, ProgramSlot } from '../../composables/usePromptProgram'
 
@@ -230,11 +230,18 @@ const shownZones = computed(() => {
 const shownCount = computed(() => shownZones.value.reduce((n, z) => n + z.rows.length, 0))
 const hidden = computed(() => matchCount.value - shownCount.value)
 
-const defaultLit = computed(() => !changed.value || (zones.value.length > 1 && hasToken(state.value, { kind: 'zone', zone: first.value })))
+// A choice that starts left out (a person's face) is lit only once turned on.
+const startsOff = computed(() => !!props.choice.starts_off)
+const defaultLit = computed(() => (startsOff.value ? !!state.value?.on && !tokens.value.length : !changed.value)
+  || (zones.value.length > 1 && hasToken(state.value, { kind: 'zone', zone: first.value })))
 const defaultLabel = computed(() => (zones.value.length > 1 && zones.value[0].title) || `Any ${props.choice.label.toLowerCase()}`)
 /** The lit row. With several zones it is the default zone, which can be chosen beside
     others; with one, it puts the choice back. */
 function chooseDefault() {
+  if (startsOff.value && zones.value.length < 2) {
+    if (!defaultLit.value) props.program.setState(props.choice.id, turnOn(state.value))
+    return
+  }
   if (!changed.value) return
   if (zones.value.length > 1) toggle({ kind: 'zone', zone: first.value })
   else props.program.setState(props.choice.id, resetState(state.value))
@@ -315,9 +322,9 @@ function toggleAsWritten() {
   if (!props.ownSlot) return
   props.program.setState(props.choice.id, asWritten.value ? resetState(state.value) : asWrittenState(props.ownSlot, state.value))
 }
-const canLeaveOut = computed(() => !isFollower.value && !state.value?.off)
+const canLeaveOut = computed(() => !isFollower.value && !isOff(props.choice, state.value))
 function leave() {
-  props.program.setState(props.choice.id, leaveOut(state.value))
+  props.program.setState(props.choice.id, leaveOut(state.value, props.choice))
   emit('left-out')
 }
 
@@ -325,7 +332,7 @@ function leave() {
 const followers = computed(() => props.program.followers.value[props.choice.id] || [])
 function followerText(f: ProgramChoice): string {
   const s = props.program.states.value[f.id]
-  if (s?.off) return 'left out'
+  if (isOff(f, s)) return 'left out'
   return pillValue(f, props.program.poolOf(f), s) || 'Any'
 }
 function followerSwatches(f: ProgramChoice): string[] | null {

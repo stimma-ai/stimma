@@ -57,6 +57,8 @@ export interface ProgramChoice {
   hidden?: boolean
   /** Drawn to go with another choice (an outfit's colors). */
   follows?: string
+  /** Left out until the user turns it on (a person's face). */
+  starts_off?: boolean
   parent?: string
   when?: string[]
 }
@@ -116,6 +118,8 @@ export interface ChoiceState {
   zones?: string[]
   /** Left out of the prompt. */
   off?: boolean
+  /** Drawn, for a choice that starts left out (`starts_off`). */
+  on?: boolean
   /** The user's own options. */
   add?: string[]
 }

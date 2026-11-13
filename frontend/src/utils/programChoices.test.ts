@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   asWrittenState, changedCount, cleanState, drawable, isAsWritten, isChanged, leaveOut, numberRepeats, optionsOf, pillsOf, pillValue,
-  resetState, swatchesOf, toggleToken, tokenText, zonesOf, PALETTE_CLS,
+  isOff, resetState, swatchesOf, toggleToken, tokenText, turnOn, zonesOf, PALETTE_CLS,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
 
@@ -151,4 +151,39 @@ test('the same words twice read as two, numbered in order', () => {
   const slot = (id: string, n: number, label: string) => ({ id, n, kind: 'person' as const, label, words: label.toLowerCase(), details: [] })
   const out = numberRepeats([slot('friend', 1, 'Friend'), slot('dog', 2, 'Dog'), slot('friend_2', 3, 'Friend')])
   assert.deepEqual(out.map(s => s.label), ['Friend 1', 'Dog', 'Friend 2'])
+})
+
+test('a face starts left out: untouched it draws nothing; Any, a value or a group turns it on; leave out goes back', () => {
+  const face: ProgramChoice = { id: 'man.face', slot: 'man', kind: 'pick', label: 'Face', options: ['a small nose', 'freckles'], starts_off: true }
+  assert.equal(isOff(face, null), true)
+  assert.equal(drawable(face, null, null), null)
+  assert.equal(pillValue(face, null, null), '')
+  assert.deepEqual(cleanState(face, turnOn(null)), { on: true })
+  assert.equal(isOff(face, { on: true }), false)
+  assert.deepEqual([...drawable(face, null, { on: true })!], ['a small nose', 'freckles'])
+  const picked = toggleToken(face, null, { kind: 'value', value: 'freckles' })
+  assert.deepEqual(picked, { values: ['freckles'] })
+  assert.equal(isOff(face, picked), false)
+  assert.equal(leaveOut(picked, face), null)
+  assert.equal(cleanState(face, { off: true }), null)
+  assert.deepEqual(cleanState(face, { off: true, add: ['scar'] }), { add: ['scar'] })
+  assert.equal(isOff(face, { add: ['scar'] }), true)
+  // Untouched, the person's pill doesn't count it as changed or as written.
+  const all = [...choices, face]
+  const slot = { ...man, details: [...man.details, 'man.face'] }
+  const w = (states: ProgramChoices) => ({ slots: [light, slotPet, slot], choices: all, states, pools: { pet: petPool } })
+  assert.deepEqual(pillsOf(w({}))[0].value, '')
+  assert.equal(changedCount(w({})), 0)
+  const off = Object.fromEntries(man.details.map(id => [id, { off: true }]))
+  assert.equal(pillsOf(w(off))[0].value, 'as written')
+  assert.deepEqual(pillsOf(w({ 'man.face': { on: true } })).map(p => p.label).slice(0, 2), ['Young man', 'Face'])
+})
+
+test('a slot still being read shows as reading; one that couldn’t be read went in as written', () => {
+  const reading: ProgramSlot = { id: 'lamp', n: 1, kind: 'free', label: 'lamp', words: 'lamp', details: [], state: 'reading' }
+  const written: ProgramSlot = { id: 'rug', n: 2, kind: 'free', label: 'rug', words: 'rug', details: [], state: 'ready', degraded: true }
+  const pills = pillsOf({ slots: [reading, written], choices: [], states: {}, pools: {} })
+  assert.deepEqual(pills.map(p => [p.label, p.value, p.pending, p.changed]), [
+    ['lamp', '', 'reading', false], ['rug', 'as written', 'written', false],
+  ])
 })
