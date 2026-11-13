@@ -251,14 +251,15 @@ def build(parsed: Parsed, readings: Dict[str, Any], as_typed: Optional[Dict[str,
         return lead
 
     slot_n = list_n = 0
-    outfit_at = None   # the parts index of a person's outfit, until the text after it is seen
+    person_at = None   # the stmts index of a person, until the text after them is seen
     for seg in parsed.segments:
-        if outfit_at is not None:
-            # Words right after the outfit ("... jeans reading on a porch") are set off by a comma
-            # that goes with the outfit; punctuation, a line's end or another mark need none.
+        if person_at is not None:
+            # Words right after a person ("... jeans reading on a porch", "... a forked beard reading")
+            # are set off by a comma that closes the person's description, whatever of it is drawn;
+            # punctuation, a line's end or another mark need none.
             if seg.kind == "text" and re.match(r"[ \t]*\w", seg.text):
-                parts[outfit_at] = parts[outfit_at][:-1] + ", ',')"
-            outfit_at = None
+                stmts[person_at] = stmts[person_at][:-1] + ", close=',')"
+            person_at = None
         if seg.kind == "text":
             lines = seg.text.split("\n")
             for piece in lines[:-1]:
@@ -307,8 +308,11 @@ def build(parsed: Parsed, readings: Dict[str, Any], as_typed: Optional[Dict[str,
             presentation = got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else None
             keyed = {d: f"{cid}.{d if d in vary or d != 'age' else 'stated_age'}" for d in stated}
             said = {d: w for d, w in stated.items() if keyed[d] in typed} or None
+            outfit = got.get("outfit") or ""
             stmts.append(f"{var} = " + _call("person", cid, noun=str(got.get("noun") or "person"), presentation=presentation,
-                                             said=said, show=vary, article=False))
+                                             said=said, show=vary, article=False)[:-1]
+                         + (f", wearing={var}_outfit)" if outfit else ")"))
+            person_at = len(stmts) - 1
             parts.append(var)
             for d, w in stated.items():
                 if keyed[d] not in typed:
@@ -316,7 +320,6 @@ def build(parsed: Parsed, readings: Dict[str, Any], as_typed: Optional[Dict[str,
             if said:
                 info["degraded"] = True
             info["stated"] = stated
-            outfit = got.get("outfit") or ""
             if outfit:
                 about = f"{label}'s outfit"
                 if outfit == "written":
@@ -330,8 +333,6 @@ def build(parsed: Parsed, readings: Dict[str, Any], as_typed: Optional[Dict[str,
                              if presentation and presentation in leaf.local_facets.get("presentation", ()) else None)
                     stmts.append(f"{var}_outfit = " + _call("pick", f"{cid}.outfit", cls=outfit, where=where,
                                                             about=about, label="Outfit", phase=2))
-                parts.append(_opt(repr(", wearing"), f"{var}_outfit"))
-                outfit_at = len(parts) - 1
         elif kind == "camera":
             lead = flush(lead)
             vary = [d for d in got.get("vary") or [] if d in CAMERA and vocab.get(f"camera.{d}") is not None]

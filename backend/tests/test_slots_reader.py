@@ -462,8 +462,24 @@ async def test_a_stored_entry_with_unfinished_narrowing_is_narrowed_before_it_dr
 def test_the_outfit_follows_presentation_and_is_set_off_by_a_comma():
     src, entry = slots.build(parse(PORCH_PROMPT), PORCH_READING)
     assert "cls='person.outfit.casual', where={'presentation': 'masculine'}" in src
-    assert "opt(', wearing', slot1_outfit, ',')" in src
+    assert "wearing=slot1_outfit, close=','" in src
     assert re.search(r", wearing [^,]+, reading on a porch", entry["example"])
+
+
+def test_a_person_with_no_outfit_still_closes_with_the_comma():
+    """The comma before "reading" belongs to the person's description, not to the outfit: with no
+    outfit it follows their hair or beard, and with nothing of them drawn it goes."""
+    from test_slots_build import _draw
+    reading = copy.deepcopy(PORCH_READING)
+    reading["slots"][0]["person"]["outfit"] = ""
+    _, entry = slots.build(parse(PORCH_PROMPT), reading)
+    body = entry["example"].split("\n")[-1]
+    assert re.search(r"man with [^,]+, [^,]+, reading on a porch", body), body
+    details = [c["id"] for c in entry["choices"] if c["id"].startswith("elderly_african_man.")]
+    bare = _draw(entry, 1, edits={d: {"off": True} for d in details}).prompt.split("\n")[-1]
+    assert bare.startswith("A man reading on a porch"), bare
+    hair = _draw(entry, 1, edits={d: {"off": True} for d in details if d.endswith("facial_hair")}).prompt
+    assert re.search(r"hair, reading on a porch", hair), hair
 
 
 def test_lookups_and_cache_hits_start_no_background_work(profile, monkeypatch):

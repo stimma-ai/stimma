@@ -32,6 +32,9 @@ passes no narrowing words of its own, so it has none to invent.
   words of its own to invent for those.
 - `leave`: details the user gave in words no list holds, which the program keeps as fixed text.
 - `article=False`: no "a" before them; the prompt's own words lead to them ("with a", "an").
+- `wearing`: their outfit's pick, described after the rest of them (", wearing ...").
+- `close`: text that ends their description when any of it is drawn ("," before "reading on a
+  porch"), and goes when none of it is.
 
 Nothing is drawn twice. A pick the program writes itself on a list person() draws from (its
 own `woman.hair_color`, or with one person any pick on the hair color list) keeps its place
@@ -282,8 +285,18 @@ class _People(ast.NodeTransformer):
                               opt(name("eyes"), ast.Constant("eyes")) if "eyes" in var else None,
                               opt(name("facial_hair")) if "facial_hair" in var else None,
                               opt(name("face")) if "face" in var else None) if g is not None]
+        tail = []
         if groups:
-            parts.append(opt(ast.Constant("with"), groups[0], *(opt(ast.Constant(","), g) for g in groups[1:])))
+            tail.append(opt(ast.Constant("with"), groups[0], *(opt(ast.Constant(","), g) for g in groups[1:])))
+        if kw.get("wearing") is not None:   # their outfit's pick: ", wearing <outfit>"
+            tail.append(opt(ast.Constant(", wearing"), kw["wearing"]))
+        close = _const(kw.get("close"))
+        if isinstance(close, str) and close and tail:
+            # What closes their description ("," before "reading on a porch") stands when any of it
+            # does: after their hair when they have no outfit, after the outfit when they do.
+            parts.append(opt(*tail, ast.Constant(close)))
+        else:
+            parts += tail
         self.people[target] = (noun, parts)
         self.again[target] = [ast.Constant("the"), noun_part]
         # never put in an emit(): they stand where they were made. Not someone nothing is drawn of
