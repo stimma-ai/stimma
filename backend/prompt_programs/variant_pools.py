@@ -45,6 +45,7 @@ TOPUP_AT = 0.8      # share of what a slot draws from drawn this round that star
 MAX_POOL = 300      # a pool this big stops topping up and cycles least-used
 WORKERS = 2         # writes in flight per profile
 YIELD_POLL = 0.25   # seconds between looks while a background top-up gives way to a prepare
+SEEDS_KEPT = 500    # draws with an explicit draw seed remembered per prompt
 
 
 def pool_key(model: Optional[str], words: str, marked: str, notes: Sequence[str], minor: Sequence[str] = ()) -> str:
@@ -138,6 +139,38 @@ class VariantStore:
             return {}
         return {str(k): int(v) for k, v in got.items() if isinstance(v, int)} if isinstance(got, dict) else {}
 
+    def _seeds_path(self, entry_key: str) -> Path:
+        from prompt_programs.store import valid_key
+        if not valid_key(entry_key):
+            raise ValueError(f"not a prompt key: {entry_key!r}")
+        return self.root / "seeds" / entry_key[:2] / f"{entry_key}.json"
+
+    def seeded(self, entry_key: str, seed: int) -> Dict[str, str]:
+        """What a draw with an explicit draw seed drew for a prompt before ({slot: text}), so the
+        same seed and choices repeat it though use counts have moved since; {} when none."""
+        try:
+            got = json.loads(self._seeds_path(entry_key).read_text("utf-8")).get(str(seed))
+        except (OSError, ValueError, AttributeError):
+            return {}
+        return {str(k): str(v) for k, v in got.items()} if isinstance(got, dict) else {}
+
+    def remember(self, entry_key: str, seed: int, texts: Dict[str, str]) -> None:
+        """Keep a draw made with an explicit draw seed (the latest SEEDS_KEPT per prompt)."""
+        p = self._seeds_path(entry_key)
+        with self._lock:
+            try:
+                got = json.loads(p.read_text("utf-8"))
+            except (OSError, ValueError):
+                got = {}
+            got = {k: v for k, v in got.items() if k != str(seed)} if isinstance(got, dict) else {}
+            got[str(seed)] = dict(texts)
+            got = dict(list(got.items())[-SEEDS_KEPT:])
+            p.parent.mkdir(parents=True, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=p.parent, suffix=".tmp")
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(got, f, ensure_ascii=False)
+            os.replace(tmp, p)
+
     def mark_used(self, key: str, texts: Sequence[str]) -> Dict[str, int]:
         """Count one draw of each text; returns the counts after."""
         p = self._path(key, ".uses.json")
@@ -218,8 +251,9 @@ class Pick:
 
     @property
     def counted(self) -> bool:
-        """A draw that counts toward the pool's use counts."""
-        return self.source in ("variant", "own", "pinned") and self.text is not None
+        """A draw that counts toward the pool's use counts: anything that shipped from the pool or
+        the user's own, held ones included (the judge holds the slots it doesn't reroll)."""
+        return self.source in ("variant", "own", "pinned", "fixed") and self.text is not None
 
 
 def _least(rng: random.Random, items: Sequence[Dict[str, Any]], uses: Dict[str, int]) -> Dict[str, Any]:

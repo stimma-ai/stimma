@@ -590,7 +590,7 @@ def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
         store = store_for(p.profile_id)
     except Exception:
         return
-    earlier: Dict[str, str] = {}
+    earlier: Dict[str, List[str]] = {}   # per slot, the pools it drew from before, nearest first
     for key in dict.fromkeys(k for k in (p.key, p.shown) if k):
         try:
             prev = p.store.get(key)
@@ -598,15 +598,17 @@ def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
                 continue
             old = parse(str(prev["prompt"]))
             ids_old, ids_new = _part_ids(old), _part_ids(p.parsed)
-            pools = {s["id"]: s.get("pool") or s.get("stand_in") for s in prev.get("slots") or []}
+            pools = {s["id"]: [str(x) for x in (s.get("pool"), s.get("stand_in")) if x] for s in prev.get("slots") or []}
             for i, j in match_marks(old, p.parsed).items():
-                if pools.get(ids_old[i]) and ids_new[j] not in earlier:
-                    earlier[ids_new[j]] = str(pools[ids_old[i]])
+                earlier.setdefault(ids_new[j], []).extend(pools.get(ids_old[i]) or [])
         except Exception as e:   # nothing to stand in: the words stand meanwhile
             log.debug(f"[slots] no stand-in pools from {key}: {e}")
     for s in entry["slots"]:
-        was = earlier.get(s["id"])
-        if s.get("pool") and was and was != s["pool"] and not store.has(s["pool"]) and store.has(was):
+        if not s.get("pool") or store.has(s["pool"]):
+            continue
+        # the pool it had (or stood in with) before, when this prompt's own entry already has the new key
+        was = next((k for k in earlier.get(s["id"], []) if k != s["pool"] and store.has(k)), None)
+        if was:
             s["stand_in"] = was
 
 

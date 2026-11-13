@@ -52,12 +52,12 @@ def wire(request, monkeypatch):
     return sent, state
 
 
-def _asked_for_no_reasoning(call: Dict[str, Any]) -> None:
+def _asked_for_no_reasoning(call: Dict[str, Any], most: int = 2000) -> None:
     body = call.get("extra_body") or {}
     assert body.get("reasoning_effort") == "none", body
     assert (body.get("chat_template_kwargs") or {}).get("enable_thinking") is not True, body
     assert "thinking" not in call
-    assert 0 < call["max_tokens"] <= 2000
+    assert 0 < call["max_tokens"] <= most
 
 
 async def test_the_shared_fluent_call_asks_for_no_reasoning(wire):
@@ -123,14 +123,16 @@ async def test_suggest_and_add_ask_for_no_reasoning(wire):
     _asked_for_no_reasoning(sent[-1])
 
 
-async def test_option_writing_asks_for_no_reasoning(wire):
-    from prompt_programs import options
+async def test_the_variant_writer_asks_for_no_reasoning(wire):
+    from prompt_programs import variants as V
 
     sent, state = wire
-    state["answer"] = "[]"
-    for tool in (False, True):
-        await options._ask_options([{"role": "user", "content": "x"}], None, tool)
-        _asked_for_no_reasoning(sent[-1])
+    state["answer"] = json.dumps({"rejected": [], "variants": [{"n": 1, "text": "lamplight from a brass lamp", "idea": ""}]})
+    slot = V.Slot(words="lighting", prompt="a kitchen, lit by <lighting>", span=(18, 28), kind="light", category="lighting")
+    batches = await V.write_first(slot, V.list_seeds([]), ask=V.ask_writer)
+    assert batches and sent
+    for call in sent:
+        _asked_for_no_reasoning(call, V.WRITE_TOKENS)
 
 
 async def test_the_judge_asks_for_no_reasoning(wire):

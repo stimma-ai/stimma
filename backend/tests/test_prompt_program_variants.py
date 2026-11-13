@@ -585,11 +585,13 @@ def test_draws_count_and_top_up_at_80_percent(tmp_path):
         assert len(w.store.variants(job.key)) == 50
         assert w.store.batches(job.key)[-1]["role"] == "top_up"
         assert "Already written" in fake.calls[-1]["user"]
-        # previews and fixed draws count nothing
+        # the slot's own words count nothing; a held draw (the judge holds what it doesn't reroll) counts
         before = w.store.uses(job.key)
-        w.drew(job_for(sl, V.Seeds()), P.Pick("x", "fixed"))
         w.drew(job_for(sl, V.Seeds()), P.Pick(sl.words, "words"))
         assert w.store.uses(job.key) == before
+        held = w.store.variants(job.key)[0]["text"]
+        w.drew(job_for(sl, V.Seeds()), P.Pick(held, "fixed"))
+        assert w.store.uses(job.key)[held.lower()] == before.get(held.lower(), 0) + 1
     run(go())
 
 

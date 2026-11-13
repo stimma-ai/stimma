@@ -1,55 +1,19 @@
-"""Fluent vocabulary: curated lists picks bind to with cls=, their pools, the picker's
-view of them, the writer's catalog, and article agreement in emitted text."""
+"""Fluent vocabulary: the curated lists slots are read against, their loader (schema, ids,
+tiers, tags, facets, shares, browsing, opt-in and adult-only values, context), the writer's
+catalog, how a list becomes a seed bank for the variant writer, and article agreement in
+emitted text."""
 
 import collections
 import json
+import random
+
 import pytest
 
-from tests.slot_fixtures import entry_of as _fixture
-
-from prompt_programs import program as prep
-from prompt_programs.fill import PickSpec
-from tests.slot_fixtures import draw
-from prompt_programs.fluent import pool_options
-from prompt_programs.judge import FluentSettings
-from prompt_programs.options import (
-    GeneratedOptions, OptionFiller, OptionStore, ProgramContext, gen_key, generated_pick, generation_messages,
-)
-from prompt_programs.fill import ProgramError, tidy_text
-from tests.slot_fixtures import discover, run
-from prompt_programs.vocab import OPEN_SHARE, ROOT, TIER_WEIGHTS, load, vocabulary
-
-async def narrow_read(entry, cache, ask, *args, **kw):
-    """narrow_entry with the fake model's reading as the slots' words (slots.build writes them)."""
-    entry.setdefault("slot_words", dict(getattr(ask, "read", None) or {}))
-    return await narrow_entry(entry, cache, ask, *args, **kw)
-
-
-PORTRAIT = '''
-eth = pick("eth", cls="person.ethnicity", about="her ethnicity", seed=["Korean"], label="Ethnicity", phase=1, line=1)
-eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["hazel"], label="Eyes", phase=2, line=1)
-expr = pick("expr", cls="person.expression", about="her expression", seed=["a soft smile"], label="Expression", phase=2, line=1)
-emit("A portrait of a", eth, "woman with", eyes, "eyes and", expr, ".")
-'''
-
-OFF = FluentSettings(generate_options=False, fix_model="off")
-
-
-def program():
-    return ProgramContext(key="prog1", signature="a portrait", template="A portrait of a [Ethnicity] woman")
-
-
-def bound_spec(cls, id="x", about="something"):
-    return PickSpec(id, "X", about, 2, "text", "pick", ["a seed"], [], cls)
-
-
-class FakeGen:
-    def __init__(self):
-        self.calls = []
-
-    async def __call__(self, job):
-        self.calls.append(job)
-        return [f"generated {job.round}.{i}" for i in range(4)], "fake"
+from prompt_programs import variants as V
+from prompt_programs.fill import tidy_text
+from prompt_programs.narrow import parse_subset
+from prompt_programs.variant_pools import Choice, person_pickers
+from prompt_programs.vocab import ROOT, TIER_WEIGHTS, _leaf, fill, load, tags_match, template_matches, vocabulary
 
 
 class TestTheVocabulary:
@@ -109,17 +73,21 @@ class TestTheVocabulary:
         season = vocabulary().get("scene.season")
         assert sorted(v.text for v in season.values if v.tier == "typical") == ["autumn", "spring", "summer", "winter"]
 
-    def test_every_place_sits_under_an_area_chip(self):
-        from prompt_programs.fluent import list_groups
+    def test_every_place_sits_in_an_area(self):
         for lid in ("place.country", "place.city", "place.us_state"):
             leaf = vocabulary().get(lid)
-            texts = [v.text for v in leaf.values]
-            areas = list_groups(leaf, texts)["area"]
-            assert {o for os in areas.values() for o in os} == set(texts), lid
+            areas = set(leaf.local_facets["area"])
+            for v in leaf.values:
+                assert v.tags.get("area") and set(v.tags["area"]) <= areas, (lid, v.text)
         country = vocabulary().get("place.country")
-        south = set(list_groups(country, [v.text for v in country.values])["area"]["South America"])
+        south = {v.text for v in country.values if "South America" in v.tags["area"]}
         assert {"Brazil", "Argentina", "Peru", "Guyana"} <= south
 
+    def test_a_near_certain_typo_resolves_and_a_far_one_does_not(self):
+        v = vocabulary()
+        assert v.resolve("person.eye_eye_color").id == "person.eye_color"
+        assert v.resolve("person.eye_colr").id == "person.eye_color"
+        assert v.resolve("person.nostril") is None and v.resolve("interior.bedroom") is None
 
     def test_a_leaf_defined_twice_is_an_error(self, tmp_path):
         for root in ("a", "b"):
@@ -129,189 +97,6 @@ class TestTheVocabulary:
             (d / "eyes.json").write_text('{"values": [{"text": "brown", "tier": "typical"}]}')
         with pytest.raises(ValueError):
             load((tmp_path / "a", tmp_path / "b"))
-
-
-class TestBinding:
-    def test_discovery_shows_the_list_and_the_binding(self):
-        info = discover(PORTRAIT)
-        by = {c["id"]: c for c in info["choices"]}
-        eth = vocabulary().get("person.ethnicity")
-        assert by["eth"]["cls"] == "person.ethnicity"
-        assert by["eth"]["options"] == [x.text for x in eth.eligible()]
-        assert "Korean" in by["eth"]["options"]
-
-
-    def test_a_near_certain_typo_resolves_and_a_far_one_does_not(self):
-        v = vocabulary()
-        assert v.resolve("person.eye_eye_color").id == "person.eye_color"
-        assert v.resolve("person.eye_colr").id == "person.eye_color"
-        assert v.resolve("person.nostril") is None and v.resolve("interior.bedroom") is None
-        src = PORTRAIT.replace("person.eye_color", "person.eye_colr")
-        eyes = next(d for d in run(src, 1).draws if d.id == "eyes")
-        assert eyes.cls == "person.eye_color"
-
-
-
-    def test_draws_come_from_the_lists(self):
-        opts = GeneratedOptions(None, program())
-        v = vocabulary()
-        for seed in range(5):
-            r = draw(PORTRAIT, seed, None, [], None, None, None, options=opts)
-            got = {d.id: d for d in r.draws}
-            assert got["eth"].value in {x.text for x in v.get("person.ethnicity").values}
-            assert got["eyes"].value in {x.text for x in v.get("person.eye_color").eligible()}
-            assert got["eyes"].cls == "person.eye_color"
-            opts.reset()
-
-    def test_a_list_the_vocabulary_lost_draws_unbound(self):
-        src = PORTRAIT.replace("person.eye_color", "person.gone")
-        r = draw(src, 1, None, [], None, None, None, options=GeneratedOptions(None, program()))
-        eyes = next(d for d in r.draws if d.id == "eyes")
-        assert eyes.value == "hazel" and eyes.cls == "person.gone"  # its seed; the id is kept for replays
-
-
-class TestBoundPools:
-    def test_a_closed_list_is_the_whole_pool_and_never_generates(self, tmp_path):
-        store = OptionStore(tmp_path)
-        filler = OptionFiller(store, FakeGen())
-        s = bound_spec("person.eye_color")
-        assert not generated_pick(s)
-        opts = GeneratedOptions(store, program(), filler=filler)
-        pool = opts.get(s, {})
-        leaf = vocabulary().get("person.eye_color")
-        assert pool.items == [x.text for x in leaf.eligible()]
-        assert pool.weights == [x.weight for x in leaf.eligible()]
-        assert "a seed" not in pool.items  # the list replaces the writer's seeds
-        opts.request_more(s, {}, "high")
-        opts.rewrite_for_prompt(s, {}, ["brown"])
-        assert not filler._jobs and not pool.more_coming
-
-    def test_an_open_list_queues_generation_seeded_with_list_examples(self, tmp_path):
-        store = OptionStore(tmp_path)
-        filler = OptionFiller(store, FakeGen())
-        s = bound_spec("person.expression", about="her expression")
-        assert generated_pick(s)
-        opts = GeneratedOptions(store, program(), filler=filler)
-        opts.get(s, {})
-        job = filler._jobs[opts.queued[0]][1]
-        assert len(job.examples) == 10 and not job.existing
-        text = generation_messages(job)[1]["content"]
-        assert "curated list" in text and job.examples[0] in text and "a seed" not in text
-
-    def test_generated_options_extend_an_open_list_and_share_its_weight(self, tmp_path):
-        store = OptionStore(tmp_path)
-        s = bound_spec("person.expression", about="her expression")
-        leaf = vocabulary().get("person.expression")
-        first = leaf.eligible()[0].text
-        key = gen_key(s, {}, program().signature, "prose", True, (), lineage="", cls=s.cls)
-        store.append(key, {"round": 0, "options": ["a brand new look", first]})
-        pool = GeneratedOptions(store, program()).get(s, {})
-        assert pool.items[-1] == "a brand new look" and pool.items.count(first) == 1
-        n = len(leaf.eligible())
-        assert sum(pool.weights[:n]) == pytest.approx(OPEN_SHARE)
-        assert sum(pool.weights[n:]) == pytest.approx(1 - OPEN_SHARE)
-
-    def test_a_replay_reads_the_same_pool_after_generation_grows(self, tmp_path):
-        store = OptionStore(tmp_path)
-        s = bound_spec("person.expression", about="her expression")
-        key = gen_key(s, {}, program().signature, "prose", True, (), lineage="", cls=s.cls)
-        store.append(key, {"round": 0, "options": ["look one", "look two"]})
-        first = GeneratedOptions(store, program()).get(s, {})
-        store.append(key, {"round": 1, "options": ["look three"]})
-        again = GeneratedOptions(store, program(), limits={first.key: len(first.items)}).get(s, {})
-        assert again.items == first.items and again.weights == pytest.approx(first.weights)
-
-    def test_a_revision_replays_after_the_vocabulary_changes(self, tmp_path, monkeypatch):
-        import dataclasses
-        from prompt_programs.fluent import runtime_for
-        info = discover(PORTRAIT)
-        entry = {**_fixture(PORTRAIT), "key": "p", "mode": "prose"}
-        rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
-        first = draw(PORTRAIT, 12, None, [], None, None, None, options=rt.options)
-        rev = first.revision
-        # bound pools are recorded whole: each by the hash of its contents, kept once (compact.py)
-        assert any(isinstance(v, dict) and "$pool" in v for v in rev["pools"].values())
-        v = vocabulary()
-        for lid in ("person.expression", "person.eye_color", "person.ethnicity"):  # a new vocabulary release
-            leaf = v.leaves[lid]
-            monkeypatch.setitem(v.leaves, lid, dataclasses.replace(leaf, values=tuple(reversed(leaf.values[1:]))))
-        rt2 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=rev)
-        again = draw(PORTRAIT, 12, None, [], None, None, None, options=rt2.options)
-        assert again.prompt == first.prompt
-
-    def test_a_revision_replays_after_its_list_is_removed(self, tmp_path, monkeypatch):
-        from prompt_programs.fluent import runtime_for
-        entry = {**_fixture(PORTRAIT), "key": "p", "mode": "prose",
-                 "choices": discover(PORTRAIT)["choices"]}
-        rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
-        first = draw(PORTRAIT, 0, None, [], None, None, None, options=rt.options)
-        monkeypatch.delitem(vocabulary().leaves, "person.eye_color")
-        rt2 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision)
-        again = draw(PORTRAIT, 0, None, [], None, None, None, options=rt2.options)
-        assert again.prompt == first.prompt
-
-    def test_bound_and_unbound_pools_never_share_generated_options(self):
-        a = PickSpec("x", "X", "her expression", 2, "text", "pick", [], [])
-        b = PickSpec("x", "X", "her expression", 2, "text", "pick", [], [], "person.expression")
-        assert gen_key(a, {}, "sig", "prose", True) != gen_key(b, {}, "sig", "prose", True, cls=b.cls)
-
-    def test_user_edits_apply(self, tmp_path):
-        s = bound_spec("person.eye_color")
-        edits = {"x": {"remove": ["blue"], "add": ["silver-flecked gray"]}}
-        pool = GeneratedOptions(OptionStore(tmp_path), program(), edits=edits).get(s, {})
-        assert "blue" not in pool.items and pool.items[-1] == "silver-flecked gray"
-
-
-class TestThePicker:
-    def test_pool_options_show_the_whole_list_with_tiers(self, tmp_path):
-        info = discover(PORTRAIT)
-        entry = {**_fixture(PORTRAIT), "key": "p", "mode": "prose"}
-        out = pool_options(entry, store=OptionStore(tmp_path), cfg=OFF)
-        eth = vocabulary().get("person.ethnicity")
-        assert len(out["options"]["eth"]) == len(eth.eligible()) > 60  # uncapped
-        meta = out["vocab"]["eyes"]
-        assert meta["cls"] == "person.eye_color" and meta["closed"] is True
-        assert set(meta["tiers"].values()) <= {"typical", "plausible", "unusual", "generated"}
-        assert out["vocab"]["expr"]["closed"] is False
-
-    def test_pool_options_carry_every_group_an_option_is_in(self, tmp_path):
-        info = discover(PORTRAIT)
-        entry = {**_fixture(PORTRAIT), "key": "p", "mode": "prose"}
-        out = pool_options(entry, store=OptionStore(tmp_path), cfg=OFF)
-        leaf = vocabulary().get("person.eye_color")
-        groups = out["vocab"]["eyes"]["groups"]
-        shown = out["options"]["eyes"]
-        assert set(groups) == {f for f in leaf.local_facets if any(f in (leaf.value(o).tags or {}) for o in shown)}
-        for facet, parts in groups.items():
-            names = leaf.local_facets[facet]
-            assert [n for n in names if n in parts] == list(parts)   # the list's order
-            for part, options in parts.items():
-                assert options and all(part in leaf.value(o).tags[facet] for o in options)
-        # an option in several parts sits in each of them
-        facet = next(iter(groups))
-        several = [o for o in shown if len(leaf.value(o).tags.get(facet) or []) > 1]
-        assert several and all(sum(o in os for os in groups[facet].values()) > 1 for o in several)
-        # descent is browsed by world region; its declared heritages stay groups, for choices made of them
-        eth = out["vocab"]["eth"]
-        assert list(eth["groups"]) == ["region", "group"] and eth["browse"] == "region"
-        assert list(eth["groups"]["region"]) == list(vocabulary().get("person.ethnicity").local_facets["region"])
-        assert "Korean" in eth["groups"]["region"]["East Asia"] and "Korean" in eth["groups"]["group"]["east_asian"]
-        assert sorted(o for os in eth["groups"]["region"].values() for o in os) == sorted(out["options"]["eth"])
-        assert "browse" not in out["vocab"]["eyes"]
-
-    def test_list_groups_skip_long_lists_and_untagged_values(self):
-        from prompt_programs.fluent import PARTS_MAX, list_groups
-        from prompt_programs.vocab import Leaf, Value
-        values = (Value("jet black", "typical", {"shade": ["black"]}), Value("ash brown", "typical", {"shade": ["brunette"]}),
-                  Value("salt and pepper", "typical", {"shade": ["black", "gray"]}), Value("shaved", "typical"))
-        leaf = Leaf("x.hair", "Hair", "", "", "", "", (), True, {}, values,
-                    local_facets={"length": ("short", "long"), "shade": ("black", "brunette", "gray")})
-        texts = [v.text for v in values]
-        assert list_groups(leaf, [*texts, "my own"]) == {
-            "shade": {"black": ["jet black", "salt and pepper"], "brunette": ["ash brown"], "gray": ["salt and pepper"]}}
-        assert list_groups(leaf, ["shaved"]) == {}
-        assert list_groups(leaf, [*texts, *(f"more {i}" for i in range(PARTS_MAX))]) == {}
-        assert list_groups(Leaf("x.plain", "Plain", "", "", "", "", (), True, {}, values), texts) == {}
 
 
 class TestArticles:
@@ -336,139 +121,18 @@ class TestArticles:
         assert tidy_text([text]) == want
 
 
-# --------------------------------------------------------------------------- where=: narrowing a list
-
-from prompt_programs.narrow import NarrowCache, narrow_entry, parse_subset  # noqa: E402
-
-YOUNG = '''
-age = pick("age", cls="person.age_band", where="young", about="her age", seed=["20-year-old"], label="Age", phase=1, line=1)
-eyes = pick("eyes", cls="person.eye_color", about="her eye color", seed=["hazel"], label="Eyes", phase=1, line=1)
-emit("A young", age, "woman with", eyes, "eyes.")
-'''
-
-
-def young_entry(prompt="a young woman with pretty eyes"):
-    info = discover(YOUNG)
-    return {**_fixture(YOUNG), "key": "y", "mode": "prose",
-            "prompt": prompt}
-
-
-def pretty_entry():
-    """YOUNG with the writer's where= on her eyes too: words nothing on the eye color list fits."""
-    src = YOUNG.replace('about="her eye color"', 'where="pretty", about="her eye color"')
-    return {**_fixture(src), "key": "p", "mode": "prose", "choices": discover(src)["choices"],
-            "prompt": "a young woman with pretty eyes"}
-
-
-class FakeAsk:
-    """Answers a narrowing question with the values for which `keep` is true, and the
-    prompt-reading question with `read` ({choice id: words})."""
-
-    def __init__(self, keep=None, reply=None, read=None):
-        self.keep, self.reply, self.read, self.calls, self.reads = keep, reply, read or {}, [], []
-
-    async def __call__(self, messages, project_id, max_tokens):
-        self.calls.append(messages)
-        if self.reply is not None:
-            return self.reply
-        import json, re
-        values = json.loads(re.search(r"\n(\[.*\])\n", messages[1]["content"], re.S).group(1))
-        return json.dumps([v for v in values if self.keep(v)])
-
-
-def young(v):
-    return v.split("-")[0].isdigit() and 18 <= int(v.split("-")[0]) < 35
-
-
-class TestWhere:
-    def test_where_is_recorded_on_the_choice(self):
-        by = {c["id"]: c for c in discover(YOUNG)["choices"]}
-        assert by["age"]["where"] == "young" and "where" not in by["eyes"]
-
+class TestNarrowing:
     def test_parse_subset_keeps_the_lists_order_and_ignores_strangers(self):
         assert parse_subset('Sure: ["25–29", "18–19", "a teenager"]', ["18–19", "20–24", "25–29"]) == ["18–19", "25–29"]
         assert parse_subset("no list here", ["a"]) is None
         assert parse_subset("[]", ["a"]) == []
         assert parse_subset('```json\n["ALL"]\n```', ["a", "b"]) == ["a", "b"]
 
-    async def test_an_entry_is_narrowed_and_the_answer_cached(self, tmp_path):
-        entry, ask = young_entry(), FakeAsk(young)
-        await narrow_read(entry, NarrowCache(tmp_path), ask)
-        assert entry["filters"]["age"] == [v for v in [x.text for x in vocabulary().get("person.age_band").eligible()] if young(v)]
-        assert "eyes" not in entry["filters"]  # no where=, no narrowing
-        by = {c["id"]: c for c in entry["choices"]}
-        assert by["age"]["options"] == entry["filters"]["age"]
-        again = young_entry()
-        await narrow_read(again, NarrowCache(tmp_path), ask)
-        assert len(ask.calls) == 1 and again["filters"] == entry["filters"]  # "young" on ages: asked once
-
-    async def test_nothing_fitting_or_an_unreadable_answer_leaves_the_pick_unbound(self, tmp_path):
-        for ask in (FakeAsk(lambda v: False), FakeAsk(reply="I can't tell.")):
-            entry = pretty_entry()
-            notes = await narrow_read(entry, NarrowCache(tmp_path / str(id(ask))), ask)
-            by = {c["id"]: c for c in entry["choices"]}
-            assert entry["filters"]["eyes"] == [] and "cls" not in by["eyes"] and notes
-
-    async def test_a_list_never_drawn_without_keeps_its_whole_list_when_nothing_fits(self, tmp_path):
-        # Ages generated to fit words nothing in the list fits include children: the age list stays.
+    def test_the_loader_reads_a_strict_list(self):
         assert vocabulary().get("person.age_band").strict and not vocabulary().get("person.eye_color").strict
-        entry = pretty_entry()
-        notes = await narrow_read(entry, NarrowCache(tmp_path), FakeAsk(lambda v: False))
-        by = {c["id"]: c for c in entry["choices"]}
-        assert "age" not in entry["filters"] and by["age"]["cls"] == "person.age_band"
-        assert any("whole list" in n for n in notes)
 
 
-    async def test_draws_and_pools_keep_to_the_subset(self, tmp_path):
-        from prompt_programs.fluent import runtime_for
-        entry = young_entry()
-        await narrow_read(entry, NarrowCache(tmp_path), FakeAsk(young))
-        rt = runtime_for(entry, store=OptionStore(tmp_path / "o"), cfg=OFF)
-        for seed in range(8):
-            r = draw(YOUNG, seed, None, [], None, None, None, options=rt.options)
-            assert young(next(d for d in r.draws if d.id == "age").value)
-            rt.options.reset()
-        out = pool_options(entry, store=OptionStore(tmp_path / "o"), cfg=OFF)
-        # The picker lists the whole list: the subset fits, the rest is drawn only once ticked.
-        tiers = out["vocab"]["age"]["tiers"]
-        assert [v for v in out["options"]["age"] if tiers[v] != "opt_in"] == entry["filters"]["age"]
-        assert out["vocab"]["age"]["reach"]["fits"] == entry["filters"]["age"]
-
-    async def test_an_unbound_fallback_generates_within_the_words(self, tmp_path):
-        from prompt_programs.fluent import program_context
-        entry = pretty_entry()
-        await narrow_read(entry, NarrowCache(tmp_path), FakeAsk(lambda v: False))
-        store = OptionStore(tmp_path / "o")
-        filler = OptionFiller(store, FakeGen())
-        opts = GeneratedOptions(store, program_context(entry), filler=filler)
-        spec = PickSpec("eyes", "Eyes", "her eye color", 1, "text", "pick", ["hazel"], [], "person.eye_color")
-        pool = opts.get(spec, {})
-        assert pool.items == ["hazel"]  # its seed, while generated options are written
-        job = filler._jobs[opts.queued[0]][1]
-        assert 'own words: "pretty"' in generation_messages(job)[1]["content"]
-
-    async def test_an_open_list_generates_from_the_subset_with_the_words_as_a_rule(self, tmp_path):
-        from prompt_programs.fluent import program_context
-        src = YOUNG.replace('cls="person.age_band", where="young"', 'cls="person.expression", where="happy"')
-        info = discover(src)
-        entry = {**_fixture(src), "key": "h", "mode": "prose"}
-        await narrow_read(entry, NarrowCache(tmp_path), FakeAsk(lambda v: "smile" in v or "grin" in v))
-        store = OptionStore(tmp_path / "o")
-        filler = OptionFiller(store, FakeGen())
-        opts = GeneratedOptions(store, program_context(entry), filler=filler)
-        spec = PickSpec("age", "Age", "her age", 1, "text", "pick", [], [], "person.expression")
-        pool = opts.get(spec, {})
-        drawn = [v for v, w in zip(pool.items, pool.weights) if w > 0]
-        assert drawn and all(("smile" in v or "grin" in v) for v in drawn)
-        assert all(w == 0 for v, w in zip(pool.items, pool.weights) if v not in drawn)  # the rest stands by
-        job = filler._jobs[opts.queued[0]][1]
-        assert job.examples and all(("smile" in v or "grin" in v) for v in job.examples)
-        assert 'own words: "happy"' in generation_messages(job)[1]["content"]
-
-
-# --------------------------------------------------------------------------- templates, palettes, local facets
-
-from prompt_programs.vocab import _leaf, fill, tags_match, template_matches  # noqa: E402
+# --------------------------------------------------------------------------- templates and palettes
 
 PALETTE = {"label": "Colors", "description": "a color scheme", "pos": "color scheme", "frame": "in ___",
            "facets": [], "closed": True,
@@ -489,35 +153,12 @@ OUTFITS = {"label": "Test outfit", "description": "whole looks", "pos": "noun ph
                 "palette": {"tone": ["dark"]}},
                {"text": "a white karate gi", "tier": "typical", "tags": {"sport": ["running"]}}]}
 
-DRESSED = '''
-outfit = pick("outfit", cls="person.outfit.test", about="what she wears", seed=["a red T-shirt"], label="Outfit", phase=1, line=1)
-emit("A woman wearing", outfit, ".")
-'''
-
-
 @pytest.fixture
 def dressed(monkeypatch):
     v = vocabulary()
     monkeypatch.setitem(v.leaves, "person.palette", _leaf("person.palette", PALETTE))
     monkeypatch.setitem(v.leaves, "person.outfit.test", _leaf("person.outfit.test", OUTFITS))
     return v
-
-
-def draw_dressed(seed, **kw):
-    return draw(DRESSED, seed, kw.pop("pins", None), [], None, kw.pop("fixed", None), kw.pop("edits", None),
-                options=kw.pop("options", None) or GeneratedOptions(None, program()), **kw)
-
-
-class FixSpy:
-    """A fix judge that records what it is asked and flags nothing."""
-    version, cut = "spy", 0.5
-
-    def __init__(self):
-        self.items = []
-
-    def p_wrong(self, items):
-        self.items += list(items)
-        return [0.0 for _ in items]
 
 
 class TestTemplates:
@@ -529,186 +170,20 @@ class TestTemplates:
         assert not template_matches(t, "a navy hoodie")
         assert tags_match({"tone": ["dark"]}, {"tone": ["dark", "bright"]}) and not tags_match({}, {"tone": "dark"})
 
-    def test_a_template_draws_its_palette_and_reads_filled(self, dressed):
-        for seed in range(12):
-            r = draw_dressed(seed)
-            got = {d.id: d for d in r.draws}
-            outfit = got["outfit"]
-            assert "{" not in r.prompt
-            if "karate gi" in outfit.value:  # a fixed-color look draws no Colors
-                assert "outfit.colors" not in got
-                continue
-            colors = dressed.leaves["person.palette"].value(got["outfit.colors"].value)
-            assert outfit.value in r.prompt and "{" not in outfit.value
-            assert any(template_matches(t, outfit.value) for t in outfit.options)
-            if "tuxedo" in outfit.value:  # its palette restriction: dark schemes only
-                assert "dark" in colors.tags["tone"]
-            assert got["outfit.colors"].cls == "person.palette"
-            assert got["outfit.colors"].label == "Colors"
-
-    def test_discovery_lists_the_colors_and_the_example_reads_filled(self, dressed):
-        info = discover(DRESSED)
-        by = {c["id"]: c for c in info["choices"]}
-        assert by["outfit"]["options"][0].startswith("a {main}") and by["outfit.colors"]["cls"] == "person.palette"
-        assert "{" not in run(DRESSED, 0).prompt
-
-    def test_a_kept_filled_look_keeps_its_template_and_palette(self, dressed):
-        first = draw_dressed(3)
-        keep = {d.id: d.value for d in first.draws}
-        again = draw_dressed(99, fixed=keep)
-        assert again.prompt == first.prompt
-
-    def test_removing_a_filled_look_removes_its_template(self, dressed):
-        for seed in range(10):
-            edits = {"outfit": {"remove": ["a navy technical T-shirt and white running shorts"]}}
-            r = draw_dressed(seed, edits=edits, options=GeneratedOptions(None, program(), edits=edits))
-            assert "running shorts" not in r.prompt
-
-    def test_the_fix_judge_reads_filled_looks(self, dressed):
-        from prompt_programs.fix import score_draw
-        spy = FixSpy()
-        for seed in range(6):
-            score_draw(spy, draw_dressed(seed), "a woman")
-        assert spy.items and not any("{" in it.value or "{" in it.state for it in spy.items)
-
-    def test_a_revision_replays_a_template_draw(self, dressed, tmp_path):
-        from prompt_programs.fluent import runtime_for
-        entry = {**_fixture(DRESSED), "key": "d", "mode": "prose",
-                 "choices": discover(DRESSED)["choices"]}
-        rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
-        first = draw(DRESSED, 5, None, [], None, None, None, options=rt.options)
-        rt2 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision)
-        assert draw(DRESSED, 5, None, [], None, None, None, options=rt2.options).prompt == first.prompt
-
-    def test_a_kept_look_alone_keeps_its_colors(self, dressed):
-        first = draw_dressed(4)
-        look = next(d.value for d in first.draws if d.id == "outfit")
-        for seed in range(6):
-            assert draw_dressed(50 + seed, fixed={"outfit": look}).prompt == first.prompt
-
-    def test_a_pinned_template_reads_filled_in_the_fix_judges_context(self, dressed):
-        from prompt_programs.fix import score_draw
-        spy = FixSpy()
-        src = DRESSED.replace('emit("A woman wearing", outfit, ".")',
-                              'pose = pick("pose", about="her pose", seed=["standing", "sitting"], label="Pose", phase=1)\n'
-                              'emit("A woman wearing", outfit, ",", pose, ".")')
-        r = draw(src, 2, {"outfit": ["a {main} technical T-shirt and {accent} running shorts"]}, [], None, None, None,
-                 options=GeneratedOptions(None, program()))
-        score_draw(spy, r, "a woman")
-        assert "{" not in r.prompt and spy.items and not any("{" in it.state for it in spy.items)
-
-    def test_a_replay_keeps_its_colors_after_the_palette_changes(self, dressed, tmp_path, monkeypatch):
-        import dataclasses
-        from prompt_programs.fluent import runtime_for
-        entry = {**_fixture(DRESSED), "key": "d", "mode": "prose",
-                 "choices": discover(DRESSED)["choices"]}
-        rt = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF)
-        first = draw(DRESSED, 5, None, [], None, None, None, options=rt.options)
-        pal = dressed.leaves["person.palette"]
-        recolored = tuple(dataclasses.replace(v, roles={k: "chartreuse" for k in v.roles}) for v in pal.values)
-        monkeypatch.setitem(dressed.leaves, "person.palette", dataclasses.replace(pal, values=recolored))
-        rt2 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision)
-        assert draw(DRESSED, 5, None, [], None, None, None, options=rt2.options).prompt == first.prompt
-        monkeypatch.delitem(dressed.leaves, "person.outfit.test")  # the outfit list itself removed
-        rt3 = runtime_for(entry, store=OptionStore(tmp_path), cfg=OFF, revision=first.revision)
-        assert "{" not in draw(DRESSED, 5, None, [], None, None, None, options=rt3.options).prompt
-
-    def test_colors_turned_off_leave_the_look_without_them(self, dressed):
-        edits = {"outfit.colors": {"off": True}}
-        for seed in range(6):
-            r = draw_dressed(seed, edits=edits, options=GeneratedOptions(None, program(), edits=edits))
-            assert "{" not in r.prompt and not any(d.id == "outfit.colors" for d in r.draws)
-            assert not any(c in r.prompt for c in ("navy", "red ", "black,"))
-
-    def test_colors_show_whenever_the_outfit_does(self, dressed):
-        by = {c["id"]: c for c in discover(DRESSED)["choices"]}
-        assert "parent" not in by["outfit.colors"] and "when" not in by["outfit.colors"]
-
-    def test_facet_filters_keep_their_own_pools_and_old_keys(self, dressed):
-        def entry_with(where):
-            src = DRESSED.replace('label="Outfit"', f'label="Outfit", where={where!r}')
-            e = {**_fixture(src), "key": "f", "mode": "prose",
-                 "choices": discover(src)["choices"], "prompt": "a woman"}
-            e["filters"] = {"outfit": [OUTFITS["values"][0]["text"]]}
-            return e
-        from prompt_programs.fluent import program_context
-        spec = PickSpec("outfit", "Outfit", "what she wears", 1, "text", "pick", [], [], "person.outfit.test")
-        a = GeneratedOptions(None, program_context(entry_with({"sport": "running"})))._where(spec, {})
-        b = GeneratedOptions(None, program_context(entry_with({"sport": "formal"})))._where(spec, {})
-        assert a[0] != b[0] and a[1] != b[1]  # revision keys and generated pools stay apart
-        assert a[0].endswith("where {'sport': 'running'}")  # the key revisions recorded before
-
     def test_the_catalog_names_lists_not_their_groups_and_hides_the_palette(self, dressed):
         cat = dressed.catalog()
         line = next(ln for ln in cat.splitlines() if ln.startswith("- person.outfit.test"))
         assert "Colors vary separately" in line and "running" not in line and "color_family" not in line
         assert "- person.palette" not in cat
 
-
-class TestLocalFacetWhere:
-
-    def test_generator_examples_respect_a_templates_palette(self, dressed):
-        opts = GeneratedOptions(None, program())
-        leaf = dressed.leaves["person.outfit.test"]
-        spec = PickSpec("outfit", "Outfit", "what she wears", 1, "text", "pick", [], [], leaf.id)
-        for k in range(20):
-            for ex in opts._examples(leaf, spec, f"k{k}"):
-                if "tuxedo" in ex:
-                    assert ex.split()[1] in ("navy", "black")  # dark schemes only
-
-    async def test_a_facet_filter_narrows_in_code_and_routes_colors(self, dressed, tmp_path):
-        src = DRESSED.replace('label="Outfit"', 'label="Outfit", where={"sport": "running", "color_family": "blue"}')
-        entry = {**_fixture(src), "key": "w", "mode": "prose",
-                 "choices": discover(src)["choices"], "prompt": "a woman in blue running kit"}
-        ask = FakeAsk(lambda v: True)
-        await narrow_read(entry, NarrowCache(tmp_path), ask)
-        assert not ask.calls  # no narrowing call: the tags decide
-        # running looks whose main garment takes the color asked for: the white karate gi drops out
-        assert entry["filters"]["outfit"] == [v["text"] for v in OUTFITS["values"]
-                                              if "running" in v["tags"]["sport"] and "{main}" in v["text"]]
-        assert entry["filters"]["outfit.colors"] == ["navy, white and gray"]
-        from prompt_programs.fluent import program_context
-        opts = GeneratedOptions(None, program_context(entry))
-        for seed in range(6):
-            r = draw(src, seed, None, [], None, None, None, options=opts)
-            assert "tuxedo" not in r.prompt and "karate gi" not in r.prompt and "navy" in r.prompt
-            opts.reset()
-
-
-OLIVE = {**PALETTE, "values": [{"text": "olive, cream and tan", "tier": "typical",
-                                "roles": {"main": "olive", "accent": "cream", "neutral": "tan"},
-                                "tags": {"color_family": ["red"], "tone": ["dark"]}}]}
-COATS = {**OUTFITS, "values": [{"text": "a {main} trench coat over a {accent} sweater", "tier": "typical",
-                                "tags": {"sport": ["formal"]}}]}
-
-
-class TestArticleTidy:
-    """The emitted text's tidy writes "an olive trench coat" for a filled "a {main} trench
-    coat": validation reads the value as the tidy writes it, so it isn't sent back to the
-    writer as a value that "never appears" (it can't be repaired: the writer never wrote it)."""
-
-    @pytest.fixture
-    def olive(self, monkeypatch):
-        v = vocabulary()
-        monkeypatch.setitem(v.leaves, "person.palette", _leaf("person.palette", OLIVE))
-        monkeypatch.setitem(v.leaves, "person.outfit.test", _leaf("person.outfit.test", COATS))
-        return v
-
-
-    def test_the_judge_and_the_highlight_find_the_value_as_emitted(self, olive):
-        from prompt_programs.fix import mask, prompt_view
-        from prompt_programs.program import realized_text
-        from tests.slot_fixtures import run
-        r = run(DRESSED, 11)
-        text = realized_text(r.prompt)
-        assert mask(text, "a olive trench coat over a cream sweater", "Outfit") == "A woman wearing [Outfit]."
-        view = prompt_view(r)
-        (s, e, cid), = view["spans"]
-        assert cid == "outfit" and text[s:e] == "an olive trench coat over a cream sweater"
-
-
-# --------------------------------------------------------------------------- the Colors id before US spelling
-
+    def test_a_template_seed_reaches_the_writer_filled_from_the_palette(self, dressed):
+        b = V.bank("person.outfit.test")
+        assert b is not None and "a {main} tuxedo with a {accent} shirt" in b.texts()
+        mains = {v["roles"]["main"] for v in PALETTE["values"]}
+        cores = [spec.core for k in range(12) for spec in V.draw_seeds(random.Random(k), V.Seeds(core=b), 3).specs]
+        assert cores and all("{" not in c for c in cores)
+        filled = [c for c in cores if "karate gi" not in c]
+        assert filled and all(c.split()[1] in mains for c in filled)
 
 
 class TestDescentRegions:
@@ -726,19 +201,27 @@ class TestDescentRegions:
         assert eth.value("Ethiopian").tags["region"] == ["Sub-Saharan Africa"]
         assert vocabulary().to_dict()["leaves"][[lf["id"] for lf in vocabulary().to_dict()["leaves"]].index("person.ethnicity")]["browse"] == "region"
 
-    def test_with_nothing_chosen_a_region_is_drawn_as_often_as_it_has_values(self):
-        """Regions organize the chooser; they don't weigh the draw. Every descent is typical and
-        unscaled, so a region's share is its count of values (as before regions were added)."""
+    def test_with_nothing_chosen_a_region_is_seeded_as_often_as_it_has_values(self):
+        """Regions organize the chooser; they don't weigh the seeds. Every descent is typical and
+        unscaled, so a region's share of the descent seeds is its count of values."""
         eth = vocabulary().get("person.ethnicity")
         drawn, standby = eth.pool_values()
         assert not standby and len(drawn) == 105 and {v.weight for v in drawn} == {1.0}
-        from tests.test_slots_fill import DORM_PROMPT, DORM_READING, draw as fill_draw, entry_of as fill_entry
-        e = fill_entry(DORM_PROMPT, DORM_READING)
-        n = 1200
-        got = collections.Counter(eth.value({d.id: d.value for d in fill_draw(e, s).draws}["young_man.descent"]).tags["region"][0]
-                                  for s in range(n))
+        seeds = V.person_seeds()
+        assert {w for _, w in seeds.descent.values} == {1.0} and len(seeds.descent.values) == 105
+        n = 2400
+        got = collections.Counter(eth.value(s.descent).tags["region"][0]
+                                  for s in V.draw_seeds(random.Random(5), seeds, n).specs)
         for region, k in self.REGIONS.items():
-            assert abs(got[region] / n - k / 105) < 0.035, (region, got[region] / n, k / 105)
+            assert abs(got[region] / n - k / 105) < 0.025, (region, got[region] / n, k / 105)
+
+    def test_the_picker_browses_descent_by_region_in_the_lists_order(self):
+        eth = vocabulary().get("person.ethnicity")
+        view = person_pickers([], Choice())["descent"]
+        assert view["browse"] == "region" and [p["id"] for p in view["parts"]] == list(self.REGIONS)
+        assert next(p for p in view["parts"] if p["id"] == "East Asia")["values"][:1] == \
+            [v.text for v in eth.values if v.tags["region"] == ["East Asia"]][:1]
+        assert sorted(t for p in view["parts"] for t in p["values"]) == sorted(v.text for v in eth.values)
 
     @pytest.mark.parametrize("browse,values,error", [
         ("area", [{"text": "a", "tier": "typical", "tags": {"region": ["x"]}}], "isn't one of its local facets"),
@@ -754,6 +237,70 @@ class TestDescentRegions:
                                               "local_facets": {"region": ["x", "y"]}, "browse": browse, "values": values}))
         with pytest.raises(ValueError, match=error):
             load((tmp_path,))
+
+
+class TestGender:
+    """person.gender is a comprehensive list: never a slot's list, every value pickable, seeded
+    by its shares."""
+
+    def test_it_is_valid_and_uncataloged(self):
+        v = vocabulary()
+        g = v.get("person.gender")
+        assert [x.text for x in g.values] == ["woman", "man", "trans woman", "trans man", "non-binary person"]
+        assert not g.listed and "person.gender" not in v.catalog() and g.closed
+        assert [x.weight for x in g.values] == pytest.approx([0.46, 0.46, 0.027, 0.027, 0.026])
+        assert all(x.tier in TIER_WEIGHTS and not x.opt_in and not x.adult_only for x in g.values)
+        assert {x.text: x.tags.get("presentation") for x in g.values} == {
+            "woman": ["feminine"], "man": ["masculine"], "trans woman": ["feminine"], "trans man": ["masculine"],
+            "non-binary person": None}
+        assert v.get("person.presentation") is None   # gender replaced it
+
+    def test_every_value_is_pickable(self):
+        texts = [x.text for x in vocabulary().get("person.gender").values]
+        assert V.bank("person.gender").texts() == texts
+        view = person_pickers([], Choice(pins=V.Pins(gender=("non-binary person",))))["gender"]
+        assert view["options"] == texts and view["fits"] == texts and view["picked"] == {"values": ["non-binary person"]}
+        for t in texts:
+            assert V.person_seeds(gender=["woman", "trans woman"]).pinned(V.Pins(gender=(t,))).gender.texts() == [t]
+
+
+class TestSeedBanks:
+    """A vocabulary list as the variant writer's seed bank (variants.bank): opt-in values only
+    when the words asked for them, values held for a setting only when the prompt states it,
+    adult-only values never for a person who may be under 18."""
+
+    def test_opt_in_values_are_never_seeded_unasked(self):
+        ages = V.bank("person.age_band").texts()
+        assert ages[0] == "18-year-old" and not any(int(t.split("-")[0]) < 18 for t in ages if t[0].isdigit())
+        assert "newborn" not in ages
+        assert V.bank("person.age_band", ["10-year-old", "30-year-old"]).texts() == ["10-year-old", "30-year-old"]
+        many = {"a couple selfie", "a two-person mirror selfie", "a group selfie"}
+        assert not many & set(V.bank("camera.selfie").texts())
+        assert "a group selfie" in V.bank("camera.selfie", ["a group selfie", "an arm's-length selfie"]).texts()
+
+    def test_values_held_for_a_setting_wait_for_the_prompt_to_state_it(self):
+        leaf = vocabulary().get("lighting.natural")
+        assert "space" in leaf.unstated and leaf.needs("overcast daylight") == ("space",)
+        unstated = V.bank("lighting.natural").texts()
+        assert "overcast daylight" not in unstated and unstated
+        assert "overcast daylight" in V.bank("lighting.natural", stated={"space": ("outdoor",)}).texts()
+        assert "overcast daylight" not in V.bank("lighting.natural", stated={"space": ("indoor",)}).texts()
+        # the slot's words picked it out: seeded whatever the prompt says of the scene
+        assert V.bank("lighting.natural", ["overcast daylight", "harsh midday sun"]).texts() == \
+            ["overcast daylight", "harsh midday sun"]
+
+    def test_adult_only_values_are_gone_for_a_minor_and_the_users_words_stay(self):
+        leaf = vocabulary().get("person.expression")
+        adult = {x.text for x in leaf.values if x.adult_only}
+        assert adult and adult <= set(V.bank("person.expression").texts())
+        assert not adult & set(V.bank("person.expression", minor=True).texts())
+        assert V.bank("person.expression", sorted(adult), minor=True) is None
+        seeds = V.person_seeds(ages=["9-year-old", "10-year-old"], ideas=[("person.expression", None)])
+        assert seeds.minor == ("9-year-old", "10-year-old")
+        assert not adult & {t for b in seeds.ideas for t in b.texts()}
+
+    def test_a_list_nothing_is_left_of_or_one_there_isnt_is_no_bank(self):
+        assert V.bank("person.nope") is None and V.bank("person.eye_color", []) is None
 
 
 class TestSharesAndComposedLists:
@@ -930,9 +477,9 @@ class TestOutfitsKnowWhoTheyAreFor:
 
 
 class TestShortForms:
-    """The chooser shows a chosen value in a small pill, so every value the person, camera and
-    light builders draw from has a name short enough for one. A face is composed of pieces,
-    each with its own short form, so the composed list is left out."""
+    """Every value of the person, camera and light lists has a name short enough for a small
+    space: its own text, or the short form the file gives. A face is composed of pieces, each
+    with its own short form, so the composed list is left out."""
 
     ROOTS = ("person.", "camera.", "lighting.")
     LIMIT = 24
@@ -978,16 +525,13 @@ class TestDogBreeds:
         assert len({t.lower() for t in texts}) == len(texts)
 
     def test_every_breed_sits_in_one_group_with_a_size(self):
-        from prompt_programs.fluent import list_groups
         leaf = vocabulary().get("animal.dog_breed")
         groups, sizes = leaf.local_facets["breed_group"], leaf.local_facets["size"]
         assert {"herding", "hound", "sighthound", "terrier", "toy", "working", "sporting"} <= set(groups)
         for v in leaf.values:
             assert len(v.tags["breed_group"]) == 1 and v.tags["breed_group"][0] in groups, v.text
             assert len(v.tags["size"]) == 1 and v.tags["size"][0] in sizes, v.text
-        texts = [v.text for v in leaf.values]
-        by_group = list_groups(leaf, texts)["breed_group"]
-        assert sorted(o for os in by_group.values() for o in os) == sorted(texts)
+        assert {v.tags["breed_group"][0] for v in leaf.values} == set(groups)
 
     def test_common_breeds_are_typical_and_rare_ones_are_not(self):
         leaf = vocabulary().get("animal.dog_breed")

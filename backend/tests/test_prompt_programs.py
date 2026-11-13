@@ -1,22 +1,13 @@
-"""Fluent's shared pieces: masking, saved wildcards, which tools vary their prompts, option
-writing on request, LoRA context and trigger words, the acceptance fake's reading, store keys."""
+"""Fluent's shared pieces: masking, saved wildcards, which tools vary their prompts, LoRA context
+and trigger words, the acceptance fake's reading, store keys."""
 
 import pytest
 
 from prompt_programs import program as prep
-from prompt_programs.fill import ProgramError
 from prompt_programs.store import ProgramStore
 
 
-
-
-
-
-
-
 class TestPrepare:
-
-
     def test_masking_round_trips(self):
         masked, exact = prep.mask_exact("a [sign that says OPEN] on {a|b}, [{{x}}] and [neon]")
         assert masked == "a [EXACT_1] on {a|b}, [{{x}}] and [EXACT_2]"
@@ -39,13 +30,10 @@ class TestPrepare:
                                            {"translate": {"enabled": True, "language": "es"}})
         assert "OPEN ALL NIGHT" not in " ".join(seen) and out == "una mujer under a sign that says OPEN ALL NIGHT"
 
-
     def test_named_wildcards_become_lists(self):
         out = prep.expand_named_lists("a {{color}} car, {{style}}", [{"name": "color", "values": ["red", "blue"]}],
                                       [{"name": "style", "content": "film photo"}])
         assert out == "a {red|blue} car, film photo"
-
-
 
 
 class TestProgramSupport:
@@ -62,57 +50,6 @@ class TestProgramSupport:
         assert gen.prompt_enhance_context({}, "t", task, None)["program_supported"] is supported
 
 
-class TestSuggestOptions:
-    ENTRY = {"key": "k", "prompt": "a woman in <stylish tank top>", "example": "a woman in a silk tank top",
-             "slot_words": {"stylish_tank_top": "stylish tank top"},
-             "elaborate": False, "mode": "prose",
-             "choices": [{"id": "stylish_tank_top", "kind": "pick", "label": "Tank Top",
-                          "about": "a stylish tank top", "options": ["a silk tank top", "a linen tank top"]},
-                         {"id": "look", "kind": "lora", "label": "Look", "options": ["A"]}]}
-
-    async def test_new_options_skip_existing_and_repeats(self, monkeypatch):
-        from prompt_programs import options as opts
-        calls = []
-
-        async def fake_ask(messages, project_id, tool):
-            calls.append(messages)
-            return '```json\n["a silk tank top", "a ribbed cotton tank", "A ribbed cotton tank", "a sheer mesh tank"]\n```', None
-
-        async def text_only(_pid):
-            return ("", ""), False
-
-        monkeypatch.setattr(opts, "_ask_options", fake_ask)
-        monkeypatch.setattr(opts, "_endpoint", text_only)
-        out = await opts.suggest_options(self.ENTRY, "stylish_tank_top", ["a silk tank top", "a linen tank top"], 2, None)
-        assert out == ["a ribbed cotton tank", "a sheer mesh tank"] and len(calls) == 1
-        system, user = calls[0][0]["content"], calls[0][1]["content"]
-        # the same writer as background generation: its rules, the user's own words as a rule
-        assert "Write 2 options" in system and "a few words" in system and "most typical" in system
-        assert "- a linen tank top" in user and '"stylish tank top"' in user
-
-    async def test_retries_once_when_short(self, monkeypatch):
-        from prompt_programs import options as opts
-        replies = ['["a ribbed cotton tank"]', '["a sheer mesh tank", "a crochet halter"]']
-
-        async def fake_ask(messages, project_id, tool):
-            return replies.pop(0), None
-
-        async def text_only(_pid):
-            return ("", ""), False
-
-        monkeypatch.setattr(opts, "_ask_options", fake_ask)
-        monkeypatch.setattr(opts, "_endpoint", text_only)
-        out = await opts.suggest_options(self.ENTRY, "stylish_tank_top", [], 3, None)
-        assert out == ["a ribbed cotton tank", "a sheer mesh tank", "a crochet halter"]
-
-    async def test_only_picks(self):
-        from prompt_programs import options as opts
-        with pytest.raises(ProgramError):
-            await opts.suggest_options(self.ENTRY, "look", [], 3, None)
-
-
-
-
 async def _protected(text, lang, pid, translate):
     """The real masking from prompt_pipeline around a fake translation call."""
     from prompt_pipeline import extract_verbatim, restore_verbatim
@@ -121,7 +58,6 @@ async def _protected(text, lang, pid, translate):
 
 
 class TestLoraChoices:
-
     def test_notes_and_triggers_shape_what_the_model_is_told(self):
         from routes.generation import _shape_lora_context
         ctx = [{"name": "Wolf cut", "trigger_words": ["wolfcut"], "notes": "works best at 0.8"}]
@@ -202,7 +138,8 @@ class TestAcceptanceFakeReadsSlots:
         got = await reader.read(parsed, ask=ask, project_id=None, model="m", cache=NarrowCache(tmp_path))
         entry = compose(parsed, {r["n"]: r for r in got["slots"]}, {r["n"]: r["label"] for r in got["lists"]})
         assert [s["kind"] for s in entry["slots"]] == ["free", "free"] and not any(s.get("degraded") for s in entry["slots"])
-        assert {c["id"] for c in entry["choices"]} == {"young_man", "lake", "list1"}
+        assert {c["id"]: c["kind"] for c in entry["choices"]} == {"young_man": "variants", "lake": "variants",
+                                                                  "list1": "pick"}
 
     def test_other_requests_keep_the_dummy_reply(self):
         from llm import _acceptance_program

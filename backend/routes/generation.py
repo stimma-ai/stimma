@@ -826,6 +826,18 @@ async def _run_slots(
         choices.update(kept(entry, program_opts["keep_choices"]))
     pins, edits, chosen = expand(entry, choices)
     fixed = program_opts.get("fixed") or None
+    # An explicit draw seed repeats what that seed drew for this prompt before (agent `draw_seed`):
+    # the slots' least-used draws move with every image, so each draw's texts are remembered by its
+    # seed, not recomputed.
+    seeded = program_opts.get("draw_seed") is not None
+    seed = draw_seed(program_opts.get("draw_seed"))
+    from prompt_programs.fluent import _store
+    store = _store(profile_id)
+    if store is not None and seeded:
+        try:
+            fixed = {**store.seeded(entry["key"], seed), **(fixed or {})} or None
+        except ValueError:
+            pass
     try:
         # The judge is how the draws fit together: wait for it before a hot draw is taken,
         # so the pool's signature sees it ready.
@@ -841,10 +853,17 @@ async def _run_slots(
         else:
             # In a thread: a judge on CPU must not hold up the event loop.
             result, fix = await asyncio.to_thread(
-                realize_and_fix, entry, seed=draw_seed(program_opts.get("draw_seed")), pins=pins,
+                realize_and_fix, entry, seed=seed, pins=pins,
                 fixed=fixed, edits=edits, chosen=chosen, profile_id=profile_id, project_id=project_id)
             # A shipped draw counts toward its pools (a hot draw was counted when its buffer drew it).
             count_draw(entry, result, profile_id=profile_id, project_id=project_id, chosen=chosen)
+            if store is not None:
+                slots_of = {s["id"] for s in entry.get("slots") or []} | {p["id"] for p in entry.get("picks") or []}
+                try:
+                    store.remember(entry["key"], seed, {d.id: str(d.value) for d in result.draws
+                                                         if d.id in slots_of and d.value is not None})
+                except (OSError, ValueError) as e:
+                    log.warning(f"[prompt-program] remembering draw seed {seed} failed: {e}")
     except Exception as e:
         failure = e if isinstance(e, (ProgramError, LLMUnavailableError)) else model_failure(e)
         if failure is None:
@@ -907,13 +926,6 @@ def _take_hot_fill(generator_instance_id: str, prompt: str, *, profile_id: Optio
     except Exception as e:
         log.warning(f"Direct hot fills: take failed for {generator_instance_id}: {e}")
         return None
-
-
-def pins_for_kept_choices(entry: Dict[str, Any], keep: Dict[str, Any]) -> Dict[str, List[str]]:
-    """keep_choices ({choice: value or [values]}) as pins on the prepared program's
-    choice ids (prompt_programs.choices.kept). A choice is named by its id or its label."""
-    from prompt_programs.choices import expand, kept
-    return expand(entry, kept(entry, keep))[0]
 
 
 def hot_draw_signature(entry: Dict[str, Any], *, pins: Dict[str, Any], edits: Dict[str, Any],

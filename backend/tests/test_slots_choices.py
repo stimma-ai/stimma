@@ -1,21 +1,17 @@
-"""The chooser's choices on a slot program: choices.expand into pins, edits and zones; /pools
-with every zone and every group; /preview drawing from the zones chosen; keep_choices."""
-
-import json
+"""The chooser's choices on a prepared prompt: choices.expand into list pins, list edits and
+one variant_pools.Choice per slot; keep_choices; and the routes that take them: /prepare (one
+choice per slot), /pools, /preview and /options (More like these)."""
 
 import pytest
 
 from prompt_programs import program as prep
-from prompt_programs import slots
-from prompt_programs.choices import bound_zones, expand, group_values, kept, zone_titles, UnknownChoiceError
-from prompt_programs.vocab import vocabulary
+from prompt_programs import variant_pools as P
+from prompt_programs.choices import UnknownChoiceError, expand, kept
 
-from test_slots_fill import AFRICAN, ELDERLY, PORCH_PROMPT, PORCH_READING, draw as _draw
+from test_slots_fill import PORCH_PROMPT, PORCH_READING
 from test_slots_reader import FakeModel, _client, _reply, _use, profile, ready  # noqa: F401  (profile is a fixture)
 
 MAN = "elderly_african_man"
-KINDS = PORCH_READING["slots"][1]["free"]["kinds"]
-INSTEAD = PORCH_READING["slots"][1]["free"]["instead"]
 
 
 @pytest.fixture
@@ -24,189 +20,109 @@ async def porch(profile, monkeypatch):
     return await ready(PORCH_PROMPT, profile)
 
 
-def test_values_are_pins_and_off_and_add_are_edits(porch):
-    pins, edits, zones = expand(porch, {f"{MAN}.age": {"values": ["70-year-old"]}, "list1": {"off": True},
-                                        "pet#add": ["three-legged greyhound"], "pet": {"add": ["tortoise"]}})
-    assert pins == {f"{MAN}.age": ["70-year-old"]} and zones == {}
-    assert edits == {"list1": {"off": True}, "pet": {"add": ["three-legged greyhound", "tortoise"]}}
-    # off wins over a selection; a choice the program doesn't have is passed by
-    pins, edits, _ = expand(porch, {f"{MAN}.hair": {"values": ["short curly"], "off": True}, "gone": {"values": ["x"]}})
-    assert pins == {} and edits == {f"{MAN}.hair": {"off": True}}
-    r = _draw(porch, 4, pins={f"{MAN}.age": ["70-year-old"]}, edits=edits)
-    assert "70-year-old" in r.prompt
+def pool_of(entry, profile, sid):
+    s = next(s for s in entry["slots"] if s["id"] == sid)
+    return [v["text"] for v in P.store_for(profile).variants(s["pool"])]
 
 
-def test_groups_pin_every_value_in_them_including_several_memberships(porch):
-    leaf = vocabulary().get("person.hair_color")
-    facet = next(f for f in leaf.local_facets if any(len(v.tags.get(f) or []) > 1 for v in leaf.values))
-    several = next(v for v in leaf.values if len(v.tags.get(facet) or []) > 1)
-    first, second = several.tags[facet][:2]
-    pins, _, _ = expand(porch, {f"{MAN}.hair_color": {"groups": {facet: [first]}}})
-    assert several.text in pins[f"{MAN}.hair_color"]
-    assert several.text in expand(porch, {f"{MAN}.hair_color": {"groups": {facet: [second]}}})[0][f"{MAN}.hair_color"]
-    assert set(pins[f"{MAN}.hair_color"]) == {v.text for v in leaf.values if first in (v.tags.get(facet) or [])}
-    # beside values: both
-    both = expand(porch, {f"{MAN}.hair_color": {"values": ["auburn"], "groups": {facet: [first]}}})[0]
-    assert "auburn" in both[f"{MAN}.hair_color"] and several.text in both[f"{MAN}.hair_color"]
-    # descent's declared heritages are groups too
-    east = group_values(vocabulary().get("person.ethnicity"), {"group": ["east_asian"]})
-    assert "Korean" in east and "Kenyan" not in east
-    drawn = {d.id: d.value for d in _draw(porch, 3, pins=expand(porch, {f"{MAN}.descent": {"groups": {"group": ["east_asian"]}}})[0]).draws}
-    assert drawn[f"{MAN}.descent"] in east
+def test_a_slots_choice_is_a_choice_and_a_lists_are_pins_and_edits(porch):
+    pins, edits, chosen = expand(porch, {MAN: {"values": ["a tall man"]}, "list1": {"off": True},
+                                         "pet#add": ["three-legged greyhound"], "pet": {"add": ["tortoise"]}})
+    assert pins == {} and edits == {"list1": {"off": True}}
+    assert chosen[MAN].values == ("a tall man",) and chosen["pet"].add == ("three-legged greyhound", "tortoise")
+    pins, edits, _ = expand(porch, {"list1": {"values": ["autumn"]}, "list1#add": ["winter"]})
+    assert pins == {"list1": ["autumn"]} and edits == {"list1": {"add": ["winter"]}}
+    # off wins over a selection; a choice the prompt doesn't have (an old detail id) is passed by
+    pins, edits, chosen = expand(porch, {"list1": {"values": ["autumn"], "off": True}, f"{MAN}.age": {"values": ["70"]},
+                                         "gone": {"values": ["x"]}, "pet": {"off": True}})
+    assert pins == {} and edits == {"list1": {"off": True}} and set(chosen) == {"pet"} and chosen["pet"].off
 
 
-def test_a_heritage_kept_from_before_regions_and_a_region_chosen_beside_it_both_draw(porch):
-    """The chooser turns a heritage chosen before descent had regions into its values when a
-    region is chosen beside it (programChoices.toggleBrowsePart): groups of two facets would be
-    read as values in both, and a heritage and a region far apart share none."""
-    eth = vocabulary().get("person.ethnicity")
-    nordic = group_values(eth, {"group": ["nordic"]})
-    east = group_values(eth, {"region": ["East Asia"]})
-    assert nordic and east and not set(nordic) & set(east)
-    assert group_values(eth, {"group": ["nordic"], "region": ["East Asia"]}) == []   # why it must not be sent so
-    state = {"values": nordic, "groups": {"region": ["East Asia"]}}   # what the chooser sends
-    pins = expand(porch, {f"{MAN}.descent": state})[0][f"{MAN}.descent"]
-    assert set(pins) == {*nordic, *east}
-    drawn = {{d.id: d.value for d in _draw(porch, s, pins={f"{MAN}.descent": pins}).draws}[f"{MAN}.descent"] for s in range(40)}
-    assert drawn <= set(pins) and drawn & set(nordic) and drawn & set(east)
+def test_seeds_off_and_as_written_read_back_as_sent(porch):
+    sent = {MAN: {"seeds": {"descent": {"values": ["Kenyan"], "groups": {"region": ["Sub-Saharan Africa"]}},
+                            "gender": {"values": ["man"]}}},
+            "pet": {"as_written": True}}
+    _, _, chosen = expand(porch, sent)
+    assert chosen[MAN].pins.descent == ("Kenyan",) and chosen[MAN].pins.regions == ("Sub-Saharan Africa",)
+    assert chosen[MAN].to_dict() == sent[MAN] and chosen["pet"].to_dict() == {"as_written": True}
 
 
-def test_a_free_slots_zones_and_kinds_alone_is_no_choice(porch):
-    assert expand(porch, {"pet": {"zones": ["kinds"]}}) == ({}, {}, {})
-    _, _, zones = expand(porch, {"pet": {"zones": ["kinds", "instead", "nowhere"]}})
-    assert zones == {"pet": ["kinds", "instead"]}
-    drawn = {{d.id: d.value for d in _draw(porch, s, zones=expand(porch, {"pet": {"zones": ["instead"]}})[2]).draws}["pet"]
-             for s in range(12)}
-    assert drawn <= set(INSTEAD) and drawn
-
-
-def test_a_narrowed_bound_pick_has_kinds_and_instead(porch):
-    kinds, instead = bound_zones(porch, f"{MAN}.age")
-    assert sorted(kinds) == sorted(ELDERLY)
-    age = vocabulary().get("person.age_band")
-    assert instead and not set(instead) & set(ELDERLY) and not any(age.value(o).opt_in for o in instead)   # no minors
-    assert zone_titles(porch, f"{MAN}.age") == [{"id": "kinds", "title": "Elderly"}, {"id": "instead", "title": "Instead of elderly"}]
-    assert zone_titles(porch, "pet") == [{"id": "kinds", "title": "Kinds of pet"}, {"id": "instead", "title": "Instead of pet"}]
-    assert zone_titles(porch, f"{MAN}.build") is None   # narrowed by presentation, not by the user's words
-    assert zone_titles(porch, f"{MAN}.hair") is None and bound_zones(porch, f"{MAN}.hair") is None
-    assert expand(porch, {f"{MAN}.age": {"zones": ["kinds"]}}) == ({}, {}, {})
-    pins = expand(porch, {f"{MAN}.age": {"zones": ["instead"]}})[0]
-    assert pins == {f"{MAN}.age": instead}
-    pins = expand(porch, {f"{MAN}.descent": {"zones": ["kinds", "instead"]}})[0]
-    assert set(AFRICAN) <= set(pins[f"{MAN}.descent"]) and len(pins[f"{MAN}.descent"]) > len(AFRICAN)
-    for s in range(6):
-        drawn = {d.id: d.value for d in _draw(porch, 700 + s, pins=expand(porch, {f"{MAN}.age": {"zones": ["instead"]}})[0]).draws}
-        assert drawn[f"{MAN}.age"] in instead
-
-
-def test_any_is_no_choice(porch):
-    assert expand(porch, {f"{MAN}.descent": {"any": True}, "pet": {"any": True, "zones": ["instead"]}}) == ({}, {}, {})
+def test_any_and_empty_are_no_choice(porch):
+    assert expand(porch, {MAN: {"any": True}, "pet": {}, "list1": {"any": True}}) == ({}, {}, {})
 
 
 def test_keep_choices_map_to_values(porch):
-    assert kept(porch, {"pet": "gray parrot", "Season": ["autumn"]}) == {"pet": {"values": ["gray parrot"]},
-                                                                         "list1": {"values": ["autumn"]}}
+    assert kept(porch, {"pet": "gray parrot", "Season": ["autumn"], "Elderly African man": "a stooped man"}) == {
+        "pet": {"values": ["gray parrot"]}, "list1": {"values": ["autumn"]}, MAN: {"values": ["a stooped man"]}}
     with pytest.raises(UnknownChoiceError, match="isn't a choice"):
         kept(porch, {"hat": "a fedora"})
-    from routes.generation import pins_for_kept_choices
-    assert pins_for_kept_choices(porch, {"pet": "gray parrot"}) == {"pet": ["gray parrot"]}
+
+
+def test_a_kept_value_holds_whether_or_not_its_pool_has_it(porch, profile):
+    one = pool_of(porch, profile, "pet")[3]
+    for value in (one, "gray parrot in a cage"):
+        _, _, chosen = expand(porch, kept(porch, {"Pet": value}))
+        for seed in range(3):
+            r = prep.realize(porch, seed=seed, profile_id=profile, chosen=chosen)
+            assert {d.id: d.value for d in r.draws}["pet"] == value and value in r.prompt
 
 
 # --------------------------------------------------------------------------- the routes
 
 async def _prepared(profile, monkeypatch):
     _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
-    await ready(PORCH_PROMPT, profile)
+    entry = await ready(PORCH_PROMPT, profile)
     client = _client(monkeypatch, profile)
     out = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PORCH_PROMPT}).json()
-    return client, out
+    return client, out, entry
 
 
-async def test_prepare_names_the_zones(profile, monkeypatch):
-    _, out = await _prepared(profile, monkeypatch)
-    by_id = {c["id"]: c for c in out["choices"]}
-    assert by_id["pet"]["zones"] == [{"id": "kinds", "title": "Kinds of pet"}, {"id": "instead", "title": "Instead of pet"}]
-    assert [z["id"] for z in by_id[f"{MAN}.descent"]["zones"]] == ["kinds", "instead"]
-    assert "zones" not in by_id[f"{MAN}.hair"] and "zones" not in by_id["list1"]
+async def test_prepare_has_one_choice_per_slot(profile, monkeypatch):
+    _, out, _ = await _prepared(profile, monkeypatch)
+    assert [(c["id"], c["kind"]) for c in out["choices"]] == [(MAN, "variants"), ("pet", "variants"), ("list1", "pick")]
+    assert [s["state"] for s in out["slots"]] == ["ready", "ready"]
 
 
-async def test_pools_sends_both_zones_of_a_free_slot_and_every_group(profile, monkeypatch):
-    client, out = await _prepared(profile, monkeypatch)
+async def test_pools_lists_each_slots_variants_and_echoes_its_choice(profile, monkeypatch):
+    client, out, _ = await _prepared(profile, monkeypatch)
     body = {"tool_id": "t", "prompt": PORCH_PROMPT, "key": out["key"]}
     got = client.post("/api/prompt-programs/pools", json=body).json()
     pet = got["choices"]["pet"]
-    assert set(pet["zones"]) == {"kinds", "instead"}
-    # the slot's own words are among its kinds (pinned, they are the slot as written)
-    assert set(pet["zones"]["kinds"]) == {*KINDS, "pet"} and set(pet["zones"]["instead"]) == set(INSTEAD)
-    assert set(pet["options"]) == {*KINDS, "pet"} and pet["more"] is False   # nothing chosen: the kinds
-    both = client.post("/api/prompt-programs/pools", json={**body, "choices": {"pet": {"zones": ["kinds", "instead"]}}}).json()
-    assert set(both["choices"]["pet"]["options"]) == {*KINDS, "pet", *INSTEAD}
-    descent = got["choices"][f"{MAN}.descent"]
-    assert set(descent["zones"]["kinds"]) == set(AFRICAN) and "Korean" in descent["zones"]["instead"]
-    assert "Korean" in descent["groups"]["group"]["east_asian"]
-    # The chooser's rows: a row per world region, each value in one, in the list's order
-    regions = vocabulary().get("person.ethnicity").local_facets["region"]
-    assert descent["browse"] == "region" and list(descent["groups"]["region"]) == list(regions)
-    assert "Korean" in descent["groups"]["region"]["East Asia"] and "Kenyan" in descent["groups"]["region"]["Sub-Saharan Africa"]
-    shown = [o for os in descent["groups"]["region"].values() for o in os]
-    assert len(shown) == len(set(shown)) == len(descent["options"]) - len(descent.get("mine") or [])
-    outfit = got["choices"][f"{MAN}.outfit"]
-    assert "presentation" in outfit["groups"] and outfit["short"]
-    leaf = vocabulary().get("person.outfit.casual")
-    assert all(leaf.short(o) == s and s != o for o, s in outfit["short"].items())
+    assert pet["kind"] == "variants" and pet["state"] == "ready" and pet["more"] is False and pet["chosen"] is None
+    assert pet["options"] == [v["text"] for v in pet["variants"]] and len(pet["options"]) == 30
+    assert "person" in got["choices"][MAN] and "person" not in pet and got["more"] == []
+    one = pet["options"][2]
+    got = client.post("/api/prompt-programs/pools",
+                      json={**body, "choices": {"pet": {"values": [one]}, "pet#add": ["box of kittens"]}}).json()
+    pet = got["choices"]["pet"]
+    assert pet["chosen"] == {"values": [one]} and pet["variants"][-1]["own"] and pet["options"][-1] == "box of kittens"
 
 
-BODY_PROMPT = "<young woman> on a cell phone selfie, <body type, slim to avg> petite"
-BODY_READING = {"slots": [
-    {"n": 1, "kind": "person", "label": "Young woman", "lead": "",
-     "person": {"noun": "woman", "presentation": "feminine", "stated": {"age": "young"},
-                "vary": ["age", "descent", "hair"], "outfit": "person.outfit.casual"}},
-    {"n": 2, "kind": "free", "label": "Body type", "lead": ",",
-     "free": {"about": "the woman's body type, slim to average", "kinds": ["slim", "average", "athletic"], "instead": []}},
-], "lists": []}
-
-
-async def test_a_free_slot_with_its_kinds_alone_shows_them(profile, monkeypatch):
-    # Nothing stands instead of a body type: the slot has one zone, so the chooser names none,
-    # and its pool must not answer by zone either, or the card finds no options to show.
-    _use(monkeypatch, FakeModel(_reply(BODY_READING)))
-    await ready(BODY_PROMPT, profile)
-    client = _client(monkeypatch, profile)
-    out = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": BODY_PROMPT}).json()
-    body_type = {c["id"]: c for c in out["choices"]}["body_type_slim_to_avg"]
-    assert "zones" not in body_type
-    got = client.post("/api/prompt-programs/pools", json={"tool_id": "t", "prompt": BODY_PROMPT, "key": out["key"]}).json()
-    pool = got["choices"]["body_type_slim_to_avg"]
-    assert "zones" not in pool and {"slim", "average", "athletic"} <= set(pool["options"])
-
-
-async def test_preview_draws_from_the_zones_chosen(profile, monkeypatch):
+async def test_preview_draws_with_the_choices(profile, monkeypatch):
     import prompt_programs.fix as fix
-    monkeypatch.setattr(fix, "await_judge", _no_judge)
-    client, out = await _prepared(profile, monkeypatch)
-    body = {"tool_id": "t", "prompt": PORCH_PROMPT, "choices": {"pet": {"zones": ["instead"]}, "list1": {"off": True}}}
+
+    async def no_judge(entry, project_id=None):
+        return None
+    monkeypatch.setattr(fix, "await_judge", no_judge)
+    client, _, entry = await _prepared(profile, monkeypatch)
+    man = pool_of(entry, profile, MAN)[0]
+    body = {"tool_id": "t", "prompt": PORCH_PROMPT,
+            "choices": {"pet": {"off": True}, "list1": {"off": True}, MAN: {"values": [man]}}}
     for seed in range(4):
         r = client.post("/api/prompt-programs/preview", json={**body, "seed": seed}).json()
         drawn = {d["id"]: d["value"] for d in r["draws"]}
-        assert drawn["pet"] in INSTEAD and "list1" not in drawn
-        assert "evening" in r["prompt"] and "summer" not in r["prompt"] and "autumn" not in r["prompt"]
+        assert drawn == {MAN: man} and "with his" not in r["prompt"]
+        assert r["prompt"].endswith("reading on a porch, evening") and "summer" not in r["prompt"]
 
 
-async def _no_judge(entry, project_id=None):
-    return None
-
-
-async def test_options_writes_for_one_zone(profile, monkeypatch):
-    client, out = await _prepared(profile, monkeypatch)
-    seen = []
-
-    async def write(job, count):
-        seen.append(job)
-        return ["sleepy tortoise", "box of kittens"]
-    import prompt_programs.options as opts
-    monkeypatch.setattr(opts, "write_options", write)
-    body = {"tool_id": "t", "prompt": PORCH_PROMPT, "key": out["key"], "choice_id": "pet", "zone": "instead"}
+async def test_options_writes_more_like_these(profile, monkeypatch):
+    client, out, entry = await _prepared(profile, monkeypatch)
+    before = pool_of(entry, profile, "pet")
+    body = {"tool_id": "t", "prompt": PORCH_PROMPT, "key": out["key"], "choice_id": "pet"}
     r = client.post("/api/prompt-programs/options", json=body)
-    assert r.status_code == 200 and r.json()["options"] == ["sleepy tortoise", "box of kittens"]
-    assert seen[0].spec.zone == "instead" and seen[0].spec.seeds == INSTEAD
-    assert client.post("/api/prompt-programs/options", json={**body, "zone": "elsewhere"}).status_code == 422
+    assert r.status_code == 200
+    new = r.json()["options"]
+    assert len(new) == 20 and not set(new) & set(before)
+    assert pool_of(entry, profile, "pet") == before + new
+    gone = client.post("/api/prompt-programs/options", json={**body, "choice_id": "hat"})
+    assert gone.status_code == 422

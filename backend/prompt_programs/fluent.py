@@ -235,7 +235,9 @@ def pool_view(entry: Dict[str, Any], chosen: Optional[Dict[str, Choice]] = None,
         more = bool(writer is not None and s.get("pool") and writer.busy(str(s["pool"])))
         if more:
             busy.append(sid)
-        view: Dict[str, Any] = {"kind": "variants", "state": slot_state(entry, s, writer), "more": more,
+        from prompt_programs.variants import kept_chunks, valid_category
+        keep = kept_chunks(s["words"], valid_category(s["words"], s.get("category") or "", str(s.get("kind") or "")))
+        view: Dict[str, Any] = {"kind": "variants", "state": slot_state(entry, s, writer), "more": more, "keep": keep,
                                 "variants": listed, "options": [v["text"] for v in listed], "chosen": c.to_dict()}
         if s.get("kind") == "person" and not s.get("degraded"):
             record = (entry.get("seeds") or {}).get(sid) or {}

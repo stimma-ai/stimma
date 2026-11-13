@@ -1,7 +1,8 @@
-"""A Fluent generation on the slot path: the prompt's slots read in the background (a fake
-model), drawn per image with the chooser's choices, judged, then improved per image at the
-Detail level with every drawn value kept exactly; what each image was made from is stored
-with it. A submit never waits on the slot reader, narrowing or option writing."""
+"""A Fluent generation on the slot path: the prompt's slots read and their pools written in the
+background (a fake model and a fake writer), each image drawing a variant per slot with the
+chooser's choices, judged, then improved per image at the Detail level with every drawn value
+kept exactly; what each image was made from is stored with it. A submit never waits on the
+slot reader, narrowing or pool writing."""
 
 import json
 from types import SimpleNamespace
@@ -11,13 +12,17 @@ from fastapi import HTTPException
 
 import routes.generation as gen
 from prompt_programs import slots
+from prompt_programs import variant_pools as P
 from prompt_programs.choices import UnknownChoiceError
 
+from test_prompt_program_variants import FakeWriter
 from test_slots_fill import PORCH_PROMPT, PORCH_READING
 from test_slots_reader import FakeModel, Hang, _reply, _use, profile, ready  # noqa: F401 (profile is a fixture)
 
 MAN = "elderly_african_man"
 ADDED = ", in warm late-afternoon light"
+AS_WRITTEN = ("An elderly African man reading on a porch with his pet, summer evening",
+              "An elderly African man reading on a porch with his pet, autumn evening")
 
 
 class _Session:
@@ -89,21 +94,29 @@ class FakeJudge:
         return [0.0] * len(items)
 
 
+class HangWriter(FakeWriter):
+    """A pool writer that never answers until let go."""
+
+    def __init__(self):
+        import asyncio
+        super().__init__()
+        self.go = asyncio.Event()
+
+    async def __call__(self, messages, project_id, max_tokens, temperature=0.8):
+        await self.go.wait()
+        return await super().__call__(messages, project_id, max_tokens, temperature)
+
+
 async def test_a_submit_waits_on_nothing_but_the_judge_and_improve(tool, monkeypatch, profile):
-    """Reader, narrowing and option writing would hang if awaited: the submit still finishes,
-    its unread slots as their words, judged and improved; once the readings land, the next
-    image draws from them."""
+    """Reader, narrowing and pool writing would hang if awaited: the submit still finishes,
+    its unread slots as their words, judged and improved; once the readings land the slots
+    still stand as their words while their pools are written, and draw variants after."""
     import asyncio
-    import prompt_programs.fluent as fl
-    import prompt_programs.options as opts
     from prompt_programs import llm_judge
 
     model = _use(monkeypatch, Hang(_reply(PORCH_READING)))
-
-    async def hang_options(job, count=12):
-        await asyncio.Event().wait()
-    monkeypatch.setattr(opts, "write_options", hang_options)
-    monkeypatch.setattr(fl, "filler_for", lambda pid: opts.OptionFiller(opts.OptionStore(prep_root(profile))))
+    writer = HangWriter()
+    monkeypatch.setattr(P, "ASK", writer)
     judge = FakeJudge()
     monkeypatch.setenv("STIMMA_FLUENT_FIX_MODEL", "default")
     monkeypatch.setattr(llm_judge, "current", lambda project_id=None: judge)
@@ -111,25 +124,24 @@ async def test_a_submit_waits_on_nothing_but_the_judge_and_improve(tool, monkeyp
     assert model.calls == 3 and model.asked == []   # its reading started, never waited for
     assert len(tool) == 1                            # the one model call in line: Improve
     record = out["prompt_program"]
-    assert record["filled"].split("\n")[1] in (
-        "An elderly African man reading on a porch with his pet, summer evening",
-        "An elderly African man reading on a porch with his pet, autumn evening")
+    assert record["filled"].split("\n")[1] in AS_WRITTEN
     assert {d["id"] for d in record["draws"]} == {"list1"} and judge.asked and record["fix"]["judge"] == "fake-judge"
 
     model.go.set()
     await slots.idle()
+    written = (await asyncio.wait_for(_submit(), 3.0))["prompt_program"]
+    assert written["filled"].split("\n")[1] in AS_WRITTEN and written["more_coming"] == [MAN, "pet"]
+    assert all(d["source"] == "words" for d in written["draws"] if d["id"] != "list1")
+
+    writer.go.set()
+    await P.writer_for(profile).drain()
     later = (await asyncio.wait_for(_submit(), 3.0))["prompt_program"]
-    drawn = {d["id"]: d["value"] for d in later["draws"]}
-    assert drawn["pet"] in PORCH_READING["slots"][1]["free"]["kinds"] and MAN + ".age" in drawn
-    assert len(tool) == 2
-
-
-def prep_root(profile):
-    from prompt_programs import program as prep
-    return prep.store_for(profile).root / "options"
+    assert all(d["source"] == "variant" for d in later["draws"] if d["id"] != "list1") and "more_coming" not in later
+    assert len(tool) == 3
 
 
 async def test_each_image_draws_its_slots_then_is_improved_with_its_values_kept(tool, monkeypatch, profile):
+    from prompt_programs.fill import tidy_text
     model = await _read(monkeypatch, profile)
     outs = [await _submit() for _ in range(4)]
     assert len(model.asked) == 3            # each part read once, drawn four times
@@ -141,28 +153,31 @@ async def test_each_image_draws_its_slots_then_is_improved_with_its_values_kept(
         sent = out["prompt"]
         # the improver saw the comment line and every drawn value marked; the tool never sees the comment
         assert request.prompt.startswith("# she is his granddaughter, visiting\n") and request.level == "expand"
-        assert request.marked and f"⟦{drawn[MAN + '.age']}⟧" in request.prompt and f"⟦{drawn['pet']}⟧" in request.prompt
+        assert request.marked and f"⟦{drawn['pet']}⟧" in request.prompt and f"⟦{drawn['list1']}⟧" in request.prompt
         assert "#" not in sent and "⟦" not in sent and sent.endswith(ADDED)
-        for cid in (MAN + ".age", MAN + ".descent", "pet", "list1"):
+        for cid in (MAN, "pet", "list1"):
             assert drawn[cid] in sent
-        # the record: draws (an outfit keeps its template), choices, the filled and sent prompts, the outcome
+        # the record: draws, choices, the filled and sent prompts, the outcome
         assert record["key"] and record["level"] == "expand" and record["choices"] == {}
         assert record["sent"] == sent and record["filled"].startswith("# she is his granddaughter")
         assert record["improve"]["improved"] == "true" and record["improve"]["target"]
-        assert all(record["filled"][a:b].lower() in str(drawn[c]).lower() or c.endswith(".outfit")
+        assert all(record["filled"][a:b].lower() in (str(drawn[c]).lower(), tidy_text([str(drawn[c])]).lower())
                    for a, b, c in record["spans"])
-        outfit = next(d for d in record["draws"] if d["id"] == MAN + ".outfit")
-        assert outfit.get("template") and "{" in outfit["template"]
+        assert record["draw_revision"]["engine"] == "variants-1"
         json.dumps(record)   # stored as JSON with the image
+    # each shipped draw counted: four images took four different pets
+    pets = [{d["id"]: d["value"] for d in o["prompt_program"]["draws"]}["pet"] for o in outs]
+    assert len(set(pets)) == 4
 
 
 async def test_choices_hold_and_a_slot_left_out_takes_its_lead(tool, monkeypatch, profile):
     await _read(monkeypatch, profile)
-    choices = {MAN + ".age": {"values": ["74-year-old"]}, "pet": {"off": True}, "list1": {"values": ["autumn"]}}
+    choices = {MAN: {"values": ["stooped elderly African man in a cardigan"]}, "pet": {"off": True},
+               "list1": {"values": ["autumn"]}}
     for _ in range(3):
         out = await _submit(choices=choices)
         record = out["prompt_program"]
-        assert "74-year-old" in out["prompt"] and "autumn evening" in out["prompt"]
+        assert "stooped elderly African man in a cardigan" in out["prompt"] and "autumn evening" in out["prompt"]
         assert "with his" not in out["prompt"] and "pet" not in {d["id"] for d in record["draws"]}
         assert record["choices"] == choices
 
@@ -212,8 +227,9 @@ async def test_a_prompt_with_nothing_to_vary_goes_straight_to_the_improver(tool,
 
 async def test_agent_keep_choices_are_choices_of_values(tool, monkeypatch, profile):
     await _read(monkeypatch, profile)
-    out = await _submit(keep_choices={"Pet": "gray parrot"})
-    assert {d["id"]: d["value"] for d in out["prompt_program"]["draws"]}["pet"] == "gray parrot"
+    out = await _submit(keep_choices={"Pet": "gray parrot", "Season": "summer"})
+    drawn = {d["id"]: d["value"] for d in out["prompt_program"]["draws"]}
+    assert drawn["pet"] == "gray parrot" and drawn["list1"] == "summer"
     with pytest.raises(UnknownChoiceError):
         await _submit(keep_choices={"hat": "bowler"})
 
@@ -221,8 +237,7 @@ async def test_agent_keep_choices_are_choices_of_values(tool, monkeypatch, profi
 async def test_slots_that_cant_be_read_still_run_as_written(tool, monkeypatch, profile):
     await _read(monkeypatch, profile, PORCH_PROMPT, "not json")
     out = await _submit(level="off")
-    assert out["prompt"] in ("An elderly African man reading on a porch with his pet, summer evening",
-                             "An elderly African man reading on a porch with his pet, autumn evening"), out["prompt"]
+    assert out["prompt"] in AS_WRITTEN, out["prompt"]
 
 
 async def test_a_prompt_too_long_is_refused(tool, monkeypatch):
@@ -245,7 +260,17 @@ async def test_draws_are_their_own_seed_never_the_images(tool, monkeypatch, prof
     fresh = [(await _submit())["prompt_program"]["draw_seed"] for _ in range(6)]
     assert len(set(fresh)) > 1
     a, b = (await _submit(draw_seed=7))["prompt_program"], (await _submit(draw_seed=7))["prompt_program"]
-    assert a["draw_seed"] == b["draw_seed"] == 7 and a["draws"] == b["draws"]
+    # the user's list draws the same; a slot takes its least-used variant, and the first draw was counted
+    season = [next(d["value"] for d in r["draws"] if d["id"] == "list1") for r in (a, b)]
+    assert a["draw_seed"] == b["draw_seed"] == 7 and season[0] == season[1]
+
+
+async def test_a_replay_draws_its_values_exactly(tool, monkeypatch, profile):
+    await _read(monkeypatch, profile)
+    first = (await _submit(level="off"))["prompt_program"]
+    fixed = {d["id"]: d["value"] for d in first["draws"]}
+    again = (await _submit(level="off", fixed=fixed))["prompt_program"]
+    assert again["filled"] == first["filled"] and {d["source"] for d in again["draws"]} == {"fixed", "list"}
 
 
 # --------------------------------------------------------------------------- generate forever improves ahead
@@ -298,7 +323,7 @@ async def test_generate_forever_sends_a_pooled_prompt_improved_ahead(tool, forev
     assert hot["prompt"] == pooled["sent"] == record["sent"]
     assert record["draw_seed"] == pooled["result"].seed and record["improve"] == pooled["improve"]
     drawn = {d["id"]: d["value"] for d in record["draws"]}
-    for cid in (MAN + ".age", MAN + ".descent", "pet", "list1"):
+    for cid in (MAN, "pet", "list1"):
         assert drawn[cid] in hot["prompt"]
     await _settle(forever_queue)
 

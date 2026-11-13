@@ -1,31 +1,56 @@
 """Fluent's fix pass: a small local judge scores each finished draw (one pick masked at
-a time, the user's prompt included) and rerolls flagged picks."""
+a time, the user's prompt included) and rerolls flagged picks. Slots draw from pools of
+variants written straight into the profile's store; nothing here calls a model."""
 
 import json
 
 import pytest
 
 from prompt_programs import program as prep
+from prompt_programs import variant_pools as P
 from prompt_programs.fix import (
     FixJudgeUnavailable, OnnxJudge, fix_draw, fix_judge, judged_picks, mask, realize_and_fix, score_draw,
 )
 from prompt_programs.judge import FluentSettings
-from prompt_programs.fill import ProgramError
+from prompt_programs.variant_pools import Choice
 
+PROFILE = "p"
 USER = "A {nun|lifeguard|surgeon} wearing <outfit> under <light>"
-OUTFIT = {"n": 1, "kind": "free", "label": "Outfit", "lead": " wearing",
-          "free": {"about": "what she wears", "kinds": ["a black habit", "a gray habit", "a red swimsuit", "green scrubs",
-                                                         "blue scrubs"], "instead": []}}
-LIGHT = {"n": 2, "kind": "free", "label": "Light", "lead": " under",
-         "free": {"about": "the light", "kinds": ["dawn light", "noon sun", "moonlight", "candlelight"], "instead": []}}
+OUTFIT = {"n": 1, "kind": "free", "label": "Outfit", "lead": " wearing", "category": "",
+          "free": {"about": "what she wears", "kinds": [], "instead": [], "lists": []}}
+LIGHT = {"n": 2, "kind": "free", "label": "Light", "lead": " under", "category": "",
+         "free": {"about": "the light", "kinds": [], "instead": [], "lists": []}}
+# Each slot's pool, by its words.
+POOLS = {"outfit": ["a black habit", "a gray habit", "a red swimsuit", "green scrubs", "blue scrubs"],
+         "light": ["dawn light", "noon sun", "moonlight", "candlelight"]}
 
 
-def entry_for(prompt=USER, readings=(OUTFIT, LIGHT), **kw):
+@pytest.fixture(autouse=True)
+def profile(tmp_path, monkeypatch):
+    """A profile whose variant store lives under tmp_path."""
+    import app_dirs
+    monkeypatch.setattr(app_dirs, "get_profile_dir", lambda pid="default": tmp_path / str(pid))
+    monkeypatch.setattr(P, "_stores", {})
+    monkeypatch.setattr(P, "_writers", {})
+    return PROFILE
+
+
+def entry_for(prompt=USER, readings=(OUTFIT, LIGHT), pools=POOLS, **kw):
+    """A prepared entry: each read slot has a pool of `pools[words]`, written into the store as
+    one first batch, and the user's first list is named "job"."""
     from prompt_programs.slots import compose, parse
     e = compose(parse(prompt), {r["n"]: r for r in readings}, {1: "Job"})
-    for x in (*e["picks"], *e["choices"], *e["lists"]):   # the job list, named as these tests name it
+    for x in (*e["picks"], *e["choices"], *e["lists"]):
         if x["id"] == "list1":
             x["id"] = "job"
+    store = P.store_for(PROFILE)
+    for s in e["slots"]:
+        if s["state"] != "ready":
+            continue
+        s["pool"] = P.pool_key("fake-model", s["words"], prompt, [])
+        if not store.has(s["pool"]):
+            store.append(s["pool"], {"batch": 0, "role": "first",
+                                     "variants": [{"text": t, "seeds": {}} for t in pools[s["words"]]]})
     return {**e, "key": "fix1", **kw}
 
 
@@ -43,8 +68,12 @@ class Scorer:
         return [float(self.rule(it)) for it in items]
 
 
-def draw(entry, seed, fixed=None, edits=None, pins=None):
-    return prep.realize(entry, seed=seed, fixed=fixed, edits=edits, pins=pins)
+def draw(entry, seed, fixed=None, edits=None, pins=None, chosen=None):
+    return prep.realize(entry, seed=seed, fixed=fixed, edits=edits, pins=pins, chosen=chosen, profile_id=PROFILE)
+
+
+def judged(entry, seed, **kw):
+    return realize_and_fix(entry, seed=seed, profile_id=PROFILE, **kw)
 
 
 def redraw_for(entry, pins=None):
@@ -53,13 +82,6 @@ def redraw_for(entry, pins=None):
 
 def values(result):
     return {d.id: d.value for d in result.draws}
-
-
-@pytest.fixture(autouse=True)
-def no_profile(monkeypatch):
-    import prompt_programs.fluent as fl
-    monkeypatch.setattr(fl, "_profile_store", lambda pid: None)
-    monkeypatch.setattr(fl, "filler_for", lambda pid: (_ for _ in ()).throw(RuntimeError("no filler in tests")))
 
 
 def seed_where(entry, pred, start=0):
@@ -92,15 +114,31 @@ class TestScoring:
             assert f"[{it.label}]" in it.state and it.value not in it.state
             others = [str(x) for k, x in v.items() if str(x) != it.value]
             assert all(o in it.state for o in others)
-        assert {it.about for it in sc.batches[0] if it.label == "Outfit"} == {"what she wears"}
+        assert {it.about for it in sc.batches[0] if it.label == "Outfit"} == {"outfit"}   # the slot's own words
 
-    def test_pinned_kept_and_single_option_picks_are_not_judged(self):
+    def test_pinned_kept_own_and_single_option_picks_are_not_judged(self):
         entry = entry_for()
         r = draw(entry, 2, pins={"job": ["nun"]})
         assert {d.id for d in judged_picks(r)} == {"outfit", "light"}
         assert {d.id for d in judged_picks(r, skip=["light"])} == {"outfit"}
+        r = draw(entry, 2, chosen={"light": Choice(values=("moonlight", "noon sun"))})
+        assert values(r)["light"] in ("moonlight", "noon sun") and {d.id for d in judged_picks(r)} == {"job", "outfit"}
+        mine = {"outfit": Choice(add=("a yellow raincoat",))}
+        s = next(s for s in range(50) if values(draw(entry, s, chosen=mine))["outfit"] == "a yellow raincoat")
+        assert {d.id for d in judged_picks(draw(entry, s, chosen=mine))} == {"job", "light"}   # the user's own stands
         one = entry_for("a {only|only}", readings=())
         assert judged_picks(draw(one, 1)) == []
+
+    def test_the_judge_and_the_highlight_find_a_value_as_the_tidy_writes_it(self):
+        from prompt_programs.fix import prompt_view
+        from prompt_programs.program import realized_text
+        coat = "a olive trench coat over a cream sweater"   # the tidy writes "an olive ..."
+        r = draw(entry_for("A woman wearing <outfit>.", readings=(OUTFIT,), pools={"outfit": [coat]}), 1)
+        text = realized_text(r.prompt)
+        assert text == "A woman wearing an olive trench coat over a cream sweater."
+        assert mask(text, coat, "Outfit") == "A woman wearing [Outfit]."
+        (s, e, cid), = prompt_view(r)["spans"]
+        assert cid == "outfit" and text[s:e] == "an olive trench coat over a cream sweater"
 
     def test_onnx_style_input_pair(self, tmp_path):
         j = OnnxJudge(tiny_model(tmp_path))
@@ -143,13 +181,24 @@ class TestFixLoop:
         assert values(out)["light"] == min(bad, key=lambda k: bad[k] if bad[k] in seen else 9)
         assert rec["rounds"][rec["chosen"]]["scores"]["light"] == min(seen)
 
-    def test_a_pick_with_nothing_left_stops_and_keeps_the_best(self):
+    def test_a_list_with_nothing_left_stops_and_keeps_the_best(self):
+        entry = entry_for()
+        s, r = seed_where(entry, lambda v: v["job"] == "nun")
+        out, rec = fix_draw(r, judge=Scorer(lambda it: 0.9 if it.label == "Job" else 0.0), redraw=redraw_for(entry),
+                            seed=s, user_prompt=USER, cut=0.5, rounds=10)
+        assert rec["unresolved"] and rec["rerolls"] == 2 and "stopped" in rec  # three jobs, all removed in turn
+        assert values(out)["job"] == "nun"
+
+    def test_a_slot_with_every_variant_refused_goes_in_as_its_words(self):
         entry = entry_for()
         s, r = seed_where(entry, lambda v: v["light"] == "moonlight")
         out, rec = fix_draw(r, judge=Scorer(lambda it: 0.9 if it.label == "Light" else 0.0), redraw=redraw_for(entry),
-                            seed=s, user_prompt=USER, cut=0.5, rounds=10)
-        assert rec["unresolved"] and rec["rerolls"] == 3 and "stopped" in rec  # four lights, all removed in turn
-        assert values(out)["light"] in {"dawn light", "noon sun", "moonlight", "candlelight"}
+                            seed=s, user_prompt=USER, cut=0.5, rounds=6)
+        tried = [h["rerolled"]["value"] for h in rec["rounds"] if "rerolled" in h]
+        assert sorted(tried[:4]) == sorted(POOLS["light"]) and tried[4:] == ["light", "light"]   # each variant once
+        assert rec["unresolved"] and rec["rerolls"] == 6 and "stopped" not in rec
+        assert rec["rounds"][-1]["values"]["light"] == "light"
+        assert values(out)["light"] == "moonlight"   # the first of the equally bad draws ships
 
     def test_values_the_user_kept_are_never_rerolled(self):
         entry = entry_for()
@@ -293,24 +342,24 @@ class TestOnnxJudge:
 class TestRealizeAndFix:
     def test_through_realize_with_an_onnx_model(self, tmp_path):
         entry = entry_for()
-        cfg = FluentSettings(generate_options=False, fix_model=str(tiny_model(tmp_path)))
+        cfg = FluentSettings(fix_model=str(tiny_model(tmp_path)))
         s, r = seed_where(entry, lambda v: v["light"] == "moonlight")
-        out, rec = realize_and_fix(entry, seed=s, cfg=cfg)
+        out, rec = judged(entry, s, cfg=cfg)
         assert values(out)["light"] != "moonlight" and "moonlight" not in out.prompt
         assert rec["rerolls"] >= 1 and rec["rounds"][0]["rerolled"]["value"] == "moonlight"
         assert rec["rounds"][0]["scores"]["light"] > 0.99 and rec["judge"].startswith("onnx:")
         assert rec["cut"] == 0.5 and not rec["unresolved"]
-        again, rec2 = realize_and_fix(entry, seed=s, cfg=cfg)
+        again, rec2 = judged(entry, s, cfg=cfg)
         assert again.prompt == out.prompt and rec2["rounds"] == rec["rounds"]
 
     def test_off_replay_and_broken_model(self, tmp_path):
         entry = entry_for()
-        r, rec = realize_and_fix(entry, seed=4, cfg=FluentSettings(generate_options=False, fix_model="off"))
+        r, rec = judged(entry, 4, cfg=FluentSettings(fix_model="off"))
         assert rec is None and r.prompt == draw(entry, 4).prompt
-        cfg = FluentSettings(generate_options=False, fix_model=str(tiny_model(tmp_path)))
-        r, rec = realize_and_fix(entry, seed=4, cfg=cfg, revision=r.revision)
+        cfg = FluentSettings(fix_model=str(tiny_model(tmp_path)))
+        r, rec = judged(entry, 4, cfg=cfg, revision=r.revision)
         assert rec is None
-        r, rec = realize_and_fix(entry, seed=4, cfg=FluentSettings(generate_options=False, fix_model=str(tmp_path / "x")))
+        r, rec = judged(entry, 4, cfg=FluentSettings(fix_model=str(tmp_path / "x")))
         assert "error" in rec and r.prompt == draw(entry, 4).prompt
 
     def test_a_judge_that_fails_mid_pass_keeps_the_draw(self):
@@ -321,14 +370,14 @@ class TestRealizeAndFix:
             def p_wrong(self, items):
                 raise RuntimeError("boom")
         entry = entry_for()
-        r, rec = realize_and_fix(entry, seed=5, cfg=FluentSettings(generate_options=False), judge=Broken())
+        r, rec = judged(entry, 5, cfg=FluentSettings(), judge=Broken())
         assert r.prompt == draw(entry, 5).prompt and "boom" in rec["error"]
 
     def test_fix_cut_setting_overrides_the_model(self, tmp_path):
         entry = entry_for()
-        cfg = FluentSettings(generate_options=False, fix_model=str(tiny_model(tmp_path)), fix_cut=0.999999)
+        cfg = FluentSettings(fix_model=str(tiny_model(tmp_path)), fix_cut=0.999999)
         s, r = seed_where(entry, lambda v: v["light"] == "moonlight")
-        out, rec = realize_and_fix(entry, seed=s, cfg=cfg)
+        out, rec = judged(entry, s, cfg=cfg)
         assert rec["cut"] == 0.999999 and rec["rerolls"] == 0 and values(out)["light"] == "moonlight"
 
 
@@ -345,7 +394,7 @@ class TestExactTextIsNeverJudged:
         entry = self.entry()
         sc = Scorer(lambda it: 0.9 if it.value in ("moonlight", "noon sun") else 0.0)
         s, _ = seed_where(entry, lambda v: v["light"] == "moonlight")
-        out, rec = realize_and_fix(entry, seed=s, cfg=FluentSettings(generate_options=False), judge=sc)
+        out, rec = judged(entry, s, cfg=FluentSettings(), judge=sc)
         seen = [f for b in sc.batches for it in b for f in (it.state, it.label, it.about, it.value, it.user_prompt)]
         assert seen and rec["rerolls"] >= 1
         assert not any(self.SECRET in f for f in seen)
@@ -356,7 +405,7 @@ class TestExactTextIsNeverJudged:
 
     def test_without_a_judge_the_prompt_is_unmasked(self):
         entry = self.entry()
-        out, rec = realize_and_fix(entry, seed=3, cfg=FluentSettings(generate_options=False, fix_model="off"))
+        out, rec = judged(entry, 3, cfg=FluentSettings(fix_model="off"))
         assert rec is None and self.SECRET in out.prompt and "EXACT_1" not in out.prompt
 
 
@@ -416,7 +465,7 @@ class TestTheFixNeverCostsTheImage:
                     return []
                 return [0.99 for _ in items]  # everything flagged: reroll, then the second pass
         entry = entry_for()
-        r, rec = realize_and_fix(entry, seed=5, cfg=FluentSettings(generate_options=False), judge=Flaky())
+        r, rec = judged(entry, 5, cfg=FluentSettings(), judge=Flaky())
         assert r.prompt == draw(entry, 5).prompt or fail == "short"
         if fail != "short":
             assert "the fix pass failed" in rec["error"]
@@ -427,5 +476,5 @@ class TestTheFixNeverCostsTheImage:
         (bad / "model.onnx").write_bytes(b"not a model")
         (bad / "tokenizer.json").write_text("{}")
         entry = entry_for()
-        r, rec = realize_and_fix(entry, seed=6, cfg=FluentSettings(generate_options=False, fix_model=str(bad)))
+        r, rec = judged(entry, 6, cfg=FluentSettings(fix_model=str(bad)))
         assert r.prompt == draw(entry, 6).prompt and rec["error"]

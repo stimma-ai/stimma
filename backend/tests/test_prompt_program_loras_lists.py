@@ -1,21 +1,4 @@
-"""What the models are told about LoRAs, the article and joining-word seams, and how options
-keep their pools."""
-
-import pytest
-
-
-
-
-
-SPARK_EMIT = '''b = pick_lora("hair_lora", ["KREA2 hairshop curly v1", "KREA2 hairshop pixie v1"], label="Hair", line=5)
-emit("Two friends on a beige sofa, harsh flash.", "\\n", b)
-'''
-
-
-
-
-
-
+"""What the models are told about LoRAs, and the article and joining-word seams."""
 
 
 class TestLorasShownToTheModels:
@@ -43,33 +26,3 @@ class TestArticles:
         assert tidy_text(["They had had enough."]) == "They had had enough."
         assert tidy_text(["a tall man standing by the old harbor wall in", "in a red coat"]) == \
             "A tall man standing by the old harbor wall in in a red coat"
-
-
-class TestOptionContinuity:
-    def test_a_patched_program_keeps_the_pools_of_picks_it_didnt_touch(self):
-        from prompt_programs.fill import PickSpec
-        from prompt_programs.options import GeneratedOptions, ProgramContext
-
-        spec = PickSpec("eye_color", "Eye Color", "her eye color", 2, "text", "pick", ["emerald green"], [])
-        v1 = ProgramContext(key="p1", signature="a woman with {eyes}", template="a woman with {eyes}", lineage="p1")
-        v2 = ProgramContext(key="p2", signature="a tall woman with {eyes}", template="a tall woman with {eyes}", lineage="p1")
-        other = ProgramContext(key="p3", signature="a tall woman with {eyes}", template="a tall woman with {eyes}", lineage="p3")
-        k1 = GeneratedOptions(None, v1)._where(spec, {})[1]
-        assert GeneratedOptions(None, v2)._where(spec, {})[1] == k1      # same lineage: same options
-        assert GeneratedOptions(None, other)._where(spec, {})[1] != k1   # a new prompt: its own
-
-    def test_a_wildcard_in_the_users_words_bounds_its_options(self):
-        from prompt_programs.fill import PickSpec
-        from prompt_programs.options import GeneratedOptions, OptionJob, ProgramContext, generation_messages
-        spec = PickSpec("1970s_or_1980s_cars", "Cars", "the parked cars", 1, "text", "pick", ["a Ford Granada"], [])
-        prog = ProgramContext(key="p", signature="a street", template="a street of [Cars]", lineage="p",
-                              intents=(("1970s_or_1980s_cars", "1970s or 1980s cars"),))
-        plain = ProgramContext(key="p", signature="a street", template="a street of [Cars]", lineage="p")
-        assert GeneratedOptions(None, prog)._where(spec, {})[1] != GeneratedOptions(None, plain)._where(spec, {})[1]
-        job = OptionJob("k", spec, {}, prog, "a street", 0)
-        user = generation_messages(job)[1]["content"]
-        assert '"1970s or 1980s cars"' in user and "rule, not an example" in user
-        assert "nothing added" in user   # a wildcard names its things: "Japan", not a description of Japan
-        assert "nothing added" not in generation_messages(OptionJob("k", spec, {}, plain, "a street", 0))[1]["content"]
-
-

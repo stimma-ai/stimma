@@ -1,5 +1,5 @@
 """An edit keeps what was read: a slot read before an edit stays ready with its reading (and its
-narrowing and written options) while one small call checks whether the edit changes it; only
+seeds and its pool of variants) while one small call checks whether the edit changes it; only
 the parts it changes are read again, quietly, and only new parts show as being read."""
 
 import asyncio
@@ -11,13 +11,11 @@ import pytest
 
 from prompt_programs import program as prep
 from prompt_programs import reader, slots
-from prompt_programs.fluent import start_options
-from prompt_programs.judge import FluentSettings
-from prompt_programs.options import OptionFiller, OptionStore
+from prompt_programs import variant_pools as P
+from prompt_programs.choices import expand
 
-from test_prompt_program_fluent import FakeGen
-from test_slots_fill import AFRICAN, ELDERLY, PORCH_PROMPT, PORCH_READING
-from test_slots_reader import _client, profile  # noqa: F401  (the fixture)
+from test_slots_reader import AFRICAN, ELDERLY, PORCH_PROMPT, PORCH_READING, _client, ready
+from test_slots_reader import profile  # noqa: F401  (the fixture)
 
 BEFORE = PORCH_PROMPT
 AFTER = BEFORE.replace("with his <pet>,", "with his <pet> and a <mug>,")
@@ -26,7 +24,6 @@ MUG = {"kind": "free", "label": "Mug", "lead": " and a",
        "free": {"about": "a mug on the porch", "kinds": ["enamel camp mug", "chipped diner mug", "tin cup"],
                 "instead": []}}
 READINGS = {"elderly African man": MAN, "pet": PET, "mug": MUG}
-ON = FluentSettings(generate_options=True, fix_model="off")
 
 
 class Model:
@@ -78,16 +75,22 @@ class Model:
 
 @pytest.fixture
 def model(profile, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(slots, "_changed", set())
     m = Model()
     monkeypatch.setattr(prep, "ask_model", m)
     return m
 
 
 async def _ready(prompt: str, **kw: Any) -> Dict[str, Any]:
-    await slots.prepare(prompt, profile_id="p", **kw)
-    await slots.idle()
-    return await slots.prepare(prompt, profile_id="p", start=False)
+    return await ready(prompt, "p", **kw)
+
+
+def _pools(entry: Dict[str, Any]) -> Dict[str, str]:
+    return {s["id"]: s["pool"] for s in entry["slots"]}
+
+
+def _written() -> List[str]:
+    """The slots' words of every pool write so far, in order."""
+    return [c["words"] for c in P.ASK.calls]
 
 
 def _states(entry: Dict[str, Any]) -> List[str]:
@@ -106,7 +109,7 @@ async def test_a_slot_added_on_the_line_keeps_the_others_read_with_one_small_che
     # parts it had are ready with their readings, and only the new slot is being read.
     look = await slots.prepare(AFTER, profile_id="p", start=False, shown=first["key"])
     assert _states(look) == ["ready", "ready", "reading"] and look["lists"][0]["state"] == "ready"
-    assert look["slots"][0]["kind"] == "person" and look["slots"][0]["details"] == first["slots"][0]["details"]
+    assert look["slots"][0]["kind"] == "person" and look["slots"][0]["pool"] == first["slots"][0]["pool"]
     assert look["reading"] and model.reads == ["elderly African man", "pet", "L1"] and not model.checks
     entry = await _ready(AFTER, shown=first["key"])
     # One check for every part read before; the new slot read on its own; nothing narrowed again.
@@ -120,11 +123,11 @@ async def test_a_slot_added_on_the_line_keeps_the_others_read_with_one_small_che
     assert model.checks[0]["max_tokens"] <= 48
     assert _states(entry) == ["ready", "ready", "ready"] and not entry["reading"] and not entry["working"]
     assert [_bare(r) for r in entry["readings"]["slots"][:2]] == [_bare(r) for r in first["readings"]["slots"]]
-    assert entry["filters"]["elderly_african_man.age"] == first["filters"]["elderly_african_man.age"]
+    assert entry["seeds"]["elderly_african_man"] == first["seeds"]["elderly_african_man"]
     # Kept: the next prepare asks nothing at all.
     await _ready(AFTER, shown=first["key"])
     assert len(model.checks) == 1 and len(model.reads) == 4
-    assert "mug" in prep.realize(entry, seed=2).prompt
+    assert "mug" in prep.realize(entry, seed=2, profile_id="p").prompt
 
 
 async def test_the_earlier_readings_serve_while_the_check_runs(model, monkeypatch):
@@ -141,8 +144,8 @@ async def test_the_earlier_readings_serve_while_the_check_runs(model, monkeypatc
     assert [s["state"] for s in out["slots"]][:2] == ["ready", "ready"] and out["working"]
     now = await slots.prepare(AFTER, profile_id="p", start=False)
     assert _states(now)[:2] == ["ready", "ready"] and now["working"]
-    drawn = prep.realize(now, seed=4)   # a generation meanwhile draws from the earlier readings
-    assert "elderly_african_man.age" in {d.id for d in drawn.draws}
+    drawn = prep.realize(now, seed=4, profile_id="p")   # a generation meanwhile draws from the earlier pools
+    assert {d.id: d.source for d in drawn.draws}["elderly_african_man"] == "variant"
     model.go.set()
     await slots.idle()
     assert len(model.checks) == 1 and model.reads[3:] == ["mug"]
@@ -198,27 +201,41 @@ async def test_a_prompt_never_prepared_before_is_read_as_usual(model):
     assert not model.checks and sorted(model.reads) == ["L1", "elderly African man", "mug", "pet"]
 
 
-async def test_a_kept_slot_keeps_its_written_options(model, tmp_path):
+async def test_a_kept_slot_keeps_its_pool(model):
     first = await _ready(BEFORE)
-    store = OptionStore(tmp_path / "options")
-    gen = FakeGen()
-    filler = OptionFiller(store, gen)
-    assert start_options(first, store=store, filler=filler, cfg=ON)
-    await filler.drain()
-    written = len(gen.calls)
+    assert sorted(_written()) == ["elderly African man", "pet"]
     entry = await _ready(AFTER, shown=first["key"])
-    start_options(entry, store=store, filler=filler, cfg=ON)
-    await filler.drain()
-    # Only the new slot's options are written; the man's and the pet's pools are the ones they had.
-    assert written and gen.calls[written:] and all(j.spec.id.startswith("mug") for j in gen.calls[written:])
-    # A part the edit changes gets options written for the prompt as it is now.
+    # Only the new slot's pool is written; the man's and the pet's are the ones they had.
+    assert _written()[2:] == ["mug"]
+    assert {k: v for k, v in _pools(entry).items() if k != "mug"} == _pools(first)
+    # A part the edit changes is read again, and gets a pool for the line as it is now.
     model.check = {2}
     again = await _ready(AFTER.replace("evening", "evening light"), shown=entry["key"])
-    count = len(gen.calls)
-    start_options(again, store=store, filler=filler, cfg=ON)
-    await filler.drain()
-    assert any(j.spec.id == "pet" for j in gen.calls[count:])
-    assert not any(j.spec.id.startswith("elderly_african_man") for j in gen.calls[count:])
+    assert _written()[3:] == ["pet"]
+    assert again["slots"][1]["pool"] != entry["slots"][1]["pool"]
+    assert [again["slots"][i]["pool"] for i in (0, 2)] == [entry["slots"][i]["pool"] for i in (0, 2)]
+
+
+async def test_a_reread_slot_draws_from_its_old_pool_until_its_new_one_is_written(model, monkeypatch):
+    first = await _ready(BEFORE)
+    model.check = {2}
+    edited = BEFORE.replace("evening", "evening light")
+    held = asyncio.Event()
+    writer = P.ASK
+
+    async def slow(messages, project_id, max_tokens, temperature=0.8):
+        await held.wait()
+        return await writer(messages, project_id, max_tokens, temperature)
+    monkeypatch.setattr(P, "ASK", slow)
+    await slots.prepare(edited, profile_id="p", shown=first["key"])
+    await slots.idle()
+    now = await slots.prepare(edited, profile_id="p", start=False, shown=first["key"])
+    pet = now["slots"][1]
+    assert pet["pool"] != first["slots"][1]["pool"] and pet["stand_in"] == first["slots"][1]["pool"]
+    old = {v["text"] for v in P.store_for("p").variants(first["slots"][1]["pool"])}
+    assert {d.id: d.value for d in prep.realize(now, seed=1, profile_id="p").draws}["pet"] in old
+    held.set()
+    await P.writer_for("p").drain()
 
 
 def test_the_check_reply_names_each_part():
@@ -230,20 +247,13 @@ def test_the_check_reply_names_each_part():
     assert reader.parse_changed('["same"]', 1) is None
 
 
-async def test_an_edit_on_another_line_writes_no_options_and_asks_nothing(model, tmp_path):
+async def test_an_edit_on_another_line_writes_no_pools_and_asks_nothing(model):
     before = BEFORE + "\nlate summer light"
     first = await _ready(before)
-    store = OptionStore(tmp_path / "options")
-    gen = FakeGen()
-    filler = OptionFiller(store, gen)
-    assert start_options(first, store=store, filler=filler, cfg=ON)
-    await filler.drain()
-    written, reads, narrows = len(gen.calls), len(model.reads), model.narrows
+    written, reads, narrows = len(_written()), len(model.reads), model.narrows
     entry = await _ready(before.replace("late summer light", "soft late summer light, slight haze"), shown=first["key"])
     assert entry["template"] != first["template"]
-    assert start_options(entry, store=store, filler=filler, cfg=ON) == []   # every pool is already written
-    await filler.drain()
-    assert len(gen.calls) == written
+    assert _pools(entry) == _pools(first) and len(_written()) == written   # every pool is already written
     assert (len(model.reads), model.narrows, model.checks) == (reads, narrows, [])
 
 
@@ -307,7 +317,8 @@ async def test_a_kept_lead_is_kept_as_it_stands_now_so_leaving_the_slot_out_take
     entry = await _ready("a table\nwith a <mug>", shown=first["key"])
     assert len(model.checks) == 1 and model.reads == ["mug"]   # kept: the edit was checked, not read again
     assert entry["readings"]["slots"][0]["lead"] == "with a"
-    left = prep.realize(entry, seed=1, edits={"mug": {"off": True}}).prompt
+    _, _, chosen = expand(entry, {"mug": {"off": True}})
+    left = prep.realize(entry, seed=1, profile_id="p", chosen=chosen).prompt
     assert "with a" not in left.lower() and left.strip().lower().startswith("a table")
 
 
@@ -346,7 +357,7 @@ async def test_a_carried_person_whose_clothes_slot_is_gone_is_read_again(model):
     entry = await _ready(BOAT.replace("in a <wetsuit>", "in a sun hat"), shown=first["key"])
     assert model.reads == ["woman"]
     assert "clothes_part" not in _person(entry) and _person(entry)["outfit"] == "person.outfit.summer"
-    assert any(p["id"] == "woman.outfit" for p in entry["picks"])
+    assert "person.outfit.summer" in {b["list"] for b in entry["seeds"]["woman"]["banks"]}
     assert entry["reading"] is False
 
 
@@ -357,5 +368,5 @@ async def test_a_carried_person_follows_their_clothes_slot_to_its_new_number(mod
     entry = await _ready(BOAT.replace("in a <wetsuit>", "holding a <fish> in a <wetsuit>"), shown=first["key"])
     assert model.reads == ["fish"]   # the woman is carried; the wetsuit's edit is checked, not read
     assert _person(entry)["clothes_part"] == {"n": 3, "words": "wetsuit"}
-    assert not any(p["id"].startswith("woman.outfit") for p in entry["picks"])
+    assert not any(b["list"].startswith("person.outfit") for b in entry["seeds"]["woman"]["banks"])
     assert entry["reading"] is False

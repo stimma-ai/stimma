@@ -5,7 +5,6 @@ each image draws a variant. Nothing here calls a model."""
 from __future__ import annotations
 
 import json
-import random
 from typing import Any, Dict, List
 
 import pytest
@@ -15,7 +14,7 @@ from prompt_programs import slots
 from prompt_programs import variant_pools as P
 from prompt_programs.choices import expand
 from prompt_programs.fill import ProgramError
-from prompt_programs.fluent import count_draw, pool_view, runtime_for
+from prompt_programs.fluent import count_draw, pool_view
 from prompt_programs.vocab import vocabulary
 
 from test_prompt_program_variants import FakeWriter
@@ -316,3 +315,22 @@ async def test_a_generation_draws_and_counts(monkeypatch, profile):
     assert used == 3
     # every drawn value is a span the improver keeps whole
     assert {sp[2] for sp in spans} == {d["id"] for d in record["draws"]}
+
+
+async def test_the_routes_answer_the_picker(monkeypatch, profile):
+    """/pools with each slot's kept words, and /options as the picker calls it (More like these)."""
+    import routes.generation as gen
+    import routes.prompt_programs as rp
+    _, writer = use(monkeypatch)
+    entry = await settled(PROMPT, profile)
+    monkeypatch.setattr(rp, "get_current_profile", lambda: profile)
+    monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {"mode": "prose", "program_supported": True})
+    base = {"tool_id": "t", "prompt": PROMPT, "key": entry["key"], "cache_only": True}
+    got = await rp.pools(rp.PreviewRequest(**base, choices={}))
+    assert got["choices"]["clothing_slightly_open_in_the_front"]["keep"] == ["slightly open in the front"]
+    assert got["choices"]["dominant_young_woman"]["keep"] == ["dominant young woman"]
+    assert got["choices"]["lighting"]["keep"] == []
+    before = len(P.store_for(profile).variants(slot(entry, "lighting")["pool"]))
+    out = await rp.options(rp.OptionsRequest(**base, choice_id="lighting", choices={"lighting": {"values": []}}))
+    assert len(out["options"]) == 20 and writer.calls[-1]["n"] == 20
+    assert len(P.store_for(profile).variants(slot(entry, "lighting")["pool"])) == before + 20

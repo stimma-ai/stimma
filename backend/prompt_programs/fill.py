@@ -450,6 +450,7 @@ def fill(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Sequence[str
             continue
         d = _list_draw(p, rng, pins, fixed, edits)
         records[p["id"]], values[p["id"]] = d, d.value
+        rev[p["id"]] = {"text": d.value}   # a replay draws the user's list as it was drawn too
     for s in entry.get("slots") or []:
         if s.get("state") != "ready" or s.get("degraded"):
             continue

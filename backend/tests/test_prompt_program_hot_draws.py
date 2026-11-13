@@ -1,6 +1,7 @@
 """Fluent hot draws: forever mode keeps finished draws (drawn and judged) ready, so a
 submit never waits on the fix judge. Several draws share each judge pass, and a pass
-asked for while one runs joins the next."""
+asked for while one runs joins the next. A batch's draws each take another variant, and a
+buffered draw counts toward its pools when it is made."""
 
 import asyncio
 import threading
@@ -9,28 +10,33 @@ import time
 import pytest
 
 from prompt_programs import program as prep
-from prompt_programs.fix import (
-    Item, OnnxJudge, fix_draw, prompt_view, realize_and_fix, realize_and_fix_many,
-)
+from prompt_programs import variant_pools as P
+from prompt_programs.fix import Item, OnnxJudge, fix_draw, prompt_view, realize_and_fix_many, score_draw
 from prompt_programs.judge import FluentSettings
-from tests.test_prompt_program_fix import USER, Scorer, entry_for, redraw_for, tiny_model, values
+from prompt_programs.variant_pools import Choice
+from tests.test_prompt_program_fix import (  # noqa: F401  (profile is an autouse fixture)
+    PROFILE, USER, Scorer, draw, entry_for, profile, redraw_for, tiny_model, values,
+)
+
 
 def moon_rule(it):
     return 0.97 if it.value in ("moonlight", "a black habit") else 0.02
-
-
-@pytest.fixture(autouse=True)
-def no_profile(monkeypatch):
-    import prompt_programs.fluent as fl
-    monkeypatch.setattr(fl, "_profile_store", lambda pid: None)
-    monkeypatch.setattr(fl, "filler_for", lambda pid: (_ for _ in ()).throw(RuntimeError("no filler in tests")))
 
 
 def strip_ms(rec):
     return {k: v for k, v in (rec or {}).items() if k != "ms"}
 
 
-CFG = FluentSettings(generate_options=False, fix_model="stub")
+def batch(entry, seeds, **kw):
+    return realize_and_fix_many(entry, seeds=seeds, profile_id=PROFILE, **kw)
+
+
+def rerolled(rec):
+    """The ids rerolled before the round that shipped."""
+    return [h["rerolled"]["id"] for h in rec["rounds"][:rec["chosen"]] if "rerolled" in h]
+
+
+CFG = FluentSettings(fix_model="stub")
 
 
 # --------------------------------------------------------------------------- batched fix loops
@@ -38,38 +44,41 @@ CFG = FluentSettings(generate_options=False, fix_model="stub")
 class TestBatched:
     SEEDS = list(range(40))
 
-    def test_batched_equals_one_at_a_time(self):
+    def test_a_batch_shares_each_judge_pass(self):
         entry = entry_for()
-        alone = [realize_and_fix(entry, seed=s, cfg=CFG, judge=Scorer(moon_rule)) for s in self.SEEDS]
         judge = Scorer(moon_rule)
-        many = realize_and_fix_many(entry, seeds=self.SEEDS, cfg=CFG, judge=judge)
-        assert [r.prompt for r, _ in many] == [r.prompt for r, _ in alone]
-        assert [strip_ms(f) for _, f in many] == [strip_ms(f) for _, f in alone]
+        many = batch(entry, self.SEEDS, cfg=CFG, judge=judge)
         assert any(f["rerolls"] for _, f in many)          # the case under test: rerolls happened
         # one judge pass per round, for every draw still going: far fewer than one per draw per round
         assert len(judge.batches) == 1 + max(f["rerolls"] for _, f in many)
+        for r, f in many:
+            assert not f["unresolved"] and "moonlight" not in r.prompt and "black habit" not in r.prompt
+
+    def test_a_batch_takes_a_different_variant_for_each_draw(self):
+        entry = entry_for()
+        many = batch(entry, [1, 2, 3, 4], cfg=FluentSettings(fix_model="off"))
+        assert len({values(r)["light"] for r, _ in many}) == 4
 
     def test_batched_onnx_scores_match_one_at_a_time(self, tmp_path):
         entry = entry_for()
         j = OnnxJudge(tiny_model(tmp_path))
-        cfg = FluentSettings(generate_options=False, fix_model=str(tmp_path))
-        many = realize_and_fix_many(entry, seeds=self.SEEDS, cfg=cfg, judge=j)
-        for s, (r, f) in zip(self.SEEDS, many):
+        cfg = FluentSettings(fix_model=str(tmp_path))
+        many = batch(entry, self.SEEDS, cfg=cfg, judge=j)
+        for r, f in many:
             j._cache.clear()  # score it alone, not from the batch's cache
-            r1, f1 = realize_and_fix(entry, seed=s, cfg=cfg, judge=j)
-            assert r1.prompt == r.prompt and f1["chosen"] == f["chosen"]
-            for a, b in zip(f["rounds"], f1["rounds"]):
-                assert a.keys() == b.keys() and a.get("rerolled") == b.get("rerolled")
-                for cid, p in a["scores"].items():
-                    assert p == pytest.approx(b["scores"][cid], abs=1e-4)
+            alone = score_draw(j, r, USER, rerolled=rerolled(f))
+            shipped = f["rounds"][f["chosen"]]["scores"]
+            assert alone.keys() == shipped.keys()
+            for cid, p in shipped.items():
+                assert alone[cid] == pytest.approx(p, abs=1e-4)
 
     def test_a_draw_that_fails_doesnt_cost_the_others(self):
         entry = entry_for()
-        # every outfit removed: nothing left to draw at that choice, for every seed
-        gone = {"outfit": {"remove": [o for c in entry["choices"] if c["id"] == "outfit" for o in c["options"]]}}
-        out = realize_and_fix_many(entry, seeds=[1, 2, 3], edits=gone, cfg=CFG, judge=Scorer(moon_rule))
+        # every job removed: nothing left to draw from the user's list, for every seed
+        gone = {"job": {"remove": ["nun", "lifeguard", "surgeon"]}}
+        out = batch(entry, [1, 2, 3], edits=gone, cfg=CFG, judge=Scorer(moon_rule))
         assert all(isinstance(o, prep.ProgramError) for o in out)
-        out = realize_and_fix_many(entry, seeds=[1, 2], cfg=CFG, judge=Scorer(moon_rule))
+        out = batch(entry, [1, 2], cfg=CFG, judge=Scorer(moon_rule))
         assert all(isinstance(o, tuple) for o in out)
 
     def test_a_judge_failing_keeps_every_draw_as_made(self):
@@ -79,16 +88,17 @@ class TestBatched:
             def p_wrong(self, items):
                 raise RuntimeError("boom")
         entry = entry_for()
-        out = realize_and_fix_many(entry, seeds=[5, 6], cfg=CFG, judge=Broken())
-        assert [r.prompt for r, _ in out] == [prep.realize(entry, seed=s).prompt for s in (5, 6)]
+        out = batch(entry, [5, 6], cfg=CFG, judge=Broken())
+        made = batch(entry, [5, 6], cfg=FluentSettings(fix_model="off"))
+        assert [r.prompt for r, _ in out] == [r.prompt for r, _ in made]
         assert all("boom" in f["error"] for _, f in out)
 
 
 class TestRollRecord:
     def test_each_roll_records_its_prompt_spans_and_values(self):
         entry = entry_for()
-        s = next(s for s in range(500) if values(prep.realize(entry, seed=s))["light"] == "moonlight")
-        r0 = prep.realize(entry, seed=s)
+        s = next(s for s in range(500) if values(draw(entry, s))["light"] == "moonlight")
+        r0 = draw(entry, s)
         out, rec = fix_draw(r0, judge=Scorer(moon_rule), redraw=redraw_for(entry), seed=s, user_prompt=USER, cut=0.5)
         first, last = rec["rounds"][0], rec["rounds"][rec["chosen"]]
         assert first["values"]["light"] == "moonlight" and last["values"]["light"] != "moonlight"
@@ -160,7 +170,6 @@ class TestCoalescing:
 @pytest.fixture
 def queue(monkeypatch):
     from generation_queue import GenerationQueue
-    monkeypatch.setenv("STIMMA_FLUENT_GENERATE", "0")
     monkeypatch.setenv("STIMMA_FLUENT_FIX_MODEL", "stub")
     judge = Scorer(moon_rule)
     monkeypatch.setattr("prompt_programs.fix.fix_judge", lambda model, threads=0: judge)
@@ -171,8 +180,13 @@ def queue(monkeypatch):
 
 
 def spec_for(entry, pins=None):
-    return lambda: {"entry": entry, "pins": pins, "fixed": None, "edits": None, "triggers": True,
-                    "profile_id": None, "project_id": None}
+    return lambda: {"entry": entry, "pins": pins, "fixed": None, "edits": None, "chosen": None, "triggers": True,
+                    "profile_id": PROFILE, "project_id": None}
+
+
+def counted(entry):
+    """An entry whose slots' seeds are planned, so a shipped draw is counted toward its pool."""
+    return {**entry, "seeds": {s["id"]: {"kind": "free", "banks": []} for s in entry["slots"]}}
 
 
 async def settle(q, gid):
@@ -194,6 +208,16 @@ class TestPool:
         assert hot is not None and hot["fix"]["rounds"] and hot["result"].prompt
         await settle(queue, "gen-1")
         assert len(queue._prompt_warm_ready["gen-1"]) == 3  # topped back up
+
+    async def test_buffered_draws_count_when_they_are_made(self, queue):
+        queue.judge.rule = lambda it: 0.01  # nothing rerolls
+        entry = counted(entry_for())
+        queue.take_fluent_draw("gen-1", "sig-a", spec_for(entry))
+        await settle(queue, "gen-1")
+        outfit = next(s for s in entry["slots"] if s["id"] == "outfit")
+        uses = P.store_for(PROFILE).uses(outfit["pool"])
+        drawn = [values(h["result"])["outfit"] for h in queue._prompt_warm_ready["gen-1"]]
+        assert sum(uses.values()) == 3 and len(set(drawn)) == 3
 
     async def test_three_draws_fill_in_one_judge_pass(self, queue):
         queue.judge.rule = lambda it: 0.01  # nothing rerolls: one round
@@ -270,30 +294,30 @@ class TestPool:
         queue.take_fluent_draw("gen-1", "sig-a", spec_for(entry))
         await settle(queue, "gen-1")
         for _ in range(3):
-            hot = queue.take_fluent_draw("gen-1", "sig-a", spec_for(entry))
-            r, f = hot["result"], hot["fix"]
-            # the seed it was drawn from gives the same draw and the same fix, as a live draw would
-            again, f2 = realize_and_fix(entry, seed=hot["seed"], cfg=CFG, judge=Scorer(moon_rule))
-            assert again.prompt == r.prompt and strip_ms(f2) == strip_ms(f)
-            # "Same draws, new seed" fixes every drawn value
-            assert prep.realize(entry, seed=12345, fixed=values(r)).prompt == r.prompt
+            r = queue.take_fluent_draw("gen-1", "sig-a", spec_for(entry))["result"]
+            # its revision replays its texts, and "Same draws, new seed" holds every drawn value
+            assert prep.realize(entry, seed=12345, profile_id=PROFILE, revision=r.revision).prompt == r.prompt
+            assert draw(entry, 12345, fixed=values(r)).prompt == r.prompt
 
 
 # --------------------------------------------------------------------------- the submit path
 
 class TestSignature:
-    def _sig(self, entry=None, pins=None, edits=None, zones=None):
+    def _sig(self, entry=None, pins=None, edits=None, chosen=None):
         from routes.generation import hot_draw_signature
-        return hot_draw_signature(entry or entry_for(), pins=pins or {}, edits=edits or {}, zones=zones or {},
+        return hot_draw_signature(entry or entry_for(), pins=pins or {}, edits=edits or {}, chosen=chosen or {},
                                   profile_id="p", project_id=None)
 
     def test_same_inputs_same_signature(self):
         assert self._sig(pins={"job": ["nun"]}) == self._sig(pins={"job": ["nun"]})
+        assert self._sig(chosen={"light": Choice(values=("moonlight",))}) == \
+            self._sig(chosen={"light": Choice(values=("moonlight",))})
 
     def test_anything_a_draw_is_made_from_changes_it(self, monkeypatch):
         base = self._sig()
         assert self._sig(pins={"job": ["nun"]}) != base
-        assert self._sig(zones={"light": ["instead"]}) != base
+        assert self._sig(chosen={"light": Choice(values=("moonlight",))}) != base
+        assert self._sig(chosen={"light": Choice(add=("starlight",))}) != base
         assert self._sig(edits={"light": {"remove": ["moonlight"]}}) != base
         assert self._sig(entry_for(created_at=2)) != base  # a new prepare committed
         monkeypatch.setenv("STIMMA_FLUENT_FIX_CUT", "0.3")
@@ -312,7 +336,7 @@ class TestSubmit:
 
         async def submit(**opts):
             record, _, _ = await gen._run_slots(
-                USER, {"enabled": True, **opts}, project_id=None, profile_id=None, hot_draws_for="gen-1")
+                USER, {"enabled": True, **opts}, project_id=None, profile_id=PROFILE, hot_draws_for="gen-1")
             return record
         cold = await submit()
         await settle(queue, "gen-1")
@@ -331,5 +355,5 @@ class TestSubmit:
 def test_background_reading_running_or_not_keeps_the_pool():
     from routes.generation import hot_draw_signature
     entry = entry_for()
-    sig = lambda e: hot_draw_signature(e, pins={}, edits={}, zones={}, profile_id="p", project_id=None)  # noqa: E731
+    sig = lambda e: hot_draw_signature(e, pins={}, edits={}, chosen={}, profile_id="p", project_id=None)  # noqa: E731
     assert sig({**entry, "working": True, "reading": True}) == sig({**entry, "working": False, "reading": False})

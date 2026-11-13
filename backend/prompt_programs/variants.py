@@ -295,13 +295,21 @@ def _spread(rng: random.Random, b: Bank, n: int) -> List[str]:
     return out
 
 
-def _palette_fill(text: str, rng: random.Random) -> str:
-    from prompt_programs.vocab import fill, is_template, vocabulary
+def _palette_fill(text: str, rng: random.Random, list_id: str = "") -> str:
+    """A template value ("a {main} coat") with a palette's colors, within the palettes the value
+    allows (its `palette` restriction: a tuxedo takes only dark schemes)."""
+    from prompt_programs.vocab import fill, is_template, tags_match, vocabulary
     if not is_template(text):
         return text
-    pal = vocabulary().get("person.palette")
-    roles = rng.choice(pal.values).roles if pal is not None and pal.values else None
-    return fill(text, roles)
+    vocab = vocabulary()
+    leaf = vocab.get(list_id) if list_id else None
+    pal = vocab.get(leaf.slots) if leaf is not None and leaf.slots else vocab.get("person.palette")
+    if pal is None or not pal.values:
+        return fill(text, None)
+    v = leaf.value(text) if leaf is not None else None
+    want = dict(v.palette) if v is not None and v.palette else {}
+    fits = [p for p in pal.values if tags_match(p.tags, want)] or list(pal.values)
+    return fill(text, rng.choice(fits).roles)
 
 
 @dataclass
@@ -327,7 +335,7 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int) -> Drawn:
         if seeds.age is not None:
             s.age = _weighted(rng, seeds.age.values)
         if cores:
-            s.core = _palette_fill(cores[i], rng)
+            s.core = _palette_fill(cores[i], rng, seeds.core.list_id)
         specs.append(s)
     short = [b for b in seeds.ideas if len(b.values) <= SHORTLIST]
     long_ = [b for b in seeds.ideas if len(b.values) > SHORTLIST]
@@ -344,7 +352,7 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int) -> Drawn:
                 if t in seen:
                     continue
                 seen.add(t)
-                ideas.append((_palette_fill(t, rng), b.list_id))
+                ideas.append((_palette_fill(t, rng, b.list_id), b.list_id))
     rng.shuffle(ideas)
     return Drawn(specs, ideas, short)
 
