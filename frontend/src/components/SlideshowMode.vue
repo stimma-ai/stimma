@@ -4783,10 +4783,15 @@ function handleDoubleTap(event) {
     lastTapTime = 0
   } else {
     lastTapTime = now
-    if (slideshowCompact.value && zoomScale.value <= 1) {
+    if (zoomScale.value > 1) return
+    // A tap on a video plays or pauses it. Immersive phone view keeps its
+    // tap-to-exit, since it has no other way out.
+    const toggleVideo = isVideo.value && !(slideshowCompact.value && compactImmersive.value)
+    if (toggleVideo || slideshowCompact.value) {
       singleTapTimer = setTimeout(() => {
         singleTapTimer = null
-        compactImmersive.value = !compactImmersive.value
+        if (toggleVideo) videoTransport.togglePlayback()
+        else compactImmersive.value = !compactImmersive.value
       }, 300)
     }
   }
