@@ -181,15 +181,27 @@ export function clearBrowsePart(c: ChoiceShape, pool: ChoicePool | null | undefi
     groups: { ...(s.groups || {}), [f]: (s.groups?.[f] || []).filter(p => p !== part) } })
 }
 
+/** The state with groups of other facets (a heritage chosen before descent had regions) as
+    their options, one by one. The server reads groups of several facets together as values in
+    all of them, never a heritage and a region beside each other: as options they add. */
+function groupsAsValues(c: ChoiceShape, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined): ChoiceState | null {
+  const f = browseOf(pool)
+  if (!f || !s || s.off) return s || null
+  const others = Object.entries(s.groups || {}).filter(([facet, parts]) => facet !== f && parts?.length)
+  if (!others.length) return s
+  const values = [...(s.values || []), ...others.flatMap(([facet, parts]) => parts.flatMap(p => groupMembers(pool, facet, p)))]
+  return cleanState(c, { ...s, values, groups: s.groups?.[f]?.length ? { [f]: s.groups[f] } : {} })
+}
+
 /** Choose a part whole (a region), or un-choose it. Chosen whole, its options chosen one by one
-    go: the part says them all. */
+    go: the part says them all. What was chosen elsewhere stays, beside it. */
 export function toggleBrowsePart(c: ChoiceShape, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined,
                                  part: string): ChoiceState | null {
   const f = browseOf(pool)
   if (!f) return s || null
   const t: Token = { kind: 'group', facet: f, part }
   if (hasToken(s, t)) return toggleToken(c, s, t)
-  return toggleToken(c, clearBrowsePart(c, pool, s, part), t)
+  return toggleToken(c, clearBrowsePart(c, pool, groupsAsValues(c, pool, s), part), t)
 }
 
 /** What an image can draw now. Null when the choice is left out. */

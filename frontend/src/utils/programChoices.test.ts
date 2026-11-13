@@ -309,4 +309,11 @@ test('a list browsed by region: a row per region says what is chosen in it; the 
   const old = { groups: { group: ['nordic'] } }
   assert.equal(pillValue(descent, pool, old), 'any nordic')
   assert.deepEqual([...drawable(descent, pool, old)!], ['Swedish'])
+  // Choosing a region beside it adds: the heritage becomes its options, so the server, which
+  // reads groups of two facets as values in both, draws either (test_slots_choices).
+  const both = toggleBrowsePart(descent, pool, old, 'East Asia')
+  assert.deepEqual(both, { values: ['Swedish'], groups: { region: ['East Asia'] } })
+  assert.deepEqual([...drawable(descent, pool, both)!].sort(), ['Japanese', 'Korean', 'Swedish'])
+  // In the region it names, the heritage's options go: the region says them.
+  assert.deepEqual(toggleBrowsePart(descent, pool, { groups: { group: ['east_asian'] } }, 'East Asia'), { groups: { region: ['East Asia'] } })
 })

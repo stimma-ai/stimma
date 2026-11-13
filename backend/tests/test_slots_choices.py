@@ -55,6 +55,22 @@ def test_groups_pin_every_value_in_them_including_several_memberships(porch):
     assert drawn[f"{MAN}.descent"] in east
 
 
+def test_a_heritage_kept_from_before_regions_and_a_region_chosen_beside_it_both_draw(porch):
+    """The chooser turns a heritage chosen before descent had regions into its values when a
+    region is chosen beside it (programChoices.toggleBrowsePart): groups of two facets would be
+    read as values in both, and a heritage and a region far apart share none."""
+    eth = vocabulary().get("person.ethnicity")
+    nordic = group_values(eth, {"group": ["nordic"]})
+    east = group_values(eth, {"region": ["East Asia"]})
+    assert nordic and east and not set(nordic) & set(east)
+    assert group_values(eth, {"group": ["nordic"], "region": ["East Asia"]}) == []   # why it must not be sent so
+    state = {"values": nordic, "groups": {"region": ["East Asia"]}}   # what the chooser sends
+    pins = expand(porch, {f"{MAN}.descent": state})[0][f"{MAN}.descent"]
+    assert set(pins) == {*nordic, *east}
+    drawn = {{d.id: d.value for d in _draw(porch, s, pins={f"{MAN}.descent": pins}).draws}[f"{MAN}.descent"] for s in range(40)}
+    assert drawn <= set(pins) and drawn & set(nordic) and drawn & set(east)
+
+
 def test_a_free_slots_zones_and_kinds_alone_is_no_choice(porch):
     assert expand(porch, {"pet": {"zones": ["kinds"]}}) == ({}, {}, {})
     _, _, zones = expand(porch, {"pet": {"zones": ["kinds", "instead", "nowhere"]}})
