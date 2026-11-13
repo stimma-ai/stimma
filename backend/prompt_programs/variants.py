@@ -43,7 +43,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-7"   # variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-8"   # variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -425,7 +425,7 @@ Rules:
 - Fit the whole prompt: its place, time, medium, framing, number of people, and the notes (lines starting with #). Never move the scene somewhere else.
 - Other parts in <angle brackets> vary on their own: don't fill them in, and don't repeat what the rest of the prompt already says.
 - Never add a person or an animal the prompt doesn't have, including through framing: no group selfie, group portrait, two-shot or crowd unless the prompt has that many people.
-- Light comes only from sources that exist in or reach this place: an indoor room gets lamps, screens, fire or window light, never shade from a tree, dappled leaves, golden-hour sun on a beach or underwater light. With no stated place, ordinary light that could be anywhere.
+- Light comes only from sources that would ordinarily be in or reach this exact place: a living room has lamps, ceiling lights, a TV or screens, candles, a fireplace and its windows; never stage, shop, office, industrial, bathroom, darkroom, stadium or street fixtures unless the prompt puts them there, and never shade from a tree, dappled leaves, golden-hour sun on a beach or underwater light indoors. With no stated place, ordinary light that could be anywhere. Reject a light idea that this place wouldn't have.
 - Visual and concrete: what it looks like, not mood or story.
 - Make the variants clearly different from each other, across the whole range the words allow, including uncommon but real choices. At most 20 words each beyond the kept words.
 - A person: 12 to 25 words beyond the marked words. Write each variant as an authored take on who this is, leaning into the marked words themselves: for "dominant young woman", how her dominance shows in her bearing, expression, styling and attitude, and in what she wears or carries when the prompt leaves that open. Each variant develops the aspects its seed line names, so the set differs in far more than hair. No shared template: vary how each variant is phrased and where things fall in it (the marked words first in some, after a detail in others: "broad-shouldered Peruvian dominant young woman in a fitted blazer"; the descent before the words, after them, or as "of Tunisian heritage"), and weave its seeds in where they read naturally, never as a list or a prefix. Never describe what another part of the prompt owns (a clothing part elsewhere owns the clothes).
@@ -449,8 +449,8 @@ Reply with JSON only, no other text:
 CORE_NOTE = ("The cores are random values of a list, and some won't fit this prompt. A core that would add people (a "
              "two-shot, a group portrait or a group selfie when the prompt has one person), frame a person the prompt "
              "doesn't have, or name another kind of picture than this one (a mirror selfie in a photo that isn't a "
-             "selfie) doesn't fit: put it under \"rejected\" and write that variant with another value of the same kind "
-             "that fits.")
+             "selfie), or a thing this place wouldn't have, doesn't fit: put it under \"rejected\" and write that "
+             "variant with another value of the same kind that fits.")
 
 
 def minor_words(ages: Sequence[str]) -> str:

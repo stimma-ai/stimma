@@ -43,11 +43,11 @@ def test_a_stated_age_joins_the_words_it_narrows_by():
     assert next(b for b in p["banks"] if b["role"] == "age")["phrase"] == "young woman"
 
 
-def test_a_list_slot_or_a_light_is_one_list_with_a_core():
+def test_a_list_slot_is_one_list_with_a_core_and_a_light_its_ideas():
     p = plan({"kind": "list", "list": {"list": "camera.angle", "about": "the angle"}}, "selfie camera angle")
     assert roles(p) == [("core", "camera.angle", "selfie camera angle")]
     p = plan({"kind": "light", "light": {"list": "lighting.natural", "examples": []}}, "light")
-    assert roles(p) == [("core", "lighting.natural", "light")]
+    assert roles(p) == [("idea", "lighting.natural", "light")]   # ideas the writer may reject, not cores
     assert plan({"kind": "light", "light": {"list": "", "examples": ["lamplight"]}}, "light")["banks"] == []
 
 

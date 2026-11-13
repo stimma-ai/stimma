@@ -111,8 +111,10 @@ def plan(reading: Dict[str, Any], words: str = "") -> Dict[str, Any]:
                 add("idea", f"camera.{d}")
         return {"kind": kind, "banks": banks}
     if kind == "light":
+        # Ideas, not cores: one random look per variant pushed sources the place doesn't have
+        # (stage footlights, a vending machine in a living room); the writer rejects ideas that don't fit.
         if got.get("list"):
-            add("core", str(got["list"]), words, words)
+            add("idea", str(got["list"]), words, words)
         return {"kind": kind, "banks": banks}
     if kind == "list":
         p = got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else ""
