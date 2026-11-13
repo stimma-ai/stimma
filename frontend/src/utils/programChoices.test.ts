@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   asWrittenState, carriedIds, carryChoices, changedCount, cleanState, drawable, isAsWritten, isChanged, keptPools, leaveOut, numberRepeats, optionsOf, pillsOf, pillValue,
-  isOff, resetState, swatchesOf, toggleToken, tokenText, turnOn, zonesOf, PALETTE_CLS,
+  isBuilder, isOff, resetState, rowsOf, swatchesOf, toggleToken, tokenText, turnOn, zonesOf, PALETTE_CLS,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
 
@@ -149,8 +149,9 @@ test('Reset counts each changed choice', () => {
 })
 
 test('two people say whose detail a pill is', () => {
-  const woman: ProgramSlot = { id: 'woman', n: 4, kind: 'person', label: 'Old woman', words: 'old woman', details: ['woman.hair'] }
-  const pills = pillsOf({ ...world({ 'man.hair': { values: ['buzz cut'] } }), slots: [man, woman], choices: [...choices, ch('woman.hair', 'Hair', { slot: 'woman' })] })
+  const woman: ProgramSlot = { id: 'woman', n: 4, kind: 'person', label: 'Old woman', words: 'old woman', details: ['woman.age', 'woman.hair'] }
+  const pills = pillsOf({ ...world({ 'man.hair': { values: ['buzz cut'] } }), slots: [man, woman],
+    choices: [...choices, ch('woman.age', 'Age', { slot: 'woman' }), ch('woman.hair', 'Hair', { slot: 'woman' })] })
   assert.equal(pills[1].label, 'Young man’s hair')
 })
 
@@ -230,4 +231,21 @@ test('an edit moves what was chosen with the part, not its id: the second of two
   assert.equal(carriedIds(prev, { ...next, from: 'B' }), null)
   assert.equal(carriedIds(prev, { slots: next.slots, choices: next.choices }), null)
   assert.deepEqual(carryChoices({ mug: 1, gone: 2 }, null, prev, next), { mug: 1 })
+})
+
+test('a builder with one detail is that detail’s chooser: one pill reading "Label value"', () => {
+  // A pet whose kind alone varies, and an outfit list with its colors: one row each.
+  const animal: ProgramSlot = { id: 'dog', n: 1, kind: 'animal', label: 'Dog', words: 'dog', details: ['dog.breed'] }
+  const outfit: ProgramSlot = { id: 'outfit', n: 2, kind: 'list', label: 'Outfit', words: 'outfit', details: ['outfit', 'outfit.colors'] }
+  const cs = [ch('dog.breed', 'Dog breed', { slot: 'dog' }), ch('outfit', 'Outfit', { slot: 'outfit' }),
+    ch('outfit.colors', 'Colors', { slot: 'outfit', follows: 'outfit', cls: PALETTE_CLS })]
+  const get = (id: string) => cs.find(c => c.id === id)
+  assert.ok(!isBuilder(animal, get) && !isBuilder(outfit, get))
+  assert.deepEqual(rowsOf(outfit, get).map(c => c.id), ['outfit'])
+  assert.ok(isBuilder(man, id => choices.find(c => c.id === id)))
+  const pills = pillsOf({ slots: [animal, outfit], choices: cs, pools: {},
+    states: { 'dog.breed': { values: ['beagle'] }, 'outfit.colors': { values: ['navy, white and gray'] } } })
+  assert.deepEqual(pills.map(p => [p.label, p.value, p.open]), [
+    ['Dog', 'beagle', { slot: 'dog' }], ['Outfit', '', { slot: 'outfit' }], ['Colors', 'navy, white and gray', { choice: 'outfit.colors' }],
+  ])
 })

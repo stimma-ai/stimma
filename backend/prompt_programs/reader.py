@@ -29,7 +29,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-16"   # reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-17"   # reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -67,7 +67,8 @@ kind:
   them, else "free".
 - "animal": an animal the prompt doesn't already have, named by the part's own words: "pet",
   "dog", "old cat", "animal".
-- "camera": how the picture is taken: shot size, lens, angle, film look.
+- "camera": how the picture is taken: shot size, lens, angle, film look. Words that name only
+  one of those ("camera angle", "selfie angle", "lens") are a "list" of it, not a camera.
 - "light": the light in the scene, as one named look (a softbox, flash, chiaroscuro, golden
   hour light), never split into its source, direction or color.
 - "list": something one of the lists below holds: the list's items are kinds of the very thing
@@ -115,8 +116,9 @@ For an animal:
   "puppy" is {"life_stage": "kitten"}.
   "animal": {"noun": "dog", "vary": ["breed", "life_stage"], "type": "", "breed": "<a breed list's id>", "stated": {}}
 
-For a camera: vary, the parts of it that change, from: shot_size, lens, angle, film_look.
-  "camera": {"vary": ["shot_size", "angle"]}
+For a camera: vary, the parts of it that change, from: shot_size, lens, angle, film_look; all
+four unless the prompt or a note settles some.
+  "camera": {"vary": ["shot_size", "lens", "angle", "film_look"]}
 
 For light: list, the id of the lighting list below whose looks suit this scene, or "" only when
 none of them could; and examples, three looks of light that fit this scene, each named as a
@@ -328,6 +330,21 @@ def fit_lead(lead: str, before: str) -> Optional[str]:
     return stem[start:]
 
 
+def one_detail(out: Dict[str, Any]) -> Dict[str, Any]:
+    """A camera reading that varies one detail, as a list slot on that detail's list:
+    `<selfie camera angle>` is the camera angle list, narrowed by the slot's words, not a camera
+    with one row to click through. A camera has nothing of its own besides its details, so the
+    list loses nothing. A person or an animal stays a builder: its noun is its own words.
+    Structure only: the count of details, never the slot's words."""
+    from prompt_programs.vocab import vocabulary
+    vary = (out.get("camera") or {}).get("vary") or []
+    leaf = vocabulary().get(f"camera.{vary[0]}") if len(vary) == 1 else None
+    if out.get("kind") != "camera" or leaf is None:
+        return out
+    return {"n": out["n"], "kind": "list", "label": out["label"], "lead": out["lead"],
+            "list": {"list": leaf.id, "about": f"the {leaf.label.lower()}"}}
+
+
 def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str], prompt: str = "",
                strict: bool = True) -> Dict[str, Any]:
     """One slot's reading as the builder takes it, or _Bad. Details it doesn't know, stated
@@ -389,6 +406,7 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
         if not vary:
             raise _Bad(f"part {n}: a camera must vary some of {', '.join(CAMERA)}")
         out["camera"] = {"vary": vary}
+        out = one_detail(out)
     elif kind == "animal":
         from prompt_programs.fill import ANIMAL, ANIMAL_LISTS
         noun = str(got.get("noun") or "").strip()

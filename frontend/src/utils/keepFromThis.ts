@@ -108,10 +108,16 @@ export function keepGroups(run: any, w: KeepWorld): KeepGroup[] {
   const groups: KeepGroup[] = []
   const rest: KeepRow[] = []
   const inSlot = new Set<string>()
+  const byId = new Map(w.choices.filter(c => !c.hidden).map(c => [c.id, c]))
   for (const slot of [...w.slots].sort((a, b) => a.n - b.n)) {
     const ids = slot.details.filter(id => live.has(id))
     ids.forEach(id => inSlot.add(id))
-    if (slot.kind !== 'person' || !isBuilder(slot)) {
+    if (slot.kind !== 'person' || !isBuilder(slot, id => byId.get(id))) {
+      // An image drawn while this slot was a camera with one detail varying recorded it as that
+      // detail ("angle.angle"); the slot is that detail's list now ("angle").
+      const old = ids.length === 1 && ids[0] === slot.id && !draws.has(slot.id)
+        ? [...draws.keys()].filter(k => k.startsWith(`${slot.id}.`)) : []
+      if (old.length === 1) draws.set(slot.id, { ...draws.get(old[0])!, id: slot.id })
       const r = row(slot.id, slot.label, ids, draws, w)
       if (r) rest.push(r)
       continue

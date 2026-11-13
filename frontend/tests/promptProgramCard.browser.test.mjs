@@ -111,6 +111,22 @@ test('a person opens on its details; a detail’s chooser has groups and a way b
   await expect(row.locator('[data-choice="young_man.outfit.colors"] [data-swatches] span')).toHaveCount(3)
 })
 
+test('a builder with one detail opens straight on its options, titled by the slot, with no way back', async t => {
+  const { page, pill, card, option, state } = await open(t)
+  await page.evaluate(() => window.setPrompt('a <dog> in a dorm room with a <young man> and his <pet>, lit by <light>, {summer|autumn}'))
+  await expect(pill('dog.breed')).toHaveText('Dog')
+  await pill('dog.breed').click()
+  await expect(card).toHaveAttribute('aria-label', 'Dog')
+  await expect(card.locator('[data-panel]')).toHaveCount(0)
+  await expect(card.locator('[data-back]')).toHaveCount(0)
+  await option('beagle').click()
+  await expect.poll(state).toEqual({ 'dog.breed': { values: ['beagle'] } })
+  await expect(pill('dog.breed')).toHaveText('Dogbeagle')
+  await expect(card.locator('[data-as-written]')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(card).toHaveCount(0)
+})
+
 test('three details chosen fold into the person’s pill; its × puts them all back', async t => {
   const { page, row, pill, state } = await open(t)
   await page.evaluate(() => window.setState({

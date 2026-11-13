@@ -1,7 +1,7 @@
 <template>
   <!-- A slot's card. A person or a camera opens on its details, one row each with what it is
-       set to; a row leads to that detail's chooser, with a back arrow. Anything else opens
-       its chooser directly. A slot just typed shows "Writing options…" until it is read; one
+       set to; a row leads to that detail's chooser, with a back arrow. Anything else, a
+       builder with only one detail too, opens its chooser directly. A slot just typed shows "Writing options…" until it is read; one
        that couldn't be read went in as written, and offers to try again.
        Anchored to its pill (or the slot in the text) on desktop; a bottom sheet on touch. -->
   <Teleport to="body">
@@ -145,8 +145,9 @@ const topView = computed<View | null>(() => {
   // Stuck: the prompt couldn't be read, or its reading stopped without this slot.
   const stuck = props.program.status.value === 'error' || (props.program.status.value === 'ready' && !props.program.program.value?.working)
   if (!slot) return { kind: stuck ? 'written' : 'pending', words: t.slot.words }
-  if (props.program.isBuilder(slot) && slot.details.length) return { kind: 'panel', slot }
-  const c = props.program.byId.value[slot.details[0]]
+  if (props.program.isBuilder(slot)) return { kind: 'panel', slot }
+  // One row (an animal with only its kind varying): straight to its options, no level to step back to.
+  const c = props.program.detailsOf(slot)[0]
   if (c) return choiceView(c)
   return { kind: slot.degraded || slot.state === 'ready' || stuck ? 'written' : 'pending', words: t.slot.words }
 })

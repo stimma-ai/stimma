@@ -316,9 +316,17 @@ export function numberRepeats(slots: ProgramSlot[]): ProgramSlot[] {
   })
 }
 
-/** A slot whose card lists details (a person, an animal, a camera) rather than options. */
-export function isBuilder(slot: ProgramSlot): boolean {
-  return slot.kind === 'person' || slot.kind === 'animal' || slot.kind === 'camera' || slot.details.length > 1
+/** A slot's rows on its card, from its details as `choice` finds them: an outfit's colors sit
+    inside the outfit, not on a row of their own. */
+export function rowsOf(slot: ProgramSlot, choice: (id: string) => ProgramChoice | undefined): ProgramChoice[] {
+  return slot.details.map(choice).filter((c): c is ProgramChoice => !!c && !(c.follows && slot.details.includes(c.follows)))
+}
+
+/** A slot whose card lists details (a person, an animal, a camera) rather than options: one
+    with more than one row. A slot with a single row (an animal with only its kind varying, an
+    outfit with its colors) opens straight on that row's options, titled by the slot. */
+export function isBuilder(slot: ProgramSlot, choice: (id: string) => ProgramChoice | undefined): boolean {
+  return rowsOf(slot, choice).length > 1
 }
 
 /** Three or more of one person's details chosen: one pill for the person. */
@@ -328,7 +336,8 @@ export function pillsOf(w: ChoiceWorld): Pill[] {
   const byId = new Map(w.choices.filter(c => !c.hidden).map(c => [c.id, c]))
   const st = (id: string) => w.states[id]
   const pool = (id: string) => w.pools[id]
-  const builders = w.slots.filter(isBuilder).length
+  const get = (id: string) => byId.get(id)
+  const builders = w.slots.filter(s => isBuilder(s, get)).length
   const out: Pill[] = []
   const inSlot = new Set<string>()
 
@@ -355,8 +364,12 @@ export function pillsOf(w: ChoiceWorld): Pill[] {
         swatches: null, changed: false, resets: [], folded: false, title: slot.label, pending })
       continue
     }
-    if (!isBuilder(slot)) {
-      if (details[0]) out.push(choicePill(details[0], slot.label, slot, { slot: slot.id }))
+    if (!isBuilder(slot, get)) {
+      // One row: the slot's pill is that row's ("Camera angle low angle"); what goes with it
+      // (an outfit's colors) has a pill of its own once changed.
+      const [one] = rowsOf(slot, get)
+      if (one) out.push(choicePill(one, slot.label, slot, { slot: slot.id }))
+      for (const c of details) if (c !== one && isChanged(st(c.id))) out.push(choicePill(c, c.label, null, { choice: c.id }))
       continue
     }
     const ids = details.map(c => c.id)

@@ -76,6 +76,10 @@ const lookupMs = ref(0)
 // <cat> and <broken>: 'working' while the server reads them, then 'read'.
 const reads = new Map<string, 'working' | 'read'>()
 const unread = (slot: ProgramSlot): ProgramSlot => ({ ...slot, kind: 'free', label: slot.words, details: [], state: 'reading' })
+// An animal with only its breed varying: a builder of one detail.
+const dog: ProgramSlot = { id: 'dog', n: 4, kind: 'animal', label: 'Dog', words: 'dog', span: null, line: 1, details: ['dog.breed'] }
+const breeds = ['beagle', 'border collie', 'dachshund']
+const dogBreed = ch('dog.breed', 'Dog breed', { slot: 'dog', cls: 'animal.dog_breed', options: breeds })
 const broken: ProgramSlot = { id: 'broken', n: 1, kind: 'free', label: 'broken', words: 'broken', span: [2, 10], line: 1, details: [] }
 
 axios.defaults.adapter = async (config: any) => {
@@ -93,6 +97,7 @@ axios.defaults.adapter = async (config: any) => {
       e.response = { status: 424, data: { detail: { code: 'reader_failed', message: 'The chat model’s reading of this prompt couldn’t be used.' } } }
       throw e
     }
+    if (body.prompt?.includes('<dog>')) return ok(program([man, pet, light, dog], [dogBreed]))
     if (!withCat) return ok(program([man, pet, light]))
     if (!body.cache_only && !reads.has('cat')) {
       reads.set('cat', 'working')
@@ -104,7 +109,8 @@ axios.defaults.adapter = async (config: any) => {
   }
   if (url === 'pools') {
     const have = new Set((withCat ? [...choices, { id: 'cat' }] : choices).map(c => c.id))
-    return ok({ choices: Object.fromEntries(Object.entries(pools).filter(([id]) => have.has(id))), more: [] })
+    const dogs = body.prompt?.includes('<dog>') ? { 'dog.breed': bound('animal.dog_breed', 'Dog breed', breeds) } : {}
+    return ok({ choices: { ...Object.fromEntries(Object.entries(pools).filter(([id]) => have.has(id))), ...dogs }, more: [] })
   }
   if (url === 'options') return ok({ options: ['three-legged greyhound', 'sleepy ferret'] })
   return ok({})

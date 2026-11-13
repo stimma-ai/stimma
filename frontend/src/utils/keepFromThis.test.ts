@@ -71,3 +71,19 @@ test('only images made from slots offer anything', () => {
   assert.ok(!isSlotRun({ ...run, fallback: { rung: 'words' } }))
   assert.deepEqual(keepGroups({ key: 'k', draws: run.draws, mode: 'prose', elaborate: true }, world()), [])
 })
+
+test('a camera of one detail, now that detail’s list, keeps what an older image drew for it', () => {
+  const w: KeepWorld = {
+    slots: [{ id: 'selfie_camera_angle', n: 1, kind: 'list', label: 'Selfie camera angle', words: 'selfie camera angle',
+      details: ['selfie_camera_angle'] }],
+    choices: [ch('selfie_camera_angle', 'Selfie camera angle', { slot: 'selfie_camera_angle', cls: 'camera.angle' })],
+    states: {}, pools: {},
+  }
+  const older = { key: 'k0', version: 'slots-1', draws: [{ id: 'selfie_camera_angle.angle', value: 'a high angle', kind: 'pick' }] }
+  const [g] = keepGroups(older, w)
+  assert.deepEqual(g.rows.map(r => [r.label, r.text, r.drawn]), [
+    ['Selfie camera angle', 'a high angle', [{ id: 'selfie_camera_angle', value: 'a high angle' }]],
+  ])
+  const now = { ...older, draws: [{ id: 'selfie_camera_angle', value: 'eye level', kind: 'pick' }] }
+  assert.equal(keepGroups(now, w)[0].rows[0].text, 'eye level')
+})

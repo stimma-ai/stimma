@@ -686,3 +686,39 @@ async def test_a_person_with_no_outfit_is_asked_once_why_then_stands():
     model = FakeModel(json.dumps({"slots": [dressed]}))
     await reader.read(parse("a <young man> in a red raincoat"), ask=model, project_id=None, model="m")
     assert len(model.asked) == 1
+
+
+async def test_a_camera_that_varies_one_detail_is_that_details_list():
+    # "<selfie camera angle>": a camera with only its angle varying would open on one row to
+    # click through. It is read as the angle list itself, its words narrowing it.
+    from prompt_programs.vocab import vocabulary
+    from test_slots_fill import draw
+    one = {"n": 1, "kind": "camera", "label": "Selfie camera angle", "lead": ", shot from",
+           "camera": {"vary": ["angle"]}}
+    prompt = "a woman on a rooftop, shot from <selfie camera angle>"
+    got = await reader.read(parse(prompt), ask=FakeModel(json.dumps({"slots": [one]})), project_id=None, model="m")
+    slot = got["slots"][0]
+    assert not slot.get("degraded")
+    assert slot["kind"] == "list" and slot["list"]["list"] == "camera.angle"
+    assert slot["label"] == "Selfie camera angle" and slot["lead"] == ", shot from"
+    e = slots.compose(parse(prompt), {1: slot})
+    assert [c["id"] for c in e["choices"]] == ["selfie_camera_angle"]
+    assert e["slots"][0]["details"] == ["selfie_camera_angle"]
+    assert e["slot_words"] == {"selfie_camera_angle": "selfie camera angle"}   # the words narrow it
+    angles = {v.text for v in vocabulary().get("camera.angle").values}
+    for seed in range(4):
+        r = draw(e, seed)
+        drawn = {d.id: d.value for d in r.draws}["selfie_camera_angle"]
+        assert drawn in angles and r.prompt.endswith(f", shot from {drawn}")
+    assert not draw(e, 1, edits={"selfie_camera_angle": {"off": True}}).prompt.endswith(",")
+    # Two details stay a camera; a person always stays a builder, however few details it names.
+    two = {**one, "camera": {"vary": ["angle", "lens"]}}
+    got = await reader.read(parse(prompt), ask=FakeModel(json.dumps({"slots": [two]})), project_id=None, model="m")
+    assert got["slots"][0]["kind"] == "camera"
+    man = {"n": 1, "kind": "person", "label": "Young man", "lead": "",
+           "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "young"}, "vary": ["age"],
+                      "outfit": "person.outfit.casual"}}
+    got = await reader.read(parse("a <young man> in a dorm room"), ask=FakeModel(json.dumps({"slots": [man]})),
+                            project_id=None, model="m")
+    assert got["slots"][0]["kind"] == "person"
+    assert len(slots.compose(parse("a <young man> in a dorm room"), {1: got["slots"][0]})["slots"][0]["details"]) > 1

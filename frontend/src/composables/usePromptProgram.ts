@@ -3,7 +3,7 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { prepareBody, prepareErrorCode, prepareSettingsSig, readPending, shownKey, type PrepareInputs } from '../utils/fluentSubmit'
 import { additionList, isOwnOption } from '../utils/programAdditions'
-import { carriedIds, carryChoices, cleanState, isBuilder, keptPools, numberRepeats, optionsOf as optionsIn, resetState } from '../utils/programChoices'
+import { carriedIds, carryChoices, cleanState, isBuilder as isBuilderOf, keptPools, numberRepeats, optionsOf as optionsIn, resetState, rowsOf } from '../utils/programChoices'
 import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareResponse, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 
 export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
@@ -459,7 +459,11 @@ export function usePromptProgram(o: Options) {
 
   /** A builder slot's details as its card lists them: an outfit's colors sit inside the outfit. */
   function detailsOf(slot: ProgramSlot): ProgramChoice[] {
-    return slot.details.map(id => byId.value[id]).filter((c): c is ProgramChoice => !!c && !(c.follows && slot.details.includes(c.follows)))
+    return rowsOf(slot, id => byId.value[id])
+  }
+  /** A slot whose card lists its details: more than one row (programChoices.isBuilder). */
+  function isBuilder(slot: ProgramSlot): boolean {
+    return isBuilderOf(slot, id => byId.value[id])
   }
 
   // Look up a prepared program when the tool or prompt settles (cheap, no model).
