@@ -3,7 +3,7 @@
 from pathlib import Path
 import shutil
 
-from app_dirs import get_cache_dir, get_data_dir
+import app_dirs
 from project_service import (
     get_project_chat_workspace_dir,
     get_project_root,
@@ -13,12 +13,12 @@ from project_service import (
 
 def get_chat_workspace_dir(chat_id: int) -> Path:
     """Return the durable Application Support workspace path for a non-project chat."""
-    return get_data_dir() / "chats" / str(chat_id) / "workspace"
+    return app_dirs.get_data_dir() / "chats" / str(chat_id) / "workspace"
 
 
 def get_legacy_chat_workspace_dir(chat_id: int) -> Path:
     """Return the old cache-backed workspace path for a non-project chat."""
-    return get_cache_dir() / "workspaces" / str(chat_id)
+    return app_dirs.get_cache_dir() / "workspaces" / str(chat_id)
 
 
 def get_workspace_dir(chat_id: int, project_id: int | None = None) -> Path:
@@ -95,6 +95,6 @@ def move_chat_workspace(chat_id: int, from_project_id: int | None, to_project_id
         if not any(source.iterdir()):
             source.rmdir()
 
-    stop = get_project_root(from_project_id) if from_project_id is not None else get_data_dir()
+    stop = get_project_root(from_project_id) if from_project_id is not None else app_dirs.get_data_dir()
     _remove_empty_dirs(source.parent, stop)
     return destination

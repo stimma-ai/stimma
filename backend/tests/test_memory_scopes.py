@@ -132,3 +132,12 @@ def test_mount_links_shared_files(tmp_path, monkeypatch, name):
     link = workspace / "memory" / name
     assert link.is_symlink() and link.read_text() == name[0]
     assert (workspace / "memory" / "chat.md").read_text() == ""
+
+
+async def test_flow_workspace_cannot_reach_shared_memory(tmp_path):
+    with ProfileScope("default"):
+        memory_store.write_global_memory("- Keep me.\n")
+        flow_dir = tmp_path / "flows" / "3"
+        flow_dir.mkdir(parents=True)
+        await write_file(file_path="memory/global.md", content="overwritten", workspace_dir=str(flow_dir))
+        assert memory_store.read_global_memory() == "- Keep me.\n"

@@ -8,7 +8,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app_dirs import get_data_dir
+import app_dirs
 from core.logging import get_logger
 from database import Project, ProjectMedia
 
@@ -16,7 +16,7 @@ log = get_logger(__name__)
 
 
 def get_projects_root() -> Path:
-    root = get_data_dir() / "projects"
+    root = app_dirs.get_data_dir() / "projects"
     root.mkdir(parents=True, exist_ok=True)
     return root
 

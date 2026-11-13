@@ -119,8 +119,13 @@ def resolve_memory_file(workspace_dir: Path, name: str) -> tuple[Optional[Path],
 
     ``chat.md`` is a plain file in the workspace. ``global.md`` and
     ``project.md`` map to the profile and project files whether or not the
-    workspace has links to them (Windows may not allow links).
+    workspace has links to them (Windows may not allow links). Only chat
+    workspaces (``.../chats/<id>/workspace``) get the mapping; a flow chat
+    works in its flow's directory and doesn't edit memory.
     """
+    workspace_dir = Path(workspace_dir)
+    if workspace_dir.name != "workspace" or workspace_dir.parent.parent.name != "chats":
+        return None, None
     if name == GLOBAL_FILE:
         return global_memory_path(), None
     if name == PROJECT_FILE:
