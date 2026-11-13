@@ -207,7 +207,13 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
     pins, fixed, edits, revision = current_keys(pins), current_keys(fixed), current_keys(edits), current_revision(revision)
     clean_pins = {str(k): [str(x) for x in (v if isinstance(v, list) else [v])] for k, v in (pins or {}).items() if v}
     clean_edits = {str(k): v for k, v in (edits or {}).items() if isinstance(v, dict)}
-    if uses_draws(entry["program"]):
+    if "picks" in entry:
+        from prompt_programs.fill import fill
+        from prompt_programs.fluent import runtime_for
+        rt = runtime or runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
+                                    revision=revision, zones=zones)
+        result = fill(entry, seed, clean_pins, fixed or None, clean_edits or None, options=rt.options)
+    elif uses_draws(entry["program"]):
         from prompt_programs.fluent import runtime_for
         rt = runtime or runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
                                     revision=revision, zones=zones)

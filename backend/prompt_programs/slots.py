@@ -383,6 +383,86 @@ def build(parsed: Parsed, readings: Dict[str, Any], as_typed: Optional[Dict[str,
     return source, entry
 
 
+# --------------------------------------------------------------------------- composing an entry
+
+def _segment(seg: Segment) -> Dict[str, Any]:
+    out: Dict[str, Any] = {"kind": seg.kind, "text": seg.text, "span": list(seg.span), "line": seg.line}
+    if seg.kind == "slot":
+        out["words"] = seg.words
+    if seg.kind == "list":
+        out["items"] = list(seg.items)
+    return out
+
+
+def compose(parsed: Parsed, readings: Dict[int, Dict[str, Any]], labels: Optional[Dict[int, str]] = None
+            ) -> Dict[str, Any]:
+    """What a prompt draws from, from its parse and whichever readings are ready (slot number ->
+    reading as reader.check_slot gives it; list number -> label). A slot with no reading yet,
+    or one read as written, stands as its words. Plain data; no model, no store."""
+    from prompt_programs.fill import ReadingError, choice_options, picks_of, template_text
+
+    ids = slot_ids(parsed)
+    segs = parsed.segments
+    slots: List[Dict[str, Any]] = []
+    lists: List[Dict[str, Any]] = []
+    picks: List[Dict[str, Any]] = []
+    slot_words: Dict[str, str] = {}
+    slot_n = list_n = 0
+    for i, seg in enumerate(segs):
+        if seg.kind == "list":
+            list_n += 1
+            label = (labels or {}).get(list_n)
+            lists.append({"id": f"list{list_n}", "n": list_n, "line": seg.line, "items": list(seg.items),
+                          "label": label or "", "state": "ready" if label is not None else "reading"})
+            picks.append({"id": f"list{list_n}", "kind": "pick", "label": label or f"List {list_n}", "phase": 1,
+                          "source": "list", "items": list(seg.items), "line": seg.line})
+            continue
+        if seg.kind != "slot":
+            continue
+        slot_n += 1
+        cid = ids[slot_n - 1]
+        info: Dict[str, Any] = {"id": cid, "n": slot_n, "words": seg.words, "span": list(seg.span), "line": seg.line,
+                                "kind": "free", "label": seg.words, "details": [], "state": "reading"}
+        slots.append(info)
+        r = readings.get(slot_n)
+        if r is None:
+            continue
+        info["state"] = "ready"
+        if r.get("degraded"):
+            # Its reading couldn't be used: the words stand as typed, and the pill has nothing to choose yet.
+            info["degraded"] = True
+            continue
+        # Words right after a person ("... jeans reading on a porch") are set off by a comma that
+        # closes their description, whatever of it is drawn; punctuation, a line's end or another
+        # mark need none.
+        after = segs[i + 1] if i + 1 < len(segs) else None
+        close = "," if after is not None and after.kind == "text" and re.match(r"[ \t]*\w", after.text) else ""
+        try:
+            got, made = picks_of(cid, seg.words, r, close=close)
+        except ReadingError:
+            info["degraded"] = True
+            continue
+        info.update(kind=r["kind"], label=str(r.get("label") or seg.words), lead=str(r.get("lead") or ""),
+                    details=[p["id"] for p in got], form=made["form"])
+        if made.get("stated"):
+            info["stated"] = made["stated"]
+        if made.get("zones"):
+            info["zones"] = made["zones"]
+        slot_words.update(made.get("slot_words") or {})
+        picks += got
+    choices = []
+    for p in picks:
+        c = {k: v for k, v in p.items() if k not in ("items", "seed")}
+        c["options"] = choice_options(p)
+        if p.get("seed"):
+            c["seed"] = list(p["seed"])
+        choices.append(c)
+    entry = {"prompt": parsed.prompt, "mode": "prose", "segments": [_segment(s) for s in segs], "slots": slots,
+             "lists": lists, "picks": picks, "choices": choices, "slot_words": slot_words}
+    entry["template"] = template_text(entry)
+    return entry
+
+
 # --------------------------------------------------------------------------- prepared and stored
 
 SLOTS_VERSION = "slots-1"
