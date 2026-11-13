@@ -139,7 +139,7 @@ import Spinner from '../ui/Spinner.vue'
 import PromptProgramOptions from './PromptProgramOptions.vue'
 import { useAnchoredMenuPosition } from '../../composables/useContextMenuPosition'
 import { useViewport } from '../../composables/useViewport'
-import { detailsAsWritten, isChanged, isOff, offLabel, partText, partsText, pillValue, resetState, toggleDetailsAsWritten, toggleToken, tokenText, tokensOf, turnOn, type Token } from '../../utils/programChoices'
+import { detailsAsWritten, isChanged, isOff, leaveOut, offLabel, partText, partsText, pillValue, resetState, toggleDetailsAsWritten, toggleToken, tokenText, tokensOf, turnOn, type Token } from '../../utils/programChoices'
 import type { PromptProgram, ProgramChoice, ProgramSlot } from '../../composables/usePromptProgram'
 
 const props = defineProps<{ program: PromptProgram }>()
@@ -256,13 +256,15 @@ const wholeState = computed(() => (whole.value ? props.program.states.value[whol
 const wholeTokens = computed(() => tokensOf(wholeState.value))
 const partsChosen = computed(() => partRows.value.some(d => isChanged(props.program.states.value[d.id])))
 /** "Any face": one subtle detail of any part, with no part and no value chosen. */
-const wholeLit = computed(() => !!wholeState.value?.on && !wholeTokens.value.length && !partsChosen.value)
-const wholeOn = computed(() => !!whole.value && (isChanged(wholeState.value) || partsChosen.value))
+// A face starts left out unless the prompt asked for it; either way it is drawn once on.
+const wholeLit = computed(() => !!whole.value && !isOff(whole.value, wholeState.value) && !wholeTokens.value.length && !partsChosen.value)
+/** The face is drawn now: on (as it starts, or turned on) or some part chosen. */
+const wholeOn = computed(() => !!whole.value && (!isOff(whole.value, wholeState.value) || partsChosen.value))
 function chooseWhole() {
   if (!whole.value || wholeLit.value) return
   const st = props.program.states.value
   props.program.setStates({
-    [whole.value.id]: turnOn(wholeState.value),
+    [whole.value.id]: whole.value.starts_off ? turnOn(wholeState.value) : resetState(wholeState.value),
     ...Object.fromEntries(partRows.value.map(d => [d.id, resetState(st[d.id])])),
   })
 }
@@ -272,7 +274,10 @@ function dropWholeToken(t: Token) {
 function leaveWhole() {
   if (!whole.value) return
   const st = props.program.states.value
-  props.program.setStates(Object.fromEntries([whole.value, ...partRows.value].map(d => [d.id, resetState(st[d.id])])))
+  props.program.setStates({
+    [whole.value.id]: leaveOut(wholeState.value, whole.value),
+    ...Object.fromEntries(partRows.value.map(d => [d.id, resetState(st[d.id])])),
+  })
   afterLeaveOut()
 }
 

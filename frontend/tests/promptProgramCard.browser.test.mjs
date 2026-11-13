@@ -192,6 +192,29 @@ test('a face opens on its parts; a part has its own chooser, and the face row sa
   await expect(card.locator('[data-row="young_man.face"]')).toBeVisible()
 })
 
+test('a face the prompt asked for starts drawn; Leave out leaves it out, and Any face brings it back', async t => {
+  const { page, pill, card, option, state } = await open(t)
+  await page.evaluate(() => window.askFace())
+  await expect.poll(() => page.evaluate(() => window.programStatus())).toBe('ready')
+  await pill('young_man').click()
+  await expect(card.locator('[data-row="young_man.face"]')).not.toContainText('no face')
+  await card.locator('[data-row="young_man.face"]').click()
+  await expect(card.locator('[data-default] svg')).toHaveCount(1)      // drawn as it starts: any face
+  await expect(card.locator('[data-leave-out]')).toBeVisible()
+  await card.locator('[data-row="young_man.face.nose"]').click()
+  await option('a slightly small nose').click()
+  await card.locator('[data-back]').click()
+  await card.locator('[data-leave-out]').click()
+  await expect.poll(state).toEqual({ 'young_man.face': { off: true } })
+  await expect(card.locator('[data-row="young_man.face"]')).toContainText('no face')
+  await card.locator('[data-row="young_man.face"]').click()
+  await expect(card.locator('[data-leave-out]')).toHaveCount(0)
+  await expect(card.locator('[data-default] svg')).toHaveCount(0)
+  await card.locator('[data-default]').click()
+  await expect.poll(state).toEqual({})
+  await expect(card.locator('[data-default] svg')).toHaveCount(1)
+})
+
 test('three details chosen fold into the person’s pill; its × puts them all back', async t => {
   const { page, row, pill, state } = await open(t)
   await page.evaluate(() => window.setState({

@@ -131,6 +131,13 @@ axios.defaults.adapter = async (config: any) => {
   return ok({})
 }
 
+// The prompt asks for the face (the reader's `face: true`): it starts drawn, not left out.
+;(window as any).askFace = () => {
+  const face = choices.find(c => c.id === 'young_man.face')!
+  delete face.starts_off
+  void pp.prepare()
+}
+
 const promptOptions = ref<any>({})
 const pp = usePromptProgram({
   toolId: ref('tool'),
