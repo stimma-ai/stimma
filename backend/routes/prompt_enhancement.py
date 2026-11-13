@@ -151,11 +151,36 @@ def length_target(mode: str, level: Optional[str] = None,
     return _LENGTH_TARGETS.get(key, {}).get(level or "expand")
 
 
-def _length_target_guidance(target: Optional[Tuple[int, int, str]], *, late: bool = False) -> str:
+# What each level adds, said before the ceiling so the levels differ by how much
+# concrete detail they ask for, not only by the ceiling. Per unit: tag lists are
+# counted in tags, prose in things named.
+_LEVEL_DETAIL = {
+    ("fill", "tags"): (
+        "Detail: Medium. Convert the request, then add the five to eight concrete tags the picture most "
+        "needs: for a person the request has, what they do and hold and a garment when none is given; "
+        "and objects of the place."),
+    ("expand", "tags"): (
+        "Detail: High. Convert the request, then add ten to twenty concrete tags: for each person the "
+        "request has, the pose, what they do and hold, garments when none are given and a framing tag when "
+        "none is given; and the objects, surfaces and background of the place."),
+    ("fill", "words"): (
+        "Detail: Medium. Add the two or three concrete things the picture most needs."),
+    ("expand", "words"): (
+        "Detail: High. Give the picture its full set of concrete things: what each person the request has does "
+        "and holds, what they wear when the request leaves it open, four to six objects of the place with their "
+        "materials and where they sit, and the camera's position (\"seen from across the room\", \"a close-up\") when "
+        "no framing is given. This is more than "
+        "Medium adds, never padding: no mood, no light nobody named, no sentence without a new thing."),
+}
+
+
+def _length_target_guidance(target: Optional[Tuple[int, int, str]], *, late: bool = False,
+                            level: Optional[str] = None) -> str:
     """The guide's closing length line: the target's top end as a ceiling, never a
     quota, so nothing pushes the model to pad a prompt that needs little. The low
     end only decides when the per-image improver skips the call (improve_needed).
-    late: the per-image improver, which may return a prompt as it is."""
+    late: the per-image improver, which may return a prompt as it is; its level
+    (fill = Medium, expand = High) says first how much concrete detail to add."""
     if not target:
         return ""
     _low, high, unit = target
@@ -164,6 +189,9 @@ def _length_target_guidance(target: Optional[Tuple[int, int, str]], *, late: boo
             "concrete is left to add, however short the prompt still is.")
     if late:
         text += " If the prompt already names what the picture needs, return it with only the changes this model's format needs."
+        detail = _LEVEL_DETAIL.get((level or "expand", "tags" if unit == "tags" else "words"))
+        if detail:
+            text = f"{detail}\n{text}"
     return text
 
 
@@ -523,11 +551,17 @@ def _protected_text_guidance(
     """
     bullets: List[str] = []
     if marked:
-        bullets.append(
-            "- Text inside ⟦ ⟧ marks: each is the user's choice. Copy it with its marks, character for "
-            "character, where it reads naturally, and write around it; never restate it in other words "
-            "or contradict it elsewhere."
+        bullet = (
+            "- Text inside ⟦ ⟧ marks: each is the user's choice. Copy the words inside the marks character for "
+            "character, with their capitals and lower case as given, and keep the marks around them. Change "
+            "the sentence around a value, never the value: one that starts in lower case goes inside a "
+            "sentence (\"A cat sleeps beside ⟦a red vase⟧\"), not at its start with a capital added. "
+            "Never restate a value in other words, split it up or contradict it elsewhere."
         )
+        if keyword_mode:
+            bullet += (" Each marked value is one tag, kept whole however long it is, with its marks: never break "
+                       "it into smaller tags or retag its parts. Add your tags around it.")
+        bullets.append(bullet)
     if cinematography and _DIALOGUE_QUOTE_RE.search(prompt):
         if audio_disabled:
             bullets.append(
@@ -571,8 +605,9 @@ def _protected_text_guidance(
     return "PRESERVING PROTECTED TEXT\nThe prompt contains protected spans. " + lead + "\n" + "\n".join(bullets)
 
 
-def _lora_guidance(lora_context: List[Dict[str, Any]]) -> str:
-    """The trigger words and notes of the LoRAs that are on for this image."""
+def _lora_guidance(lora_context: List[Dict[str, Any]], *, keyword_mode: bool = False) -> str:
+    """The trigger words and notes of the LoRAs that are on for this image.
+    keyword_mode: a tag list, where a trigger word is its own tag, not part of a sentence."""
     useful = [lo for lo in lora_context or [] if (lo.get("trigger_words") or (lo.get("notes") or "").strip())]
     if not useful:
         return ""  # nothing the prompt needs: LoRAs work by being on
@@ -581,11 +616,19 @@ def _lora_guidance(lora_context: List[Dict[str, Any]]) -> str:
         words = ", ".join(f'"{w}"' for w in lora.get("trigger_words") or []) or "none"
         notes = (lora.get("notes") or "").strip() or "none"
         lines.append(f"- {lora.get('name')}: trigger words {words}; notes: {notes}")
+    placing = (
+        " Each trigger word is a tag of its own, near the start." if keyword_mode else
+        " Write a grammatical sentence around it, as you would around a name: \"photo of sks man at a "
+        "market\" stays \"photo of sks man at a market.\" with the next sentence saying what he does (\"He "
+        "chooses apples at a stall.\"), or becomes \"photo of sks man choosing apples at a market\"; never "
+        "\"photo of sks man walks through a market\"."
+    )
     return (
         "\n\nLoRAs (add-on model weights) are switched on for this image. They work by being on: their "
         "names are not prompt text, so never write a LoRA's name. Put each trigger word below into the prompt "
-        "exactly as written; a LoRA without trigger words needs nothing in the prompt. The notes are the user's "
-        "own guidance for prompting that LoRA: follow them. Don't explain any of this in your output.\n"
+        "exactly as written." + placing + " A LoRA without trigger words needs nothing in the prompt. The "
+        "notes are the user's own guidance for prompting that LoRA: follow them. Don't explain any of this in "
+        "your output.\n"
         + "\n".join(lines)
     )
 
@@ -1036,11 +1079,12 @@ async def style_guide(request: "ImprovePromptRequest", session,
     )
     system_prompt = system_prompt.replace(
         "{length_target}", _length_target_guidance(
-            length_target(mode, request.level, family), late=request.level is not None)
+            length_target(mode, request.level, family), late=request.level is not None,
+            level=request.level)
     )
     # Per-request parts close the guide, so the text before them stays the same
     # across requests and can be cached; empty slots leave only blank lines.
-    system_prompt = system_prompt.rstrip() + _lora_guidance(request.lora_context)
+    system_prompt = system_prompt.rstrip() + _lora_guidance(request.lora_context, keyword_mode=(mode == "keyword"))
     system_prompt = re.sub(r"\n{3,}", "\n\n", system_prompt)
     return system_prompt, source_images_b64, mode
 
@@ -1158,9 +1202,20 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                  if request.instructions and request.instructions.strip() else "")
         user_content = (
             "Rewrite this image request as a concrete visual description. Add only concrete "
-            "things the picture is missing, and keep the original intent. "
+            "things the picture is missing, and keep the original intent. Keep its people exactly as they "
+            "are: add no one, and never write that someone is absent. Write about light only if the request "
+            "names where it comes from. "
             "Return only the rewritten prompt:\n\n"
             f"{request.prompt}{instr}"
+        )
+    elif mode == "keyword":
+        instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
+                 if request.instructions and request.instructions.strip() else "")
+        user_content = (
+            "Rewrite this image request as a tag list for a tag-based image model. Keep every stated detail "
+            "and every marked value, and add the concrete tags the picture is missing. Keep its people exactly "
+            "as they are and add no one. "
+            f"Return only the tag list:\n\n{request.prompt}{instr}"
         )
     elif request.instructions and request.instructions.strip():
         user_content = f"Please improve this prompt according to these instructions:\n\nInstructions: {request.instructions}\n\nPrompt:\n{request.prompt}"

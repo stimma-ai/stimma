@@ -154,4 +154,38 @@ async def test_marked_values_get_their_rule_only_when_present():
         prompt="a ⟦young woman⟧ reading", model="sdxl", marked=True), None)
     plain, _images, _mode = await style_guide(ImprovePromptRequest(prompt="a young woman reading", model="sdxl"), None)
     assert "⟦ ⟧ marks" in marked and "own comma-separated tag" in marked
-    assert "⟦" not in plain
+    assert "Text inside ⟦ ⟧ marks" not in plain
+
+
+async def test_marked_rule_keeps_the_case_and_a_tag_value_whole():
+    prose, _images, _mode = await style_guide(ImprovePromptRequest(
+        prompt="a ⟦young woman⟧ reading", model="flux1-dev", marked=True), None)
+    tags, _images, _mode = await style_guide(ImprovePromptRequest(
+        prompt="a ⟦young woman⟧ reading", model="sdxl", marked=True), None)
+    assert "with their capitals and lower case as given" in prose
+    assert "kept whole however long it is" in tags and "kept whole however long it is" not in prose
+
+
+async def test_the_levels_ask_for_different_amounts_of_detail(llm):
+    systems = {}
+    for model, level in (("flux1-dev", "fill"), ("flux1-dev", "expand"), ("sdxl", "fill"), ("sdxl", "expand")):
+        await pe.improve_prompt(ImprovePromptRequest(prompt="a cat on a sofa", model=model, level=level), None)
+        systems[model, level] = llm.await_args.kwargs["messages"][0]["content"]
+    assert "Detail: Medium. Add the two or three" in systems["flux1-dev", "fill"]
+    assert "Detail: High. Give the picture its full set" in systems["flux1-dev", "expand"]
+    assert "Detail: Medium. Convert the request, then add the five to eight" in systems["sdxl", "fill"]
+    assert "Detail: High. Convert the request, then add ten to twenty" in systems["sdxl", "expand"]
+    for text in systems.values():  # the detail line comes before the ceiling, which still closes the guide
+        assert text.index("Detail:") < text.index("Length: at most")
+
+
+async def test_classic_improve_has_no_level_detail_line(llm):
+    await pe.improve_prompt(ImprovePromptRequest(prompt="a cat on a sofa", model="flux1-dev"), None)
+    assert "Detail:" not in llm.await_args.kwargs["messages"][0]["content"]
+
+
+async def test_tag_model_request_asks_for_a_tag_list_with_additions(llm):
+    await pe.improve_prompt(ImprovePromptRequest(prompt="a cat on a sofa", model="sdxl", level="fill"), None)
+    user = llm.await_args.kwargs["messages"][1]["content"]
+    assert user.startswith("Rewrite this image request as a tag list") and "light touch" not in user
+    assert "add the concrete tags the picture is missing" in user and user.endswith("a cat on a sofa")

@@ -92,7 +92,7 @@ async def test_image_guides_treat_length_as_a_ceiling_and_light_as_given():
     is written only when the prompt names it."""
     for model in ("flux1-dev", "seedream-4", "krea-2-turbo", "sd_xl_base_1.0", "qwen-image-2.1", "flux-3-klein"):
         text, _images, mode = await style_guide(ImprovePromptRequest(prompt="a cat", model=model), None)
-        assert "ceiling, not a quota" in text, mode
+        assert "This is a ceiling, not a target" in text, mode
         assert "one light that suits" not in text and "a light that suits" not in text, mode
 
 
@@ -100,3 +100,29 @@ async def test_guides_without_a_length_say_nothing_about_it():
     text, _images, mode = await style_guide(ImprovePromptRequest(prompt="make it blue", model="flux1-dev",
                                                                  input_image_count=1), None)
     assert mode == "edit" and "Length:" not in text and "{" not in text
+
+
+async def test_prose_guides_write_tags_out_as_words_and_keep_light_and_people_as_given():
+    for model in ("flux1-dev", "krea-2-turbo", "qwen-image-2.1", "flux-3-klein"):
+        text, _images, mode = await style_guide(ImprovePromptRequest(prompt="1girl, rooftop", model=model), None)
+        assert "is written out in plain words" in text or "write each tag as the plain words" in text, mode
+        assert "add nothing about the person they do not state" in text, mode
+    for model in ("flux1-dev", "krea-2-turbo"):
+        text, _images, mode = await style_guide(ImprovePromptRequest(prompt="a porch", model=model), None)
+        assert "write no word about light at all" in text, mode
+        assert "never write that someone is absent" not in text  # that reminder is in the request, not the guide
+        assert "Never write what the picture does not have" in text, mode
+
+
+async def test_tag_guide_gives_a_peopleless_request_no_humans():
+    text, _images, _mode = await style_guide(ImprovePromptRequest(prompt="a lighthouse", model="sdxl"), None)
+    assert '"no humans, scenery"' in text
+
+
+def test_trigger_words_sit_in_a_grammatical_sentence_or_their_own_tag():
+    from routes.prompt_enhancement import _lora_guidance
+    lora = [{"name": "subject", "trigger_words": ["ohwx"], "notes": ""}]
+    prose = _lora_guidance(lora)
+    tags = _lora_guidance(lora, keyword_mode=True)
+    assert '"ohwx"' in prose and "grammatical sentence" in prose and "own tag" not in prose
+    assert '"ohwx"' in tags and "a tag of its own" in tags and "grammatical sentence" not in tags

@@ -133,7 +133,7 @@ def test_improve_request_defaults_input_image_count_zero():
         (
             ImprovePromptRequest(prompt="1girl, handbag", model="sdxl_base_1.0.safetensors", input_image_count=0),
             "improve_keyword_system_prompt",
-            "Please improve this prompt with a light touch:",
+            "Rewrite this image request as a tag list for a tag-based image model.",
         ),
         (
             ImprovePromptRequest(prompt="put the handbag on the table", model="flux1-dev", input_image_count=1),
