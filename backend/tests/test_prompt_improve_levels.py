@@ -94,20 +94,24 @@ async def test_long_prompt_at_high_makes_no_call(llm):
     llm.assert_not_awaited()
 
 
+CEILING = "This is a ceiling, not a target: stop when nothing concrete is left to add, however short the prompt still is."
+
+
 async def test_short_prompt_is_improved_with_a_clamped_budget(llm):
     result = await pe.improve_prompt(ImprovePromptRequest(prompt=SHORT, model="krea-2-turbo", level="fill"), None)
     assert result.improved_prompt == "a rewritten prompt"
     assert llm.await_args.kwargs["max_tokens"] == improve_max_tokens((50, 80, "words"))
     system = llm.await_args.kwargs["messages"][0]["content"]
-    assert system.endswith("Length: aim for about 50 to 80 words. If the prompt is already about that long, "
-                           "return it with only the changes this model's format needs.")
+    assert system.endswith(f"Length: at most about 80 words. {CEILING} If the prompt already names what the "
+                           "picture needs, return it with only the changes this model's format needs.")
+    assert "50" not in system.rsplit("Length:", 1)[1]  # the low end decides the skip, never a quota
 
 
 async def test_classic_improve_keeps_the_full_budget(llm):
     await pe.improve_prompt(ImprovePromptRequest(prompt=SHORT, model="krea-2-turbo"), None)
     assert llm.await_args.kwargs["max_tokens"] == 8192
     system = llm.await_args.kwargs["messages"][0]["content"]
-    assert system.endswith("Length: aim for about 120 to 180 words.")
+    assert system.endswith(f"Length: at most about 180 words. {CEILING}")
 
 
 async def test_unchanged_answer_is_accepted_on_the_late_path(llm):

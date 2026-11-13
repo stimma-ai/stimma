@@ -152,15 +152,18 @@ def length_target(mode: str, level: Optional[str] = None,
 
 
 def _length_target_guidance(target: Optional[Tuple[int, int, str]], *, late: bool = False) -> str:
-    """The guide's closing length line. late: the per-image improver, which may
-    return a prompt that is already at length as it is."""
+    """The guide's closing length line: the target's top end as a ceiling, never a
+    quota, so nothing pushes the model to pad a prompt that needs little. The low
+    end only decides when the per-image improver skips the call (improve_needed).
+    late: the per-image improver, which may return a prompt as it is."""
     if not target:
         return ""
-    low, high, unit = target
-    amount = f"{low} to {high} {unit}" if unit == "sentences" else f"about {low} to {high} {unit}"
-    text = f"Length: aim for {amount}."
+    _low, high, unit = target
+    amount = f"{high} {unit}" if unit == "sentences" else f"about {high} {unit}"
+    text = (f"Length: at most {amount}. This is a ceiling, not a target: stop when nothing "
+            "concrete is left to add, however short the prompt still is.")
     if late:
-        text += " If the prompt is already about that long, return it with only the changes this model's format needs."
+        text += " If the prompt already names what the picture needs, return it with only the changes this model's format needs."
     return text
 
 
@@ -1154,8 +1157,8 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
                  if request.instructions and request.instructions.strip() else "")
         user_content = (
-            "Rewrite this image request as a concrete visual description. Flesh out missing "
-            "subject and scene details while preserving the original intent. "
+            "Rewrite this image request as a concrete visual description. Add only concrete "
+            "things the picture is missing, and keep the original intent. "
             "Return only the rewritten prompt:\n\n"
             f"{request.prompt}{instr}"
         )

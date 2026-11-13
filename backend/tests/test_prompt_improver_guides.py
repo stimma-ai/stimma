@@ -79,12 +79,21 @@ async def test_guide_head_is_identical_across_requests(model, extra):
 async def test_classic_guide_closes_on_the_high_length_without_the_as_is_rule():
     text, _images, mode = await style_guide(ImprovePromptRequest(prompt="a cat", model="qwen-image-2.1"), None)
     assert mode == "qwen-image-2.1"
-    assert text.endswith("Length: aim for about 250 to 350 words.")
+    assert text.endswith("Length: at most about 350 words. This is a ceiling, not a target: stop when nothing concrete is left to add, however short the prompt still is.")
     text, _images, _mode = await style_guide(ImprovePromptRequest(prompt="a cat", model="ltx-2.5", is_video=True), None)
-    assert text.endswith("Length: aim for 4 to 8 sentences.")
+    assert text.endswith("Length: at most 8 sentences. This is a ceiling, not a target: stop when nothing concrete is left to add, however short the prompt still is.")
     flux, _images, _mode = await style_guide(ImprovePromptRequest(prompt="a cat", model="flux1-dev"), None)
     other, _images, _mode = await style_guide(ImprovePromptRequest(prompt="a cat", model="seedream-4"), None)
-    assert flux.endswith("about 80 to 120 words.") and other.endswith("about 100 to 160 words.")
+    assert "Length: at most about 120 words." in flux and "Length: at most about 160 words." in other
+
+
+async def test_image_guides_treat_length_as_a_ceiling_and_light_as_given():
+    """The image guides never ask the model to pad: length is a ceiling, and light
+    is written only when the prompt names it."""
+    for model in ("flux1-dev", "seedream-4", "krea-2-turbo", "sd_xl_base_1.0", "qwen-image-2.1", "flux-3-klein"):
+        text, _images, mode = await style_guide(ImprovePromptRequest(prompt="a cat", model=model), None)
+        assert "ceiling, not a quota" in text, mode
+        assert "one light that suits" not in text and "a light that suits" not in text, mode
 
 
 async def test_guides_without_a_length_say_nothing_about_it():
