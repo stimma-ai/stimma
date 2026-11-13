@@ -133,7 +133,10 @@ def test_repair_cuts_a_label_and_the_article_of_a_phrase_the_slot_heads():
     assert V.check(text, "dominant young woman", ["dominant young woman"], V.Spec()) == "words not kept"
     prompt = "a cozy <room> with a crackling fireplace"
     assert V.article_before(prompt, (7, 13))
-    assert not V.article_before("a man with <hat>", (11, 16))
+    assert V.article_before("taking a low quality cell phone <type of selfie>", (32, 48), "type of selfie")
+    assert V.article_before("in her <outfit>", (7, 15), "outfit")
+    assert not V.article_before("in her <a dress>", (7, 16), "a dress")   # the slot's words bring their own
+    assert V.article_before("a man with <hat>", (11, 16), "hat")          # telegraphic, never "phone a selfie"
     assert not V.article_before("a kitchen, lit by <light>", (18, 25))
     left, right = V.context_words(prompt, (7, 13))
     assert V.repair("a living room with rugs", left, right, article=True)[0] == "living room with rugs"

@@ -502,16 +502,22 @@ def _norm(s: str) -> str:
     return _WS.sub(" ", str(s)).strip()
 
 
-def article_before(prompt: str, span: Tuple[int, int]) -> bool:
-    """Whether the slot heads a phrase the prompt starts with an article: one of the last two
-    words before it on its line, with no punctuation or other slot between ("a <couple>", "a cozy
-    <room>"). Structural: articles are grammar, and nothing else is read."""
+_DETERMINERS = ("a", "an", "the", "my", "your", "his", "her", "its", "our", "their", "this", "that", "these", "those")
+
+
+def article_before(prompt: str, span: Tuple[int, int], words: str = "") -> bool:
+    """Whether the phrase the slot ends already has its determiner: an article or a possessive in
+    the words before it on its line, back to the last punctuation or slot ("a low quality cell
+    phone <type of selfie>", "her <outfit>", "a cozy <room>"), when the slot's own words start with
+    none. Then a variant's own leading article would read "phone a selfie". Grammar words only;
+    nothing else is read. A telegraphic "a man with fedora" is the accepted cost."""
     from prompt_programs.slots import SLOT_RE
+    if tokens(words)[:1] and tokens(words)[0] in _ARTICLES:
+        return False
     a = span[0]
     before = SLOT_RE.split(prompt[prompt.rfind("\n", 0, a) + 1:a])[-1]
     clause = re.split(r"[,;:.!?()\[\]{}]", before)[-1]
-    words = clause.lower().split()
-    return any(w in _ARTICLES for w in words[-2:])
+    return any(w in _DETERMINERS for w in tokens(clause))
 
 
 def context_words(prompt: str, span: Tuple[int, int]) -> Tuple[List[str], List[str]]:
@@ -647,7 +653,7 @@ async def write_batch(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id:
         if isinstance(obj.get("rejected"), list) else set()
     keep = slot.keep()
     left, right = context_words(slot.prompt, slot.span)
-    article = article_before(slot.prompt, slot.span)
+    article = article_before(slot.prompt, slot.span, slot.words)
     seen = {_norm(h).lower() for h in have}
     used: List[str] = []
     for i, spec in enumerate(drawn.specs):
