@@ -65,12 +65,17 @@
           v-for="provider in localProviders"
           :key="provider.id"
           :name="provider.name"
-          :description="modelSummary(provider.models)"
-          :error="provider.last_error"
-          @click="openProvider(provider)"
+          :description="servedChange(provider)?.description || modelSummary(provider.models)"
+          :error="servedChange(provider) ? '' : provider.last_error"
+          :verb="servedChange(provider)?.verb || ''"
+          @click="openLocalProvider(provider)"
         >
           <template #icon><ProviderBrandIcon provider="local" size="md" /></template>
-          <template #status>
+          <template v-if="servedChange(provider)" #status>
+            <span class="h-2 w-2 shrink-0 rounded-full bg-amber-400"></span>
+            <span class="font-mono tabular-nums">{{ provider.models.length }} model{{ provider.models.length === 1 ? '' : 's' }}</span>
+          </template>
+          <template v-else #status>
             <span v-if="provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
             <template v-if="provider.last_test_passed === false">Check failed</template><span v-else-if="provider.last_test_passed" class="font-mono tabular-nums">{{ provider.models.length }} model{{ provider.models.length === 1 ? '' : 's' }}</span><template v-else>Not checked</template>
           </template>
@@ -158,7 +163,8 @@
                 <ModelVendorIcon :model="selectedManagerModel" size="md" />
                 <div class="min-w-0">
                   <h4 class="truncate text-[16px] font-semibold text-content">{{ selectedManagerModel.name }}</h4>
-                  <p class="mt-0.5 text-xs text-content-tertiary">{{ modelVendor(selectedManagerModel) }}<span v-if="selectedManagerModel.cost_tier"> · {{ selectedManagerModel.cost_tier }}</span></p>
+                  <p v-if="modelSetupDraft && replacingModel" class="mt-0.5 text-xs text-content-tertiary">Replaces {{ replacingModel.name || replacingModel.model_id }}</p>
+                  <p v-else class="mt-0.5 text-xs text-content-tertiary">{{ modelVendor(selectedManagerModel) }}<span v-if="selectedManagerModel.cost_tier"> · {{ selectedManagerModel.cost_tier }}</span></p>
                 </div>
               </div>
             </div>
@@ -168,7 +174,7 @@
                 <div v-else class="h-7 w-7 bg-current [mask-image:url('/logo.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.svg')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"></div>
               </div>
               <div class="min-w-0">
-                <h4 class="truncate text-[16px] font-semibold text-content">{{ modelAddStep === 'choose' ? 'Add a model' : managerTitle }}</h4>
+                <h4 class="truncate text-[16px] font-semibold text-content">{{ modelAddStep === 'choose' ? (replacingModel ? `Replace ${replacingModel.name || replacingModel.model_id}` : 'Add a model') : managerTitle }}</h4>
               </div>
             </div>
           </div>
@@ -236,6 +242,10 @@
                 <h5 class="text-[13px] text-content">Models</h5>
               </template>
               <div :class="selectedManagerModel ? '' : 'mt-3 space-y-0.5'">
+                <button v-if="!selectedManagerModel && servedChange(activeProvider)?.target" type="button" @click="startReplaceModel(servedChange(activeProvider).missing[0], servedChange(activeProvider).target)" class="flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-accent/[0.04]">
+                  <span class="flex h-9 w-9 shrink-0 items-center justify-center text-accent-hi"><svg class="h-icon-nav w-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg></span>
+                  <span class="min-w-0 flex-1"><span class="block truncate text-[13px] font-medium text-accent-hi">Switch to {{ servedChange(activeProvider).target.name || servedChange(activeProvider).target.id }}</span></span>
+                </button>
                 <div v-for="model in managerPageModels" :key="model.slug || model.id">
                   <component
                     :is="activeManager === 'stimma' ? 'div' : 'button'"
@@ -265,6 +275,8 @@
                       :testing="managerTestingModel"
                       :saving="managerSaving"
                       :error="managerError"
+                      :commit-label="replacingModel ? 'Switch model' : 'Add model'"
+                      :saving-label="replacingModel ? 'Switching…' : 'Adding…'"
                       @test="runModelProfile(model)"
                       @commit="commitProviderModel"
                       @save="saveModelSettings(model)"
@@ -361,7 +373,7 @@
                     </template>
                   </div>
                 </div>
-                <button v-if="!selectedManagerModel && canAddProviderModel" type="button" @click="startAddProviderModel" class="mt-1 flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-accent/[0.04]">
+                <button v-if="!selectedManagerModel && canAddProviderModel" type="button" @click="startAddProviderModel()" class="mt-1 flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-accent/[0.04]">
                   <span class="flex h-9 w-9 shrink-0 items-center justify-center text-accent-hi"><svg class="h-icon-nav w-icon-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg></span>
                   <span class="min-w-0 flex-1"><span class="block text-[13px] font-medium text-accent-hi">Add a model</span></span>
                 </button>
@@ -1063,6 +1075,8 @@ const managerTestingModel = ref(false)
 const modelAddStep = ref(null)
 const modelSetupDraft = ref(null)
 const modelSetupReturnToCatalog = ref(false)
+// The saved model a setup replaces, when the server stopped serving it.
+const replacingModel = ref(null)
 const modelSearch = ref('')
 const customizingModelId = ref(null)
 const extraBodyDrafts = ref({})
@@ -1103,6 +1117,44 @@ function openStimmaAccount() {
   modelSetupReturnToCatalog.value = false
   managerOpen.value = true
 }
+// A local server can change which model it serves at the same URL. The
+// backend reports, per provider, which saved models it no longer serves and
+// which served models are not added yet. That is a swap to offer, not an error.
+function servedChange(provider) {
+  const served = provider?.kind === 'local' ? provider.served : null
+  if (!served) return null
+  const gone = new Set(served.missing || [])
+  const missing = (provider.models || []).filter(model => gone.has(model.model_id))
+  if (!missing.length) return null
+  const unadded = served.unadded || []
+  const target = missing.length === 1 && unadded.length === 1 ? unadded[0] : null
+  const names = missing.map(model => model.name || model.model_id)
+  return {
+    missing,
+    unadded,
+    target,
+    description: target ? `Now serving ${target.name || target.id}` : `${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} no longer served`,
+    verb: target ? 'Switch' : unadded.length ? 'Choose model' : '',
+  }
+}
+function openLocalProvider(provider) {
+  const change = servedChange(provider)
+  openProvider(provider)
+  if (change?.target) startReplaceModel(change.missing[0], change.target)
+  else if (change?.unadded.length) void startAddProviderModel(change.missing[0])
+}
+function startReplaceModel(previous, served) {
+  replacingModel.value = activeProvider.value.models.find(model => model.id === previous.id) || previous
+  chooseProviderModel(served, false)
+}
+// What the person set by hand on a model; a replacement keeps it.
+function handSetModelSettings(model) {
+  return {
+    content_policy_enabled: model.content_policy_enabled !== false,
+    extra_system_prompt: model.extra_system_prompt || '',
+    extra_body: clone(model.extra_body || {}),
+  }
+}
 function openProvider(provider) {
   activeManager.value = provider.id || `unconfigured-${provider.kind}`
   activeProvider.value = clone(provider)
@@ -1113,6 +1165,7 @@ function openProvider(provider) {
   modelAddStep.value = null
   modelSetupDraft.value = null
   modelSetupReturnToCatalog.value = false
+  replacingModel.value = null
   modelSearch.value = ''
   discoveredModels.value = []
   providerModelsLoaded.value = false
@@ -1130,6 +1183,7 @@ function closeManager() {
   modelAddStep.value = null
   modelSetupDraft.value = null
   modelSetupReturnToCatalog.value = false
+  replacingModel.value = null
   managerOpen.value = false
 }
 function managerBack() {
@@ -1187,6 +1241,7 @@ function closeModelSettings(toProvider = false) {
   } else {
     modelAddStep.value = null
     modelSearch.value = ''
+    replacingModel.value = null
   }
   modelSetupReturnToCatalog.value = false
   resetManagerScroll()
@@ -1294,7 +1349,8 @@ async function loadProviderModels(provider, { silent = false } = {}) {
   }
 }
 
-async function startAddProviderModel() {
+async function startAddProviderModel(replacing = null) {
+  replacingModel.value = replacing && (activeProvider.value.models.find(model => model.id === replacing.id) || replacing)
   modelAddStep.value = 'choose'
   modelSetupDraft.value = null
   modelSetupReturnToCatalog.value = false
@@ -1338,6 +1394,7 @@ async function profileProviderModelCandidate(discovered) {
 
 function chooseProviderModel(discovered, returnToCatalog = true) {
   modelSetupDraft.value = providerModelDraft(discovered)
+  if (replacingModel.value) Object.assign(modelSetupDraft.value, handSetModelSettings(replacingModel.value))
   modelSetupReturnToCatalog.value = returnToCatalog
   modelAddStep.value = 'setup'
   customizingModelId.value = null
@@ -1368,7 +1425,9 @@ async function profileManagerModel(model) {
       context_length: model.max_context_tokens,
     })
     if (requestId !== modelProfileRequestId) return
-    if (modelSetupDraft.value) modelSetupDraft.value = profiled
+    // The profile reports capabilities; the person's own settings on the
+    // draft (carried from a replaced model, or edited while testing) stay.
+    if (modelSetupDraft.value) modelSetupDraft.value = { ...profiled, ...handSetModelSettings(modelSetupDraft.value) }
     else {
       const index = activeProvider.value.models.findIndex(item => item.id === model.id)
       if (index !== -1) activeProvider.value.models.splice(index, 1, profiled)
@@ -1385,16 +1444,18 @@ async function commitProviderModel() {
   if (!modelSetupDraft.value?.last_test_passed) return false
   managerSaving.value = true
   managerError.value = ''
+  const previous = replacingModel.value
+  const models = previous && activeProvider.value.models.some(model => model.id === previous.id)
+    ? activeProvider.value.models.map(model => model.id === previous.id ? modelSetupDraft.value : model)
+    : [...activeProvider.value.models, modelSetupDraft.value]
   try {
-    const response = await axios.patch(`${getApiBase()}/models/providers/${activeProvider.value.id}`, {
-      models: [...activeProvider.value.models, modelSetupDraft.value],
-    })
+    const response = await axios.patch(`${getApiBase()}/models/providers/${activeProvider.value.id}`, { models })
     activeProvider.value = clone(response.data)
     await refreshAll()
     closeModelSettings(true)
     return true
   } catch (error) {
-    managerError.value = error.response?.data?.detail || 'Could not add this model.'
+    managerError.value = error.response?.data?.detail || (previous ? 'Could not switch to this model.' : 'Could not add this model.')
     return false
   } finally {
     managerSaving.value = false

@@ -133,7 +133,7 @@
         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166M4.772 5.79l1.068 13.133A2.25 2.25 0 0 0 8.084 21h7.832a2.25 2.25 0 0 0 2.244-2.077L19.228 5.79M9.75 5.393V4.477c0-1.18.91-2.164 2.09-2.201a51.964 51.964 0 0 1 3.32 0c1.18.037 2.09 1.022 2.09 2.201v.916" /></svg>
         Remove model
       </button>
-      <button v-if="isNew && showCommit" type="button" @click="$emit('commit')" :disabled="saving || !canAdd || extraBodyError" class="ml-auto shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ saving ? 'Adding…' : 'Add model' }}</button>
+      <button v-if="isNew && showCommit" type="button" @click="$emit('commit')" :disabled="saving || !canAdd || extraBodyError" class="ml-auto shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-on hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ saving ? savingLabel : commitLabel }}</button>
     </div>
   </div>
 </template>
@@ -150,6 +150,8 @@ const props = defineProps({
   testing: Boolean,
   saving: Boolean,
   error: { type: String, default: '' },
+  commitLabel: { type: String, default: 'Add model' },
+  savingLabel: { type: String, default: 'Adding…' },
 })
 const emit = defineEmits(['test', 'commit', 'save', 'remove'])
 
