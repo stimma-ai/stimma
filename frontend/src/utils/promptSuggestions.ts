@@ -56,3 +56,19 @@ export function slotCovers(add: SuggestedAdd, read: ReadSlots | null | undefined
   if (add.kind !== 'list' && read.kinds.includes(add.kind)) return true
   return !!add.lists?.some(l => read.lists.some(r => r === l || r.startsWith(`${l}.`)))
 }
+
+/** At most this many photography chips (a photo's light and camera parts)… */
+export const MAX_PHOTO_CHIPS = 3
+/** …and this many chips in all. */
+export const MAX_CHIPS = 5
+
+/** The adds to show as chips: not one the prompt already has as a slot, by its words (`have`,
+    lowercased) or read as what it is (`slotCovers`), and only then capped. Photography arrives
+    best first with every part the prompt lacks, so when a slot covers one, the next moves up. */
+export function shownAdds(adds: SuggestedAdd[], read: ReadSlots | null | undefined, have: Set<string>): SuggestedAdd[] {
+  let photo = 0
+  return adds
+    .filter(a => !have.has(a.name.trim().toLowerCase()) && !slotCovers(a, read))
+    .filter(a => !a.kind || ++photo <= MAX_PHOTO_CHIPS)
+    .slice(0, MAX_CHIPS)
+}

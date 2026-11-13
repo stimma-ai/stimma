@@ -38,8 +38,9 @@ SUGGEST_VERSION = "suggest-4"   # suggest-4: photography per part (light, angle,
 MAX_VARY = 6
 MAX_ADDS = 3
 MAX_PHOTO_ADDS = 2   # a photo's own adds, beside its photography
-MAX_PHOTO_PARTS = 3  # a photo's photography chips
-MAX_OFFERED = 5      # every chip together
+# Every photography part the prompt lacks is sent, in PHOTO's order: the editor hides the ones a
+# slot is read as, then shows the first three (and five chips in all), so the next part moves up
+# when one is hidden (promptSuggestions.ts, shownAdds).
 ADD_TOKENS = 64      # Add's reply is only the place and the join
 
 
@@ -52,8 +53,8 @@ class Part(NamedTuple):
     lists: Tuple[str, ...]   # the lists that slot draws from, or a node whose lists it draws from
 
 
-# The photography a photo is offered, one chip per part the prompt doesn't state, in this order,
-# which is what most improves a photo prompt: light sets the look of the whole picture and is
+# The photography a photo is offered, one chip per part the prompt doesn't state, in this order
+# (the editor shows the first three), which is what most improves a photo prompt: light sets the look of the whole picture and is
 # what a prompt most often leaves to chance; the angle changes what the picture shows of its
 # subject; the lens its depth and perspective; the film look its color and grain; framing comes
 # last, since the subject and the place usually imply it already. <light> is one named look
@@ -296,15 +297,15 @@ def photo_lists(lists: Tuple[str, ...]) -> List[str]:
 
 def offered_adds(prompt: str, checked: Dict[str, Any]) -> List[Dict[str, Any]]:
     """The checked reply's own adds, then, for a photo, the photography parts the prompt doesn't
-    state and has no slot of, nor an add of the same words, in PHOTO's order: the model's named
-    light in the light's place when it gave one, at most MAX_PHOTO_PARTS of them, and at most
-    MAX_OFFERED chips in all. A photography add also carries the reader's `kind` for it and the
-    `lists` it draws from, so the editor can leave it out once a slot is read as that."""
+    state and has no slot of, nor an add of the same words, in PHOTO's order, with the model's
+    named light in the light's place when it gave one. All of them: the editor caps them, after
+    leaving out the ones a slot is read as. A photography add also carries the reader's `kind`
+    for it and the `lists` it draws from, which is how the editor knows both."""
     checked_adds = checked.get("adds") or []
     adds = [a for a in checked_adds if not a.get("part")]
     stated = checked.get("photo")
     if not isinstance(stated, list):
-        return adds[:MAX_OFFERED]
+        return adds
     light = next((a for a in checked_adds if a.get("part") == "light"), None)
     _, slots = _blocked(prompt)
     taken = {prompt[a + 1:b - 1].strip().casefold() for a, b in slots} | {a["name"].casefold() for a in adds}
@@ -322,7 +323,7 @@ def offered_adds(prompt: str, checked: Dict[str, Any]) -> List[Dict[str, Any]]:
             join = (checked.get("joins") or {}).get(p.part)
             photo.append({"name": p.name, "label": p.label, "kind": p.kind, "lists": have,
                           **(join if isinstance(join, dict) else {})})
-    return (adds + photo[:MAX_PHOTO_PARTS])[:MAX_OFFERED]
+    return adds + photo
 
 
 def suggest_key(prompt: str, model: str) -> str:

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { cleanSuggestions, joinFor, slotCovers, type SuggestedAdd } from './promptSuggestions.ts'
+import { cleanSuggestions, joinFor, MAX_CHIPS, MAX_PHOTO_CHIPS, shownAdds, slotCovers, type SuggestedAdd } from './promptSuggestions.ts'
 
 const lens: SuggestedAdd = { name: 'lens', label: 'lens', kind: 'list', lists: ['camera.lens'] }
 const angle: SuggestedAdd = { name: 'camera angle', label: 'angle', kind: 'list', lists: ['camera.angle'] }
@@ -75,4 +75,26 @@ test('a join is sent only for the exact prompt Suggest answered, even when its w
   assert.equal(joinFor(answer, 'light', 'a cat on a porch, lit by candlelight'), null)
   assert.equal(joinFor(answer, 'sky', 'a cat on a porch'), null)
   assert.equal(joinFor(null, 'light', 'a cat on a porch'), null)
+})
+
+test('covered parts are hidden before the cap, so the next part moves up', () => {
+  const part = (name: string, list: string): SuggestedAdd => ({ name, label: name, kind: 'list', lists: [list] })
+  const filmLook = part('film look', 'camera.film_look')
+  const framing = part('framing', 'camera.shot_size')
+  const own = [{ name: 'weather', label: 'weather' }, { name: 'season', label: 'season' }]
+  const adds = [...own, light, angle, lens, filmLook, framing]
+  const names = (got: SuggestedAdd[]) => got.map(a => a.name)
+  const none = new Set<string>()
+  assert.equal(MAX_PHOTO_CHIPS, 3)
+  assert.equal(MAX_CHIPS, 5)
+  // Nothing read yet: the best three parts.
+  assert.deepEqual(names(shownAdds(adds, null, none)), ['weather', 'season', 'light', 'camera angle', 'lens'])
+  // A slot read on the angle list hides the angle, and the film look moves up.
+  const read = { kinds: ['person', 'list'], lists: ['person.age', 'camera.angle'] }
+  assert.deepEqual(names(shownAdds(adds, read, none)), ['weather', 'season', 'light', 'lens', 'film look'])
+  // A slot of the same words hides it too, before the cap.
+  assert.deepEqual(names(shownAdds(adds, read, new Set(['light']))), ['weather', 'season', 'lens', 'film look', 'framing'])
+  // Five chips in all, whatever the mix.
+  const many = [...own, { name: 'sky', label: 'sky' }, ...adds.slice(2)]
+  assert.deepEqual(names(shownAdds(many, null, none)), ['weather', 'season', 'sky', 'light', 'camera angle'])
 })

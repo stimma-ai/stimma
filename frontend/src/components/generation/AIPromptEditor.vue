@@ -283,7 +283,7 @@ import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
 import { slotEditing, wrapSlot, replaceDocument, rangeRect, setVaryEffect } from '../../composables/promptSlotEditing'
-import { slotCovers, usePromptSuggestions, type ReadSlots } from '../../composables/usePromptSuggestions'
+import { shownAdds, usePromptSuggestions, type ReadSlots } from '../../composables/usePromptSuggestions'
 import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
 import PromptSlotAdds from './PromptSlotAdds.vue'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
@@ -579,9 +579,9 @@ watch([answer, fluentSlots, () => props.modelValue], () => {
 const slotAdds = computed(() => {
   const text = props.modelValue
   if (!fluentSlots.value || !text.trim() || !answer.value) return []
-  // Not something the prompt already has as a slot: by its words, or read as what it is.
+  // Not something the prompt already has as a slot: by its words, or read as what it is; then capped.
   const have = new Set(findSlots(text).map(([from, to]) => text.slice(from + 1, to - 1).trim().toLowerCase()))
-  return answer.value.suggestions.adds.filter(a => !have.has(a.name.trim().toLowerCase()) && !slotCovers(a, props.readSlots))
+  return shownAdds(answer.value.suggestions.adds, props.readSlots, have)
 })
 /** Have Fluent write `name` into the prompt as a slot (one undo step), then open it. */
 async function addSlot(name: string) {
