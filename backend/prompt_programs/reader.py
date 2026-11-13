@@ -26,7 +26,7 @@ from prompt_programs.slots import CAMERA, KINDS, Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-5"   # reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-6"   # reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -46,7 +46,9 @@ options are numbered too, as {L1: summer|autumn}. Lines starting with # are note
 about the image: read them as context for every part. Text shown as [EXACT_1] is the user's
 exact text, hidden from you.
 
-For each numbered part, say what it is and how it varies. Reply with JSON only, with nothing
+For each numbered part, say what it is and how it varies. Only the numbered parts change: the
+words outside them stay as the user wrote them, and are never a part, even when they name a
+person. Reply with JSON only, with nothing
 before or after it, in the shape shown at the end. Each part's own fields go in an object named
 after its kind: "person": {...}, "camera": {...}, "light": {...}, "list": {...} or "free": {...}.
 
@@ -121,10 +123,11 @@ Person details:
 Lists:
 {catalog}
 
-The reply's shape (an example):
+An example. For the prompt "an ⟨1: elderly African man⟩ reading on a porch with his ⟨2: pet⟩,
+{L1: summer|autumn} evening" the reply is:
 {shape}
 
-Another example. The prompt "1girl, ⟨1: hairstyle⟩, ⟨2: outfit⟩, beach" has one person, the girl,
+Another. The prompt "1girl, ⟨1: hairstyle⟩, ⟨2: outfit⟩, beach" has one person, the girl,
 in its own words; both parts are about her:
 {tags}"""
 
@@ -235,11 +238,15 @@ def part_key(parsed: Parsed, seg: Segment, model: Optional[str], vocab_version: 
 
 
 def user_message(parsed: Parsed, asked: Sequence[Tuple[str, int]]) -> str:
+    marks = _marked(parsed)
+    # named apart from the prompt's own marks (⟨1⟩ "pet"), so each part is shown in the prompt once
+    shown = {(kind, n): f'⟨{n}⟩ "{seg.words}"' if kind == "slot" else f"{{L{n}}}" for kind, n, seg in marks}
     text = f"The prompt:\n{numbered(parsed)}"
-    every = [(kind, n) for kind, n, _ in _marked(parsed)]
-    if list(asked) != every:
-        names = ", ".join(f"⟨{n}⟩" if kind == "slot" else f"{{L{n}}}" for kind, n in asked)
-        text += f"\n\nThe other parts are already read. Answer only for: {names}."
+    if list(asked) != [(kind, n) for kind, n, _ in marks]:
+        text += "\n\nThe other parts are already read. Answer only for: "
+    else:
+        text += "\n\nAnswer for each of its parts: "
+    text += ", ".join(shown[k] for k in asked) + "."
     return text
 
 
@@ -285,7 +292,8 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
     n = r.get("n")
     kind = r.get("kind")
     if kind not in KINDS:
-        raise _Bad(f"part {n}: kind must be one of {', '.join(KINDS)}")
+        raise _Bad(f"part {n}: kind must be one of {', '.join(KINDS)}; a list's id goes in its object, as "
+                   '"kind": "list", "list": {"list": "<the list\'s id>", "about": "..."}')
     got = r.get(kind)
     if not isinstance(got, dict):
         raise _Bad(f'part {n}: a {kind} needs its fields in a "{kind}" object, as "{kind}": {{...}}')

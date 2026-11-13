@@ -236,7 +236,7 @@ async def test_an_edit_on_another_line_asks_only_for_the_slot_whose_line_changed
     await reader.read(parse(before), ask=FakeModel(json.dumps(reading)), project_id=None, model="m", cache=cache)
 
     def only_the_dog(messages):
-        assert "Answer only for: ⟨2⟩." in messages[-1]["content"]
+        assert 'Answer only for: ⟨2⟩ "dog".' in messages[-1]["content"]
         assert "⟨1: young man⟩" in messages[-1]["content"]   # still shown the whole prompt
         return json.dumps({"slots": [{**reading["slots"][1], "label": "Dog"}]})
     model = FakeModel(only_the_dog)
@@ -446,3 +446,13 @@ async def test_a_narrowing_that_keeps_every_item_says_all_and_the_opt_in_items_s
     # a long list gets room to be copied back whole
     outfits = [v.text for v in vocabulary().get("person.outfit.casual").eligible()]
     assert reply_tokens(outfits) > 16 * len(outfits)
+
+
+def test_the_message_names_each_part_and_the_example_shows_its_prompt():
+    """A person written outside the brackets ("an old farmer with his <pet>") is not a part: the
+    message names the parts there are, and the example reply is shown beside its own prompt."""
+    text = reader.user_message(parse("an old farmer with his <pet> on a porch"), [("slot", 1)])
+    assert text.endswith('Answer for each of its parts: ⟨1⟩ "pet".')
+    system = reader.system_text()
+    assert 'For the prompt "an ⟨1: elderly African man⟩ reading on a porch with his ⟨2: pet⟩' in system
+    assert "never a part, even when they name a\nperson" in system
