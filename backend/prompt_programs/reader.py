@@ -22,11 +22,12 @@ import re
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
-from prompt_programs.slots import CAMERA, KINDS, Parsed, Segment
+from prompt_programs.fill import CAMERA, KINDS
+from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-7"   # reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-8"   # reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -161,7 +162,7 @@ CATALOG_ROOTS = ("person", "animal", "place", "scene", "camera", "art.style")
 
 
 def system_text() -> str:
-    from prompt_programs.people import DETAILS
+    from prompt_programs.fill import DETAILS
     from prompt_programs.vocab import vocabulary
     details = "\n".join(f"- {k}: {v[2]}" for k, v in DETAILS.items())
     return (SYSTEM.replace("{details}", details).replace("{catalog}", vocabulary().catalog(CATALOG_ROOTS))
@@ -229,10 +230,6 @@ def _hash(*parts: Any) -> str:
     return hashlib.sha256(json.dumps([READER_VERSION, *parts], ensure_ascii=False).encode("utf-8")).hexdigest()[:32]
 
 
-def prompt_key(parsed: Parsed, model: Optional[str], vocab_version: str) -> str:
-    return _hash("prompt", model, vocab_version, numbered(parsed))
-
-
 def part_key(parsed: Parsed, seg: Segment, model: Optional[str], vocab_version: str) -> str:
     return _hash(seg.kind, model, vocab_version, seg.words if seg.kind == "slot" else seg.text,
                  _line_with(parsed, seg), comment_lines(parsed))
@@ -287,7 +284,7 @@ def _copied(words: str, sources: Sequence[str]) -> bool:
 def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str]) -> Dict[str, Any]:
     """One slot's reading as the builder takes it, or _Bad. Details it doesn't know, stated
     words that aren't the user's and a lead that isn't the text before the slot are dropped."""
-    from prompt_programs.people import DETAILS
+    from prompt_programs.fill import DETAILS
     from prompt_programs.vocab import vocabulary
     vocab = vocabulary()
     n = r.get("n")
@@ -425,105 +422,85 @@ def _cache_get(cache: Any, key: str) -> Any:
     return cache.get_raw(key) if cache is not None else None
 
 
-def _unbuilt(parsed: Parsed, slots: Dict[int, Any], lists: Dict[int, str], fresh: Sequence[int]) -> Dict[int, str]:
-    """The fresh slot readings the builder refuses, each with its reason (found one at a time:
-    the builder stops at the first)."""
-    from prompt_programs.slots import ReadingError, build
-    segs = {n: seg for kind, n, seg in _marked(parsed) if kind == "slot"}
-    out: Dict[int, str] = {}
-    trial = {n: slots.get(n) or as_written(n, seg, "") for n, seg in segs.items()}   # unanswered ones stand as written
-    for n in [None, *fresh]:
-        if n is not None:
-            if n in out:
-                continue
-            trial[n] = as_written(n, segs[n], "")
-        try:
-            build(parsed, _reading(trial, lists))
-            return out
-        except ReadingError as e:
-            if n is None:
-                continue
-            out.setdefault(n, str(e))
-    # still refused with every fresh one as written: the cached ones can't be at fault
-    return {n: out.get(n, "the program couldn't be built") for n in fresh}
-
-
-async def read(parsed: Parsed, *, ask: Ask, project_id: Optional[int], model: Optional[str],
-               cache: Any = None, force: bool = False) -> Dict[str, Any]:
-    """The reading of every slot and list of a parsed prompt, as slots.build takes it:
-    {"slots": [{"n", "kind", "label", "lead", "<kind>": {...}}], "lists": [{"n", "label"}]}.
-    `cache`: a narrow.NarrowCache-like store (get_raw/put_raw); `force` reads again.
-
-    A slot whose reading can't be used after one retry is read as written (as_written, marked
-    `degraded`), and a list with no usable label gets none: a model's slip never stops the run.
-    A call that fails outright (no chat model, the server down) raises as any model call does."""
+def cached(parsed: Parsed, model: Optional[str], cache: Any) -> Tuple[Dict[int, Any], Dict[int, str]]:
+    """The readings of the prompt's parts already cached: slot number -> reading, list number -> label."""
     from prompt_programs.vocab import vocabulary
     version = vocabulary().version
-    whole = prompt_key(parsed, model, version)
-    if not force:
-        hit = _cache_get(cache, whole)
-        if isinstance(hit, dict):
-            return hit
-    marks = _marked(parsed)
-    segs = {(kind, n): seg for kind, n, seg in marks}
-    keys = {(kind, n): part_key(parsed, seg, model, version) for kind, n, seg in marks}
     slots: Dict[int, Any] = {}
     lists: Dict[int, str] = {}
-    for (kind, n), key in keys.items():
-        hit = None if force else _cache_get(cache, key)
+    for kind, n, seg in _marked(parsed):
+        hit = _cache_get(cache, part_key(parsed, seg, model, version))
         if kind == "slot" and isinstance(hit, dict):
             slots[n] = {**hit, "n": n}
         elif kind == "list" and isinstance(hit, str):
             lists[n] = hit
-    asked = [(kind, n) for kind, n, _ in marks if n not in (slots if kind == "slot" else lists)]
-    fresh: List[Tuple[str, int]] = []
-    if asked:
-        messages = [{"role": "system", "content": system_text()},
-                    {"role": "user", "content": user_message(parsed, asked)}]
-        good: Dict[int, Any] = {}
-        labels: Dict[int, str] = {}
-        bad: Dict[Tuple[str, int], str] = {}
-        for attempt in range(2):
-            reply = await ask(messages, project_id, READING_TOKENS + SLOT_TOKENS * len(asked))
-            got_slots, got_lists, bad = check_parts(reply, parsed, asked)
-            good.update(got_slots)    # a part read well on either try is kept
-            labels.update(got_lists)
-            for n, why in _unbuilt(parsed, {**slots, **good}, {**lists, **labels}, sorted(got_slots)).items():
-                good.pop(n, None)
-                bad[("slot", n)] = why
-            bad = {k: why for k, why in bad.items() if (k[1] not in good if k[0] == "slot" else k[1] not in labels)}
-            if not bad:
-                break
-            problem = "; ".join(dict.fromkeys(bad.values()))
-            log.info(f"[slots] the reader's reply can't be used (try {attempt + 1}): {problem}")
-            messages = [*messages, {"role": "assistant", "content": reply or ""},
-                        {"role": "user", "content": f"That reply can't be used: {problem}. Reply again with the "
-                                                    "whole JSON, and nothing else."}]
-        for (kind, n), why in bad.items():
-            log.warning(f"[slots] {'⟨%d⟩' % n if kind == 'slot' else '{L%d}' % n} is read as written: {why}")
-            if kind == "slot":
-                good[n] = as_written(n, segs[("slot", n)], why)
-            else:
-                labels[n] = ""
-        slots.update(good)
-        lists.update(labels)
-        fresh = [k for k in asked if k not in bad]
-    reading = _reading(slots, lists)
-    if cache is not None:
-        for kind, n in fresh:   # parts read from the cache are there already; parts read as written never are
-            key = keys[(kind, n)]
-            if kind == "slot":
-                cache.put_raw(key, {k: v for k, v in slots[n].items() if k != "n"})
-            else:
+    return slots, lists
+
+
+def _unusable(parsed: Parsed, n: int, reading: Dict[str, Any]) -> Optional[str]:
+    """Why a slot's checked reading still can't make its picks, or None."""
+    from prompt_programs.fill import ReadingError, picks_of
+    from prompt_programs.slots import slot_ids
+    seg = next(seg for kind, m, seg in _marked(parsed) if kind == "slot" and m == n)
+    try:
+        picks_of(slot_ids(parsed)[n - 1], seg.words, reading)
+    except ReadingError as e:
+        return str(e)
+    return None
+
+
+async def read_part(parsed: Parsed, kind: str, n: int, *, ask: Ask, project_id: Optional[int], model: Optional[str],
+                    cache: Any = None) -> Any:
+    """One part's reading, from one model call that shows the whole prompt and asks only for
+    this part: a slot's reading (as check_slot gives it) or a list's label. A reply that can't
+    be used gets one retry told why; then a slot is read as written (`degraded`) and a list
+    gets no label, and neither is cached. A call that fails outright raises."""
+    from prompt_programs.vocab import vocabulary
+    seg = next(seg for k, m, seg in _marked(parsed) if (k, m) == (kind, n))
+    key = part_key(parsed, seg, model, vocabulary().version)
+    messages = [{"role": "system", "content": system_text()},
+                {"role": "user", "content": user_message(parsed, [(kind, n)])}]
+    why = ""
+    for attempt in range(2):
+        reply = await ask(messages, project_id, READING_TOKENS + SLOT_TOKENS)
+        slots, lists, bad = check_parts(reply, parsed, [(kind, n)])
+        if kind == "slot" and n in slots:
+            why = _unusable(parsed, n, slots[n]) or ""
+            if not why:
+                if cache is not None:
+                    cache.put_raw(key, {k: v for k, v in slots[n].items() if k != "n"})
+                return slots[n]
+        elif kind == "list" and n in lists:
+            if cache is not None:
                 cache.put_raw(key, lists[n])
-        if len(fresh) == len(asked):   # nothing read as written: the reading is final
-            cache.put_raw(whole, reading)
-    return reading
+            return lists[n]
+        else:
+            why = "; ".join(dict.fromkeys(bad.values()))
+        log.info(f"[slots] the reader's reply can't be used (try {attempt + 1}): {why}")
+        messages = [*messages, {"role": "assistant", "content": reply or ""},
+                    {"role": "user", "content": f"That reply can't be used: {why}. Reply again with the whole JSON, "
+                                                "and nothing else."}]
+    log.warning(f"[slots] {'⟨%d⟩' % n if kind == 'slot' else '{L%d}' % n} is read as written: {why}")
+    return as_written(n, seg, why) if kind == "slot" else ""
+
+
+async def read(parsed: Parsed, *, ask: Ask, project_id: Optional[int], model: Optional[str],
+               cache: Any = None) -> Dict[str, Any]:
+    """Every part of a prompt read, each on its own and all at once, cached ones from the cache:
+    {"slots": [reading...], "lists": [{"n", "label"}]}."""
+    import asyncio
+    slots, lists = cached(parsed, model, cache)
+    todo = [(kind, n) for kind, n, _ in _marked(parsed) if n not in (slots if kind == "slot" else lists)]
+    got = await asyncio.gather(*(read_part(parsed, kind, n, ask=ask, project_id=project_id, model=model, cache=cache)
+                                 for kind, n in todo))
+    for (kind, n), value in zip(todo, got):
+        (slots if kind == "slot" else lists)[n] = value
+    return _reading(slots, lists)
 
 
 def _reading(slots: Dict[int, Any], lists: Dict[int, str]) -> Dict[str, Any]:
     return {"slots": [slots[n] for n in sorted(slots)], "lists": [{"n": n, "label": lists[n]} for n in sorted(lists)]}
 
 
-__all__ = ["READER_VERSION", "ReaderFailed", "SYSTEM", "as_written", "check_parts", "check_reply", "check_slot", "leads", "numbered", "read",
-           "system_text", "user_message"]
+__all__ = ["READER_VERSION", "ReaderFailed", "SYSTEM", "as_written", "cached", "check_parts", "check_reply", "check_slot",
+           "leads", "numbered", "part_key", "read", "read_part", "system_text", "user_message"]

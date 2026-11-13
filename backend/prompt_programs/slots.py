@@ -463,25 +463,57 @@ def compose(parsed: Parsed, readings: Dict[int, Dict[str, Any]], labels: Optiona
     return entry
 
 
-# --------------------------------------------------------------------------- prepared and stored
+# --------------------------------------------------------------------------- prepared, at once
 
-SLOTS_VERSION = "slots-1"
-AGAIN_SECONDS = 30.0   # narrowing again after stated words were set as typed: the answers that came back are cached
+SLOTS_VERSION = "slots-2"
 
-_in_flight: Dict[Tuple[str, str], Any] = {}
+# Background work, by (store, cache key): a part's reading, and a prompt's settling (narrowing
+# with the model once a reading lands, then starting its option pools). Never started twice.
+_reads: Dict[Tuple[str, str], Any] = {}
+_settling: Dict[Tuple[str, str], Any] = {}
+_again: set = set()
+# A part whose last reading couldn't be used or whose call failed, and why: it stands as
+# written until a prepare that starts work reads it again. Never cached on disk.
+_failed: Dict[Tuple[str, str], str] = {}
 
 
-async def ensure(prompt: str, *, profile_id: Optional[str], project_id: Optional[int] = None,
-                 cache_only: bool = False, force: bool = False) -> Optional[Dict[str, Any]]:
-    """The slot program for a prompt: from the store, or parsed, read (reader.py), built,
-    narrowed and stored. None for a cache_only lookup of a prompt not prepared yet. A prompt
-    with no slots and no lists has no program: {"key": None, "slots": [], "choices": []}.
-    A model's slip never fails it: a slot whose reading can't be used stands as written, and a
-    stated detail whose narrowing doesn't come back stands as typed; the entry is `degraded`
-    and read again on the next prepare. Only a call that fails outright (no chat model, the
-    server down) raises."""
-    import asyncio
+@dataclass
+class _Prompt:
+    typed: str
+    parsed: Parsed
+    masked: str
+    exact: Dict[str, str]
+    key: str
+    model: Optional[str]
+    store: Any
+    profile_id: Optional[str]
+    project_id: Optional[int]
 
+    @property
+    def root(self) -> str:
+        return str(self.store.root)
+
+    def cache(self) -> Any:
+        from prompt_programs.narrow import NarrowCache
+        return NarrowCache(self.store.root / "reader")
+
+    def parts(self) -> List[Tuple[str, int, str]]:
+        """(kind, number, cache key) of each slot and list."""
+        from prompt_programs.reader import part_key
+        from prompt_programs.vocab import vocabulary
+        version, out, s, l = vocabulary().version, [], 0, 0
+        for seg in self.parsed.segments:
+            if seg.kind == "slot":
+                s += 1
+                out.append(("slot", s, part_key(self.parsed, seg, self.model, version)))
+            elif seg.kind == "list":
+                l += 1
+                out.append(("list", l, part_key(self.parsed, seg, self.model, version)))
+        return out
+
+
+async def _read_prompt(prompt: str, profile_id: Optional[str], project_id: Optional[int]) -> Optional[_Prompt]:
+    """The prompt as parsed for reading, or None when nothing in it varies."""
     from prompt_pipeline import _profile_wildcards_and_segments
     from prompt_programs import program as prep
     from prompt_programs.reader import READER_VERSION
@@ -496,108 +528,182 @@ async def ensure(prompt: str, *, profile_id: Optional[str], project_id: Optional
     masked, exact = prep.mask_exact(source)
     parsed = parse(masked)
     if not parsed.varies():
-        return {"key": None, "slots": [], "choices": []}
+        return None
     model = await prep.model_fingerprint(project_id)
     key = program_key({"v": SLOTS_VERSION, "reader": READER_VERSION, "model": model, "vocab": vocabulary().version,
                        "prompt": masked, "exact": exact})
-    store = prep.store_for(profile_id)
-    cached = None if force else store.get(key)
-    # A degraded entry (a slot read as written, a narrowing that didn't come back) serves a lookup,
-    # and a prepare reads it again.
-    if cached and not cached.get("narrow_pending") and (cache_only or not cached.get("degraded")):
-        return cached
-    if cache_only:
-        return None
-    flight = (str(store.root), key)
-    running = None if force else _in_flight.get(flight)
-    if running is None:
-        # A stored entry whose narrowing didn't finish (an older build stored those) is narrowed now.
-        running = asyncio.ensure_future(_narrow_stored(cached, store=store, profile_id=profile_id, project_id=project_id)
-                                        if cached and not cached.get("degraded") else
-                                        _prepare(parsed, key=key, exact=exact, model=model, store=store,
-                                                 profile_id=profile_id, project_id=project_id, force=force))
-        _in_flight[flight] = running
-        running.add_done_callback(lambda t, k=flight: _in_flight.pop(k, None) if _in_flight.get(k) is t else None)
-    return await asyncio.shield(running)
+    return _Prompt(prompt, parsed, masked, exact, key, model, prep.store_for(profile_id), profile_id, project_id)
 
 
-async def _prepare(parsed: Parsed, *, key: str, exact: Dict[str, str], model: Optional[str], store: Any,
-                   profile_id: Optional[str], project_id: Optional[int], force: bool) -> Dict[str, Any]:
-    import time
+async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
+    """The prompt's entry from its parse and the readings cached, narrowed with `ask` (None:
+    from the cache only, which never calls a model)."""
+    from prompt_programs.reader import as_written, cached
+    readings, labels = cached(p.parsed, p.model, p.cache())
+    segs = {(kind, n): seg for kind, n, seg in _marked(p.parsed)}
+    for kind, n, key in p.parts():
+        why = _failed.get((p.root, key))
+        if why is None:
+            continue
+        if kind == "slot" and n not in readings:
+            readings[n] = as_written(n, segs[("slot", n)], why)
+        elif kind == "list" and n not in labels:
+            labels[n] = ""
+    entry = compose(p.parsed, readings, labels)
+    entry.update({"key": p.key, "version": SLOTS_VERSION, "exact": p.exact, "typed": p.typed,
+                  "readings": {"slots": [readings[n] for n in sorted(readings)],
+                               "lists": [{"n": n, "label": labels[n]} for n in sorted(labels)]}})
+    await _narrow(entry, p, ask)
+    unread = any(s["state"] != "ready" for s in entry["slots"]) or any(l["state"] != "ready" for l in entry["lists"])
+    entry["reading"] = bool(unread or entry.get("narrow_pending"))
+    return entry
 
+
+def _marked(parsed: Parsed) -> List[Tuple[str, int, Segment]]:
+    out, s, l = [], 0, 0
+    for seg in parsed.segments:
+        if seg.kind == "slot":
+            s += 1
+            out.append(("slot", s, seg))
+        elif seg.kind == "list":
+            l += 1
+            out.append(("list", l, seg))
+    return out
+
+
+async def _narrow(entry: Dict[str, Any], p: _Prompt, ask: Any) -> None:
+    """Narrow the entry's bound picks by their slots' words. A stated detail whose narrowing
+    isn't there (not asked yet, or its answer didn't come back) stands as the user's words;
+    a list slot narrowed by its words stands as its words. Nothing else waits for it."""
+    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, narrow_entry
+    if not entry["picks"]:
+        return
+    await narrow_entry(entry, NarrowCache(p.store.root / "narrow"), ask, p.project_id, seconds=NARROW_SECONDS)
+    pending = set(entry.get("narrow_pending") or {})
+    words = entry.get("slot_words") or {}
+    picks = {x["id"]: x for x in entry["picks"]}
+    choices = {c["id"]: c for c in entry["choices"]}
+    for s in entry["slots"]:
+        form = s.get("form") or {}
+        if form.get("kind") == "person":
+            for cid in form["keys"]:
+                if cid in pending and cid in words:
+                    # (said=: drawn as typed, the rest of the list held for the picker)
+                    picks[cid]["said"] = choices[cid]["said"] = words[cid]
+                    choices[cid]["options"] = list(dict.fromkeys([words[cid], *(choices[cid].get("options") or [])]))
+        elif form.get("kind") == "one" and form["id"] in pending and form["id"] in words and picks[form["id"]].get("cls"):
+            s["typed"] = True
+    typed = {d for s in entry["slots"] if s.get("typed") for d in s["details"]}
+    if typed:
+        entry["picks"] = [x for x in entry["picks"] if x["id"] not in typed]
+
+
+def _working(p: _Prompt) -> bool:
+    return (p.root, p.key) in _settling or any((p.root, key) in _reads for _, _, key in p.parts())
+
+
+def _start(p: _Prompt, force: bool = False) -> None:
+    """Read whatever of the prompt isn't read yet, each part on its own, and settle the prompt
+    once each lands. Returns at once."""
+    import asyncio
+    from prompt_programs.reader import cached
+    readings, labels = cached(p.parsed, p.model, p.cache()) if not force else ({}, {})
+    started = False
+    for kind, n, key in p.parts():
+        if n in (readings if kind == "slot" else labels):
+            continue
+        flight = (p.root, key)
+        if flight in _reads:
+            continue
+        _failed.pop(flight, None)
+        task = asyncio.ensure_future(_read_job(p, kind, n, key))
+        _reads[flight] = task
+        task.add_done_callback(lambda t, k=flight: _reads.pop(k, None) if _reads.get(k) is t else None)
+        started = True
+    if not started and not any((p.root, key) in _reads for _, _, key in p.parts()):
+        _settle(p)
+
+
+async def _read_job(p: _Prompt, kind: str, n: int, key: str) -> None:
     from prompt_programs import program as prep
     from prompt_programs import reader
-    from prompt_programs.narrow import NarrowCache
-
-    t0 = time.monotonic()
-    reading = await reader.read(parsed, ask=prep.ask_model, project_id=project_id, model=model,
-                                cache=NarrowCache(store.root / "reader"), force=force)
-    source, entry = build(parsed, reading)
-    if any(m.get("degraded") for m in entry["slots"]):
-        entry["degraded"] = True
-    entry.update({"key": key, "exact": exact, "reading": reading, "source": source, "version": SLOTS_VERSION,
-                  "created_at": time.time()})
-    await _narrow(entry, store, profile_id, project_id)
-    entry["seconds"] = round(time.monotonic() - t0, 2)
-    store.put(key, entry)
-    prep.on_prepared(entry, project_id=project_id, profile_id=profile_id)
-    return entry
-
-
-async def _narrow_stored(entry: Dict[str, Any], *, store: Any, profile_id: Optional[str],
-                         project_id: Optional[int]) -> Dict[str, Any]:
-    from prompt_programs import program as prep
-    from prompt_programs.narrow import reopen_pending
-
-    reopen_pending(entry)
-    await _narrow(entry, store, profile_id, project_id)
-    store.put(entry["key"], entry)
-    prep.on_prepared(entry, project_id=project_id, profile_id=profile_id)
-    return entry
-
-
-async def _narrow(entry: Dict[str, Any], store: Any, profile_id: Optional[str], project_id: Optional[int]) -> None:
-    """Narrow the entry's picks by their words, waiting for every answer, then draw its example
-    from the narrowed lists. A narrowing that doesn't finish degrades (see below), never fails."""
-    from prompt_programs import program as prep
-    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, narrow_entry, reopen_pending
     from core.logging import get_logger
-    log = get_logger(__name__)
+    flight = (p.root, key)
+    try:
+        got = await reader.read_part(p.parsed, kind, n, ask=prep.ask_model, project_id=p.project_id, model=p.model,
+                                     cache=p.cache())
+        if (kind == "slot" and got.get("degraded")) or (kind == "list" and not got):
+            _failed[flight] = str(got.get("reason") or "") if kind == "slot" else "no label"
+    except Exception as e:   # a model slip or an unreachable model never stops a run: the part stands as written
+        get_logger(__name__).warning(f"[slots] reading part {n} of {p.key} failed: {e}")
+        _failed[flight] = str(e)[:200] or type(e).__name__
+    finally:
+        _reads.pop(flight, None)
+        _settle(p)
 
-    cache = NarrowCache(store.root / "narrow")
-    await narrow_entry(entry, cache, prep.ask_model, project_id, seconds=NARROW_SECONDS)
-    left = dict(entry.get("narrow_pending") or {})
-    if left:
-        # A narrowing that didn't come back never stops the run. A detail the slot's words state
-        # stands as typed ("elderly", "African"); the rest of the person still varies. Anything
-        # else pending draws from its list as it is. The entry is marked degraded, and the next
-        # prepare of the prompt reads it again.
-        words = entry.get("slot_words") or {}
-        typed = {**(entry.get("as_typed") or {}),
-                 **{k: "its narrowing didn't come back" for k in left if k in words}}
-        if len(typed) > len(entry.get("as_typed") or {}):
-            log.warning(f"[slots] {entry.get('key')}: narrowing didn't come back for {sorted(k for k in left if k in words)}; "
-                        "their words stand as typed")
-            source, fresh = build(parse(entry["prompt"]), entry["reading"], as_typed=typed)
-            entry.update(fresh, source=source, as_typed=typed, filters={})
-            entry.pop("narrow_pending", None)
-            await narrow_entry(entry, cache, prep.ask_model, project_id, seconds=AGAIN_SECONDS)
-        rest = sorted(entry.get("narrow_pending") or {})
-        if rest:
-            log.warning(f"[slots] {entry.get('key')}: narrowing didn't come back for {rest}; they draw from their lists")
-            reopen_pending(entry)
-            entry.pop("narrow_pending", None)
-        entry["degraded"] = True
-    try:   # the example the editor shows is drawn as a run would draw it: from the narrowed lists
-        entry["example"] = prep.realize(entry, seed=0, profile_id=profile_id, project_id=project_id).prompt
-    except Exception as e:
-        log.warning(f"[slots] drawing the example of {entry.get('key')} failed: {e}")
-        entry["example"] = None
+
+def _settle(p: _Prompt) -> None:
+    """Narrow the prompt with the model and start its option pools, in the background; one at a
+    time per prompt, run once more when something lands meanwhile."""
+    import asyncio
+    flight = (p.root, p.key)
+    if flight in _settling:
+        _again.add(flight)
+        return
+
+    async def run() -> None:
+        from prompt_programs import program as prep
+        from core.logging import get_logger
+        try:
+            while True:
+                _again.discard(flight)
+                try:
+                    entry = await _assemble(p, prep.ask_model)
+                    p.store.put(p.key, entry)
+                    prep.on_prepared(entry, project_id=p.project_id, profile_id=p.profile_id)
+                except Exception as e:
+                    get_logger(__name__).warning(f"[slots] settling {p.key} failed: {e}")
+                if flight not in _again:
+                    return
+        finally:
+            _settling.pop(flight, None)
+
+    _settling[flight] = asyncio.ensure_future(run())
+
+
+async def prepare(prompt: str, *, profile_id: Optional[str], project_id: Optional[int] = None,
+                  start: bool = True, force: bool = False) -> Dict[str, Any]:
+    """The prompt's entry now: every slot and list from the parse, each `ready` with its reading
+    or still `reading`. Never waits on a model. `start` reads what isn't read yet in the
+    background (`force`: everything again); `reading` says something is still out, `working`
+    that background work for it is running. A prompt with nothing that varies:
+    {"key": None, "slots": [], "choices": []}."""
+    p = await _read_prompt(prompt, profile_id, project_id)
+    if p is None:
+        return {"key": None, "slots": [], "choices": []}
+    entry = await _assemble(p, None)
+    # A part read as written, or whose call failed, is read again by the next prepare that starts work.
+    again = any((p.root, key) in _failed for _, _, key in p.parts())
+    if start and (entry["reading"] or again or force):
+        _start(p, force)
+    entry["working"] = _working(p)
+    p.store.put(p.key, entry)
+    return entry
+
+
+current = prepare   # what a generation draws from: the same, never waiting
+
+
+async def idle() -> None:
+    """Wait for every background reading and settling to finish (tests, scripts)."""
+    import asyncio
+    while _reads or _settling:
+        await asyncio.gather(*list(_reads.values()), *list(_settling.values()), return_exceptions=True)
 
 
 def preparing() -> bool:
-    """Whether any prompt is being read now (background option writing gives way to it)."""
-    return bool(_in_flight)
+    """Whether any part is being read now (background option writing gives way to it)."""
+    return bool(_reads)
 
 
 def raw_spans(prompt: str, entry: Dict[str, Any]) -> List[Optional[Tuple[Span, int]]]:
@@ -611,5 +717,5 @@ def raw_spans(prompt: str, entry: Dict[str, Any]) -> List[Optional[Tuple[Span, i
     return [((a, b), prompt.count("\n", 0, a) + 1) for a, b in found]
 
 
-__all__ = ["KINDS", "Parsed", "ReadingError", "SLOT_RE", "SLOTS_VERSION", "Segment", "build", "ensure", "find_slots",
-           "is_comment", "parse", "preparing", "raw_spans", "slot_ids", "unwrap_slots"]
+__all__ = ["KINDS", "Parsed", "ReadingError", "SLOT_RE", "SLOTS_VERSION", "Segment", "build", "compose", "current",
+           "find_slots", "idle", "is_comment", "parse", "prepare", "preparing", "raw_spans", "slot_ids", "unwrap_slots"]

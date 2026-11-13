@@ -282,15 +282,31 @@ async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask
                  project_id: Optional[int] = None, about: str = "", prompt: str = "") -> Optional[List[str]]:
     """The values of `leaf` that fit `phrase` (said of `about`, the pick's own description:
     "young" said of "the woman's age" rules out children), from the cache or one model call.
-    None when the call fails or its answer can't be read: never cached, worth asking again."""
+    None when the call fails or its answer can't be read: never cached, worth asking again.
+    `ask=None` reads the cache only. The same question asked twice at once is asked once."""
     values = [v.text for v in leaf.eligible()]
-    shown = [_shown(v) for v in values]
     prompt = prompt if leaf.id == AGE_LIST else ""   # only an age is read with the whole prompt
     key = NarrowCache.key(leaf, phrase, values, about, prompt)
     if cache is not None:
         hit = cache.get(key)
         if hit is not None:
             return hit
+    if ask is None:
+        return None
+    flight = (str(getattr(cache, "root", "")), key)
+    if flight not in _asking:
+        _asking[flight] = asyncio.ensure_future(_ask_subset(leaf, phrase, cache, ask, project_id, about, prompt, key))
+        _asking[flight].add_done_callback(lambda t: _asking.pop(flight, None) if _asking.get(flight) is t else None)
+    return await asyncio.shield(_asking[flight])
+
+
+_asking: Dict[Tuple[str, str], "asyncio.Future[Optional[List[str]]]"] = {}
+
+
+async def _ask_subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask, project_id: Optional[int],
+                      about: str, prompt: str, key: str) -> Optional[List[str]]:
+    values = [v.text for v in leaf.eligible()]
+    shown = [_shown(v) for v in values]
     got = None
     messages = messages_for(leaf, phrase, shown, about, prompt)
     for attempt in range(2):   # one more try for a failed call or an unreadable answer

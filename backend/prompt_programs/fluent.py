@@ -34,6 +34,17 @@ WARM_DRAWS = 8         # draws at prepare that find the pools to fill
 UNJUDGED = (None, "null")
 
 
+def _drawn(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Any]], options: Any) -> Any:
+    if "picks" in entry:
+        from prompt_programs.fill import fill
+        return fill(entry, seed, pins, None, None, options=options)
+    return draw(entry["program"], seed, pins, None, None, None, None, options=options)
+
+
+def has_draws(entry: Dict[str, Any]) -> bool:
+    return bool(entry.get("picks")) or uses_draws(entry.get("program") or "")
+
+
 @dataclass
 class Runtime:
     options: GeneratedOptions
@@ -113,7 +124,7 @@ def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, An
 def attach_filler(entry: Dict[str, Any], profile_id: Optional[str] = None) -> None:
     """Call from async code before realize() runs in a worker thread, so background
     option generation for a new-format program has the event loop to run on."""
-    if not uses_draws(entry.get("program") or "") or not settings().generate_options:
+    if not has_draws(entry) or not settings().generate_options:
         return
     try:
         filler_for(profile_id)
@@ -129,7 +140,7 @@ def start_options(entry: Dict[str, Any], *, profile_id: Optional[str] = None, pr
     """Queue background option generation for a just-prepared program. Returns the
     storage keys queued. Never calls a model itself and never raises: a program whose
     pools can't fill still draws from its seeds."""
-    if not uses_draws(entry.get("program") or ""):
+    if not has_draws(entry):
         return []
     try:
         rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, filler=filler, cfg=cfg)
@@ -139,7 +150,7 @@ def start_options(entry: Dict[str, Any], *, profile_id: Optional[str] = None, pr
         # for the upstream values they draw); each unseen pool queues a fill.
         for seed in range(WARM_DRAWS):
             try:
-                draw(entry["program"], 7919 * seed + 1, None, loras, params, None, None, options=rt.options)
+                _drawn(entry, 7919 * seed + 1, None, rt.options)
             except ProgramError:
                 continue
             rt.options.reset()
@@ -190,7 +201,7 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
     more: List[str] = []
     vocab: Dict[str, Dict[str, Any]] = {}
     by_zone: Dict[str, Dict[str, List[str]]] = {}
-    if not uses_draws(entry.get("program") or ""):
+    if not has_draws(entry):
         return {"options": out, "more": more, "vocab": vocab, "zones": by_zone}
     rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, cfg=cfg, mine=mine,
                      edits=edits, zones=zones)
@@ -208,7 +219,7 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
         seen: List[str] = []
         for seed in range(POOL_DRAWS):
             try:
-                res = draw(entry["program"], 7919 * seed + 3, others, loras, params, None, None, options=rt.options)
+                res = _drawn(entry, 7919 * seed + 3, others, rt.options)
             except ProgramError:
                 continue
             if cid in (res.more_coming or []) and cid not in more:

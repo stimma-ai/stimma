@@ -444,8 +444,8 @@ def fix_mode(model: Optional[str]) -> str:
 def needs_judge(entry: Dict[str, Any], cfg: Any = None) -> bool:
     """Whether drawing `entry` is read by the Tool View model: a program with draws, and
     that judge configured (off and a model directory never are)."""
-    from prompt_programs.draws import uses_draws
-    if not uses_draws(entry.get("program") or ""):
+    from prompt_programs.fluent import has_draws
+    if not has_draws(entry):
         return False
     if cfg is None:
         from prompt_programs.judge import settings
@@ -694,7 +694,7 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
     gives for that seed alone, or the exception its draw raised. Blocking.
     The judge reads every draw with the user's [exact text] masked, as every other model
     step does (entry["prompt"] is already masked); the shipped prompts have it back."""
-    from prompt_programs.draws import uses_draws
+    from prompt_programs.fluent import has_draws
     from prompt_programs.judge import settings
     from prompt_programs.program import realize
 
@@ -718,7 +718,7 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
         except Exception as e:
             out.append(e)
     drawn = [i for i, r in enumerate(out) if not isinstance(r, Exception)]
-    if not uses_draws(entry.get("program") or ""):
+    if not has_draws(entry):
         return [shipped(r) for r in out]
     cfg = cfg or settings()
     if judge is None:

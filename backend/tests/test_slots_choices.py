@@ -10,8 +10,8 @@ from prompt_programs import slots
 from prompt_programs.choices import bound_zones, expand, group_values, kept, zone_titles, UnknownChoiceError
 from prompt_programs.vocab import vocabulary
 
-from test_slots_build import AFRICAN, ELDERLY, PORCH_PROMPT, PORCH_READING, _draw
-from test_slots_reader import FakeModel, _client, _reply, _use, profile  # noqa: F401  (profile is a fixture)
+from test_slots_fill import AFRICAN, ELDERLY, PORCH_PROMPT, PORCH_READING, draw as _draw
+from test_slots_reader import FakeModel, _client, _reply, _use, profile, ready  # noqa: F401  (profile is a fixture)
 
 MAN = "elderly_african_man"
 KINDS = PORCH_READING["slots"][1]["free"]["kinds"]
@@ -21,7 +21,7 @@ INSTEAD = PORCH_READING["slots"][1]["free"]["instead"]
 @pytest.fixture
 async def porch(profile, monkeypatch):
     _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
-    return await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    return await ready(PORCH_PROMPT, profile)
 
 
 def test_values_are_pins_and_off_and_add_are_edits(porch):
@@ -98,23 +98,24 @@ def test_keep_choices_map_to_values(porch):
 
 # --------------------------------------------------------------------------- the routes
 
-def _prepared(profile, monkeypatch):
+async def _prepared(profile, monkeypatch):
     _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
+    await ready(PORCH_PROMPT, profile)
     client = _client(monkeypatch, profile)
     out = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PORCH_PROMPT}).json()
     return client, out
 
 
-def test_prepare_names_the_zones(profile, monkeypatch):
-    _, out = _prepared(profile, monkeypatch)
+async def test_prepare_names_the_zones(profile, monkeypatch):
+    _, out = await _prepared(profile, monkeypatch)
     by_id = {c["id"]: c for c in out["choices"]}
     assert by_id["pet"]["zones"] == [{"id": "kinds", "title": "Kinds of pet"}, {"id": "instead", "title": "Instead of pet"}]
     assert [z["id"] for z in by_id[f"{MAN}.descent"]["zones"]] == ["kinds", "instead"]
     assert "zones" not in by_id[f"{MAN}.hair"] and "zones" not in by_id["list1"]
 
 
-def test_pools_sends_both_zones_of_a_free_slot_and_every_group(profile, monkeypatch):
-    client, out = _prepared(profile, monkeypatch)
+async def test_pools_sends_both_zones_of_a_free_slot_and_every_group(profile, monkeypatch):
+    client, out = await _prepared(profile, monkeypatch)
     body = {"tool_id": "t", "prompt": PORCH_PROMPT, "key": out["key"]}
     got = client.post("/api/prompt-programs/pools", json=body).json()
     pet = got["choices"]["pet"]
@@ -133,10 +134,10 @@ def test_pools_sends_both_zones_of_a_free_slot_and_every_group(profile, monkeypa
     assert all(leaf.short(o) == s and s != o for o, s in outfit["short"].items())
 
 
-def test_preview_draws_from_the_zones_chosen(profile, monkeypatch):
+async def test_preview_draws_from_the_zones_chosen(profile, monkeypatch):
     import prompt_programs.fix as fix
     monkeypatch.setattr(fix, "await_judge", _no_judge)
-    client, out = _prepared(profile, monkeypatch)
+    client, out = await _prepared(profile, monkeypatch)
     body = {"tool_id": "t", "prompt": PORCH_PROMPT, "choices": {"pet": {"zones": ["instead"]}, "list1": {"off": True}}}
     for seed in range(4):
         r = client.post("/api/prompt-programs/preview", json={**body, "seed": seed}).json()
@@ -149,8 +150,8 @@ async def _no_judge(entry, project_id=None):
     return None
 
 
-def test_options_writes_for_one_zone(profile, monkeypatch):
-    client, out = _prepared(profile, monkeypatch)
+async def test_options_writes_for_one_zone(profile, monkeypatch):
+    client, out = await _prepared(profile, monkeypatch)
     seen = []
 
     async def write(job, count):

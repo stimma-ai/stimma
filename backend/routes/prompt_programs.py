@@ -13,7 +13,7 @@ log = get_logger(__name__)
 router = APIRouter(prefix="/api/prompt-programs", tags=["prompt-programs"])
 
 # What a slot and a choice say to the editor (the program text itself stays server-side unless asked for).
-_SLOT_KEYS = ("id", "n", "kind", "label", "words", "span", "line", "details", "stated", "degraded")
+_SLOT_KEYS = ("id", "n", "kind", "label", "words", "span", "line", "details", "stated", "degraded", "state")
 _CHOICE_KEYS = ("id", "kind", "label", "cls", "options", "follows", "parent", "when")
 
 
@@ -25,9 +25,10 @@ class PrepareRequest(BaseModel):
     task_type: Optional[str] = None
     project_id: Optional[int] = None
     include_program: bool = False
-    # cache_only: return the prepared program if there is one, never call the model.
+    # cache_only: what is ready now, starting no background reading. Prepare never waits on
+    # a model either way.
     cache_only: bool = False
-    # force: read the prompt's slots again, even if a program for it exists.
+    # force: read the prompt's slots again, even those already read.
     force: bool = False
     # The program the cards are showing. Options and pools work on it even while a newer
     # version of the prompt is being prepared.
@@ -68,8 +69,8 @@ async def _prepare(req: PrepareRequest) -> Optional[Dict[str, Any]]:
     if not ctx["program_supported"]:
         return {"unsupported": ctx["mode"]}
     try:
-        return await slots.ensure(req.prompt, profile_id=get_current_profile(), project_id=req.project_id,
-                                  cache_only=req.cache_only, force=req.force)
+        return await slots.prepare(req.prompt, profile_id=get_current_profile(), project_id=req.project_id,
+                                   start=not req.cache_only, force=req.force)
     except Exception as e:
         http = program_http_error(e)
         if http is None:
@@ -101,25 +102,28 @@ def public(entry: Dict[str, Any], prompt: str) -> Dict[str, Any]:
         elif c.get("source") == "list":
             out.update(source="list", line=c.get("line"))
         choices.append(out)
-    return {"key": entry.get("key"), "slots": slots, "choices": choices, "example": entry.get("example"),
-            "seconds": entry.get("seconds", 0.0)}
+    return {"key": entry.get("key"), "slots": slots, "choices": choices,
+            "reading": bool(entry.get("reading")), "working": bool(entry.get("working"))}
 
 
 @router.post("/prepare")
 async def prepare(req: PrepareRequest) -> Dict[str, Any]:
     entry = await _prepare(req)
-    if entry is None:  # cache_only and not prepared yet: not an error, just nothing to show
-        return {"key": None}
     if entry.get("unsupported"):  # structured formats are still enhanced per image
         return {"key": None, "unsupported": entry["unsupported"]}
     if not entry.get("key"):   # nothing in the prompt varies
         return {"key": None, "slots": [], "choices": []}
-    # A fresh prepare already started its option pools (prepare.on_prepared); a cached one's
-    # unfilled pools queue as draws reach them.
+    # Readings that land start their option pools (slots._settle); a pool not filled yet
+    # queues as draws reach it.
     out = public(entry, req.prompt)
-    if req.include_program:
-        out["program"] = entry["program"]
-        out["reading"] = entry.get("reading")
+    if req.include_program:   # the dev dialog: what each part was read as, its picks, and one draw
+        from prompt_programs.program import realize
+        out["readings"] = entry.get("readings")
+        out["picks"] = entry.get("picks")
+        try:
+            out["example"] = realize(entry, seed=0, profile_id=get_current_profile(), project_id=req.project_id).prompt
+        except Exception as e:
+            out["example"] = f"(couldn't draw: {e})"
     return out
 
 
@@ -133,14 +137,15 @@ class OptionsRequest(PrepareRequest):
 
 
 async def _shown(req: PrepareRequest) -> Optional[Dict[str, Any]]:
-    """The program the cards are showing (req.key), else the one prepared for these inputs."""
-    if req.key:
-        from prompt_programs.program import store_for
-        entry = store_for(get_current_profile()).get(req.key)
-        if entry:
-            return entry
+    """The prompt the cards are showing: the one in the request as it stands now, else (the
+    prompt moved on since the cards were made) the entry stored under req.key."""
     entry = await _prepare(req.model_copy(update={"cache_only": True}))
-    return entry if entry is not None and (entry.get("key") or entry.get("unsupported")) else None
+    if req.key and entry.get("key") != req.key:
+        from prompt_programs.program import store_for
+        stored = store_for(get_current_profile()).get(req.key)
+        if stored:
+            return stored
+    return entry if entry.get("key") or entry.get("unsupported") else None
 
 
 @router.post("/options")

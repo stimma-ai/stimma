@@ -1,5 +1,6 @@
-"""The slot reader with a fake model: the numbered prompt, the reply's checks, one retry, the
-two-level cache; slots.ensure and POST /prompt-programs/prepare on top of it."""
+"""The slot reader with a fake model: the numbered prompt, the reply's checks, one retry, each
+part read on its own and cached; slots.prepare (instant, reading in the background) and
+POST /prompt-programs/prepare on top of it."""
 
 import copy
 import json
@@ -13,14 +14,15 @@ from prompt_programs import reader, slots
 from prompt_programs.narrow import NarrowCache
 from prompt_programs.slots import parse
 
-from test_slots_build import AFRICAN, DORM_PROMPT, DORM_READING, ELDERLY, PORCH_PROMPT, PORCH_READING
+from test_slots_fill import AFRICAN, DORM_PROMPT, DORM_READING, ELDERLY, PORCH_PROMPT, PORCH_READING
 
 DORM_LIGHT = DORM_READING["slots"][1]
 
 
 class FakeModel:
-    """Answers the reader with queued replies (a reply may be a function of the messages) and
-    narrowing with fixed subsets; records what the reader was asked."""
+    """Answers the reader with queued replies (a reply may be a function of the messages; the
+    last one answers every later call) and narrowing with fixed subsets; records what the
+    reader was asked. A reply holding every part answers each part's own call."""
 
     def __init__(self, *replies: Any):
         self.replies: List[Any] = list(replies)
@@ -30,7 +32,7 @@ class FakeModel:
         user = messages[-1]["content"]
         if messages[0]["content"].startswith("You read the parts of an image prompt"):
             self.asked.append(messages)
-            got = self.replies.pop(0)
+            got = self.replies.pop(0) if len(self.replies) > 1 else self.replies[0]
             return got(messages) if callable(got) else got
         if user.startswith('The list "Age"'):
             return json.dumps(ELDERLY)
@@ -57,8 +59,23 @@ def profile(tmp_path, monkeypatch):
     async def fingerprint(project_id):
         return "fake-model"
     monkeypatch.setattr(prep, "model_fingerprint", fingerprint)
-    monkeypatch.setattr(slots, "_in_flight", {})
+    import prompt_programs.narrow as nw
+    for name in ("_reads", "_settling", "_failed"):
+        monkeypatch.setattr(slots, name, {})
+    monkeypatch.setattr(slots, "_again", set())
+    monkeypatch.setattr(nw, "_asking", {})
     return "p"
+
+
+async def ready(prompt: str, profile: str, **kw: Any) -> Dict[str, Any]:
+    """Prepare, let the background reading and narrowing land, and look again."""
+    await slots.prepare(prompt, profile_id=profile, **kw)
+    await slots.idle()
+    return await slots.prepare(prompt, profile_id=profile, start=False)
+
+
+def realize_all(entry, seed):
+    return prep.realize(entry, seed=seed)
 
 
 def _use(monkeypatch, model: FakeModel) -> FakeModel:
@@ -100,56 +117,55 @@ async def test_a_list_id_outside_its_object_is_retried_with_the_shape():
 
 async def test_bad_json_gets_one_retry_that_says_why():
     model = FakeModel("Sure! Here is the reading: {", _reply(PORCH_READING))
-    got = await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m")
+    got = await reader.read_part(parse(PORCH_PROMPT), "slot", 2, ask=model, project_id=None, model="m")
     assert len(model.asked) == 2
     retry = model.asked[1]
     assert retry[-2] == {"role": "assistant", "content": "Sure! Here is the reading: {"}
     assert "isn't valid JSON" in retry[-1]["content"]
+    assert got["kind"] == "free"
+
+
+async def test_each_part_is_asked_on_its_own_with_the_whole_prompt():
+    model = FakeModel(_reply(PORCH_READING))
+    got = await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m")
+    assert len(model.asked) == 3
+    asked = sorted(m[-1]["content"].rsplit("\n", 1)[-1] for m in model.asked)
+    assert asked == ['The other parts are already read. Answer only for: {L1}.',
+                     'The other parts are already read. Answer only for: ⟨1⟩ "elderly African man".',
+                     'The other parts are already read. Answer only for: ⟨2⟩ "pet".']
+    assert all("⟨1: elderly African man⟩" in m[-1]["content"] for m in model.asked)
     assert [s["kind"] for s in got["slots"]] == ["person", "free"] and got["lists"] == [{"n": 1, "label": "Season"}]
 
 
-async def test_one_bad_slot_among_good_ones_is_read_as_written_and_the_others_stand(tmp_path):
+async def test_a_bad_slot_is_read_as_written_and_never_cached(tmp_path):
     cache = NarrowCache(tmp_path)
-    model = FakeModel(_reply(PORCH_READING, n2={"kind": "thing"}), _reply(PORCH_READING, n2={"kind": "thing"}))
-    got = await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m", cache=cache)
+    model = FakeModel(_reply(PORCH_READING, n2={"kind": "thing"}))
+    pet = await reader.read_part(parse(PORCH_PROMPT), "slot", 2, ask=model, project_id=None, model="m", cache=cache)
     assert len(model.asked) == 2 and "kind must be one of" in model.asked[1][-1]["content"]
-    man, pet = got["slots"]
-    assert man["kind"] == "person" and "degraded" not in man
     assert pet["degraded"] is True and pet["kind"] == "free" and pet["label"] == "pet" and "kind must be" in pet["reason"]
-    src, entry = slots.build(parse(PORCH_PROMPT), got)
-    assert entry["example"].endswith("reading on a porch with his pet, summer evening") or \
-        entry["example"].endswith("reading on a porch with his pet, autumn evening"), entry["example"]
-    assert [m.get("degraded") for m in entry["slots"]] == [None, True] and entry["slots"][1]["details"] == []
-    # nothing read as written is cached: the next read asks again, only for that slot
-    model = FakeModel(_reply(PORCH_READING))
-    again = await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m", cache=cache)
-    assert len(model.asked) == 1 and 'Answer only for: ⟨2⟩ "pet".' in model.asked[0][-1]["content"]
-    assert again["slots"][1]["kind"] == "free" and "degraded" not in again["slots"][1]
+    assert reader.cached(parse(PORCH_PROMPT), "m", cache) == ({}, {})
+    good = await reader.read_part(parse(PORCH_PROMPT), "slot", 2, ask=FakeModel(_reply(PORCH_READING)), project_id=None,
+                                  model="m", cache=cache)
+    assert "degraded" not in good and reader.cached(parse(PORCH_PROMPT), "m", cache)[0][2]["kind"] == "free"
 
 
-async def test_a_reply_that_is_never_json_reads_every_slot_as_written():
-    model = FakeModel("no", "still no")
-    got = await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m")
+async def test_a_reply_that_is_never_json_reads_the_part_as_written():
+    got = await reader.read(parse(PORCH_PROMPT), ask=FakeModel("no"), project_id=None, model="m")
     assert [s["degraded"] for s in got["slots"]] == [True, True] and got["lists"] == [{"n": 1, "label": ""}]
-    _, entry = slots.build(parse(PORCH_PROMPT), got)
-    assert entry["example"].split("\n")[-1] in (
-        "An elderly African man reading on a porch with his pet, summer evening",
-        "An elderly African man reading on a porch with his pet, autumn evening"), entry["example"]
 
 
 async def test_a_person_with_nothing_to_draw_twice_is_read_as_written():
     empty = {"slots": [{"n": 1, "kind": "person", "label": "Hairstyle", "lead": "",
                         "person": {"noun": "hairstyle", "presentation": "", "stated": {}, "vary": [], "outfit": ""}}]}
-    got = await reader.read(parse("1girl, <hairstyle>, rooftop"), ask=FakeModel(json.dumps(empty), json.dumps(empty)),
+    got = await reader.read(parse("1girl, <hairstyle>, rooftop"), ask=FakeModel(json.dumps(empty)),
                             project_id=None, model="m")
     assert got["slots"][0]["degraded"] is True
-    assert slots.build(parse("1girl, <hairstyle>, rooftop"), got)[1]["example"] == "1girl, hairstyle, rooftop"
 
 
 async def test_a_missing_part_or_a_list_that_doesnt_exist_is_retried():
     short = {"slots": PORCH_READING["slots"][:1], "lists": PORCH_READING["lists"]}
     model = FakeModel(json.dumps(short), _reply(PORCH_READING))
-    await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m")
+    await reader.read_part(parse(PORCH_PROMPT), "slot", 2, ask=model, project_id=None, model="m")
     assert "no answer for ⟨2⟩" in model.asked[1][-1]["content"]
     bound = {"n": 1, "kind": "list", "label": "Thing", "lead": "", "list": {"list": "no.such.list", "stated": ""}}
     model = FakeModel(json.dumps({"slots": [bound]}), json.dumps({"slots": [{**bound, "list": {"list": "animal.dog_breed",
@@ -172,8 +188,6 @@ async def test_a_person_with_nothing_to_draw_is_retried():
 
 
 async def test_a_persons_noun_is_one_of_their_own_words():
-    """Words about someone the prompt already has ("1boy, <expression>") read as a new person
-    named from elsewhere: the noun isn't the part's words, so the reading is asked again."""
     other = {"n": 1, "kind": "person", "label": "Expression", "lead": ",",
              "person": {"noun": "boy", "presentation": "masculine", "stated": {}, "vary": ["hair"], "outfit": ""}}
     listed = {"n": 1, "kind": "list", "label": "Expression", "lead": ",",
@@ -183,19 +197,10 @@ async def test_a_persons_noun_is_one_of_their_own_words():
     assert len(model.asked) == 2
     assert '"boy" is not among the words "expression"' in model.asked[1][-1]["content"]
     assert got["slots"][0]["list"] == {"list": "person.expression", "about": "the boy's expression"}
-    # a noun from a note is the user's words too
     noted = {**other, "person": {**other["person"], "noun": "nurse"}}
     got = await reader.read(parse("# she is a nurse\n<tired woman>, hospital corridor"),
                             ask=FakeModel(json.dumps({"slots": [noted]})), project_id=None, model="m")
     assert got["slots"][0]["person"]["noun"] == "nurse"
-
-
-def test_a_list_slot_is_narrowed_by_its_words_said_of_what_it_is_about():
-    reading = {"slots": [{"n": 1, "kind": "list", "label": "Pet", "lead": " with his",
-                          "list": {"list": "animal.species", "about": "his pet, on the porch"}}]}
-    src, entry = slots.build(parse("a man on a porch with his <pet>"), reading)
-    assert "cls='animal.species', about='his pet, on the porch'" in src
-    assert entry["slot_words"] == {"pet": "pet"}
 
 
 async def test_a_stated_detail_is_always_drawn():
@@ -205,11 +210,10 @@ async def test_a_stated_detail_is_always_drawn():
 
 
 async def test_a_lead_that_isnt_in_the_text_is_cleared():
-    model = FakeModel(_reply(DORM_READING, n2={"lead": ", lighted with"}))
-    got = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m")
+    got = await reader.read(parse(DORM_PROMPT), ask=FakeModel(_reply(DORM_READING, n2={"lead": ", lighted with"})),
+                            project_id=None, model="m")
     assert got["slots"][1]["lead"] == ""
-    model = FakeModel(_reply(DORM_READING))
-    got = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m")
+    got = await reader.read(parse(DORM_PROMPT), ask=FakeModel(_reply(DORM_READING)), project_id=None, model="m")
     assert got["slots"][1]["lead"] == ", lit by"
 
 
@@ -220,7 +224,6 @@ async def test_words_that_arent_the_users_are_dropped_and_unknown_details_too():
     model = FakeModel(json.dumps({"slots": [person, PORCH_READING["slots"][1]], "lists": PORCH_READING["lists"]}))
     got = await reader.read(parse(PORCH_PROMPT), ask=model, project_id=None, model="m")
     p = got["slots"][0]["person"]
-    # "granddaughter" is copied from a comment line, so it is the user's words (what it means is the model's call)
     assert p["stated"] == {"age": "elderly", "hair": "granddaughter"}
     assert p["vary"] == ["age", "build", "hair"]
 
@@ -237,24 +240,26 @@ async def test_a_written_outfit_brings_its_examples_as_seeds():
     person = copy.deepcopy(DORM_READING["slots"][0])
     person["person"].update(outfit="written", outfit_examples=["a hoodie and track pants", "a band T-shirt and jeans",
                                                                "a flannel shirt and chinos"])
-    model = FakeModel(json.dumps({"slots": [person, DORM_LIGHT]}))
-    got = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m")
-    src, _ = slots.build(parse(DORM_PROMPT), got)
-    assert "pick('young_man.outfit', about=\"Young man's outfit\", seed=['a hoodie and track pants'," in src
+    got = await reader.read(parse(DORM_PROMPT), ask=FakeModel(json.dumps({"slots": [person, DORM_LIGHT]})),
+                            project_id=None, model="m")
+    e = slots.compose(parse(DORM_PROMPT), {r["n"]: r for r in got["slots"]})
+    outfit = next(p for p in e["picks"] if p["id"] == "young_man.outfit")
+    assert outfit["seed"][0] == "a hoodie and track pants" and "cls" not in outfit
     person["person"]["outfit_examples"] = []
     model = FakeModel(json.dumps({"slots": [person, DORM_LIGHT]}), _reply(DORM_READING))
-    await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m")
+    await reader.read_part(parse(DORM_PROMPT), "slot", 1, ask=model, project_id=None, model="m")
     assert "needs three outfit_examples" in model.asked[1][-1]["content"]
 
 
-async def test_the_reading_is_cached_whole_and_per_slot(tmp_path):
+async def test_each_part_is_cached_by_its_own_words_and_line(tmp_path):
     cache = NarrowCache(tmp_path)
     model = FakeModel(_reply(DORM_READING))
     first = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m", cache=cache)
     again = await reader.read(parse(DORM_PROMPT), ask=model, project_id=None, model="m", cache=cache)
-    assert first == again and len(model.asked) == 1
-    # another reader model reads again
-    await reader.read(parse(DORM_PROMPT), ask=FakeModel(_reply(DORM_READING)), project_id=None, model="other", cache=cache)
+    assert first == again and len(model.asked) == 2
+    other = FakeModel(_reply(DORM_READING))
+    await reader.read(parse(DORM_PROMPT), ask=other, project_id=None, model="other", cache=cache)
+    assert len(other.asked) == 2   # another reader model reads again
 
 
 async def test_an_edit_on_another_line_asks_only_for_the_slot_whose_line_changed(tmp_path):
@@ -265,35 +270,85 @@ async def test_an_edit_on_another_line_asks_only_for_the_slot_whose_line_changed
                           "free": {"about": "a dog in the park", "kinds": ["beagle", "whippet", "corgi"],
                                    "instead": ["pigeon", "kite", "bicycle"]}}]}
     await reader.read(parse(before), ask=FakeModel(json.dumps(reading)), project_id=None, model="m", cache=cache)
-
-    def only_the_dog(messages):
-        assert 'Answer only for: ⟨2⟩ "dog".' in messages[-1]["content"]
-        assert "⟨1: young man⟩" in messages[-1]["content"]   # still shown the whole prompt
-        return json.dumps({"slots": [{**reading["slots"][1], "label": "Dog"}]})
-    model = FakeModel(only_the_dog)
+    model = FakeModel(json.dumps(reading))
     got = await reader.read(parse("a <young man> on a bench\nnear a <dog> by the lake"), ask=model, project_id=None,
                             model="m", cache=cache)
-    assert len(model.asked) == 1 and [s["kind"] for s in got["slots"]] == ["person", "free"]
-    assert got["slots"][0] == {**reader.check_slot(DORM_READING["slots"][0], parse(before).slots()[0], "a ", []), "n": 1}
-    # a new note is context for every slot: all are read again
+    assert len(model.asked) == 1 and 'Answer only for: ⟨2⟩ "dog".' in model.asked[0][-1]["content"]
+    assert [s["kind"] for s in got["slots"]] == ["person", "free"]
     model = FakeModel(json.dumps(reading))
     await reader.read(parse("# at dawn\n" + before), ask=model, project_id=None, model="m", cache=cache)
-    assert "Answer only" not in model.asked[0][-1]["content"]
+    assert len(model.asked) == 2   # a new note is context for every slot: all are read again
 
 
-# --------------------------------------------------------------------------- ensure and /prepare
+# --------------------------------------------------------------------------- prepare, at once
 
-async def test_ensure_reads_builds_narrows_and_stores(profile, monkeypatch):
+class Hang(FakeModel):
+    """A model that never answers until let go: whatever waits on it would hang."""
+
+    def __init__(self, *replies: Any):
+        import asyncio
+        super().__init__(*replies)
+        self.go = asyncio.Event()
+        self.calls = 0
+
+    async def __call__(self, messages, project_id, max_tokens):
+        self.calls += 1
+        await self.go.wait()
+        return await super().__call__(messages, project_id, max_tokens)
+
+
+async def test_prepare_answers_from_the_parse_before_any_model_call(profile, monkeypatch):
+    import asyncio
+    model = _use(monkeypatch, Hang(_reply(PORCH_READING)))
+    entry = await asyncio.wait_for(slots.prepare(PORCH_PROMPT, profile_id=profile), 2.0)
+    assert [(s["id"], s["state"], s["label"]) for s in entry["slots"]] == [
+        ("elderly_african_man", "reading", "elderly African man"), ("pet", "reading", "pet")]
+    assert entry["lists"][0]["state"] == "reading" and entry["reading"] and entry["working"]
+    assert entry["key"] and model.asked == []   # nothing answered, nothing waited for
+    await asyncio.sleep(0)
+    assert model.calls == 3   # one call per part, all at once
+    model.go.set()
+    await slots.idle()
+    done = await slots.prepare(PORCH_PROMPT, profile_id=profile, start=False)
+    assert [s["state"] for s in done["slots"]] == ["ready", "ready"] and not done["reading"] and not done["working"]
+
+
+async def test_each_slot_lands_on_its_own(profile, monkeypatch):
+    import asyncio
+
+    class PetLate(FakeModel):
+        def __init__(self, *r):
+            super().__init__(*r)
+            self.go = asyncio.Event()
+
+        async def __call__(self, messages, project_id, max_tokens):
+            if '"pet".' in messages[-1]["content"]:
+                await self.go.wait()
+            return await super().__call__(messages, project_id, max_tokens)
+    model = _use(monkeypatch, PetLate(_reply(PORCH_READING)))
+    await slots.prepare(PORCH_PROMPT, profile_id=profile)
+    for _ in range(50):
+        await asyncio.sleep(0.01)
+        now = await slots.prepare(PORCH_PROMPT, profile_id=profile, start=False)
+        if now["slots"][0]["state"] == "ready":
+            break
+    assert [s["state"] for s in now["slots"]] == ["ready", "reading"] and now["working"]
+    assert "elderly_african_man.age" in {c["id"] for c in now["choices"]}
+    model.go.set()
+    await slots.idle()
+
+
+async def test_prepare_reads_narrows_and_stores(profile, monkeypatch):
     model = _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
-    entry = await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    entry = await ready(PORCH_PROMPT, profile)
     assert sorted(entry["filters"]["elderly_african_man.age"]) == sorted(ELDERLY)
     assert sorted(entry["filters"]["elderly_african_man.descent"]) == sorted(AFRICAN)
-    assert entry["reading"]["slots"][1]["free"]["kinds"][0] == "ginger tabby cat"
-    assert prep.store_for(profile).get(entry["key"])["program"] == entry["program"]
-    again = await slots.ensure(PORCH_PROMPT, profile_id=profile)
-    assert again["key"] == entry["key"] and len(model.asked) == 1
-    assert await slots.ensure("a <cat>", profile_id=profile, cache_only=True) is None
-    assert (await slots.ensure("a plain prompt", profile_id=profile)) == {"key": None, "slots": [], "choices": []}
+    assert entry["readings"]["slots"][1]["free"]["kinds"][0] == "ginger tabby cat"
+    assert prep.store_for(profile).get(entry["key"])["picks"] == entry["picks"]
+    again = await slots.prepare(PORCH_PROMPT, profile_id=profile)
+    await slots.idle()
+    assert again["key"] == entry["key"] and len(model.asked) == 3
+    assert (await slots.prepare("a plain prompt", profile_id=profile)) == {"key": None, "slots": [], "choices": []}
 
 
 async def test_a_stated_age_still_reaches_the_minors_policy(profile, monkeypatch):
@@ -307,15 +362,47 @@ async def test_a_stated_age_still_reaches_the_minors_policy(profile, monkeypatch
     class Young(FakeModel):
         async def __call__(self, messages, project_id, max_tokens):
             if messages[-1]["content"].startswith('The list "Age"'):
-                assert '"10-year-old"' in messages[-1]["content"]
+                assert '"10-year-old' in messages[-1]["content"]
                 return json.dumps(young)
             return await super().__call__(messages, project_id, max_tokens)
     _use(monkeypatch, Young(json.dumps(reading)))
-    entry = await slots.ensure("a <10-year-old boy> flying a kite", profile_id=profile)
-    # the stated age is drawn, within the words, so the prompt keeps it and the pools know it
-    assert entry["reading"]["slots"][0]["person"]["vary"] == ["hair", "hair_color", "age"]
+    first = await slots.prepare("a <10-year-old boy> flying a kite", profile_id=profile)
+    assert first["slots"][0]["state"] == "reading"
+    entry = await ready("a <10-year-old boy> flying a kite", profile)
+    assert entry["readings"]["slots"][0]["person"]["vary"] == ["hair", "hair_color", "age"]
     assert entry["filters"]["slot_10_year_old_boy.age"] == young
     assert dict(program_minors(entry)) == {"slot_10_year_old_boy": tuple(young)}
+
+
+async def test_a_stated_age_not_narrowed_yet_is_drawn_as_typed_and_still_a_minor(profile, monkeypatch):
+    """Before its narrowing lands, "10-year-old" is drawn as the words, and the person's pools
+    are a minor's (the policy reads a stated age it can't place as possibly under 18)."""
+    import asyncio
+    from prompt_programs.options import program_minors
+    reading = {"slots": [{"n": 1, "kind": "person", "label": "Boy", "lead": "",
+                          "person": {"noun": "boy", "presentation": "masculine", "stated": {"age": "10-year-old"},
+                                     "vary": ["age", "hair"], "outfit": ""}}]}
+
+    class NarrowHangs(FakeModel):
+        async def __call__(self, messages, project_id, max_tokens):
+            if messages[-1]["content"].startswith('The list'):
+                await asyncio.Event().wait()
+            return await super().__call__(messages, project_id, max_tokens)
+    _use(monkeypatch, NarrowHangs(json.dumps(reading)))
+    prompt = "a <10-year-old boy> flying a kite"
+    await slots.prepare(prompt, profile_id=profile)
+    for _ in range(100):
+        await asyncio.sleep(0.01)
+        entry = await slots.prepare(prompt, profile_id=profile, start=False)
+        if entry["slots"][0]["state"] == "ready":
+            break
+    assert entry["reading"] and "slot_10_year_old_boy.age" in entry["narrow_pending"]
+    age = next(p for p in entry["picks"] if p["id"] == "slot_10_year_old_boy.age")
+    assert age["said"] == "10-year-old"
+    assert {d.id: d.value for d in realize_all(entry, 3).draws}["slot_10_year_old_boy.age"] == "10-year-old"
+    assert dict(program_minors(entry))["slot_10_year_old_boy"]
+    for t in list(slots._settling.values()):
+        t.cancel()
 
 
 def _client(monkeypatch, profile):
@@ -328,19 +415,19 @@ def _client(monkeypatch, profile):
     return TestClient(app, raise_server_exceptions=False)
 
 
-def test_the_prepare_route_answers_with_slots_and_choices(profile, monkeypatch):
+async def test_the_prepare_route_answers_with_slots_and_choices(profile, monkeypatch):
     _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
-    client = _client(monkeypatch, profile)
     typed = "  " + PORCH_PROMPT   # spans are in the prompt as typed
-    assert client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": typed, "cache_only": True}).json() == {"key": None}
-    out = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": typed}).json()
-    assert set(out) == {"key", "slots", "choices", "example", "seconds"}
+    await ready(typed, profile)
+    client = _client(monkeypatch, profile)
+    out = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": typed, "cache_only": True}).json()
+    assert set(out) == {"key", "slots", "choices", "reading", "working"} and not out["reading"]
     man, pet = out["slots"]
     assert man["id"] == "elderly_african_man" and man["kind"] == "person" and man["words"] == "elderly African man"
     assert typed[man["span"][0]:man["span"][1]] == "<elderly African man>" and man["line"] == 2
-    assert man["stated"] == {"age": "elderly", "descent": "African"}
+    assert man["stated"] == {"age": "elderly", "descent": "African"} and man["state"] == "ready"
     assert "elderly_african_man.outfit" in man["details"] and "elderly_african_man.outfit.colors" in man["details"]
-    assert pet == {"id": "pet", "n": 2, "kind": "free", "label": "Pet", "words": "pet",
+    assert pet == {"id": "pet", "n": 2, "kind": "free", "label": "Pet", "words": "pet", "state": "ready",
                    "span": [typed.index("<pet>"), typed.index("<pet>") + 5], "line": 2, "details": ["pet"]}
     by_id = {c["id"]: c for c in out["choices"]}
     assert by_id["pet"]["slot"] == "pet" and "source" not in by_id["pet"]
@@ -349,23 +436,36 @@ def test_the_prepare_route_answers_with_slots_and_choices(profile, monkeypatch):
     assert by_id["list1"] == {"id": "list1", "kind": "pick", "label": "Season", "options": ["summer", "autumn"],
                               "source": "list", "line": 2}
     assert by_id["elderly_african_man.outfit.colors"]["follows"] == "elderly_african_man.outfit"
-    assert "program" not in out and "wildcard" not in str(out) and "said" not in str(out)
+    assert "program" not in out and "said" not in str(out)
     nothing = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": "a cat on a mat"}).json()
     assert nothing == {"key": None, "slots": [], "choices": []}
 
 
-def test_a_reading_that_cant_be_used_still_prepares_and_says_degraded(profile, monkeypatch):
-    model = _use(monkeypatch, FakeModel("no", "still no", _reply(DORM_READING)))
-    client = _client(monkeypatch, profile)
-    r = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": DORM_PROMPT})
-    assert r.status_code == 200
-    out = r.json()
-    assert [s["degraded"] for s in out["slots"]] == [True, True] and out["example"] == "Dorm room with a young man, lit by light"
-    # served to a lookup, read again by the next prepare
-    assert client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": DORM_PROMPT,
-                                                             "cache_only": True}).json()["key"] == out["key"]
-    again = client.post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": DORM_PROMPT}).json()
-    assert len(model.asked) == 3 and not any(s.get("degraded") for s in again["slots"])
+async def test_a_lookup_shows_the_slots_and_starts_nothing(profile, monkeypatch):
+    model = _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
+    out = _client(monkeypatch, profile).post("/api/prompt-programs/prepare",
+                                             json={"tool_id": "t", "prompt": PORCH_PROMPT, "cache_only": True}).json()
+    assert [s["state"] for s in out["slots"]] == ["reading", "reading"] and out["reading"] and not out["working"]
+    await slots.idle()
+    assert model.asked == []
+
+
+async def test_a_reading_that_cant_be_used_stands_as_written_and_is_read_again(profile, monkeypatch):
+    model = _use(monkeypatch, FakeModel("no"))
+    entry = await ready(DORM_PROMPT, profile)
+    assert [s.get("degraded") for s in entry["slots"]] == [True, True] and not entry["reading"]
+    assert realize_all(entry, 0).prompt == "Dorm room with a young man, lit by light"
+    _use(monkeypatch, FakeModel(_reply(DORM_READING)))
+    again = await ready(DORM_PROMPT, profile)   # a prepare that starts work reads it again
+    assert not any(s.get("degraded") for s in again["slots"])
+
+
+async def test_a_reader_that_raises_never_fails_the_prepare(profile, monkeypatch):
+    async def down(messages, project_id, max_tokens):
+        raise RuntimeError("the endpoint went away")
+    monkeypatch.setattr(prep, "ask_model", down)
+    entry = await ready(DORM_PROMPT, profile)
+    assert all(s["degraded"] for s in entry["slots"]) and realize_all(entry, 0).prompt.startswith("Dorm room with a young man")
 
 
 class SlowDescent(FakeModel):
@@ -385,114 +485,56 @@ class SlowDescent(FakeModel):
         return await super().__call__(messages, project_id, max_tokens)
 
 
-async def test_a_slow_narrowing_is_waited_for_and_the_example_is_drawn_after_it(profile, monkeypatch):
-    """Past the old time limit the run still waits: the first draw of an <elderly African man> is
-    elderly and of African descent, and so is the example."""
-    import prompt_programs.narrow as nw
-    monkeypatch.setattr(nw, "NARROW_SECONDS", 5.0)
-    _use(monkeypatch, SlowDescent(_reply(PORCH_READING), delay=1.0))
-    entry = await slots.ensure(PORCH_PROMPT, profile_id=profile)
-    assert "narrow_pending" not in entry
-    assert sorted(entry["filters"]["elderly_african_man.descent"]) == sorted(AFRICAN)
-    assert any(d in entry["example"] for d in AFRICAN), entry["example"]
-    assert any(a in entry["example"] for a in ELDERLY), entry["example"]
-    for seed in range(8):
-        drawn = {d.id: d.value for d in prep.realize(entry, seed=seed).draws}
-        assert drawn["elderly_african_man.descent"] in AFRICAN and drawn["elderly_african_man.age"] in ELDERLY
-
-
 def _stands_as_typed(entry):
     """Every draw keeps "African" as typed, and the man's age still within "elderly"."""
     for seed in range(6):
-        r = prep.realize(entry, seed=seed)
+        r = realize_all(entry, seed)
         drawn = {d.id: d.value for d in r.draws}
         assert " African man" in r.prompt, r.prompt
         assert drawn["elderly_african_man.age"] in ELDERLY
         assert not any(d in r.prompt for d in AFRICAN)
 
 
-async def test_a_narrowing_that_fails_keeps_the_stated_words_as_typed_and_the_run_goes_on(profile, monkeypatch):
+async def test_a_narrowing_that_fails_keeps_the_stated_words_as_typed_and_is_asked_again(profile, monkeypatch):
     model = _use(monkeypatch, SlowDescent(_reply(PORCH_READING), fails=True))
-    entry = await slots.ensure(PORCH_PROMPT, profile_id=profile)
-    assert model.descent_asks >= 2   # one more try, then the words stand as typed
-    assert entry["degraded"] is True and "narrow_pending" not in entry
-    assert entry["slots"][0]["degraded"] is True and "elderly_african_man.age" in entry["slots"][0]["details"]
+    entry = await ready(PORCH_PROMPT, profile)
+    assert model.descent_asks >= 2 and entry["reading"]   # one more try, then the words stand as typed
+    assert "elderly_african_man.descent" in entry["narrow_pending"]
     _stands_as_typed(entry)
-    # a lookup gets it; the next prepare narrows again
-    assert (await slots.ensure(PORCH_PROMPT, profile_id=profile, cache_only=True))["key"] == entry["key"]
     model = _use(monkeypatch, SlowDescent())
-    again = await slots.ensure(PORCH_PROMPT, profile_id=profile)
-    assert model.descent_asks >= 1 and not again.get("degraded")
+    again = await ready(PORCH_PROMPT, profile)
+    assert model.descent_asks >= 1 and not again["reading"]
     assert sorted(again["filters"]["elderly_african_man.descent"]) == sorted(AFRICAN)
 
 
-async def test_a_narrowing_past_the_time_limit_keeps_the_stated_words_as_typed(profile, monkeypatch):
-    import prompt_programs.narrow as nw
-    monkeypatch.setattr(nw, "NARROW_SECONDS", 0.5)
-    _use(monkeypatch, SlowDescent(_reply(PORCH_READING), delay=3.0))
-    entry = await slots.ensure(PORCH_PROMPT, profile_id=profile)
-    assert entry["degraded"] is True
-    _stands_as_typed(entry)
-
-
-def test_a_failed_narrowing_still_prepares(profile, monkeypatch):
-    _use(monkeypatch, SlowDescent(_reply(PORCH_READING), fails=True))
-    r = _client(monkeypatch, profile).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PORCH_PROMPT})
-    assert r.status_code == 200 and r.json()["slots"][0]["degraded"] is True
-    assert " African man" in r.json()["example"]
-
-
-async def test_a_stored_entry_with_unfinished_narrowing_is_narrowed_before_it_draws(profile, monkeypatch):
-    """An entry an older build stored with narrowing pending is narrowed before it is used."""
-    _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
-    entry = await slots.ensure(PORCH_PROMPT, profile_id=profile)
-    store = prep.store_for(profile)
-    stale = copy.deepcopy(entry)
-    descent = next(c for c in stale["choices"] if c["id"] == "elderly_african_man.descent")
-    stale["narrow_pending"] = {descent["id"]: {"cls": descent.get("cls") or "person.descent", "options": []}}
-    stale["filters"].pop(descent["id"], None)
-    store.put(entry["key"], stale)
-    model = _use(monkeypatch, SlowDescent())
-    again = await slots.ensure(PORCH_PROMPT, profile_id=profile)
-    assert model.descent_asks == 0   # its answer is cached on disk from the first prepare
-    assert "narrow_pending" not in again and sorted(again["filters"][descent["id"]]) == sorted(AFRICAN)
-    assert "narrow_pending" not in store.get(entry["key"])
+async def test_the_same_narrowing_asked_twice_at_once_is_asked_once(profile, monkeypatch):
+    import asyncio
+    model = _use(monkeypatch, SlowDescent(_reply(PORCH_READING), delay=0.2))
+    await asyncio.gather(*(slots.prepare(PORCH_PROMPT, profile_id=profile) for _ in range(3)))
+    await slots.idle()
+    assert model.descent_asks == 1
 
 
 def test_the_outfit_follows_presentation_and_is_set_off_by_a_comma():
-    src, entry = slots.build(parse(PORCH_PROMPT), PORCH_READING)
-    assert "cls='person.outfit.casual', where={'presentation': 'masculine'}" in src
-    assert "wearing=slot1_outfit, close=','" in src
-    assert re.search(r", wearing [^,]+, reading on a porch", entry["example"])
+    e = slots.compose(parse(PORCH_PROMPT), {r["n"]: r for r in PORCH_READING["slots"]})
+    outfit = next(p for p in e["picks"] if p["id"] == "elderly_african_man.outfit")
+    assert outfit["cls"] == "person.outfit.casual" and outfit["where"] == {"presentation": "masculine"}
+    assert e["slots"][0]["form"]["close"] == ","
+    assert re.search(r", wearing [^,]+, reading on a porch", realize_all(e, 0).prompt)
 
 
 def test_a_person_with_no_outfit_still_closes_with_the_comma():
-    """The comma before "reading" belongs to the person's description, not to the outfit: with no
-    outfit it follows their hair or beard, and with nothing of them drawn it goes."""
-    from test_slots_build import _draw
+    from test_slots_fill import draw
     reading = copy.deepcopy(PORCH_READING)
     reading["slots"][0]["person"]["outfit"] = ""
-    _, entry = slots.build(parse(PORCH_PROMPT), reading)
-    body = entry["example"].split("\n")[-1]
+    e = slots.compose(parse(PORCH_PROMPT), {r["n"]: r for r in reading["slots"]})
+    body = draw(e, 0).prompt.split("\n")[-1]
     assert re.search(r"man with [^,]+, [^,]+, reading on a porch", body), body
-    details = [c["id"] for c in entry["choices"] if c["id"].startswith("elderly_african_man.")]
-    bare = _draw(entry, 1, edits={d: {"off": True} for d in details}).prompt.split("\n")[-1]
-    assert bare.startswith("An elderly African man reading on a porch"), bare   # as written: no comma
-    hair = _draw(entry, 1, edits={d: {"off": True} for d in details if d.endswith("facial_hair")}).prompt
+    details = [c["id"] for c in e["choices"] if c["id"].startswith("elderly_african_man.")]
+    bare = draw(e, 1, edits={d: {"off": True} for d in details}).prompt.split("\n")[-1]
+    assert bare.startswith("An elderly African man reading on a porch"), bare
+    hair = draw(e, 1, edits={d: {"off": True} for d in details if d.endswith("facial_hair")}).prompt
     assert re.search(r"hair, reading on a porch", hair), hair
-
-
-def test_lookups_and_cache_hits_start_no_background_work(profile, monkeypatch):
-    started = []
-    monkeypatch.setattr(prep, "on_prepared", lambda entry, **kw: started.append(entry["key"]))
-    model = _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
-    client = _client(monkeypatch, profile)
-    body = {"tool_id": "t", "prompt": PORCH_PROMPT}
-    assert client.post("/api/prompt-programs/prepare", json={**body, "cache_only": True}).json() == {"key": None}
-    first = client.post("/api/prompt-programs/prepare", json=body).json()
-    client.post("/api/prompt-programs/prepare", json={**body, "cache_only": True})
-    client.post("/api/prompt-programs/prepare", json=body)
-    assert started == [first["key"]] and len(model.asked) == 1   # once, for the fresh prepare
 
 
 def test_an_oversized_prompt_is_refused_before_the_reader(profile, monkeypatch):
