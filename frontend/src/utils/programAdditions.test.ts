@@ -4,7 +4,7 @@ import test from 'node:test'
 import { additionList, isOwnOption } from './programAdditions.ts'
 
 test('a choice keeps additions under its list, the pools naming it first', () => {
-  assert.equal(additionList({ cls: 'person.eye_colour' }, { cls: 'person.eye_color' }), 'person.eye_color')
+  assert.equal(additionList({ cls: 'person.eye_shade' }, { cls: 'person.eye_color' }), 'person.eye_color')
   assert.equal(additionList({ cls: 'person.hairstyle' }, null), 'person.hairstyle')
   assert.equal(additionList({}, null), null)
 })
