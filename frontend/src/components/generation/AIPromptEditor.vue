@@ -202,66 +202,15 @@
                   </button>
                 </div>
 
-                <!-- Tool View: what Fluent does, then one section per thing you can write, slots first. -->
+                <!-- Tool View: what Fluent does, then one section per thing you can write, slots first.
+                     Elsewhere: the same sections for what that editor reads (lists, saved names,
+                     comment lines, exact text). -->
                 <template v-if="hasMode">
                   <p v-if="tipsWay" class="mb-2.5 rounded-md bg-overlay-subtle px-2.5 py-2 text-xs text-content-secondary leading-relaxed" data-tips-way>{{ tipsWay }}</p>
                   <p class="text-xs text-content-secondary leading-relaxed">{{ fluentIntro }}</p>
-                  <section v-for="tip in fluentTips" :key="tip.title" class="border-t border-edge-subtle pt-3 mt-3">
-                    <h4 class="text-[12.5px] font-semibold text-content mb-1.5">{{ tip.title }}</h4>
-                    <!-- A whole line, as it looks in the prompt -->
-                    <p v-if="tip.line" class="mb-1.5 rounded-md bg-overlay-subtle px-2 py-1.5 text-xs leading-relaxed text-content-secondary" :data-tip-example="tip.line.tone">
-                      <template v-for="(part, i) in tip.line.parts" :key="i"><span v-if="part.tone" :class="['px-0.5 rounded-[3px]', TONES[part.tone]]" :data-tone="part.tone" v-text="part.text"></span><template v-else>{{ part.text }}</template></template>
-                    </p>
-                    <code v-if="tip.code" :class="['inline-block mb-1.5 px-1.5 py-0.5 rounded text-[11px]', TONES[tip.code.tone]]" :data-tone="tip.code.tone" :data-tip-example="tip.code.tone" v-text="tip.code.text"></code>
-                    <p v-for="para in tip.text" :key="para" class="text-xs text-content-tertiary leading-relaxed mt-1 first:mt-0">{{ para }}</p>
-                    <ul v-if="tip.steps" class="mt-1.5 space-y-1">
-                      <li v-for="step in tip.steps" :key="step" class="flex gap-2 text-xs text-content-tertiary leading-relaxed">
-                        <span class="mt-[7px] w-1 h-1 shrink-0 rounded-full bg-content-muted" />{{ step }}
-                      </li>
-                    </ul>
-                  </section>
                 </template>
-                <template v-else>
-                <!-- Wildcards -->
-                <div class="mb-3">
-                  <div class="flex items-center gap-2 mb-1">
-                    <code class="text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded text-xs">{red|blue|green}</code>
-                  </div>
-                  <p class="text-xs text-content-tertiary leading-relaxed">
-                    Picks one option randomly each time you generate. Great for improving variety.
-                  </p>
-                </div>
-
-                <!-- Named Wildcards -->
-                <div class="mb-3">
-                  <div class="flex items-center gap-2 mb-1">
-                    <code class="text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded text-xs" v-text="'{{name}}'"></code>
-                  </div>
-                  <p class="text-xs text-content-tertiary leading-relaxed">
-                    Uses your saved wildcard or prompt segment with that name, from Settings &gt; Wildcards.
-                  </p>
-                </div>
-
-                <!-- Comments -->
-                <div class="mb-3">
-                  <div class="flex items-center gap-2 mb-1">
-                    <code class="text-gray-500 italic bg-zinc-500/10 px-1.5 py-0.5 rounded text-xs"># comment</code>
-                  </div>
-                  <p class="text-xs text-content-tertiary leading-relaxed">
-                    Instructions for the chat model (&ldquo;# vary her expression&rdquo;). They are never sent to the generation tool, and without a chat model they are ignored.
-                  </p>
-                </div>
-
-                <!-- Verbatim -->
-                <div class="mb-3">
-                  <div class="flex items-center gap-2 mb-1">
-                    <code class="text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded text-xs">[verbatim text]</code>
-                  </div>
-                  <p class="text-xs text-content-tertiary leading-relaxed">
-                    Text in brackets is sent exactly as written.
-                  </p>
-                </div>
-
+                <PromptTipSections :tips="shownTips" :ruled="hasMode" />
+                <template v-if="!hasMode">
                 <!-- Divider -->
                 <div v-if="!hideAutoImprove" class="border-t border-edge-subtle my-3"></div>
 
@@ -327,6 +276,8 @@ import Caret from '../ui/Caret.vue'
 import OverflowButton from '../ui/OverflowButton.vue'
 import { useWildcards, useSegments } from '../../composables/useWildcards'
 import { PROMPT_BRAND, fluentEnabled } from './promptBrand'
+import PromptTipSections from './PromptTipSections.vue'
+import { classicTips, fluentIntro, fluentTips } from './promptTips'
 import type { PromptSyntaxMode } from '../../composables/useCodeMirrorPrompt'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
@@ -640,38 +591,7 @@ async function addSlot(name: string) {
 }
 // The tips panel in Tool View: what you can type, slots first, in the user's words. Each kind
 // of mark wears its color in the editor (useCodeMirrorPrompt's theme).
-const fluentIntro = 'Each image gets something new in the parts you mark. The rest stays as you wrote it.'
-type Tone = 'slot' | 'list' | 'name' | 'comment' | 'exact'
-const TONES: Record<Tone, string> = {
-  slot: 'text-selection bg-selection/[0.12] ring-1 ring-inset ring-selection/25',
-  list: 'text-green-600 bg-green-500/10',
-  name: 'text-amber-600 bg-amber-500/10',
-  comment: 'text-gray-500 italic bg-zinc-500/10',
-  exact: 'text-blue-500 bg-blue-500/10',
-}
-type Tip = { title: string; line?: { tone: Tone; parts: { text: string; tone?: Tone }[] }; code?: { text: string; tone: Tone }; text: string[]; steps?: string[] }
-const fluentTips: Tip[] = [
-  { title: 'Vary any part',
-    line: { tone: 'slot', parts: [{ text: 'dorm room with a ' }, { text: '<young man>', tone: 'slot' }, { text: ', lit by ' }, { text: '<light>', tone: 'slot' }] },
-    text: ['Words in angle brackets change with every image. Any words can be a slot.'],
-    steps: ['Select words and choose Vary this', 'Select words and press <', 'Click an underlined word, then Vary this', 'Click a + idea under your prompt, like + light'] },
-  { title: 'Choose what it can be',
-    text: ['Click a slot, or its pill under the prompt, to pick one option or several.',
-      'As written keeps your own words. Leave out drops it from the images. The × on a pill puts it back.',
-      '<friend> and <friend> are two different people.'] },
-  { title: 'Keep from this',
-    text: ['Like an image? Choose Keep from this under it, and tick what the next images should keep.'] },
-  { title: 'Detail level',
-    text: [`In the ${PROMPT_BRAND} menu: Yours adds nothing to your words, Medium adds a little, High a lot.`] },
-  { title: 'Lists', code: { text: '{red|blue|green}', tone: 'list' },
-    text: ['Each image uses one of the options, and nothing else.'] },
-  { title: 'Saved wildcards and segments', code: { text: '{{hairstyle}}', tone: 'name' },
-    text: ['Uses the one you saved with that name in Settings. A name that isn’t saved turns red.'] },
-  { title: 'Comment lines', code: { text: '# she is a regular here', tone: 'comment' },
-    text: [`Tells ${PROMPT_BRAND} more about what you want. Never sent to the image.`] },
-  { title: 'Exact text', code: { text: '[ohwx woman]', tone: 'exact' },
-    text: ['Sent exactly as typed. Use it for trigger words, or words that should appear in the picture.'] },
-]
+const shownTips = computed(() => (hasMode.value ? fluentTips : classicTips))
 // In Direct or Raw, a line on top says what this way does with the rest.
 const tipsWay = computed(() =>
   rawMode.value ? `Raw sends your prompt exactly as typed. Choose ${PROMPT_BRAND} or Direct to use the rest.`

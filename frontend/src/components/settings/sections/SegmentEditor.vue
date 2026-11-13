@@ -72,45 +72,7 @@
           </button>
         </div>
 
-        <!-- Wildcards -->
-        <div class="mb-3">
-          <div class="flex items-center gap-2 mb-1">
-            <code class="text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded text-xs">{red|blue|green}</code>
-          </div>
-          <p class="text-xs text-content-tertiary leading-relaxed">
-            Picks one option randomly each time you generate. Great for improving variety.
-          </p>
-        </div>
-
-        <!-- Named Wildcards -->
-        <div class="mb-3">
-          <div class="flex items-center gap-2 mb-1">
-            <code class="text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded text-xs" v-text="'{{name}}'"></code>
-          </div>
-          <p class="text-xs text-content-tertiary leading-relaxed">
-            Expands to a random value from a wildcard list, or the fixed content of a segment.
-          </p>
-        </div>
-
-        <!-- Comments -->
-        <div class="mb-3">
-          <div class="flex items-center gap-2 mb-1">
-            <code class="text-gray-500 italic bg-zinc-500/10 px-1.5 py-0.5 rounded text-xs"># comment</code>
-          </div>
-          <p class="text-xs text-content-tertiary leading-relaxed">
-            Guide the Prompt Enhancement Model. Stripped before generation.
-          </p>
-        </div>
-
-        <!-- Verbatim -->
-        <div>
-          <div class="flex items-center gap-2 mb-1">
-            <code class="text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded text-xs">[verbatim text]</code>
-          </div>
-          <p class="text-xs text-content-tertiary leading-relaxed">
-            Preserved as-is and invisible to the Prompt Enhancement Model.
-          </p>
-        </div>
+        <PromptTipSections :tips="classicTips" />
       </div>
     </div>
   </Teleport>
@@ -119,6 +81,8 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import { useCodeMirrorPrompt } from '../../../composables/useCodeMirrorPrompt'
+import PromptTipSections from '../../generation/PromptTipSections.vue'
+import { classicTips } from '../../generation/promptTips'
 
 const props = defineProps<{
   modelValue: string
