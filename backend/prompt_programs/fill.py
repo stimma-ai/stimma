@@ -1048,9 +1048,11 @@ class _Fill:
         elif "{" in value:
             shown = fill_template(value, None)
         # A face's part that drew nothing notable unasked (its list's plain value) adds no words,
-        # and its record is hidden: nothing to keep, judge or show.
+        # and its record is hidden: nothing to keep, judge or show. Only the user's pick (a pin)
+        # or words write it: a value held over (`fixed`, as the judge's rerolls hold every pick
+        # they don't reroll, or a replay) stays as it was drawn, hidden.
         plain = bool(p.get("part_of") and leaf is not None and leaf.plain and value == leaf.plain
-                     and cid not in self.pins and cid not in self.fixed and not said)
+                     and cid not in self.pins and not said)
         d = Draw(cid, shown, "pick", p["label"], source, p.get("line"), plain, pinned, [o for o, _ in items])
         d.phase, d.about, d.cls, d.said, d.own, d.template = phase, spec.about, spec.cls, said, own, template
         d.where = p.get("where") if isinstance(p.get("where"), dict) else str(p.get("where") or "").strip()

@@ -166,3 +166,36 @@ def test_the_pools_send_each_part_with_its_groups_and_short_forms(e):
     # The part's own groups are its chips; "nothing notable" is an option, not a group.
     assert list(pool["groups"]) == ["aspect"] and "plain" not in pool["groups"]["aspect"]
     assert {o for o, t in pool["tiers"].items() if t == "opt_in"} == {x.text for x in leaf.values if x.marked}
+
+
+def test_a_judges_reroll_keeps_nothing_notable_unsaid(e):
+    """The fix loop holds every pick it doesn't reroll as `fixed`; a part that said nothing
+    notable stays unsaid and unjudged, while the user's pick of it is written."""
+    from prompt_programs.fix import fix_draw
+    v = vocabulary()
+    edits = {p: {"on": True} for p in parts_of(e)}
+    rt = runtime_for(e, store=None, mine={}, edits=edits)
+
+    def redraw(seed, fixed, ed):
+        return fill(e, seed, None, fixed, ed, options=rt.options)
+
+    class Scorer:   # flags the build, so every other pick is held while it is rerolled
+        version, reroll_all = "stub", False
+
+        def __init__(self):
+            self.items = []
+
+        def p_wrong(self, items):
+            self.items += items
+            return [0.9 if it.label == "Build" else 0.0 for it in items]
+
+    r = redraw(4, None, edits)
+    quiet = [d for d in r.draws if d.hidden and d.id in edits]
+    assert quiet
+    judge = Scorer()
+    out, rec = fix_draw(r, judge=judge, redraw=redraw, seed=4, user_prompt=PROMPT, cut=0.5, edits=edits)
+    assert rec["rerolls"] >= 1
+    for d in quiet:
+        got = next(x for x in out.draws if x.id == d.id)
+        assert got.hidden and got.value == d.value and d.value not in out.prompt
+    assert not any(it.value == v.get(d.cls).plain for it in judge.items for d in quiet)
