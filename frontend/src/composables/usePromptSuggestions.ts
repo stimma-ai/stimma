@@ -6,10 +6,10 @@
  * a moment after typing stops and when the box loses focus, remembers each answer by the
  * exact prompt text, and drops answers that come back for text that has since changed.
  *
- * For a photo, `adds` also holds the photography the prompt lacks (camera, light). Each of
- * those carries the slot kind it is read as and the lists it draws from, so the editor can
- * leave it out once a slot of the prompt is read as that (`slotCovers`, in
- * utils/promptSuggestions.ts with the answer's shapes).
+ * For a photo, `adds` also holds the parts of its photography the prompt lacks (light, angle,
+ * lens, film look, framing; the best three). Each of those carries the slot kind it is read as
+ * and the lists it draws from, so the editor can leave it out once a slot of the prompt is
+ * read as that part (`slotCovers`, in utils/promptSuggestions.ts with the answer's shapes).
  *
  * Add writes one of those things into the prompt as a slot. Suggest already said where each
  * goes, so Add splices it in with no model call; only when the prompt has moved on so that no

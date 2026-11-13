@@ -7,10 +7,12 @@ it (after "on a porch", ", lit by <light>"). Clicking one splices it in with no 
 (`splice`); when the prompt has moved on and that no longer fits, Add asks the model for just
 the place and the join, and the slot goes at the end of the text when that fails too.
 
-When the picture is a photo, the chips also always offer the photography the prompt doesn't
-have yet (camera, light), from the vocabulary rather than written by the model each time.
-The same reply says whether it is a photo and which of those the prompt already states; a
-reply without those fields readable offers none of them.
+When the picture is a photo, the chips also offer the parts of its photography the prompt
+doesn't have yet (light, angle, lens, film look, framing), each from its vocabulary list rather
+than written by the model each time. The same reply says whether it is a photo and which of
+those parts the prompt already states; a reply without those fields readable offers none of
+them. The model may name the light itself ("+ window light"), which then stands in for the
+plain "+ light".
 
 The model decides what could vary and how the words join. Code checks only structure: that
 a phrase is an exact stretch of the prompt where a slot can stand, the counts, and that a
@@ -24,7 +26,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from core.logging import get_logger
 from prompt_programs.narrow import Ask, NarrowCache
@@ -32,22 +34,42 @@ from prompt_programs.slots import _VERBATIM, SLOT_RE, _line_marks, _lines, find_
 
 log = get_logger(__name__)
 
-SUGGEST_VERSION = "suggest-3"   # suggest-3: each add says where it goes. suggest-2: the reply says whether the picture is a photo and what photography it states
+SUGGEST_VERSION = "suggest-4"   # suggest-4: photography per part (light, angle, lens, film look, framing); the model may name the light. suggest-3: each add says where it goes. suggest-2: the reply says whether the picture is a photo and what photography it states
 MAX_VARY = 6
 MAX_ADDS = 3
-MAX_PHOTO_ADDS = 2   # a photo's own adds, beside its camera and light
+MAX_PHOTO_ADDS = 2   # a photo's own adds, beside its photography
+MAX_PHOTO_PARTS = 3  # a photo's photography chips
+MAX_OFFERED = 5      # every chip together
 ADD_TOKENS = 64      # Add's reply is only the place and the join
 
-# The photography a photo is always offered, as (its name: the slot's words, its chip and how
-# the reply names it; the reader's kind for that slot; the lists that slot draws from, or a
-# node whose lists it draws from). <camera> is the builder (shot size, lens, angle, film look),
-# <light> one named look among the lighting lists. The camera directory's other lists (color
-# grade, genre, composition) would be list slots, but not every reader binds those reliably yet:
-# a slot read as written would send its bare words.
-PHOTO: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
-    ("camera", "camera", tuple(f"camera.{d}" for d in ("shot_size", "lens", "angle", "film_look"))),
-    ("light", "light", ("lighting",)),
+
+class Part(NamedTuple):
+    """One part of a photo's photography, offered as its own chip."""
+    part: str                # how the reply names it, in `stated` and `joins`
+    name: str                # the slot's words
+    label: str               # its chip
+    kind: str                # the reader's kind for that slot
+    lists: Tuple[str, ...]   # the lists that slot draws from, or a node whose lists it draws from
+
+
+# The photography a photo is offered, one chip per part the prompt doesn't state, in this order,
+# which is what most improves a photo prompt: light sets the look of the whole picture and is
+# what a prompt most often leaves to chance; the angle changes what the picture shows of its
+# subject; the lens its depth and perspective; the film look its color and grain; framing comes
+# last, since the subject and the place usually imply it already. <light> is one named look
+# among the lighting lists; each camera part is a list slot on its own camera list (the reader
+# reads words naming one camera part as that list). The camera directory's other lists (color
+# grade, genre, composition) would be list slots too, but not every reader binds those reliably
+# yet: a slot read as written would send its bare words.
+PHOTO: Tuple[Part, ...] = (
+    Part("light", "light", "light", "light", ("lighting",)),
+    Part("angle", "camera angle", "angle", "list", ("camera.angle",)),
+    Part("lens", "lens", "lens", "list", ("camera.lens",)),
+    Part("film_look", "film look", "film look", "list", ("camera.film_look",)),
+    Part("shot_size", "framing", "framing", "list", ("camera.shot_size",)),
 )
+# Names a photo's own adds can't take: the parts' slots, and the whole camera they make up.
+PHOTO_NAMES = frozenset({p.name for p in PHOTO} | {"camera"})
 
 Span = Tuple[int, int]
 
@@ -57,7 +79,7 @@ Read their prompt and suggest two things.
 
 vary: phrases already written in the prompt that would be worth changing from picture to picture. Prefer what a person would most want to differ between pictures: who is in it, what they wear, the place, an animal, a thing they hold or use. Copy each phrase exactly as it is written, as the smallest stretch that names the thing together with the words that describe it: "young man", not "a young man in"; "red leather jacket", not "a red leather jacket and". Never the whole prompt and never a verb alone. Leave out anything already in angle brackets, square brackets or curly braces. At most 6, the best first. Fewer is fine, and so is none.
 
-adds: things the prompt doesn't mention at all that would be worth varying in this picture. Only what is truly missing: if the prompt already says anything about it, leave it out. What fits depends on the prompt: for a portrait perhaps the background or the light, for a street scene the weather or the time of day, for a product shot the surface it stands on. Name each in one or two plain words, in the prompt's own way of speaking. At most 3, the best first (2 when photo is true). When photo is true, leave the camera and the light out of adds: they are offered anyway.
+adds: things the prompt doesn't mention at all that would be worth varying in this picture. Only what is truly missing: if the prompt already says anything about it, leave it out. What fits depends on the prompt: for a portrait perhaps the background or the light, for a street scene the weather or the time of day, for a product shot the surface it stands on. Name each in one or two plain words, in the prompt's own way of speaking. At most 3, the best first. When photo is true: leave the camera out of adds (its framing, angle, lens and film look are offered anyway); when the prompt says nothing about the light, one add may be the light, named as the look of light that would suit this picture best, with "part": "light"; at most 2 adds besides that light.
 
 For each add, also say where it would be written in: after, the few words of the prompt right before that place, copied exactly, enough that they occur only once in the prompt (usually two to five words, never from a line starting with #); and insert, what goes right after them: the add's name in angle brackets with the words that join it, written the way the prompt is written. A prompt with joining words between the things it names ("with", "on", "at", a verb), even a short one, gets words that make it read as part of the phrase: ", lit by <light>", " in <weather>". A prompt of bare tags between commas gets only the tag: ", <light>". Put it where it reads naturally, usually after what it belongs to.
 
@@ -65,14 +87,20 @@ Then say two more things.
 
 photo: true when the picture is meant to look like a photograph, as any prompt that names no other medium is; false when it asks for a painting, drawing, illustration, anime, cartoon, 3D render or another look that isn't a photograph. A prompt written as anime-style tags ("1girl, solo") is anime unless its tags ask for a photo.
 
-stated: of the two names "camera" and "light", the ones the prompt already says anything about. "camera" when it says anything about the framing, shot size, lens, angle, film or format; "light" when it says anything about the light: its source, look, quality or the time of day that sets it. Only those names, never the prompt's words: [], ["camera"], ["light"] or ["camera", "light"].
+stated: the parts of the photography the prompt already says anything about, from these names:
+- "shot_size": the framing, how much of the subject shows: a close-up, a full-length shot, a selfie, a group shot.
+- "angle": where the camera looks from: eye level, a low or high angle, overhead, a tilted angle.
+- "lens": the lens and focus: wide-angle or telephoto, depth of field, bokeh, motion blur.
+- "film_look": the film or format: a film stock, a phone camera, a disposable camera, an instant photo, digital capture.
+- "light": the light: its source, look, quality or the time of day that sets it.
+Count a part only when the prompt says something about that part itself: "cell phone selfie" says the framing (a selfie) and the format (a phone camera), not the angle or the lens. A part in angle brackets counts. Only those names, never the prompt's words: [], ["light"], ["shot_size", "film_look"].
 
-joins: when photo is true, for each of "camera" and "light" not in stated, where it would be written in, as for an add: {"camera": {"after": "...", "insert": ", shot on <camera>"}}. {} when photo is false.
+joins: when photo is true, for each part not in stated, where it would be written in, as for an add, with these words in the angle brackets: <light> for "light", <camera angle> for "angle", <lens> for "lens", <film look> for "film_look", <framing> for "shot_size". {} when photo is false.
 
 Lines starting with # are notes from the user, not part of the picture's text. Never take a phrase from them. They may say what the user does or doesn't want to vary: follow them.
 
 Reply with JSON only, in this shape:
-{"vary": ["young man", "dorm room"], "adds": [{"name": "time of day", "label": "time", "after": "dorm room", "insert": " at <time of day>"}], "photo": true, "stated": ["light"], "joins": {"camera": {"after": "lit by <light>", "insert": ", shot on <camera>"}}}
+{"vary": ["young man", "dorm room"], "adds": [{"name": "poster", "label": "poster", "after": "dorm room", "insert": " with a <poster> on the wall"}, {"name": "desk lamp glow", "label": "desk lamp", "part": "light", "after": "reading", "insert": " by <desk lamp glow>"}], "photo": true, "stated": ["shot_size"], "joins": {"light": {"after": "reading", "insert": ", lit by <light>"}, "angle": {"after": "reading", "insert": ", seen from <camera angle>"}, "lens": {"after": "reading", "insert": ", shot with <lens>"}, "film_look": {"after": "reading", "insert": ", shot on <film look>"}}}
 For each add, name is the words that would go in the angle brackets and label is the one or two words shown on its button."""
 
 ADD_SYSTEM = """You add one changing part to an image prompt. The user marks the parts that change from picture to picture with angle brackets: "dorm room with a <young man>, lit by <light>". They ask you to add a new one. You say where it goes and the words that join it, the way they would have written it themselves.
@@ -166,7 +194,9 @@ def check_suggestions(prompt: str, got: Dict[str, Any]) -> Dict[str, Any]:
     """The reply's usable suggestions, and `photo`: read_photo's answer. A phrase is kept at its
     first stretch of the prompt where a slot could stand, outside comment lines, verbatim,
     lists, names and slots, and not over a phrase kept before it; the whole prompt is not a
-    phrase. For a photo, the model's adds leave out the photography offered_adds offers."""
+    phrase. For a photo, the model's adds leave out the camera, whose parts offered_adds
+    offers, and keep one add the reply marks as the light (`"part": "light"`), only when the
+    prompt doesn't state the light; it then stands in for the plain light."""
     blocked, slots = _blocked(prompt)
     body = _body(prompt)
     kept: List[Dict[str, Any]] = []
@@ -190,10 +220,11 @@ def check_suggestions(prompt: str, got: Dict[str, Any]) -> Dict[str, Any]:
     kept.sort(key=lambda k: k["from"])
 
     photo = read_photo(got)
-    # A photo's photography comes from the vocabulary (offered_adds), not from the model.
-    own = {name for name, _, _ in PHOTO} if photo is not None else set()
+    # A photo's camera comes from the vocabulary (offered_adds), one part at a time, not from the model.
+    own = PHOTO_NAMES if photo is not None else frozenset()
     taken = {prompt[a + 1:b - 1].casefold() for a, b in slots} | {k["text"].casefold() for k in kept}
     adds: List[Dict[str, Any]] = []
+    light = None
     for item in got.get("adds") if isinstance(got.get("adds"), list) else []:
         if isinstance(item, str):
             item = {"name": item}
@@ -203,13 +234,22 @@ def check_suggestions(prompt: str, got: Dict[str, Any]) -> Dict[str, Any]:
         label = item.get("label").strip() if isinstance(item.get("label"), str) and item["label"].strip() else name
         if not SLOT_RE.fullmatch(f"<{name}>") or name.casefold() in taken or name.casefold() in own:
             continue
+        part = item.get("part") if photo is not None and isinstance(item.get("part"), str) else ""
+        if part and part.strip().casefold() in {p.part for p in PHOTO}:
+            # Photography: only the light, once, when the prompt has none; the camera's parts
+            # are offered from the vocabulary.
+            if part.strip().casefold() != "light" or light is not None or "light" in photo:
+                continue
+            taken.add(name.casefold())
+            light = {"name": name, "label": label, "part": "light", **checked_join(prompt, name, item)}
+            continue
+        if len(adds) == (MAX_PHOTO_ADDS if photo is not None else MAX_ADDS):
+            continue
         taken.add(name.casefold())
         adds.append({"name": name, "label": label, **checked_join(prompt, name, item)})
-        if len(adds) == (MAX_PHOTO_ADDS if photo is not None else MAX_ADDS):
-            break
     joins = got.get("joins") if photo is not None and isinstance(got.get("joins"), dict) else {}
-    photo_joins = {name: j for name, _, _ in PHOTO if (j := checked_join(prompt, name, joins.get(name)))}
-    return {"vary": kept, "adds": adds, "photo": photo, "joins": photo_joins}
+    photo_joins = {p.part: j for p in PHOTO if (j := checked_join(prompt, p.name, joins.get(p.part)))}
+    return {"vary": kept, "adds": adds + ([light] if light else []), "photo": photo, "joins": photo_joins}
 
 
 def checked_join(prompt: str, name: str, item: Any) -> Dict[str, str]:
@@ -225,9 +265,10 @@ def checked_join(prompt: str, name: str, item: Any) -> Dict[str, str]:
 
 
 def read_photo(got: Dict[str, Any]) -> Optional[List[str]]:
-    """The photography the prompt already states (names from PHOTO) when the reply says the
-    picture is a photo; None when it isn't one, or when its `photo` or `stated` can't be read
-    (logged: no photography is offered then). Unknown names in `stated` are skipped."""
+    """The parts of its photography the prompt already states (PHOTO's `part` names) when the
+    reply says the picture is a photo; None when it isn't one, or when its `photo` or `stated`
+    can't be read (logged: no photography is offered then). Unknown names in `stated` are
+    skipped."""
     photo = got.get("photo")
     if photo is False:
         return None
@@ -236,7 +277,7 @@ def read_photo(got: Dict[str, Any]) -> Optional[List[str]]:
         log.info(f"[suggest] no usable photo/stated in the reply: photo={photo!r}, stated={stated!r}"[:240])
         return None
     said = {x.strip().casefold() for x in stated}
-    return [name for name, _, _ in PHOTO if name in said]
+    return [p.part for p in PHOTO if p.part in said]
 
 
 def photo_lists(lists: Tuple[str, ...]) -> List[str]:
@@ -254,25 +295,34 @@ def photo_lists(lists: Tuple[str, ...]) -> List[str]:
 
 
 def offered_adds(prompt: str, checked: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """The checked reply's adds, then, for a photo, each photography add the prompt doesn't
-    state and has no slot of, nor an add of the same words. A photography add also carries the
-    reader's `kind` for it and the `lists` it draws from, so the editor can leave it out once a
-    slot is read as that."""
-    adds = list(checked.get("adds") or [])
+    """The checked reply's own adds, then, for a photo, the photography parts the prompt doesn't
+    state and has no slot of, nor an add of the same words, in PHOTO's order: the model's named
+    light in the light's place when it gave one, at most MAX_PHOTO_PARTS of them, and at most
+    MAX_OFFERED chips in all. A photography add also carries the reader's `kind` for it and the
+    `lists` it draws from, so the editor can leave it out once a slot is read as that."""
+    checked_adds = checked.get("adds") or []
+    adds = [a for a in checked_adds if not a.get("part")]
     stated = checked.get("photo")
     if not isinstance(stated, list):
-        return adds
+        return adds[:MAX_OFFERED]
+    light = next((a for a in checked_adds if a.get("part") == "light"), None)
     _, slots = _blocked(prompt)
     taken = {prompt[a + 1:b - 1].strip().casefold() for a, b in slots} | {a["name"].casefold() for a in adds}
-    for name, kind, lists in PHOTO:
-        if name in stated or name in taken:
+    photo: List[Dict[str, Any]] = []
+    for p in PHOTO:
+        if p.part in stated:
             continue
-        have = photo_lists(lists)
-        if have:
-            join = (checked.get("joins") or {}).get(name)
-            adds.append({"name": name, "label": name, "kind": kind, "lists": have,
-                         **(join if isinstance(join, dict) else {})})
-    return adds
+        have = photo_lists(p.lists)
+        if not have:
+            continue
+        if p.part == "light" and light is not None and light["name"].casefold() not in taken:
+            photo.append({"name": light["name"], "label": light["label"], "kind": p.kind, "lists": have,
+                          **({"after": light["after"], "insert": light["insert"]} if "insert" in light else {})})
+        elif p.name.casefold() not in taken:
+            join = (checked.get("joins") or {}).get(p.part)
+            photo.append({"name": p.name, "label": p.label, "kind": p.kind, "lists": have,
+                          **(join if isinstance(join, dict) else {})})
+    return (adds + photo[:MAX_PHOTO_PARTS])[:MAX_OFFERED]
 
 
 def suggest_key(prompt: str, model: str) -> str:

@@ -7,9 +7,10 @@ export interface SuggestedPhrase { from: number; to: number; text: string }
 export interface SuggestedAdd {
   name: string
   label: string
-  /** A photo's photography add: the kind its slot is read as (`camera`, `light`, `list`)… */
+  /** A photo's photography add (its light, or one part of its camera: angle, lens, film look,
+      framing): the kind its slot is read as (`light`, or `list` for a camera part)… */
   kind?: string
-  /** …and the vocabulary lists it draws from. */
+  /** …and the vocabulary lists it draws from (a camera part: its one list, e.g. `camera.lens`). */
   lists?: string[]
   /** Where it goes: words of the prompt it was suggested for, written in right after them… */
   after?: string
@@ -45,10 +46,13 @@ export function joinFor(answer: { text: string; suggestions: Suggestions } | nul
   return add?.after != null && add.insert != null ? { after: add.after, insert: add.insert, suggested_for: answer.text } : null
 }
 
-/** Whether a slot of the prompt already is this photography add: read as its kind (a camera,
-    a light), or drawing from one of its lists. Unknown until the slots are read: false. */
+/** Whether a slot of the prompt already is this photography add: read as its kind (a light),
+    or drawing from one of its lists, or from a list under one of them. A camera part is a
+    `list`, so it is covered per part: a slot on the angle list, or a whole camera whose details
+    include the angle, covers "+ angle" and leaves "+ lens" offered. Unknown until the slots are
+    read: false. Structure only: list ids, never the slot's words. */
 export function slotCovers(add: SuggestedAdd, read: ReadSlots | null | undefined): boolean {
   if (!read || !add.kind) return false
   if (add.kind !== 'list' && read.kinds.includes(add.kind)) return true
-  return !!add.lists?.some(l => read.lists.includes(l))
+  return !!add.lists?.some(l => read.lists.some(r => r === l || r.startsWith(`${l}.`)))
 }

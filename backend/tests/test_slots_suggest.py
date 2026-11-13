@@ -110,8 +110,15 @@ class TestSuggest:
 
 # --------------------------------------------------------------------------- a photo's photography
 
-CAMERA_LISTS = ["camera.shot_size", "camera.lens", "camera.angle", "camera.film_look"]
 LIGHT_LISTS = ["lighting.dramatic", "lighting.indoor_practical", "lighting.natural", "lighting.studio"]
+PARTS = {  # each photography chip, as it is offered
+    "light": {"name": "light", "label": "light", "kind": "light", "lists": LIGHT_LISTS},
+    "angle": {"name": "camera angle", "label": "angle", "kind": "list", "lists": ["camera.angle"]},
+    "lens": {"name": "lens", "label": "lens", "kind": "list", "lists": ["camera.lens"]},
+    "film_look": {"name": "film look", "label": "film look", "kind": "list", "lists": ["camera.film_look"]},
+    "shot_size": {"name": "framing", "label": "framing", "kind": "list", "lists": ["camera.shot_size"]},
+}
+CAMERA = ["angle", "lens", "film_look", "shot_size"]
 
 
 def photo(*texts, adds=(), is_photo=True, stated=()):
@@ -122,20 +129,34 @@ def names(got):
     return [a["name"] for a in got["adds"]]
 
 
+def parts(*ids):
+    return [PARTS[i]["name"] for i in ids]
+
+
 class TestPhoto:
-    async def test_a_photo_is_offered_the_photography_it_lacks(self):
+    async def test_a_photo_is_offered_its_best_three_parts(self):
+        """Light, then angle, then lens, then film look, then framing: three at most."""
         got = await sg.suggest(DORM, Fake(photo("young man", adds=["background"])))
-        assert got["adds"] == [
-            {"name": "background", "label": "background"},
-            {"name": "camera", "label": "camera", "kind": "camera", "lists": CAMERA_LISTS},
-            {"name": "light", "label": "light", "kind": "light", "lists": LIGHT_LISTS},
-        ]
+        assert got["adds"] == [{"name": "background", "label": "background"},
+                               PARTS["light"], PARTS["angle"], PARTS["lens"]]
         assert [v["text"] for v in got["vary"]] == ["young man"]
 
-    async def test_what_the_prompt_states_is_not_offered(self):
-        got = await sg.suggest(DORM, Fake(photo(stated=[" Light ", "lens"])))  # lens: not a name, skipped
-        assert names(got) == ["camera"]
-        assert names(await sg.suggest(DORM, Fake(photo(stated=["camera", "light"])))) == []
+    async def test_each_part_the_prompt_states_is_hidden_on_its_own(self):
+        # "cell phone selfie": the framing and the format, so the angle and the lens are still offered
+        got = await sg.suggest(DORM, Fake(photo(stated=["shot_size", "film_look"])))
+        assert names(got) == parts("light", "angle", "lens")
+        got = await sg.suggest(DORM, Fake(photo(stated=[" Light ", "angle", "camera"])))  # camera: not a part, skipped
+        assert names(got) == parts("lens", "film_look", "shot_size")
+        got = await sg.suggest(DORM, Fake(photo(stated=["light", "angle", "lens", "film_look"])))
+        assert names(got) == parts("shot_size")
+        assert names(await sg.suggest(DORM, Fake(photo(stated=list(PARTS))))) == []
+
+    async def test_a_slot_on_a_part_hides_that_part_only(self):
+        prompt = "a <young man> in a dorm room, <camera angle>, shot with <Lens>"
+        got = await sg.suggest(prompt, Fake(photo()))
+        assert names(got) == parts("light", "film_look", "shot_size")
+        got = await sg.suggest("a <young man> in a dorm room, lit by <light>", Fake(photo()))
+        assert names(got) == parts("angle", "lens", "film_look")
 
     async def test_not_a_photo_offers_none(self):
         got = await sg.suggest(DORM, Fake(photo(adds=["light"], is_photo=False)))
@@ -155,42 +176,62 @@ class TestPhoto:
         assert [v["text"] for v in got["vary"]] == ["young man"] and len(ask.calls) == 1  # no retry for it
 
     async def test_the_models_photography_adds_give_way(self):
-        """For a photo, an add of the same name as a photography one is the vocabulary's,
-        once, in the photography's place."""
-        got = await sg.suggest(DORM, Fake(photo(adds=["Light", "background", "camera"])))
-        assert names(got) == ["background", "camera", "light"]
+        """For a photo, an add of the same words as a photography part's slot, or the whole
+        camera, is left to the vocabulary's chip."""
+        got = await sg.suggest(DORM, Fake(photo(adds=["Light", "background", "camera", "lens"])))
+        assert names(got) == ["background"] + parts("light", "angle", "lens")
         assert all("kind" in a for a in got["adds"][1:])
-        got = await sg.suggest(DORM, Fake(photo(adds=["camera", "weather"], stated=["camera"])))
-        assert names(got) == ["weather", "light"]  # stated: the camera is offered by neither
 
-    async def test_a_slot_already_there_is_not_offered(self):
-        prompt = "a <young man> in a dorm room, shot with <Camera>"
-        got = await sg.suggest(prompt, Fake(photo()))
-        assert names(got) == ["light"]
+    async def test_the_models_light_stands_in_for_the_plain_one(self):
+        prompt = "an old man reading on a porch"
+        reply = {**photo(stated=["film_look"]), "adds": [
+            {"name": "weather", "label": "weather"},
+            {"name": "golden hour light", "label": "golden hour", "part": "light", "after": "on a porch",
+             "insert": " in <golden hour light>"},
+            {"name": "dim light", "label": "dim light", "part": "light"},       # one light only
+            {"name": "telephoto lens", "label": "telephoto", "part": "lens"},   # the camera is the vocabulary's
+            {"name": "season", "label": "season"}, {"name": "sky", "label": "sky"}]}  # two of its own at most
+        got = await sg.suggest(prompt, Fake(reply))
+        assert got["adds"] == [
+            {"name": "weather", "label": "weather"}, {"name": "season", "label": "season"},
+            {"name": "golden hour light", "label": "golden hour", "kind": "light", "lists": LIGHT_LISTS,
+             "after": "on a porch", "insert": " in <golden hour light>"},
+            PARTS["angle"], PARTS["lens"]]
+        assert len(got["adds"]) == sg.MAX_OFFERED
+
+    async def test_the_models_light_is_dropped_when_the_light_is_stated(self):
+        reply = {**photo(stated=["light"]), "adds": [{"name": "window light", "label": "window light", "part": "light"}]}
+        assert names(await sg.suggest(DORM, Fake(reply))) == parts("angle", "lens", "film_look")
+
+    async def test_a_part_is_only_read_for_a_photo(self):
+        reply = {**photo(is_photo=False), "adds": [{"name": "window light", "label": "window light", "part": "light"}]}
+        assert (await sg.suggest(DORM, Fake(reply)))["adds"] == [{"name": "window light", "label": "window light"}]
 
     async def test_only_lists_the_vocabulary_has(self, monkeypatch):
-        monkeypatch.setattr(sg, "PHOTO", (("camera", "camera", ("camera.lens", "camera.nope")),
-                                          ("weather", "list", ("nature.nope",)), ("light", "light", ("lighting",))))
+        monkeypatch.setattr(sg, "PHOTO", (sg.Part("lens", "lens", "lens", "list", ("camera.lens", "camera.nope")),
+                                          sg.Part("weather", "weather", "weather", "list", ("nature.nope",)),
+                                          sg.Part("light", "light", "light", "light", ("lighting",))))
         got = await sg.suggest(DORM, Fake(photo()))
-        assert [(a["name"], a["lists"]) for a in got["adds"]] == [("camera", ["camera.lens"]), ("light", LIGHT_LISTS)]
+        assert [(a["name"], a["lists"]) for a in got["adds"]] == [("lens", ["camera.lens"]), ("light", LIGHT_LISTS)]
 
     async def test_the_cache_keeps_the_reply_and_offers_again(self, tmp_path):
         cache = NarrowCache(tmp_path)
-        ask = Fake(photo(stated=["camera"]))
+        ask = Fake({**photo(stated=["angle"]), "adds": [{"name": "window light", "label": "window", "part": "light"}]})
         first = await sg.suggest(DORM, ask, cache, model="m")
-        assert names(first) == ["light"]
+        assert names(first) == ["window light"] + parts("lens", "film_look")
         assert await sg.suggest(DORM, ask, cache, model="m") == first and len(ask.calls) == 1
 
-    def test_the_prompt_asks_for_both_fields(self):
-        assert '"photo": true' in sg.SUGGEST_SYSTEM and '"stated": ["light"]' in sg.SUGGEST_SYSTEM
-        for name, _, _ in sg.PHOTO:
-            assert f'"{name}"' in sg.SUGGEST_SYSTEM
+    def test_the_prompt_asks_for_every_part(self):
+        assert '"photo": true' in sg.SUGGEST_SYSTEM and '"stated": ["shot_size"]' in sg.SUGGEST_SYSTEM
+        assert '"part": "light"' in sg.SUGGEST_SYSTEM
+        for p in sg.PHOTO:
+            assert f'"{p.part}"' in sg.SUGGEST_SYSTEM and f"<{p.name}>" in sg.SUGGEST_SYSTEM
 
-    def test_every_photography_add_has_its_lists(self):
-        for name, kind, lists in sg.PHOTO:
-            assert sg.photo_lists(lists), name
-            assert kind in ("camera", "light", "list")
-        assert {name for name, _, _ in sg.PHOTO} >= {"camera", "light"}
+    def test_every_part_has_its_lists(self):
+        for p in sg.PHOTO:
+            assert sg.photo_lists(p.lists), p.part
+            assert p.kind in ("light", "list")
+        assert [p.part for p in sg.PHOTO] == ["light", "angle", "lens", "film_look", "shot_size"]
 
 
 class TestJoins:
@@ -204,14 +245,15 @@ class TestJoins:
         assert got["adds"] == [{"name": "weather", "label": "weather", "after": "on a porch", "insert": " in <weather>"},
                                {"name": "hat", "label": "hat"}, {"name": "pet", "label": "pet"}]
 
-    async def test_a_photos_joins_go_with_its_camera_and_light(self):
+    async def test_a_photos_joins_go_with_its_parts(self):
         prompt = "an old man reading on a porch at dusk"
-        got = await sg.suggest(prompt, Fake({**photo(), "joins": {
-            "camera": {"after": "at dusk", "insert": ", shot on <camera>"},
-            "light": {"after": "at dusk", "insert": ", lit by <camera>"}}}))     # the wrong slot: no join
-        camera, light = got["adds"]
-        assert (camera["after"], camera["insert"]) == ("at dusk", ", shot on <camera>")
-        assert "after" not in light and "insert" not in light
+        got = await sg.suggest(prompt, Fake({**photo(stated=["light"]), "joins": {
+            "angle": {"after": "at dusk", "insert": ", seen from <camera angle>"},
+            "lens": {"after": "at dusk", "insert": ", shot with <camera>"},     # the wrong slot: no join
+            "camera": {"after": "at dusk", "insert": ", shot on <camera>"}}}))  # not a part
+        angle, lens, film = got["adds"]
+        assert (angle["after"], angle["insert"]) == ("at dusk", ", seen from <camera angle>")
+        assert "after" not in lens and "insert" not in lens and "insert" not in film
 
     async def test_joins_are_ignored_when_it_is_not_a_photo(self):
         got = await sg.suggest(DORM, Fake({**photo(is_photo=False), "joins": "garbled"}))
@@ -219,7 +261,7 @@ class TestJoins:
 
     async def test_a_photo_keeps_two_of_its_own(self):
         got = await sg.suggest(DORM, Fake(photo(adds=["weather", "season", "background"])))
-        assert names(got) == ["weather", "season", "camera", "light"]
+        assert names(got) == ["weather", "season"] + parts("light", "angle", "lens")
         got = await sg.suggest(DORM, Fake(photo(adds=["weather", "season", "background"], is_photo=False)))
         assert names(got) == ["weather", "season", "background"]
 
@@ -381,9 +423,9 @@ class TestRoutes:
                                 "adds": [{"name": "light", "label": "light"}]}
             again = await c.post("/api/prompt-programs/suggest", json={"prompt": DORM})
             assert again.json() == r.json() and len(ask.calls) == 1
-            monkeypatch.setattr(sg, "ask_model", Fake(photo(stated=["camera"])))
+            monkeypatch.setattr(sg, "ask_model", Fake(photo(stated=CAMERA)))
             r = await c.post("/api/prompt-programs/suggest", json={"prompt": "a cat on a porch"})
-            assert r.json()["adds"] == [{"name": "light", "label": "light", "kind": "light", "lists": LIGHT_LISTS}]
+            assert r.json()["adds"] == [PARTS["light"]]
             assert (await c.post("/api/prompt-programs/suggest", json={"prompt": DORM, "raw": True})).json() == {
                 "vary": [], "adds": []}
         assert list((tmp_path / "a" / "prompt_programs" / "suggest").rglob("*.json"))
@@ -403,15 +445,15 @@ class TestRoutes:
         prompt = "an old man reading on a porch at dusk"
         reply = {"vary": ["old man"], "adds": [{"name": "weather", "label": "weather", "after": "on a porch",
                                                 "insert": " in <weather>"}],
-                 "photo": True, "stated": ["light"],
-                 "joins": {"camera": {"after": "at dusk", "insert": ", shot on <camera>"}}}
+                 "photo": True, "stated": ["light", "angle", "film_look", "shot_size"],
+                 "joins": {"lens": {"after": "at dusk", "insert": ", shot with <lens>"}}}
         ask = Fake(reply)
         monkeypatch.setattr(sg, "ask_model", ask)
         async with client as c:
             adds = (await c.post("/api/prompt-programs/suggest", json={"prompt": prompt})).json()["adds"]
-            assert [(a["name"], a.get("insert")) for a in adds] == [("weather", " in <weather>"), ("camera", ", shot on <camera>")]
+            assert [(a["name"], a.get("insert")) for a in adds] == [("weather", " in <weather>"), ("lens", ", shot with <lens>")]
             for a, written in zip(adds, ["an old man reading on a porch in <weather> at dusk",
-                                         "an old man reading on a porch at dusk, shot on <camera>"]):
+                                         "an old man reading on a porch at dusk, shot with <lens>"]):
                 r = await c.post("/api/prompt-programs/add", json={"prompt": prompt, "name": a["name"], "after": a["after"],
                                                                   "insert": a["insert"], "suggested_for": prompt})
                 assert r.json()["prompt"] == written
