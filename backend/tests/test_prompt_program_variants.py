@@ -500,6 +500,9 @@ def test_a_top_up_is_due_at_80_percent_of_a_round():
     assert P.due(pool, {**{f"v{i}": 2 for i in range(8)}, "v8": 1, "v9": 1}, P.Choice())
     assert not P.due(pool, {f"v{i}": 1 for i in range(9)}, P.Choice(values=("v1",)))
     assert P.due(POOL, {}, P.Choice(pins=V.Pins(descent=("Welsh",))))            # picked seeds match nothing yet
+    assert P.due(POOL, {}, P.Choice(pins=V.Pins(descent=("Korean",))))           # one match: it would repeat
+    many = [{"text": f"k{i}", "seeds": {"descent": "Korean"}} for i in range(P.MIN_MATCH)]
+    assert not P.due(many, {}, P.Choice(pins=V.Pins(descent=("Korean",))))     # enough to vary
     big = [{"text": f"v{i}", "seeds": {}} for i in range(P.MAX_POOL)]
     assert not P.due(big, {f"v{i}": 1 for i in range(P.MAX_POOL - 1)}, P.Choice())
 
@@ -691,7 +694,10 @@ def test_a_pick_nothing_matches_writes_a_pinned_batch_at_once(tmp_path):
         assert not w.picked(job_for(sl, V.person_seeds(), key=key), P.Choice(pins=V.Pins(descent=("Welsh",))))  # no pool yet
         w.store.append(key, {"batch": 0, "variants": POOL})
         assert not w.picked(job_for(sl, V.person_seeds(), key=key), P.Choice())                                 # nothing picked
-        assert not w.picked(job_for(sl, V.person_seeds(), key=key), P.Choice(pins=V.Pins(descent=("Korean",))))  # matches already
+        assert w.picked(job_for(sl, V.person_seeds(), key=key), P.Choice(pins=V.Pins(descent=("Korean",))))  # 1 < MIN_MATCH
+        await asyncio.wait_for(w.drain(), 5)
+        assert len([v for v in w.store.variants(key) if v["seeds"].get("descent") == "Korean"]) >= P.MIN_MATCH
+        assert not w.picked(job_for(sl, V.person_seeds(), key=key), P.Choice(pins=V.Pins(descent=("Korean",))))  # enough now
         choice = P.Choice(pins=V.Pins(descent=("Welsh",), gender=("trans woman",)))
         assert w.picked(job_for(sl, V.person_seeds(), key=key), choice)
         await asyncio.wait_for(w.drain(), 5)

@@ -43,6 +43,7 @@ log = get_logger(__name__)
 POOL_VERSION = "pool-1"
 TOPUP_AT = 0.8      # share of what a slot draws from drawn this round that starts a top-up
 MAX_POOL = 300      # a pool this big stops topping up and cycles least-used
+MIN_MATCH = 8       # picked seeds that match fewer variants than this write more that match, at once
 WORKERS = 2         # writes in flight per profile
 YIELD_POLL = 0.25   # seconds between looks while a background top-up gives way to a prepare
 SEEDS_KEPT = 500    # draws with an explicit draw seed remembered per prompt
@@ -305,8 +306,10 @@ def due(variants: Sequence[Dict[str, Any]], uses: Dict[str, int], choice: Choice
     if choice.off or choice.as_written or choice.values or len(variants) >= MAX_POOL:
         return False
     items = drawable(variants, choice)
+    if choice.pins and len(items) < MIN_MATCH:
+        return True   # a narrow pick (Korean, trans woman) would repeat its few matches
     if not items:
-        return bool(choice.pins)
+        return False
     counts = [uses.get(_norm(v["text"]), 0) for v in items]
     low = min(counts)
     return sum(1 for c in counts if c > low) / len(counts) >= TOPUP_AT
@@ -532,14 +535,15 @@ class PoolWriter:
         return await fut
 
     def picked(self, job: Job, choice: Choice) -> bool:
-        """Seeds the user just picked that nothing in the pool matches: write a batch with them now,
-        at high priority (the draws stand as the words, with a single picked descent, meanwhile).
-        Call it when a choice arrives (/pools, a generation). Returns whether a batch was queued."""
+        """Seeds the user just picked that fewer than MIN_MATCH variants match: write a batch with
+        them now, at high priority (meanwhile the draws take the few matches, or stand as the words
+        with a single picked descent). Call it when a choice arrives (/pools, a generation).
+        Returns whether a batch was queued."""
         if not choice.pins or choice.values or choice.off or choice.as_written:
             return False
         pool = self.store.variants(job.key)
-        if not pool or drawable(pool, choice):
-            return False   # no pool yet (its first write is coming) or something matches already
+        if not pool or len(drawable(pool, choice)) >= MIN_MATCH or len(pool) >= MAX_POOL:
+            return False   # no pool yet (its first write is coming), enough match already, or full
         job.role, job.pins = "top_up", choice.pins
         return self.submit(job)
 
@@ -609,5 +613,5 @@ def writer_for(profile_id: Optional[str]) -> PoolWriter:
     return w
 
 
-__all__ = ["Choice", "Job", "MAX_POOL", "POOL_VERSION", "Pick", "PoolWriter", "TOPUP_AT", "VariantStore", "drawable",
+__all__ = ["Choice", "Job", "MAX_POOL", "MIN_MATCH", "POOL_VERSION", "Pick", "PoolWriter", "TOPUP_AT", "VariantStore", "drawable",
            "due", "in_pool", "matches", "person_pickers", "pick", "pool_key", "store_for", "writer_for"]
