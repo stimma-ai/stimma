@@ -804,7 +804,7 @@ class GenerationQueue:
         """A ready draw for this forever submit if one was made for exactly this
         signature, else None (the caller draws inline). Either way the pool is kept
         filled for this signature. `spec()` gives what realize_and_fix_many needs (entry,
-        pins, edits, zones, profile_id, project_id), or for Direct the prompt it fills
+        pins, edits, chosen, profile_id, project_id), or for Direct the prompt it fills
         ("direct"); it's called only when the signature is new. Never blocks."""
         slots = self._forever_slots(generator_instance_id)
         if slots <= 0:
@@ -828,7 +828,7 @@ class GenerationQueue:
         When the intent carries the improver's arguments (spec "improve"), each draw is
         also improved before it joins the pool, so a submit that takes it calls no model."""
         from prompt_programs.fix import await_judge, realize_and_fix_many
-        from prompt_programs.fluent import attach_filler
+        from prompt_programs.fluent import attach_writer, count_draw
         from prompt_programs.program import draw_seed
 
         spec = intent['spec']
@@ -850,10 +850,10 @@ class GenerationQueue:
                     sources = _profile_wildcards_and_segments(spec.get('profile_id'))
                     made = [draw_marked(spec['direct'], *sources) for _ in seeds]
                 else:
-                    attach_filler(spec['entry'], spec.get('profile_id'))
+                    attach_writer(spec['entry'], spec.get('profile_id'))
                     made = await asyncio.to_thread(
                         realize_and_fix_many, spec['entry'], seeds=seeds, pins=spec.get('pins'),
-                        edits=spec.get('edits'), zones=spec.get('zones'),
+                        edits=spec.get('edits'), chosen=spec.get('chosen'),
                         profile_id=spec.get('profile_id'), project_id=spec.get('project_id'))
             except asyncio.CancelledError:
                 raise
@@ -866,6 +866,9 @@ class GenerationQueue:
                 good = [{'filled': text, 'spans': [list(sp) for sp in spans]} for text, spans in made]
             else:
                 good = [{'result': m[0], 'fix': m[1], 'seed': s} for s, m in zip(seeds, made) if not isinstance(m, Exception)]
+                for hot in good:   # a buffered draw counts toward its pools now, so top-ups run ahead
+                    count_draw(spec['entry'], hot['result'], profile_id=spec.get('profile_id'),
+                               project_id=spec.get('project_id'), chosen=spec.get('chosen'))
             if not good:
                 return  # nothing draws (a pin nothing satisfies): submits say why inline
             for hot in good:

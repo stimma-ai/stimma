@@ -219,7 +219,7 @@ class Seeds:
 def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: bool = False,
                  gender: Optional[Sequence[str]] = None,
                  ages: Optional[Sequence[str]] = None, ideas: Sequence[Tuple[str, Optional[Sequence[str]]]] = (),
-                 stated: Optional[Dict[str, Sequence[str]]] = None) -> Seeds:
+                 stated: Optional[Dict[str, Sequence[str]]] = None, minor: Sequence[str] = ()) -> Seeds:
     """A person's seeds. `descent`: the descent values their words allow (narrowed; None when the
     words state none: the whole list). `stated_descent`: their words state it, so a single value
     left needs no seed. `gender`: the genders their words allow (narrowed: "woman" keeps woman and
@@ -228,9 +228,10 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
     their age narrowed by their words; None while that narrowing isn't there, which seeds no age
     (an unnarrowed age would fight "young" or "elderly"; the writer keeps them adults). `ideas`:
     (list, narrowed or None) per list whose values may seed their look. `stated`: what the prompt
-    states of the scene (bank)."""
+    states of the scene (bank). `minor`: ages under 18 they may be besides their own (a user list
+    of ages on their line)."""
     from prompt_programs.vocab import minor_ages
-    minor = tuple(minor_ages(list(ages))) if ages else ()
+    minor = tuple(dict.fromkeys([*(minor_ages(list(ages)) if ages else ()), *minor]))
     d = bank(DESCENT, descent, minor=bool(minor))
     if d is not None and stated_descent and len(d.values) == 1:
         d = None   # their words name it already

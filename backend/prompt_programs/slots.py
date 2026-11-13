@@ -203,17 +203,19 @@ def compose(parsed: Parsed, readings: Dict[int, Dict[str, Any]], labels: Optiona
             ) -> Dict[str, Any]:
     """What a prompt draws from, from its parse and whichever readings are ready (slot number ->
     reading as reader.check_slot gives it; list number -> label). A slot with no reading yet,
-    or one read as written, stands as its words. Plain data; no model, no store."""
-    from prompt_programs.fill import ReadingError, choice_options, picks_of, template_text
+    or one read as written, stands as its words. Each slot is one choice, its value a variant
+    of its words (variant_pools.py); each user list a pick of its items. Plain data; no model,
+    no store."""
+    from prompt_programs.fill import template_text
+    from prompt_programs.seeding import ReadingError, plan
 
     ids = slot_ids(parsed)
-    segs = parsed.segments
     slots: List[Dict[str, Any]] = []
     lists: List[Dict[str, Any]] = []
     picks: List[Dict[str, Any]] = []
-    slot_words: Dict[str, str] = {}
+    choices: List[Dict[str, Any]] = []
     slot_n = list_n = 0
-    for i, seg in enumerate(segs):
+    for seg in parsed.segments:
         if seg.kind == "list":
             list_n += 1
             label = (labels or {}).get(list_n)
@@ -221,6 +223,8 @@ def compose(parsed: Parsed, readings: Dict[int, Dict[str, Any]], labels: Optiona
                           "label": label or "", "state": "ready" if label is not None else "reading"})
             picks.append({"id": f"list{list_n}", "kind": "pick", "label": label or f"List {list_n}", "phase": 1,
                           "source": "list", "items": list(seg.items), "line": seg.line})
+            choices.append({"id": f"list{list_n}", "kind": "pick", "label": label or f"List {list_n}",
+                            "source": "list", "line": seg.line, "options": list(seg.items)})
             continue
         if seg.kind != "slot":
             continue
@@ -229,48 +233,34 @@ def compose(parsed: Parsed, readings: Dict[int, Dict[str, Any]], labels: Optiona
         info: Dict[str, Any] = {"id": cid, "n": slot_n, "words": seg.words, "span": list(seg.span), "line": seg.line,
                                 "kind": "free", "label": seg.words, "details": [], "state": "reading"}
         slots.append(info)
+        choices.append({"id": cid, "kind": "variants", "label": seg.words, "slot": cid})
         r = readings.get(slot_n)
         if r is None:
             continue
         info["state"] = "ready"
         if r.get("degraded"):
-            # Its reading couldn't be used: the words stand as typed, and the pill has nothing to choose yet.
-            info["degraded"] = True
+            info["degraded"] = True   # its reading couldn't be used: the words stand as typed
             continue
-        # Words right after a person ("... jeans reading on a porch") are set off by a comma that
-        # closes their description, whatever of it is drawn; punctuation, a line's end or another
-        # mark need none.
-        after = segs[i + 1] if i + 1 < len(segs) else None
-        close = "," if after is not None and after.kind == "text" and re.match(r"[ \t]*\w", after.text) else ""
         try:
-            got, made = picks_of(cid, seg.words, r, close=close)
+            plan(r, seg.words)
         except ReadingError:
             info["degraded"] = True
             continue
         info.update(kind=r["kind"], label=str(r.get("label") or seg.words), lead=str(r.get("lead") or ""),
-                    details=[p["id"] for p in got], form=made["form"])
-        if made.get("stated"):
-            info["stated"] = made["stated"]
-        if made.get("zones"):
-            info["zones"] = made["zones"]
-        slot_words.update(made.get("slot_words") or {})
-        picks += got
-    choices = []
-    for p in picks:
-        c = {k: v for k, v in p.items() if k not in ("items", "seed")}
-        c["options"] = choice_options(p)
-        if p.get("seed"):
-            c["seed"] = list(p["seed"])
-        choices.append(c)
-    entry = {"prompt": parsed.prompt, "mode": "prose", "segments": [_segment(s) for s in segs], "slots": slots,
-             "lists": lists, "picks": picks, "choices": choices, "slot_words": slot_words}
+                    category=str(r.get("category") or ""))
+        stated = ((r.get(r["kind"]) or {}) if isinstance(r.get(r["kind"]), dict) else {}).get("stated")
+        if stated:
+            info["stated"] = dict(stated)
+        choices[-1]["label"] = info["label"]
+    entry = {"prompt": parsed.prompt, "mode": "prose", "segments": [_segment(s) for s in parsed.segments],
+             "slots": slots, "lists": lists, "picks": picks, "choices": choices}
     entry["template"] = template_text(entry)
     return entry
 
 
 # --------------------------------------------------------------------------- prepared, at once
 
-SLOTS_VERSION = "slots-2"
+SLOTS_VERSION = "slots-3"   # slots-3: a slot is one choice, drawn from a pool of variants of its words
 
 # Background work, by (store, cache key): a part's reading, and a prompt's settling (narrowing
 # with the model once a reading lands, then starting its option pools). Never started twice.
@@ -548,14 +538,14 @@ async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
     for x in entry["lists"]:
         if x["n"] in list_seen:
             x["seen"] = list_seen[x["n"]]
-    entry.update({"key": p.key, "version": SLOTS_VERSION, "exact": p.exact, "typed": p.typed,
+    entry.update({"key": p.key, "version": SLOTS_VERSION, "exact": p.exact, "typed": p.typed, "model": p.model or "",
                   "readings": {"slots": [readings[n] for n in sorted(readings)],
                                "lists": [{"n": n, "label": labels[n], **({"seen": list_seen[n]} if n in list_seen else {})}
                                          for n in sorted(labels)]}})
     await _narrow(entry, p, ask)
     pending = any(s["state"] != "ready" for s in entry["slots"]) or any(l["state"] != "ready" for l in entry["lists"])
     # (a carried reading is ready, but the edit is still to be checked)
-    entry["reading"] = bool(pending or carried or entry.get("narrow_pending"))
+    entry["reading"] = bool(pending or carried or entry.get("seeds_pending"))
     return entry
 
 
@@ -572,30 +562,52 @@ def _marked(parsed: Parsed) -> List[Tuple[str, int, Segment]]:
 
 
 async def _narrow(entry: Dict[str, Any], p: _Prompt, ask: Any) -> None:
-    """Narrow the entry's bound picks by their slots' words. A stated detail whose narrowing
-    isn't there (not asked yet, or its answer didn't come back) stands as the user's words;
-    a list slot narrowed by its words stands as its words. Nothing else waits for it."""
-    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, narrow_entry
-    if not entry["picks"]:
-        return
-    await narrow_entry(entry, NarrowCache(p.store.root / "narrow"), ask, p.project_id, seconds=NARROW_SECONDS)
-    pending = set(entry.get("narrow_pending") or {})
-    words = entry.get("slot_words") or {}
-    picks = {x["id"]: x for x in entry["picks"]}
-    choices = {c["id"]: c for c in entry["choices"]}
+    """Narrow each read slot's seed lists by its words (seeding.narrow_seeds; `ask=None`: from the
+    cache only) and key its pool: by the model, its words, the line its reading was made in and
+    the notes (variant_pools.pool_key), its own when the person may be under 18. A slot whose
+    pool isn't written yet draws from the pool it had before an edit (`stand_in`) meanwhile."""
+    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache
+    from prompt_programs.reader import seen_in
+    from prompt_programs.seeding import narrow_seeds
+    from prompt_programs.variant_pools import pool_key
+    await narrow_seeds(entry, NarrowCache(p.store.root / "narrow"), ask, p.project_id, seconds=NARROW_SECONDS)
+    segs = {n: seg for kind, n, seg in _marked(p.parsed) if kind == "slot"}
     for s in entry["slots"]:
-        form = s.get("form") or {}
-        if form.get("kind") == "person":
-            for cid in form["keys"]:
-                if cid in pending and cid in words:
-                    # (said=: drawn as typed, the rest of the list held for the picker)
-                    picks[cid]["said"] = choices[cid]["said"] = words[cid]
-                    choices[cid]["options"] = list(dict.fromkeys([words[cid], *(choices[cid].get("options") or [])]))
-        elif form.get("kind") == "one" and form["id"] in pending and form["id"] in words and picks[form["id"]].get("cls"):
-            s["typed"] = True
-    typed = {d for s in entry["slots"] if s.get("typed") for d in s["details"]}
-    if typed:
-        entry["picks"] = [x for x in entry["picks"] if x["id"] not in typed]
+        if s["state"] != "ready" or s.get("degraded"):
+            continue
+        seen = s.get("seen") if isinstance(s.get("seen"), dict) else seen_in(p.parsed, segs[s["n"]])
+        minor = (entry.get("seeds") or {}).get(s["id"], {}).get("minor") or ()
+        s["pool"] = pool_key(p.model, s["words"], str(seen.get("marked") or ""), list(seen.get("notes") or []), minor)
+    _stand_ins(entry, p)
+
+
+def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
+    """A slot whose pool changed (its reading was made again after an edit) draws from the pool
+    the editor's prompt had for it until its own first batch is written: the same part, by
+    match_marks, in the prompt shown (p.shown) or last prepared as this one."""
+    from prompt_programs.variant_pools import store_for
+    try:
+        store = store_for(p.profile_id)
+    except Exception:
+        return
+    earlier: Dict[str, str] = {}
+    for key in dict.fromkeys(k for k in (p.key, p.shown) if k):
+        try:
+            prev = p.store.get(key)
+            if not prev or not prev.get("prompt"):
+                continue
+            old = parse(str(prev["prompt"]))
+            ids_old, ids_new = _part_ids(old), _part_ids(p.parsed)
+            pools = {s["id"]: s.get("pool") or s.get("stand_in") for s in prev.get("slots") or []}
+            for i, j in match_marks(old, p.parsed).items():
+                if pools.get(ids_old[i]) and ids_new[j] not in earlier:
+                    earlier[ids_new[j]] = str(pools[ids_old[i]])
+        except Exception as e:   # nothing to stand in: the words stand meanwhile
+            log.debug(f"[slots] no stand-in pools from {key}: {e}")
+    for s in entry["slots"]:
+        was = earlier.get(s["id"])
+        if s.get("pool") and was and was != s["pool"] and not store.has(s["pool"]) and store.has(was):
+            s["stand_in"] = was
 
 
 def _working(p: _Prompt) -> bool:
@@ -765,6 +777,9 @@ async def prepare(prompt: str, *, profile_id: Optional[str], project_id: Optiona
     again = any((p.root, key) in _failed for _, _, key in p.parts())
     if start and (entry["reading"] or again or force):
         _start(p, force)
+    elif start:   # read and seeded: write the pools it has none of (or whose write failed) in the background
+        from prompt_programs import program as prep
+        prep.on_prepared(entry, project_id=p.project_id, profile_id=p.profile_id)
     entry["working"] = _working(p)
     p.store.put(p.key, entry)
     was = _was(p)

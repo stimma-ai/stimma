@@ -813,18 +813,18 @@ async def _run_slots(
     from llm_resolver import LLMUnavailableError
     from prompt_programs.choices import expand, kept
     from prompt_programs.fix import await_judge, prompt_view, realize_and_fix
-    from prompt_programs.fluent import attach_filler
+    from prompt_programs.fluent import attach_writer, count_draw
     from prompt_programs.program import ProgramError, draw_seed, model_failure, spans_of
 
     entry = await _read_slots(prompt, profile_id=profile_id, project_id=project_id)
     if not entry or not entry.get("key"):
         return None, prompt, None
-    attach_filler(entry, profile_id)
+    attach_writer(entry, profile_id)
     choices = dict(program_opts.get("choices") or {})
     # An agent's keep_choices: the same holds as choices of values, named as its results name them.
     if program_opts.get("keep_choices"):
         choices.update(kept(entry, program_opts["keep_choices"]))
-    pins, edits, zones = expand(entry, choices)
+    pins, edits, chosen = expand(entry, choices)
     fixed = program_opts.get("fixed") or None
     try:
         # The judge is how the draws fit together: wait for it before a hot draw is taken,
@@ -832,7 +832,7 @@ async def _run_slots(
         await await_judge(entry, project_id=project_id)
         hot = None
         if hot_draws_for and program_opts.get("draw_seed") is None and not fixed:
-            hot = _take_hot_draw(hot_draws_for, entry, pins=pins, edits=edits, zones=zones,
+            hot = _take_hot_draw(hot_draws_for, entry, pins=pins, edits=edits, chosen=chosen,
                                  profile_id=profile_id, project_id=project_id, improve_ahead=improve_ahead)
         if hot is not None:
             result, fix = hot["result"], hot["fix"]
@@ -842,7 +842,9 @@ async def _run_slots(
             # In a thread: a judge on CPU must not hold up the event loop.
             result, fix = await asyncio.to_thread(
                 realize_and_fix, entry, seed=draw_seed(program_opts.get("draw_seed")), pins=pins,
-                fixed=fixed, edits=edits, zones=zones, profile_id=profile_id, project_id=project_id)
+                fixed=fixed, edits=edits, chosen=chosen, profile_id=profile_id, project_id=project_id)
+            # A shipped draw counts toward its pools (a hot draw was counted when its buffer drew it).
+            count_draw(entry, result, profile_id=profile_id, project_id=project_id, chosen=chosen)
     except Exception as e:
         failure = e if isinstance(e, (ProgramError, LLMUnavailableError)) else model_failure(e)
         if failure is None:
@@ -914,19 +916,11 @@ def pins_for_kept_choices(entry: Dict[str, Any], keep: Dict[str, Any]) -> Dict[s
     return expand(entry, kept(entry, keep))[0]
 
 
-def _additions_version(profile_id: Optional[str]) -> Optional[str]:
-    try:
-        from prompt_programs.additions import additions_for
-        return additions_for(profile_id).version()
-    except Exception:
-        return None
-
-
 def hot_draw_signature(entry: Dict[str, Any], *, pins: Dict[str, Any], edits: Dict[str, Any],
-                       zones: Dict[str, Any], profile_id: Optional[str], project_id: Optional[int],
+                       chosen: Dict[str, Any], profile_id: Optional[str], project_id: Optional[int],
                        improve: Optional[str] = None) -> str:
     """Everything a Fluent draw is made from: the prepared program as committed, the
-    pins, edits and zones the choices expand to, the profile and project, and the Fluent
+    pins, edits and slot choices the choices expand to, the profile and project, and the Fluent
     settings (judges, cut, rounds, knobs); and, for a pool that improves its draws ahead,
     everything the improved text depends on (`improve`, from improve_signature). A hot
     draw is served only to a submit with the same signature."""
@@ -939,13 +933,12 @@ def hot_draw_signature(entry: Dict[str, Any], *, pins: Dict[str, Any], edits: Di
     payload = {
         # (whether background reading is running says nothing about what is drawn)
         "entry": {k: v for k, v in entry.items() if k not in ("working", "reading")},
-        "pins": pins or {}, "edits": edits or {}, "zones": zones or {},
+        "pins": pins or {}, "edits": edits or {},
+        "chosen": {k: [c.to_dict(), list(c.add)] for k, c in sorted((chosen or {}).items())},
         "profile_id": profile_id, "project_id": project_id, "settings": dataclasses.asdict(cfg),
         # the judge's version and readiness: draws made before it was ready
         # aren't served once it's ready, and a new judge version never serves old draws
         "judge": judge_identity(cfg, project_id),
-        # the user's options kept per list: a draw made before one was added never serves after
-        "additions": _additions_version(profile_id),
         "improve": improve,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
@@ -997,7 +990,7 @@ _IMAGE_LED_GUIDES = {
 
 
 def _take_hot_draw(generator_instance_id: str, entry: Dict[str, Any], *, pins: Dict[str, Any],
-                   edits: Dict[str, Any], zones: Dict[str, Any], profile_id: Optional[str],
+                   edits: Dict[str, Any], chosen: Dict[str, Any], profile_id: Optional[str],
                    project_id: Optional[int], improve_ahead: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """A current hot draw for this forever submit, or None to draw inline. With
     `improve_ahead` the pool improves each draw as well (an entry then has "sent" and
@@ -1005,12 +998,12 @@ def _take_hot_draw(generator_instance_id: str, entry: Dict[str, Any], *, pins: D
     import copy
     from generation_queue import get_generation_queue
     try:
-        signature = hot_draw_signature(entry, pins=pins, edits=edits, zones=zones, profile_id=profile_id,
+        signature = hot_draw_signature(entry, pins=pins, edits=edits, chosen=chosen, profile_id=profile_id,
                                        project_id=project_id,
                                        improve=(improve_ahead or {}).get("signature"))
 
         def spec() -> Dict[str, Any]:  # a copy the pool keeps while this signature is current
-            return copy.deepcopy({"entry": entry, "pins": pins, "edits": edits, "zones": zones,
+            return copy.deepcopy({"entry": entry, "pins": pins, "edits": edits, "chosen": chosen,
                                   "profile_id": profile_id, "project_id": project_id,
                                   "improve": (improve_ahead or {}).get("pipeline")})
         return get_generation_queue().take_fluent_draw(generator_instance_id, signature, spec)

@@ -543,6 +543,12 @@ class PoolWriter:
 
 _stores: Dict[str, VariantStore] = {}
 _writers: Dict[str, PoolWriter] = {}
+# What a profile's writer asks: the app's chat model (tests replace it, so no write reaches a model).
+ASK: Ask = ask_writer
+
+
+async def _ask(*args: Any, **kwargs: Any) -> str:
+    return await ASK(*args, **kwargs)
 
 
 def store_for(profile_id: Optional[str]) -> VariantStore:
@@ -560,7 +566,7 @@ def writer_for(profile_id: Optional[str]) -> PoolWriter:
     w = _writers.get(str(store.root))
     if w is None:
         from prompt_programs.slots import preparing
-        w = _writers[str(store.root)] = PoolWriter(store, paused=preparing)
+        w = _writers[str(store.root)] = PoolWriter(store, ask=_ask, paused=preparing)
     try:
         w.attach()
     except RuntimeError:

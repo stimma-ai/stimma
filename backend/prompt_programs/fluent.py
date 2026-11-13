@@ -1,305 +1,252 @@
-"""What a prompt's picks draw from: their options service.
+"""What a prompt's slots draw from: their pools of variants, written in the background.
 
-realize() asks `runtime_for()` for the options a prepared prompt's picks draw from: the
-vocabulary lists, and options written for the prompt, from the profile's cache and filling
-in the background. A recorded revision replays the pools it drew from.
+realize() asks `runtime_for()` for a prepared prompt's Variants: per slot its pool (or the
+stand-in it had before an edit), the use counts and the user's choice. A recorded revision
+replays the texts it drew.
 
-When a reading lands, `start_options()` queues the writing of every pool the prompt's picks
-reach. It returns at once; the writing runs in the background at low priority.
+When readings and their seeds land, `start_pools()` queues the first write of every pool the
+prompt's slots need (variant_pools.PoolWriter). It returns at once; nothing waits for it. A
+shipped draw is counted (`count_draw`), which tops a pool up when 80% of it has been drawn.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from core.logging import get_logger
-from prompt_programs.additions import profile_additions
-from prompt_programs.compact import is_pool_ref
-from prompt_programs.fill import CONTEXT_VERSION, ProgramError, fill
-from prompt_programs.judge import FluentSettings, settings
-from prompt_programs.reach import reach_of
-from prompt_programs.options import (
-    FIRST_OPTIONS_VERSION, OPTIONS_VERSIONS, GeneratedOptions, OptionFiller, OptionStore, ProgramContext, filler_for,
-    store_for,
+from prompt_programs.fill import ProgramError
+from prompt_programs.variant_pools import (
+    Choice, Job, Pick, PoolWriter, VariantStore, person_pickers, store_for, writer_for,
 )
-from prompt_programs.vocab import vocabulary
+from prompt_programs.variants import Slot
 
 log = get_logger(__name__)
 
-WARM_DRAWS = 8         # draws at prepare that find the pools to fill
 # A revision records the judge it drew with. Drawing judged nothing, so only a revision
 # drawn that way (or recording none) replays exactly.
 UNJUDGED = (None, "null")
-
-
-CONTEXT_VERSIONS = ("ctx-1", "ctx-2", CONTEXT_VERSION)   # what a replay can read
-
-
-def _drawn(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Any]], options: Any,
-           edits: Optional[Dict[str, Dict[str, Any]]] = None) -> Any:
-    return fill(entry, seed, pins, None, edits, options=options)
+ENGINE = "variants-1"
 
 
 def has_draws(entry: Dict[str, Any]) -> bool:
-    """Whether a prepared prompt has anything to draw (a slot read, or a list)."""
-    return bool(entry.get("picks"))
+    """Whether a prepared prompt has anything to draw: a slot read, or a user list."""
+    return any(s.get("state") == "ready" and not s.get("degraded") for s in entry.get("slots") or []) \
+        or any(p.get("source") == "list" for p in entry.get("picks") or [])
 
 
-@dataclass
-class Runtime:
-    options: GeneratedOptions
-
-
-def program_context(entry: Dict[str, Any]) -> ProgramContext:
-    return ProgramContext.of(entry)
-
-
-def _profile_store(profile_id: Optional[str]) -> Optional[OptionStore]:
+def _store(profile_id: Optional[str]) -> Optional[VariantStore]:
     try:
         return store_for(profile_id)
-    except Exception as e:  # no profile (scripts): draws keep working on seeds alone
-        log.debug(f"[fluent] no option store: {e}")
+    except Exception as e:   # no profile (scripts): slots stand as their words
+        log.debug(f"[fluent] no variant store: {e}")
         return None
 
 
-def runtime_for(entry: Dict[str, Any], *, edits: Optional[Dict[str, Dict[str, Any]]] = None,
+def _writer(profile_id: Optional[str]) -> Optional[PoolWriter]:
+    try:
+        return writer_for(profile_id)
+    except Exception as e:
+        log.debug(f"[fluent] no pool writer: {e}")
+        return None
+
+
+class Variants:
+    """The options service a fill draws slots through (fill.OptionsService)."""
+
+    def __init__(self, store: Optional[VariantStore], chosen: Optional[Dict[str, Choice]] = None,
+                 fixed: Optional[Dict[str, str]] = None):
+        self.store = store
+        self.chosen = dict(chosen or {})
+        self.fixed = dict(fixed or {})          # a replay's texts, per slot
+        self._overlay: Dict[str, Dict[str, int]] = {}   # draws already made in this batch, per pool
+
+    def pool(self, slot: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+        if self.store is None or not slot.get("pool"):
+            return [], {}
+        key = str(slot["pool"])
+        got = self.store.variants(key)
+        if not got and slot.get("stand_in"):
+            key = str(slot["stand_in"])
+            got = self.store.variants(key)
+        uses = dict(self.store.uses(key))
+        for t, n in self._overlay.get(key, {}).items():
+            uses[t] = uses.get(t, 0) + n
+        return got, uses
+
+    def choice(self, slot_id: str) -> Choice:
+        return self.chosen.get(slot_id) or Choice()
+
+    def note(self, entry: Dict[str, Any], result: Any) -> None:
+        """Count a batch's draw in memory, so the next draw of the batch takes another variant
+        (generate-forever's buffer draws several at once, before any is counted on disk)."""
+        pools = {s["id"]: s.get("pool") for s in entry.get("slots") or []}
+        for d in getattr(result, "draws", []) or []:
+            key = pools.get(d.id)
+            if key and d.value and d.source in ("variant", "own", "pinned"):
+                n = " ".join(str(d.value).split()).lower()
+                bucket = self._overlay.setdefault(str(key), {})
+                bucket[n] = bucket.get(n, 0) + 1
+
+
+def runtime_for(entry: Dict[str, Any], *, chosen: Optional[Dict[str, Choice]] = None,
                 profile_id: Optional[str] = None, project_id: Optional[int] = None,
-                revision: Optional[Dict[str, Any]] = None,
-                store: Optional[OptionStore] = None, filler: Optional[OptionFiller] = None,
-                cfg: Optional[FluentSettings] = None, mine: Optional[Dict[str, List[str]]] = None,
-                zones: Optional[Dict[str, List[str]]] = None) -> Runtime:
-    """What realize() draws a prepared prompt's picks with. Passing a recorded
-    `revision` replays its pools at their recorded lengths. `mine`: the user's options kept
-    per vocabulary list (additions.py); the profile's, unless a caller brings its own store.
-    `zones`: the zones chosen per slot pick (options.GeneratedOptions)."""
-    cfg = cfg or settings()
-    if mine is None:
-        mine = profile_additions(profile_id) if store is None else {}
-    store = store if store is not None else _profile_store(profile_id)
-    if filler is None and store is not None and cfg.generate_options:
-        try:
-            filler = filler_for(profile_id)
-        except Exception as e:
-            log.debug(f"[fluent] no option filler: {e}")
+                revision: Optional[Dict[str, Any]] = None, store: Optional[VariantStore] = None) -> Variants:
+    """What realize() draws a prepared prompt's slots with. A recorded `revision` replays the
+    texts it drew; one drawn by an earlier Fluent can't be redrawn (its image keeps its text)."""
     rev = revision if isinstance(revision, dict) else {}
     if rev.get("judge") not in UNJUDGED:
         raise ProgramError(f"This prompt was drawn with judge {rev.get('judge')}, which this version of Stimma doesn't "
                            "have, so it can't be replayed exactly.")
-    version = str(rev.get("options") or FIRST_OPTIONS_VERSION) if rev else None  # none recorded: drew before opts-2
-    if version is not None and version not in OPTIONS_VERSIONS:
-        raise ProgramError(f"This prompt was drawn from options version {version}, which this version of Stimma "
-                           "can't read, so it can't be replayed exactly.")
-    # A revision drawn before context (vocab.py) replays without it; one drawn with it records its version.
-    if rev.get("context") not in (None, *CONTEXT_VERSIONS):
-        raise ProgramError(f"This prompt was drawn with context rules {rev.get('context')}, which this version of "
-                           "Stimma doesn't have, so it can't be replayed exactly.")
-    context = not rev or rev.get("context") in CONTEXT_VERSIONS
-    pools = rev.get("pools")
-    if isinstance(pools, dict) and any(is_pool_ref(v) for v in pools.values()):
-        # Vocabulary pools recorded by reference (compact.py): read back whole, as they were drawn from.
-        kept = getattr(store, "pools", None)
-        read = {k: (kept.get(v) if kept is not None else None) if is_pool_ref(v) else v for k, v in pools.items()}
-        if any(v is None for v in read.values()):
-            raise ProgramError("The choices this prompt was drawn from aren't stored on this device any more, "
-                               "so it can't be replayed exactly.")
-        pools = read
-    # A pool's recorded length, or a vocabulary list's whole pool ([[value, weight], ...]).
-    limits = ({str(k): (int(v) if not isinstance(v, list) else v) for k, v in pools.items()
-               if (isinstance(v, (int, float)) and not isinstance(v, bool)) or isinstance(v, list)}
-              if isinstance(pools, dict) else None)
-    options = GeneratedOptions(store, program_context(entry), edits=edits, filler=filler,
-                               limits=limits, project_id=project_id,
-                               generate=cfg.generate_options, version=version, context=context, mine=mine,
-                               zones=zones)
-    if rev.get("context"):   # a replay records the context version it was drawn with
-        options.context_version = str(rev["context"])
-    return Runtime(options)
+    fixed: Dict[str, str] = {}
+    if rev:
+        if rev.get("engine") != ENGINE:
+            raise ProgramError("This image was drawn by an earlier Fluent; its prompt is kept as it was made, "
+                               "and it can't be drawn again exactly.")
+        fixed = {str(k): str(v.get("text")) for k, v in (rev.get("variants") or {}).items()
+                 if isinstance(v, dict) and v.get("text")}
+    return Variants(store if store is not None else _store(profile_id), chosen, fixed)
 
 
-def attach_filler(entry: Dict[str, Any], profile_id: Optional[str] = None) -> None:
-    """Call from async code before realize() runs in a worker thread, so background
-    option generation has the event loop to run on."""
-    if not has_draws(entry) or not settings().generate_options:
-        return
+def attach_writer(entry: Dict[str, Any], profile_id: Optional[str] = None) -> None:
+    """Call from async code before realize() runs in a worker thread, so the pool writes a draw
+    starts have the event loop to run on."""
+    if has_draws(entry):
+        _writer(profile_id)
+
+
+attach_filler = attach_writer   # (its old name, for callers that start background work)
+
+
+# --------------------------------------------------------------------------- writing pools
+
+def slot_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", project_id: Optional[int] = None
+             ) -> Optional[Job]:
+    """The write a slot's pool needs, or None while its seeds aren't narrowed yet (or it has no pool)."""
+    from prompt_programs.seeding import seeds_of
+    record = (entry.get("seeds") or {}).get(slot["id"])
+    if not slot.get("pool") or record is None or slot["id"] in (entry.get("seeds_pending") or []):
+        return None
+    span = slot.get("span") or [0, 0]
+    sl = Slot(words=slot["words"], prompt=str(entry.get("prompt") or ""), span=(int(span[0]), int(span[1])),
+              kind=str(slot.get("kind") or "free"), category=str(slot.get("category") or ""))
+    return Job(key=str(slot["pool"]), slot=sl, seeds=seeds_of(record), project_id=project_id, model=model)
+
+
+def _model(entry: Dict[str, Any]) -> str:
+    return str(entry.get("model") or "")
+
+
+def start_pools(entry: Dict[str, Any], *, profile_id: Optional[str] = None, project_id: Optional[int] = None,
+                chosen: Optional[Dict[str, Choice]] = None, writer: Optional[PoolWriter] = None) -> List[str]:
+    """Queue the first write of each read slot's pool that has none, and a batch for seeds the
+    user picked that nothing in a pool matches yet. Returns the pool keys queued. Never calls a
+    model itself and never raises."""
+    out: List[str] = []
     try:
-        filler_for(profile_id)
-    except Exception as e:
-        log.debug(f"[fluent] no option filler: {e}")
-
-
-# --------------------------------------------------------------------------- prepare hook
-
-def start_options(entry: Dict[str, Any], *, profile_id: Optional[str] = None, project_id: Optional[int] = None,
-                  store: Optional[OptionStore] = None, filler: Optional[OptionFiller] = None,
-                  cfg: Optional[FluentSettings] = None) -> List[str]:
-    """Queue background option generation for a prepared prompt. Returns the
-    storage keys queued. Never calls a model itself and never raises: a prompt whose
-    pools can't fill still draws from its seeds."""
-    if not has_draws(entry):
-        return []
-    try:
-        rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, filler=filler, cfg=cfg)
-        # A few cheap draws visit the pools this prompt uses (dependent pools included,
-        # for the upstream values they draw); each unseen pool queues a fill.
-        for seed in range(WARM_DRAWS):
-            try:
-                _drawn(entry, 7919 * seed + 1, None, rt.options)
-            except ProgramError:
+        w = writer or _writer(profile_id)
+        if w is None:
+            return out
+        for s in entry.get("slots") or []:
+            if s.get("state") != "ready" or s.get("degraded"):
                 continue
-            rt.options.reset()
-        return rt.options.queued
+            job = slot_job(entry, s, model=_model(entry), project_id=project_id)
+            if job is None:
+                continue
+            if w.submit(job):
+                out.append(job.key)
+            c = (chosen or {}).get(s["id"])
+            if c is not None and w.picked(slot_job(entry, s, model=_model(entry), project_id=project_id), c):
+                out.append(job.key)
     except Exception as e:
-        log.warning(f"[fluent] couldn't start option generation: {e}")
+        log.warning(f"[fluent] couldn't start the pools of {entry.get('key')}: {e}")
+    return out
+
+
+def count_draw(entry: Dict[str, Any], result: Any, *, profile_id: Optional[str] = None,
+               project_id: Optional[int] = None, chosen: Optional[Dict[str, Choice]] = None) -> None:
+    """Count a shipped draw's variants (a generation, a buffered draw); a pool 80% drawn this
+    round tops up in the background. Never raises."""
+    try:
+        w = _writer(profile_id)
+        if w is None:
+            return
+        slots = {s["id"]: s for s in entry.get("slots") or []}
+        for d in getattr(result, "draws", []) or []:
+            s = slots.get(d.id)
+            if s is None or not s.get("pool"):
+                continue
+            job = slot_job(entry, s, model=_model(entry), project_id=project_id)
+            if job is None:
+                continue
+            w.drew(job, Pick(d.value, d.source, dict(d.seeds or {})), choice=(chosen or {}).get(d.id))
+    except Exception as e:
+        log.warning(f"[fluent] counting a draw of {entry.get('key')} failed: {e}")
+
+
+def slot_state(entry: Dict[str, Any], slot: Dict[str, Any], writer: Optional[PoolWriter]) -> str:
+    """reading | writing | ready | as_written (stimma-plans VARIANTS_IMPL.md section 1)."""
+    if slot.get("state") != "ready":
+        return "reading"
+    if slot.get("degraded"):
+        return "as_written"
+    if writer is None or not slot.get("pool"):
+        return "writing"
+    return writer.state(str(slot["pool"]), slot.get("stand_in"))
+
+
+async def more_like_these(entry: Dict[str, Any], slot_id: str, *, profile_id: Optional[str] = None,
+                          project_id: Optional[int] = None, chosen: Optional[Dict[str, Choice]] = None) -> List[str]:
+    """One more batch for a slot, awaited (the chooser's More like these): the new variants."""
+    s = next((x for x in entry.get("slots") or [] if x.get("id") == slot_id), None)
+    if s is None:
+        raise ProgramError("That part of the prompt isn't there any more.")
+    job = slot_job(entry, s, model=_model(entry), project_id=project_id)
+    w = _writer(profile_id)
+    if job is None or w is None:
         return []
+    c = (chosen or {}).get(slot_id)
+    if c is not None:
+        job.pins = c.pins
+    return await w.more(job)
 
 
 # --------------------------------------------------------------------------- what a picker shows
 
-POOL_DRAWS = 4  # draws per pick: enough to visit the pool its upstream picks key
-PARTS_MAX = 400  # a longer list sends no parts: the option-to-part map would be large
+def pool_view(entry: Dict[str, Any], chosen: Optional[Dict[str, Choice]] = None, *, profile_id: Optional[str] = None,
+              project_id: Optional[int] = None) -> Dict[str, Any]:
+    """Per slot what its picker shows (VARIANTS_IMPL.md section 4): its state, its variants with
+    their seeds and use counts, the user's own, the choice as read, and for a person the descent
+    and gender pickers. Starts any write it needs; never calls a model or waits."""
+    chosen = dict(chosen or {})
+    store, writer = _store(profile_id), _writer(profile_id)
+    start_pools(entry, profile_id=profile_id, project_id=project_id, chosen=chosen, writer=writer)
+    rt = Variants(store, chosen)
+    out: Dict[str, Any] = {}
+    busy: List[str] = []
+    for s in entry.get("slots") or []:
+        sid = s["id"]
+        c = chosen.get(sid) or Choice()
+        variants, uses = rt.pool(s) if s.get("state") == "ready" and not s.get("degraded") else ([], {})
+        have = {" ".join(v["text"].split()).lower() for v in variants}
+        listed = [{"text": v["text"], "seeds": dict(v.get("seeds") or {}),
+                   "uses": uses.get(" ".join(v["text"].split()).lower(), 0), "own": False} for v in variants]
+        listed += [{"text": t, "seeds": {}, "uses": uses.get(" ".join(t.split()).lower(), 0), "own": True}
+                   for t in c.add if " ".join(t.split()).lower() not in have]
+        more = bool(writer is not None and s.get("pool") and writer.busy(str(s["pool"])))
+        if more:
+            busy.append(sid)
+        view: Dict[str, Any] = {"kind": "variants", "state": slot_state(entry, s, writer), "more": more,
+                                "variants": listed, "options": [v["text"] for v in listed], "chosen": c.to_dict()}
+        if s.get("kind") == "person" and not s.get("degraded"):
+            record = (entry.get("seeds") or {}).get(sid) or {}
+            banks = {b.get("role"): b for b in record.get("banks") or []}
+            fits = (banks.get("descent") or {}).get("narrowed")
+            gfits = (banks.get("gender") or {}).get("narrowed")
+            view["person"] = person_pickers(variants, c, fits=fits if isinstance(fits, list) else None,
+                                            gender_fits=gfits if isinstance(gfits, list) else None)
+        out[sid] = view
+    return {"choices": out, "more": busy}
 
 
-def list_groups(leaf: Any, options: List[str]) -> Dict[str, Dict[str, List[str]]]:
-    """A list's groups for the picker's chips: {facet: {part: [options]}} for each of its local
-    facets, an option in every part it is tagged with, and the list's declared groups (descent's
-    heritages) as facet "group". Parts in the list's order, options in the order given; parts
-    no option is in are left out, and so is a part holding only the list's plain value (a face
-    part's "nothing notable" is an option, not a group). Empty for a list with more than
-    PARTS_MAX options."""
-    from prompt_programs.choices import GROUP, _tags
-    if len(options) > PARTS_MAX:
-        return {}
-    out: Dict[str, Dict[str, List[str]]] = {}
-    facets = [*leaf.local_facets.items(), *([(GROUP, tuple(leaf.groups))] if leaf.groups else [])]
-    for facet, names in facets:
-        parts = {str(n): [o for o in options if str(n) in _tags(leaf, o, facet)] for n in names}
-        parts = {n: os for n, os in parts.items() if os and not (leaf.plain and os == [leaf.plain])}
-        if parts:
-            out[facet] = parts
-    return out
-
-
-def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *, profile_id: Optional[str] = None,
-                 project_id: Optional[int] = None, store: Optional[OptionStore] = None,
-                 cfg: Optional[FluentSettings] = None, mine: Optional[Dict[str, List[str]]] = None,
-                 edits: Optional[Dict[str, Dict[str, Any]]] = None,
-                 zones: Optional[Dict[str, List[str]]] = None) -> Dict[str, Any]:
-    """The options each generated pick draws from now: its seeds plus whatever has been
-    generated, for the upstream values pinned (or drawn, when nothing upstream is pinned).
-    A pick's own pins don't narrow what it shows. Never calls a model (an unseen pool is
-    queued to fill, like any draw); `more` lists picks whose pools are still filling.
-    `zones` (choices.expand) are the zones chosen per slot pick: its options are theirs, and
-    `zones` in the answer holds every zone's options, for a free slot and for a bound pick
-    its slot's words narrowed (choices.bound_zones)."""
-    from prompt_programs.choices import bound_zones, free_zones
-    out: Dict[str, List[str]] = {}
-    more: List[str] = []
-    vocab: Dict[str, Dict[str, Any]] = {}
-    by_zone: Dict[str, Dict[str, List[str]]] = {}
-    if not has_draws(entry):
-        return {"options": out, "more": more, "vocab": vocab, "zones": by_zone}
-    rt = runtime_for(entry, profile_id=profile_id, project_id=project_id, store=store, cfg=cfg, mine=mine,
-                     edits=edits, zones=zones)
-    chosen = dict(rt.options.zones)
-    pins = {k: v for k, v in (pins or {}).items() if v}
-    generated = [c["id"] for c in entry.get("choices") or [] if c.get("kind") == "pick" and c.get("source") != "list"]
-    bound_cls = {c["id"]: c.get("cls") for c in entry.get("choices") or [] if c.get("cls")}
-    listed = {c["id"]: c.get("options") for c in entry.get("choices") or [] if c.get("cls")}
-    # A detail that starts left out (a hairstyle, a face's part) is drawn turned on to see its
-    # options. A face shows its parts' options, not a list of its own.
-    wholes = {str(c["part_of"]) for c in entry.get("choices") or [] if c.get("part_of")}
-    quiet = {c["id"] for c in entry.get("choices") or [] if c.get("starts_off") and c["id"] not in wholes}
-
-    def own_adds(cid: str) -> List[str]:   # options the user added in this choice's card
-        return [str(x) for x in ((rt.options.edits.get(cid) or {}).get("add") or [])]
-    def options_of(cid: str, others: Dict[str, Any], contexts: Optional[List[Any]] = None) -> List[str]:
-        seen: List[str] = []
-        for seed in range(POOL_DRAWS):
-            try:
-                res = _drawn(entry, 7919 * seed + 3, others, rt.options, {cid: {"on": True}} if cid in quiet else None)
-            except ProgramError:
-                continue
-            if cid in (res.more_coming or []) and cid not in more:
-                more.append(cid)
-            for d in res.draws:
-                if d.id == cid:
-                    seen.extend(o for o in d.options if o not in seen)
-            if contexts is not None:
-                contexts.extend(rt.options.drawn_context(cid))
-            rt.options.reset()
-        return seen
-
-    for cid in generated:
-        others = {k: v for k, v in pins.items() if k != cid}
-        contexts: List[Any] = []   # the context the pick's pool was drawn in, per draw (reach.py)
-        seen = options_of(cid, others, contexts)
-        free = free_zones(entry, cid)
-        # Each zone's pool on its own, then back to the zones chosen. A slot with its kinds alone
-        # has one zone, which the chooser doesn't name (choices.zone_titles): its options are its pool.
-        if free is not None and len(free) > 1:
-            for z in free:
-                rt.options.zones = {**chosen, cid: [z]}
-                by_zone.setdefault(cid, {})[z] = options_of(cid, others)[:60]
-            rt.options.zones = chosen
-        leaf = vocabulary().get(bound_cls.get(cid))
-        if leaf is not None and seen:
-            # A bound pick shows its whole list (the picker searches and groups it), each
-            # value's tier, and which values were generated to extend an open list. Opt-in
-            # values the user's words didn't ask for are drawn only when picked: their own group.
-            narrowed = [str(x) for x in (entry.get("filters") or {}).get(cid) or ()]
-            asked = set(narrowed)
-            # A narrowed list's rest is drawn only once ticked too (vocab.Leaf.pool_values).
-            tiers = {v.text: ("opt_in" if (v.opt_in or asked) and v.text not in asked else v.tier) for v in leaf.values}
-            # The user's own options kept for this list (additions.py) sit with the usual values,
-            # or with the values drawn only once picked where the choice's words decide.
-            mine_here = {o: held for o, held in rt.options.mine_shown.get(cid, {}).items() if o in seen}
-            tiers.update({o: "opt_in" if held else "typical" for o, held in mine_here.items()})
-            out[cid] = seen
-            vocab[cid] = {"cls": leaf.id, "label": leaf.label, "closed": leaf.closed,
-                          "tiers": {o: tiers.get(o, "generated") for o in seen}}
-            if len(leaf.values) > PARTS_MAX:
-                # A long list (thousands of faces) came with the prepared program's choice already:
-                # this answer is asked for again on every tick and while pools fill, so it carries
-                # only what the choice doesn't have, and only the tiers the picker acts on.
-                have = set(listed.get(cid) or ())
-                out[cid] = [o for o in seen if o not in have]
-                vocab[cid]["tiers"] = {o: t for o, t in vocab[cid]["tiers"].items() if t != "typical"}
-            if mine_here:
-                vocab[cid]["mine"] = list(mine_here)
-            groups = list_groups(leaf, seen)
-            if groups:
-                vocab[cid]["groups"] = groups
-            if leaf.browse in groups:
-                # The chooser opens on a row per part (descent's regions); the list's other
-                # groups (descent's heritages) stay on the wire for choices made of them before.
-                vocab[cid]["browse"] = leaf.browse
-            short = {o: leaf.short(o) for o in out[cid] if leaf.short(o) != o}
-            if short:
-                vocab[cid]["short"] = short
-            looks = {o: leaf.look(o) for o in out[cid] if leaf.look(o)}
-            if looks:
-                vocab[cid]["looks"] = looks
-            if bound_zones(entry, cid) is not None:
-                # Kinds: what the slot's words narrowed the list to; instead: the rest, as reach's "any".
-                keep = set(narrowed)
-                by_zone[cid] = {"kinds": [o for o in seen if o in keep and o not in mine_here],
-                                "instead": [o for o in seen if o not in keep and o not in mine_here
-                                            and (leaf.value(o) is None or not leaf.value(o).opt_in)]}
-            ch = next((c for c in entry.get("choices") or [] if c.get("id") == cid), {})
-            said = str(ch.get("said") or "")
-            where = ch.get("where")
-            words = str(ch.get("where_words") or (where if isinstance(where, str) else "") or "")
-            shown = vocab[cid]["tiers"]
-            reach = reach_of(leaf, seen, [o for o in seen if shown.get(o) == "opt_in"], [*mine_here, *own_adds(cid)],
-                             said=said, narrowed=narrowed, words=words, contexts=contexts)
-            # A long list keeps its plain row: its settings would name (and "Any" would tick)
-            # thousands of values.
-            if reach and len(leaf.values) <= PARTS_MAX:
-                vocab[cid]["reach"] = reach
-        elif seen:
-            out[cid] = seen[:60]
-    return {"options": out, "more": more, "vocab": vocab, "zones": by_zone}
-
-
-__all__ = ["Runtime", "attach_filler", "list_groups", "pool_options", "program_context", "runtime_for", "start_options"]
+__all__ = ["ENGINE", "Variants", "attach_filler", "attach_writer", "count_draw", "has_draws", "more_like_these",
+           "pool_view", "runtime_for", "slot_job", "slot_state", "start_pools"]

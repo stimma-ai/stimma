@@ -1,6 +1,5 @@
 """Fluent settings: config.yaml's `fluent:` section, read the way the draw code uses it.
 
-    generate_options: true             STIMMA_FLUENT_GENERATE    (background option generation)
     fix_model: default                 STIMMA_FLUENT_FIX_MODEL   (the judge that checks each finished draw and
                                                                   rerolls what it refuses: "default" is the Tool
                                                                   View model (prompt_programs.llm_judge); "" or
@@ -22,7 +21,6 @@ from typing import Any, Dict
 
 @dataclass(frozen=True)
 class FluentSettings:
-    generate_options: bool = True
     fix_model: str = "default"  # the fix judge (prompt_programs.fix.fix_mode): default | off | a model directory
     fix_cut: float = 0.0     # 0: the cut the model directory names
     fix_rounds: int = 4
@@ -47,10 +45,8 @@ def settings() -> FluentSettings:
     for f, var in _ENV.items():
         if os.environ.get(var):
             fields[f] = os.environ[var]
-    if os.environ.get("STIMMA_FLUENT_GENERATE"):
-        fields["generate_options"] = os.environ["STIMMA_FLUENT_GENERATE"].lower() not in ("0", "false", "no", "off")
     out = FluentSettings(**fields)
-    return FluentSettings(bool(out.generate_options), str(out.fix_model or "").strip(), float(out.fix_cut or 0.0),
+    return FluentSettings(str(out.fix_model or "").strip(), float(out.fix_cut or 0.0),
                           max(0, int(out.fix_rounds if out.fix_rounds is not None else 4)), int(out.fix_threads or 0))
 
 

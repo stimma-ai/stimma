@@ -58,17 +58,22 @@ llms: {}
 
 @pytest.fixture(scope="session", autouse=True)
 def no_fluent_background_generation():
-    """Fluent draws never generate options in the background or call a judge during
-    tests: sync tests resolve to whatever profile and config the machine has, and a
-    queued fill or a configured judge server must never be reached from there, and the
-    pinned fix judge never starts its download. Tests of generation and judging pass
-    their own store, filler, judge and settings."""
-    pinned = {"STIMMA_FLUENT_GENERATE": "0", "STIMMA_FLUENT_JUDGE": "none",
+    """Fluent never writes variants with a real model or calls a judge during tests: sync
+    tests resolve to whatever profile and config the machine has, and a queued write or a
+    configured judge server must never be reached from there, and the pinned fix judge never
+    starts its download. Tests of writing and judging pass their own writer, judge and settings."""
+    from prompt_programs import variant_pools
+
+    async def no_model(*args, **kwargs):
+        raise RuntimeError("no chat model in tests")
+    was_ask, variant_pools.ASK = variant_pools.ASK, no_model   # a profile's pool writes fail: slots stand as written
+    pinned = {"STIMMA_FLUENT_JUDGE": "none",
               # the pinned pick judge (fix_model: default) is never fetched from settings()
               "STIMMA_FLUENT_FIX_MODEL": "off"}
     old = {k: os.environ.get(k) for k in pinned}
     os.environ.update(pinned)
     yield
+    variant_pools.ASK = was_ask
     for k, v in old.items():
         if v is None:
             os.environ.pop(k, None)

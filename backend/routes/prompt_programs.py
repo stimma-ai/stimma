@@ -13,8 +13,8 @@ log = get_logger(__name__)
 router = APIRouter(prefix="/api/prompt-programs", tags=["prompt-programs"])
 
 # What a slot and a choice say to the editor (the program text itself stays server-side unless asked for).
-_SLOT_KEYS = ("id", "n", "kind", "label", "words", "span", "line", "details", "stated", "degraded", "state")
-_CHOICE_KEYS = ("id", "kind", "label", "cls", "options", "follows", "parent", "when", "starts_off", "part_of")
+_SLOT_KEYS = ("id", "n", "kind", "label", "words", "span", "line", "stated", "degraded", "state")
+_CHOICE_KEYS = ("id", "kind", "label", "options", "slot")
 
 
 class PrepareRequest(BaseModel):
@@ -80,14 +80,17 @@ async def _prepare(req: PrepareRequest) -> Optional[Dict[str, Any]]:
 
 
 def public(entry: Dict[str, Any], prompt: str) -> Dict[str, Any]:
-    """A prepared slot program as the editor reads it: its slots (spans in the prompt as typed),
-    their choices and the user's lists, and an example."""
-    from prompt_programs.choices import zone_titles
+    """A prepared prompt as the editor reads it: its slots (spans in the prompt as typed, each
+    with its state: reading, writing, ready or as_written), one choice per slot and per user
+    list (stimma-plans VARIANTS_IMPL.md section 4)."""
+    from prompt_programs.fluent import _writer, slot_state
     from prompt_programs.slots import raw_spans
+    writer = _writer(get_current_profile())
     slots = []
     for s, raw in zip(entry.get("slots") or [], raw_spans(prompt, entry)):
         out = {k: s[k] for k in _SLOT_KEYS if k in s}
         out["span"], out["line"] = (list(raw[0]), raw[1]) if raw else (None, None)
+        out["state"] = slot_state(entry, s, writer)
         slots.append(out)
     # Which part of the program the editor showed each one is (slots.prepare's `was`): the
     # editor moves what was chosen, and the options it shows, over to the part's id here.
@@ -96,21 +99,13 @@ def public(entry: Dict[str, Any], prompt: str) -> Dict[str, Any]:
     for out in slots:
         if out["id"] in ids:
             out["was"] = ids[out["id"]]
-    owner = {d: s["id"] for s in entry.get("slots") or [] for d in s.get("details") or []}
     choices = []
     for c in entry.get("choices") or []:
-        if c.get("hidden"):
-            continue
         out = {k: c[k] for k in _CHOICE_KEYS if k in c}
-        zones = zone_titles(entry, c["id"])
-        if zones:
-            out["zones"] = zones
-        if c["id"] in owner:
-            out["slot"] = owner[c["id"]]
-        elif c.get("source") == "list":
+        if c.get("source") == "list":
             out.update(source="list", line=c.get("line"))
-            if c["id"] in ids:
-                out["was"] = ids[c["id"]]
+        if c["id"] in ids:
+            out["was"] = ids[c["id"]]
         choices.append(out)
     return {"key": entry.get("key"), "slots": slots, "choices": choices,
             "reading": bool(entry.get("reading")), "working": bool(entry.get("working")),
@@ -124,13 +119,13 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
         return {"key": None, "unsupported": entry["unsupported"]}
     if not entry.get("key"):   # nothing in the prompt varies
         return {"key": None, "slots": [], "choices": []}
-    # Readings that land start their option pools (slots._settle); a pool not filled yet
-    # queues as draws reach it.
+    # Readings and seeds that land start their pools (slots._settle); a slot whose pool isn't
+    # written yet stands as its words.
     out = public(entry, req.prompt)
-    if req.include_program:   # the dev dialog: what each part was read as, its picks, and one draw
+    if req.include_program:   # the dev dialog: what each part was read as, its seeds, and one draw
         from prompt_programs.program import realize
         out["readings"] = entry.get("readings")
-        out["picks"] = entry.get("picks")
+        out["seeds"] = entry.get("seeds")
         try:
             out["example"] = realize(entry, seed=0, profile_id=get_current_profile(), project_id=req.project_id).prompt
         except Exception as e:
@@ -139,11 +134,13 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
 
 
 class OptionsRequest(PrepareRequest):
+    # The slot to write more variants for (More like these).
     choice_id: str
-    # The options the card shows now (after the user's edits), so new ones differ.
+    # What the user chose (their picked seeds steer the batch).
+    choices: Dict[str, Any] = Field(default_factory=dict)
+    # Ignored for a slot; kept so older clients' requests still parse.
     existing: List[str] = Field(default_factory=list, max_length=200)
     count: int = 6
-    # One of the choice's zones ("kinds", "instead"): options for that zone.
     zone: Optional[str] = None
 
 
@@ -161,13 +158,16 @@ async def _shown(req: PrepareRequest) -> Optional[Dict[str, Any]]:
 
 @router.post("/options")
 async def options(req: OptionsRequest) -> Dict[str, Any]:
-    """New options for one choice (the card's More like these and Reroll all)."""
-    from prompt_programs.options import suggest_options
+    """More like these: one more batch of variants for a slot, awaited; the new ones."""
+    from prompt_programs.choices import expand
+    from prompt_programs.fluent import more_like_these
     entry = await _shown(req)
     if entry is None or entry.get("unsupported"):
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
+    _, _, chosen = expand(entry, req.choices)
     try:
-        out = await suggest_options(entry, req.choice_id, req.existing, req.count, req.project_id, zone=req.zone)
+        out = await more_like_these(entry, req.choice_id, profile_id=get_current_profile(), project_id=req.project_id,
+                                    chosen=chosen)
     except Exception as e:
         http = program_http_error(e, failed="options_failed")
         if http is None:
@@ -178,70 +178,17 @@ async def options(req: OptionsRequest) -> Dict[str, Any]:
 
 @router.post("/pools")
 async def pools(req: PreviewRequest) -> Dict[str, Any]:
-    """What each generated choice's picker shows, per choice: its options (seeds plus those
-    generated so far, for the zones chosen), each zone's options, its list's groups, tiers, the
-    user's own options and short forms, and whether more are being written."""
-    import asyncio
+    """What each slot's picker shows: its state, its variants with their seeds and use counts,
+    the user's own, the choice as read, and for a person the descent and gender pickers
+    (VARIANTS_IMPL.md section 4). Starts the writes it needs; never waits on a model."""
     from prompt_programs.choices import expand
-    from prompt_programs.fluent import attach_filler, pool_options
+    from prompt_programs.fluent import attach_writer, pool_view
     entry = await _shown(req)
     if entry is None or entry.get("unsupported"):
         return {"choices": {}, "more": []}
-    attach_filler(entry, get_current_profile())
-    pins, edits, zones = expand(entry, req.choices)
-    got = await asyncio.to_thread(pool_options, entry, pins, edits=edits, zones=zones, profile_id=get_current_profile(),
-                                  project_id=req.project_id)
-    out: Dict[str, Any] = {}
-    for cid, options in got["options"].items():
-        out[cid] = {"options": options, "more": cid in got["more"], **got["vocab"].get(cid, {})}
-        if got["zones"].get(cid):
-            out[cid]["zones"] = got["zones"][cid]
-    return {"choices": out, "more": got["more"]}
-
-
-class AdditionRequest(BaseModel):
-    # The vocabulary list the choice is bound to (its `cls`, e.g. "person.hairstyle").
-    cls: str = Field(max_length=200)
-    text: str = Field(max_length=2000)
-
-
-def _addition_list(req: AdditionRequest) -> str:
-    from prompt_programs.additions import list_id
-    lid = list_id(req.cls)
-    if lid is None:
-        raise HTTPException(status_code=422, detail={"code": "not_a_list",
-                                                     "message": "This choice's options aren't kept for later prompts."})
-    return lid
-
-
-@router.get("/additions")
-async def list_additions() -> Dict[str, Any]:
-    """The user's own options kept for each vocabulary list, offered by every later prompt."""
-    from prompt_programs.additions import additions_for
-    return {"lists": additions_for(get_current_profile()).lists()}
-
-
-@router.post("/additions")
-async def add_addition(req: AdditionRequest) -> Dict[str, Any]:
-    """Keep an option the user added to a choice bound to a list, for every later prompt."""
-    from prompt_programs.additions import MAX_TEXT, additions_for, clean_text
-    lid = _addition_list(req)
-    text = clean_text(req.text)
-    if not text or len(text) > MAX_TEXT:
-        raise HTTPException(status_code=422, detail={"code": "bad_option", "message": "An option is a few words."})
-    store = additions_for(get_current_profile())
-    added = store.add(lid, text)
-    return {"list": lid, "added": added, "options": store.of(lid)}
-
-
-@router.post("/additions/remove")
-async def remove_addition(req: AdditionRequest) -> Dict[str, Any]:
-    """Forget an option the user had kept for a list."""
-    from prompt_programs.additions import additions_for
-    lid = _addition_list(req)
-    store = additions_for(get_current_profile())
-    removed = store.remove(lid, req.text)
-    return {"list": lid, "removed": removed, "options": store.of(lid)}
+    attach_writer(entry, get_current_profile())
+    _, _, chosen = expand(entry, req.choices)
+    return pool_view(entry, chosen, profile_id=get_current_profile(), project_id=req.project_id)
 
 
 @router.get("/vocabulary")
@@ -262,13 +209,13 @@ async def preview(req: PreviewRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "This prompt isn't prepared yet."})
     try:
         from prompt_programs.fix import await_judge
-        from prompt_programs.fluent import attach_filler
-        attach_filler(entry, get_current_profile())
+        from prompt_programs.fluent import attach_writer
+        attach_writer(entry, get_current_profile())
         await await_judge(entry, project_id=req.project_id)
         # In a thread: a judge on CPU must not hold up the event loop.
-        pins, edits, zones = expand(entry, req.choices)
+        pins, edits, chosen = expand(entry, req.choices)
         result, fix = await asyncio.to_thread(realize_and_fix, entry, seed=draw_seed(req.seed), pins=pins,
-                                              edits=edits, zones=zones, profile_id=get_current_profile(),
+                                              edits=edits, chosen=chosen, profile_id=get_current_profile(),
                                               project_id=req.project_id)
     except DrawAborted as e:  # e.g. "Nothing left to draw for Hairstyle": shown at the choice
         raise HTTPException(status_code=422, detail=e.to_dict()) from None

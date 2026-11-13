@@ -665,7 +665,7 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
                     profile_id: Optional[str] = None, project_id: Optional[int] = None,
                     revision: Optional[Dict[str, Any]] = None, cfg: Any = None,
                     judge: Any = None, canceled: Optional[Callable[[], bool]] = None,
-                    zones: Optional[Dict[str, List[str]]] = None) -> Tuple[Any, Optional[Dict[str, Any]]]:
+                    chosen: Optional[Dict[str, Any]] = None) -> Tuple[Any, Optional[Dict[str, Any]]]:
     """realize(), then the fix pass when a fix judge is set (fix_model) and the program
     has pick specs. An exact replay (`revision`) is never fixed. Returns the result and
     the fix record (None when no fix ran; {"judge", "skipped", "error"} when the pinned
@@ -674,10 +674,10 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
     if revision:
         from prompt_programs.program import realize
         return realize(entry, seed=seed, pins=pins, fixed=fixed, edits=edits,
-                       profile_id=profile_id, project_id=project_id, revision=revision, zones=zones), None
+                       profile_id=profile_id, project_id=project_id, revision=revision, chosen=chosen), None
     out = realize_and_fix_many(entry, seeds=[seed], pins=pins, fixed=fixed, edits=edits,
                                profile_id=profile_id, project_id=project_id, cfg=cfg, judge=judge,
-                               canceled=canceled, zones=zones)[0]
+                               canceled=canceled, chosen=chosen)[0]
     if isinstance(out, Exception):
         raise out
     return out
@@ -688,7 +688,7 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
                          profile_id: Optional[str] = None, project_id: Optional[int] = None,
                          cfg: Any = None, judge: Any = None,
                          canceled: Optional[Callable[[], bool]] = None,
-                         zones: Optional[Dict[str, List[str]]] = None) -> List[Any]:
+                         chosen: Optional[Dict[str, Any]] = None) -> List[Any]:
     """realize_and_fix() for several seeds of one program, their fix loops sharing each
     judge pass. Per seed: (result, fix record or None), exactly what realize_and_fix
     gives for that seed alone, or the exception its draw raised. Blocking.
@@ -698,9 +698,13 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
     from prompt_programs.judge import settings
     from prompt_programs.program import realize
 
+    from prompt_programs.fluent import runtime_for
+    # One runtime for the batch: each first draw is noted, so the next takes another variant.
+    rt = runtime_for(entry, chosen=chosen, profile_id=profile_id, project_id=project_id)
+
     def draw_once(s: int, fx: Optional[Dict[str, Any]], ed: Optional[Dict[str, Any]]) -> Any:
         return realize(entry, seed=s, pins=pins, fixed=fx, edits=ed, profile_id=profile_id,
-                       project_id=project_id, unmask=False, zones=zones)
+                       project_id=project_id, unmask=False, runtime=rt)
 
     exact = entry.get("exact") or {}
 
@@ -715,6 +719,7 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
     for s in seeds:
         try:
             out.append(draw_once(s, fixed, edits))
+            rt.note(entry, out[-1])
         except Exception as e:
             out.append(e)
     drawn = [i for i, r in enumerate(out) if not isinstance(r, Exception)]

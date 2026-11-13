@@ -169,13 +169,13 @@ def no_tools_error(e: Exception) -> bool:
 # --------------------------------------------------------------------------- after a prepare
 
 def on_prepared(entry: Dict[str, Any], *, project_id: Optional[int], profile_id: Optional[str]) -> None:
-    """Called once a program is stored: start filling its option pools in the background.
+    """Called once a program is stored: start writing its pools in the background.
     Never blocks, never fails the prepare."""
     try:
-        from prompt_programs.fluent import start_options
-        start_options(entry, profile_id=profile_id, project_id=project_id)
+        from prompt_programs.fluent import start_pools
+        start_pools(entry, profile_id=profile_id, project_id=project_id)
     except Exception as e:
-        log.warning(f"[prompt-program] starting the option pools failed for {entry.get('key')}: {e}")
+        log.warning(f"[prompt-program] starting the pools failed for {entry.get('key')}: {e}")
 
 
 # --------------------------------------------------------------------------- one generation's draw
@@ -195,20 +195,21 @@ def realize(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str, Any]] 
             fixed: Optional[Dict[str, Any]] = None, edits: Optional[Dict[str, Any]] = None,
             profile_id: Optional[str] = None, project_id: Optional[int] = None,
             revision: Optional[Dict[str, Any]] = None, runtime: Any = None, unmask: bool = True,
-            zones: Optional[Dict[str, List[str]]] = None) -> RunResult:
-    """One generation's prompt from a prepared entry (slots.prepare), drawn with the options
-    its picks have now (prompt_programs.fluent). Pass a recorded `revision` to replay its
-    pools, or a `runtime` to draw with a given options service (evaluations, tests).
-    unmask=False leaves [exact text] as its [EXACT_n] tokens, for steps a model reads (the fix
-    judge); put it back with unmask_exact(prompt, entry["exact"]). `zones`: the zones chosen
-    per slot pick (choices.expand). The result's `spans` say where each drawn value stands."""
+            chosen: Optional[Dict[str, Any]] = None) -> RunResult:
+    """One generation's prompt from a prepared entry (slots.prepare), each slot drawn from its
+    pool of variants (prompt_programs.fluent). `chosen`: each slot's Choice (choices.expand);
+    `pins` and `edits`: the user lists' (and the judge's removals). Pass a recorded `revision` to
+    replay its texts, or a `runtime` to draw with a given Variants (a batch, evaluations,
+    tests). unmask=False leaves [exact text] as its [EXACT_n] tokens, for steps a model reads (the
+    judge); put it back with unmask_exact(prompt, entry["exact"]). The result's `spans` say where
+    each drawn value stands."""
     from prompt_programs.fill import fill
     from prompt_programs.fluent import runtime_for
     clean_pins = {str(k): [str(x) for x in (v if isinstance(v, list) else [v])] for k, v in (pins or {}).items() if v}
     clean_edits = {str(k): v for k, v in (edits or {}).items() if isinstance(v, dict)}
-    rt = runtime or runtime_for(entry, edits=clean_edits, profile_id=profile_id, project_id=project_id,
-                                revision=revision, zones=zones)
-    result = fill(entry, seed, clean_pins, fixed or None, clean_edits or None, options=rt.options)
+    rt = runtime or runtime_for(entry, chosen=chosen, profile_id=profile_id, project_id=project_id, revision=revision)
+    held = {**getattr(rt, "fixed", {}), **(fixed or {})}
+    result = fill(entry, seed, clean_pins, held or None, clean_edits or None, options=rt)
     if unmask and entry.get("exact"):  # the user's [exact text], straight to the image model
         result.prompt = unmask_exact(result.prompt, entry["exact"])
     return result
