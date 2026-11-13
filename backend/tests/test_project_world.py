@@ -574,12 +574,10 @@ class TestAgentShowAttaches:
 @pytest.fixture
 def isolated_dirs(monkeypatch, tmp_path):
     """Keep chat and project workspaces under this test's temp dir."""
-    import agent.v2.workspace as workspace
-    import project_service
+    import app_dirs
 
-    monkeypatch.setattr(project_service, "get_data_dir", lambda *a, **k: tmp_path)
-    monkeypatch.setattr(workspace, "get_data_dir", lambda *a, **k: tmp_path)
-    monkeypatch.setattr(workspace, "get_cache_dir", lambda *a, **k: tmp_path / "cache")
+    monkeypatch.setattr(app_dirs, "get_data_dir", lambda *a, **k: tmp_path)
+    monkeypatch.setattr(app_dirs, "get_cache_dir", lambda *a, **k: tmp_path / "cache")
     return tmp_path
 
 
