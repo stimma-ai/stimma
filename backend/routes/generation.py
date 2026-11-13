@@ -672,16 +672,13 @@ async def _apply_generation_prompt_pipeline(
     fixed_spans: Optional[List[Tuple[int, int, str]]] = None
     outcome: Optional[Dict[str, Any]] = None
     program_opts = (prompt_options or {}).get("program")
-    if not raw and isinstance(program_opts, dict) and program_opts.get("enabled") and ctx["program_supported"]:
+    fluent = not raw and isinstance(program_opts, dict) and bool(program_opts.get("enabled")) and ctx["program_supported"]
+    if fluent:
         # Fluent: the prompt's slots and lists are drawn for this image (none: it goes as
         # written), then the per-image improver writes it for the model at the Detail
         # level, keeping every drawn value exactly. Its Detail level is Enhance's setting:
         # off is Yours, "fill" Medium, anything else on High.
         level = ("fill" if auto_improve.get("level") == "fill" else "expand") if enhance_on else "off"
-        program_run, prompt, fixed_spans = await _run_slots(
-            prompt, program_opts, project_id=project_id, profile_id=profile_id,
-            hot_draws_for=generator_instance_id if forever else None,
-        )
         prompt_options = {**(prompt_options or {}), "autoImprove": {**auto_improve, "enabled": True, "level": level}}
         enhance_on = True
         outcome = {}
@@ -689,21 +686,43 @@ async def _apply_generation_prompt_pipeline(
         effective_preload = None
     lora_context = (_shape_lora_context(await lora_context_for(tool_id, parameters, profile_id), lora_triggers, lora_notes)
                     if enhance_on else None)
-    processed_prompt = await run_prompt_pipeline(
-        db,
-        prompt,
-        prompt_options,
+    pipeline = dict(
+        prompt_options=prompt_options,
         model=model,
         model_vendor=model_vendor,
         lora_context=lora_context,
         **ctx["enhance"],
         profile_id=profile_id,
         project_id=project_id,
-        prompt_preload=effective_preload,
-        fixed_spans=fixed_spans,
         level=level,
-        outcome=outcome,
     )
+    ahead: Dict[str, Any] = {}
+    if fluent:
+        # Generate forever: the pool's draws come improved ahead, under a signature of
+        # everything the improved text depends on.
+        improve_ahead = None
+        if forever and generator_instance_id:
+            improve_ahead = {"signature": await improve_signature(pipeline, ctx["mode"]), "pipeline": pipeline}
+        program_run, prompt, fixed_spans = await _run_slots(
+            prompt, program_opts, project_id=project_id, profile_id=profile_id,
+            hot_draws_for=generator_instance_id if forever else None,
+            improve_ahead=improve_ahead, ahead=ahead,
+        )
+    if ahead:
+        log.info("[prompt-program] hot draw, improved ahead: no model call at submit")
+        processed_prompt = ahead["sent"]
+        outcome = ahead["improve"]
+    else:
+        settings = {k: v for k, v in pipeline.items() if k != "prompt_options"}
+        processed_prompt = await run_prompt_pipeline(
+            db,
+            prompt,
+            prompt_options,
+            prompt_preload=effective_preload,
+            fixed_spans=fixed_spans,
+            outcome=outcome,
+            **settings,
+        )
 
     updated = dict(parameters)
     updated["prompt"] = processed_prompt
@@ -764,6 +783,8 @@ async def _run_slots(
     project_id: Optional[int],
     profile_id: Optional[str],
     hot_draws_for: Optional[str] = None,
+    improve_ahead: Optional[Dict[str, Any]] = None,
+    ahead: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Optional[Dict[str, Any]], str, Optional[List[Tuple[int, int, str]]]]:
     """One image's draw of its prompt's slots and lists: (the record stored with the image,
     the filled prompt, where each drawn value stands in it). The filled prompt is the
@@ -771,7 +792,10 @@ async def _run_slots(
     place, for the improver. A prompt with nothing that varies has no program: (None, the
     prompt as written, None). The slots can't be read (the chat model unreachable, or its
     reading unusable): a 424, and nothing is generated. `hot_draws_for`: a forever-mode
-    submit's generator instance, served a draw its pool made ahead when one is current."""
+    submit's generator instance, served a draw its pool made ahead when one is current.
+    `improve_ahead` ({"signature", "pipeline"}: improve_signature and the run_prompt_pipeline
+    arguments) has the pool improve its draws too; a draw served improved fills `ahead`
+    with the prompt to send ("sent") and what the improver did ("improve")."""
     from llm_resolver import LLMUnavailableError
     from prompt_programs.choices import expand, kept
     from prompt_programs.fix import await_judge, prompt_view, realize_and_fix
@@ -795,9 +819,11 @@ async def _run_slots(
         hot = None
         if hot_draws_for and program_opts.get("draw_seed") is None and not fixed:
             hot = _take_hot_draw(hot_draws_for, entry, pins=pins, edits=edits, zones=zones,
-                                 profile_id=profile_id, project_id=project_id)
+                                 profile_id=profile_id, project_id=project_id, improve_ahead=improve_ahead)
         if hot is not None:
             result, fix = hot["result"], hot["fix"]
+            if ahead is not None and isinstance(hot.get("sent"), str):
+                ahead.update(sent=hot["sent"], improve=hot.get("improve") or {})
         else:
             # In a thread: a judge on CPU must not hold up the event loop.
             result, fix = await asyncio.to_thread(
@@ -834,11 +860,13 @@ def _additions_version(profile_id: Optional[str]) -> Optional[str]:
 
 
 def hot_draw_signature(entry: Dict[str, Any], *, pins: Dict[str, Any], edits: Dict[str, Any],
-                       zones: Dict[str, Any], profile_id: Optional[str], project_id: Optional[int]) -> str:
+                       zones: Dict[str, Any], profile_id: Optional[str], project_id: Optional[int],
+                       improve: Optional[str] = None) -> str:
     """Everything a Fluent draw is made from: the prepared program as committed, the
     pins, edits and zones the choices expand to, the profile and project, and the Fluent
-    settings (judges, cut, rounds, knobs). A hot draw is served only to a submit with the
-    same signature."""
+    settings (judges, cut, rounds, knobs); and, for a pool that improves its draws ahead,
+    everything the improved text depends on (`improve`, from improve_signature). A hot
+    draw is served only to a submit with the same signature."""
     import dataclasses
     import hashlib
     from prompt_programs.fix import judge_identity
@@ -853,24 +881,73 @@ def hot_draw_signature(entry: Dict[str, Any], *, pins: Dict[str, Any], edits: Di
         "judge": judge_identity(cfg, project_id),
         # the user's options kept per list: a draw made before one was added never serves after
         "additions": _additions_version(profile_id),
+        "improve": improve,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
 
+async def improve_signature(pipeline: Dict[str, Any], mode: str) -> str:
+    """Everything the per-image improver's text depends on, besides the draw itself:
+    the prompt options (Detail level, instructions, translation, LoRA choices), the image
+    model, its family and mode, the guide text for that mode and level, the length target,
+    the generation's own context (canvas, video/audio, input images), the LoRAs as the
+    improver is told them, the profile's wildcards and segments, and the chat model that
+    writes it. `pipeline` is the run_prompt_pipeline arguments."""
+    import hashlib
+    from model_family import model_family
+    from prompt_pipeline import _profile_wildcards_and_segments, prompt_sources_signature
+    from prompt_programs.program import model_fingerprint
+    from routes.prompt_enhancement import guide_template, length_target
+
+    options = {k: v for k, v in (pipeline.get("prompt_options") or {}).items() if k != "program"}
+    level = pipeline.get("level")
+    family = model_family(pipeline.get("model"))
+    guides = [guide_template(mode, fill=level == "off")]
+    if pipeline.get("media_id") is not None and mode in _IMAGE_LED_GUIDES:
+        guides.append(get_prompt("prompt_enhancement", _IMAGE_LED_GUIDES[mode]) or "")
+    project_id = pipeline.get("project_id")
+    payload = {
+        "options": options,
+        "level": level,
+        "model": pipeline.get("model"),
+        "model_vendor": pipeline.get("model_vendor"),
+        "family": family,
+        "mode": mode,
+        "guide": hashlib.sha256("\n\0".join(guides).encode()).hexdigest(),
+        "target": length_target(mode, level, family),
+        "context": {k: v for k, v in pipeline.items()
+                    if k not in ("prompt_options", "lora_context", "model", "model_vendor", "level")},
+        "lora": pipeline.get("lora_context"),
+        "sources": prompt_sources_signature(*_profile_wildcards_and_segments(pipeline.get("profile_id"))),
+        "writer": await model_fingerprint(project_id),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+
+
+# The guides a video mode switches to when it is shown the source frame (style_guide).
+_IMAGE_LED_GUIDES = {
+    "cinematography": "improve_cinematography_image_system_prompt",
+    "ltx-2.5": "improve_ltx_25_image_system_prompt",
+}
+
+
 def _take_hot_draw(generator_instance_id: str, entry: Dict[str, Any], *, pins: Dict[str, Any],
                    edits: Dict[str, Any], zones: Dict[str, Any], profile_id: Optional[str],
-                   project_id: Optional[int]) -> Optional[Dict[str, Any]]:
-    """A current hot draw for this forever submit, or None to draw inline. A broken pool
-    never costs the submit."""
+                   project_id: Optional[int], improve_ahead: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    """A current hot draw for this forever submit, or None to draw inline. With
+    `improve_ahead` the pool improves each draw as well (an entry then has "sent" and
+    "improve"). A broken pool never costs the submit."""
     import copy
     from generation_queue import get_generation_queue
     try:
         signature = hot_draw_signature(entry, pins=pins, edits=edits, zones=zones, profile_id=profile_id,
-                                       project_id=project_id)
+                                       project_id=project_id,
+                                       improve=(improve_ahead or {}).get("signature"))
 
         def spec() -> Dict[str, Any]:  # a copy the pool keeps while this signature is current
             return copy.deepcopy({"entry": entry, "pins": pins, "edits": edits, "zones": zones,
-                                  "profile_id": profile_id, "project_id": project_id})
+                                  "profile_id": profile_id, "project_id": project_id,
+                                  "improve": (improve_ahead or {}).get("pipeline")})
         return get_generation_queue().take_fluent_draw(generator_instance_id, signature, spec)
     except Exception as e:
         log.warning(f"Fluent hot draws: take failed for {generator_instance_id}: {e}")

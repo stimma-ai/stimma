@@ -779,10 +779,11 @@ class GenerationQueue:
 
     # --- Fluent hot draws ------------------------------------------------------
     #
-    # The same pool, holding finished Fluent draws (drawn and judged) instead of
-    # enhanced prompts, so a forever-mode submit never waits on the fix judge. Its
-    # intent is set by the forever submits themselves: each one names exactly what
-    # it draws (the prepared program, pins, fixed values, edits, settings) as a
+    # The same pool, holding finished Fluent draws (drawn, judged and, when the submit
+    # asks, improved) instead of enhanced prompts, so a forever-mode submit waits on
+    # neither the fix judge nor the improver. Its intent is set by the forever submits
+    # themselves: each one names exactly what it draws (the prepared program, pins,
+    # fixed values, edits, settings) and what its improved text depends on as a
     # signature. A draw is served only to a submit with the same signature; any
     # other signature tosses the pool and refills it for the new one. It lives and
     # dies with the forever-mode registration like the enhance pool (no TTL: a long
@@ -823,7 +824,9 @@ class GenerationQueue:
 
     async def _refill_fluent_draws(self, generator_instance_id: str, intent: Dict[str, Any]) -> None:
         """Background task body: draw and judge what the pool is missing, all in one
-        batch, until it's full or its intent has moved on (then the work is dropped)."""
+        batch, until it's full or its intent has moved on (then the work is dropped).
+        When the intent carries the improver's arguments (spec "improve"), each draw is
+        also improved before it joins the pool, so a submit that takes it calls no model."""
         from prompt_programs.fix import await_judge, realize_and_fix_many
         from prompt_programs.fluent import attach_filler
         from prompt_programs.program import draw_seed
@@ -851,9 +854,35 @@ class GenerationQueue:
             if self._prompt_warm_intent.get(generator_instance_id) is not intent:
                 return  # the program, pins or settings changed meanwhile: drop it
             good = [{'result': m[0], 'fix': m[1], 'seed': s} for s, m in zip(seeds, made) if not isinstance(m, Exception)]
-            self._prompt_warm_ready.setdefault(generator_instance_id, []).extend(good)
             if not good:
                 return  # nothing draws (a pin nothing satisfies): submits say why inline
+            for hot in good:
+                if spec.get('improve') is not None:
+                    await self._improve_fluent_draw(generator_instance_id, hot, spec)
+                if self._prompt_warm_intent.get(generator_instance_id) is not intent:
+                    return  # moved on while this one was being improved: drop it
+                self._prompt_warm_ready.setdefault(generator_instance_id, []).append(hot)
+
+    async def _improve_fluent_draw(self, generator_instance_id: str, hot: Dict[str, Any],
+                                   spec: Dict[str, Any]) -> None:
+        """The per-image improver on one pooled draw, as a submit would run it: sets the
+        draw's "sent" prompt and "improve" record. A failure leaves the draw unimproved,
+        and the submit that takes it improves it inline."""
+        from prompt_pipeline import run_prompt_pipeline
+        from prompt_programs.program import spans_of
+
+        outcome: Dict[str, Any] = {}
+        settings = {k: v for k, v in spec['improve'].items() if k != 'prompt_options'}
+        try:
+            sent = await run_prompt_pipeline(
+                self._get_db(spec.get('profile_id')), hot['result'].prompt, spec['improve'].get('prompt_options'),
+                fixed_spans=spans_of(hot['result']), outcome=outcome, **settings)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            log.warning(f"Fluent hot draws: improving ahead failed for {generator_instance_id}: {e}")
+            return
+        hot['sent'], hot['improve'] = sent, outcome
 
     def teardown_prompt_warm_pool(self, generator_instance_id: str) -> None:
         self._cancel_prompt_warm_tasks(generator_instance_id)

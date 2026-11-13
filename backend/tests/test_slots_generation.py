@@ -61,12 +61,12 @@ def tool(monkeypatch, profile):  # noqa: F811
     return asked
 
 
-async def _submit(prompt=PORCH_PROMPT, *, level="expand", choices=None, **program):
+async def _submit(prompt=PORCH_PROMPT, *, level="expand", choices=None, forever=False, **program):
     auto = {"enabled": level != "off", **({"level": level} if level != "off" else {})}
     options = {"autoImprove": auto, "program": {"enabled": True, "choices": choices or {}, **program}}
     return await gen._apply_generation_prompt_pipeline(
         {"prompt": prompt, "seed": 1}, tool_id="t", task_type="text-to-image", prompt_options=options,
-        prompt_preload=None)
+        prompt_preload=None, generator_instance_id="gen-1" if forever else None, forever=forever)
 
 
 async def test_each_image_draws_its_slots_then_is_improved_with_its_values_kept(tool, monkeypatch):
@@ -159,3 +159,129 @@ async def test_draws_are_their_own_seed_never_the_images(tool, monkeypatch):
     assert len(set(fresh)) > 1
     a, b = (await _submit(draw_seed=7))["prompt_program"], (await _submit(draw_seed=7))["prompt_program"]
     assert a["draw_seed"] == b["draw_seed"] == 7 and a["draws"] == b["draws"]
+
+
+# --------------------------------------------------------------------------- generate forever improves ahead
+
+@pytest.fixture
+def forever_queue(monkeypatch):
+    """A queue with "gen-1" registered for generate forever (two slots), its pool's
+    improver writing through the test's fake database."""
+    from generation_queue import GenerationQueue
+
+    q = GenerationQueue()
+    q._forever_mode_clients = {"backend-a": {"gen-1": 2}}
+    monkeypatch.setattr(q, "_get_db", lambda profile_id=None: SimpleNamespace(async_session_maker=_Session))
+    monkeypatch.setattr("generation_queue.get_generation_queue", lambda: q)
+    return q
+
+
+async def _settle(q, gid="gen-1"):
+    import asyncio
+    for _ in range(200):
+        tasks = list(q._prompt_warm_tasks.get(gid, ()))
+        if not tasks:
+            return
+        await asyncio.gather(*tasks, return_exceptions=True)
+    raise AssertionError("refill never settled")
+
+
+async def test_generate_forever_sends_a_pooled_prompt_improved_ahead(tool, forever_queue, monkeypatch):
+    import routes.prompt_enhancement as pe
+
+    _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
+    cold = await _submit(forever=True)
+    assert len(tool) == 1 and cold["prompt"].endswith(ADDED)  # the first image waits on its improve
+    await _settle(forever_queue)
+    ready = forever_queue._prompt_warm_ready["gen-1"]
+    assert len(ready) == 2 and all(h["sent"].endswith(ADDED) and h["improve"]["improved"] == "true" for h in ready)
+    pooled = dict(ready[0])
+
+    # The improver may not be called for this submit: one that improved inline would fail.
+    real_improve = pe.improve_prompt
+
+    async def no_call(request, session):
+        raise AssertionError("an improve call at submit")
+    monkeypatch.setattr(pe, "improve_prompt", no_call)
+    hot = await _submit(forever=True)
+    monkeypatch.setattr(pe, "improve_prompt", real_improve)
+
+    record = hot["prompt_program"]
+    assert hot["prompt"] == pooled["sent"] == record["sent"]
+    assert record["draw_seed"] == pooled["result"].seed and record["improve"] == pooled["improve"]
+    drawn = {d["id"]: d["value"] for d in record["draws"]}
+    for cid in (MAN + ".age", MAN + ".descent", "pet", "list1"):
+        assert drawn[cid] in hot["prompt"]
+    await _settle(forever_queue)
+
+
+async def test_generate_forever_discards_the_pool_when_the_level_changes(tool, forever_queue, monkeypatch):
+    _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
+    await _submit(forever=True)
+    await _settle(forever_queue)
+    old = {h["sent"] for h in forever_queue._prompt_warm_ready["gen-1"]}
+    asked = len(tool)
+
+    out = await _submit(forever=True, level="fill")
+    assert out["prompt"] not in old and out["prompt_program"]["level"] == "fill"
+    assert tool[asked].level == "fill"  # improved inline at the new level
+    await _settle(forever_queue)
+    ready = forever_queue._prompt_warm_ready["gen-1"]
+    assert len(ready) == 2 and not {h["sent"] for h in ready} & old
+    assert all(r.level == "fill" for r in tool[asked:])
+
+
+async def test_generate_forever_discards_the_pool_when_the_image_model_changes(tool, forever_queue, monkeypatch):
+    _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
+    await _submit(forever=True)
+    await _settle(forever_queue)
+    old = {h["sent"] for h in forever_queue._prompt_warm_ready["gen-1"]}
+    signature = forever_queue._prompt_warm_intent["gen-1"]["signature"]
+    asked = len(tool)
+
+    monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {
+        "model": "another image model", "model_vendor": None, "effective_task": "text-to-image",
+        "schema_props": {}, "mode": "prose", "program_supported": True, "enhance": {}})
+    out = await _submit(forever=True)
+    assert forever_queue._prompt_warm_intent["gen-1"]["signature"] != signature
+    assert out["prompt"] not in old and len(tool) > asked
+    assert tool[asked].model == "another image model"
+    await _settle(forever_queue)
+    assert not {h["sent"] for h in forever_queue._prompt_warm_ready["gen-1"]} & old
+
+
+async def test_the_improve_signature_covers_what_the_improved_text_depends_on(monkeypatch):
+    import routes.prompt_enhancement as pe
+
+    monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
+
+    async def writer(project_id):
+        return "writer-a"
+    monkeypatch.setattr("prompt_programs.program.model_fingerprint", writer)
+    base = dict(prompt_options={"autoImprove": {"enabled": True, "level": "expand"}, "program": {"enabled": True}},
+                model="m", model_vendor=None, lora_context=[], width=1024, height=1024,
+                profile_id="p", project_id=None, level="expand")
+
+    async def sig(mode="prose", **changes):
+        return await gen.improve_signature({**base, **changes}, mode)
+
+    first = await sig()
+    assert await sig() == first
+    # the choices are in the draw's own signature, not this one
+    assert await sig(prompt_options={**base["prompt_options"], "program": {"enabled": True, "choices": {"x": 1}}}) == first
+    assert await sig(level="fill") != first
+    assert await sig(model="m2") != first
+    assert await sig(mode="keyword") != first
+    assert await sig(lora_context=[{"name": "mara", "trigger_words": ["ohwx"], "notes": ""}]) != first
+    assert await sig(width=768) != first
+    assert await sig(prompt_options={**base["prompt_options"], "translate": {"enabled": True, "language": "de"}}) != first
+
+    real_guide = pe.guide_template
+    monkeypatch.setattr(pe, "guide_template", lambda mode, fill=False: real_guide(mode, fill) + " (edited)")
+    assert await sig() != first
+    monkeypatch.setattr(pe, "guide_template", real_guide)
+
+    async def other_writer(project_id):
+        return "writer-b"
+    monkeypatch.setattr("prompt_programs.program.model_fingerprint", other_writer)
+    assert await sig() != first
