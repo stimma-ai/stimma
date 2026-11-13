@@ -447,8 +447,8 @@ class Slot:
         line_start = self.prompt.rfind("\n", 0, a) + 1
         line_end = self.prompt.find("\n", b)
         line_end = len(self.prompt) if line_end < 0 else line_end
-        left = self.prompt[line_start:a].split(" ")
-        right = self.prompt[b:line_end].split(" ")
+        left = self.prompt[line_start:a].split()
+        right = self.prompt[b:line_end].split()
         return " ".join(left[-n:]).strip() or "(start of line)", " ".join(right[:n]).strip() or "(end of line)"
 
     def keep(self) -> List[str]:

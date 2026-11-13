@@ -701,6 +701,7 @@ def test_a_pick_nothing_matches_writes_a_pinned_batch_at_once(tmp_path):
 def test_the_writer_is_shown_the_words_around_the_slot():
     sl = slot_of("taking a low quality cell phone <type of selfie>, slim to avg", "list", "type of selfie")
     assert sl.around() == ("taking a low quality cell phone", ", slim to avg")
+    assert slot_of("a <couple> on a bench").around() == ("a", "on a bench")
     msg = V.messages(sl, V.draw_seeds(random.Random(1), V.Seeds(), 3), V.Seeds())
     assert 'It stands between "taking a low quality cell phone" and ", slim to avg"' in msg[1]["content"]
     assert "no article or determiner of its own" in msg[0]["content"]
