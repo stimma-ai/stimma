@@ -12,7 +12,8 @@ the editor:
      the LLM steps.
   2. Enhance (autoImprove) — family-aware LLM rewrite with [verbatim]
      protection and a 3-attempt retry when placeholders get dropped
-     (fails generation if no attempt passes validation).
+     (fails generation if no attempt passes validation; the per-image
+     improver of Fluent and Direct sends the prompt as filled instead).
      Skipped in Ideogram JSON mode — that runs post-resolve (step 5).
   3. Translate — same verbatim protection; unknown language codes are a
      no-op (mirrors translateViaApi).
@@ -780,6 +781,23 @@ def _validated_prompt_preload(
     return improved_prompt
 
 
+async def _improve_or_as_filled(level: Optional[str], outcome: Optional[Dict[str, Any]],
+                                db, prompt: str, **kwargs: Any) -> str:
+    """Improve. The per-image improver (`level` set: Fluent and Direct) never stops a run:
+    when it fails (empty replies, a chat model that is unreachable or not set up) the
+    prompt goes as filled and `outcome` records the fallback. Classic Improve still fails
+    the generation, so its prompt can't bypass it."""
+    try:
+        return await _improve_with_verbatim_protection(db, prompt, level=level, outcome=outcome, **kwargs)
+    except Exception as e:
+        if not level:
+            raise
+        log.warning(f"[prompt-pipeline] Improve failed; sending the prompt as filled: {str(e)[:200]}")
+        if outcome is not None:
+            outcome.update(improved="fallback", reason="the improver failed")
+        return prompt
+
+
 def _is_llm_unconfigured_error(exc: Exception) -> bool:
     """True only for the strict "no LLM source configured at all" failure.
 
@@ -835,7 +853,8 @@ async def run_prompt_pipeline(
     submit surfaces the error). Enabled enhancement must succeed, including
     validation, before generation can start.
     `fixed_spans`, `level` and `outcome` are for the per-image improver; see
-    _improve_with_verbatim_protection. The spans index `prompt` as given.
+    _improve_with_verbatim_protection. The spans index `prompt` as given. The
+    per-image improver never fails the run (_improve_or_as_filled).
     """
     if not prompt:
         return prompt
@@ -891,7 +910,9 @@ async def run_prompt_pipeline(
 
     # 2) Enhance (text styles only; Ideogram JSON runs post-resolve).
     if enhance_on and not ideogram_json_mode and preloaded_improved is None:
-        processed = await _improve_with_verbatim_protection(
+        processed = await _improve_or_as_filled(
+            level,
+            outcome,
             db,
             processed,
             instructions=instructions,
@@ -912,8 +933,6 @@ async def run_prompt_pipeline(
             project_id=project_id,
             lora_context=lora_context,
             fixed_spans=spans,
-            level=level,
-            outcome=outcome,
         )
 
     # 3) Translate.

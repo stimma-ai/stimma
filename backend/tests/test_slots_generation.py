@@ -175,6 +175,33 @@ async def test_yours_sends_the_filled_prompt_without_an_improve_call(tool, monke
     assert out["prompt"] == record["filled"].split("\n", 1)[1]   # the comment line stripped, nothing added
 
 
+def _failing(failure):
+    async def broken(request, session):
+        raise failure
+    return broken
+
+
+def _unconfigured():
+    from llm_resolver import LLMNotConfiguredError
+    return LLMNotConfiguredError("no chat model")
+
+
+@pytest.mark.parametrize("failure", [
+    HTTPException(status_code=502, detail={"code": "prompt_enhancement_failed", "message": "empty"}),
+    HTTPException(status_code=503, detail={"code": "llm_unavailable", "message": "unreachable"}),
+    "unconfigured",
+])
+async def test_an_improver_that_fails_sends_the_filled_prompt(tool, monkeypatch, profile, failure):
+    import routes.prompt_enhancement as pe
+
+    await _read(monkeypatch, profile)
+    monkeypatch.setattr(pe, "improve_prompt", _failing(_unconfigured() if failure == "unconfigured" else failure))
+    out = await _submit(level="expand")
+    record = out["prompt_program"]
+    assert out["prompt"] == record["sent"] == record["filled"].split("\n", 1)[1]
+    assert record["improve"]["improved"] == "fallback" and record["improve"]["reason"]
+
+
 async def test_a_prompt_with_nothing_to_vary_goes_straight_to_the_improver(tool, monkeypatch):
     model = _use(monkeypatch, FakeModel())
     out = await _submit("# keep it quiet\na lighthouse at dusk", level="fill")
@@ -273,6 +300,29 @@ async def test_generate_forever_sends_a_pooled_prompt_improved_ahead(tool, forev
     drawn = {d["id"]: d["value"] for d in record["draws"]}
     for cid in (MAN + ".age", MAN + ".descent", "pet", "list1"):
         assert drawn[cid] in hot["prompt"]
+    await _settle(forever_queue)
+
+
+async def test_generate_forever_keeps_draws_whose_improve_failed(tool, forever_queue, monkeypatch, profile):
+    import routes.prompt_enhancement as pe
+
+    await _read(monkeypatch, profile)
+
+    async def broken(request, session):
+        raise HTTPException(status_code=502, detail={"code": "prompt_enhancement_failed", "message": "empty"})
+    monkeypatch.setattr(pe, "improve_prompt", broken)
+    cold = await _submit(forever=True)
+    assert cold["prompt_program"]["improve"]["improved"] == "fallback"
+    await _settle(forever_queue)
+    pool = forever_queue._prompt_warm_ready["gen-1"]
+    assert len(pool) == 2 and all(h["improve"]["improved"] == "fallback" for h in pool)
+    assert all(h["sent"] == h["result"].prompt.split("\n", 1)[1] for h in pool)
+    pooled = dict(pool[0])
+
+    # served as it is (the pooled draw itself), not improved again at submit
+    hot = await _submit(forever=True)
+    assert hot["prompt_program"]["draw_seed"] == pooled["result"].seed
+    assert hot["prompt"] == pooled["sent"] and hot["prompt_program"]["improve"] == pooled["improve"]
     await _settle(forever_queue)
 
 

@@ -724,18 +724,9 @@ async def _apply_generation_prompt_pipeline(
         log.info("[prompt-program] hot draw, improved ahead: no model call at submit")
         processed_prompt = ahead["sent"]
         outcome = ahead["improve"]
-    elif direct_improve:
-        try:
-            processed_prompt = await run_prompt_pipeline(
-                db, prompt, prompt_options, fixed_spans=fixed_spans, outcome=outcome, **settings)
-        except Exception as e:
-            # Direct never fails on the improver: the prompt goes as filled.
-            log.warning(f"[prompt-pipeline] Direct: Improve failed, sending the prompt as filled: {str(e)[:200]}")
-            outcome = {"improved": "fallback", "reason": "the improver failed"}
-            as_filled = {**prompt_options, "autoImprove": {**auto_improve, "enabled": False}}
-            processed_prompt = await run_prompt_pipeline(
-                db, prompt, as_filled, **{**settings, "lora_context": None, "level": None})
     else:
+        # An improver that fails sends the prompt as filled (run_prompt_pipeline), in
+        # Fluent and Direct alike.
         processed_prompt = await run_prompt_pipeline(
             db,
             prompt,

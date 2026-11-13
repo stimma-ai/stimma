@@ -258,8 +258,9 @@ class TestVary:
         await _vary()                       # a model with its own format, omitted: Medium
         assert seen == ["off", "off", "expand", "fill"]
 
-    async def test_no_chat_model_stops_the_call_and_says_so(self, writer, monkeypatch):
-        """The slot reader never stops a run; Improve, the one call it waits for, does."""
+    async def test_no_chat_model_still_runs_on_the_filled_prompt(self, writer, monkeypatch):
+        """Neither the slot reader nor Improve stops a run: with no chat model the prompt
+        goes as filled, and the record says Improve fell back."""
         from fastapi import HTTPException
         from prompt_programs import program
         import routes.prompt_enhancement as pe
@@ -270,9 +271,9 @@ class TestVary:
 
         monkeypatch.setattr(program, "ask_model", unconfigured)
         monkeypatch.setattr(pe, "improve_prompt", unconfigured)
-        with pytest.raises(PromptHandlingError) as e:
-            await _vary(enhance=True)
-        assert "no chat model is set up" in str(e.value) and "Nothing was generated" in str(e.value)
+        out = await _vary(enhance=True)
+        record = out.params["prompt_program"]
+        assert record["improve"]["improved"] == "fallback" and out.params["prompt"] == record["sent"]
 
     async def test_models_that_cant_vary_write_each_prompt(self, lists, monkeypatch):
         monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {

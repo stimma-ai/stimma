@@ -152,3 +152,36 @@ def test_preload_may_equal_its_input_only_on_the_late_path():
 def test_a_doubled_article_before_a_value_is_written_once():
     out = pp.verify_and_unmark("A ⟦a 31-year-old⟧ man waits. Beside him, a ⟦a red hat⟧ rests.", ["a 31-year-old", "a red hat"])
     assert out == "A 31-year-old man waits. Beside him, a red hat rests."
+
+
+async def test_a_failing_per_image_improver_sends_the_prompt_as_filled(generation_app, generation_db_session, monkeypatch):
+    import routes.prompt_enhancement as pe
+    from fastapi import HTTPException
+
+    async def empty(request, session):
+        raise HTTPException(status_code=502, detail={"code": "prompt_enhancement_failed", "message": "empty"})
+    monkeypatch.setattr(pe, "improve_prompt", empty)
+    outcome = {}
+    out = await pp.run_prompt_pipeline(
+        _db(generation_db_session), PROMPT + "\n# keep it dim", LATE, model="flux1-dev", fixed_spans=[WOMAN],
+        level="fill", outcome=outcome)
+    assert out == PROMPT
+    assert outcome["improved"] == "fallback" and outcome["reason"]
+
+
+async def test_three_empty_answers_send_the_prompt_as_filled(generation_app, generation_db_session, monkeypatch):
+    requests = _fake_improve(monkeypatch, ["   "])
+    outcome = {}
+    out = await pp.run_prompt_pipeline(
+        _db(generation_db_session), PROMPT, LATE, model="flux1-dev", fixed_spans=[WOMAN], level="expand",
+        outcome=outcome)
+    assert len(requests) == 3 and out == PROMPT and outcome["improved"] == "fallback"
+
+
+async def test_classic_improve_still_fails_the_generation(generation_app, generation_db_session, monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+
+    _fake_improve(monkeypatch, ["   "])
+    with pytest.raises(HTTPException):
+        await pp.run_prompt_pipeline(_db(generation_db_session), PROMPT, LATE, model="flux1-dev")
