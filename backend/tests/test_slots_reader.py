@@ -281,6 +281,80 @@ def test_a_reading_that_cant_be_used_is_a_424(profile, monkeypatch):
     assert "isn't valid JSON" in r.json()["detail"]["message"]
 
 
+class SlowDescent(FakeModel):
+    """Narrowing the descent list answers late; `fails` makes it fail instead."""
+
+    def __init__(self, *replies: Any, delay: float = 0.0, fails: bool = False):
+        super().__init__(*replies)
+        self.delay, self.fails, self.descent_asks = delay, fails, 0
+
+    async def __call__(self, messages, project_id, max_tokens):
+        import asyncio
+        if messages[-1]["content"].startswith('The list "Descent"'):
+            self.descent_asks += 1
+            await asyncio.sleep(self.delay)
+            if self.fails:
+                raise RuntimeError("the endpoint went away")
+        return await super().__call__(messages, project_id, max_tokens)
+
+
+async def test_a_slow_narrowing_is_waited_for_and_the_example_is_drawn_after_it(profile, monkeypatch):
+    """Past the old time limit the run still waits: the first draw of an <elderly African man> is
+    elderly and of African descent, and so is the example."""
+    import prompt_programs.narrow as nw
+    monkeypatch.setattr(nw, "NARROW_SECONDS", 5.0)
+    _use(monkeypatch, SlowDescent(_reply(PORCH_READING), delay=1.0))
+    entry = await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    assert "narrow_pending" not in entry
+    assert sorted(entry["filters"]["elderly_african_man.descent"]) == sorted(AFRICAN)
+    assert any(d in entry["example"] for d in AFRICAN), entry["example"]
+    assert any(a in entry["example"] for a in ELDERLY), entry["example"]
+    for seed in range(8):
+        drawn = {d.id: d.value for d in prep.realize(entry, seed=seed).draws}
+        assert drawn["elderly_african_man.descent"] in AFRICAN and drawn["elderly_african_man.age"] in ELDERLY
+
+
+async def test_a_narrowing_that_fails_fails_the_prepare_and_is_not_stored(profile, monkeypatch):
+    from prompt_programs.narrow import NarrowFailed
+    model = _use(monkeypatch, SlowDescent(_reply(PORCH_READING), fails=True))
+    with pytest.raises(NarrowFailed, match="elderly_african_man.descent"):
+        await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    assert model.descent_asks == 2   # one more try before it fails
+    assert await slots.ensure(PORCH_PROMPT, profile_id=profile, cache_only=True) is None
+
+
+async def test_a_narrowing_past_the_time_limit_fails_the_prepare(profile, monkeypatch):
+    import prompt_programs.narrow as nw
+    from prompt_programs.narrow import NarrowFailed
+    monkeypatch.setattr(nw, "NARROW_SECONDS", 0.5)
+    _use(monkeypatch, SlowDescent(_reply(PORCH_READING), delay=3.0))
+    with pytest.raises(NarrowFailed):
+        await slots.ensure(PORCH_PROMPT, profile_id=profile)
+
+
+def test_a_failed_narrowing_is_a_424_like_a_reader_failure(profile, monkeypatch):
+    _use(monkeypatch, SlowDescent(_reply(PORCH_READING), fails=True))
+    r = _client(monkeypatch, profile).post("/api/prompt-programs/prepare", json={"tool_id": "t", "prompt": PORCH_PROMPT})
+    assert r.status_code == 424 and r.json()["detail"]["code"] == "narrowing_failed"
+
+
+async def test_a_stored_entry_with_unfinished_narrowing_is_narrowed_before_it_draws(profile, monkeypatch):
+    """An entry an older build stored with narrowing pending is narrowed before it is used."""
+    _use(monkeypatch, FakeModel(_reply(PORCH_READING)))
+    entry = await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    store = prep.store_for(profile)
+    stale = copy.deepcopy(entry)
+    descent = next(c for c in stale["choices"] if c["id"] == "elderly_african_man.descent")
+    stale["narrow_pending"] = {descent["id"]: {"cls": descent.get("cls") or "person.descent", "options": []}}
+    stale["filters"].pop(descent["id"], None)
+    store.put(entry["key"], stale)
+    model = _use(monkeypatch, SlowDescent())
+    again = await slots.ensure(PORCH_PROMPT, profile_id=profile)
+    assert model.descent_asks == 0   # its answer is cached on disk from the first prepare
+    assert "narrow_pending" not in again and sorted(again["filters"][descent["id"]]) == sorted(AFRICAN)
+    assert "narrow_pending" not in store.get(entry["key"])
+
+
 def test_the_outfit_follows_presentation_and_is_set_off_by_a_comma():
     src, entry = slots.build(parse(PORCH_PROMPT), PORCH_READING)
     assert "cls='person.outfit.casual', where={'presentation': 'masculine'}" in src

@@ -16,9 +16,10 @@ words as a rule. When nothing fits, or the model's answer can't be read, the pic
 no list at all (an empty subset): it draws as an unbound pick, generated options within
 the words, rather than from a list that ignores them.
 
-A narrowing that didn't finish (the reading or a subset call failed, timed out or came back
-unreadable, or there was no time to try) is not final: `entry["narrow_pending"]` holds each
-such pick's list and options as they were, and program.renarrow tries again later.
+A narrowing that didn't finish (a subset call failed or came back unreadable twice, or ran
+past the time limit) is recorded in `entry["narrow_pending"]`: each such pick's list and
+options as they were. Nothing draws from such an entry: slots.ensure waits for narrowing,
+and fails the run (NarrowFailed) rather than draw a pick from a list its words narrow.
 
 Ages. A person is an adult unless asked: the age list's bands under 18 are opt-in (vocab.py),
 so an age pick these steps leave unnarrowed (no words, a failed or skipped call) draws adults
@@ -47,14 +48,24 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tup
 from core.logging import get_logger
 from prompt_programs.runtime import COLORS
 from prompt_programs.draws import owns, person_of
+from prompt_programs.reader import ReaderFailed
 from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
 log = get_logger(__name__)
 
 NARROW_VERSION = "narrow-7"   # narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
-NARROW_SECONDS = 60.0   # all of a program's narrowing calls together; past it, unresolved picks go unbound. A local chat model answers one in 10-20s, longer while it writes options
+NARROW_SECONDS = 180.0   # all of a program's narrowing calls together; past it the prepare fails. With no reasoning one call takes a few seconds
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
+
+
+class NarrowFailed(ReaderFailed):
+    """A slot's words couldn't be read into its lists (the chat model failed twice, answered
+    with nothing usable, or ran out of time): the run fails, as a reader failure does, rather
+    than draw from lists the words narrow."""
+    code = "narrowing_failed"
+
+
 _MEMBER = re.compile(r"^(.+)\[\d+\]\.(.+)$")   # kids[2].age → ("kids", "age")
 
 _SYSTEM = """You choose which items of a list fit a description from an image prompt.
@@ -207,15 +218,19 @@ async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask
         hit = cache.get(key)
         if hit is not None:
             return hit
-    try:
-        reply = await ask(messages_for(leaf, phrase, shown, about, prompt), project_id, 200 + 16 * len(shown))
-    except Exception as e:  # the writer's endpoint failing here must not fail the prepare
-        log.warning(f"[prompt-program] narrowing {leaf.id} by {phrase!r} failed: {e}")
-        return None
-    named = parse_subset(reply, shown)
-    got = None if named is None else [v for v, sh in zip(values, shown) if sh in set(named)]
+    got = None
+    for attempt in range(2):   # one more try for a failed call or an unreadable answer
+        try:
+            reply = await ask(messages_for(leaf, phrase, shown, about, prompt), project_id, 200 + 16 * len(shown))
+        except Exception as e:
+            log.warning(f"[prompt-program] narrowing {leaf.id} by {phrase!r} failed (try {attempt + 1}): {e}")
+            continue
+        named = parse_subset(reply, shown)
+        got = None if named is None else [v for v, sh in zip(values, shown) if sh in set(named)]
+        if got is not None:
+            break
+        log.info(f"[prompt-program] narrowing {leaf.id} by {phrase!r}: no list in the reply (try {attempt + 1})")
     if got is None:
-        log.info(f"[prompt-program] narrowing {leaf.id} by {phrase!r}: no list in the reply")
         return None
     if cache is not None:
         cache.put(key, got)
@@ -336,7 +351,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
         _done, late = await asyncio.wait(jobs, timeout=seconds)
         if late:
             log.warning(f"[prompt-program] narrowing took longer than {seconds:.0f}s: {len(late)} of {len(jobs)} "
-                        "picks draw unbound for now")
+                        "picks unfinished")
             for j in late:
                 j.cancel()
         return [None if j in late or j.cancelled() or j.exception() is not None else j.result() for j in jobs]
@@ -579,5 +594,5 @@ def reopen_pending(entry: Dict[str, Any]) -> None:
     entry["filters"] = filters
 
 
-__all__ = ["NarrowCache", "mark_pending", "narrow_entry", "parse_subset", "phrase_of",
+__all__ = ["NarrowCache", "NarrowFailed", "mark_pending", "narrow_entry", "parse_subset", "phrase_of",
            "reopen_pending", "subset", "messages_for"]

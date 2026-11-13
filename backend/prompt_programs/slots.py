@@ -372,7 +372,9 @@ async def ensure(prompt: str, *, profile_id: Optional[str], project_id: Optional
     """The slot program for a prompt: from the store, or parsed, read (reader.py), built,
     narrowed and stored. None for a cache_only lookup of a prompt not prepared yet. A prompt
     with no slots and no lists has no program: {"key": None, "slots": [], "choices": []}.
-    Raises reader.ReaderFailed when the chat model's reading can't be used."""
+    Raises reader.ReaderFailed when the chat model's reading can't be used, and
+    narrow.NarrowFailed when a slot's words couldn't be read into its lists: nothing draws
+    from a list its words narrow before they have narrowed it."""
     import asyncio
 
     from prompt_pipeline import _profile_wildcards_and_segments
@@ -395,16 +397,17 @@ async def ensure(prompt: str, *, profile_id: Optional[str], project_id: Optional
                        "prompt": masked, "exact": exact})
     store = prep.store_for(profile_id)
     cached = None if force else store.get(key)
-    if cached:
-        if cached.get("narrow_pending"):
-            prep.renarrow(cached, store, project_id)   # in the background; this run draws from it as it is
+    if cached and not cached.get("narrow_pending"):
         return cached
     if cache_only:
         return None
     flight = (str(store.root), key)
     running = None if force else _in_flight.get(flight)
     if running is None:
-        running = asyncio.ensure_future(_prepare(parsed, key=key, exact=exact, model=model, store=store,
+        # A stored entry whose narrowing didn't finish (an older build stored those) is narrowed now.
+        running = asyncio.ensure_future(_narrow_stored(cached, store=store, profile_id=profile_id, project_id=project_id)
+                                        if cached else
+                                        _prepare(parsed, key=key, exact=exact, model=model, store=store,
                                                  profile_id=profile_id, project_id=project_id, force=force))
         _in_flight[flight] = running
         running.add_done_callback(lambda t, k=flight: _in_flight.pop(k, None) if _in_flight.get(k) is t else None)
@@ -417,8 +420,7 @@ async def _prepare(parsed: Parsed, *, key: str, exact: Dict[str, str], model: Op
 
     from prompt_programs import program as prep
     from prompt_programs import reader
-    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, mark_pending, narrow_entry
-    from core.logging import get_logger
+    from prompt_programs.narrow import NarrowCache
 
     t0 = time.monotonic()
     reading = await reader.read(parsed, ask=prep.ask_model, project_id=project_id, model=model,
@@ -426,15 +428,43 @@ async def _prepare(parsed: Parsed, *, key: str, exact: Dict[str, str], model: Op
     source, entry = build(parsed, reading)
     entry.update({"key": key, "exact": exact, "reading": reading, "source": source, "version": SLOTS_VERSION,
                   "created_at": time.time()})
-    try:
-        await narrow_entry(entry, NarrowCache(store.root / "narrow"), prep.ask_model, project_id, seconds=NARROW_SECONDS)
-    except Exception as e:   # never fails the prepare: the picks draw from their whole lists until renarrowed
-        get_logger(__name__).warning(f"[slots] narrowing {key} failed: {e}")
-        mark_pending(entry)
+    await _narrow(entry, store, profile_id, project_id)
     entry["seconds"] = round(time.monotonic() - t0, 2)
     store.put(key, entry)
     prep.on_prepared(entry, project_id=project_id, profile_id=profile_id)
     return entry
+
+
+async def _narrow_stored(entry: Dict[str, Any], *, store: Any, profile_id: Optional[str],
+                         project_id: Optional[int]) -> Dict[str, Any]:
+    from prompt_programs import program as prep
+    from prompt_programs.narrow import reopen_pending
+
+    reopen_pending(entry)
+    await _narrow(entry, store, profile_id, project_id)
+    store.put(entry["key"], entry)
+    prep.on_prepared(entry, project_id=project_id, profile_id=profile_id)
+    return entry
+
+
+async def _narrow(entry: Dict[str, Any], store: Any, profile_id: Optional[str], project_id: Optional[int]) -> None:
+    """Narrow the entry's picks by their words, waiting for every answer, then draw its example
+    from the narrowed lists. Raises NarrowFailed when any narrowing didn't finish."""
+    from prompt_programs import program as prep
+    from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, NarrowFailed, narrow_entry
+    from core.logging import get_logger
+
+    await narrow_entry(entry, NarrowCache(store.root / "narrow"), prep.ask_model, project_id, seconds=NARROW_SECONDS)
+    left = sorted(entry.get("narrow_pending") or {})
+    if left:
+        named = ", ".join(sorted({str(k).split("\x00", 1)[0] for k in left}))
+        raise NarrowFailed(f"The chat model's reading of what the slots' words allow didn't finish ({named}). "
+                           "Try again, or use Direct.")
+    try:   # the example the editor shows is drawn as a run would draw it: from the narrowed lists
+        entry["example"] = prep.realize(entry, seed=0, profile_id=profile_id, project_id=project_id).prompt
+    except Exception as e:
+        get_logger(__name__).warning(f"[slots] drawing the example of {entry.get('key')} failed: {e}")
+        entry["example"] = None
 
 
 def preparing() -> bool:

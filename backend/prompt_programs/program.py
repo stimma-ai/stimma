@@ -7,10 +7,8 @@ slots.ensure prepares a program; this module is what preparing, drawing and the 
 
 from __future__ import annotations
 
-import asyncio
 import random
 import re
-import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.logging import get_logger
@@ -181,56 +179,6 @@ def on_prepared(entry: Dict[str, Any], *, project_id: Optional[int], profile_id:
         log.warning(f"[prompt-program] starting the option pools failed for {entry.get('key')}: {e}")
 
 
-RENARROW_BACKOFF_SECONDS = 30.0   # between tries for one program
-RENARROW_MAX_TRIES = 5            # then its picks keep drawing from their whole lists (logged)
-_renarrowing: Dict[Tuple[str, str], "asyncio.Task[None]"] = {}
-_renarrow_after: Dict[Tuple[str, str], float] = {}
-
-
-def renarrow(entry: Dict[str, Any], store: ProgramStore, project_id: Optional[int]) -> Optional["asyncio.Task[None]"]:
-    """Narrow again, in the background, the picks of a stored program whose narrowing was
-    skipped or didn't finish; the stored entry is updated when it completes and later runs
-    draw from it. Never blocks: this run draws from the entry as it is. One try per program
-    at a time, at most every RENARROW_BACKOFF_SECONDS. Returns the task, or None."""
-    if not entry.get("narrow_pending") or int(entry.get("narrow_tries") or 0) >= RENARROW_MAX_TRIES:
-        return None
-    flight = (str(store.root), str(entry.get("key")))
-    if flight in _renarrowing or time.monotonic() < _renarrow_after.get(flight, 0.0):
-        return None
-    _renarrow_after[flight] = time.monotonic() + RENARROW_BACKOFF_SECONDS
-
-    async def go() -> None:
-        from prompt_programs.narrow import NARROW_SECONDS, NarrowCache, narrow_entry, reopen_pending
-        current = store.get(flight[1])
-        if not current or not current.get("narrow_pending"):
-            return
-        tries = int(current.get("narrow_tries") or 0) + 1
-        reopen_pending(current)
-        try:
-            notes = await narrow_entry(current, NarrowCache(store.root / "narrow"), ask_model, project_id,
-                                       seconds=NARROW_SECONDS)
-        except Exception as e:
-            log.warning(f"[prompt-program] narrowing {flight[1]} again failed: {e}")
-            return
-        now = store.get(flight[1])
-        if not now or now.get("program") != current.get("program") or now.get("created_at") != current.get("created_at"):
-            return  # prepared again meanwhile: never put the old one back
-        current["narrow_tries"] = tries
-        current["warnings"] = list(dict.fromkeys(list(current.get("warnings") or []) + notes))
-        store.put(flight[1], current)
-        left = sorted(current.get("narrow_pending") or {})
-        if left and tries >= RENARROW_MAX_TRIES:
-            log.warning(f"[prompt-program] {flight[1]}: narrowing {left} didn't finish after {tries} tries; "
-                        "they draw from their whole lists")
-        else:
-            log.info(f"[prompt-program] {flight[1]} narrowed again (try {tries}){': still pending ' + str(left) if left else ''}")
-
-    task = asyncio.ensure_future(go())
-    _renarrowing[flight] = task
-    task.add_done_callback(lambda _t: _renarrowing.pop(flight, None))
-    return task
-
-
 # --------------------------------------------------------------------------- one generation's draw
 
 def draw_seed(seed: Any = None) -> int:
@@ -280,4 +228,4 @@ def spans_of(result: Any) -> List[Tuple[int, int, str]]:
 __all__ = ["DrawAborted", "MAX_PROMPT_CHARS", "ModelRefused", "PROTOCOL", "ProgramError", "PromptTooLong", "ask_model",
            "draw_seed", "emitted_as", "endpoint_id", "expand_named_lists", "mask_exact", "model_endpoint",
            "model_failure", "model_fingerprint", "no_tools_error", "on_prepared", "realize", "realized_text",
-           "renarrow", "spans_of", "store_for", "unmask_exact"]
+           "spans_of", "store_for", "unmask_exact"]
