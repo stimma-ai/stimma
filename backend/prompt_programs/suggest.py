@@ -48,7 +48,7 @@ For each add, name is the words that would go in the angle brackets and label is
 ADD_SYSTEM = """You add one changing part to an image prompt. The user marks the parts that change from picture to picture with angle brackets: "dorm room with a <young man>, lit by <light>". They ask you to add a new one, and you write it into their prompt the way they would have written it themselves.
 
 - Change as little as possible. Keep every character of the prompt exactly as it is, and only insert the new words.
-- Write the joining words the way the prompt is written. A prompt of comma-separated tags gets ", <light>"; a prompt written as a sentence gets words that fit the sentence, such as ", lit by <light>".
+- Write the joining words the way the prompt is written. Words in a sentence or phrase ("a kitchen at noon") get joining words that make the new part read as part of it: "a kitchen at noon, lit by <light>", "a kitchen at noon, shot as <camera>". Only a prompt that is a list of short tags ("1girl, long hair, kitchen") gets the bare tag: ", <light>".
 - Put it where it reads naturally, usually after what it belongs to.
 - Add exactly one part in angle brackets, with exactly the words you were given. Leave every existing part in angle brackets, square brackets or curly braces as it is.
 - Lines starting with # are notes from the user: leave them as they are and put nothing on them.
