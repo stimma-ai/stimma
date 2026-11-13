@@ -27,7 +27,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-11"   # reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-12"   # reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -111,8 +111,10 @@ For an animal:
 For a camera: vary, the parts of it that change, from: shot_size, lens, angle, film_look.
   "camera": {"vary": ["shot_size", "angle"]}
 
-For light: list, the id of the lighting list below whose looks suit this scene, or "" when
-none does; and examples, three looks of light that fit this scene.
+For light: list, the id of the lighting list below whose looks suit this scene, or "" only when
+none of them could; and examples, three looks of light that fit this scene, each named as a
+photographer would name it ("warm desk-lamp glow", "gray window light", "neon sign spill"),
+never a bare quality ("warm light", "dim light").
   "light": {"list": "<a lighting list's id, or empty>", "examples": ["...", "...", "..."]}
 
 For a list: list (its id) and about (what it is in this image, and whose, in a few words, with
