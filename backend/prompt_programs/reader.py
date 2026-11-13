@@ -311,6 +311,23 @@ def _copied(words: str, sources: Sequence[str]) -> bool:
     return any(_span(words, s) for s in sources)
 
 
+def fit_lead(lead: str, before: str) -> Optional[str]:
+    """A lead as it stands exactly at the end of `before` (the text before its slot on its line,
+    as leads() gives it), so the fill can take it off whole: " with a" after "a table\nwith a "
+    is "with a". None when its words don't end `before`; "" for no lead. Structure only."""
+    core = lead.strip()
+    if not core:
+        return ""
+    stem = before.rstrip()
+    if not stem.endswith(core):
+        return None
+    start = len(stem) - len(core)
+    space = len(lead) - len(lead.lstrip())   # the spacing the lead took with it, where there is some
+    while space and start and stem[start - 1].isspace():
+        start, space = start - 1, space - 1
+    return stem[start:]
+
+
 def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str], prompt: str = "",
                strict: bool = True) -> Dict[str, Any]:
     """One slot's reading as the builder takes it, or _Bad. Details it doesn't know, stated
@@ -326,9 +343,7 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
     got = r.get(kind)
     if not isinstance(got, dict):
         raise _Bad(f'part {n}: a {kind} needs its fields in a "{kind}" object, as "{kind}": {{...}}')
-    lead = r.get("lead") if isinstance(r.get("lead"), str) else ""
-    if not lead.strip() or not before.rstrip().endswith(lead.strip()):
-        lead = ""
+    lead = fit_lead(r.get("lead") if isinstance(r.get("lead"), str) else "", before) or ""
     out: Dict[str, Any] = {"n": n, "kind": kind, "label": str(r.get("label") or "").strip() or seg.words, "lead": lead}
     sources = [seg.words, *notes]
     if kind == "person":
@@ -664,6 +679,6 @@ async def changed_parts(items: Sequence[Dict[str, Any]], *, ask: Ask, project_id
     return got
 
 
-__all__ = ["CHECK_SYSTEM", "READER_VERSION", "ReaderFailed", "SYSTEM", "as_written", "cached", "changed_parts",
+__all__ = ["CHECK_SYSTEM", "READER_VERSION", "fit_lead", "ReaderFailed", "SYSTEM", "as_written", "cached", "changed_parts",
            "check_message", "check_parts", "check_reply", "check_slot", "leads", "numbered", "parse_changed", "part_key",
            "read", "read_part", "seen_in", "system_text", "user_message"]

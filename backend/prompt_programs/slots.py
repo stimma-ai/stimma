@@ -464,17 +464,17 @@ def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
     return out
 
 
-def _lead_holds(reading: Dict[str, Any], before: str) -> bool:
-    """Whether a slot's lead (the words before it that go when it is left out) still holds with
-    `before`, the text before the slot now: the text it was read after is unchanged, or the lead
-    still ends it (the joining words right before the slot are the same ones). A slot that had
-    no lead and now has new words before it is read again: only a reading can say whether they
-    hang. Structure only, as reader.check_slot checks a lead."""
-    lead = str(reading.get("lead") or "").strip()
+def _fit_lead(reading: Dict[str, Any], before: str) -> Optional[str]:
+    """A kept slot's lead (the words before it that go when it is left out) as it stands exactly
+    before the slot now (`before`, as reader.leads() gives it), or None when it no longer does
+    and the slot must be read again: its words aren't right before it, or it had none and new
+    words now are (only a reading can say whether they hang). Structure only."""
+    from prompt_programs.reader import fit_lead
+    lead = str(reading.get("lead") or "")
     seen = reading.get("seen") if isinstance(reading.get("seen"), dict) else {}
-    if isinstance(seen.get("before"), str) and seen["before"] == before:
-        return True
-    return before.rstrip().endswith(lead) if lead else not before.strip()
+    if not lead.strip():
+        return "" if seen.get("before") == before or not before.strip() else None
+    return fit_lead(lead, before)
 
 
 async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
@@ -493,8 +493,8 @@ async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
     for kind, n in carried:
         if kind == "slot":
             readings[n] = {**earlier[(kind, n)], "n": n}
-            if not _lead_holds(readings[n], before.get(n, "")):   # read again (_start); meanwhile none
-                readings[n]["lead"] = ""
+            # its lead as it stands now; none while it is read again (_start)
+            readings[n]["lead"] = _fit_lead(readings[n], before.get(n, "")) or ""
         else:
             labels[n] = earlier[(kind, n)]["label"]
             list_seen[n] = earlier[(kind, n)]["seen"]
@@ -602,8 +602,10 @@ def _start(p: _Prompt, force: bool = False) -> None:
             continue
         _failed.pop(flight, None)
         was = earlier.get((kind, n))
-        if was is not None and kind == "slot" and not _lead_holds(was, before.get(n, "")):
-            was = None   # the words its lead names aren't before it now: only a reading can say what is
+        if was is not None and kind == "slot":
+            lead = _fit_lead(was, before.get(n, ""))
+            # kept with its lead as it stands now; when that can't be said exactly, read again
+            was = None if lead is None else {**was, "lead": lead}
         if was is not None and flight not in _changed:
             now = seen_in(p.parsed, segs[(kind, n)])
             if (was["seen"].get("marked"), list(was["seen"].get("notes") or [])) == (now["marked"], now["notes"]):

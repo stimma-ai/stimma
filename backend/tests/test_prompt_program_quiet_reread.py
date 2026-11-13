@@ -299,3 +299,20 @@ async def test_the_editor_is_told_which_part_each_was(model, monkeypatch):
     twin = await _ready("a <mug> and a <mug>")
     left = await slots.prepare("a <mug>", profile_id="p", start=False, shown=twin["key"])
     assert left["was"] == {"from": twin["key"], "ids": {}} and left["slots"][0]["state"] == "reading"
+
+
+async def test_a_kept_lead_is_kept_as_it_stands_now_so_leaving_the_slot_out_takes_it_whole(model):
+    model.fresh = {"mug": {**MUG, "lead": " with a"}}
+    first = await _ready("a table with a <mug>")
+    entry = await _ready("a table\nwith a <mug>", shown=first["key"])
+    assert len(model.checks) == 1 and model.reads == ["mug"]   # kept: the edit was checked, not read again
+    assert entry["readings"]["slots"][0]["lead"] == "with a"
+    left = prep.realize(entry, seed=1, edits={"mug": {"off": True}}).prompt
+    assert "with a" not in left.lower() and left.strip().lower().startswith("a table")
+
+
+def test_a_lead_is_fitted_to_the_text_before_its_slot():
+    assert reader.fit_lead(" with a", "a table\nwith a ".split("\n")[-1]) == "with a"
+    assert reader.fit_lead(" with a", "a wooden table with a ") == " with a"
+    assert reader.fit_lead(" with a", "a table beside a ") is None
+    assert reader.fit_lead("", "anything ") == ""
