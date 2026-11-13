@@ -173,12 +173,23 @@ def test_descent_is_drawn_from_the_lists_distribution_and_never_echoed_whole():
     assert len(shown) <= 10
 
 
-def test_presentation_is_drawn_unless_stated():
-    rng = random.Random(3)
-    got = Counter(s.presentation for s in V.draw_seeds(rng, V.person_seeds(), 4000).specs)
-    assert set(got) == {"feminine", "masculine", "androgynous"}
-    assert abs(got["androgynous"] / 4000 - 0.08) < 0.02 and abs(got["feminine"] / 4000 - 0.46) < 0.03
-    assert V.person_seeds(presentation="feminine").presentation is None
+def test_gender_is_drawn_by_its_shares_and_narrowed_by_the_words():
+    leaf = vocabulary().get(V.GENDER)
+    assert [v.text for v in leaf.values] == ["woman", "man", "trans woman", "trans man", "non-binary person"]
+    assert not leaf.listed   # never a slot's list
+    n = 20000
+    got = Counter(s.gender for s in V.draw_seeds(random.Random(3), V.person_seeds(), n).specs)
+    assert set(got) == set(v.text for v in leaf.values)
+    assert abs(got["woman"] / n - 0.46) < 0.015 and abs(got["man"] / n - 0.46) < 0.015
+    for t in ("trans woman", "trans man", "non-binary person"):
+        assert 0.015 < got[t] / n < 0.04
+    # "woman" narrowed to woman and trans woman: drawn by their relative shares
+    got = Counter(s.gender for s in V.draw_seeds(random.Random(3), V.person_seeds(gender=["woman", "trans woman"]), n).specs)
+    assert set(got) == {"woman", "trans woman"} and abs(got["trans woman"] / n - 0.027 / 0.487) < 0.01
+    # the writer is told it per variant
+    s = V.person_seeds(gender=["non-binary person"])
+    msg = V.messages(slot_of("a <person> in a kitchen", "person"), V.draw_seeds(random.Random(1), s, 3), s)[1]["content"]
+    assert "gender: non-binary person" in msg
 
 
 def test_a_stated_single_descent_needs_no_seed_but_a_narrowed_one_does():
@@ -270,12 +281,12 @@ def test_a_single_list_gives_each_variant_a_core_each_value_once_before_repeats(
 
 
 def test_short_lists_are_shown_whole_long_ones_as_ideas():
-    s = V.list_seeds([("person.presentation", None), ("person.hairstyle", None)])
+    s = V.list_seeds([("person.gender", None), ("person.hairstyle", None)])
     d = V.draw_seeds(random.Random(4), s, 20)
-    assert [b.list_id for b in d.short] == ["person.presentation"]
+    assert [b.list_id for b in d.short] == ["person.gender"]
     assert d.ideas and all(lid == "person.hairstyle" for _, lid in d.ideas)
     msg = V.messages(slot_of("a <hairdo>, portrait"), d, s)[1]["content"]
-    assert '"feminine"; "masculine"; "androgynous"' in msg and "Ideas (random" in msg
+    assert '"woman"; "man"; "trans woman"; "trans man"; "non-binary person"' in msg and "Ideas (random" in msg
 
 
 def test_pins_restrict_descent_within_what_the_words_allow():
@@ -284,8 +295,10 @@ def test_pins_restrict_descent_within_what_the_words_allow():
     assert "Korean" in east and "Nigerian" not in east
     s = V.person_seeds().pinned(pins)
     assert set(s.descent.texts()) == east
-    s = V.person_seeds().pinned(V.Pins(descent=("Korean",), presentation=("androgynous",)))
-    assert s.descent.texts() == ["Korean"] and s.presentation.texts() == ["androgynous"]
+    s = V.person_seeds().pinned(V.Pins(descent=("Korean",), gender=("trans man",)))
+    assert s.descent.texts() == ["Korean"] and s.gender.texts() == ["trans man"]
+    # a picked gender the words don't allow still holds (the user chose it)
+    assert V.person_seeds(gender=["woman", "trans woman"]).pinned(V.Pins(gender=("man",))).gender.texts() == ["man"]
     # the words say African; a pick outside them still holds (the user chose it)
     words = V.person_seeds(descent=["Nigerian", "Ghanaian"], stated_descent=True)
     assert words.pinned(V.Pins(descent=("Ghanaian",))).descent.texts() == ["Ghanaian"]
@@ -318,7 +331,7 @@ def test_a_person_gets_40_and_its_descent_checked():
     vs = batches[0].variants
     assert len(vs) == 40
     assert all(V.has_run(v["text"], v["seeds"]["descent"]) and V.has_run(v["text"], "dominant young woman") for v in vs)
-    assert all(v["seeds"].get("presentation") and v["seeds"]["age"] in young for v in vs)
+    assert all(v["seeds"].get("gender") and v["seeds"]["age"] in young for v in vs)
 
 
 def test_a_slip_degrades_never_raises():
@@ -400,9 +413,9 @@ def test_store_appends_dedupes_and_counts(tmp_path):
 
 # --------------------------------------------------------------------------- drawing
 
-POOL = [{"text": f"variant {i}", "seeds": {"descent": d, "presentation": p}}
-        for i, (d, p) in enumerate([("Korean", "feminine"), ("Nigerian", "masculine"), ("Polish", "feminine"),
-                                    ("Japanese", "androgynous"), ("Peruvian", "masculine")])]
+POOL = [{"text": f"variant {i}", "seeds": {"descent": d, "gender": g}}
+        for i, (d, g) in enumerate([("Korean", "woman"), ("Nigerian", "man"), ("Polish", "woman"),
+                                    ("Japanese", "non-binary person"), ("Peruvian", "man")])]
 
 
 def test_least_used_draws_use_the_pool_before_repeating():
@@ -449,7 +462,7 @@ def test_picked_seeds_filter_the_pool():
     rng = random.Random(2)
     c = P.Choice(pins=V.Pins(regions=("East Asia",)))
     assert {P.pick(POOL, {}, c, rng, "w").seeds["descent"] for _ in range(30)} == {"Korean", "Japanese"}
-    c = P.Choice(pins=V.Pins(presentation=("masculine",)))
+    c = P.Choice(pins=V.Pins(gender=("man",)))
     assert {P.pick(POOL, {}, c, rng, "w").text for _ in range(30)} == {"variant 1", "variant 4"}
     # nothing matching yet: the words, with a single picked descent before them
     p = P.pick(POOL, {}, P.Choice(pins=V.Pins(descent=("Welsh",))), rng, "young woman")
@@ -459,9 +472,10 @@ def test_picked_seeds_filter_the_pool():
 
 def test_choice_wire_form():
     c = P.Choice.of({"values": ["a"], "seeds": {"descent": {"values": ["Korean"], "groups": {"region": ["Europe"]}},
-                                                 "presentation": {"values": ["feminine"]}}, "add": ["x"]}, add=["y"])
+                                                 "gender": {"values": ["trans woman"]}}, "add": ["x"]}, add=["y"])
     assert c.values == ("a",) and c.add == ("x", "y")
-    assert c.pins == V.Pins(descent=("Korean",), regions=("Europe",), presentation=("feminine",))
+    assert c.pins == V.Pins(descent=("Korean",), regions=("Europe",), gender=("trans woman",))
+    assert c.to_dict()["seeds"]["gender"] == {"values": ["trans woman"]}
     assert c.to_dict()["seeds"]["descent"] == {"values": ["Korean"], "groups": {"region": ["Europe"]}}
     assert P.Choice.of({"off": True}).to_dict() == {"off": True}
     assert P.Choice.of({"as_written": True}).as_written
@@ -488,8 +502,10 @@ def test_person_pickers():
     assert sum(len(p["values"]) for p in d["parts"]) == len(vocabulary().get(V.DESCENT).values)
     assert d["fits"] == ["Korean", "Japanese"] and d["picked"]["groups"]["region"] == ["East Asia"]
     assert d["in_pool"]["Korean"] == 1
-    pr = got["presentation"]
-    assert pr["options"] == ["feminine", "masculine", "androgynous"] and pr["in_pool"]["feminine"] == 2
+    g = got["gender"]
+    assert g["label"] == "Gender" and g["options"] == ["woman", "man", "trans woman", "trans man", "non-binary person"]
+    assert g["in_pool"] == {"woman": 2, "man": 2, "non-binary person": 1} and g["fits"] == g["options"]
+    assert P.person_pickers(POOL, P.Choice(), gender_fits=["woman", "trans woman"])["gender"]["fits"] == ["woman", "trans woman"]
 
 
 # --------------------------------------------------------------------------- writing in the background
@@ -652,3 +668,23 @@ def test_an_idea_that_only_repeats_the_core_is_not_recorded():
     s = V.list_seeds([("camera.angle", None)], single=True)
     b = run(V.write_batch(slot_of("<camera angle>, studio photo", "list", "camera angle"), s, 5, ask=Echo()))
     assert len(b.variants) == 5 and all("idea" not in v["seeds"] and v["seeds"]["core"] for v in b.variants)
+
+
+def test_a_pick_nothing_matches_writes_a_pinned_batch_at_once(tmp_path):
+    async def go():
+        fake = FakeWriter()
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake, paused=lambda: True)   # high priority: no waiting
+        w.attach()
+        sl = slot_of(PROMPT, "person")
+        key = "9" * 32
+        assert not w.picked(job_for(sl, V.person_seeds(), key=key), P.Choice(pins=V.Pins(descent=("Welsh",))))  # no pool yet
+        w.store.append(key, {"batch": 0, "variants": POOL})
+        assert not w.picked(job_for(sl, V.person_seeds(), key=key), P.Choice())                                 # nothing picked
+        assert not w.picked(job_for(sl, V.person_seeds(), key=key), P.Choice(pins=V.Pins(descent=("Korean",))))  # matches already
+        choice = P.Choice(pins=V.Pins(descent=("Welsh",), gender=("trans woman",)))
+        assert w.picked(job_for(sl, V.person_seeds(), key=key), choice)
+        await asyncio.wait_for(w.drain(), 5)
+        rec = w.store.batches(key)[-1]
+        assert rec["pinned"] == {"descent": ["Welsh"], "gender": ["trans woman"]}
+        assert all(v["seeds"]["descent"] == "Welsh" and v["seeds"]["gender"] == "trans woman" for v in rec["variants"])
+    run(go())

@@ -15,7 +15,7 @@ with no model call per image (variant_pools.py).
 - Seeds. The vocabulary seeds the writer instead of supplying the output: random ideas from the
   slot's lists (the writer may reject them), one list value per variant as its core for a slot
   bound to one list, and for a person a descent per variant that must appear, drawn from the
-  descent list's own distribution, plus how the person presents and an age. Long lists are never
+  descent list's own distribution, plus their gender and an age. Long lists are never
   shown to the model; a list of SHORTLIST values or fewer is shown whole.
 - Checks. A variant that copies the prompt around the slot, another slot's markup or an article
   the prompt already has is repaired; then it must keep the words, carry its descent, add
@@ -56,7 +56,7 @@ WRITE_SECONDS = 150.0  # one write call, at most
 WRITE_TEMPERATURE = 0.8
 
 DESCENT = "person.ethnicity"
-PRESENTATION = "person.presentation"
+GENDER = "person.gender"
 AGE = "person.age_band"
 
 # askable chat model: (messages, project_id, max_tokens, temperature) -> reply text
@@ -165,13 +165,13 @@ def bank(list_id: str, narrowed: Optional[Sequence[str]] = None, *, minor: bool 
 @dataclass(frozen=True)
 class Pins:
     """Seeds the user picked for a person: descent values, world regions (any descent in them),
-    presentations. They restrict the banks of the next writes and filter what is drawn."""
+    genders. They restrict the banks of the next writes and filter what is drawn."""
     descent: Tuple[str, ...] = ()
     regions: Tuple[str, ...] = ()
-    presentation: Tuple[str, ...] = ()
+    gender: Tuple[str, ...] = ()
 
     def __bool__(self) -> bool:
-        return bool(self.descent or self.regions or self.presentation)
+        return bool(self.descent or self.regions or self.gender)
 
     def descents(self) -> Optional[List[str]]:
         """The descent values picked (a region as every value in it), or None when none are."""
@@ -187,22 +187,22 @@ class Pins:
 
     def to_dict(self) -> Dict[str, List[str]]:
         return {k: list(v) for k, v in (("descent", self.descent), ("regions", self.regions),
-                                        ("presentation", self.presentation)) if v}
+                                        ("gender", self.gender)) if v}
 
 
 @dataclass(frozen=True)
 class Seeds:
     """What one slot's writes are seeded with."""
     descent: Optional[Bank] = None        # a person's descent: one per variant, must appear
-    presentation: Optional[Bank] = None   # how a person reads: one per variant, told
+    gender: Optional[Bank] = None         # a person's gender: one per variant, told
     age: Optional[Bank] = None            # a person's age: one per variant, told
     core: Optional[Bank] = None           # a slot bound to one list: one value per variant to build on
     ideas: Tuple[Bank, ...] = ()          # lists ideas are drawn from (the writer may reject them)
     minor: Tuple[str, ...] = ()           # the ages under 18 the person may be
 
     def pinned(self, pins: Optional[Pins]) -> "Seeds":
-        """The seeds with the user's picks: descent and presentation drawn only from what was
-        picked (what the words allow of it, else what was picked)."""
+        """The seeds with the user's picks: descent and gender drawn only from what was picked
+        (what the words allow of it, else what was picked)."""
         if not pins:
             return self
         out = self
@@ -210,18 +210,21 @@ class Seeds:
         if picked is not None:
             fits = self.descent.only(picked) if self.descent is not None else None
             out = replace(out, descent=fits or bank(DESCENT, picked, minor=bool(self.minor)))
-        if pins.presentation:
-            have = self.presentation or bank(PRESENTATION)
-            out = replace(out, presentation=(have.only(pins.presentation) if have else None) or have)
+        if pins.gender:
+            fits = self.gender.only(pins.gender) if self.gender is not None else None
+            out = replace(out, gender=fits or bank(GENDER, pins.gender))
         return out
 
 
-def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: bool = False, presentation: str = "",
+def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: bool = False,
+                 gender: Optional[Sequence[str]] = None,
                  ages: Optional[Sequence[str]] = None, ideas: Sequence[Tuple[str, Optional[Sequence[str]]]] = (),
                  stated: Optional[Dict[str, Sequence[str]]] = None) -> Seeds:
     """A person's seeds. `descent`: the descent values their words allow (narrowed; None when the
     words state none: the whole list). `stated_descent`: their words state it, so a single value
-    left needs no seed. `presentation`: what their words state ("" draws one per variant). `ages`:
+    left needs no seed. `gender`: the genders their words allow (narrowed: "woman" keeps woman and
+    trans woman; None when the words state none: the whole list), one per variant by the list's
+    shares. `ages`:
     their age narrowed by their words; None while that narrowing isn't there, which seeds no age
     (an unnarrowed age would fight "young" or "elderly"; the writer keeps them adults). `ideas`:
     (list, narrowed or None) per list whose values may seed their look. `stated`: what the prompt
@@ -231,7 +234,7 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
     d = bank(DESCENT, descent, minor=bool(minor))
     if d is not None and stated_descent and len(d.values) == 1:
         d = None   # their words name it already
-    return Seeds(descent=d, presentation=None if presentation else bank(PRESENTATION),
+    return Seeds(descent=d, gender=bank(GENDER, gender),
                  age=bank(AGE, ages, minor=bool(minor)) if ages is not None else None, minor=minor,
                  ideas=tuple(b for b in (bank(lid, n, minor=bool(minor), stated=stated) for lid, n in ideas)
                              if b is not None))
@@ -255,17 +258,17 @@ def list_seeds(lists: Sequence[Tuple[str, Optional[Sequence[str]]]], *, single: 
 class Spec:
     """One variant's own seeds."""
     descent: str = ""
-    presentation: str = ""
+    gender: str = ""
     age: str = ""
     core: str = ""
 
     def line(self) -> str:
-        parts = ([f'"{self.descent}"'] if self.descent else []) + ([self.presentation] if self.presentation else []) \
+        parts = ([f'"{self.descent}"'] if self.descent else []) + ([f"gender: {self.gender}"] if self.gender else []) \
             + ([f"age: {self.age}"] if self.age else []) + ([f'core: "{self.core}"'] if self.core else [])
         return ", ".join(parts)
 
     def seeds(self) -> Dict[str, str]:
-        return {k: v for k, v in (("descent", self.descent), ("presentation", self.presentation), ("age", self.age),
+        return {k: v for k, v in (("descent", self.descent), ("gender", self.gender), ("age", self.age),
                                   ("core", self.core)) if v}
 
 
@@ -309,7 +312,7 @@ class Drawn:
 
 
 def draw_seeds(rng: random.Random, seeds: Seeds, n: int) -> Drawn:
-    """Per variant its descent, presentation and age (each by its list's weights) and core (each
+    """Per variant its descent, gender and age (each by its list's weights) and core (each
     value once before any repeats); 1-2 ideas per variant from the long idea lists, no repeats
     in a batch; short idea lists shown whole."""
     cores = _spread(rng, seeds.core, n) if seeds.core is not None else []
@@ -318,8 +321,8 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int) -> Drawn:
         s = Spec()
         if seeds.descent is not None:
             s.descent = _weighted(rng, seeds.descent.values)
-        if seeds.presentation is not None:
-            s.presentation = _weighted(rng, seeds.presentation.values)
+        if seeds.gender is not None:
+            s.gender = _weighted(rng, seeds.gender.values)
         if seeds.age is not None:
             s.age = _weighted(rng, seeds.age.values)
         if cores:
@@ -376,7 +379,7 @@ Ideas. You may get ideas drawn at random from vocabulary lists, for breadth and 
 
 Per-variant seeds, one line per variant when given:
 - a quoted descent: write that exact word or words into the variant, meaning that heritage's look. If the marked words name several people, it applies to one of them.
-- feminine, masculine or androgynous: how the person reads; describe them that way.
+- gender: who the person is; write them as that, in words that fit their own words and the picture.
 - age: about how old the person is; say it in words that fit their words (a number, or "in her forties"). Their own words about age always hold.
 - core: build this variant on that value, adding a few words that place it in this prompt. If it can't be true in this prompt, use another value of the same kind and list the core under "rejected".
 
@@ -666,7 +669,7 @@ async def top_up(slot: Slot, seeds: Seeds, have: Sequence[str], *, ask: Ask, pro
     return await write_batch(slot, seeds, n, ask=ask, project_id=project_id, have=have, rng=rng)
 
 
-__all__ = ["AGE", "Ask", "Bank", "Batch", "DESCENT", "Drawn", "MIN_POOL", "N_OTHER", "N_PERSON", "PRESENTATION", "Pins",
+__all__ = ["AGE", "Ask", "Bank", "Batch", "DESCENT", "Drawn", "MIN_POOL", "N_OTHER", "N_PERSON", "GENDER", "Pins",
            "SHORTLIST", "SYSTEM", "Seeds", "Slot", "Spec", "TOPUP", "VARIANTS_VERSION", "article_before", "ask_writer",
            "bank", "check",
            "context_words", "draw_seeds", "has_run", "kept_chunks", "list_seeds", "messages", "minor_line", "minor_words",

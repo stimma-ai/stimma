@@ -1,0 +1,24 @@
+{
+ "id": "person.gender",
+ "label": "Gender",
+ "description": "A person's gender: woman, man, trans woman, trans man or non-binary person, drawn with fixed, even-handed shares.",
+ "pos": "noun phrase",
+ "frame": "a ___",
+ "notes": "A comprehensive list: every value is browsable and pickable, and none is left out. It seeds a person's variants one value per variant, drawn by its shares: woman and man about 46% each, trans woman, trans man and non-binary person about 2.7% each. A person's words narrow it ('woman' keeps woman and trans woman, drawn by their relative shares). Each value carries the presentation facet where it has one, so the rest of the vocabulary can be fitted to it. Not a slot's list: the reader never binds a slot to it; the chooser offers it beside descent for a person slot, and a pick pins it.",
+ "facets": ["presentation"],
+ "closed": true,
+ "catalog": false,
+ "local_facets": {
+  "gender": ["woman", "man", "trans woman", "trans man", "non-binary person"]
+ },
+ "shares": {
+  "gender": {"woman": 0.46, "man": 0.46, "trans woman": 0.027, "trans man": 0.027, "non-binary person": 0.026}
+ },
+ "values": [
+  {"text": "woman", "tier": "typical", "tags": {"gender": ["woman"], "presentation": ["feminine"]}},
+  {"text": "man", "tier": "typical", "tags": {"gender": ["man"], "presentation": ["masculine"]}},
+  {"text": "trans woman", "tier": "typical", "tags": {"gender": ["trans woman"], "presentation": ["feminine"]}},
+  {"text": "trans man", "tier": "typical", "tags": {"gender": ["trans man"], "presentation": ["masculine"]}},
+  {"text": "non-binary person", "tier": "typical", "tags": {"gender": ["non-binary person"]}}
+ ]
+}

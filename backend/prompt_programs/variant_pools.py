@@ -35,7 +35,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
 from prompt_programs.variants import (
-    DESCENT, PRESENTATION, TOPUP, VARIANTS_VERSION, Ask, Batch, Pins, Seeds, Slot, ask_writer, top_up, write_first,
+    DESCENT, GENDER, TOPUP, VARIANTS_VERSION, Ask, Batch, Pins, Seeds, Slot, ask_writer, top_up, write_first,
 )
 
 log = get_logger(__name__)
@@ -173,10 +173,10 @@ class Choice:
         o = obj if isinstance(obj, dict) else {}
         seeds = o.get("seeds") if isinstance(o.get("seeds"), dict) else {}
         d = seeds.get("descent") if isinstance(seeds.get("descent"), dict) else {}
-        pr = seeds.get("presentation") if isinstance(seeds.get("presentation"), dict) else {}
+        g = seeds.get("gender") if isinstance(seeds.get("gender"), dict) else {}
         groups = d.get("groups") if isinstance(d.get("groups"), dict) else {}
         pins = Pins(descent=strings(d.get("values")), regions=strings(groups.get("region")),
-                    presentation=strings(pr.get("values")))
+                    gender=strings(g.get("values")))
         return cls(values=strings(o.get("values")), add=tuple(dict.fromkeys([*strings(o.get("add")), *strings(add)])),
                    as_written=o.get("as_written") is True, off=o.get("off") is True, pins=pins)
 
@@ -192,8 +192,8 @@ class Choice:
         seeds: Dict[str, Any] = {}
         if self.pins.descent or self.pins.regions:
             seeds["descent"] = {"values": list(self.pins.descent), "groups": {"region": list(self.pins.regions)}}
-        if self.pins.presentation:
-            seeds["presentation"] = {"values": list(self.pins.presentation)}
+        if self.pins.gender:
+            seeds["gender"] = {"values": list(self.pins.gender)}
         if seeds:
             out["seeds"] = seeds
         return out or None
@@ -204,7 +204,7 @@ def matches(seeds: Dict[str, Any], pins: Pins) -> bool:
     picked = pins.descents()
     if picked is not None and str(seeds.get("descent") or "") not in set(picked):
         return False
-    if pins.presentation and str(seeds.get("presentation") or "") not in set(pins.presentation):
+    if pins.gender and str(seeds.get("gender") or "") not in set(pins.gender):
         return False
     return True
 
@@ -278,7 +278,7 @@ def due(variants: Sequence[Dict[str, Any]], uses: Dict[str, int], choice: Choice
 
 
 def in_pool(variants: Sequence[Dict[str, Any]], seed: str) -> Dict[str, int]:
-    """How many of a pool's variants carry each value of one seed (descent, presentation)."""
+    """How many of a pool's variants carry each value of one seed (descent, gender)."""
     out: Dict[str, int] = {}
     for v in variants:
         s = (v.get("seeds") or {}).get(seed)
@@ -288,10 +288,11 @@ def in_pool(variants: Sequence[Dict[str, Any]], seed: str) -> Dict[str, int]:
 
 
 def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: Optional[Sequence[str]] = None,
-                   stated_presentation: str = "") -> Dict[str, Any]:
-    """A person slot's descent and presentation pickers for /pools (VARIANTS_IMPL.md section 4):
-    descent browsed by its list's browse facet (Region > heritage), what the words allow of it,
-    what is picked and how many variants carry each value; the same for presentation."""
+                   gender_fits: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+    """A person slot's descent and gender pickers for /pools (VARIANTS_IMPL.md section 4):
+    descent browsed by its list's browse facet (Region > heritage), what the words allow of it
+    (`fits`), what is picked and how many variants carry each value; the same for gender, a short
+    list shown whole (`gender_fits`: what the words allow of it)."""
     from prompt_programs.vocab import vocabulary
     vocab = vocabulary()
     out: Dict[str, Any] = {}
@@ -307,11 +308,11 @@ def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: 
                           "fits": list(fits) if fits else [v.text for v in d.values],
                           "picked": {"values": list(choice.pins.descent), "groups": {facet or "region": list(choice.pins.regions)}},
                           "in_pool": in_pool(variants, "descent")}
-    p = vocab.get(PRESENTATION)
-    if p is not None:
-        out["presentation"] = {"list": p.id, "label": p.label, "options": [v.text for v in p.values],
-                               "stated": stated_presentation, "picked": {"values": list(choice.pins.presentation)},
-                               "in_pool": in_pool(variants, "presentation")}
+    g = vocab.get(GENDER)
+    if g is not None:
+        out["gender"] = {"list": g.id, "label": g.label, "options": [v.text for v in g.values],
+                         "fits": list(gender_fits) if gender_fits else [v.text for v in g.values],
+                         "picked": {"values": list(choice.pins.gender)}, "in_pool": in_pool(variants, "gender")}
     return out
 
 
@@ -494,6 +495,18 @@ class PoolWriter:
             self._inflight[job.key] = fut
         fut.add_done_callback(lambda f, k=job.key: self._done(k, f))
         return await fut
+
+    def picked(self, job: Job, choice: Choice) -> bool:
+        """Seeds the user just picked that nothing in the pool matches: write a batch with them now,
+        at high priority (the draws stand as the words, with a single picked descent, meanwhile).
+        Call it when a choice arrives (/pools, a generation). Returns whether a batch was queued."""
+        if not choice.pins or choice.values or choice.off or choice.as_written:
+            return False
+        pool = self.store.variants(job.key)
+        if not pool or drawable(pool, choice):
+            return False   # no pool yet (its first write is coming) or something matches already
+        job.role, job.pins = "top_up", choice.pins
+        return self.submit(job)
 
     def drew(self, job: Job, pick: Pick, variants: Optional[Sequence[Dict[str, Any]]] = None,
              choice: Optional[Choice] = None) -> bool:
