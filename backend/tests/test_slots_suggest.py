@@ -18,9 +18,11 @@ class Fake:
     def __init__(self, *replies):
         self.replies = list(replies)
         self.calls = []
+        self.max_tokens = []
 
     async def __call__(self, messages, project_id, max_tokens):
         self.calls.append(messages)
+        self.max_tokens.append(max_tokens)
         reply = self.replies.pop(0)
         return reply if isinstance(reply, str) else json.dumps(reply)
 
@@ -191,39 +193,113 @@ class TestPhoto:
         assert {name for name, _, _ in sg.PHOTO} >= {"camera", "light"}
 
 
+class TestJoins:
+    async def test_an_adds_join_is_kept_when_it_fits(self):
+        prompt = "an old man reading on a porch at dusk"
+        got = await sg.suggest(prompt, Fake({"vary": [], "adds": [
+            {"name": "weather", "label": "weather", "after": "on a porch", "insert": " in <weather>"},
+            {"name": "hat", "label": "hat", "after": "on a deck", "insert": " in a <hat>"},      # not in the prompt
+            {"name": "pet", "label": "pet", "after": "at dusk", "insert": ", with a <dog>"},       # other words
+            {"name": "sky", "label": "sky"}]}))                                                   # none given
+        assert got["adds"] == [{"name": "weather", "label": "weather", "after": "on a porch", "insert": " in <weather>"},
+                               {"name": "hat", "label": "hat"}, {"name": "pet", "label": "pet"}]
+
+    async def test_a_photos_joins_go_with_its_camera_and_light(self):
+        prompt = "an old man reading on a porch at dusk"
+        got = await sg.suggest(prompt, Fake({**photo(), "joins": {
+            "camera": {"after": "at dusk", "insert": ", shot on <camera>"},
+            "light": {"after": "at dusk", "insert": ", lit by <camera>"}}}))     # the wrong slot: no join
+        camera, light = got["adds"]
+        assert (camera["after"], camera["insert"]) == ("at dusk", ", shot on <camera>")
+        assert "after" not in light and "insert" not in light
+
+    async def test_joins_are_ignored_when_it_is_not_a_photo(self):
+        got = await sg.suggest(DORM, Fake({**photo(is_photo=False), "joins": "garbled"}))
+        assert got["adds"] == []
+
+    async def test_a_photo_keeps_two_of_its_own(self):
+        got = await sg.suggest(DORM, Fake(photo(adds=["weather", "season", "background"])))
+        assert names(got) == ["weather", "season", "camera", "light"]
+        got = await sg.suggest(DORM, Fake(photo(adds=["weather", "season", "background"], is_photo=False)))
+        assert names(got) == ["weather", "season", "background"]
+
+
 # --------------------------------------------------------------------------- add
 
+class TestSplice:
+    """Writing a suggested add in where Suggest said, with no model: code checks only structure."""
+
+    def test_it_writes_the_slot_in_after_the_words(self):
+        prompt = "an old man reading on a porch at dusk"
+        done, problem = sg.splice(prompt, "light", "on a porch at dusk", ", lit by <light>")
+        assert problem == "" and done["prompt"] == "an old man reading on a porch at dusk, lit by <light>"
+        assert done["prompt"][done["slot"]["from"]:done["slot"]["to"]] == "<light>"
+        done, _ = sg.splice(prompt, "weather", "reading", " in <weather>")
+        assert done["prompt"] == "an old man reading in <weather> on a porch at dusk"
+
+    @pytest.mark.parametrize("after,insert,why", [
+        ("on a deck", ", <light>", "not in the prompt"),
+        ("a", ", <light>", "more than once"),
+        ("", ", <light>", "needs"),
+        (None, ", <light>", "needs"),
+        ("at dusk", ", lit by the sun", "once"),                  # no slot
+        ("at dusk", ", <light> and <light>", "once"),             # two
+        ("at dusk", ", lit by <warm light>", "once"),             # other words
+        ("at dusk", ", <light> {soft|hard}", "brackets"),         # a list too
+        ("at dusk", ", <light> [exact]", "brackets"),
+        ("at dusk", ",\n<light>", "brackets"),                    # a new line
+        ("on a por", "ch, <light>", "inside a word"),
+        ("reading", "<light> ", "inside a word"),                  # runs into the word before
+        ("reading ", "<light>", "next word"),                      # and into the next
+    ])
+    def test_what_does_not_fit(self, after, insert, why):
+        done, problem = sg.splice("an old man reading on a porch at dusk", "light", after, insert)
+        assert done is None and why in problem
+
+    def test_marks_are_kept(self):
+        prompt = "a <young man> on a {red|blue} bench\n# keep it calm"
+        done, problem = sg.splice(prompt, "light", "keep it", " in <light>")       # on the note line
+        assert done is None and problem   # a note line holds no slots
+        done, problem = sg.splice(prompt, "light", "<young", " <light>")           # inside a slot
+        assert done is None
+        done, _ = sg.splice(prompt, "light", "{red|blue} bench", ", lit by <light>")
+        assert done["prompt"] == "a <young man> on a {red|blue} bench, lit by <light>\n# keep it calm"
+
+
 class TestAdd:
+    async def test_suggests_join_makes_no_call(self):
+        ask = Fake()
+        got = await sg.add("dorm room with a <young man>", "light", ask, after="<young man>", insert=", lit by <light>")
+        assert got["prompt"] == "dorm room with a <young man>, lit by <light>" and ask.calls == []
+
+    async def test_a_join_that_no_longer_fits_asks_the_model(self):
+        prompt = "dorm room with an <old man>"   # the prompt moved on since Suggest
+        ask = Fake({"after": "<old man>", "insert": ", lit by <light>"})
+        got = await sg.add(prompt, "light", ask, after="<young man>", insert=", lit by <light>")
+        assert got["prompt"] == "dorm room with an <old man>, lit by <light>" and len(ask.calls) == 1
+
     async def test_a_good_reply(self):
         prompt = "dorm room with a <young man>"
-        written = "dorm room with a <young man>, lit by <light>"
-        ask = Fake({"prompt": written})
+        ask = Fake({"after": "<young man>", "insert": ", lit by <light>"})
         got = await sg.add(prompt, "light", ask)
-        assert got["prompt"] == written
-        assert written[got["slot"]["from"]:got["slot"]["to"]] == "<light>"
-        assert len(ask.calls) == 1 and "<light>" in ask.calls[0][1]["content"]
-
-    async def test_trimmed_ends_are_put_back(self):
-        prompt = "1girl, solo, smiling\n"
-        got = await sg.add(prompt, "light", Fake({"prompt": "1girl, solo, smiling, <light>"}))
-        assert got["prompt"] == "1girl, solo, smiling, <light>\n"
+        assert got["prompt"] == "dorm room with a <young man>, lit by <light>"
         assert got["prompt"][got["slot"]["from"]:got["slot"]["to"]] == "<light>"
+        assert len(ask.calls) == 1 and "<light>" in ask.calls[0][1]["content"]
+        assert ask.max_tokens == [sg.ADD_TOKENS] and sg.ADD_TOKENS <= 64
 
-    async def test_an_altered_slot_is_retried(self):
+    async def test_a_reply_that_does_not_fit_is_retried_once(self):
         prompt = "dorm room with a <young man>"
-        written = "dorm room with a <young man>, lit by <light>"
-        ask = Fake({"prompt": "dorm room with a <man>, lit by <light>"}, {"prompt": written})
+        ask = Fake({"after": "<young  man>", "insert": ", lit by <light>"}, {"after": "<young man>", "insert": ", lit by <light>"})
         got = await sg.add(prompt, "light", ask)
-        assert got["prompt"] == written and len(ask.calls) == 2
-        assert "<young man>" in ask.calls[1][-1]["content"]
+        assert got["prompt"] == "dorm room with a <young man>, lit by <light>" and len(ask.calls) == 2
+        assert "not in the prompt" in ask.calls[1][-1]["content"]
 
     @pytest.mark.parametrize("bad", [
         "not json",
-        {"prompt": "dorm room with a <young man>"},                             # nothing new
-        {"prompt": "dorm room with a <young man>, <light> and <camera>"},      # two new
-        {"prompt": "dorm room with a <young man>, lit by <warm light>"},       # other words
-        {"prompt": "a dorm room with a <young man>, lit by <light>"},          # changed the text
-        {"prompt": "dorm room with a <young man>, {lit|shaded} by <light>"},   # a new list too
+        {"prompt": "dorm room with a <young man>, lit by <light>"},     # the old shape
+        {"after": "dorm room", "insert": " lit"},                      # nothing new
+        {"after": "<young man>", "insert": ", <light> and <camera>"},  # two new
+        {"after": "<young man>", "insert": ", lit by <warm light>"},   # other words
     ])
     async def test_falls_back_after_two_bad_replies(self, bad):
         prompt = "dorm room with a <young man>"
@@ -232,41 +308,22 @@ class TestAdd:
         assert got["prompt"] == "dorm room with a <young man>, <light>" and len(ask.calls) == 2
         assert got["prompt"][got["slot"]["from"]:got["slot"]["to"]] == "<light>"
 
-    async def test_words_joined_by_only_a_comma_are_asked_again_once(self):
-        """A reply that says the prompt is written in words but adds a bare tag is asked once more
-        to join it with words; a second bare one, or a tag prompt, is kept as written."""
-        prompt = "dorm room with a young man"
-        bare = {"form": "words", "prompt": "dorm room with a young man, <light>"}
-        joined = {"form": "words", "prompt": "dorm room with a young man, lit by <light>"}
-        ask = Fake(bare, joined)
-        assert (await sg.add(prompt, "light", ask))["prompt"] == joined["prompt"] and len(ask.calls) == 2
-        assert 'joined with only ","' in ask.calls[1][-1]["content"]
-        ask = Fake(bare, bare)
-        assert (await sg.add(prompt, "light", ask))["prompt"] == bare["prompt"] and len(ask.calls) == 2
-        ask = Fake(bare, "not json")
-        assert (await sg.add(prompt, "light", ask))["prompt"] == bare["prompt"]
-        tags = {"form": "tags", "prompt": "1girl, long hair, <light>"}
-        ask = Fake(tags)
-        assert (await sg.add("1girl, long hair", "light", ask))["prompt"] == tags["prompt"] and len(ask.calls) == 1
+    async def test_a_bare_join_is_kept_at_once(self):
+        """No second call over how the part is joined: a usable reply is used."""
+        ask = Fake({"after": "a young man", "insert": ", <light>"})
+        got = await sg.add("dorm room with a young man", "light", ask)
+        assert got["prompt"] == "dorm room with a young man, <light>" and len(ask.calls) == 1
 
-    def test_the_add_prompt_asks_for_the_form_first(self):
-        assert '"form": "words"' in sg.ADD_SYSTEM and "even when it is short" in sg.ADD_SYSTEM
-
-    async def test_a_comment_line_after_the_text_stays_last(self):
-        prompt = "dorm room with a <young man>.\n# keep it calm"
-        moved = {"prompt": "# keep it calm\ndorm room with a <young man>, lit by <light>."}
-        got = await sg.add(prompt, "light", Fake(moved, moved))
-        assert got["prompt"] == "dorm room with a <young man>., <light>\n# keep it calm"
-        assert got["prompt"][got["slot"]["from"]:got["slot"]["to"]] == "<light>"
-        written = "dorm room with a <young man>, lit by <light>.\n# keep it calm"
-        got = await sg.add(prompt, "light", Fake({"prompt": written}))
-        assert got["prompt"] == written and got["prompt"].endswith("\n# keep it calm")
+    def test_the_add_prompt_asks_for_the_place_only(self):
+        assert '{"after": ' in sg.ADD_SYSTEM and '"prompt"' not in sg.ADD_SYSTEM
 
     async def test_a_comment_line_is_not_written_on(self):
         prompt = "a cat\n# soft colors"
-        bad = {"prompt": "a cat\n# soft colors, <light>"}
+        bad = {"after": "soft colors", "insert": ", <light>"}
         got = await sg.add(prompt, "light", Fake(bad, bad))
         assert got["prompt"] == "a cat, <light>\n# soft colors"
+        got = await sg.add(prompt, "light", Fake({"after": "a cat", "insert": " in <light>"}))
+        assert got["prompt"] == "a cat in <light>\n# soft colors"
 
     async def test_no_text_makes_no_call(self):
         ask = Fake()
@@ -319,10 +376,30 @@ class TestRoutes:
         assert list((tmp_path / "a" / "prompt_programs" / "suggest").rglob("*.json"))
 
     async def test_add(self, client, monkeypatch):
-        monkeypatch.setattr(sg, "ask_model", Fake({"prompt": "dorm room with a <young man>, lit by <light>"}))
+        monkeypatch.setattr(sg, "ask_model", Fake({"after": "<young man>", "insert": ", lit by <light>"}))
         async with client as c:
             r = await c.post("/api/prompt-programs/add", json={"prompt": "dorm room with a <young man>", "name": "light"})
             assert r.status_code == 200
             assert r.json() == {"prompt": "dorm room with a <young man>, lit by <light>", "slot": {"from": 37, "to": 44}}
             r = await c.post("/api/prompt-programs/add", json={"prompt": "a cat", "name": "a:b"})
             assert r.status_code == 422 and r.json()["detail"]["code"] == "bad_slot"
+
+    async def test_a_fresh_chip_click_calls_no_model(self, client, monkeypatch):
+        """Suggest's answer says where each add goes; clicking one sends that back and the
+        server splices it in. The one model call is Suggest's."""
+        prompt = "an old man reading on a porch at dusk"
+        reply = {"vary": ["old man"], "adds": [{"name": "weather", "label": "weather", "after": "on a porch",
+                                                "insert": " in <weather>"}],
+                 "photo": True, "stated": ["light"],
+                 "joins": {"camera": {"after": "at dusk", "insert": ", shot on <camera>"}}}
+        ask = Fake(reply)
+        monkeypatch.setattr(sg, "ask_model", ask)
+        async with client as c:
+            adds = (await c.post("/api/prompt-programs/suggest", json={"prompt": prompt})).json()["adds"]
+            assert [(a["name"], a.get("insert")) for a in adds] == [("weather", " in <weather>"), ("camera", ", shot on <camera>")]
+            for a, written in zip(adds, ["an old man reading on a porch in <weather> at dusk",
+                                         "an old man reading on a porch at dusk, shot on <camera>"]):
+                r = await c.post("/api/prompt-programs/add", json={"prompt": prompt, "name": a["name"],
+                                                                  "after": a["after"], "insert": a["insert"]})
+                assert r.json()["prompt"] == written
+        assert len(ask.calls) == 1

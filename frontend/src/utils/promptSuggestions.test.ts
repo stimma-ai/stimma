@@ -17,6 +17,19 @@ test('a /suggest answer keeps a photography add\'s kind and lists, and plain add
   assert.deepEqual(cleanSuggestions(null), { vary: [], adds: [] })
 })
 
+test('an add keeps where it goes only when both its words and its insert came back', () => {
+  const got = cleanSuggestions({ adds: [
+    { name: 'light', after: 'at dusk', insert: ', lit by <light>' },
+    { name: 'sky', after: 'at dusk' },
+    { name: 'pet', after: 3, insert: ', <pet>' },
+  ] })
+  assert.deepEqual(got.adds, [
+    { name: 'light', label: 'light', after: 'at dusk', insert: ', lit by <light>' },
+    { name: 'sky', label: 'sky' },
+    { name: 'pet', label: 'pet' },
+  ])
+})
+
 test('a slot read as a photography add\'s kind, or drawing from one of its lists, covers it', () => {
   const read = { kinds: ['person', 'light'], lists: ['person.age', 'camera.angle'] }
   assert.equal(slotCovers(light, read), true)

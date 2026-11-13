@@ -2,8 +2,10 @@
 
 Suggest reads a prompt and names phrases already written that could vary (the editor
 underlines them; a click wraps one in brackets) and a few things the prompt doesn't mention
-that would be worth varying ("+ light"). Add writes one of those into the prompt as a slot,
-the way the person would have written it (", lit by <light>").
+that would be worth varying ("+ light"), each with where it would go and the words that join
+it (after "on a porch", ", lit by <light>"). Clicking one splices it in with no model call
+(`splice`); when the prompt has moved on and that no longer fits, Add asks the model for just
+the place and the join, and the slot goes at the end of the text when that fails too.
 
 When the picture is a photo, the chips also always offer the photography the prompt doesn't
 have yet (camera, light), from the vocabulary rather than written by the model each time.
@@ -11,8 +13,8 @@ The same reply says whether it is a photo and which of those the prompt already 
 reply without those fields readable offers none of them.
 
 The model decides what could vary and how the words join. Code checks only structure: that
-a phrase is an exact stretch of the prompt where a slot can stand, the counts, and that Add
-kept everything that was there. Both replies are plain JSON; a reply that can't be read gets
+a phrase is an exact stretch of the prompt where a slot can stand, the counts, and that a
+join's words occur once and its insert adds the one slot and nothing else. Both replies are plain JSON; a reply that can't be read gets
 one retry saying what was wrong.
 """
 
@@ -30,9 +32,11 @@ from prompt_programs.slots import _VERBATIM, SLOT_RE, _line_marks, _lines, find_
 
 log = get_logger(__name__)
 
-SUGGEST_VERSION = "suggest-2"   # suggest-2: the reply says whether the picture is a photo and what photography it states
+SUGGEST_VERSION = "suggest-3"   # suggest-3: each add says where it goes. suggest-2: the reply says whether the picture is a photo and what photography it states
 MAX_VARY = 6
 MAX_ADDS = 3
+MAX_PHOTO_ADDS = 2   # a photo's own adds, beside its camera and light
+ADD_TOKENS = 64      # Add's reply is only the place and the join
 
 # The photography a photo is always offered, as (its name: the slot's words, its chip and how
 # the reply names it; the reader's kind for that slot; the lists that slot draws from, or a
@@ -53,7 +57,9 @@ Read their prompt and suggest two things.
 
 vary: phrases already written in the prompt that would be worth changing from picture to picture. Prefer what a person would most want to differ between pictures: who is in it, what they wear, the place, an animal, a thing they hold or use. Copy each phrase exactly as it is written, as the smallest stretch that names the thing together with the words that describe it: "young man", not "a young man in"; "red leather jacket", not "a red leather jacket and". Never the whole prompt and never a verb alone. Leave out anything already in angle brackets, square brackets or curly braces. At most 6, the best first. Fewer is fine, and so is none.
 
-adds: things the prompt doesn't mention at all that would be worth varying in this picture. Only what is truly missing: if the prompt already says anything about it, leave it out. What fits depends on the prompt: for a portrait perhaps the background or the light, for a street scene the weather or the time of day, for a product shot the surface it stands on. Name each in one or two plain words, in the prompt's own way of speaking. At most 3, the best first. When photo is true, leave the camera and the light out of adds: they are offered anyway.
+adds: things the prompt doesn't mention at all that would be worth varying in this picture. Only what is truly missing: if the prompt already says anything about it, leave it out. What fits depends on the prompt: for a portrait perhaps the background or the light, for a street scene the weather or the time of day, for a product shot the surface it stands on. Name each in one or two plain words, in the prompt's own way of speaking. At most 3, the best first (2 when photo is true). When photo is true, leave the camera and the light out of adds: they are offered anyway.
+
+For each add, also say where it would be written in: after, the few words of the prompt right before that place, copied exactly, enough that they occur only once in the prompt (usually two to five words, never from a line starting with #); and insert, what goes right after them: the add's name in angle brackets with the words that join it, written the way the prompt is written. A prompt with joining words between the things it names ("with", "on", "at", a verb), even a short one, gets words that make it read as part of the phrase: ", lit by <light>", " in <weather>". A prompt of bare tags between commas gets only the tag: ", <light>". Put it where it reads naturally, usually after what it belongs to.
 
 Then say two more things.
 
@@ -61,26 +67,22 @@ photo: true when the picture is meant to look like a photograph, as any prompt t
 
 stated: of the two names "camera" and "light", the ones the prompt already says anything about. "camera" when it says anything about the framing, shot size, lens, angle, film or format; "light" when it says anything about the light: its source, look, quality or the time of day that sets it. Only those names, never the prompt's words: [], ["camera"], ["light"] or ["camera", "light"].
 
+joins: when photo is true, for each of "camera" and "light" not in stated, where it would be written in, as for an add: {"camera": {"after": "...", "insert": ", shot on <camera>"}}. {} when photo is false.
+
 Lines starting with # are notes from the user, not part of the picture's text. Never take a phrase from them. They may say what the user does or doesn't want to vary: follow them.
 
 Reply with JSON only, in this shape:
-{"vary": ["young man", "dorm room"], "adds": [{"name": "time of day", "label": "time"}], "photo": true, "stated": ["light"]}
+{"vary": ["young man", "dorm room"], "adds": [{"name": "time of day", "label": "time", "after": "dorm room", "insert": " at <time of day>"}], "photo": true, "stated": ["light"], "joins": {"camera": {"after": "lit by <light>", "insert": ", shot on <camera>"}}}
 For each add, name is the words that would go in the angle brackets and label is the one or two words shown on its button."""
 
-ADD_SYSTEM = """You add one changing part to an image prompt. The user marks the parts that change from picture to picture with angle brackets: "dorm room with a <young man>, lit by <light>". They ask you to add a new one, and you write it into their prompt the way they would have written it themselves.
+ADD_SYSTEM = """You add one changing part to an image prompt. The user marks the parts that change from picture to picture with angle brackets: "dorm room with a <young man>, lit by <light>". They ask you to add a new one. You say where it goes and the words that join it, the way they would have written it themselves.
 
-First decide how the prompt is written:
-- "words": it has joining words between the things it names ("with", "on", "at", "a", "the", a verb), even when it is short and has no full stop: "dorm room with a young man", "an old man reading on a porch at dusk", "a red car parked outside a diner at night". Join the new part with words that make it read as part of the same phrase: "dorm room with a young man, lit by <light>", "an old man reading on a porch at dusk, in <weather>", "a red car parked outside a diner, under a <sky>".
-- "tags": it is only short tags between commas, with no joining words between them: "1girl, long hair, sailor uniform, school rooftop". Add the bare tag: "1girl, long hair, sailor uniform, school rooftop, <light>".
+after: the few words of the prompt right before the place it goes, copied exactly, enough that they occur only once in the prompt (usually two to five words). Never from a line starting with #, and never inside angle brackets, square brackets or curly braces.
 
-Then write it in:
-- Change as little as possible. Keep every character of the prompt exactly as it is, and only insert the new words.
-- Put it where it reads naturally, usually after what it belongs to.
-- Add exactly one part in angle brackets, with exactly the words you were given. Leave every existing part in angle brackets, square brackets or curly braces as it is.
-- Lines starting with # are notes from the user: leave them as they are and put nothing on them.
+insert: what goes right after them: the new part in angle brackets, with exactly the words you were given, and the words that join it. A prompt with joining words between the things it names ("with", "on", "at", "a", a verb), even a short one, gets words that make it read as part of the phrase: ", lit by <light>", " in <weather>", ", under a <sky>". A prompt of bare tags between commas ("1girl, long hair, school rooftop") gets only the tag: ", <light>". Nothing else in brackets or braces. Put it where it reads naturally, usually after what it belongs to.
 
 Reply with JSON only, in this shape:
-{"form": "words", "prompt": "the whole prompt with the new part added"}"""
+{"after": "reading on a porch at dusk", "insert": ", lit by <light>"}"""
 
 
 async def ask_model(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int) -> str:
@@ -202,10 +204,24 @@ def check_suggestions(prompt: str, got: Dict[str, Any]) -> Dict[str, Any]:
         if not SLOT_RE.fullmatch(f"<{name}>") or name.casefold() in taken or name.casefold() in own:
             continue
         taken.add(name.casefold())
-        adds.append({"name": name, "label": label})
-        if len(adds) == MAX_ADDS:
+        adds.append({"name": name, "label": label, **checked_join(prompt, name, item)})
+        if len(adds) == (MAX_PHOTO_ADDS if photo is not None else MAX_ADDS):
             break
-    return {"vary": kept, "adds": adds, "photo": photo}
+    joins = got.get("joins") if photo is not None and isinstance(got.get("joins"), dict) else {}
+    photo_joins = {name: j for name, _, _ in PHOTO if (j := checked_join(prompt, name, joins.get(name)))}
+    return {"vary": kept, "adds": adds, "photo": photo, "joins": photo_joins}
+
+
+def checked_join(prompt: str, name: str, item: Any) -> Dict[str, str]:
+    """{after, insert} from a reply's item when splicing them into the prompt writes in <name>
+    and nothing else; {} when they're missing or don't fit (the click then asks Add)."""
+    if not isinstance(item, dict):
+        return {}
+    done, problem = splice(prompt, name, item.get("after"), item.get("insert"))
+    if done is None:
+        log.info(f"[suggest] the join for <{name}> isn't used: {problem}")
+        return {}
+    return {"after": item["after"], "insert": item["insert"]}
 
 
 def read_photo(got: Dict[str, Any]) -> Optional[List[str]]:
@@ -253,7 +269,9 @@ def offered_adds(prompt: str, checked: Dict[str, Any]) -> List[Dict[str, Any]]:
             continue
         have = photo_lists(lists)
         if have:
-            adds.append({"name": name, "label": name, "kind": kind, "lists": have})
+            join = (checked.get("joins") or {}).get(name)
+            adds.append({"name": name, "label": name, "kind": kind, "lists": have,
+                         **(join if isinstance(join, dict) else {})})
     return adds
 
 
@@ -264,8 +282,8 @@ def suggest_key(prompt: str, model: str) -> str:
 
 async def suggest(prompt: str, ask: Optional[Ask] = None, cache: Optional[NarrowCache] = None,
                   project_id: Optional[int] = None, model: str = "", raw: bool = False) -> Dict[str, List[Dict[str, Any]]]:
-    """{"vary": [{from, to, text}], "adds": [{name, label}, ...]} for the prompt as sent; a
-    photo's photography adds also carry {kind, lists}. No call for an empty prompt (or only
+    """{"vary": [{from, to, text}], "adds": [{name, label, after?, insert?}, ...]} for the
+    prompt as sent; a photo's photography adds also carry {kind, lists}. No call for an empty prompt (or only
     comment lines) or Raw mode. The checked reply is cached by the exact prompt; a reply that
     can't be read twice gives nothing and isn't cached."""
     empty: Dict[str, List[Dict[str, Any]]] = {"vary": [], "adds": []}
@@ -370,54 +388,66 @@ def plain_add(prompt: str, name: str) -> Dict[str, Any]:
     return {"prompt": joined + slot, "slot": {"from": len(joined), "to": len(joined) + len(slot)}}
 
 
-def _restore_ends(before: str, reply: str) -> str:
-    """The reply with the prompt's own leading and trailing whitespace: models trim them."""
-    lead = before[:len(before) - len(before.lstrip())]
-    trail = before[len(before.rstrip()):]
-    return lead + reply.strip() + trail if before.strip() else reply.strip()
+_BRACKETS = re.compile(r"[<>\[\]{}]")
 
 
-async def add(prompt: str, name: str, ask: Optional[Ask] = None, project_id: Optional[int] = None) -> Dict[str, Any]:
+def splice(prompt: str, name: str, after: Any, insert: Any) -> Tuple[Optional[Dict[str, Any]], str]:
+    """({"prompt", "slot": {from, to}}, "") with `insert` written in right after `after`, when
+    that fits: `after` occurs exactly once in the prompt and doesn't end inside a word,
+    `insert` holds <name> once and nothing else in brackets or braces, and the result is the
+    prompt with that one slot added and every other mark kept (check_added). Else (None, what
+    is wrong, said plainly)."""
+    if not isinstance(after, str) or not isinstance(insert, str) or not after.strip():
+        return None, 'it needs "after", words from the prompt, and "insert"'
+    at = prompt.find(after)
+    if at < 0:
+        return None, f'"{after}" is not in the prompt; copy the words exactly'
+    if prompt.find(after, at + 1) >= 0:
+        return None, f'"{after}" is in the prompt more than once; give enough words that it occurs once'
+    slot = f"<{name}>"
+    if insert.count(slot) != 1 or _BRACKETS.search(insert.replace(slot, "")) or "\n" in insert:
+        return None, f'"insert" must hold {slot} once, and nothing else in brackets or braces'
+    p = at + len(after)
+    before, rest = prompt[:p], prompt[p:]
+    if before[-1:].isalnum() and (rest[:1].isalnum() or insert[:1].isalnum() or insert[:1] == "<"):
+        return None, f'"{after}" ends inside a word, or "insert" runs into it; start "insert" with a space or a comma'
+    if (rest[:1].isalnum() or rest[:1] == "<") and not insert[-1:].isspace():
+        return None, '"insert" runs into the next word; end it with a space'
+    out = before + insert + rest
+    span, problem = check_added(prompt, out, name)
+    if span is None:
+        return None, problem
+    return {"prompt": out, "slot": {"from": span[0], "to": span[1]}}, ""
+
+
+async def add(prompt: str, name: str, ask: Optional[Ask] = None, project_id: Optional[int] = None,
+              after: Optional[str] = None, insert: Optional[str] = None) -> Dict[str, Any]:
     """{"prompt": the prompt with <name> written in, "slot": {from, to}} (the span includes the
-    brackets). The model writes it in; after a second reply that fails the checks, `, <name>`
-    goes at the end of the last non-comment line."""
+    brackets). With Suggest's `after` and `insert` that still fit the prompt, no model call.
+    Else the model says only where it goes and the join; a reply that doesn't fit is asked
+    again once, and after that `, <name>` goes at the end of the last non-comment line."""
     name = name.strip()
+    if after is not None or insert is not None:
+        done, problem = splice(prompt, name, after, insert)
+        if done is not None:
+            return done
+        log.info(f"[add] Suggest's join for <{name}> no longer fits: {problem}")
     if not _body(prompt):
         return plain_add(prompt, name)
     ask = ask or ask_model
     messages: List[Dict[str, Any]] = [{"role": "system", "content": ADD_SYSTEM},
                                       {"role": "user", "content": f"The prompt:\n{prompt}\n\nAdd: <{name}>"}]
-    usable: Optional[Dict[str, Any]] = None   # a valid reply whose joining didn't match its own form
     for attempt in range(2):
-        reply = await ask(messages, project_id, max(800, len(prompt) // 2 + 400))
+        reply = await ask(messages, project_id, ADD_TOKENS)
         got = _json_object(reply)
-        if got is None or not isinstance(got.get("prompt"), str):
-            problem = 'it wasn\'t a JSON object with the whole prompt as "prompt"'
+        if got is None:
+            problem = 'it wasn\'t a JSON object with "after" and "insert"'
         else:
-            after = _restore_ends(prompt, got["prompt"])
-            span, problem = check_added(prompt, after, name)
-            if span is not None:
-                out = {"prompt": after, "slot": {"from": span[0], "to": span[1]}}
-                joined = _joined_with(prompt, after, span)
-                if got.get("form") != "words" or re.search(r"\w", joined) or usable is not None:
-                    return out
-                # The reply says the prompt is written in words, yet joins the part with only
-                # punctuation: asked once more, and kept as it is if the second says the same.
-                usable = out
-                problem = (f'you said the prompt is written in words, but <{name}> is joined with only "{joined.strip()}": '
-                           "join it with words that make it read as part of the phrase")
-            elif usable is not None:
-                return usable
+            done, problem = splice(prompt, name, got.get("after"), got.get("insert"))
+            if done is not None:
+                return done
         log.info(f"[add] reply not used (try {attempt + 1}): {problem}; {str(reply)[:160]!r}")
         messages = messages + [{"role": "assistant", "content": str(reply or "")},
                                {"role": "user", "content": f"That reply couldn't be used: {problem}. Reply again with only "
-                                                           "the JSON, holding the whole prompt with the one new part added."}]
-    return usable or plain_add(prompt, name)
-
-
-def _joined_with(before: str, after: str, span: Span) -> str:
-    """The text the reply put right before the new slot (what was inserted ahead of it)."""
-    i = 0
-    while i < min(len(before), span[0]) and before[i] == after[i]:
-        i += 1
-    return after[i:span[0]]
+                                                           'the JSON, {"after": ..., "insert": ...}.'}]
+    return plain_add(prompt, name)

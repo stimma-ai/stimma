@@ -11,6 +11,10 @@ export interface SuggestedAdd {
   kind?: string
   /** …and the vocabulary lists it draws from. */
   lists?: string[]
+  /** Where it goes: words of the prompt it was suggested for, written in right after them… */
+  after?: string
+  /** …as these words, which hold its slot. Sent with Add, which splices them in with no model call. */
+  insert?: string
 }
 /** What the prompt's slots were read as: their kinds and the lists their choices draw from. */
 export interface ReadSlots { kinds: string[]; lists: string[] }
@@ -26,6 +30,7 @@ export function cleanSuggestions(data: any): Suggestions {
       label: typeof a.label === 'string' && a.label.trim() ? a.label : a.name,
       ...(typeof a.kind === 'string' && a.kind ? { kind: a.kind } : {}),
       ...(Array.isArray(a.lists) ? { lists: a.lists.filter((l: unknown) => typeof l === 'string') } : {}),
+      ...(typeof a.after === 'string' && typeof a.insert === 'string' ? { after: a.after, insert: a.insert } : {}),
     })) : []
   return { vary, adds }
 }

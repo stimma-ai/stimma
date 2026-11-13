@@ -11,8 +11,9 @@
  * leave it out once a slot of the prompt is read as that (`slotCovers`, in
  * utils/promptSuggestions.ts with the answer's shapes).
  *
- * Add has a model write one of those things into the prompt as a slot. Both fail quietly:
- * nothing changes.
+ * Add writes one of those things into the prompt as a slot. Suggest already said where each
+ * goes, so Add splices it in with no model call; only when the prompt has moved on so that no
+ * longer fits does the server ask a model. Both fail quietly: nothing changes.
  */
 import { ref, watch, onUnmounted, type Ref } from 'vue'
 import axios from 'axios'
@@ -92,8 +93,11 @@ export function usePromptSuggestions(o: PromptSuggestionsOptions) {
     if (adding.value) return null
     const text = read(o.prompt)
     adding.value = name
+    // Where Suggest said it goes; the server checks it still fits the prompt as it is now.
+    const known = answer.value?.suggestions.adds.find(a => a.name === name)
+    const join = known?.after != null && known.insert != null ? { after: known.after, insert: known.insert } : {}
     try {
-      const { data } = await axios.post(`${getApiBase()}/prompt-programs/add`, body({ prompt: text, name }))
+      const { data } = await axios.post(`${getApiBase()}/prompt-programs/add`, body({ prompt: text, name, ...join }))
       if (typeof data?.prompt !== 'string' || !Number.isInteger(data?.slot?.from) || !Number.isInteger(data?.slot?.to)) return null
       if (read(o.prompt) !== text || !read(o.active)) return null
       return { prompt: data.prompt, slot: { from: data.slot.from, to: data.slot.to } }
