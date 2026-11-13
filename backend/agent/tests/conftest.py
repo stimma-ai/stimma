@@ -28,6 +28,16 @@ def event_loop():
     loop.close()
 
 
+@pytest.fixture(autouse=True)
+def isolated_global_memory(monkeypatch, tmp_path):
+    """These tests run the agent loop against the machine's profile; keep its
+    global memory file (memory_store) out of the real profile directory."""
+    import memory_store
+
+    path = tmp_path / "global-memory.md"
+    monkeypatch.setattr(memory_store, "global_memory_path", lambda profile_id=None: memory_store._seed(path, ""))
+
+
 # =============================================================================
 # Database Fixtures
 # =============================================================================
