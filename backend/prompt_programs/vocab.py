@@ -156,14 +156,10 @@ class Leaf:
     gives: Tuple[str, ...] = ()                      # context facets its drawn values give (module docstring)
     takes: Dict[str, Tuple[str, float]] = field(default_factory=dict)   # facet -> (rare | never, factor)
     stated: bool = False       # a person's or scene's stated value of this list is read as context (narrow.py)
-    individual: bool = False   # a detail of one subject (a node above says "individual": see Node)
     groups: Dict[str, Any] = field(default_factory=dict)   # declared groups of shared tags (module docstring)
     less: Dict[str, float] = field(default_factory=dict)   # facet -> factor for a less-common family (module docstring)
     listed: bool = True        # shown to the writer; a part of a composed list isn't ("catalog": false)
     strict: bool = False       # never drawn without the list: words nothing in it fits leave it whole (narrow.py)
-    # Values the list held once ("retired" in its file): never drawn, offered or narrowed to, but
-    # still read by value(), so a revision that recorded one finds its tags and replays exactly.
-    retired: Tuple[Value, ...] = ()
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
@@ -180,7 +176,7 @@ class Leaf:
     @cached_property
     def _by_text(self) -> Dict[str, Value]:
         out: Dict[str, Value] = {}
-        for v in (*self.values, *self.retired):
+        for v in self.values:
             out.setdefault(v.text, v)
         return out
 
@@ -322,12 +318,10 @@ class Leaf:
 
 @dataclass(frozen=True)
 class Node:
-    """An inner node. `individual`: every list under it is a detail of one subject (a person's
-    hairstyle, an animal's breed), so with several subjects each draws their own (prepare.py)."""
+    """An inner node: a folder of lists, with a label and a one-line description."""
     id: str
     label: str
     description: str
-    individual: bool = False
 
 
 @dataclass
@@ -525,8 +519,7 @@ def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
                 str(d.get("frame") or ""), str(d.get("notes") or ""), tuple(d.get("facets") or ()),
                 bool(d.get("closed")), {k: tuple(v) for k, v in (d.get("untagged") or {}).items()}, vals,
                 {k: tuple(v) for k, v in (d.get("local_facets") or {}).items()}, str(d.get("slots") or ""),
-                gives, takes, stated, less=less, groups=groups,
-                retired=tuple(_value(lid, v, groups) for v in d.get("retired") or [] if str(v.get("text") or "").strip()))
+                gives, takes, stated, less=less, groups=groups)
 
 
 def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
@@ -557,7 +550,7 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
             d = json.loads(raw)
             if rel.name == "_node.json":
                 nid = ".".join(rel.parts[:-1])
-                nodes[nid] = Node(nid, str(d.get("label") or nid), str(d.get("description") or ""), d.get("individual") is True)
+                nodes[nid] = Node(nid, str(d.get("label") or nid), str(d.get("description") or ""))
             else:
                 lid = ".".join(rel.with_suffix("").parts)
                 if lid in leaves:
@@ -571,10 +564,6 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
                     composed[lid] = d["compose"]
     for lid, spec in composed.items():
         leaves[lid] = replace(leaves[lid], values=_composed(lid, spec, leaves))
-    for lid, lf in list(leaves.items()):  # a leaf under an individual node is a subject's own detail
-        parts = lid.split(".")
-        if any(getattr(nodes.get(".".join(parts[:i])), "individual", False) for i in range(1, len(parts))):
-            leaves[lid] = replace(lf, individual=True)
     return Vocabulary(nodes, leaves, facets, "vocab-" + h.hexdigest()[:12], context)
 
 
@@ -605,7 +594,7 @@ def minor_ages(values: Sequence[str]) -> Tuple[str, ...]:
     if leaf is None:
         return ()
     want = {str(x) for x in values}
-    return tuple(v.text for v in (*leaf.values, *leaf.retired) if v.text in want and v.minor)
+    return tuple(v.text for v in leaf.values if v.text in want and v.minor)
 
 
 __all__ = ["AGE_LIST", "LESS", "Leaf", "Node", "Value", "Vocabulary", "given_families", "load", "minor_ages", "vocabulary",
