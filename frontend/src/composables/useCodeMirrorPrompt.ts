@@ -312,7 +312,7 @@ interface UseCodeMirrorPromptOptions {
   onBlur: () => void
   /** Vim :w / :wq / :x. */
   onSave?: () => void
-  /** More editor behaviour from the embedder (slot editing). */
+  /** More editor behavior from the embedder (slot editing). */
   extensions?: Extension[]
 }
 

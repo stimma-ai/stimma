@@ -639,7 +639,7 @@ async function addSlot(name: string) {
   void nextTick(() => openSlotAt(r.slot.from))
 }
 // The tips panel in Tool View: what you can type, slots first, in the user's words. Each kind
-// of mark wears its colour in the editor (useCodeMirrorPrompt's theme).
+// of mark wears its color in the editor (useCodeMirrorPrompt's theme).
 const fluentIntro = 'Each image gets something new in the parts you mark. The rest stays as you wrote it.'
 type Tone = 'slot' | 'list' | 'name' | 'comment' | 'exact'
 const TONES: Record<Tone, string> = {

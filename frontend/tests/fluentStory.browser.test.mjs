@@ -324,11 +324,11 @@ for (const [label, opts] of [['desktop dark', {}], ['desktop light', { theme: 'l
     await expect(tips.locator('[data-tip-example="slot"]')).toContainText('<young man>')
     // No mechanics, no old features, no em dashes.
     assert.doesNotMatch(text, /Try different|smart wildcard|LoRA|parameters|—/i)
-    // Slots wear the editor's slot colour, apart from lists and saved names.
-    const colour = sel => tips.locator(sel).first().evaluate(el => getComputedStyle(el).color)
-    const slot = await colour('[data-tip-example="slot"] [data-tone="slot"]')
-    const list = await colour('[data-tone="list"]')
-    const named = await colour('[data-tone="name"]')
+    // Slots wear the editor's slot color, apart from lists and saved names.
+    const color = sel => tips.locator(sel).first().evaluate(el => getComputedStyle(el).color)
+    const slot = await color('[data-tip-example="slot"] [data-tone="slot"]')
+    const list = await color('[data-tone="list"]')
+    const named = await color('[data-tone="name"]')
     assert.notEqual(slot, list)
     assert.notEqual(slot, named)
     const editorSlot = await page.evaluate(() => {
