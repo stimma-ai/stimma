@@ -43,6 +43,7 @@ log = get_logger(__name__)
 POOL_VERSION = "pool-1"
 TOPUP_AT = 0.8      # share of what a slot draws from drawn this round that starts a top-up
 MAX_POOL = 300      # a pool this big stops topping up and cycles least-used
+RETRY_AFTER = 120.0 # seconds a failed first write stands as written before a prepare or poll asks again
 MIN_MATCH = 8       # picked seeds that match fewer variants than this write more that match, at once
 WORKERS = 2         # writes in flight per profile
 YIELD_POLL = 0.25   # seconds between looks while a background top-up gives way to a prepare
@@ -388,7 +389,7 @@ class PoolWriter:
         self._lock = threading.Lock()
         self._inflight: Dict[str, "asyncio.Future[List[str]]"] = {}
         self._queued: List[Job] = []
-        self._failed: Dict[str, str] = {}
+        self._failed: Dict[str, Tuple[str, float]] = {}   # key -> (why, when)
         self._sem: Optional[asyncio.Semaphore] = None
         self._workers = workers
         self.calls = 0
@@ -399,7 +400,8 @@ class PoolWriter:
             return key in self._inflight or any(j.key == key for j in self._queued)
 
     def failed(self, key: str) -> Optional[str]:
-        return self._failed.get(key)
+        got = self._failed.get(key)
+        return got[0] if got else None
 
     def state(self, key: str, stand_in: Optional[str] = None) -> str:
         """ready (a pool, or a stand-in, to draw from), writing, or as_written (the writer gave
@@ -424,15 +426,20 @@ class PoolWriter:
                 self._inflight[job.key] = None
             loop.call_soon_threadsafe(self._start, job)
 
-    def submit(self, job: Job) -> bool:
+    def submit(self, job: Job, retry: bool = False) -> bool:
         """Queue a write unless one for its pool is queued or running (a first write for a pool
-        that has variants is skipped). Returns whether it was queued."""
+        that has variants is skipped, and so is one that failed less than RETRY_AFTER ago unless
+        `retry`: a picker polling /pools never asks a failing model again and again). Returns
+        whether it was queued."""
         if job.role == "first" and self.store.has(job.key):
             return False
         with self._lock:
             if job.key in self._inflight or any(j.key == job.key for j in self._queued):
                 return False
             if job.role == "first":
+                failed = self._failed.get(job.key)
+                if failed is not None and not retry and time.time() - failed[1] < RETRY_AFTER:
+                    return False
                 self._failed.pop(job.key, None)
             loop = self.loop
             if loop is None or loop.is_closed():
@@ -464,7 +471,7 @@ class PoolWriter:
             except Exception as e:   # one pool failing never stops the others
                 log.warning(f"[variants] writing {job.slot.words!r} failed: {e}")
                 if job.role == "first":
-                    self._failed[job.key] = str(e)[:200] or type(e).__name__
+                    self._failed[job.key] = (str(e)[:200] or type(e).__name__, time.time())
                 return []
 
     def _paused(self) -> bool:
@@ -497,7 +504,7 @@ class PoolWriter:
                     out += b.texts()
             if not out:
                 why = "; ".join(dict.fromkeys(b.error or ", ".join(b.dropped) or "nothing usable" for b in batches))
-                self._failed[job.key] = why[:200]
+                self._failed[job.key] = (why[:200], time.time())
                 log.info(f"[variants] {job.slot.words!r} stands as written: {why[:200]}")
             return out
         if job.role == "top_up" and len(have) >= MAX_POOL:
@@ -613,5 +620,5 @@ def writer_for(profile_id: Optional[str]) -> PoolWriter:
     return w
 
 
-__all__ = ["Choice", "Job", "MAX_POOL", "MIN_MATCH", "POOL_VERSION", "Pick", "PoolWriter", "TOPUP_AT", "VariantStore", "drawable",
+__all__ = ["Choice", "Job", "MAX_POOL", "MIN_MATCH", "RETRY_AFTER", "POOL_VERSION", "Pick", "PoolWriter", "TOPUP_AT", "VariantStore", "drawable",
            "due", "in_pool", "matches", "person_pickers", "pick", "pool_key", "store_for", "writer_for"]

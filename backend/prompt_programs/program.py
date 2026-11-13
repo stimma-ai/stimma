@@ -168,12 +168,13 @@ def no_tools_error(e: Exception) -> bool:
 
 # --------------------------------------------------------------------------- after a prepare
 
-def on_prepared(entry: Dict[str, Any], *, project_id: Optional[int], profile_id: Optional[str]) -> None:
+def on_prepared(entry: Dict[str, Any], *, project_id: Optional[int], profile_id: Optional[str],
+                retry: bool = False) -> None:
     """Called once a program is stored: start writing its pools in the background.
     Never blocks, never fails the prepare."""
     try:
         from prompt_programs.fluent import start_pools
-        start_pools(entry, profile_id=profile_id, project_id=project_id)
+        start_pools(entry, profile_id=profile_id, project_id=project_id, retry=retry)
     except Exception as e:
         log.warning(f"[prompt-program] starting the pools failed for {entry.get('key')}: {e}")
 

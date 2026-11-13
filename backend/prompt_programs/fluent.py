@@ -137,10 +137,12 @@ def _model(entry: Dict[str, Any]) -> str:
 
 
 def start_pools(entry: Dict[str, Any], *, profile_id: Optional[str] = None, project_id: Optional[int] = None,
-                chosen: Optional[Dict[str, Choice]] = None, writer: Optional[PoolWriter] = None) -> List[str]:
+                chosen: Optional[Dict[str, Choice]] = None, writer: Optional[PoolWriter] = None,
+                retry: bool = False) -> List[str]:
     """Queue the first write of each read slot's pool that has none, and a batch for seeds the
-    user picked that nothing in a pool matches yet. Returns the pool keys queued. Never calls a
-    model itself and never raises."""
+    user picked that nothing in a pool matches yet. A write that failed is asked again only after a
+    while, or at once with `retry` (an explicit retry). Returns the pool keys queued. Never calls
+    a model itself and never raises."""
     out: List[str] = []
     try:
         w = writer or _writer(profile_id)
@@ -152,7 +154,7 @@ def start_pools(entry: Dict[str, Any], *, profile_id: Optional[str] = None, proj
             job = slot_job(entry, s, model=_model(entry), project_id=project_id)
             if job is None:
                 continue
-            if w.submit(job):
+            if w.submit(job, retry=retry):
                 out.append(job.key)
             c = (chosen or {}).get(s["id"])
             if c is not None and w.picked(slot_job(entry, s, model=_model(entry), project_id=project_id), c):

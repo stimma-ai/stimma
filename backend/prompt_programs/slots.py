@@ -786,9 +786,9 @@ async def prepare(prompt: str, *, profile_id: Optional[str], project_id: Optiona
     again = any((p.root, key) in _failed for _, _, key in p.parts())
     if start and (entry["reading"] or again or force):
         _start(p, force)
-    elif start:   # read and seeded: write the pools it has none of (or whose write failed) in the background
+    if start:   # write the pools it has none of; `force` (an explicit retry) asks a failed write again at once
         from prompt_programs import program as prep
-        prep.on_prepared(entry, project_id=p.project_id, profile_id=p.profile_id)
+        prep.on_prepared(entry, project_id=p.project_id, profile_id=p.profile_id, retry=force)
     entry["working"] = _working(p)
     p.store.put(p.key, entry)
     was = _was(p)

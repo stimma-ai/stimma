@@ -553,7 +553,8 @@ def test_a_failed_first_write_is_not_stored_and_asked_again(tmp_path):
         await w.drain()
         assert w.state(job.key) == "as_written" and w.failed(job.key) and not w.store.has(job.key)
         assert P.pick(w.store.variants(job.key), {}, P.Choice(), random.Random(), job.slot.words).text == job.slot.words
-        assert w.submit(job_for(job.slot, job.seeds))   # the next prepare asks again
+        assert not w.submit(job_for(job.slot, job.seeds))   # not again at once (a picker polling)
+        assert w.submit(job_for(job.slot, job.seeds), retry=True)   # an explicit retry asks again
         await w.drain()
         assert w.state(job.key) == "ready" and w.failed(job.key) is None
     run(go())
