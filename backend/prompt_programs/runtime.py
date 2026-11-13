@@ -716,6 +716,11 @@ def _fix_article(m: "re.Match[str]") -> str:
     return f"{new.capitalize() if art[0].isupper() else new} {word}"
 
 
+def fix_articles(text: str) -> str:
+    """Each "a"/"an" in the text as the word after it is said ("a espresso coat" → "an espresso coat")."""
+    return _A_AN.sub(_fix_article, text)
+
+
 _LAST_WORD = re.compile(r"([^\W\d_]+)\s*$")
 _FIRST_WORD = re.compile(r"^\s*([^\W\d_]+)")
 

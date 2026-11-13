@@ -206,6 +206,19 @@ async def test_the_slots_words_narrow_its_details():
         assert r.prompt.endswith(f"porch with his {drawn['pet']}, {drawn['list1']} evening")
 
 
+def test_a_drawn_outfit_is_recorded_as_the_prompt_shows_it(porch):
+    """A filled look's article goes with its color: the record says "an espresso ..." when the
+    prompt does, so anything matching recorded values against the text finds them."""
+    seen = 0
+    for s in range(60):
+        r = _draw(porch, 900 + s)
+        for d in r.draws:
+            if d.template and isinstance(d.value, str):
+                seen += 1
+                assert d.value in r.prompt, (d.value, r.prompt)
+    assert seen
+
+
 async def test_a_masculine_persons_build_draws_no_value_tagged_only_feminine():
     _, entry = build(parse(PORCH_PROMPT), PORCH_READING)
     await narrow_entry(entry, None, _stub_ask)

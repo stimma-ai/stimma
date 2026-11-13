@@ -80,8 +80,11 @@ def fill(template: str, roles: Optional[Dict[str, str]]) -> str:
     """A template value with its palette roles filled in. Without roles (a palette not
     drawn yet, or a probe), slots are left out and the text still reads: "a technical
     T-shirt and running shorts"."""
+    from prompt_programs.runtime import fix_articles
     out = _SLOT.sub(lambda m: (roles or {}).get(m.group(1), ""), template)
-    return re.sub(r"\s{2,}", " ", out).strip()
+    # the article before a slot goes with the color filled in: "a {main} coat" → "an olive coat",
+    # so the drawn value is the text the prompt shows
+    return fix_articles(re.sub(r"\s{2,}", " ", out).strip())
 
 
 def is_template(text: str) -> bool:
