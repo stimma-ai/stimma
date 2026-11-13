@@ -4,13 +4,15 @@
  "description": "Facial skin smoothness, pores, sheen, dryness, surface bumps and active acne.",
  "pos": "noun phrase",
  "frame": "a person with ___",
- "notes": "Visible facial skin texture, phrased without skin tone, cosmetic brands or inferred causes. Healed acne scars and other localized marks belong in person.feature.skin_marks; wrinkles and under-eye bags belong in person.feature.age_marks. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "notes": "Visible facial skin texture, phrased without skin tone, cosmetic brands or inferred causes. Healed acne scars and other localized marks belong in person.feature.skin_marks; wrinkles and under-eye bags belong in person.feature.age_marks. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages. Its plain value says nothing notable about this part: when the part varies it is drawn most of the time and adds no words; picked, it is written. Values marked \"distinctive\" (scars, birthmarks, vitiligo, prominent marks, strongly unusual features) are strength 2, or strength 1 at the unusual tier, so few faces show one unasked.",
  "facets": [],
  "closed": true,
  "strict": true,
+ "plain": "evenly textured skin",
  "catalog": false,
  "local_facets": {
   "aspect": [
+   "plain",
    "surface",
    "pores",
    "sheen",
@@ -27,14 +29,26 @@
  },
  "shares": {
   "aspect": {
-   "surface": 0.25,
-   "pores": 0.2,
-   "sheen": 0.15,
-   "dryness": 0.15,
-   "bumps_acne": 0.25
+   "plain": 0.8,
+   "surface": 0.07,
+   "pores": 0.04,
+   "sheen": 0.04,
+   "dryness": 0.03,
+   "bumps_acne": 0.02
   }
  },
  "values": [
+  {
+   "text": "evenly textured skin",
+   "short": "nothing notable",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "plain"
+    ]
+   }
+  },
   {
    "text": "smooth skin with fine natural texture",
    "short": "smooth natural texture",
@@ -325,7 +339,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "rough, dry patches on the cheeks",
@@ -345,7 +360,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a few tiny bumps on the forehead",
@@ -368,7 +384,7 @@
   {
    "text": "a single small pimple on the chin",
    "short": "small chin pimple",
-   "tier": "typical",
+   "tier": "plausible",
    "strength": 1,
    "tags": {
     "aspect": [
@@ -437,7 +453,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "inflamed acne across the cheeks",
@@ -455,7 +472,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "acne scattered across the forehead",
@@ -473,7 +491,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   }
  ]
 }

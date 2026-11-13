@@ -4,13 +4,15 @@
  "description": "Facial freckles, moles, scars, birthmarks, vitiligo patches and flush.",
  "pos": "noun phrase",
  "frame": "a person with ___",
- "notes": "Localized marks on facial skin, phrased without specifying skin tone or hue. Surface texture and active acne belong in person.feature.skin_texture; age spots belong in person.feature.age_marks. Scars are healed marks, including lip and eyebrow scars. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "notes": "Localized marks on facial skin, phrased without specifying skin tone or hue. Surface texture and active acne belong in person.feature.skin_texture; age spots belong in person.feature.age_marks. Scars are healed marks, including lip and eyebrow scars. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages. Its plain value says nothing notable about this part: when the part varies it is drawn most of the time and adds no words; picked, it is written. Values marked \"distinctive\" (scars, birthmarks, vitiligo, prominent marks, strongly unusual features) are strength 2, or strength 1 at the unusual tier, so few faces show one unasked.",
  "facets": [],
  "closed": true,
  "strict": true,
+ "plain": "clear skin without marks",
  "catalog": false,
  "local_facets": {
   "aspect": [
+   "plain",
    "freckles",
    "moles",
    "scars",
@@ -28,15 +30,27 @@
  },
  "shares": {
   "aspect": {
-   "freckles": 0.25,
-   "moles": 0.2,
-   "scars": 0.2,
-   "birthmarks": 0.1,
-   "patches": 0.1,
-   "flush": 0.15
+   "plain": 0.8,
+   "freckles": 0.068,
+   "moles": 0.068,
+   "scars": 0.006,
+   "birthmarks": 0.003,
+   "patches": 0.003,
+   "flush": 0.052
   }
  },
  "values": [
+  {
+   "text": "clear skin without marks",
+   "short": "nothing notable",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "plain"
+    ]
+   }
+  },
   {
    "text": "a faint scatter of freckles across the nose",
    "short": "faint nose freckles",
@@ -225,7 +239,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a raised mole near the jaw",
@@ -244,12 +259,13 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a faint scar through one eyebrow",
    "short": "faint eyebrow scar",
-   "tier": "typical",
+   "tier": "unusual",
    "strength": 1,
    "tags": {
     "aspect": [
@@ -263,12 +279,13 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a small healed scar on the chin",
    "short": "small chin scar",
-   "tier": "typical",
+   "tier": "unusual",
    "strength": 1,
    "tags": {
     "aspect": [
@@ -282,12 +299,13 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a faint scar across the nose bridge",
    "short": "faint nose scar",
-   "tier": "typical",
+   "tier": "unusual",
    "strength": 1,
    "tags": {
     "aspect": [
@@ -301,7 +319,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a scar crossing the upper lip",
@@ -320,7 +339,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a long scar down one cheek",
@@ -339,7 +359,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a patch of healed burn scars on one cheek",
@@ -358,7 +379,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a raised scar on the forehead",
@@ -377,7 +399,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "pitted acne scars on the cheeks",
@@ -395,12 +418,13 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a small flat birthmark near one temple",
    "short": "small temple birthmark",
-   "tier": "plausible",
+   "tier": "unusual",
    "strength": 1,
    "tags": {
     "aspect": [
@@ -415,7 +439,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a broad birthmark on one cheek",
@@ -435,7 +460,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a birthmark across one side of the forehead",
@@ -455,12 +481,13 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a small vitiligo patch beside the mouth",
    "short": "small vitiligo patch",
-   "tier": "plausible",
+   "tier": "unusual",
    "strength": 1,
    "tags": {
     "aspect": [
@@ -474,7 +501,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "vitiligo patches around the eyes and mouth",
@@ -493,7 +521,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a broad vitiligo patch on one cheek",
@@ -512,7 +541,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a faint flush across the cheeks",
@@ -552,7 +582,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "blotchy flushing on the cheeks",
@@ -572,7 +603,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   }
  ]
 }

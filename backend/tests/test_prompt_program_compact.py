@@ -24,8 +24,11 @@ def long_face_list(monkeypatch):
     parts = {lid: 1.0 for lid in v.leaves if lid.startswith("person.feature.")}
     spec = {"parts": parts, "take": {"2": 0.55, "3": 0.45}, "count": 3000,
             "tags": {"presentation": ["feminine", "masculine"]}, "keep": ["presentation"]}
+    # As the pieces were then: none opt-in, and no plain value (nothing notable) among them.
+    leaves = {lid: dc.replace(lf, values=tuple(dc.replace(x, opt_in=False) for x in lf.values if x.text != lf.plain))
+              for lid, lf in v.leaves.items() if lid in parts}
     face = v.leaves["person.face"]
-    monkeypatch.setitem(v.leaves, "person.face", dc.replace(face, values=_composed("person.face", spec, v.leaves)))
+    monkeypatch.setitem(v.leaves, "person.face", dc.replace(face, values=_composed("person.face", spec, leaves)))
 
 
 WOMAN = {"n": 1, "kind": "person", "label": "Woman", "lead": "",
@@ -167,7 +170,12 @@ class TestThePoolsAnswerStaysSmall:
         tiers = got["vocab"]["woman.face"]["tiers"]
         assert set(tiers.values()) <= {"opt_in"} and not set(tiers) & kept and len(tiers) < 100
         assert "reach" not in got["vocab"]["woman.face"]           # a long list keeps its plain row
-        assert size(got) < 40_000 < size(e)
+        # The face's parts (its shape, eyes…) are short lists of their own, sent whole: a few
+        # kilobytes each. The rest of the answer stays as small as it was.
+        parts = [c["id"] for c in e["choices"] if c.get("part_of") == "woman.face"]
+        rest = {k: {c: x for c, x in v.items() if c not in parts} if isinstance(v, dict) else v for k, v in got.items()}
+        assert size(rest) < 40_000 < size(e)
+        assert len(parts) == 12 and all(size(got["options"][p]) + size(got["vocab"][p]) < 6_000 for p in parts)
         # a short list is answered whole, as before, with its opt-in values marked for the picker
         assert len(got["options"]["woman.age"]) > 10
         assert "opt_in" in set(got["vocab"]["woman.age"]["tiers"].values())

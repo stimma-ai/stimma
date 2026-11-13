@@ -4,7 +4,7 @@
  "pos": "noun phrase",
  "frame": "a person with ___",
  "description": "One visible feature of a person's face: its shape, eyes, brows, nose, mouth, jaw, cheeks, forehead, ears or the marks and texture of the skin. Fits the person's drawn age.",
- "notes": "Every value of the person.feature lists, one piece at a time: one subtle piece reads as a face, while two or three named features stack and image models caricature them. Pieces rated strength 2 (marked) are drawn only when the user picks them. Never praise ('pretty', 'striking'): every piece says what is visible. A piece only one sex has is drawn only when the person's presentation says which (where={\"presentation\": ...}).",
+ "notes": "Every value of the person.feature lists but their plain ones, one piece at a time: one subtle piece reads as a face, while two or three named features stack and image models caricature them. Pieces rated strength 2 (marked) are drawn only when the user picks them. Never praise ('pretty', 'striking'): every piece says what is visible. A piece only one sex has is drawn only when the person's presentation says which (where={\"presentation\": ...}). The chooser shows the face as its parts, each part its own list (piece), in this list's order of parts.",
  "facets": [],
  "closed": true,
  "strict": true,
@@ -19,8 +19,8 @@
    "cheeks",
    "forehead",
    "ears",
-   "skin_marks",
    "skin_texture",
+   "skin_marks",
    "age_marks"
   ],
   "presentation": [
@@ -39,18 +39,18 @@
   "each": true,
   "marked": "opt_in",
   "parts": {
-   "person.feature.shape": 0.1,
-   "person.feature.eyes": 0.1,
-   "person.feature.brows": 0.07,
-   "person.feature.nose": 0.07,
-   "person.feature.lips": 0.08,
-   "person.feature.jaw_chin": 0.07,
-   "person.feature.cheeks": 0.06,
-   "person.feature.forehead": 0.02,
+   "person.feature.shape": 0.14,
+   "person.feature.eyes": 0.14,
+   "person.feature.brows": 0.11,
+   "person.feature.nose": 0.09,
+   "person.feature.lips": 0.12,
+   "person.feature.jaw_chin": 0.09,
+   "person.feature.cheeks": 0.08,
+   "person.feature.forehead": 0.03,
    "person.feature.ears": 0.02,
-   "person.feature.skin_marks": 0.18,
-   "person.feature.skin_texture": 0.08,
-   "person.feature.age_marks": 0.15
+   "person.feature.skin_texture": 0.05,
+   "person.feature.skin_marks": 0.08,
+   "person.feature.age_marks": 0.05
   },
   "tags": {
    "presentation": [

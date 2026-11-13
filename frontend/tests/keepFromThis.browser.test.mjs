@@ -106,3 +106,20 @@ test('an image the old writer made offers nothing to keep', async t => {
   await expect(card.locator('[data-keep]')).toHaveCount(0)
   await expect(card.locator('[data-keep-none]')).toBeVisible()
 })
+
+test('a face drawn from its parts keeps each part that said something, not the ones that said nothing', async t => {
+  const { page, card, line, state } = await open(t)
+  const run = { ...RUN, draws: [
+    ...RUN.draws.slice(0, 4),
+    // Eyes said nothing notable (a hidden draw); the nose said something.
+    { id: 'young_man.face.eyes', value: 'evenly set eyes of average size', kind: 'pick', label: 'Eye shape', hidden: true },
+    { id: 'young_man.face.nose', value: 'a slightly small nose', kind: 'pick', label: 'Nose' },
+    ...RUN.draws.slice(4),
+  ] }
+  await page.evaluate(r => window.keep(r), run)
+  await expect(card).toBeVisible()
+  await expect(line('young_man#look')).toContainText('24-year-old, Korean, stocky, buzz cut, small nose')
+  await line('young_man#look').click()
+  await expect.poll(async () => (await state())['young_man.face.nose']).toEqual({ values: ['a slightly small nose'] })
+  assert.equal((await state())['young_man.face.eyes'], undefined)
+})

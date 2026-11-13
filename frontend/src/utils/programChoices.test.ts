@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   asWrittenState, carriedIds, carryChoices, changedCount, cleanState, drawable, isAsWritten, isChanged, keptPools, leaveOut, numberRepeats, optionsOf, pillsOf, pillValue,
-  detailsAsWritten, isBuilder, isOff, resetState, rowsOf, standsAsWritten, swatchesOf, toggleDetailsAsWritten, toggleToken, tokenText, turnOn, zonesOf, PALETTE_CLS,
+  detailsAsWritten, isBuilder, isOff, partText, partsText, resetState, rowsOf, standsAsWritten, swatchesOf, toggleDetailsAsWritten, toggleToken, tokenText, turnOn, zonesOf, PALETTE_CLS,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
 
@@ -255,4 +255,26 @@ test('a builder with one detail is that detail’s chooser: one pill reading "La
   const [dogPill] = pillsOf({ slots: [animal], choices: cs, pools: {}, states: off })
   assert.deepEqual([dogPill.label, dogPill.value, dogPill.changed, dogPill.resets], ['Dog', 'as written', true, ['dog.breed']])
   assert.deepEqual(toggleDetailsAsWritten(animal, get, off), { 'dog.breed': null })
+})
+
+test('a face’s parts are said in the face’s pill: each part chosen, by its value or as any', () => {
+  const face = ch('w.face', 'Face', { slot: 'w', starts_off: true })
+  const nose = ch('w.face.nose', 'Nose', { slot: 'w', starts_off: true, part_of: 'w.face' })
+  const eyes = ch('w.face.eyes', 'Eye shape', { slot: 'w', starts_off: true, part_of: 'w.face' })
+  const age = ch('w.age', 'Age', { slot: 'w' })
+  const w: ProgramSlot = { id: 'w', n: 1, kind: 'person', label: 'Woman', words: 'woman', details: ['w.age', 'w.face', 'w.face.eyes', 'w.face.nose'] }
+  // The parts are rows of the face, not of the person.
+  assert.deepEqual(rowsOf(w, id => [age, face, eyes, nose].find(c => c.id === id)).map(c => c.id), ['w.age', 'w.face'])
+  const pools = { 'w.face.nose': { options: ['a small nose'], short: { 'a small nose': 'small nose' } } }
+  const states: ProgramChoices = { 'w.face.nose': { values: ['a small nose'] }, 'w.face.eyes': { on: true } }
+  assert.equal(partText(nose, pools['w.face.nose'], states['w.face.nose']), 'small nose')
+  assert.equal(partText(eyes, null, states['w.face.eyes']), 'Any')
+  assert.equal(partText(eyes, null, null), '')
+  assert.equal(partsText([eyes, nose], states, pools), 'any eye shape, small nose')
+  const pills = pillsOf({ slots: [w], choices: [age, face, eyes, nose], states, pools })
+  assert.deepEqual(pills.map(p => [p.id, p.label, p.value, p.changed]), [['w', 'Woman', '', false], ['w.face', 'Face', 'any eye shape, small nose', true]])
+  assert.deepEqual(pills[1].resets, ['w.face', 'w.face.eyes', 'w.face.nose'])
+  // Untouched, the face is no pill; turned on alone it reads as its label.
+  assert.equal(pillsOf({ slots: [w], choices: [age, face, eyes, nose], states: {}, pools }).length, 1)
+  assert.deepEqual(pillsOf({ slots: [w], choices: [age, face, eyes, nose], states: { 'w.face': { on: true } }, pools }).map(p => p.label), ['Woman', 'Face'])
 })

@@ -245,6 +245,20 @@ export function pillValue(c: ProgramChoice, pool: ChoicePool | null | undefined,
   return `${tokens.length} chosen`
 }
 
+/** A part's row inside its choice (a face's nose): what is chosen, "Any" when it is only turned
+    on, '' when untouched (the choice draws from any part then). */
+export function partText(c: ProgramChoice, pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined): string {
+  if (!isChanged(s) || isOff(c, s)) return ''
+  return pillValue(c, pool, s) || 'Any'
+}
+
+/** A choice's row in its builder when some of its parts are chosen (a face): each part chosen,
+    by its value or as "any eye shape"; '' when none is. */
+export function partsText(parts: ProgramChoice[], states: ProgramChoices, pools: Record<string, ChoicePool>): string {
+  return parts.filter(p => isChanged(states[p.id]) && !isOff(p, states[p.id]))
+    .map(p => pillValue(p, pools[p.id], states[p.id]) || `any ${p.label.toLowerCase()}`).join(', ')
+}
+
 /** "No light": the label of something left out. */
 export function offLabel(label: string): string {
   return `No ${label.charAt(0).toLowerCase()}${label.slice(1)}`
@@ -317,9 +331,10 @@ export function numberRepeats(slots: ProgramSlot[]): ProgramSlot[] {
 }
 
 /** A slot's rows on its card, from its details as `choice` finds them: an outfit's colors sit
-    inside the outfit, not on a row of their own. */
+    inside the outfit, a face's parts inside the face, not on rows of their own. */
 export function rowsOf(slot: ProgramSlot, choice: (id: string) => ProgramChoice | undefined): ProgramChoice[] {
-  return slot.details.map(choice).filter((c): c is ProgramChoice => !!c && !(c.follows && slot.details.includes(c.follows)))
+  return slot.details.map(choice).filter((c): c is ProgramChoice => !!c && !(c.follows && slot.details.includes(c.follows))
+    && !(c.part_of && slot.details.includes(c.part_of) && !!choice(c.part_of)))
 }
 
 /** A slot whose card lists details (a person, an animal, a camera) rather than options: one
@@ -362,23 +377,29 @@ export function pillsOf(w: ChoiceWorld): Pill[] {
   const builders = w.slots.filter(s => isBuilder(s, get)).length
   const out: Pill[] = []
   const inSlot = new Set<string>()
+  // A choice's parts (a face's nose) are said in its pill, not in pills of their own.
+  const partsOf = (c: ProgramChoice) => w.choices.filter(p => p.part_of === c.id && byId.has(p.id))
+  const said = (c: ProgramChoice) => partsText(partsOf(c), w.states, w.pools)
+  const changedHere = (c: ProgramChoice) => isChanged(st(c.id)) || !!said(c)
+  const offHere = (c: ProgramChoice) => isOff(c, st(c.id)) && !said(c)
 
   function choicePill(c: ProgramChoice, label: string, slot: ProgramSlot | null, open: Pill['open']): Pill {
     const s = st(c.id)
-    const off = isOff(c, s)
-    const value = pillValue(c, pool(c.id), s, slot)
+    const off = offHere(c)
+    const value = said(c) || pillValue(c, pool(c.id), s, slot)
     const tokens = tokensOf(s)
     const swatches = c.cls === PALETTE_CLS && tokens.length === 1 && tokens[0].kind === 'value' ? swatchesOf(tokens[0].value) : null
     const shown = off ? offLabel(label) : label
     return {
-      id: c.id, open, label: shown, value, swatches, changed: isChanged(s), resets: [c.id], folded: false,
-      title: [shown, ...tokens.map(t => tokenText(c, pool(c.id), t))].join('\n'),
+      id: c.id, open, label: shown, value, swatches, changed: changedHere(c), resets: [c.id, ...partsOf(c).map(p => p.id)], folded: false,
+      title: [shown, ...(said(c) ? [said(c)] : []), ...tokens.map(t => tokenText(c, pool(c.id), t))].join('\n'),
     }
   }
 
   for (const slot of [...w.slots].sort((a, b) => a.n - b.n)) {
-    const details = slot.details.map(id => byId.get(id)).filter((c): c is ProgramChoice => !!c)
-    details.forEach(c => inSlot.add(c.id))
+    const all = slot.details.map(id => byId.get(id)).filter((c): c is ProgramChoice => !!c)
+    all.forEach(c => inSlot.add(c.id))
+    const details = all.filter(c => !(c.part_of && byId.has(c.part_of)))
     // A slot still being read (or read as written) is a pill with its label and nothing chosen yet.
     if (!details.length) {
       const pending = slot.degraded || slot.state === 'ready' ? 'written' : 'reading'
@@ -398,15 +419,15 @@ export function pillsOf(w: ChoiceWorld): Pill[] {
       for (const c of details) if (c !== one && isChanged(st(c.id))) out.push(choicePill(c, c.label, null, { choice: c.id }))
       continue
     }
-    const ids = details.map(c => c.id)
-    const changed = details.filter(c => isChanged(st(c.id)))
+    const ids = all.map(c => c.id)
+    const changed = details.filter(changedHere)
     const base = { id: slot.id, open: { slot: slot.id }, swatches: null, resets: ids }
-    if (details.length && details.every(c => isOff(c, st(c.id))) && details.some(c => st(c.id)?.off)) {
+    if (details.length && details.every(offHere) && details.some(c => st(c.id)?.off)) {
       out.push({ ...base, label: slot.label, value: 'as written', title: `${slot.label}\nas written`, changed: true, folded: false })
     } else if (changed.length >= FOLD) {
-      const said = changed.map(c => isOff(c, st(c.id)) ? offLabel(c.label).toLowerCase() : pillValue(c, pool(c.id), st(c.id)) || 'any')
-      const lines = changed.map((c, i) => `${c.label}: ${said[i]}`)
-      out.push({ ...base, label: slot.label, value: said.join(', '), title: [slot.label, ...lines].join('\n'), changed: true, folded: true })
+      const words = changed.map(c => offHere(c) ? offLabel(c.label).toLowerCase() : said(c) || pillValue(c, pool(c.id), st(c.id)) || 'any')
+      const lines = changed.map((c, i) => `${c.label}: ${words[i]}`)
+      out.push({ ...base, label: slot.label, value: words.join(', '), title: [slot.label, ...lines].join('\n'), changed: true, folded: true })
     } else {
       out.push({ ...base, label: slot.label, value: '', title: slot.label, changed: false, folded: false })
       for (const c of changed) {

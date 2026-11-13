@@ -4,13 +4,15 @@
  "description": "The overall outline, fullness, proportions and asymmetry of a face.",
  "pos": "noun phrase",
  "frame": "a person with ___",
- "notes": "Whole-face structure, phrased as short visible noun phrases after “with.” Individual bones belong in person.feature.jaw_chin or person.feature.cheeks; forehead shape belongs in person.feature.forehead. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "notes": "Whole-face structure, phrased as short visible noun phrases after “with.” Individual bones belong in person.feature.jaw_chin or person.feature.cheeks; forehead shape belongs in person.feature.forehead. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages. Its plain value says nothing notable about this part: when the part varies it is drawn most of the time and adds no words; picked, it is written. Values marked \"distinctive\" (scars, birthmarks, vitiligo, prominent marks, strongly unusual features) are strength 2, or strength 1 at the unusual tier, so few faces show one unasked.",
  "facets": [],
  "closed": true,
  "strict": true,
+ "plain": "an evenly proportioned face",
  "catalog": false,
  "local_facets": {
   "aspect": [
+   "plain",
    "outline",
    "fullness",
    "proportion",
@@ -26,13 +28,25 @@
  },
  "shares": {
   "aspect": {
-   "outline": 0.4,
-   "fullness": 0.25,
-   "proportion": 0.2,
-   "symmetry": 0.15
+   "plain": 0.6,
+   "outline": 0.18,
+   "fullness": 0.12,
+   "proportion": 0.08,
+   "symmetry": 0.02
   }
  },
  "values": [
+  {
+   "text": "an evenly proportioned face",
+   "short": "nothing notable",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "plain"
+    ]
+   }
+  },
   {
    "text": "a softly oval face",
    "short": "soft oval face",
@@ -410,7 +424,7 @@
   {
    "text": "a face slightly fuller on one side",
    "short": "uneven facial fullness",
-   "tier": "typical",
+   "tier": "plausible",
    "strength": 1,
    "tags": {
     "aspect": [
@@ -445,7 +459,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   }
  ]
 }

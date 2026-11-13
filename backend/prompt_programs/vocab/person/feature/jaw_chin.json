@@ -4,21 +4,19 @@
  "description": "Jawline, chin shape, chin contours and the area beneath the chin.",
  "pos": "noun phrase",
  "frame": "a person with ___",
- "notes": "Visible lower-face structure and its transition to the neck, phrased without character judgments. Whole-face outline belongs in person.feature.shape; age-related facial lines belong in person.feature.age_marks. Presentation tags retain the fit constraint on a prominent Adam’s apple. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "notes": "Visible lower-face structure and its transition to the neck, phrased without character judgments. Whole-face outline belongs in person.feature.shape; age-related facial lines belong in person.feature.age_marks. Presentation tags retain the fit constraint on a prominent Adam’s apple. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages. Its plain value says nothing notable about this part: when the part varies it is drawn most of the time and adds no words; picked, it is written. Values marked \"distinctive\" (scars, birthmarks, vitiligo, prominent marks, strongly unusual features) are strength 2, or strength 1 at the unusual tier, so few faces show one unasked.",
  "facets": [],
  "closed": true,
  "strict": true,
+ "plain": "an average jaw and chin",
  "catalog": false,
  "local_facets": {
   "aspect": [
+   "plain",
    "jaw",
    "chin",
    "chin_detail",
    "neck"
-  ],
-  "presentation": [
-   "feminine",
-   "masculine"
   ]
  },
  "context": {
@@ -30,13 +28,25 @@
  },
  "shares": {
   "aspect": {
-   "jaw": 0.35,
-   "chin": 0.35,
-   "chin_detail": 0.2,
-   "neck": 0.1
+   "plain": 0.7,
+   "jaw": 0.105,
+   "chin": 0.105,
+   "chin_detail": 0.06,
+   "neck": 0.03
   }
  },
  "values": [
+  {
+   "text": "an average jaw and chin",
+   "short": "nothing notable",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "plain"
+    ]
+   }
+  },
   {
    "text": "a softly rounded jawline",
    "short": "softly rounded jaw",
@@ -413,7 +423,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "slight fullness beneath the chin",

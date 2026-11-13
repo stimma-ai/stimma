@@ -28,6 +28,11 @@ Two markers on a value say who it is for:
   It leaves a person's bound pools when that person may be under 18 (see `minor_ages`).
   The user's own lists and wildcards are never filtered.
 
+A face piece is rated `strength` 1 (subtle) or 2 (marked). A marked piece is opt-in: drawn
+only when the user picks it or their words ask for it, never because a facet filter
+(where={"presentation": ...}) let it in. `distinctive` marks a scar, birthmark, vitiligo, a
+prominent mark or a strongly unusual feature, so how often faces show one can be counted.
+
 Context: a drawn value gives context to the picks that follow it in the same scope.
 `facets.json`'s "context" section declares the context facets, each with a scope: "person"
 (a person's descent → their skin, eye and hair families) or "scene" (time of day, season,
@@ -129,7 +134,13 @@ class Value:
     scale: float = 1.0         # its branch's share over the branch's tier weights (a leaf's `shares`)
     short: str = ""            # a pill-sized name for the chooser ("flannel shirt and jeans"); never drawn
     look: str = ""             # one line on what it looks like, for a person browsing ("hair rolled up and pinned in a vertical fold"); never drawn
-    strength: int = 0          # a face piece's: 1 subtle, 2 marked (0: not rated)
+    strength: int = 0          # a face piece's: 1 subtle, 2 marked (0: not rated); a marked one is opt-in
+    distinctive: bool = False  # a scar, birthmark, vitiligo, a prominent mark or a strongly unusual feature
+
+    @property
+    def marked(self) -> bool:
+        """A marked face piece: drawn only when picked or asked for in words (never let in by a facet filter)."""
+        return self.strength >= 2
 
     @property
     def weight(self) -> float:
@@ -164,6 +175,7 @@ class Leaf:
     listed: bool = True        # shown to the writer; a part of a composed list isn't ("catalog": false)
     strict: bool = False       # never drawn without the list: words nothing in it fits leave it whole (narrow.py)
     plain: str = ""            # the value that goes without saying (an animal's "adult"): drawn unasked, it adds no word (fill.py)
+    parts: Tuple[str, ...] = ()   # a list of pieces ("compose": {"each": true}): its part lists, in order (a face's shape, eyes…)
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
@@ -409,6 +421,7 @@ class Vocabulary:
                             **({"opt_in": True} if v.opt_in else {}), **({"adult_only": True} if v.adult_only else {}),
                             **({"group": v.group} if v.group else {}), **({"short": v.short} if v.short else {}),
                             **({"look": v.look} if v.look else {}), **({"strength": v.strength} if v.strength else {}),
+                            **({"distinctive": True} if v.distinctive else {}),
                             **({"less_common": v.less_common} if v.less_common else {})}
                            for v in lf.values],
             } for lf in sorted(self.leaves.values(), key=lambda lf: lf.id)],
@@ -439,12 +452,14 @@ def _value(lid: str, v: Dict[str, Any], groups: Dict[str, Any]) -> Value:
     if name and name not in groups:
         raise ValueError(f"vocabulary: {lid} value {v.get('text')!r} names unknown group {name!r}")
     g = groups.get(name) or {}
+    strength = int(v.get("strength") or 0)
+    # A marked face piece is drawn only when chosen: opt-in, as the schema says of strength 2.
     return Value(str(v["text"]), str(v.get("tier") or "plausible"), {**(g.get("tags") or {}), **(v.get("tags") or {})},
                  {str(k): str(x) for k, x in (v.get("roles") or {}).items()}, dict(v.get("palette") or {}),
-                 v.get("opt_in") is True, v.get("adult_only") is True, name,
+                 v.get("opt_in") is True or strength >= 2, v.get("adult_only") is True, name,
                  {**(g.get("less_common") or {}), **(v.get("less_common") or {})},
                  short=str(v.get("short") or "").strip(), look=str(v.get("look") or "").strip(),
-                 strength=int(v.get("strength") or 0))
+                 strength=strength, distinctive=v.get("distinctive") is True)
 
 
 def _shared(lid: str, vals: Tuple[Value, ...], shares: Dict[str, Dict[str, float]]) -> Tuple[Value, ...]:
@@ -452,18 +467,24 @@ def _shared(lid: str, vals: Tuple[Value, ...], shares: Dict[str, Dict[str, float
     share of draws each of its parts gets when a pick isn't narrowed:
     `"shares": {"intent": {"sharp": 0.2, "soft_background": 0.05}}`. A part's values split its
     share by tier, so how many values a part has doesn't change how often it's drawn. A part
-    with share 0 is opt-in: drawn only when a pick asks for it (where=)."""
+    with share 0 is opt-in: drawn only when a pick asks for it (where=). The share is of what is
+    drawn unasked: a part's opt-in values (marked face pieces) don't take from it, and are drawn
+    at their tier's weight in it when picked."""
     if not shares:
         return vals
     if len(shares) != 1:
         raise ValueError(f"vocabulary: {lid} declares shares on more than one facet")
     (facet, by_part), = shares.items()
     parts: Dict[str, float] = {}
+    every: Dict[str, float] = {}   # a part with only opt-in values splits its share among them all
     for v in vals:
         tagged = v.tags.get(facet)
         if not isinstance(tagged, (list, tuple)) or len(tagged) != 1 or str(tagged[0]) not in by_part:
             raise ValueError(f"vocabulary: {lid} has shares on {facet}; {v.text!r} needs exactly one {facet} with a share")
-        parts[str(tagged[0])] = parts.get(str(tagged[0]), 0.0) + v.weight
+        every[str(tagged[0])] = every.get(str(tagged[0]), 0.0) + v.weight
+        if not v.opt_in:
+            parts[str(tagged[0])] = parts.get(str(tagged[0]), 0.0) + v.weight
+    parts = {p: parts.get(p) or w for p, w in every.items()}
     total = sum(float(by_part[p]) for p in parts)
     if total <= 0:
         raise ValueError(f"vocabulary: {lid}'s shares on {facet} are all 0")
@@ -528,13 +549,16 @@ def _pieces(spec: Dict[str, Any], leaves: Dict[str, Leaf]) -> Tuple[Value, ...]:
     list id), so the chooser groups them. With "marked": "opt_in", a piece rated strength 2
     (marked) is drawn only when asked for, so an open face is one subtle piece. "tags" gives what
     a piece with no tag on a facet counts as (a piece of either sex). The face is
-    built this way: one piece reads as a face, three named features caricature."""
+    built this way: one piece reads as a face, three named features caricature. A part's plain
+    value (nothing notable about it) is not a piece: it is drawn only when the part varies on its
+    own. A part's share is of what is drawn unasked (not its marked pieces)."""
     total = sum(float(w) for w in spec["parts"].values()) or 1.0
     out: Dict[str, Value] = {}
     for pid, share in spec["parts"].items():
         lf = leaves[pid]
-        mass = sum(v.weight for v in lf.values) or 1.0
-        for v in lf.values:
+        pieces = [v for v in lf.values if v.text != lf.plain]
+        mass = sum(v.weight for v in pieces if not v.opt_in) or sum(v.weight for v in pieces) or 1.0
+        for v in pieces:
             marked = spec.get("marked") == "opt_in" and v.strength >= 2
             tags = {**{f: list(x) for f, x in (spec.get("tags") or {}).items()}, **v.tags, "piece": [pid.rsplit(".", 1)[-1]]}
             out.setdefault(v.text, replace(v, tags=tags, group="",
@@ -600,7 +624,8 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
                 if d.get("compose"):
                     composed[lid] = d["compose"]
     for lid, spec in composed.items():
-        leaves[lid] = replace(leaves[lid], values=_composed(lid, spec, leaves))
+        leaves[lid] = replace(leaves[lid], values=_composed(lid, spec, leaves),
+                              parts=tuple(spec["parts"]) if spec.get("each") else ())
     return Vocabulary(nodes, leaves, facets, "vocab-" + h.hexdigest()[:12], context)
 
 

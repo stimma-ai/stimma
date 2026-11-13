@@ -4,21 +4,19 @@
  "description": "Forehead height, width, profile, brow ridge and frontal hairline.",
  "pos": "noun phrase",
  "frame": "a person with ___",
- "notes": "Forehead structure and frontal hairline geometry, phrased as visible noun phrases. Forehead lines belong in person.feature.age_marks; hair color and hairstyle belong in person.hair_color and person.hairstyle. Receding-hairline values retain their presentation constraints. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "notes": "Forehead structure and frontal hairline geometry, phrased as visible noun phrases. Forehead lines belong in person.feature.age_marks; hair color and hairstyle belong in person.hair_color and person.hairstyle. Receding-hairline values retain their presentation constraints. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages. Its plain value says nothing notable about this part: when the part varies it is drawn most of the time and adds no words; picked, it is written. Values marked \"distinctive\" (scars, birthmarks, vitiligo, prominent marks, strongly unusual features) are strength 2, or strength 1 at the unusual tier, so few faces show one unasked.",
  "facets": [],
  "closed": true,
  "strict": true,
+ "plain": "a forehead of average height",
  "catalog": false,
  "local_facets": {
   "aspect": [
+   "plain",
    "proportion",
    "profile",
    "brow_ridge",
    "hairline"
-  ],
-  "presentation": [
-   "feminine",
-   "masculine"
   ]
  },
  "context": {
@@ -30,13 +28,25 @@
  },
  "shares": {
   "aspect": {
-   "proportion": 0.35,
-   "profile": 0.2,
-   "brow_ridge": 0.15,
-   "hairline": 0.3
+   "plain": 0.85,
+   "proportion": 0.0525,
+   "profile": 0.03,
+   "brow_ridge": 0.0225,
+   "hairline": 0.045
   }
  },
  "values": [
+  {
+   "text": "a forehead of average height",
+   "short": "nothing notable",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "plain"
+    ]
+   }
+  },
   {
    "text": "a slightly high forehead",
    "short": "slightly high forehead",

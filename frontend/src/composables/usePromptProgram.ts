@@ -457,13 +457,23 @@ export function usePromptProgram(o: Options) {
     return !!t && 'choice' in t && status.value === 'ready' && !byId.value[t.choice]
   }, (gone) => { if (gone) close() }, { flush: 'sync' })
 
-  /** A builder slot's details as its card lists them: an outfit's colors sit inside the outfit. */
+  /** A builder slot's details as its card lists them: an outfit's colors sit inside the outfit,
+      a face's parts inside the face. */
   function detailsOf(slot: ProgramSlot): ProgramChoice[] {
     return rowsOf(slot, id => byId.value[id])
   }
   /** A slot whose card lists its details: more than one row (programChoices.isBuilder). */
   function isBuilder(slot: ProgramSlot): boolean {
     return isBuilderOf(slot, id => byId.value[id])
+  }
+  /** The parts of a choice (a face's shape, eyes, brows…), in order. */
+  const partsByChoice = computed(() => {
+    const out: Record<string, ProgramChoice[]> = {}
+    for (const c of choices.value) if (c.part_of && byId.value[c.part_of]) (out[c.part_of] ||= []).push(c)
+    return out
+  })
+  function partsOf(c: ProgramChoice): ProgramChoice[] {
+    return partsByChoice.value[c.id] || []
   }
 
   // Look up a prepared program when the tool or prompt settles (cheap, no model).
@@ -490,7 +500,7 @@ export function usePromptProgram(o: Options) {
     program, status, error, unsupported, slots, choices, byId, slotById, followers, pools, states, openCard,
     lookup, prepare, needsRead, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns,
     poolOf, optionsOf, suggestOptions, isOwn, addOwn, forgetOwn, setState, setStates, setValues, reset, resetAll,
-    slotFor, detailsOf, isBuilder, openSlot, openChoice, openEditorSlot, close,
+    slotFor, detailsOf, partsOf, isBuilder, openSlot, openChoice, openEditorSlot, close,
   }
 }
 

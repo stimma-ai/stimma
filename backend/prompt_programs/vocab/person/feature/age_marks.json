@@ -4,13 +4,15 @@
  "description": "Age-related facial lines, under-eye bags, skin folds and age spots.",
  "pos": "noun phrase",
  "frame": "a person with ___",
- "notes": "Facial aging details at rest, phrased without expression or exact skin color. All values exclude babies, children and teens; crow’s feet start at middle age. General texture belongs in person.feature.skin_texture and non-age-related marks belong in person.feature.skin_marks. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "notes": "Facial aging details at rest, phrased without expression or exact skin color. All values exclude babies, children and teens; crow’s feet start at middle age. General texture belongs in person.feature.skin_texture and non-age-related marks belong in person.feature.skin_marks. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages. Its plain value says nothing notable about this part: when the part varies it is drawn most of the time and adds no words; picked, it is written. Values marked \"distinctive\" (scars, birthmarks, vitiligo, prominent marks, strongly unusual features) are strength 2, or strength 1 at the unusual tier, so few faces show one unasked.",
  "facets": [],
  "closed": true,
  "strict": true,
+ "plain": "skin without visible lines",
  "catalog": false,
  "local_facets": {
   "aspect": [
+   "plain",
    "eye_lines",
    "under_eye",
    "forehead",
@@ -28,15 +30,27 @@
  },
  "shares": {
   "aspect": {
-   "eye_lines": 0.2,
-   "under_eye": 0.15,
-   "forehead": 0.15,
-   "between_brows": 0.1,
-   "mouth_cheeks": 0.25,
-   "spots": 0.15
+   "plain": 0.75,
+   "eye_lines": 0.05,
+   "under_eye": 0.0375,
+   "forehead": 0.0375,
+   "between_brows": 0.025,
+   "mouth_cheeks": 0.0625,
+   "spots": 0.0375
   }
  },
  "values": [
+  {
+   "text": "skin without visible lines",
+   "short": "nothing notable",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "plain"
+    ]
+   }
+  },
   {
    "text": "faint crow’s feet at the outer eye corners",
    "short": "faint crow’s feet",

@@ -18,7 +18,8 @@ const PROMPT = 'dorm room with a <young man> and his <pet>, lit by <light>, {sum
 
 const man: ProgramSlot = {
   id: 'young_man', n: 1, kind: 'person', label: 'Young man', words: 'young man', span: [17, 28], line: 1,
-  details: ['young_man.age', 'young_man.descent', 'young_man.build', 'young_man.hair', 'young_man.outfit', 'young_man.outfit.colors'],
+  details: ['young_man.age', 'young_man.descent', 'young_man.build', 'young_man.hair', 'young_man.face', 'young_man.face.eyes',
+    'young_man.face.nose', 'young_man.outfit', 'young_man.outfit.colors'],
   stated: { age: 'young' },
 }
 const pet: ProgramSlot = { id: 'pet', n: 2, kind: 'free', label: 'Pet', words: 'pet', span: [37, 42], line: 1, details: ['pet'] }
@@ -33,6 +34,10 @@ const descents = ['Korean', 'Japanese', 'Chinese', 'Vietnamese', 'Indian', 'Iran
 const hair = ['buzz cut', 'crew cut', 'side part', 'man bun', 'long waves', 'shoulder-length curls']
 const outfits = ['a {main} flannel shirt and {neutral} jeans', 'a {main} hoodie and {neutral} joggers', 'a {main} suit with a {accent} tie']
 const palettes = ['burgundy, cream and charcoal', 'navy, white and gray', 'olive, tan and black']
+// A face is its parts (routes: `part_of`), each its own list with "nothing notable" first.
+const faces = ['gently almond-shaped eyes', 'a slightly small nose']
+const eyes = ['evenly set eyes of average size', 'gently almond-shaped eyes', 'slightly rounded eyes', 'monolid eyes']
+const noses = ['a nose of average size and shape', 'a slightly small nose', 'a softly rounded nose tip', 'a broad nose']
 const lights = ['cool daylight entering through a tall window', 'a string of warm fairy lights tracing the bed frame', 'the glow of a laptop screen in a dark room']
 
 const ch = (id: string, label: string, extra: Partial<ProgramChoice> = {}): ProgramChoice => ({ id, kind: 'pick', label, options: [], ...extra })
@@ -41,6 +46,9 @@ const choices: ProgramChoice[] = [
   ch('young_man.descent', 'Descent', { slot: 'young_man', cls: 'person.ethnicity', options: descents }),
   ch('young_man.build', 'Build', { slot: 'young_man', cls: 'person.build', options: ['slim', 'stocky', 'athletic'] }),
   ch('young_man.hair', 'Hair', { slot: 'young_man', cls: 'person.hairstyle', options: hair }),
+  ch('young_man.face', 'Face', { slot: 'young_man', cls: 'person.face', options: faces, starts_off: true }),
+  ch('young_man.face.eyes', 'Eye shape', { slot: 'young_man', cls: 'person.feature.eyes', options: eyes.slice(0, 3), starts_off: true, part_of: 'young_man.face' }),
+  ch('young_man.face.nose', 'Nose', { slot: 'young_man', cls: 'person.feature.nose', options: noses.slice(0, 3), starts_off: true, part_of: 'young_man.face' }),
   ch('young_man.outfit', 'Outfit', { slot: 'young_man', cls: 'person.outfit.casual', options: outfits }),
   ch('young_man.outfit.colors', 'Colors', { slot: 'young_man', cls: 'person.palette', options: palettes, follows: 'young_man.outfit' }),
   ch('pet', 'Pet', { slot: 'pet', options: ['pet', 'ginger tabby cat'], zones: [{ id: 'kinds', title: 'Kinds of pet' }, { id: 'instead', title: 'Instead of pet' }] }),
@@ -57,6 +65,8 @@ const pools: Record<string, ChoicePool> = {
   'young_man.descent': bound('person.ethnicity', 'Descent', descents, { groups: { group: { 'East Asian': descents.slice(0, 4), European: descents.slice(9, 18) } } }),
   'young_man.build': bound('person.build', 'Build', ['slim', 'stocky', 'athletic']),
   'young_man.hair': bound('person.hairstyle', 'Hairstyle', hair, { groups: { length: { short: hair.slice(0, 3), long: hair.slice(3) }, style: { tied: ['man bun'] } } }),
+  'young_man.face.eyes': bound('person.feature.eyes', 'Eye shape', eyes, { short: { [eyes[0]]: 'nothing notable', [eyes[1]]: 'almond eyes' }, groups: { aspect: { shape: eyes.slice(1, 3), lids: [eyes[3]] } } }),
+  'young_man.face.nose': bound('person.feature.nose', 'Nose', noses, { short: { [noses[0]]: 'nothing notable', [noses[1]]: 'small nose' }, groups: { aspect: { size: [noses[1], noses[3]], tip: [noses[2]] } } }),
   'young_man.outfit': bound('person.outfit.casual', 'Outfit', outfits, { short: { [outfits[0]]: 'flannel and jeans', [outfits[1]]: 'hoodie and joggers' } }),
   'young_man.outfit.colors': bound('person.palette', 'Palette', palettes),
   pet: { options: ['pet', 'ginger tabby cat', 'old basset hound', 'gray parrot'], more: false,

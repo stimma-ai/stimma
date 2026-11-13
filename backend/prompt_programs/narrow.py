@@ -478,7 +478,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             continue
         if cid in facet:  # the facet filter holds; words narrow within it when they leave anything
             within = [x for x in words.get(cid, []) if x in set(facet[cid])]
-            got = within or facet[cid]
+            got = within or facet_only(vocab.leaves[c["cls"]], facet[cid])
         else:
             got = words[cid]
         if not got and getattr(vocab.get(c.get("cls")), "strict", False):
@@ -569,6 +569,13 @@ def _contexts(entry: Dict[str, Any]) -> Dict[str, str]:
         elif isinstance(n, int) and 0 < n <= len(lines) and x.get("id"):
             out[str(x["id"])] = "\n".join(dict.fromkeys([*notes, lines[n - 1].strip()]))
     return out
+
+
+def facet_only(leaf: Any, texts: Sequence[str]) -> List[str]:
+    """What a facet filter (where={"presentation": ...}) alone narrows a list to: the values it
+    matched but a marked face piece, which is drawn only when picked or asked for in words (a
+    filter on who the person is asks for nothing). All of them when only marked pieces match."""
+    return [t for t in texts if not getattr(leaf.value(t), "marked", False)] or list(texts)
 
 
 def stated_ages(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]],
@@ -690,4 +697,4 @@ def list_age_values(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> L
     return out
 
 
-__all__ = ["NarrowCache", "NarrowFailed", "narrow_entry", "parse_subset", "phrase_of", "subset", "messages_for"]
+__all__ = ["NarrowCache", "NarrowFailed", "facet_only", "narrow_entry", "parse_subset", "phrase_of", "subset", "messages_for"]

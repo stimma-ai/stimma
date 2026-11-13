@@ -542,6 +542,8 @@ def picks_of(cid: str, words: str, reading: Dict[str, Any], *, close: str = "") 
                                seed=[seed], where=where, slot=cid))
             if k in quiet:
                 picks[-1]["starts_off"] = True
+            if k == "face":
+                picks += face_parts(f"{cid}.{k}", noun, cid)
         outfit = str(got.get("outfit") or "")
         outfit_id = ""
         if outfit:
@@ -631,6 +633,25 @@ def picks_of(cid: str, words: str, reading: Dict[str, Any], *, close: str = "") 
     zones = {"kinds": kinds, **({"instead": instead} if instead else {})}
     p = _pick(cid, label=label, about=str(got.get("about") or words), phase=2, seed=kinds, zones=zones, slot=cid)
     return [p], {"form": {"kind": "one", "id": cid}, "slot_words": {cid: words}, "zones": zones}
+
+
+def face_parts(face: str, noun: str, slot: str) -> List[Dict[str, Any]]:
+    """A face's parts (its shape, eyes, brows…), one pick each, bound to the part's own list and
+    left out until chosen: Face > part > values. A part chosen "Any" varies, mostly saying nothing
+    notable (its list's plain value); a part with values chosen draws from them. A face with parts
+    chosen is those parts; a face turned on with none is one subtle piece of any part."""
+    vocab = vocabulary()
+    leaf = vocab.get(DETAILS["face"][0])
+    out = []
+    for lid in getattr(leaf, "parts", ()) or ():
+        part = vocab.get(lid)
+        if part is None:
+            continue
+        p = _pick(f"{face}.{lid.rsplit('.', 1)[-1]}", label=part.label, about=f"the {noun}'s {part.label.lower()}", phase=2,
+                  cls=lid, slot=slot)
+        p.update(starts_off=True, part_of=face)
+        out.append(p)
+    return out
 
 
 def _colors(of: str, look: Dict[str, Any]) -> Dict[str, Any]:
@@ -826,6 +847,10 @@ class _Fill:
         self.list_context = (getattr(options, "list_context", None) or {}) if self.context_on else {}
         self.list_ages = getattr(options, "list_ages", None) or {}
         self.picks = [p for p in entry.get("picks") or []]
+        self.parts_of: Dict[str, List[Dict[str, Any]]] = {}   # a face -> its parts (face_parts)
+        for p in self.picks:
+            if p.get("part_of"):
+                self.parts_of.setdefault(str(p["part_of"]), []).append(p)
         self.minors = self._minors()
         self.drawn: Dict[str, Tuple[Dict[str, Any], str]] = {}   # id -> (pick, value as drawn, a template unfilled)
         self.values: Dict[str, Optional[str]] = {}               # id -> the value in the text (a look filled)
@@ -954,19 +979,32 @@ class _Fill:
         v = self._weighted(items)
         return v, False, v in pool.own
 
+    def _on(self, cid: str) -> bool:
+        """Turned on: `on`, a pin or a kept value."""
+        return bool((self.edits.get(cid) or {}).get("on")) or cid in self.pins or cid in self.fixed
+
     def _off(self, p: Dict[str, Any]) -> bool:
         """Left out: by the user, or a detail that starts left out and wasn't turned on (a pin,
-        their own option, a kept value or `on`)."""
+        their own option, a kept value or `on`). A face is on when one of its parts is; a part is
+        out when its face is left out."""
         cid = p["id"]
         e = self.edits.get(cid) or {}
-        if e.get("off"):
+        if e.get("off") or (p.get("part_of") and (self.edits.get(str(p["part_of"])) or {}).get("off")):
             return True
-        return bool(p.get("starts_off")) and not (e.get("on") or cid in self.pins or cid in self.fixed)
+        if not p.get("starts_off") or self._on(cid):
+            return False
+        return not any(self._on(q["id"]) for q in self.parts_of.get(cid, ()))
+
+    def _by_parts(self, cid: str) -> bool:
+        """A face drawn from its parts: some part is chosen, and the face itself has no value
+        chosen (a value kept from an older image) to draw beside them."""
+        return (cid not in self.pins and cid not in self.fixed
+                and any(self._on(q["id"]) and not self._off(q) for q in self.parts_of.get(cid, ())))
 
     def pick(self, p: Dict[str, Any], phase: int) -> None:
         cid = p["id"]
-        if self._off(p) or (p.get("follows") and p["follows"] not in self.drawn):
-            self.values[cid] = None
+        if self._off(p) or (p.get("follows") and p["follows"] not in self.drawn) or self._by_parts(cid):
+            self.values[cid] = None   # (a face drawn from its parts is put together after them: run)
             return
         if p.get("follows"):
             return self._palette(p, phase)
@@ -1009,11 +1047,15 @@ class _Fill:
             self.roles[cid] = {}
         elif "{" in value:
             shown = fill_template(value, None)
-        d = Draw(cid, shown, "pick", p["label"], source, p.get("line"), False, pinned, [o for o, _ in items])
+        # A face's part that drew nothing notable unasked (its list's plain value) adds no words,
+        # and its record is hidden: nothing to keep, judge or show.
+        plain = bool(p.get("part_of") and leaf is not None and leaf.plain and value == leaf.plain
+                     and cid not in self.pins and cid not in self.fixed and not said)
+        d = Draw(cid, shown, "pick", p["label"], source, p.get("line"), plain, pinned, [o for o, _ in items])
         d.phase, d.about, d.cls, d.said, d.own, d.template = phase, spec.about, spec.cls, said, own, template
         d.where = p.get("where") if isinstance(p.get("where"), dict) else str(p.get("where") or "").strip()
         self.drawn[cid] = (p, value)
-        self.values[cid] = shown
+        self.values[cid] = None if plain else shown
         self.records[cid] = d
         if template and not any(q.get("follows") == cid for q in self.picks):
             self.values[cid] = self.records[cid].value = fill_template(template, None)
@@ -1072,6 +1114,12 @@ class _Fill:
     def run(self) -> None:
         for phase, p in _draw_order(self.picks, self.context_on):
             self.pick(p, phase)
+        for face, parts in self.parts_of.items():
+            # A face is its own value (one subtle piece, or one kept from an older image) and then
+            # what its chosen parts drew, in the face's order of parts.
+            got = [v for v in (self.values.get(face), *(self.values.get(q["id"]) for q in parts)) if v]
+            if len(got) > (1 if self.values.get(face) else 0):
+                self.values[face] = ", ".join(dict.fromkeys(got))
         for p in self.picks:   # a look whose colors are off reads without them
             d = self.records.get(p["id"])
             if d is not None and d.template and self.values.get(p["id"] + COLORS) is None:
@@ -1121,6 +1169,7 @@ def _revision(entry: Dict[str, Any], f: _Fill, edits: Dict[str, Any]) -> Dict[st
 
 
 __all__ = ["CAMERA", "COLORS", "COLORS_ABOUT", "CONTEXT_VERSION", "DETAILS", "STARTS_OFF", "Draw", "DrawAborted", "DrawResult", "KINDS",
+           "face_parts",
            "LiteralOptions", "Opt", "OptionsService", "Series", "PickSpec", "Pool", "ProgramError", "RANK_DECAY", "ReadingError",
            "RunResult", "Val", "choice_options", "context_suffix", "fill", "fix_articles", "flatten", "owns",
            "person_of", "picks_of", "pool_key", "subject_of", "template_text", "text_parts", "tidy_text", "value_spans"]

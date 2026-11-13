@@ -1,4 +1,4 @@
 {
   "label": "Face features",
-  "description": "One feature of a person's face per list. person.face says two or three of them together."
+  "description": "One part of a person's face per list. person.face draws one subtle piece of any of them; each is also a part of the face the user can vary on its own."
 }

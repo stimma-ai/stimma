@@ -4,13 +4,15 @@
  "description": "Nose size, bridge, tip and nostril shape in restrained visual terms.",
  "pos": "noun phrase",
  "frame": "a person with ___",
- "notes": "Short descriptions of visible nose anatomy, avoiding extreme shapes that invite caricature. Scars belong in person.feature.skin_marks and pores belong in person.feature.skin_texture. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "notes": "Short descriptions of visible nose anatomy, avoiding extreme shapes that invite caricature. Scars belong in person.feature.skin_marks and pores belong in person.feature.skin_texture. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages. Its plain value says nothing notable about this part: when the part varies it is drawn most of the time and adds no words; picked, it is written. Values marked \"distinctive\" (scars, birthmarks, vitiligo, prominent marks, strongly unusual features) are strength 2, or strength 1 at the unusual tier, so few faces show one unasked.",
  "facets": [],
  "closed": true,
  "strict": true,
+ "plain": "a nose of average size and shape",
  "catalog": false,
  "local_facets": {
   "aspect": [
+   "plain",
    "size",
    "bridge",
    "tip",
@@ -26,13 +28,25 @@
  },
  "shares": {
   "aspect": {
-   "size": 0.25,
-   "bridge": 0.3,
-   "tip": 0.25,
-   "nostrils": 0.2
+   "plain": 0.7,
+   "size": 0.075,
+   "bridge": 0.09,
+   "tip": 0.075,
+   "nostrils": 0.06
   }
  },
  "values": [
+  {
+   "text": "a nose of average size and shape",
+   "short": "nothing notable",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "plain"
+    ]
+   }
+  },
   {
    "text": "a slightly small nose",
    "short": "slightly small nose",
@@ -281,7 +295,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "a softly rounded nose tip",
@@ -381,7 +396,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "slightly narrow nostrils",
@@ -461,7 +477,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   }
  ]
 }

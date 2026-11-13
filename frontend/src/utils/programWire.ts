@@ -62,6 +62,8 @@ export interface ProgramChoice {
   follows?: string
   /** Left out until the user turns it on (a person's face). */
   starts_off?: boolean
+  /** A part of another choice (a face's nose): listed inside that choice, not beside it. */
+  part_of?: string
   parent?: string
   when?: string[]
   /** A `{a|b}` list's id in the program named by `from`, when it is the same list there. */

@@ -36,8 +36,9 @@ UNJUDGED = (None, "null")
 CONTEXT_VERSIONS = ("ctx-1", CONTEXT_VERSION)   # what a replay can read
 
 
-def _drawn(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Any]], options: Any) -> Any:
-    return fill(entry, seed, pins, None, None, options=options)
+def _drawn(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Any]], options: Any,
+           edits: Optional[Dict[str, Dict[str, Any]]] = None) -> Any:
+    return fill(entry, seed, pins, None, edits, options=options)
 
 
 def has_draws(entry: Dict[str, Any]) -> bool:
@@ -163,7 +164,9 @@ def list_groups(leaf: Any, options: List[str]) -> Dict[str, Dict[str, List[str]]
     """A list's groups for the picker's chips: {facet: {part: [options]}} for each of its local
     facets, an option in every part it is tagged with, and the list's declared groups (descent's
     heritages) as facet "group". Parts in the list's order, options in the order given; parts
-    no option is in are left out. Empty for a list with more than PARTS_MAX options."""
+    no option is in are left out, and so is a part holding only the list's plain value (a face
+    part's "nothing notable" is an option, not a group). Empty for a list with more than
+    PARTS_MAX options."""
     from prompt_programs.choices import GROUP, _tags
     if len(options) > PARTS_MAX:
         return {}
@@ -171,7 +174,7 @@ def list_groups(leaf: Any, options: List[str]) -> Dict[str, Dict[str, List[str]]
     facets = [*leaf.local_facets.items(), *([(GROUP, tuple(leaf.groups))] if leaf.groups else [])]
     for facet, names in facets:
         parts = {str(n): [o for o in options if str(n) in _tags(leaf, o, facet)] for n in names}
-        parts = {n: os for n, os in parts.items() if os}
+        parts = {n: os for n, os in parts.items() if os and not (leaf.plain and os == [leaf.plain])}
         if parts:
             out[facet] = parts
     return out
@@ -203,6 +206,8 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
     generated = [c["id"] for c in entry.get("choices") or [] if c.get("kind") == "pick" and c.get("source") != "list"]
     bound_cls = {c["id"]: c.get("cls") for c in entry.get("choices") or [] if c.get("cls")}
     listed = {c["id"]: c.get("options") for c in entry.get("choices") or [] if c.get("cls")}
+    # A face's part starts left out: it is drawn turned on to see its options.
+    quiet = {c["id"] for c in entry.get("choices") or [] if c.get("part_of") and c.get("starts_off")}
 
     def own_adds(cid: str) -> List[str]:   # options the user added in this choice's card
         return [str(x) for x in ((rt.options.edits.get(cid) or {}).get("add") or [])]
@@ -210,7 +215,7 @@ def pool_options(entry: Dict[str, Any], pins: Optional[Dict[str, Any]] = None, *
         seen: List[str] = []
         for seed in range(POOL_DRAWS):
             try:
-                res = _drawn(entry, 7919 * seed + 3, others, rt.options)
+                res = _drawn(entry, 7919 * seed + 3, others, rt.options, {cid: {"on": True}} if cid in quiet else None)
             except ProgramError:
                 continue
             if cid in (res.more_coming or []) and cid not in more:

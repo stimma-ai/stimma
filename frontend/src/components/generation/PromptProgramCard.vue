@@ -1,6 +1,7 @@
 <template>
   <!-- A slot's card. A person or a camera opens on its details, one row each with what it is
-       set to; a row leads to that detail's chooser, with a back arrow. Anything else, a
+       set to; a row leads to that detail's chooser, with a back arrow. A detail made of parts
+       (a face) leads to its parts, one row each, and each part to its chooser. Anything else, a
        builder with only one detail too, opens its chooser directly. A slot just typed shows "Writing options…" until it is read; one
        that couldn't be read went in as written, and offers to try again.
        Anchored to its pill (or the slot in the text) on desktop; a bottom sheet on touch. -->
@@ -74,6 +75,46 @@
           </div>
         </template>
 
+        <!-- A detail made of parts (a face): any of it, or its parts one by one -->
+        <template v-else-if="view.kind === 'parts'">
+          <div :style="panelStyle" class="shrink-0 overflow-y-auto overscroll-contain px-1.5 pb-1.5 flex flex-col gap-px" :data-parts="view.choice.id">
+            <button type="button" :class="rowClass" data-default @click="chooseWhole">
+              <span class="shrink-0 w-3.5 h-4 flex items-center justify-center"><CheckIcon v-if="wholeLit" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
+              <span :class="['flex-1 min-w-0', wholeLit ? 'text-content font-medium' : 'text-content-secondary']">Any {{ view.choice.label.toLowerCase() }}</span>
+            </button>
+            <!-- Values chosen for the whole (kept from an earlier image) -->
+            <div v-if="wholeTokens.length" class="px-2 py-1 flex flex-wrap items-center gap-1" data-chosen>
+              <span v-for="t in wholeTokens" :key="JSON.stringify(t)" class="inline-flex max-w-full items-center gap-1 pl-2.5 pr-1 py-0.5 rounded-full text-xs coarse:text-[13px] bg-selection/15 text-selection">
+                <span class="truncate">{{ tokenText(view.choice, program.poolOf(view.choice), t) }}</span>
+                <button type="button" class="shrink-0 p-0.5 rounded-full hover:bg-selection/20" :aria-label="`Remove ${tokenText(view.choice, program.poolOf(view.choice), t)}`" @click="dropWholeToken(t)">
+                  <XMarkIcon class="w-3 h-3" />
+                </button>
+              </span>
+            </div>
+            <button v-for="d in partRows" :key="d.id" type="button" :class="rowClass" :data-row="d.id" @click="drill(d.id)">
+              <span class="w-24 shrink-0 text-content">{{ d.label }}</span>
+              <span :class="['flex-1 min-w-0 truncate', isChanged(program.states.value[d.id]) ? 'text-selection' : 'text-content-muted']">{{ partText(d, program.poolOf(d), program.states.value[d.id]) }}</span>
+              <span
+                v-if="isChanged(program.states.value[d.id])"
+                role="button"
+                tabindex="0"
+                class="shrink-0 p-0.5 coarse:p-2 coarse:-my-1.5 rounded-full text-selection hover:bg-selection/20"
+                :aria-label="`Reset ${d.label}`"
+                :data-reset="d.id"
+                @click.stop="program.reset([d.id])"
+                @keydown.enter.stop.prevent="program.reset([d.id])"
+              >
+                <XMarkIcon class="w-3 h-3" />
+              </span>
+              <ChevronRightIcon class="w-3.5 h-4 shrink-0 text-content-muted" />
+            </button>
+          </div>
+          <div v-if="wholeOn" class="shrink-0 border-t border-edge-subtle px-2 py-1.5 flex items-center gap-1">
+            <span class="flex-1" />
+            <button type="button" :class="footClass" data-leave-out @click="leaveWhole">Leave out</button>
+          </div>
+        </template>
+
         <!-- One choice -->
         <PromptProgramOptions
           v-else
@@ -98,7 +139,7 @@ import Spinner from '../ui/Spinner.vue'
 import PromptProgramOptions from './PromptProgramOptions.vue'
 import { useAnchoredMenuPosition } from '../../composables/useContextMenuPosition'
 import { useViewport } from '../../composables/useViewport'
-import { detailsAsWritten, isChanged, isOff, offLabel, pillValue, toggleDetailsAsWritten } from '../../utils/programChoices'
+import { detailsAsWritten, isChanged, isOff, offLabel, partText, partsText, pillValue, resetState, toggleDetailsAsWritten, toggleToken, tokenText, tokensOf, turnOn, type Token } from '../../utils/programChoices'
 import type { PromptProgram, ProgramChoice, ProgramSlot } from '../../composables/usePromptProgram'
 
 const props = defineProps<{ program: PromptProgram }>()
@@ -127,9 +168,11 @@ type View =
   | { kind: 'pending'; words: string }
   | { kind: 'written'; words: string }
   | { kind: 'panel'; slot: ProgramSlot }
+  | { kind: 'parts'; choice: ProgramChoice }
   | { kind: 'choice'; choice: ProgramChoice; slot: ProgramSlot | null }
 
 function choiceView(c: ProgramChoice): View {
+  if (props.program.partsOf(c).length) return { kind: 'parts', choice: c }
   const slot = c.slot ? props.program.slotById.value[c.slot] : null
   // A slot that is this one choice can be drawn as written; what goes with it (an outfit's
   // colors) is a choice of its own.
@@ -159,7 +202,7 @@ const view = computed<View>(() => {
   return c ? choiceView(c) : topView.value || { kind: 'pending', words: '' }
 })
 // A slot not read yet is titled by its words, as its label would start.
-const labelOf = (v: View | null) => !v ? '' : v.kind === 'pending' || v.kind === 'written' ? v.words.charAt(0).toUpperCase() + v.words.slice(1) : v.kind === 'panel' ? v.slot.label : (v.slot?.label || v.choice.label)
+const labelOf = (v: View | null) => !v ? '' : v.kind === 'pending' || v.kind === 'written' ? v.words.charAt(0).toUpperCase() + v.words.slice(1) : v.kind === 'panel' ? v.slot.label : v.kind === 'parts' ? v.choice.label : (v.slot?.label || v.choice.label)
 const title = computed(() => labelOf(view.value))
 const backLabel = computed(() => {
   const prev = stack.value[stack.value.length - 2]
@@ -187,11 +230,14 @@ function afterLeaveOut() {
 // The builder's rows ---------------------------------------------------------------------
 const panelSlot = computed(() => (view.value.kind === 'panel' ? view.value.slot : null))
 const details = computed(() => (panelSlot.value ? props.program.detailsOf(panelSlot.value) : []))
-/** A detail with what goes with it (an outfit and its colors). */
-const withFollowers = (d: ProgramChoice) => [d, ...(props.program.followers.value[d.id] || [])]
+/** A detail with what goes with it (an outfit and its colors, a face and its parts). */
+const withFollowers = (d: ProgramChoice) => [d, ...(props.program.followers.value[d.id] || []), ...props.program.partsOf(d)]
 const rowChanged = (d: ProgramChoice) => withFollowers(d).some(c => isChanged(props.program.states.value[c.id]))
 function rowText(d: ProgramChoice): string {
   const s = props.program.states.value[d.id]
+  // A face with parts chosen is those parts.
+  const parts = partsText(props.program.partsOf(d), props.program.states.value, props.program.pools.value)
+  if (parts) return parts
   if (isOff(d, s)) return offLabel(d.label).toLowerCase()
   const said = pillValue(d, props.program.poolOf(d), s)
   if (said) return said
@@ -203,6 +249,33 @@ function rowText(d: ProgramChoice): string {
 function resetRow(d: ProgramChoice) {
   props.program.reset(withFollowers(d).map(c => c.id))
 }
+// A detail made of parts (a face) ---------------------------------------------------------
+const whole = computed(() => (view.value.kind === 'parts' ? view.value.choice : null))
+const partRows = computed(() => (whole.value ? props.program.partsOf(whole.value) : []))
+const wholeState = computed(() => (whole.value ? props.program.states.value[whole.value.id] || null : null))
+const wholeTokens = computed(() => tokensOf(wholeState.value))
+const partsChosen = computed(() => partRows.value.some(d => isChanged(props.program.states.value[d.id])))
+/** "Any face": one subtle detail of any part, with no part and no value chosen. */
+const wholeLit = computed(() => !!wholeState.value?.on && !wholeTokens.value.length && !partsChosen.value)
+const wholeOn = computed(() => !!whole.value && (isChanged(wholeState.value) || partsChosen.value))
+function chooseWhole() {
+  if (!whole.value || wholeLit.value) return
+  const st = props.program.states.value
+  props.program.setStates({
+    [whole.value.id]: turnOn(wholeState.value),
+    ...Object.fromEntries(partRows.value.map(d => [d.id, resetState(st[d.id])])),
+  })
+}
+function dropWholeToken(t: Token) {
+  if (whole.value) props.program.setState(whole.value.id, toggleToken(whole.value, wholeState.value, t))
+}
+function leaveWhole() {
+  if (!whole.value) return
+  const st = props.program.states.value
+  props.program.setStates(Object.fromEntries([whole.value, ...partRows.value].map(d => [d.id, resetState(st[d.id])])))
+  afterLeaveOut()
+}
+
 // As written: every detail left out, which leaves the slot's own words.
 const byId = (id: string) => props.program.byId.value[id]
 const slotAsWritten = computed(() => !!panelSlot.value && detailsAsWritten(panelSlot.value, byId, props.program.states.value))

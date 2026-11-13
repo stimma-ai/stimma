@@ -711,20 +711,25 @@ class TestSharesAndComposedLists:
     other lists' values (a face is two or three features)."""
 
     def test_a_parts_share_does_not_depend_on_how_many_values_it_has(self):
+        # The shares are of what is drawn unasked: a part's marked (opt-in) values don't take from it.
         nose = vocabulary().get("person.feature.nose")
         shares = json.loads((ROOT / "person" / "feature" / "nose.json").read_text())["shares"]["aspect"]
         by_part = {}
-        for v in nose.values:
+        drawn = [v for v in nose.values if not v.opt_in]
+        for v in drawn:
             by_part.setdefault(v.tags["aspect"][0], []).append(v)
-        total = sum(v.weight for v in nose.values)
+        total = sum(v.weight for v in drawn)
         for part, share in shares.items():
             assert abs(sum(v.weight for v in by_part[part]) / total - share / sum(shares.values())) < 1e-9
+        assert any(v.opt_in for v in nose.values)
 
     def test_a_face_is_one_piece_from_the_feature_lists(self):
         v = vocabulary()
         face = v.get("person.face")
         parts = {lid: lf for lid, lf in v.leaves.items() if lid.startswith("person.feature.")}
-        assert len(parts) == 12 and {x.text for x in face.values} == {x.text for lf in parts.values() for x in lf.values}
+        assert len(parts) == 12 and {x.text for x in face.values} == {x.text for lf in parts.values() for x in lf.values
+                                                                      if x.text != lf.plain}
+        assert list(face.parts) == [f"person.feature.{p}" for p in face.local_facets["piece"]]
         assert face.listed and not any(lf.listed for lf in parts.values())
         assert all(x.strength in (1, 2) for lf in parts.values() for x in lf.values)
         for x in face.values:

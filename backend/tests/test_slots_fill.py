@@ -72,10 +72,11 @@ def porch():
 
 
 def test_a_reading_makes_its_picks_and_choices(dorm, porch):
+    parts = [f"young_man.face.{p}" for p in vocabulary().get("person.face").local_facets["piece"]]
     assert [c["id"] for c in dorm["choices"]] == [
         "young_man.build", "young_man.age", "young_man.descent", "young_man.hair", "young_man.hair_texture",
-        "young_man.hair_color", "young_man.hairstyle", "young_man.facial_hair", "young_man.face", "young_man.outfit",
-        "young_man.outfit.colors", "light"]
+        "young_man.hair_color", "young_man.hairstyle", "young_man.facial_hair", "young_man.face", *parts,
+        "young_man.outfit", "young_man.outfit.colors", "light"]
     assert next(c for c in porch["choices"] if c["id"] == "list1")["label"] == "Season"
     slots = {s["id"]: s for s in porch["slots"]}
     assert slots["pet"]["details"] == ["pet"] and slots["pet"]["line"] == 2 and slots["pet"]["state"] == "ready"
@@ -254,7 +255,8 @@ def test_the_person_reads_as_one_clean_phrase_whatever_is_on():
     reading = {**KITCHEN_READING["slots"][0], "person": {**KITCHEN_READING["slots"][0]["person"],
                                                          "vary": list(DETAILS)}}
     e = entry_of(KITCHEN_PROMPT, {"slots": [reading, KITCHEN_READING["slots"][1]]}, {"young_woman.age": YOUNG})
-    ids = [c["id"] for c in e["choices"] if c["id"].startswith("young_woman.") and not c["id"].endswith(".colors")]
+    ids = [c["id"] for c in e["choices"]
+           if c["id"].startswith("young_woman.") and not c["id"].endswith(".colors") and not c.get("part_of")]
     # Values with no joiners of their own, so every joiner in the text is the fill's.
     simple = {"build": "slender", "age": "24-year-old", "descent": "Korean", "skin": "fair", "hair": "short",
               "hair_texture": "straight", "hair_color": "black", "hairstyle": "a pixie cut", "eyes": "hazel",
@@ -280,8 +282,9 @@ def test_the_person_reads_as_one_clean_phrase_whatever_is_on():
             person += ", wearing a navy coat"
         want = f"{person}{',' if details or 'outfit' in kept else ''} in a kitchen at "
         assert got.startswith(("A " + want, "An " + want)), (on, got)
+    parts = [c["id"] for c in e["choices"] if c.get("part_of")]
     for s in range(200):
-        r = draw(e, s, edits={d: {"on": True} for d in ids})
+        r = draw(e, s, edits={d: {"on": True} for d in [*ids, *(parts if s % 2 else [])]})
         got = r.prompt
         for a, b, _ in reversed(r.spans):   # the joiners are checked, not the values' own words
             got = got[:a] + "X" + got[b:]

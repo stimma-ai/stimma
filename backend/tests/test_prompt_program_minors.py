@@ -136,7 +136,8 @@ class TestTheMarkers:
         for lid, lf in v.leaves.items():
             for x in lf.values:
                 if x.opt_in and lid != AGE_LIST:
-                    assert len(x.tags.get("presentation") or []) == 1 or (lid == "person.face" and x.strength == 2), (lid, x.text)
+                    face = lid == "person.face" or lid.startswith("person.feature.")
+                    assert len(x.tags.get("presentation") or []) == 1 or (face and x.strength == 2), (lid, x.text)
 
     def test_the_newly_flagged_looks_leave_a_minors_pools(self):
         for cls, text in (("person.outfit.formal", "a {main} sequined crop top and a matching high-waisted mini skirt"),

@@ -4,13 +4,15 @@
  "description": "Ear size, placement, outer shape and earlobe structure.",
  "pos": "noun phrase",
  "frame": "a person with ___",
- "notes": "Visible external ear anatomy, phrased without jewelry or fantasy shapes. Forehead and hairline details belong in person.feature.forehead; scars and birthmarks belong in person.feature.skin_marks. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages.",
+ "notes": "Visible external ear anatomy, phrased without jewelry or fantasy shapes. Forehead and hairline details belong in person.feature.forehead; scars and birthmarks belong in person.feature.skin_marks. Strength 1 names a mild detail; strength 2 names a clearly visible feature. Life-stage tags exclude incompatible ages. Its plain value says nothing notable about this part: when the part varies it is drawn most of the time and adds no words; picked, it is written. Values marked \"distinctive\" (scars, birthmarks, vitiligo, prominent marks, strongly unusual features) are strength 2, or strength 1 at the unusual tier, so few faces show one unasked.",
  "facets": [],
  "closed": true,
  "strict": true,
+ "plain": "ears of average size",
  "catalog": false,
  "local_facets": {
   "aspect": [
+   "plain",
    "size",
    "position",
    "shape",
@@ -26,13 +28,25 @@
  },
  "shares": {
   "aspect": {
-   "size": 0.2,
-   "position": 0.3,
-   "shape": 0.25,
-   "lobes": 0.25
+   "plain": 0.9,
+   "size": 0.02,
+   "position": 0.03,
+   "shape": 0.025,
+   "lobes": 0.025
   }
  },
  "values": [
+  {
+   "text": "ears of average size",
+   "short": "nothing notable",
+   "tier": "typical",
+   "strength": 1,
+   "tags": {
+    "aspect": [
+     "plain"
+    ]
+   }
+  },
   {
    "text": "slightly small ears",
    "short": "slightly small ears",
@@ -309,7 +323,8 @@
      "older",
      "elderly"
     ]
-   }
+   },
+   "distinctive": true
   },
   {
    "text": "ears with angular upper rims",

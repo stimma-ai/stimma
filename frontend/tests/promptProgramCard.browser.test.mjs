@@ -85,7 +85,7 @@ test('a person opens on its details; a detail’s chooser has groups and a way b
   const { pill, card, option, row, state } = await open(t)
   await pill('young_man').click()
   const rows = await card.locator('[data-row]').evaluateAll(rs => rs.map(r => r.dataset.row))
-  assert.deepEqual(rows, ['young_man.age', 'young_man.descent', 'young_man.build', 'young_man.hair', 'young_man.outfit'])
+  assert.deepEqual(rows, ['young_man.age', 'young_man.descent', 'young_man.build', 'young_man.hair', 'young_man.face', 'young_man.outfit'])
   await expect(card.locator('[data-row="young_man.age"]')).toContainText('young')
   await card.locator('[data-row="young_man.hair"]').click()
   await expect(card.locator('[data-back]')).toHaveText('Young man')
@@ -147,6 +147,49 @@ test('an outfit list opens on its options; its colors are a chooser of their own
   await expect(card.locator('[data-as-written]')).toHaveCount(0)
   await option('navy, white and gray').click()
   await expect.poll(state).toEqual({ 'outfit.colors': { values: ['navy, white and gray'] } })
+})
+
+test('a face opens on its parts; a part has its own chooser, and the face row says what is chosen', async t => {
+  const { pill, card, option, row, state } = await open(t)
+  await pill('young_man').click()
+  await expect(card.locator('[data-row="young_man.face"]')).toContainText('no face')
+  await card.locator('[data-row="young_man.face"]').click()
+  await expect(card.locator('[data-back]')).toHaveText('Young man')
+  assert.deepEqual(await card.locator('[data-row]').evaluateAll(rs => rs.map(r => r.dataset.row)), ['young_man.face.eyes', 'young_man.face.nose'])
+  // Any face: one subtle detail of any part.
+  await card.locator('[data-default]').click()
+  await expect.poll(state).toEqual({ 'young_man.face': { on: true } })
+  // A part: "Any nose" turns it on; its options read short, "nothing notable" first, with its own groups.
+  await card.locator('[data-row="young_man.face.nose"]').click()
+  await expect(card.locator('[data-back]')).toHaveText('Face')
+  await expect(card.locator('[data-default]')).toHaveText('Any nose')
+  await expect(card.locator('[data-part]')).toHaveText(['size', 'tip'])
+  await expect(card.locator('[data-option]').first()).toContainText('a nose of average size and shape')
+  await option('a slightly small nose').click()
+  await expect.poll(state).toEqual({ 'young_man.face': { on: true }, 'young_man.face.nose': { values: ['a slightly small nose'] } })
+  await card.locator('[data-back]').click()
+  await expect(card.locator('[data-row="young_man.face.nose"]')).toContainText('small nose')
+  await expect(card.locator('[data-default] svg')).toHaveCount(0)   // parts chosen: not "any face" now
+  await card.locator('[data-row="young_man.face.eyes"]').click()
+  await card.locator('[data-default]').click()
+  await card.locator('[data-back]').click()
+  await expect(card.locator('[data-row="young_man.face.eyes"]')).toContainText('Any')
+  await card.locator('[data-back]').click()
+  await expect(card.locator('[data-row="young_man.face"]')).toContainText('any eye shape, small nose')
+  // The face's pill says its parts; the parts have no pills of their own.
+  await expect(row.locator('[data-choice="young_man.face"]')).toHaveText('Faceany eye shape, small nose')
+  await expect(row.locator('[data-choice="young_man.face.nose"]')).toHaveCount(0)
+  // The face row's × puts the face and its parts back.
+  await card.locator('[data-reset="young_man.face"]').click()
+  await expect.poll(state).toEqual({})
+  // Leave out on the face does the same.
+  await card.locator('[data-row="young_man.face"]').click()
+  await card.locator('[data-row="young_man.face.eyes"]').click()
+  await option('slightly rounded eyes').click()
+  await card.locator('[data-back]').click()
+  await card.locator('[data-leave-out]').click()
+  await expect.poll(state).toEqual({})
+  await expect(card.locator('[data-row="young_man.face"]')).toBeVisible()
 })
 
 test('three details chosen fold into the person’s pill; its × puts them all back', async t => {
