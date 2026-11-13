@@ -772,3 +772,12 @@ def test_a_persons_look_ideas_fit_their_age():
     assert "salt-and-pepper" not in y["person.hair_color"] and "gray" not in y["person.hair_color"]
     assert "thinning" not in y["person.hair_texture"] and "thinning" in o["person.hair_texture"]
     assert "gray" in o["person.hair_color"]
+
+
+def test_a_and_an_are_set_right_when_a_variant_is_stored():
+    class Off(FakeWriter):
+        async def __call__(self, messages, project_id, max_tokens, temperature=0.8):
+            req = parse_request(messages)
+            return json.dumps({"variants": [{"n": i, "text": f"a off-center selfie no{i}"} for i in range(1, req["n"] + 1)]})
+    b = run(V.write_batch(slot_of("<selfie camera angle>, phone photo", "list", "camera angle"), V.Seeds(), 3, ask=Off()))
+    assert b.texts() and all(t.startswith("an off-center selfie") for t in b.texts())

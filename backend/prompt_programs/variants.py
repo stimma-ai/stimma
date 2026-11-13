@@ -43,7 +43,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-9"   # variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-10"   # variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -717,6 +717,8 @@ async def write_batch(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id:
             out.dropped["missing"] += 1
             continue
         fixed, did = repair(it["text"], left, right, words=slot.words, article=article)
+        from prompt_programs.fill import fix_articles
+        fixed = fix_articles(fixed)   # "a off-center selfie" is stored as "an off-center selfie"
         out.repairs += bool(did)
         why = check(fixed, slot.words, keep, spec)
         if why:
