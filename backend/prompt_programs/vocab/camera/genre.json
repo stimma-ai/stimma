@@ -4,7 +4,7 @@
  "description": "Photographic genres and recognizable shooting conventions, from studio portraits to surveillance images.",
  "pos": "noun phrase",
  "frame": "in the style of ___",
- "notes": "Genres and recognizable photographic uses belong here, including commercial work, records and informal snapshots. camera.composition owns spatial arrangement, camera.color_grade owns palette and tonal finishing, and camera.film_look owns grain and photographic surface texture. Values name a genre or a familiar type of photograph after “in the style of”; their look describes characteristic framing and light rather than a required subject. Period-inspired genres remain available for contemporary scenes. Conventions named by how many people they show (a two-shot, a group portrait) carry a people tag, so a prompt with one person is never offered them.",
+ "notes": "Genres and recognizable photographic uses belong here, including commercial work, records and informal snapshots. camera.composition owns spatial arrangement, camera.color_grade owns palette and tonal finishing, and camera.film_look owns grain and photographic surface texture. Values name a genre or a familiar type of photograph after “in the style of”; their look describes characteristic framing and light rather than a required subject. Period-inspired genres remain available for contemporary scenes. Conventions named by how many people they show (a two-shot, a group portrait) carry a people tag and are opt-in: drawn only when the prompt's words or the user ask for them, so a prompt with one person never draws them.",
  "facets": [],
  "closed": false,
  "local_facets": {
@@ -581,7 +581,8 @@
     "people": [
      "two"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "a group portrait",
@@ -595,7 +596,8 @@
     "people": [
      "group"
     ]
-   }
+   },
+   "opt_in": true
   }
  ]
 }

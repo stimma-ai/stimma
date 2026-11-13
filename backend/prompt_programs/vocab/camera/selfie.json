@@ -4,7 +4,7 @@
  "description": "Kinds of selfie: how the photographer holds the camera on themselves, alone, as a pair or in a group.",
  "pos": "noun phrase",
  "frame": "framed as ___",
- "notes": "Selfies belong here, named by how the camera is held (at arm's length, in a mirror, on a stick) and who is in the frame. The people facet says how many people each one shows (one, two, a group), so a prompt with one person is never offered a group selfie. camera.shot_size owns framing distance, camera.angle owns viewpoint, and camera.film_look owns the camera itself. Values are named shots with an article, read after “framed as”.",
+ "notes": "Selfies belong here, named by how the camera is held (at arm's length, in a mirror, on a stick) and who is in the frame. The people facet says how many people each one shows (one, two, a group), and those for more than one are opt-in: drawn only when the prompt's words or the user ask for them, so a prompt with one person never draws a couple or group selfie. camera.shot_size owns framing distance, camera.angle owns viewpoint, and camera.film_look owns the camera itself. Values are named shots with an article, read after “framed as”.",
  "facets": [],
  "closed": true,
  "local_facets": {
@@ -74,7 +74,8 @@
     "people": [
      "two"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "a group selfie",
@@ -88,7 +89,8 @@
     "people": [
      "group"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "a waist-up mirror selfie",
@@ -130,7 +132,8 @@
     "people": [
      "two"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "a selfie-stick selfie",

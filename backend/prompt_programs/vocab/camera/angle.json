@@ -4,7 +4,7 @@
  "description": "Camera height, viewing direction, overhead viewpoints, tilted angles, and subjective viewpoints such as over the shoulder or through a participant's eyes.",
  "pos": "noun phrase",
  "frame": "camera viewpoint: ___",
- "notes": "Camera height, viewing direction, camera roll and subjective viewpoints belong here, phrased as short viewpoint names. Top-down and bird’s-eye view share one entry; overhead flat lay specifically means objects arranged on a flat surface, while the aerial drone view looks obliquely across a larger setting. The over-the-shoulder shot needs two people (its people tag); the point-of-view shot looks through a participant's eyes. camera.shot_size owns framing distance and camera.selfie owns selfies. camera.lens owns lenses, and camera.film_look owns film and format looks. Directions describe the camera relative to the subject, not the direction of lighting.",
+ "notes": "Camera height, viewing direction, camera roll and subjective viewpoints belong here, phrased as short viewpoint names. Top-down and bird’s-eye view share one entry; overhead flat lay specifically means objects arranged on a flat surface, while the aerial drone view looks obliquely across a larger setting. The over-the-shoulder shot needs two people (its people tag) and is opt-in, drawn only when asked for; the point-of-view shot looks through a participant's eyes. camera.shot_size owns framing distance and camera.selfie owns selfies. camera.lens owns lenses, and camera.film_look owns film and format looks. Directions describe the camera relative to the subject, not the direction of lighting.",
  "facets": [],
  "closed": true,
  "local_facets": {
@@ -222,7 +222,8 @@
     "people": [
      "two"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "a point-of-view shot",

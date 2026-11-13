@@ -1044,3 +1044,11 @@ class TestCameraLists:
         assert "an arm's-length selfie" in one and "a group selfie" not in one and "a couple selfie" not in one
         assert v.get("camera.angle").value("an over-the-shoulder shot").tags["people"] == ["two"]
         assert v.get("camera.genre").value("a group portrait").tags["people"] == ["group"]
+        # Framings for more than one person are drawn only when asked for: a selfie is one person's.
+        for lid in ("camera.selfie", "camera.angle", "camera.genre"):
+            for x in v.get(lid).values:
+                many = bool(x.tags.get("people")) and "one" not in x.tags["people"]
+                assert x.opt_in == many, (lid, x.text)
+        drawn, held = selfies.pool_values()
+        assert {x.text for x in held} == {"a couple selfie", "a two-person mirror selfie", "a group selfie"}
+        assert "a selfie-stick selfie" in {x.text for x in drawn}
