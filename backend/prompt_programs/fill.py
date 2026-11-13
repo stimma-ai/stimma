@@ -544,7 +544,8 @@ def picks_of(cid: str, words: str, reading: Dict[str, Any], *, close: str = "") 
                 picks[-1]["starts_off"] = True
             if k == "face":
                 picks += face_parts(f"{cid}.{k}", noun, cid)
-        outfit = str(got.get("outfit") or "")
+        # Another slot that is what they wear (the reader's clothes_part) varies their clothes: no outfit of their own.
+        outfit = "" if got.get("clothes_part") else str(got.get("outfit") or "")
         outfit_id = ""
         if outfit:
             outfit_id = f"{cid}.outfit"

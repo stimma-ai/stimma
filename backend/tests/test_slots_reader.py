@@ -722,3 +722,111 @@ async def test_a_camera_that_varies_one_detail_is_that_details_list():
                             project_id=None, model="m")
     assert got["slots"][0]["kind"] == "person"
     assert len(slots.compose(parse("a <young man> in a dorm room"), {1: got["slots"][0]})["slots"][0]["details"]) > 1
+
+
+# --------------------------------------------------------------------------- a clothing part beside a person
+
+WETSUIT_PROMPT = "a <woman> in a <wetsuit> on a research boat"
+DIVER = {"n": 1, "kind": "person", "label": "Woman", "lead": "a",
+         "person": {"noun": "woman", "presentation": "feminine", "stated": {},
+                    "vary": ["age", "descent", "build", "hair"], "clothes": "", "clothes_part": 2,
+                    "outfit": "person.outfit.summer", "outfit_examples": []}}
+WETSUIT = {"n": 2, "kind": "free", "label": "Wetsuit", "lead": " in a",
+           "free": {"about": "the woman's wetsuit", "kinds": ["shorty wetsuit", "full-length wetsuit", "drysuit"],
+                    "instead": []}}
+
+
+async def test_a_person_beside_a_part_that_is_their_clothes_draws_no_outfit():
+    # "<woman> in a <wetsuit>": the wetsuit part varies her clothes, so she draws none of her
+    # own, even when the reading also names an outfit list (the reading says so; no words matched).
+    from test_slots_fill import draw
+    model = FakeModel(json.dumps({"slots": [DIVER, WETSUIT]}))
+    got = await reader.read(parse(WETSUIT_PROMPT), ask=model, project_id=None, model="m")
+    assert len(model.asked) == 2   # one call a part, no retry
+    person = got["slots"][0]["person"]
+    assert person["outfit"] == "" and person["clothes_part"] == {"n": 2, "words": "wetsuit"}
+    e = slots.compose(parse(WETSUIT_PROMPT), {r["n"]: r for r in got["slots"]})
+    assert not any(p["id"].startswith("woman.outfit") for p in e["picks"])
+    assert e["slots"][0]["form"]["outfit"] == ""
+    for seed in range(6):
+        body = draw(e, seed).prompt
+        assert "wearing" not in body and re.search(r" in a (shorty wetsuit|full-length wetsuit|drysuit) on a", body), body
+    # The fill drops the outfit too, whatever outfit a stored reading still carries.
+    stale = copy.deepcopy(got["slots"][0])
+    stale["person"]["outfit"] = "person.outfit.summer"
+    e = slots.compose(parse(WETSUIT_PROMPT), {1: stale, 2: got["slots"][1]})
+    assert not any(p["id"].startswith("woman.outfit") for p in e["picks"])
+
+
+async def test_a_clothes_part_that_names_no_other_part_is_ignored():
+    for wrong in (7, 1, "two"):
+        bare = copy.deepcopy(DIVER)
+        bare["person"].update(clothes_part=wrong, outfit="")
+        dressed = copy.deepcopy(DIVER)
+        dressed["person"].update(clothes_part=0, outfit="person.outfit.summer")
+        model = FakeModel(json.dumps({"slots": [bare, WETSUIT]}), json.dumps({"slots": [dressed, WETSUIT]}))
+        got = await reader.read_part(parse(WETSUIT_PROMPT), "slot", 1, ask=model, project_id=None, model="m")
+        assert len(model.asked) == 2 and '"clothes_part"' in model.asked[1][-1]["content"]
+        assert got["person"]["outfit"] == "person.outfit.summer" and "clothes_part" not in got["person"]
+
+
+async def test_a_person_whose_clothes_part_is_gone_is_read_again(tmp_path):
+    # Their clothes part on another line: an edit there leaves the person's own key as it was,
+    # but a person whose wetsuit is gone would wear nothing drawn, so they are read again.
+    cache = NarrowCache(tmp_path)
+    before = "a <woman> on a research boat,\nin a <wetsuit>"
+    model = FakeModel(json.dumps({"slots": [DIVER, WETSUIT]}))
+    await reader.read(parse(before), ask=model, project_id=None, model="m", cache=cache)
+    model = FakeModel(json.dumps({"slots": [DIVER, WETSUIT]}))
+    await reader.read(parse(before), ask=model, project_id=None, model="m", cache=cache)
+    assert len(model.asked) == 0
+    dressed = copy.deepcopy(DIVER)
+    dressed["person"].update(clothes_part=0)
+    hat = {**WETSUIT, "label": "Hat", "free": {**WETSUIT["free"], "about": "her hat"}}
+    model = FakeModel(json.dumps({"slots": [dressed, hat]}))
+    got = await reader.read(parse("a <woman> on a research boat,\nin a <sun hat>"), ask=model, project_id=None,
+                            model="m", cache=cache)
+    assert len(model.asked) == 2 and got["slots"][0]["person"]["outfit"] == "person.outfit.summer"
+
+
+def test_the_reader_is_shown_a_clothes_part_and_an_expression_beside_a_person():
+    text = reader.system_text()
+    assert "clothes_part" in text and '"clothes_part": 2' in text
+    assert "the dancer's expression" in text
+
+
+# --------------------------------------------------------------------------- words about someone read as a person
+
+SILLY_PROMPT = "a <young woman> making a <silly expression>, phone selfie"
+SILLY_AS_PERSON = {"n": 2, "kind": "person", "label": "Silly expression", "lead": " making a",
+                   "person": {"noun": "expression", "presentation": "feminine", "stated": {}, "vary": [],
+                              "face": True, "outfit": ""}}
+SILLY_AS_LIST = {"n": 2, "kind": "list", "label": "Silly expression", "lead": " making a",
+                 "list": {"list": "person.expression", "about": "the young woman's expression"}}
+
+
+async def test_an_expression_read_as_a_person_is_retried_with_the_reason():
+    model = FakeModel(json.dumps({"slots": [SILLY_AS_PERSON]}), json.dumps({"slots": [SILLY_AS_LIST]}))
+    got = await reader.read_part(parse(SILLY_PROMPT), "slot", 2, ask=model, project_id=None, model="m")
+    assert len(model.asked) == 2
+    why = model.asked[1][-1]["content"]
+    assert "a person needs details to vary" in why and "expression" in why and "clothes_part" not in why
+    assert got["kind"] == "list" and got["list"]["list"] == "person.expression"
+
+
+async def test_an_expression_read_as_a_person_twice_degrades_to_a_free_slot():
+    # On the retry too (an outfit doesn't make it a person): it stands as its words, never a second person.
+    worse = copy.deepcopy(SILLY_AS_PERSON)
+    worse["person"].update(outfit="person.outfit.casual")
+    model = FakeModel(json.dumps({"slots": [SILLY_AS_PERSON]}), json.dumps({"slots": [worse]}))
+    got = await reader.read_part(parse(SILLY_PROMPT), "slot", 2, ask=model, project_id=None, model="m")
+    assert len(model.asked) == 2
+    assert got["kind"] == "free" and got.get("degraded") is True
+    e = slots.compose(parse(SILLY_PROMPT), {2: got})
+    assert e["slots"][1]["degraded"] and not any(p["id"].startswith("silly_expression.") for p in e["picks"])
+
+
+async def test_one_parts_reading_given_bare_is_taken_as_it_stands():
+    model = FakeModel(json.dumps(WETSUIT))
+    got = await reader.read_part(parse(WETSUIT_PROMPT), "slot", 2, ask=model, project_id=None, model="m")
+    assert len(model.asked) == 1 and got["kind"] == "free" and not got.get("degraded")
