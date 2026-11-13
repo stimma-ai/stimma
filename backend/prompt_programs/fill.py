@@ -334,10 +334,12 @@ def value_spans(prompt: str, parts: Sequence[Tuple[str, Optional[str]]]) -> List
 
 # --------------------------------------------------------------------------- the text of a prompt
 
-def text_parts(entry: Dict[str, Any], value: Any) -> List[Part]:
+def text_parts(entry: Dict[str, Any], value: Any, held: Sequence[str] = ()) -> List[Part]:
     """The prompt's parts in order: the user's text, comment lines on their own lines, and each
     slot and list as `value(id)` gives it (a Val). A slot not read (or read as written) is its
-    own words. The lead the reader named goes with its slot when it is left out."""
+    own words, unless it is `held` (a recorded value replayed). The lead the reader named goes
+    with its slot when it is left out."""
+    held = set(held)
     slots = {s["n"]: s for s in entry.get("slots") or []}
     lists = {l["n"]: l for l in entry.get("lists") or []}
     parts: List[Part] = []
@@ -375,7 +377,7 @@ def text_parts(entry: Dict[str, Any], value: Any) -> List[Part]:
             continue
         slot_n += 1
         s = slots.get(slot_n) or {}
-        if s.get("state") != "ready" or s.get("degraded"):
+        if (s.get("state") != "ready" or s.get("degraded")) and s.get("id") not in held:
             pending += seg["words"]
             continue
         lead = flush(str(s.get("lead") or ""))
@@ -451,10 +453,17 @@ def fill(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Sequence[str
         d = _list_draw(p, rng, pins, fixed, edits)
         records[p["id"]], values[p["id"]] = d, d.value
         rev[p["id"]] = {"text": d.value}   # a replay draws the user's list as it was drawn too
+    held: List[str] = []
     for s in entry.get("slots") or []:
-        if s.get("state") != "ready" or s.get("degraded"):
-            continue
         sid = s["id"]
+        if s.get("state") != "ready" or s.get("degraded"):
+            # A recorded value replayed holds though the slot isn't read now (a reset reader cache).
+            if isinstance(fixed.get(sid), str) and fixed[sid].strip():
+                values[sid] = fixed[sid]
+                held.append(sid)
+                records[sid] = Draw(sid, fixed[sid], "pick", str(s.get("label") or s["words"]), "fixed", s.get("line"),
+                                    about=s["words"])
+            continue
         e = edits.get(sid) or {}
         choice = options.choice(sid) if options is not None else Choice()
         if e.get("off"):
@@ -482,7 +491,7 @@ def fill(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Sequence[str
         records[sid] = d
         if s.get("pool"):
             rev[sid] = {"pool": str(s["pool"]), "text": got.text}
-    parts = flatten(text_parts(entry, lambda cid: Val(cid, values.get(cid))))
+    parts = flatten(text_parts(entry, lambda cid: Val(cid, values.get(cid)), held))
     prompt = tidy_text([t for t, _ in parts])
     if not prompt:
         raise ProgramError("The prompt has no text.")

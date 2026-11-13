@@ -405,3 +405,20 @@ async def test_polling_the_picker_never_asks_a_failing_writer_again(monkeypatch,
     pool_view(entry, {}, profile_id=profile)
     await w.drain()
     assert len(failing.calls) == 6
+
+
+async def test_a_replay_holds_its_values_though_the_slot_is_not_read_now(monkeypatch, profile):
+    """After a reader-cache reset a slot is unread again; a replay's recorded value still holds,
+    in the text too."""
+    use(monkeypatch)
+    entry = await settled(PROMPT, profile)
+    kept = {d.id: d.value for d in prep.realize(entry, seed=4, profile_id=profile).draws}
+    import copy
+    unread = copy.deepcopy(entry)   # as prepare gives it after the reader's cache is reset
+    for s in unread["slots"]:
+        s["state"] = "reading"
+    assert prep.realize(unread, seed=9, profile_id=profile).prompt.lower().startswith("# phone photo")
+    r = prep.realize(unread, seed=9, profile_id=profile, fixed=kept)
+    for text in kept.values():
+        assert text.lower() in r.prompt.lower()
+    assert {d.id: d.source for d in r.draws} == {k: "fixed" for k in kept}
