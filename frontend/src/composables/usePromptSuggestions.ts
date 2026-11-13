@@ -18,7 +18,7 @@
 import { ref, watch, onUnmounted, type Ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
-import { cleanSuggestions, type Suggestions } from '../utils/promptSuggestions'
+import { cleanSuggestions, joinFor, type Suggestions } from '../utils/promptSuggestions'
 
 export type { ReadSlots, SuggestedAdd, SuggestedPhrase, Suggestions } from '../utils/promptSuggestions'
 export { slotCovers } from '../utils/promptSuggestions'
@@ -93,9 +93,8 @@ export function usePromptSuggestions(o: PromptSuggestionsOptions) {
     if (adding.value) return null
     const text = read(o.prompt)
     adding.value = name
-    // Where Suggest said it goes; the server checks it still fits the prompt as it is now.
-    const known = answer.value?.suggestions.adds.find(a => a.name === name)
-    const join = known?.after != null && known.insert != null ? { after: known.after, insert: known.insert } : {}
+    // Where Suggest said it goes, only for the exact prompt it answered; the server checks too.
+    const join = joinFor(answer.value, name, text) || {}
     try {
       const { data } = await axios.post(`${getApiBase()}/prompt-programs/add`, body({ prompt: text, name, ...join }))
       if (typeof data?.prompt !== 'string' || !Number.isInteger(data?.slot?.from) || !Number.isInteger(data?.slot?.to)) return null

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { cleanSuggestions, slotCovers, type SuggestedAdd } from './promptSuggestions.ts'
+import { cleanSuggestions, joinFor, slotCovers, type SuggestedAdd } from './promptSuggestions.ts'
 
 const camera: SuggestedAdd = { name: 'camera', label: 'camera', kind: 'camera', lists: ['camera.lens', 'camera.angle'] }
 const light: SuggestedAdd = { name: 'light', label: 'light', kind: 'light', lists: ['lighting.natural'] }
@@ -42,4 +42,16 @@ test('a list kind alone covers nothing, nor does anything before the slots are r
   assert.equal(slotCovers(grade, { kinds: ['list'], lists: ['person.age'] }), false)
   assert.equal(slotCovers(light, null), false)
   assert.equal(slotCovers({ name: 'light', label: 'light' }, { kinds: ['light'], lists: [] }), false)  // the model's own add
+})
+
+test('a join is sent only for the exact prompt Suggest answered, even when its words survive an edit', () => {
+  const answer = { text: 'a cat on a porch', suggestions: { vary: [], adds: [
+    { name: 'light', label: 'light', after: 'on a porch', insert: ', lit by <light>' },
+    { name: 'sky', label: 'sky' },
+  ] } }
+  assert.deepEqual(joinFor(answer, 'light', 'a cat on a porch'),
+    { after: 'on a porch', insert: ', lit by <light>', suggested_for: 'a cat on a porch' })
+  assert.equal(joinFor(answer, 'light', 'a cat on a porch, lit by candlelight'), null)
+  assert.equal(joinFor(answer, 'sky', 'a cat on a porch'), null)
+  assert.equal(joinFor(null, 'light', 'a cat on a porch'), null)
 })

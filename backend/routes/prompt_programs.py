@@ -327,9 +327,11 @@ class AddRequest(BaseModel):
     prompt: str = Field(max_length=20000)
     # The words the new slot carries (an add's `name` from /suggest).
     name: str = Field(max_length=200)
-    # Where /suggest said it goes: written in with no model call while they still fit the prompt.
+    # Where /suggest said it goes, and the prompt it said so for: written in with no model call
+    # only when that is exactly `prompt`.
     after: Optional[str] = Field(default=None, max_length=2000)
     insert: Optional[str] = Field(default=None, max_length=400)
+    suggested_for: Optional[str] = Field(default=None, max_length=20000)
     project_id: Optional[int] = None
 
 
@@ -358,7 +360,8 @@ async def add_slot(req: AddRequest) -> Dict[str, Any]:
     if not SLOT_RE.fullmatch(f"<{name}>"):
         raise HTTPException(status_code=422, detail={"code": "bad_slot", "message": "Those words can't be a slot."})
     try:
-        return await add(req.prompt, name, project_id=req.project_id, after=req.after, insert=req.insert)
+        return await add(req.prompt, name, project_id=req.project_id, after=req.after, insert=req.insert,
+                         suggested_for=req.suggested_for)
     except Exception as e:
         http = program_http_error(e, failed="add_failed")
         if http is None:

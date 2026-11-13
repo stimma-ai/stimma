@@ -35,6 +35,16 @@ export function cleanSuggestions(data: any): Suggestions {
   return { vary, adds }
 }
 
+/** What Add is sent for the add named `name`: where Suggest said it goes, with the prompt it
+    said so for, only when that is exactly `text`. After an edit the words it goes after may
+    still be there, yet the join would land beside what the edit added: Add places it afresh. */
+export function joinFor(answer: { text: string; suggestions: Suggestions } | null | undefined, name: string, text: string):
+  { after: string; insert: string; suggested_for: string } | null {
+  if (!answer || answer.text !== text) return null
+  const add = answer.suggestions.adds.find(a => a.name === name)
+  return add?.after != null && add.insert != null ? { after: add.after, insert: add.insert, suggested_for: answer.text } : null
+}
+
 /** Whether a slot of the prompt already is this photography add: read as its kind (a camera,
     a light), or drawing from one of its lists. Unknown until the slots are read: false. */
 export function slotCovers(add: SuggestedAdd, read: ReadSlots | null | undefined): boolean {

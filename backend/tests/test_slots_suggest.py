@@ -269,14 +269,27 @@ class TestSplice:
 class TestAdd:
     async def test_suggests_join_makes_no_call(self):
         ask = Fake()
-        got = await sg.add("dorm room with a <young man>", "light", ask, after="<young man>", insert=", lit by <light>")
+        prompt = "dorm room with a <young man>"
+        got = await sg.add(prompt, "light", ask, after="<young man>", insert=", lit by <light>", suggested_for=prompt)
         assert got["prompt"] == "dorm room with a <young man>, lit by <light>" and ask.calls == []
 
     async def test_a_join_that_no_longer_fits_asks_the_model(self):
         prompt = "dorm room with an <old man>"   # the prompt moved on since Suggest
         ask = Fake({"after": "<old man>", "insert": ", lit by <light>"})
-        got = await sg.add(prompt, "light", ask, after="<young man>", insert=", lit by <light>")
+        got = await sg.add(prompt, "light", ask, after="<young man>", insert=", lit by <light>",
+                           suggested_for="dorm room with a <young man>")
         assert got["prompt"] == "dorm room with an <old man>, lit by <light>" and len(ask.calls) == 1
+
+    async def test_a_join_for_an_edited_prompt_is_not_used_even_when_it_still_fits(self):
+        """Suggest answered for "a cat on a porch"; the user then wrote on. The join's words are
+        still there, but splicing would land beside what the edit added: the model places it."""
+        before, prompt = "a cat on a porch", "a cat on a porch, lit by candlelight"
+        ask = Fake({"after": "a cat", "insert": " in <light>"})
+        got = await sg.add(prompt, "light", ask, after="on a porch", insert=", lit by <light>", suggested_for=before)
+        assert got["prompt"] == "a cat in <light> on a porch, lit by candlelight" and len(ask.calls) == 1
+        ask = Fake({"after": "a cat", "insert": " in <light>"})   # no prompt said: not trusted either
+        got = await sg.add(prompt, "light", ask, after="on a porch", insert=", lit by <light>")
+        assert len(ask.calls) == 1
 
     async def test_a_good_reply(self):
         prompt = "dorm room with a <young man>"
@@ -399,7 +412,13 @@ class TestRoutes:
             assert [(a["name"], a.get("insert")) for a in adds] == [("weather", " in <weather>"), ("camera", ", shot on <camera>")]
             for a, written in zip(adds, ["an old man reading on a porch in <weather> at dusk",
                                          "an old man reading on a porch at dusk, shot on <camera>"]):
-                r = await c.post("/api/prompt-programs/add", json={"prompt": prompt, "name": a["name"],
-                                                                  "after": a["after"], "insert": a["insert"]})
+                r = await c.post("/api/prompt-programs/add", json={"prompt": prompt, "name": a["name"], "after": a["after"],
+                                                                  "insert": a["insert"], "suggested_for": prompt})
                 assert r.json()["prompt"] == written
-        assert len(ask.calls) == 1
+            assert len(ask.calls) == 1
+            # The prompt changed after Suggest answered: the join is not used, the model places it.
+            edited = prompt + ", lit by candlelight"
+            monkeypatch.setattr(sg, "ask_model", Fake({"after": "old man", "insert": " in <weather>"}))
+            r = await c.post("/api/prompt-programs/add", json={"prompt": edited, "name": "weather", "after": "on a porch",
+                                                              "insert": " in <weather>", "suggested_for": prompt})
+            assert r.json()["prompt"] == "an old man in <weather> reading on a porch at dusk, lit by candlelight"

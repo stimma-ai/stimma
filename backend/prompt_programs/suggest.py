@@ -421,17 +421,21 @@ def splice(prompt: str, name: str, after: Any, insert: Any) -> Tuple[Optional[Di
 
 
 async def add(prompt: str, name: str, ask: Optional[Ask] = None, project_id: Optional[int] = None,
-              after: Optional[str] = None, insert: Optional[str] = None) -> Dict[str, Any]:
+              after: Optional[str] = None, insert: Optional[str] = None,
+              suggested_for: Optional[str] = None) -> Dict[str, Any]:
     """{"prompt": the prompt with <name> written in, "slot": {from, to}} (the span includes the
-    brackets). With Suggest's `after` and `insert` that still fit the prompt, no model call.
+    brackets). With Suggest's `after` and `insert`, made for exactly this prompt
+    (`suggested_for`) and fitting it, no model call: a join for an earlier prompt can still find
+    its words in an edited one, yet land beside what the edit added.
     Else the model says only where it goes and the join; a reply that doesn't fit is asked
     again once, and after that `, <name>` goes at the end of the last non-comment line."""
     name = name.strip()
     if after is not None or insert is not None:
-        done, problem = splice(prompt, name, after, insert)
+        done, problem = splice(prompt, name, after, insert) if suggested_for == prompt else \
+            (None, "it was made for another prompt")
         if done is not None:
             return done
-        log.info(f"[add] Suggest's join for <{name}> no longer fits: {problem}")
+        log.info(f"[add] Suggest's join for <{name}> isn't used: {problem}")
     if not _body(prompt):
         return plain_add(prompt, name)
     ask = ask or ask_model
