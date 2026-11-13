@@ -1339,3 +1339,281 @@ def test_llm_complete_text_supports_enable_thinking():
     params = inspect.signature(llm_complete_text).parameters
     assert "enable_thinking" in params
     assert params["enable_thinking"].default is False  # off unless asked
+
+
+# --- A local server that stops serving a saved model -----------------------
+
+def _served_local_model(provider_id: str, model_id: str) -> LLMProviderModelConfig:
+    """A model that passed its profile tests, as the add-model flow saves it."""
+    return LLMProviderModelConfig(
+        id=f"{provider_id}:{model_id}",
+        model_id=model_id,
+        name=model_id,
+        input_modalities=["text", "image"],
+        supports_tools=True,
+        reasoning=LLMReasoningConfig(
+            mode="optional",
+            levels=["off", "high"],
+            default="high",
+            control="enable_thinking",
+            wire_levels={"off": False, "high": True},
+        ),
+        last_test_passed=True,
+        last_test_results={
+            scenario: {"passed": True}
+            for scenario in models_route.REQUIRED_MODEL_PROFILE_SCENARIOS
+        },
+    )
+
+
+def _local_provider(**overrides) -> LLMProviderConfig:
+    data = dict(
+        id="local-gpu",
+        kind="local",
+        name="gpu-box:8000",
+        base_url="http://gpu-box:8000/v1",
+        models=[_served_local_model("local-gpu", "old-model")],
+        last_test_passed=True,
+    )
+    data.update(overrides)
+    return LLMProviderConfig(**data)
+
+
+@pytest.fixture
+def provider_runtime(monkeypatch):
+    """Shared runtime settings for the provider routes and the resolver,
+    with the model server, cloud and config file stubbed out."""
+    import firebase_auth
+
+    runtime = SimpleNamespace(
+        llm_providers=[],
+        llm_reasoning_levels={},
+        llm_model_prompts={},
+        llm_content_policy="stimma",
+        llm_extra_system_prompt="",
+        llms={},
+        cloud=SimpleNamespace(base_url="https://cloud.example"),
+        get_role_model_slug=lambda _role, profile_id=None: "auto",
+        get_role_effort=lambda _role, profile_id=None: None,
+        get_llm_role_config=lambda _role: LLMRoleConfig(source="auto"),
+    )
+    saved = []
+    served = {"models": ["old-model"], "reachable": True}
+
+    real_async_client = httpx.AsyncClient
+
+    def model_server(request):
+        if not served["reachable"]:
+            raise httpx.ConnectError("Connection refused", request=request)
+        assert request.url.path.endswith("/models")
+        return httpx.Response(
+            200, json={"data": [{"id": model_id} for model_id in served["models"]]}
+        )
+
+    async def profile(_provider, model):
+        model.last_test_passed = True
+        model.last_error = None
+        return {"text": {"passed": True}}
+
+    async def no_cloud_token():
+        return None
+
+    async def cloud_unavailable():
+        return False
+
+    monkeypatch.setattr(models_route, "get_settings", lambda: runtime)
+    monkeypatch.setattr(llm_resolver, "get_settings", lambda: runtime)
+    monkeypatch.setattr(
+        models_route, "patch_global_section", lambda section, value: saved.append(value)
+    )
+    monkeypatch.setattr(
+        models_route.httpx,
+        "AsyncClient",
+        lambda: real_async_client(transport=httpx.MockTransport(model_server)),
+    )
+    # Profiling sends real chat requests; its scenarios are covered above.
+    monkeypatch.setattr(models_route, "_profile_provider_model", profile)
+    monkeypatch.setattr(models_route, "is_privacy_lockdown_enabled", lambda: False)
+    monkeypatch.setattr("privacy_lockdown.is_privacy_lockdown_enabled", lambda: False)
+    monkeypatch.setattr(firebase_auth, "get_valid_id_token", no_cloud_token)
+    monkeypatch.setattr(llm_resolver, "_cloud_is_available", cloud_unavailable)
+    return SimpleNamespace(settings=runtime, served=served, saved=saved)
+
+
+def _available(payload, slug):
+    return next(model for model in payload["models"] if model["slug"] == slug)
+
+
+@pytest.mark.asyncio
+async def test_check_with_missing_model_marks_only_that_model(provider_runtime):
+    provider = _local_provider(models=[
+        _served_local_model("local-gpu", "old-model"),
+        _served_local_model("local-gpu", "other-model"),
+    ])
+    provider_runtime.settings.llm_providers = [provider]
+    provider_runtime.served["models"] = ["other-model", "new-model"]
+
+    result = await models_route.test_llm_provider("local-gpu")
+
+    assert result["status"] == "ready"
+    assert result["missing_models"] == ["old-model"]
+    assert "old-model" in result["detail"]
+    assert list(result["model_checks"]) == ["other-model"]
+    assert provider.last_test_passed is True
+    assert provider.last_error is None
+    by_id = {model.model_id: model for model in provider.models}
+    assert by_id["old-model"].served is False
+    assert by_id["other-model"].served is True
+
+    payload = await models_route.get_available_models()
+    old = _available(payload, "local-gpu:old-model")
+    assert old["available"] is False
+    assert old["status"] == "not_served"
+    assert _available(payload, "local-gpu:other-model")["available"] is True
+
+
+@pytest.mark.asyncio
+async def test_swapping_the_served_model_leaves_a_clean_usable_provider(provider_runtime):
+    provider = _local_provider()
+    provider_runtime.settings.llm_providers = [provider]
+    provider_runtime.served["models"] = ["new-model"]
+
+    await models_route.test_llm_provider("local-gpu")
+    response = await models_route.update_llm_provider(
+        "local-gpu",
+        models_route.ProviderUpdateRequest(models=[
+            _served_local_model("local-gpu", "new-model").model_dump(),
+        ]),
+    )
+
+    assert response["last_test_passed"] is True
+    assert response["last_error"] is None
+    assert [model["model_id"] for model in response["models"]] == ["new-model"]
+    payload = await models_route.get_available_models()
+    new = _available(payload, "local-gpu:new-model")
+    assert new["available"] is True
+    assert new["status"] == "available"
+    assert not any(model["slug"] == "local-gpu:old-model" for model in payload["models"])
+
+    config = await llm_resolver.get_chat_llm_config("local-gpu:new-model")
+    assert config.model == "new-model"
+    assert config.url == "http://gpu-box:8000/v1"
+    # `auto` finds it too, since it is the only usable model.
+    auto = await llm_resolver.get_effective_llm_config("quick_task")
+    assert auto.model == "new-model"
+
+
+@pytest.mark.asyncio
+async def test_resolver_names_a_saved_model_the_server_no_longer_serves(provider_runtime):
+    old = _served_local_model("local-gpu", "old-model")
+    old.served = False
+    provider_runtime.settings.llm_providers = [_local_provider(models=[old])]
+
+    with pytest.raises(llm_resolver.LLMUnavailableError, match="no longer serves old-model"):
+        await llm_resolver.get_chat_llm_config("local-gpu:old-model")
+
+
+@pytest.mark.asyncio
+async def test_saved_provider_failed_on_a_missing_model_heals(provider_runtime):
+    # How earlier builds left config.yaml after the served model was swapped.
+    stored = _local_provider().model_dump()
+    stored.update(
+        last_test_passed=False,
+        last_error="Model no longer available: old-model.",
+    )
+    provider = LLMProviderConfig.model_validate(stored)
+    provider_runtime.settings.llm_providers = [provider]
+    provider_runtime.served["models"] = ["new-model"]
+
+    assert provider.last_test_passed is None
+    assert provider.last_error is None
+    assert provider.models[0].served is False
+
+    response = await models_route.update_llm_provider(
+        "local-gpu",
+        models_route.ProviderUpdateRequest(models=[
+            _served_local_model("local-gpu", "new-model").model_dump(),
+        ]),
+    )
+
+    assert response["last_test_passed"] is not False
+    assert response["last_error"] is None
+    payload = await models_route.get_available_models()
+    assert _available(payload, "local-gpu:new-model")["available"] is True
+    assert provider_runtime.saved[-1][0]["last_error"] is None
+
+
+def test_saved_provider_with_a_real_failure_is_not_healed():
+    provider = _local_provider(last_test_passed=False, last_error="Connection refused.")
+
+    assert provider.last_test_passed is False
+    assert provider.last_error == "Connection refused."
+
+
+@pytest.mark.asyncio
+async def test_unreachable_provider_still_fails_as_a_whole(provider_runtime):
+    provider = _local_provider()
+    provider_runtime.settings.llm_providers = [provider]
+    provider_runtime.served["reachable"] = False
+
+    with pytest.raises(models_route.HTTPException, match="Could not reach"):
+        await models_route.test_llm_provider("local-gpu")
+
+    assert provider.last_test_passed is False
+    assert provider.last_error == "Could not reach gpu-box:8000."
+    payload = await models_route.get_available_models()
+    old = _available(payload, "local-gpu:old-model")
+    assert old["available"] is False
+    assert old["status"] == "provider_unavailable"
+    with pytest.raises(llm_resolver.LLMUnavailableError, match="gpu-box:8000 is unavailable"):
+        await llm_resolver.get_chat_llm_config("local-gpu:old-model")
+
+
+@pytest.mark.asyncio
+async def test_pointing_a_provider_at_another_server_saves_and_marks_missing_models(provider_runtime):
+    provider = _local_provider()
+    provider_runtime.settings.llm_providers = [provider]
+    provider_runtime.served["models"] = ["new-model"]
+
+    response = await models_route.update_llm_provider(
+        "local-gpu",
+        models_route.ProviderUpdateRequest(base_url="http://other-gpu:8000/v1"),
+    )
+
+    assert response["base_url"] == "http://other-gpu:8000/v1"
+    assert response["last_test_passed"] is True
+    assert response["models"][0]["served"] is False
+
+
+@pytest.mark.asyncio
+async def test_pointing_a_provider_at_an_unreachable_server_is_refused(provider_runtime):
+    provider = _local_provider()
+    provider_runtime.settings.llm_providers = [provider]
+    provider_runtime.served["reachable"] = False
+
+    with pytest.raises(models_route.HTTPException, match="Could not reach"):
+        await models_route.update_llm_provider(
+            "local-gpu",
+            models_route.ProviderUpdateRequest(base_url="http://other-gpu:8000/v1"),
+        )
+
+    assert provider.base_url == "http://gpu-box:8000/v1"
+    assert provider_runtime.saved == []
+
+
+@pytest.mark.asyncio
+async def test_provider_changes_are_broadcast(provider_runtime, monkeypatch):
+    import asyncio
+
+    events = []
+
+    async def broadcast(event, data, include_profile=True):
+        events.append((event, include_profile))
+
+    monkeypatch.setattr(models_route.ws_manager, "broadcast", broadcast)
+    provider_runtime.settings.llm_providers = [_local_provider()]
+
+    await models_route.test_llm_provider("local-gpu")
+    await asyncio.sleep(0)
+
+    assert events == [("llm_providers_updated", False)]

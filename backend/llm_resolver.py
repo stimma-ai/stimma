@@ -164,10 +164,7 @@ async def _resolve_role_llm_config(
         return provider_config
     provider = _provider_for_model_slug(selected_slug)
     if provider:
-        raise LLMUnavailableError(
-            f"{provider.name} is unavailable. Check it in Settings > Chat Models or choose another model.",
-            code="llm_provider_unavailable",
-        )
+        raise _provider_unavailable_error(provider, selected_slug)
 
     role_config = _wire_role_config(role)
 
@@ -513,7 +510,7 @@ def auto_candidates(*, cloud_available: bool) -> list[ModelCandidate]:
         if lockdown and provider.kind != "local":
             continue
         for model in provider.models:
-            if not model.enabled:
+            if not provider.model_available(model):
                 continue
             candidates.append(ModelCandidate(
                 slug=model.id,
@@ -768,7 +765,7 @@ def _get_provider_model_config(
         if provider.deleted_at or not provider.enabled or provider.last_test_passed is False:
             continue
         for model in provider.models:
-            if model.id != model_slug or not model.enabled:
+            if model.id != model_slug or not provider.model_available(model):
                 continue
             reasoning = model.reasoning
             selected_level = _resolve_level(
@@ -806,6 +803,20 @@ def _get_provider_model_config(
     return None
 
 
+def _provider_unavailable_error(provider, model_slug: str) -> "LLMUnavailableError":
+    model = next((m for m in provider.models if m.id == model_slug), None)
+    if model is not None and not model.served and provider.last_test_passed is not False:
+        return LLMUnavailableError(
+            f"{provider.name} no longer serves {model.name or model.model_id}. "
+            "Choose another model or update it in Settings > Chat Models.",
+            code="llm_provider_unavailable",
+        )
+    return LLMUnavailableError(
+        f"{provider.name} is unavailable. Check it in Settings > Chat Models or choose another model.",
+        code="llm_provider_unavailable",
+    )
+
+
 def _provider_for_model_slug(model_slug: Optional[str]):
     if not model_slug:
         return None
@@ -831,7 +842,7 @@ def _fallback_provider_model_config(
         if lockdown and provider.kind != "local":
             continue
         for model in provider.models:
-            if model.enabled:
+            if provider.model_available(model):
                 return _get_provider_model_config(model.id, role=role, effort=effort)
     return None
 
@@ -867,10 +878,7 @@ async def _get_chat_llm_config_inner(
         return provider_config
     provider = _provider_for_model_slug(model_slug)
     if provider:
-        raise LLMUnavailableError(
-            f"{provider.name} is unavailable. Check it in Settings > Chat Models or choose another model.",
-            code="llm_provider_unavailable",
-        )
+        raise _provider_unavailable_error(provider, model_slug)
 
     if model_slug == 'auto':
         # `auto` in a chat means the same thing it means in Settings: the best

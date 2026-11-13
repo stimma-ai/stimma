@@ -340,6 +340,10 @@ class LLMProviderModelConfig(BaseModel):
     last_test_passed: Optional[bool] = None
     last_error: Optional[str] = None
     last_test_results: Dict[str, Any] = Field(default_factory=dict)
+    # False when the provider's server stopped advertising this model (a local
+    # server now serving something else). Only this model is unavailable; the
+    # provider and its other models are unaffected.
+    served: bool = True
 
 
 class LLMProviderConfig(BaseModel):
@@ -361,6 +365,32 @@ class LLMProviderConfig(BaseModel):
     # must not continue to appear connected on that basis.
     credentials_validated_at: Optional[str] = None
     deleted_at: Optional[str] = None
+
+    @model_validator(mode="after")
+    def move_missing_model_error_to_model(self):
+        # Earlier builds failed the whole provider when one saved model was no
+        # longer served. That is a fact about the model, not the connection:
+        # mark the model (if it is still listed) and clear the provider error.
+        prefix = "Model no longer available:"
+        error = self.last_error or ""
+        if self.last_test_passed is False and error.startswith(prefix):
+            missing = error[len(prefix):].strip().removesuffix(".")
+            for model in self.models:
+                if model.model_id == missing:
+                    model.served = False
+            self.last_test_passed = None
+            self.last_error = None
+        return self
+
+    def model_available(self, model: "LLMProviderModelConfig") -> bool:
+        """Whether one of this provider's models can be offered and used."""
+        return (
+            not self.deleted_at
+            and self.enabled
+            and self.last_test_passed is not False
+            and model.enabled
+            and model.served
+        )
 
     @model_validator(mode="after")
     def refresh_branded_catalog(self):
@@ -385,6 +415,8 @@ class LLMProviderConfig(BaseModel):
                 model.enabled = prior.enabled
                 model.content_policy_enabled = prior.content_policy_enabled
                 model.extra_system_prompt = prior.extra_system_prompt
+                if prior.model_id == model.model_id:
+                    model.served = prior.served
         self.models = refreshed
         return self
 

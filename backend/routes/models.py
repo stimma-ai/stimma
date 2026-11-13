@@ -4,6 +4,7 @@ Model catalog routes.
 Provides the list of available LLM models for the chat model picker,
 merging Stimma Cloud catalog entries with locally configured endpoints.
 """
+import asyncio
 import os
 from datetime import datetime, timezone
 from typing import Optional
@@ -37,6 +38,7 @@ from llm_resolver import (
     set_catalog_cache,
 )
 from privacy_lockdown import is_privacy_lockdown_enabled
+from utils.websocket import ws_manager
 from llm_provider_catalog import (
     FIXED_MODEL_PROVIDERS,
     OAUTH_MODEL_PROVIDERS,
@@ -132,12 +134,43 @@ def _provider_response(provider: LLMProviderConfig) -> dict:
     return data
 
 
+_provider_broadcasts: set[asyncio.Task] = set()
+
+
 def _save_providers(providers: list[LLMProviderConfig]) -> None:
     patch_global_section("llm_providers", [provider.model_dump() for provider in providers])
     # Config reload is file-watcher driven. Keep this process authoritative
     # immediately so a GET following provider creation cannot return the old
     # unconfigured state.
     get_settings().llm_providers = providers
+    # Other windows and devices refresh their model lists and provider rows.
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    task = loop.create_task(
+        ws_manager.broadcast("llm_providers_updated", {}, include_profile=False)
+    )
+    _provider_broadcasts.add(task)
+    task.add_done_callback(_provider_broadcasts.discard)
+
+
+def _mark_served_models(provider: LLMProviderConfig, advertised: set[str]) -> list[str]:
+    """Record which saved models the server advertises; return the missing ones.
+
+    A model the server stopped advertising makes only that model unavailable.
+    The provider's own status describes the connection.
+    """
+    missing = []
+    for model in provider.models:
+        model.served = model.model_id in advertised
+        if model.enabled and not model.served:
+            missing.append(model.model_id)
+    return missing
+
+
+def _missing_models_detail(missing: list[str]) -> str:
+    return f"No longer served: {', '.join(missing)}."
 
 
 def _validated_models(provider: LLMProviderConfig, rows: list[dict]) -> list[LLMProviderModelConfig]:
@@ -795,6 +828,7 @@ async def profile_llm_provider_model(
         request.model_id,
         name=request.name or str(advertised.get("name") or request.model_id),
     )
+    model.served = True
     advertised_context = advertised.get("context_length")
     if request.max_context_tokens:
         model.max_context_tokens = request.max_context_tokens
@@ -823,13 +857,12 @@ async def update_llm_provider(provider_id: str, request: ProviderUpdateRequest):
         advertised_by_id = {
             str(row.get("id") or row.get("name")): row for row in discovered
         }
-        advertised = set(advertised_by_id)
-        missing = [model.model_id for model in candidate.models if model.enabled and model.model_id not in advertised]
-        if missing:
-            raise HTTPException(status_code=400, detail=f"Model no longer available: {missing[0]}.")
+        # Pointing a provider at another server may leave saved models behind;
+        # the save goes through and those models read as not served.
+        _mark_served_models(candidate, set(advertised_by_id))
         if candidate.kind in {"openrouter", "together", "fireworks"}:
             for model in candidate.models:
-                if model.enabled:
+                if model.enabled and model.served:
                     _require_provider_capabilities(
                         candidate, advertised_by_id[model.model_id]
                     )
@@ -837,6 +870,8 @@ async def update_llm_provider(provider_id: str, request: ProviderUpdateRequest):
         if field in updates:
             setattr(provider, field, getattr(candidate, field))
     if connection_checked:
+        for model, checked in zip(provider.models, candidate.models):
+            model.served = checked.served
         provider.last_tested_at = datetime.now(timezone.utc).isoformat()
         provider.last_test_passed = True
         provider.last_error = None
@@ -860,6 +895,7 @@ async def update_llm_provider(provider_id: str, request: ProviderUpdateRequest):
             )
             for model_id in request.model_ids
         ]
+        _mark_served_models(provider, set(by_id))
     _save_providers(providers)
     return _provider_response(provider)
 
@@ -870,20 +906,17 @@ async def test_llm_provider(provider_id: str):
     try:
         rows = await _discover_provider_models(provider)
         advertised_by_id = {str(row.get("id") or row.get("name")): row for row in rows}
-        advertised = set(advertised_by_id)
-        missing = [model.model_id for model in provider.models if model.enabled and model.model_id not in advertised]
-        if missing:
-            raise HTTPException(status_code=400, detail=f"Model no longer available: {missing[0]}.")
+        missing = _mark_served_models(provider, set(advertised_by_id))
         if provider.kind in {"openrouter", "together", "fireworks"}:
             for model in provider.models:
-                if model.enabled:
+                if model.enabled and model.served:
                     _require_provider_capabilities(
                         provider, advertised_by_id[model.model_id]
                     )
         model_checks = {}
         if provider.kind == "local":
             for model in provider.models:
-                if not model.enabled:
+                if not model.enabled or not model.served:
                     continue
                 model_checks[model.model_id] = await _test_local_provider_model(provider, model)
         provider.last_test_passed = True
@@ -903,6 +936,9 @@ async def test_llm_provider(provider_id: str):
         "model_count": len(rows),
         "tested_at": provider.last_tested_at,
         "model_checks": model_checks,
+        # The connection works; these saved models are no longer served.
+        "missing_models": missing,
+        "detail": _missing_models_detail(missing) if missing else None,
     }
 
 
@@ -1028,8 +1064,12 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
                 "canonical_model_id": canonical_id,
                 "name": provider_model.name,
                 "description": f"via {provider_name}",
-                "available": provider.last_test_passed is not False,
-                "status": "available" if provider.last_test_passed is not False else "provider_unavailable",
+                "available": provider.model_available(provider_model),
+                "status": (
+                    "provider_unavailable" if provider.last_test_passed is False
+                    else "not_served" if not provider_model.served
+                    else "available"
+                ),
                 "max_context_tokens": min(256_000, provider_model.max_context_tokens),
                 "reasoning": provider_model.reasoning.model_dump(),
                 "supports_tools": provider_model.supports_tools,

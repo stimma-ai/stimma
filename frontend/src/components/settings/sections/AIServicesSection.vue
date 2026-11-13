@@ -250,7 +250,8 @@
                       <div class="truncate text-sm text-content">{{ model.name }}</div>
                       <div class="mt-0.5 text-[11px] text-content-muted">{{ modelVendor(model) }}<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span></div>
                     </div>
-                    <span v-if="isFlexibleProvider(activeProvider) && model.last_test_passed === false" class="text-[11px] text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-red-500"></span>Failed</span>
+                    <span v-if="activeManager !== 'stimma' && model.served === false" class="text-[11px] text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500"></span>Not served</span>
+                    <span v-else-if="isFlexibleProvider(activeProvider) && model.last_test_passed === false" class="text-[11px] text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-red-500"></span>Failed</span>
                     <span v-else-if="isFlexibleProvider(activeProvider) && model.last_test_passed" class="text-[11px] text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-green-500"></span>Ready</span>
                     <ChevronIcon v-if="activeManager !== 'stimma'" />
                   </component>
@@ -597,6 +598,7 @@ import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
 import { useAvailableModels } from '../../../composables/useAvailableModels'
+import { useWebSocket } from '../../../composables/useWebSocket'
 import { useAuth } from '../../../composables/useAuth'
 import { useCloudAccount } from '../../../composables/useCloudAccount'
 import SettingsDropdown from '../../ui/SettingsDropdown.vue'
@@ -1212,7 +1214,7 @@ async function saveModelSettings(model) {
     } else {
       const response = await axios.patch(`${getApiBase()}/models/providers/${activeProvider.value.id}`, { models: activeProvider.value.models })
       activeProvider.value = clone(response.data)
-      await loadProviders()
+      await refreshAll()
     }
   } catch (error) {
     managerError.value = error.response?.data?.detail || 'Could not save model settings.'
@@ -1250,7 +1252,7 @@ async function saveProviderConnection() {
     activeProvider.value = clone(response.data)
     providerKeyDraft.value = ''
     editingProviderKey.value = false
-    await loadProviders()
+    await refreshAll()
   } catch (error) {
     managerError.value = error.response?.data?.detail || 'Could not save this connection.'
   } finally {
@@ -1261,12 +1263,14 @@ async function testProvider(provider) {
   testingId.value = provider.id
   managerError.value = ''
   try {
-    await axios.post(`${getApiBase()}/models/providers/${provider.id}/test`)
+    const response = await axios.post(`${getApiBase()}/models/providers/${provider.id}/test`)
+    // The connection works but some saved models are no longer served.
+    if (response.data?.detail) managerError.value = response.data.detail
   } catch (error) {
     managerError.value = error.response?.data?.detail || 'The test failed.'
   } finally {
     testingId.value = null
-    await loadProviders()
+    await refreshAll()
     const refreshed = providers.value.find(item => item.id === provider.id)
     if (refreshed) activeProvider.value = clone(refreshed)
   }
@@ -1604,7 +1608,19 @@ function setLegacyReasoningSource(source) {
   if (source === 'manual' && !legacyDraft.value.reasoning_method) legacyDraft.value.reasoning_method = 'reasoning_effort'
 }
 
-onMounted(refreshAll)
+// Providers changed elsewhere (another window or device). Only the list is
+// reloaded; an open manager keeps its provider and drafts.
+const { on: onSocket, off: offSocket } = useWebSocket()
+function handleProvidersUpdated() {
+  loadProviders().catch(() => {})
+}
+onMounted(() => {
+  onSocket('llm_providers_updated', handleProvidersUpdated)
+  refreshAll()
+})
 // A login poll must not outlive the panel.
-onBeforeUnmount(stopChatGPTPolling)
+onBeforeUnmount(() => {
+  offSocket('llm_providers_updated', handleProvidersUpdated)
+  stopChatGPTPolling()
+})
 </script>

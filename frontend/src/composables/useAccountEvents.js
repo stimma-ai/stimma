@@ -43,6 +43,12 @@ export function initAccountEvents() {
     await useReadiness().refreshReadiness()
   }, { optional: true })
 
+  // A chat model provider was added, changed, checked or removed (possibly
+  // from another window or device): pickers and Settings follow at once.
+  on('llm_providers_updated', () => {
+    refreshAvailableModels()
+  })
+
   on('balance_added', async (data) => {
     celebration.value = {
       credits: data?.credits ?? null,
