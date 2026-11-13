@@ -316,3 +316,46 @@ def test_a_lead_is_fitted_to_the_text_before_its_slot():
     assert reader.fit_lead(" with a", "a wooden table with a ") == " with a"
     assert reader.fit_lead(" with a", "a table beside a ") is None
     assert reader.fit_lead("", "anything ") == ""
+
+
+# --------------------------------------------------------------------------- what a person wears, through an edit
+
+BOAT = "a <woman> on a research boat,\nin a <wetsuit>"
+DIVER = {"kind": "person", "label": "Woman", "lead": "a",
+         "person": {"noun": "woman", "presentation": "feminine", "stated": {}, "vary": ["age", "descent", "build", "hair"],
+                    "clothes": "", "clothes_part": 2, "outfit": "", "outfit_examples": []}}
+DRESSED = {**DIVER, "person": {**DIVER["person"], "clothes_part": 0, "outfit": "person.outfit.summer"}}
+WORN = {"wetsuit": {"kind": "free", "label": "Wetsuit", "lead": " in a",
+                    "free": {"about": "the woman's wetsuit", "kinds": ["shorty wetsuit", "drysuit", "full wetsuit"],
+                             "instead": []}},
+        "fish": {"kind": "free", "label": "Fish", "lead": " holding a",
+                 "free": {"about": "a fish she holds", "kinds": ["mackerel", "snapper", "small tuna"], "instead": []}}}
+
+
+def _person(entry: Dict[str, Any]) -> Dict[str, Any]:
+    return next(r for r in entry["readings"]["slots"] if r["kind"] == "person")["person"]
+
+
+async def test_a_carried_person_whose_clothes_slot_is_gone_is_read_again(model):
+    model.fresh.update(WORN, woman=DIVER)
+    first = await _ready(BOAT)
+    assert _person(first)["clothes_part"] == {"n": 2, "words": "wetsuit"}
+    model.reads.clear()
+    model.fresh["woman"] = DRESSED
+    # The woman's own line is as it was, but what she wore is gone: she is read again, not carried.
+    entry = await _ready(BOAT.replace("in a <wetsuit>", "in a sun hat"), shown=first["key"])
+    assert model.reads == ["woman"]
+    assert "clothes_part" not in _person(entry) and _person(entry)["outfit"] == "person.outfit.summer"
+    assert any(p["id"] == "woman.outfit" for p in entry["picks"])
+    assert entry["reading"] is False
+
+
+async def test_a_carried_person_follows_their_clothes_slot_to_its_new_number(model):
+    model.fresh.update(WORN, woman=DIVER)
+    first = await _ready(BOAT)
+    model.reads.clear()
+    entry = await _ready(BOAT.replace("in a <wetsuit>", "holding a <fish> in a <wetsuit>"), shown=first["key"])
+    assert model.reads == ["fish"]   # the woman is carried; the wetsuit's edit is checked, not read
+    assert _person(entry)["clothes_part"] == {"n": 3, "words": "wetsuit"}
+    assert not any(p["id"].startswith("woman.outfit") for p in entry["picks"])
+    assert entry["reading"] is False

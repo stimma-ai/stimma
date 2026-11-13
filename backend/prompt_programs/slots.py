@@ -417,6 +417,22 @@ def _part_ids(parsed: Parsed) -> List[str]:
     return [next(slot_id) if kind == "slot" else f"list{n}" for kind, n, _ in _marked(parsed)]
 
 
+def _worn_moved(r: Dict[str, Any], old: List[Tuple[str, int, Segment]], new: List[Tuple[str, int, Segment]],
+                matched: Dict[int, int]) -> Optional[Dict[str, Any]]:
+    """A person's reading carried into the edited prompt, the slot that is what they wear
+    (clothes_part) followed to its number there; None when that slot is gone, so the person is
+    read again rather than carried wearing nothing drawn. Any other reading as it is."""
+    person = r.get("person") if isinstance(r.get("person"), dict) else {}
+    worn = person.get("clothes_part")
+    if not isinstance(worn, dict):
+        return r
+    i = next((i for i, (kind, n, _) in enumerate(old) if kind == "slot" and n == worn.get("n")), None)
+    j = matched.get(i) if i is not None else None
+    if j is None or new[j][0] != "slot":
+        return None
+    return {**r, "person": {**person, "clothes_part": {"n": new[j][1], "words": new[j][2].words}}}
+
+
 def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
     """The readings this prompt's parts had in the prompt last prepared as this one, then in the
     one the editor shows: per (kind, number), a slot's reading or a list's {"label"}, each with
@@ -453,6 +469,9 @@ def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
                 r = readings.get(was)
                 if not isinstance(r, dict) or r.get("degraded"):
                     continue
+                r = _worn_moved(r, old, new, matched)
+                if r is None:
+                    continue   # what they wore is gone: read again, never carried
                 seen = r["seen"] if isinstance(r.get("seen"), dict) else {**seen_in(parsed, seg), "template": written}
                 out[now] = {**{k: v for k, v in r.items() if k != "n"}, "seen": seen}
             else:
