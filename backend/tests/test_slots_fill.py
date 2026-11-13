@@ -331,7 +331,7 @@ def test_an_animal_is_its_life_stage_and_its_kind_narrowed_by_the_slots_words():
     pets = ["cat", "dog", "rabbit"]
     e = entry_of("an old man with his <pet> on a porch", {"slots": [PET]}, {"pet.species": pets})
     assert [c["id"] for c in e["choices"]] == ["pet.species", "pet.life_stage"]
-    assert e["slot_words"] == {"pet.species": "pet", "pet.life_stage": "pet"} and e["slots"][0]["kind"] == "animal"
+    assert e["slot_words"] == {"pet.species": "pet"} and e["slots"][0]["kind"] == "animal"
     stages = {v.text for v in vocabulary().get("animal.life_stage").values}
     assert stages == {"baby", "juvenile", "adult", "elderly"}
     for s in range(12):
@@ -426,9 +426,10 @@ def test_a_group_chosen_is_still_drawn_to_fit_the_age_but_one_value_holds(dorm):
     assert values(draw(e, 1, pins={"young_man.hair_color": [one]}))["young_man.hair_color"] == one
 
 
-def test_an_animals_words_narrow_its_life_stage_too():
+def test_an_animals_stated_life_stage_narrows_it():
     reading = {"slots": [{"n": 1, "kind": "animal", "label": "Kitten", "lead": "",
-                          "animal": {"noun": "kitten", "vary": ["species", "life_stage"], "breed": "", "stated": {}}}]}
+                          "animal": {"noun": "kitten", "vary": ["species", "life_stage"], "breed": "",
+                                     "stated": {"life_stage": "kitten"}}}]}
     e = entry_of("a <kitten> on a windowsill", reading)
     assert e["slot_words"] == {"kitten.species": "kitten", "kitten.life_stage": "kitten"}
 
@@ -438,3 +439,18 @@ def test_a_lead_without_its_comma_leaves_nothing_hanging():
     reading["slots"][1]["lead"] = "lit by"
     got = draw(entry_of(DORM_PROMPT, reading), 3, edits={"light": {"off": True}}).prompt
     assert "lit by" not in got and not got.endswith(",") and got.endswith(tidy_text([got]))
+
+
+def test_a_coat_goes_before_the_animals_own_word():
+    reading = {"slots": [{"n": 1, "kind": "animal", "label": "Kitten", "lead": "",
+                          "animal": {"noun": "kitten", "vary": ["breed", "life_stage"], "breed": "animal.cat_coat",
+                                     "stated": {}}}]}
+    e = entry_of("a <kitten> on a windowsill", reading)
+    for s in range(6):
+        got = draw(e, s)
+        coat = values(got)["kitten.breed"]
+        assert f"{coat} kitten on a windowsill" in got.prompt
+    dog = {"slots": [{"n": 1, "kind": "animal", "label": "Dog", "lead": "",
+                      "animal": {"noun": "dog", "vary": ["breed"], "breed": "animal.dog_breed", "stated": {}}}]}
+    got = draw(entry_of("a girl walking her <dog>", dog), 2)
+    assert got.prompt.endswith(values(got)["dog.breed"])

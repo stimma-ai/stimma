@@ -27,7 +27,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-12"   # reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-14"   # reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -101,11 +101,13 @@ For a person:
 For an animal:
 - noun: what it is, in one word from its words ("pet", "dog", "cat").
 - vary: what changes from image to image, from: species (what kind of animal, when the words
-  leave it open: "pet", "animal"), breed (when the words name one kind that has a breed list
-  below: "dog"; never beside species), life_stage (baby, juvenile, adult, elderly).
-- breed: the id of that kind's breed list below, or "".
+  leave it open: "pet", "animal"), breed (when the words name one kind that has a breed or
+  coat list below: "dog", "kitten"; never beside species), life_stage (baby, juvenile, adult,
+  elderly).
+- breed: the id of that kind's breed or coat list below, or "".
 - stated: for each of those the words settle, the words that settle it, copied exactly:
-  {"life_stage": "old"}.
+  {"life_stage": "old"}; a young animal's own word settles its life stage: "kitten" or
+  "puppy" is {"life_stage": "kitten"}.
   "animal": {"noun": "dog", "vary": ["breed", "life_stage"], "breed": "<a breed list's id>", "stated": {}}
 
 For a camera: vary, the parts of it that change, from: shot_size, lens, angle, film_look.

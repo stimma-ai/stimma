@@ -578,16 +578,20 @@ def picks_of(cid: str, words: str, reading: Dict[str, Any], *, close: str = "") 
         lists = {**ANIMAL_LISTS, **({"breed": breed} if breed else {})}
         vary = [d for d in vary if d in lists]
         stated = {d: str(w) for d, w in (got.get("stated") or {}).items() if d in vary and str(w).strip()}
+        # What each part is of the animal; its life stage is its own part, so a kind is never "puppy".
+        abouts = {"species": f"what kind of animal the {noun} is (its age is chosen apart)",
+                  "breed": f"the {noun}'s breed (its age is chosen apart)", "life_stage": f"the {noun}'s life stage"}
         picks = [_pick(f"{cid}.{d}", label=vocab.get(lists[d]).label if d != "species" else "Kind",
-                       about=f"the {noun}'s {'kind' if d == 'species' else d.replace('_', ' ')}", phase=1 if d != "life_stage" else 2,
-                       cls=lists[d], slot=cid) for d in vary]
-        # The slot's words narrow what kind of animal it is ("pet" keeps pets) and its life stage
-        # ("kitten" keeps the young), unless the reading says which of its words say so.
+                       about=abouts[d], phase=1 if d != "life_stage" else 2, cls=lists[d], slot=cid) for d in vary]
+        # The slot's words narrow what kind of animal it is ("pet" keeps pets), unless they say more
+        # of it; a life stage they state ("kitten") comes as the reading's stated words.
         said = {f"{cid}.{d}": w for d, w in stated.items()}
-        for d in ("species", "life_stage"):
-            if d in vary:
-                said.setdefault(f"{cid}.{d}", words)
+        if "species" in vary:
+            said.setdefault(f"{cid}.species", words)
         form = {"kind": "animal", "noun": noun, "words": words, "keys": [p["id"] for p in picks]}
+        if breed and "breed" in vary and str(vocab.get(breed).pos).startswith("adjective"):
+            # A list of words that go before the animal (a coat: "a ___ cat") keeps the animal's word after it.
+            form["before_noun"] = True
         return picks, {"form": form, "stated": stated, "slot_words": said}
     if kind == "light":
         # One choice of named looks (softbox, golden hour light): a lighting list, or written options.
@@ -738,6 +742,8 @@ def animal_parts(form: Dict[str, Any], value: Any) -> List[Part]:
     if v and all(x.value is None for x in v.values()):
         return [form["words"]]
     main = next((v[d] for d in ("breed", "species") if d in v and v[d].value is not None), None)
+    if main is not None and form.get("before_noun") and main is v.get("breed"):
+        return [v.get("life_stage"), main, form["noun"]]
     return [v.get("life_stage"), main if main is not None else form["noun"]]
 
 
