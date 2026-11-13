@@ -11,8 +11,8 @@ const pet: ProgramChoice = {
   zones: [{ id: 'kinds', title: 'Kinds of pet' }, { id: 'instead', title: 'Instead of pet' }],
 }
 const petPool: ChoicePool = {
-  options: ['pet', 'tabby cat', 'basset hound', 'grey parrot', 'mug of coffee', 'stack of books'],
-  zones: { kinds: ['pet', 'tabby cat', 'basset hound', 'grey parrot'], instead: ['mug of coffee', 'stack of books'] },
+  options: ['pet', 'tabby cat', 'basset hound', 'gray parrot', 'mug of coffee', 'stack of books'],
+  zones: { kinds: ['pet', 'tabby cat', 'basset hound', 'gray parrot'], instead: ['mug of coffee', 'stack of books'] },
   short: { 'basset hound': 'basset' },
 }
 const hair: ProgramChoice = { id: 'man.hair', slot: 'man', kind: 'pick', label: 'Hair', options: ['buzz cut'] }
@@ -22,7 +22,7 @@ const hairPool: ChoicePool = {
 }
 
 test('nothing chosen draws from the default zone; "Any X" and the default zone alone store nothing', () => {
-  assert.deepEqual([...drawable(pet, petPool, null)!], ['pet', 'tabby cat', 'basset hound', 'grey parrot'])
+  assert.deepEqual([...drawable(pet, petPool, null)!], ['pet', 'tabby cat', 'basset hound', 'gray parrot'])
   assert.equal(cleanState(pet, { zones: ['kinds'] }), null)
   assert.equal(cleanState(hair, { zones: ['all'] }), null)
   assert.equal(cleanState(pet, { values: [], groups: { length: [] } }), null)
@@ -80,7 +80,7 @@ test('as written draws the slot’s own words', () => {
 
 test('a pill says the value short, or how many', () => {
   assert.equal(pillValue(pet, petPool, { values: ['basset hound'] }), 'basset')
-  assert.equal(pillValue(pet, petPool, { values: ['basset hound', 'grey parrot'] }), 'basset +1')
+  assert.equal(pillValue(pet, petPool, { values: ['basset hound', 'gray parrot'] }), 'basset +1')
   assert.equal(pillValue(hair, hairPool, { groups: { length: ['short'] } }), 'short')
   assert.equal(pillValue(pet, petPool, { zones: ['instead'] }), 'Instead of pet')
   assert.equal(pillValue(pet, petPool, { zones: ['instead'], values: ['pet'] }), '2 chosen')

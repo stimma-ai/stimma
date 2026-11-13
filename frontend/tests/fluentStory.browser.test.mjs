@@ -92,7 +92,7 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
       if (body.cache_only && !prepared.has(read.key)) return json({ key: null })
       if (!body.cache_only) { await new Promise(r => setTimeout(r, 700)); prepared.add(read.key) }
       return json({ ...read, example: 'A dorm room with a 24-year-old Korean man', seconds: 0.7,
-        ...(body.include_program ? { program: 'emit("dorm room with ")\nperson("young_man")', reading: { slots: [{ n: 1, kind: 'person', label: 'Young man' }] } } : {}) })
+        ...(body.include_program ? { picks: [{ id: 'young_man.age', cls: 'person.age_band' }], example: 'Dorm room with a 21-year-old man', readings: { slots: [{ n: 1, kind: 'person', label: 'Young man' }] } } : {}) })
     }
     if (url.endsWith('/prompt-programs/pools')) {
       calls.pools.push(body)
@@ -194,14 +194,14 @@ test('the main story, desktop light', async t => { await story(t, { theme: 'ligh
 test('the main story, phone dark', async t => { await story(t, { width: 390, height: 844, mobile: true, tag: 'phone-dark' }) })
 test('the main story, phone light', async t => { await story(t, { width: 390, height: 844, mobile: true, theme: 'light', tag: 'phone-light' }) })
 
-test('the developer view shows the slot reading and the built program', async t => {
+test('the developer view shows the slot reading and the picks made from it', async t => {
   const { page, card } = await open(t, { start: 'dorm room with a <young man>', dev: true })
   await expect(page.locator('[data-program-choices] [data-choice="young_man"]')).toBeVisible({ timeout: 4000 })
   await expect(card).toHaveCount(0)
   await page.locator('[data-fluent-chip]').click()
-  await page.getByRole('button', { name: 'Show program' }).click()
+  await page.getByRole('button', { name: 'Show readings' }).click()
   const dialog = page.locator('[data-program-debug]')
-  await expect(dialog).toContainText('person("young_man")')
+  await expect(dialog).toContainText('"young_man.age"')
   await expect(dialog.locator('[data-reading]')).toContainText('"kind": "person"')
   await expect(dialog).toContainText('A dorm room with a 21-year-old Irish man')
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/dev-dialog.png` })
@@ -211,7 +211,7 @@ test('the developer view of a prompt with nothing that varies says so', async t 
   const { page } = await open(t, { start: 'a lighthouse at dusk', dev: true })
   await page.waitForTimeout(600)
   await page.locator('[data-fluent-chip]').click()
-  await page.getByRole('button', { name: 'Show program' }).click()
+  await page.getByRole('button', { name: 'Show readings' }).click()
   await expect(page.locator('[data-program-debug]')).toContainText('Nothing in this prompt varies')
 })
 

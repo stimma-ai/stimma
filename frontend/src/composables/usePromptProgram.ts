@@ -9,11 +9,12 @@ import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareRe
 export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 
 /**
- * Prompt programs: in Fluent (not Direct or Raw) the user marks what varies with slots,
- * `<young man>`, and the prompt is prepared once into a small program (one model call, cached
- * on the server) that every generation runs. This holds the prepared program for the current
- * prompt (its slots and choices), its status, each choice's options (/pools), what the user
- * chose (utils/programChoices.ts), and which card is open.
+ * Fluent slots: in Fluent (not Direct or Raw) the user marks what varies with slots,
+ * `<young man>`. Preparing answers at once from the prompt's parse: every slot shows as a pill
+ * straight away, and fills in as the server reads each one in the background (it is looked up
+ * again while `working`). A run never waits for it: a slot not read yet goes in as its words.
+ * This holds the prepared slots and choices for the current prompt, each choice's options
+ * (/pools), what the user chose (utils/programChoices.ts), and which card is open.
  *
  * What is chosen lives in promptOptions.programChoices, keyed by choice id, so it persists
  * per tool (the tool's shared workspace state) and rides presets with the rest of the
@@ -44,6 +45,9 @@ interface Options {
 
 /** How often the editor looks for a program the server prepared in the background after a failure. */
 const ERROR_POLL_MS = 15_000
+/** How often, and how many times, the editor looks again while the server is still reading slots. */
+const READING_POLL_MS = 1_200
+const READING_POLLS = 150
 
 export function usePromptProgram(o: Options) {
   const program = ref<PreparedProgram | null>(null)
@@ -183,10 +187,27 @@ export function usePromptProgram(o: Options) {
       landed(data, sig)
       if (error.value?.sig === sig) error.value = null  // prepared since (the server's background try)
       markReady(sig)
+      // Slots the server hasn't been asked to read yet (a tool just opened, a preset): ask now,
+      // unless the user is still typing; the answer comes at once and the reading runs behind it.
+      if (data.reading && !data.working && o.prepareWhenFound?.() && startedSig !== sig) void prepare()
+      pollReading(data)
     } catch {
       // Not prepared yet: the next run prepares.
     }
   }
+
+  // While the server reads this prompt's slots, look again now and then: pills fill in as
+  // each reading lands.
+  let readingTimer: ReturnType<typeof setTimeout> | null = null
+  let readingPolls = 0
+  let startedSig: string | null = null
+  function pollReading(data: PrepareResponse) {
+    if (readingTimer) { clearTimeout(readingTimer); readingTimer = null }
+    if (!data.working) { readingPolls = 0; return }
+    if (++readingPolls > READING_POLLS) return
+    readingTimer = setTimeout(() => { readingTimer = null; void lookup() }, READING_POLL_MS)
+  }
+  onUnmounted(() => { if (readingTimer) clearTimeout(readingTimer) })
 
   // The prepare in flight, so concurrent runs wait on it instead of starting another.
   let inFlight: { sig: string; force: boolean; done: Promise<boolean> } | null = null
@@ -211,6 +232,8 @@ export function usePromptProgram(o: Options) {
 
   async function prepareNow(sig: string, force: boolean): Promise<boolean> {
     busy.value = true
+    startedSig = sig
+    readingPolls = 0
     try {
       const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`, request({ force }))
       if (data?.unsupported) {
@@ -225,6 +248,7 @@ export function usePromptProgram(o: Options) {
       }
       landed(data, sig)
       error.value = null
+      pollReading(data)
       return true
     } catch (e: any) {
       const detail = e?.response?.data?.detail
@@ -237,31 +261,25 @@ export function usePromptProgram(o: Options) {
     }
   }
 
-  /** True when a run would have to wait for preparing first. */
+  /** A run never waits for preparing: the server draws from whatever of the prompt is read
+      by then (a slot not read yet goes in as its words). */
   function needsPrepare(): boolean {
-    return status.value !== 'off' && status.value !== 'ready'
+    return false
   }
 
-  /** Before a run: prepare if out of date. Returns false when no program is ready, so the
-      run goes on its words as written. */
+  /** Before a run: start reading the prompt if it isn't yet, and go on at once. */
   async function ensureReady(): Promise<boolean> {
-    if (status.value === 'ready') await lookup()
-    if (status.value === 'error') {
-      await lookup()  // the server's background try may have landed
-      if (status.value === 'error') return false
-    }
-    for (let i = 0; i < 3 && needsPrepare(); i++) {
-      if (!(await prepare())) return false
-    }
+    if (status.value === 'stale' && startedSig !== signature.value) void prepare()
     return true
   }
 
-  /** Dev: the program text and the slot reading it was built from. */
+  /** Dev: what each part was read as, the picks made from that, and one draw. */
   async function fetchProgramText(): Promise<{ program: string; reading: unknown }> {
     const sig = signature.value
     const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true, include_program: true }))
     if (!holdsProgram(data)) forget(sig)
-    return { program: data?.program || '', reading: data?.reading ?? null }
+    const program = data?.picks ? JSON.stringify({ picks: data.picks, example: data.example }, null, 2) : ''
+    return { program, reading: data?.readings ?? null }
   }
 
   /** Dev debugging: a few runs with what is chosen, no model call. */

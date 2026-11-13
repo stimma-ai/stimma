@@ -192,7 +192,7 @@ test('a shift-click range runs across both zones', async t => {
   await pill('pet').click()
   await option('ginger tabby cat').click()
   await option('mug of coffee').click({ modifiers: ['Shift'] })
-  await expect.poll(async () => (await state()).pet?.values).toEqual(['ginger tabby cat', 'old basset hound', 'grey parrot', 'mug of coffee'])
+  await expect.poll(async () => (await state()).pet?.values).toEqual(['ginger tabby cat', 'old basset hound', 'gray parrot', 'mug of coffee'])
 })
 
 test('ctrl- or cmd-click toggles one option and becomes where a shift-click range starts', async t => {

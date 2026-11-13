@@ -9,7 +9,7 @@
 
 import type { VocabTier } from './programVocab.ts'
 
-export type SlotKind = 'person' | 'camera' | 'light' | 'list' | 'free'
+export type SlotKind = 'person' | 'animal' | 'camera' | 'light' | 'list' | 'free'
 
 /** One slot of the prompt, as /prepare reads it. */
 export interface ProgramSlot {
@@ -29,6 +29,11 @@ export interface ProgramSlot {
   details: string[]
   /** For a person: detail -> the slot's own words that settle it ({age: "elderly"}). */
   stated?: Record<string, string>
+  /** `reading` until the slot reader has said what it is (it shows its words and nothing to
+      choose yet), then `ready`. */
+  state?: 'reading' | 'ready'
+  /** Its reading couldn't be used: it stands as its words until it is read again. */
+  degraded?: boolean
 }
 
 /** A choice's zone: where its options come from. `kinds` (kinds of what the words name) is
@@ -56,19 +61,22 @@ export interface ProgramChoice {
   when?: string[]
 }
 
-/** POST /prompt-programs/prepare, when it has a program. A prompt with nothing that varies
-    answers `{key: null, slots: [], choices: []}`; a cache-only lookup of a prompt not read
-    yet answers `{key: null}`; a format that isn't prepared `{key: null, unsupported: mode}`.
-    A reading the chat model got wrong is HTTP 424 with code `reader_failed`. */
+/** POST /prompt-programs/prepare. It answers at once from the prompt's parse: every slot,
+    each still `reading` or `ready`. A prompt with nothing that varies answers
+    `{key: null, slots: [], choices: []}`; a format that isn't prepared
+    `{key: null, unsupported: mode}`. */
 export interface PreparedProgram {
   key: string | null
   slots: ProgramSlot[]
   choices: ProgramChoice[]
+  /** Some part is still being read (or narrowed). */
+  reading?: boolean
+  /** Background reading for this prompt is running now: look again soon. */
+  working?: boolean
+  /** Dev dialog only (include_program): what each part was read as, its picks, one draw. */
+  readings?: unknown
+  picks?: unknown
   example?: string
-  seconds?: number
-  /** Dev dialog only (include_program). */
-  program?: string
-  reading?: unknown
 }
 
 /** What /prepare answers, before it is known which of its forms this is. */

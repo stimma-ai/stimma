@@ -44,7 +44,7 @@
               @click="menuOpen = false; emit('help', chip?.getBoundingClientRect() ?? null)">
               <QuestionMarkCircleIcon class="w-4 h-4" />
             </button>
-            <button v-if="devModeRef && program.status.value !== 'off'" type="button" class="p-1 rounded-md text-amber-500 hover:text-amber-400 hover:bg-overlay-subtle" title="Show program (dev)" aria-label="Show program"
+            <button v-if="devModeRef && program.status.value !== 'off'" type="button" class="p-1 rounded-md text-amber-500 hover:text-amber-400 hover:bg-overlay-subtle" title="Show readings (dev)" aria-label="Show readings"
               @click="menuOpen = false; showProgram()">
               <CodeBracketIcon class="w-4 h-4" />
             </button>
@@ -175,7 +175,7 @@
             <span class="text-[14px] font-semibold text-content">Program</span>
             <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span>
             <span class="text-[11px] text-content-muted font-mono">
-              {{ program.program.value?.key?.slice(0, 10) }} · prepared in {{ program.program.value?.seconds ?? '?' }}s · {{ program.slots.value.length }} slots · {{ program.choices.value.length }} choices
+              {{ program.program.value?.key?.slice(0, 10) }} · {{ program.program.value?.reading ? 'still reading' : 'read' }} · {{ program.slots.value.length }} slots · {{ program.choices.value.length }} choices
             </span>
             <span class="flex-1" />
             <button type="button" class="text-[12px] text-content-tertiary hover:text-content px-2 py-1 rounded-md hover:bg-overlay-subtle" @click="copyProgram">{{ copied ? 'Copied' : 'Copy' }}</button>
@@ -195,7 +195,7 @@
             <div class="max-h-[16vh] overflow-y-auto rounded-md bg-surface-overlay border border-edge-subtle px-3 py-2 text-[12px] leading-relaxed text-content-secondary whitespace-pre-wrap select-text">{{ lastPrompt || lastRun?.sent }}</div>
           </div>
           <div v-if="nothingVaries" class="mx-4 rounded-md border border-edge-subtle bg-surface-overlay px-3 py-4 text-[12px] text-content-secondary" data-nothing-varies>
-            Nothing in this prompt varies: no slots or lists, so there is no program. Each image is improved at the detail level.
+            Nothing in this prompt varies: no slots or lists. Each image is improved at the detail level.
           </div>
           <div v-else class="mx-4 grid grid-cols-1 md:grid-cols-2 gap-2 h-[40vh] min-h-[200px]">
             <div class="min-h-0 flex flex-col rounded-md border border-edge-subtle bg-surface-overlay overflow-hidden">
@@ -203,8 +203,8 @@
               <div class="flex-1 min-h-0" data-reading><ReadOnlyCode :text="readingText" name="reading.json" wrap /></div>
             </div>
             <div class="min-h-0 flex flex-col rounded-md border border-edge-subtle bg-surface-overlay overflow-hidden">
-              <div class="shrink-0 px-3 pt-1.5 pb-1 text-[11px] font-semibold text-content-tertiary">Program</div>
-              <div class="flex-1 min-h-0"><ReadOnlyCode :text="programText" name="program.py" wrap /></div>
+              <div class="shrink-0 px-3 pt-1.5 pb-1 text-[11px] font-semibold text-content-tertiary">Picks</div>
+              <div class="flex-1 min-h-0"><ReadOnlyCode :text="programText" name="picks.json" wrap /></div>
             </div>
           </div>
           <div v-if="!nothingVaries" class="px-4 pt-3 pb-4 overflow-y-auto min-h-0">
@@ -494,13 +494,13 @@ async function showProgram() {
     const got = await props.program.fetchProgramText()
     if (programText.value === null) return
     if (!got.program) {
-      showError.value = 'Couldn’t load the program. Try again.'
+      showError.value = 'Couldn’t load the picks. Try again.'
       return
     }
     programText.value = got.program
     readingText.value = got.reading == null ? '' : JSON.stringify(got.reading, null, 2)
   } catch (e: any) {
-    if (programText.value !== null) showError.value = e?.response?.data?.detail?.message || 'Couldn’t load the program.'
+    if (programText.value !== null) showError.value = e?.response?.data?.detail?.message || 'Couldn’t load the picks.'
     return
   }
   void loadSamples()

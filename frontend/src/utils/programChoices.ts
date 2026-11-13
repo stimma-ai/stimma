@@ -251,9 +251,9 @@ export function numberRepeats(slots: ProgramSlot[]): ProgramSlot[] {
   })
 }
 
-/** A slot whose card lists details (a person, a camera) rather than options. */
+/** A slot whose card lists details (a person, an animal, a camera) rather than options. */
 export function isBuilder(slot: ProgramSlot): boolean {
-  return slot.kind === 'person' || slot.kind === 'camera' || slot.details.length > 1
+  return slot.kind === 'person' || slot.kind === 'animal' || slot.kind === 'camera' || slot.details.length > 1
 }
 
 /** Three or more of one person's details chosen: one pill for the person. */
@@ -283,6 +283,12 @@ export function pillsOf(w: ChoiceWorld): Pill[] {
   for (const slot of [...w.slots].sort((a, b) => a.n - b.n)) {
     const details = slot.details.map(id => byId.get(id)).filter((c): c is ProgramChoice => !!c)
     details.forEach(c => inSlot.add(c.id))
+    // A slot still being read (or read as written) is a pill with its label and nothing chosen yet.
+    if (!details.length) {
+      out.push({ id: slot.id, open: { slot: slot.id }, label: slot.label, value: '', swatches: null, changed: false,
+        resets: [], folded: false, title: slot.label })
+      continue
+    }
     if (!isBuilder(slot)) {
       if (details[0]) out.push(choicePill(details[0], slot.label, slot, { slot: slot.id }))
       continue
