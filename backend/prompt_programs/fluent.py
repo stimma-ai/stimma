@@ -33,7 +33,7 @@ WARM_DRAWS = 8         # draws at prepare that find the pools to fill
 UNJUDGED = (None, "null")
 
 
-CONTEXT_VERSIONS = ("ctx-1", CONTEXT_VERSION)   # what a replay can read
+CONTEXT_VERSIONS = ("ctx-1", "ctx-2", CONTEXT_VERSION)   # what a replay can read
 
 
 def _drawn(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Any]], options: Any,

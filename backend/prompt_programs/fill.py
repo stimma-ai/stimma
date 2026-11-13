@@ -28,7 +28,7 @@ from prompt_programs.vocab import (
 )
 
 FILL_VERSION = "fill-1"
-CONTEXT_VERSION = "ctx-2"
+CONTEXT_VERSION = "ctx-3"   # ctx-3: a facet a list takes with "unstated": "opt_in" holds what needs it stated
 RANK_DECAY = 0.86
 SOURCES = ("text", "list", "added")
 COLORS = ".colors"
@@ -843,6 +843,8 @@ class _Fill:
         self.single = {k: next(iter(vs)) for k, vs in self.pins.items() if len(vs) == 1}
         self.fixed = dict(fixed)
         self.context_on = getattr(options, "context", True) is not False
+        # A replay of a revision drawn under older context rules draws without the unstated rule.
+        self.unstated_on = self.context_on and getattr(options, "context_version", None) in (None, CONTEXT_VERSION)
         self.stated = (getattr(options, "stated_context", None) or {}) if self.context_on else {}
         self.list_context = (getattr(options, "list_context", None) or {}) if self.context_on else {}
         self.list_ages = getattr(options, "list_ages", None) or {}
@@ -896,7 +898,9 @@ class _Fill:
     def _given(self, cid: str, leaf: Any) -> Tuple[Tuple[str, Tuple[str, ...]], ...]:
         """The context this pick is drawn in: for each facet its list takes, the families of the
         values drawn before it in its scope by lists giving that facet (and the user's list values
-        read on such a list); failing those, what the prompt states for its person or scene."""
+        read on such a list); failing those, what the prompt states for its person or scene. A
+        facet the list takes with "unstated": "opt_in" that nothing gives is named with no
+        families: what needs it stated is held (vocab.Leaf.weigh)."""
         vocab, p = vocabulary(), person_of(cid)
         out = []
         for facet in sorted(leaf.takes):
@@ -916,6 +920,8 @@ class _Fill:
                     fam = set(self.stated.get(None, {}).get(facet, ()))
             if fam:
                 out.append((facet, tuple(sorted(fam))))
+            elif facet in leaf.unstated and self.unstated_on:
+                out.append((facet, ()))
         return tuple(out)
 
     def _eligible(self, spec: PickSpec, pins: Optional[Set[str]]) -> Tuple[Pool, List[Tuple[str, float]]]:
@@ -1026,8 +1032,9 @@ class _Fill:
             if cid in self.pins:
                 # Values the user ticked draw evenly, but what can't fit at all still goes: a group of
                 # black shades for a 20-year-old draws no salt-and-pepper. One value chosen is drawn as it is.
+                # A setting nothing states holds nothing the user ticked.
                 spec.context = tuple((f, v) for f, v in spec.context
-                                     if (leaf.takes.get(f) or ("",))[0] in ("drop", "never"))
+                                     if v and (leaf.takes.get(f) or ("",))[0] in ("drop", "never"))
         if leaf is not None and leaf.slots:
             self._unfill_kept(cid, leaf)
         pins = self.pins.get(cid)

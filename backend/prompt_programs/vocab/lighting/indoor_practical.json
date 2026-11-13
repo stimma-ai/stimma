@@ -4,7 +4,7 @@
  "description": "Named scene light sources: lamps, flames, screens, signs, outdoor fixtures, and speculative luminous objects.",
  "pos": "noun phrase",
  "frame": "lit by ___",
- "notes": "Visible scene sources belong here, indoors or outdoors, phrased to follow “lit by.” lighting.natural owns sun, sky, and moonlight; lighting.studio owns photographic rigs, and lighting.dramatic owns designed cinematic effects. Era and genre tags describe source availability, including explicitly speculative emitters; gas lamps and other older fixtures remain available today. Firelight means an open outdoor fire, while fireplace glow means an indoor hearth. Lightning is kept here as a brief scene event rather than steady ambient daylight.",
+ "notes": "Visible scene sources belong here, indoors or outdoors, phrased to follow “lit by.” lighting.natural owns sun, sky, and moonlight; lighting.studio owns photographic rigs, and lighting.dramatic owns designed cinematic effects. Era and genre tags describe source availability, including explicitly speculative emitters; gas lamps and other older fixtures remain available today. The space tag is the setting a source needs: a portable or freestanding source (a candle, a lamp, a screen, string lights) places nothing and is tagged any; a fixture that puts the scene somewhere (a streetlight, a fireplace, a vanity mirror, a stage) is tagged with its setting and is drawn only once the prompt or a drawn place states it (context.takes.space.unstated). Firelight means an open outdoor fire, while fireplace glow means an indoor hearth. Lightning is kept here as a brief scene event rather than steady ambient daylight.",
  "facets": [
   "space",
   "era",
@@ -19,9 +19,7 @@
    "look": "Small warm flames give nearby faces amber highlights and soft flickering shadows, fading quickly into darkness.",
    "tier": "typical",
    "tags": {
-    "space": [
-     "indoor"
-    ],
+    "space": "any",
     "genre": [
      "realistic",
      "fantasy",
@@ -139,9 +137,7 @@
    "look": "A shaded lamp makes a warm pool of light with a gentle falloff into the darker room.",
    "tier": "typical",
    "tags": {
-    "space": [
-     "indoor"
-    ],
+    "space": "any",
     "era": [
      "1900s_1940s",
      "1950s_1970s",
@@ -171,9 +167,7 @@
    "look": "A green glass shade glows above a bright downward pool of desk light, with little light reaching the room.",
    "tier": "plausible",
    "tags": {
-    "space": [
-     "indoor"
-    ],
+    "space": "any",
     "era": [
      "1900s_1940s",
      "1950s_1970s",
@@ -203,9 +197,7 @@
    "look": "Incandescent bulbs fill the room with warm yellow light and amber highlights.",
    "tier": "typical",
    "tags": {
-    "space": [
-     "indoor"
-    ],
+    "space": "any",
     "era": [
      "19th_century",
      "1900s_1940s",
@@ -237,9 +229,7 @@
    "look": "Exposed amber filaments form bright points, casting warm hard-edged shadows around hanging bulbs.",
    "tier": "plausible",
    "tags": {
-    "space": [
-     "indoor"
-    ],
+    "space": "any",
     "era": [
      "19th_century",
      "1900s_1940s",
@@ -338,9 +328,7 @@
    "look": "Glowing colored tubes spill saturated light onto nearby faces, walls, and wet pavement.",
    "tier": "typical",
    "tags": {
-    "space": [
-     "outdoor"
-    ],
+    "space": "any",
     "era": [
      "1900s_1940s",
      "1950s_1970s",
@@ -403,9 +391,7 @@
    "look": "A television throws broad cool patches of changing brightness across the room and nearby faces.",
    "tier": "typical",
    "tags": {
-    "space": [
-     "indoor"
-    ],
+    "space": "any",
     "era": [
      "1900s_1940s",
      "1950s_1970s",
@@ -435,9 +421,7 @@
    "look": "A low rectangular screen lights the face and hands from below while the surrounding room stays dim.",
    "tier": "typical",
    "tags": {
-    "space": [
-     "indoor"
-    ],
+    "space": "any",
     "era": [
      "contemporary",
      "future"
@@ -465,6 +449,7 @@
    "look": "A small close screen creates a tight cool patch on the face and fingers, leaving most of the scene dark.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "era": [
      "contemporary",
      "future"
@@ -492,9 +477,7 @@
    "look": "Tiny warm points on delicate wires make scattered glints and soft background bokeh.",
    "tier": "typical",
    "tags": {
-    "space": [
-     "indoor"
-    ],
+    "space": "any",
     "era": [
      "19th_century",
      "1900s_1940s",
@@ -525,6 +508,7 @@
    "look": "Translucent paper globes glow evenly, spreading warm light through their visible ribbed shades.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "genre": [
      "realistic",
      "fantasy",
@@ -628,6 +612,7 @@
    "look": "A handheld flashlight makes a tight bright cone and a small pool of light in surrounding darkness.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "era": [
      "1900s_1940s",
      "1950s_1970s",
@@ -724,11 +709,11 @@
    "look": "A sudden blue-white flash lights the outdoor scene starkly against dark storm clouds.",
    "tier": "unusual",
    "tags": {
-    "kind": [
-     "weather"
-    ],
     "space": [
      "outdoor"
+    ],
+    "kind": [
+     "weather"
     ],
     "time_of_day": [
      "night"
@@ -766,6 +751,7 @@
    "look": "A small flame behind glass casts a warm local pool with darker shadows from the lantern frame.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "era": [
      "19th_century",
      "1900s_1940s",
@@ -800,6 +786,7 @@
    "look": "A wick flame above an oil reservoir gives a dim golden pool, falling off quickly beyond nearby objects.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "genre": [
      "realistic",
      "fantasy",
@@ -837,6 +824,9 @@
    "look": "Visible gas flames or glowing mantles in wall fixtures give a warm glow and uneven wall shadows.",
    "tier": "plausible",
    "tags": {
+    "space": [
+     "indoor"
+    ],
     "era": [
      "19th_century",
      "1900s_1940s",
@@ -844,9 +834,6 @@
      "1980s_1990s",
      "contemporary",
      "future"
-    ],
-    "space": [
-     "indoor"
     ],
     "genre": [
      "realistic",
@@ -1128,9 +1115,7 @@
    "look": "A glass lamp glows with colored blobs of light, making a dim colored pool on nearby surfaces.",
    "tier": "unusual",
    "tags": {
-    "space": [
-     "indoor"
-    ],
+    "space": "any",
     "era": [
      "1950s_1970s",
      "1980s_1990s",
@@ -1353,6 +1338,7 @@
    "look": "Floating translucent controls cast cyan light onto faces and hands beneath glowing interface shapes.",
    "tier": "unusual",
    "tags": {
+    "space": "any",
     "genre": [
      "scifi",
      "cyberpunk"
@@ -1376,6 +1362,9 @@
    "look": "Luminous panels underfoot light a corridor and its occupants from below with cool geometric bands.",
    "tier": "unusual",
    "tags": {
+    "space": [
+     "indoor"
+    ],
     "genre": [
      "scifi",
      "cyberpunk"
@@ -1399,9 +1388,7 @@
    "look": "A luminous crystal illuminates nearby surfaces from within, with bright colored facets and a soft surrounding glow.",
    "tier": "unusual",
    "tags": {
-    "space": [
-     "indoor"
-    ],
+    "space": "any",
     "genre": [
      "fantasy",
      "fairy_tale",
@@ -1537,7 +1524,8 @@
    },
    "space": {
     "mismatch": "rare",
-    "factor": 0.05
+    "factor": 0.05,
+    "unstated": "opt_in"
    }
   }
  }

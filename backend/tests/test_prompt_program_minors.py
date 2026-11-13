@@ -132,10 +132,11 @@ class TestTheMarkers:
         for text in ("a {main} one-piece swimsuit with a square neckline", "a {main} bikini with a high-waisted bottom"):
             assert not v.get("person.outfit.summer").value(text).adult_only
         assert not any(x.adult_only for x in v.get("person.outfit.athletic").values)
-        # Besides ages under 18, only a feature of one sex and a marked face piece are opt-in.
+        # Besides ages under 18, only a feature of one sex, a marked face piece and a light that
+        # places the scene somewhere specific (an ice cave, an aurora) are opt-in.
         for lid, lf in v.leaves.items():
             for x in lf.values:
-                if x.opt_in and lid != AGE_LIST:
+                if x.opt_in and lid != AGE_LIST and not lid.startswith("lighting."):
                     face = lid == "person.face" or lid.startswith("person.feature.")
                     assert len(x.tags.get("presentation") or []) == 1 or (face and x.strength == 2), (lid, x.text)
 

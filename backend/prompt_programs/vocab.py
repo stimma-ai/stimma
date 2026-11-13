@@ -45,6 +45,11 @@ with the context keeps its weight, one that shares none pays the mismatch, an un
 fits every context. A giving value can also name families it gives as "less_common"
 ("mostly light eyes, sometimes brown"): a value in one of those (and in no typical one)
 is multiplied by the taking list's own "less_common" factor, between kept and rare.
+A taken facet can also say what happens when its scope says nothing about it ("unstated":
+"opt_in"): a value tagged on that facet needs the facet stated. A light that places the scene
+outdoors or underwater is then drawn only when something drawn or stated before it puts the
+scene there, or when the user picks it or their words ask for it; it stays in the pool at
+weight 0 for the picker. A value tagged "any" or not at all places nothing and is drawn as usual.
 All of the knowledge is data; the engine only matches tag sets.
 The user's own lists, wildcards, pins and additions are never weighted (draws.py).
 
@@ -181,6 +186,7 @@ class Leaf:
     plain: str = ""            # the value that goes without saying (an animal's "adult"): drawn unasked, it adds no word (fill.py)
     parts: Tuple[str, ...] = ()   # a list of pieces ("compose": {"each": true}): its part lists, in order (a face's shape, eyes…)
     browse: str = ""           # the local facet the chooser is browsed by: a row per part (descent's regions)
+    unstated: Tuple[str, ...] = ()   # taken facets a value tagged on needs stated (takes.<facet>.unstated: "opt_in")
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
@@ -222,6 +228,17 @@ class Leaf:
         less = v.less_common.get(facet) or ()
         return tuple(str(x) for x in (got if isinstance(got, (list, tuple)) else [got])) + tuple(LESS + str(x) for x in less)
 
+    def needs(self, text: str) -> Tuple[str, ...]:
+        """The facets this value needs its scope to state before it is drawn unasked: those of
+        the list's `unstated` facets it is tagged on (not "any", not a neutral value)."""
+        neutral = vocabulary().context_neutral
+        out = []
+        for f in self.unstated:
+            t = self.context_tags(text, f)
+            if t is not None and not set(t) & set(neutral.get(f, ())):
+                out.append(f)
+        return tuple(out)
+
     def weigh(self, items: Sequence[Tuple[str, float]],
               context: Sequence[Tuple[str, Sequence[str]]]) -> List[Tuple[str, float]]:
         """A pool's (value, weight) pairs weighted by the context it is drawn in: for each facet
@@ -232,14 +249,19 @@ class Leaf:
         to the share of the pool they had, so the context only moves weight among the values it
         speaks to. Values with no tag on the facet (gray or dyed hair for descent), the facet's
         neutral values and anything not in this list (a user's addition, a generated option) keep
-        their weight. A mismatch that would leave the tagged values no weight is not applied."""
+        their weight. A mismatch that would leave the tagged values no weight is not applied.
+
+        A facet the context names with no families ((facet, ())) is unstated in the scope: on a
+        facet the list takes with "unstated": "opt_in", the values tagged on it go to weight 0
+        (drawn only when picked, the picker still shows them), after every stated facet is
+        applied and only if something else in the pool is left to draw."""
         out = list(items)
         for facet, mode, costs in self._facet_costs([o for o, _ in out], context):
             spoken = [c is not None for c in costs]
             nxt = [(o, w * c) if c is not None else (o, w) for (o, w), c in zip(out, costs)]
             before = sum(w for (_, w), s in zip(out, spoken) if s)
             after = sum(w for (_, w), s in zip(nxt, spoken) if s)
-            if mode == "drop":   # the values that don't fit leave; the rest keep their own weight
+            if mode in ("drop", "unstated"):   # the values that don't fit leave; the rest keep their own weight
                 # A context never empties a pool: when the user's words narrowed the list to values
                 # the context would drop ("a young woman with gray hair", "a man in a romantic
                 # outfit"), their words stand and the context isn't applied.
@@ -257,9 +279,15 @@ class Leaf:
         """For each context facet this list takes: (facet, mode, each text's cost), the cost
         None for a text the facet doesn't speak to (no tag, a neutral value, not in this list)."""
         neutral = vocabulary().context_neutral
-        for facet, families in context:
+        # Stated facets first, unstated ones last: what is held for want of a setting is held among
+        # what the stated context left, so it can tell when holding would leave nothing to draw.
+        for facet, families in sorted(context, key=lambda c: not c[1]):
             mode = self.takes.get(facet)
-            if mode is None or not families:
+            if mode is None:
+                continue
+            if not families:
+                if facet in self.unstated:
+                    yield facet, "unstated", [0.0 if facet in self.needs(o) else None for o in texts]
                 continue
             want = {f for f in families if not f.startswith(LESS)}
             less = {f[len(LESS):] for f in families if f.startswith(LESS)} - want
@@ -281,7 +309,9 @@ class Leaf:
         out: Set[str] = set()
         for _, mode, costs in self._facet_costs(texts, context):
             low = {t for t, c in zip(texts, costs) if c is not None and c < 1.0}
-            if mode != "drop" and any(c is not None for c in costs) and all(c is None or c <= 0 for c in costs):
+            if mode == "unstated" and all(c is not None for c in costs):
+                continue   # holding every value would leave nothing: weigh() holds none
+            if mode not in ("drop", "unstated") and any(c is not None for c in costs) and all(c is None or c <= 0 for c in costs):
                 continue
             out |= low
         return out
@@ -437,19 +467,28 @@ class Vocabulary:
 def _context_dict(lf: Leaf) -> Dict[str, Any]:
     return {**({"gives": list(lf.gives)} if lf.gives else {}), **({"stated": True} if lf.stated else {}),
             **({"takes": {f: {**({"mismatch": m} if m in ("never", "drop") else {"mismatch": m, "factor": x}),
-                              **({"less_common": lf.less[f]} if f in lf.less else {})}
+                              **({"less_common": lf.less[f]} if f in lf.less else {}),
+                              **({"unstated": "opt_in"} if f in lf.unstated else {})}
                           for f, (m, x) in lf.takes.items()}} if lf.takes else {})}
 
 
-def _leaf_context(d: Dict[str, Any]) -> Tuple[Tuple[str, ...], Dict[str, Tuple[str, float]], bool, Dict[str, float]]:
+UNSTATED = ("opt_in",)   # what a taken facet may say of a scope that doesn't state it
+
+
+def _leaf_context(lid: str, d: Dict[str, Any]) -> Tuple[Tuple[str, ...], Dict[str, Tuple[str, float]], bool,
+                                                        Dict[str, float], Tuple[str, ...]]:
     ctx = d.get("context") or {}
-    takes, less = {}, {}
+    takes, less, unstated = {}, {}, []
     for f, spec in (ctx.get("takes") or {}).items():
         mode = str((spec or {}).get("mismatch") or "rare")
         takes[str(f)] = (mode, 0.0) if mode in ("never", "drop") else ("rare", float((spec or {}).get("factor", 0.1)))
         if (spec or {}).get("less_common") is not None:
             less[str(f)] = float(spec["less_common"])
-    return tuple(str(f) for f in ctx.get("gives") or ()), takes, ctx.get("stated") is True, less
+        if (spec or {}).get("unstated") is not None:
+            if spec["unstated"] not in UNSTATED:
+                raise ValueError(f"vocabulary: {lid} takes {f} with unknown unstated {spec['unstated']!r}")
+            unstated.append(str(f))
+    return tuple(str(f) for f in ctx.get("gives") or ()), takes, ctx.get("stated") is True, less, tuple(unstated)
 
 
 def _value(lid: str, v: Dict[str, Any], groups: Dict[str, Any]) -> Value:
@@ -574,7 +613,7 @@ def _pieces(spec: Dict[str, Any], leaves: Dict[str, Leaf]) -> Tuple[Value, ...]:
 
 
 def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
-    gives, takes, stated, less = _leaf_context(d)
+    gives, takes, stated, less, unstated = _leaf_context(lid, d)
     groups = dict(d.get("groups") or {})
     vals = tuple(_value(lid, v, groups) for v in d.get("values") or [] if str(v.get("text") or "").strip())
     vals = _shared(lid, vals, d.get("shares") or {})
@@ -582,7 +621,7 @@ def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
                 str(d.get("frame") or ""), str(d.get("notes") or ""), tuple(d.get("facets") or ()),
                 bool(d.get("closed")), {k: tuple(v) for k, v in (d.get("untagged") or {}).items()}, vals,
                 {k: tuple(v) for k, v in (d.get("local_facets") or {}).items()}, str(d.get("slots") or ""),
-                gives, takes, stated, less=less, groups=groups)
+                gives, takes, stated, less=less, groups=groups, unstated=unstated)
 
 
 def _browse(lid: str, leaf: Leaf, facet: str) -> str:

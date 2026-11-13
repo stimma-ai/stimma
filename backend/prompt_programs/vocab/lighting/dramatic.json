@@ -4,8 +4,10 @@
  "description": "Named cinematic lighting looks, dramatic shadow patterns, colored light treatments, beams, and optical effects.",
  "pos": "noun phrase",
  "frame": "lit by ___",
- "notes": "Designed cinematic looks belong here, phrased to follow “lit by.” lighting.studio owns named portrait setups and photographic modifiers; lighting.indoor_practical owns visible fixtures, and lighting.natural owns literal sun, sky, and moonlight. These looks describe the image treatment and can be staged across depicted eras and genres. Temporal effects such as strobe and light painting describe their visible still-image result.",
- "facets": [],
+ "notes": "Designed cinematic looks belong here, phrased to follow “lit by.” lighting.studio owns named portrait setups and photographic modifiers; lighting.indoor_practical owns visible fixtures, and lighting.natural owns literal sun, sky, and moonlight. These looks describe the image treatment and can be staged across depicted eras and genres. Temporal effects such as strobe and light painting describe their visible still-image result. Most looks can be staged anywhere and are tagged space any; a look that needs a place (stained glass, a disco ball, searchlights over open sky) is tagged with its setting and is drawn only once that setting is stated. Bioluminescent glow and water caustics need living light or water nearby and are opt-in: drawn only when asked for.",
+ "facets": [
+  "space"
+ ],
  "closed": false,
  "values": [
   {
@@ -14,6 +16,7 @@
    "look": "Strong light and deep shadow sculpt rounded forms, with gradual transitions across the lit subject.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "contrast"
     ],
@@ -29,6 +32,7 @@
    "look": "A small intensely lit face or gesture emerges from near-total darkness, with most surroundings swallowed in black.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "contrast"
     ],
@@ -44,6 +48,7 @@
    "look": "Hard diagonal stripes of light and shadow cross the face and walls in a dark, high-contrast scene.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "shadow_patterns"
     ],
@@ -60,6 +65,7 @@
    "look": "A hard overhead beam brightens the crown and shoulders while eye sockets and lower features sink into shadow.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "contrast"
     ],
@@ -75,6 +81,7 @@
    "look": "Light from below reverses familiar facial shadows, darkening the brow and casting nose shadows upward.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "contrast"
     ],
@@ -90,6 +97,7 @@
    "look": "Saturated pink and teal washes divide the scene into glowing colored highlights and deep cool shadows.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "color"
     ],
@@ -105,6 +113,7 @@
    "look": "An exaggerated steel-blue night look leaves pale cool highlights against deep blue-black shadows.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "color"
     ],
@@ -120,6 +129,7 @@
    "look": "Several bright beams remain visible in hazy air, giving the scene layered depth and glowing atmosphere.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "atmosphere"
     ],
@@ -134,6 +144,7 @@
    "look": "One narrow column of light isolates a subject or detail while nearly everything around it stays dark.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "atmosphere",
      "contrast"
@@ -150,6 +161,7 @@
    "look": "A broad bright field behind the subject turns the body into a dark readable shape.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "backlight"
     ],
@@ -164,6 +176,7 @@
    "look": "Repeated flashes freeze several distinct positions of a moving subject within one otherwise dark image.",
    "tier": "unusual",
    "tags": {
+    "space": "any",
     "kind": [
      "stage"
     ],
@@ -179,6 +192,7 @@
    "look": "Bright lights facing the lens stretch into long horizontal flare streaks and luminous veiling glare.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "optical"
     ],
@@ -193,6 +207,7 @@
    "look": "Red light covers one side of the face and blue light covers the other, meeting along a sharp central divide.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "color"
     ],
@@ -209,6 +224,7 @@
    "look": "Deep red-orange light rises into the scene, with ember-like highlights and heavy smoky black shadows.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "color"
     ],
@@ -224,6 +240,7 @@
    "look": "Small living forms glow cyan or green from within, lighting nearby edges in an otherwise dark environment.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "glow"
     ],
@@ -232,7 +249,8 @@
      "cool",
      "moody"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "stained-glass light",
@@ -240,6 +258,9 @@
    "look": "Translucent colored panes project distinct jewel-colored patches and dark leading lines across the scene.",
    "tier": "typical",
    "tags": {
+    "space": [
+     "indoor"
+    ],
     "kind": [
      "shadow_patterns",
      "color"
@@ -255,13 +276,15 @@
    "look": "Bright rippling nets of reflected or refracted light move across skin, walls, or the bottom of a pool.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "shadow_patterns"
     ],
     "mood": [
      "dramatic"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "warm key light with cool fill",
@@ -269,6 +292,7 @@
    "look": "Amber highlights shape the subject while blue fill keeps its shaded side visible.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "color"
     ],
@@ -285,6 +309,7 @@
    "look": "Saturated red illuminates the whole scene, reducing other colors to red tones and black shadows.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "color"
     ],
@@ -301,6 +326,7 @@
    "look": "Fluorescent pigments and white fabric glow vividly against violet-lit skin and a nearly black background.",
    "tier": "unusual",
    "tags": {
+    "space": "any",
     "kind": [
      "glow"
     ],
@@ -316,6 +342,7 @@
    "look": "Projected leaf silhouettes form a controlled canopy pattern of light and shadow across the subject and backdrop.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "shadow_patterns"
     ],
@@ -330,6 +357,7 @@
    "look": "A prism splits a beam into distinct rainbow bands across skin or a plain surface.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "optical",
      "color"
@@ -345,6 +373,7 @@
    "look": "A circular glow centered behind the head frames the subject like a luminous halo.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "backlight"
     ],
@@ -360,6 +389,9 @@
    "look": "A powerful narrow beam cuts across a dark scene, making a bright cone in the atmosphere.",
    "tier": "plausible",
    "tags": {
+    "space": [
+     "outdoor"
+    ],
     "kind": [
      "stage",
      "atmosphere"
@@ -376,6 +408,7 @@
    "look": "Thin intensely colored straight lines cross the haze and end in tiny bright spots on surfaces.",
    "tier": "unusual",
    "tags": {
+    "space": "any",
     "kind": [
      "stage"
     ],
@@ -391,6 +424,7 @@
    "look": "Orange light from behind turns thick smoke into luminous clouds around dark foreground shapes.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "backlight",
      "atmosphere"
@@ -408,6 +442,7 @@
    "look": "Soft orange or red flares wash in from the frame edge, partially veiling the image in uneven bands.",
    "tier": "unusual",
    "tags": {
+    "space": "any",
     "kind": [
      "optical"
     ],
@@ -423,6 +458,7 @@
    "look": "Exaggerated angular shadows stretch across walls and figures, distorting shapes into sharp graphic diagonals.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "shadow_patterns"
     ],
@@ -439,6 +475,7 @@
    "look": "Bright rear light spills softly around the subject, dissolving edges into a luminous misty glow.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "backlight"
     ],
@@ -453,6 +490,9 @@
    "look": "Many small reflected spots of light scatter across faces, floors, and walls against a dark room.",
    "tier": "plausible",
    "tags": {
+    "space": [
+     "indoor"
+    ],
     "kind": [
      "stage",
      "shadow_patterns"
@@ -468,6 +508,7 @@
    "look": "Projected images and geometric colors wrap across a face or structure, following its visible contours.",
    "tier": "unusual",
    "tags": {
+    "space": "any",
     "kind": [
      "shadow_patterns",
      "color"
@@ -483,6 +524,7 @@
    "look": "Long-exposure ribbons and loops of light trace paths through a dark scene around a still subject.",
    "tier": "unusual",
    "tags": {
+    "space": "any",
     "kind": [
      "optical"
     ],
@@ -497,6 +539,7 @@
    "look": "Bright point lights grow sharp radiating spikes across the image while the surrounding scene stays readable.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "optical"
     ],
@@ -511,6 +554,7 @@
    "look": "Alternating red and blue light washes across the scene, with hard colored reflections on faces and wet surfaces.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "color"
     ],
@@ -540,5 +584,13 @@
    "cool",
    "soft"
   ]
+ },
+ "context": {
+  "takes": {
+   "space": {
+    "mismatch": "never",
+    "unstated": "opt_in"
+   }
+  }
  }
 }

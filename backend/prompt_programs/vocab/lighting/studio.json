@@ -4,8 +4,10 @@
  "description": "Named portrait lighting patterns, photographic modifiers, flash techniques, and studio lighting setups.",
  "pos": "noun phrase",
  "frame": "lit by ___",
- "notes": "Named photographic setups and modifiers belong here, phrased to follow “lit by.” lighting.natural owns ambient sun and sky; lighting.indoor_practical owns visible scene fixtures, and lighting.dramatic owns cinematic effects independent of a capture rig. These setups can photograph any depicted era. Related setups remain separate when they create different facial shadows, reflections, or subject separation.",
- "facets": [],
+ "notes": "Named photographic setups and modifiers belong here, phrased to follow “lit by.” lighting.natural owns ambient sun and sky; lighting.indoor_practical owns visible scene fixtures, and lighting.dramatic owns cinematic effects independent of a capture rig. These setups can photograph any depicted era. Related setups remain separate when they create different facial shadows, reflections, or subject separation. Every setup can be used anywhere, so each is tagged space any.",
+ "facets": [
+  "space"
+ ],
  "closed": false,
  "values": [
   {
@@ -14,6 +16,7 @@
    "look": "Angled light leaves a small triangle of illumination on the shadow-side cheek.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "portrait_patterns"
     ],
@@ -29,6 +32,7 @@
    "look": "Centered light above the face makes a small butterfly-shaped shadow directly beneath the nose.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "portrait_patterns"
     ],
@@ -43,6 +47,7 @@
    "look": "Light from the side divides the face into a bright half and a deeply shadowed half.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "portrait_patterns"
     ],
@@ -59,6 +64,7 @@
    "look": "A slightly raised side light makes a small nose shadow that stops before joining the cheek shadow.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "portrait_patterns"
     ],
@@ -73,6 +79,7 @@
    "look": "Light above and fill below brighten the face evenly, with paired catchlights and little under-chin shadow.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "portrait_patterns"
     ],
@@ -87,6 +94,7 @@
    "look": "On a turned face, the cheek facing the camera is lit and the narrower far side falls into shadow.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "portrait_patterns"
     ],
@@ -101,6 +109,7 @@
    "look": "On a turned face, the far cheek is lit while the larger camera-facing cheek stays in shadow.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "portrait_patterns"
     ],
@@ -116,6 +125,7 @@
    "look": "A narrow bright outline separates the subject from the background along its outer edges.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "separation"
     ],
@@ -130,6 +140,7 @@
    "look": "A rear side light puts a bright accent along one cheek, jaw, or shoulder while the face stays readable.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "separation"
     ],
@@ -144,6 +155,7 @@
    "look": "A light above and behind the subject picks out the crown and strands without lighting the whole outline.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "separation"
     ],
@@ -158,6 +170,7 @@
    "look": "A main light shapes the face, weaker fill opens shadows, and a rear light separates the subject.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "portrait_patterns"
     ],
@@ -172,6 +185,7 @@
    "look": "Bright tones dominate the image, with open shadows and a light background.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "tonal"
     ],
@@ -186,6 +200,7 @@
    "look": "Small lit areas stand out against a mostly dark image with deep shadows.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "tonal"
     ],
@@ -201,6 +216,7 @@
    "look": "Broad diffused light wraps around the subject with gentle shadow edges and rectangular catchlights.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "soft_sources"
     ],
@@ -215,6 +231,7 @@
    "look": "Crisp, sculpted light gives defined cheekbones, rounded catchlights, and softer shadows than a bare flash.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "hard_sources"
     ],
@@ -230,6 +247,7 @@
    "look": "Nearly shadowless frontal light makes circular catchlights and a faint halo shadow behind the subject.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "soft_sources"
     ],
@@ -244,6 +262,7 @@
    "look": "A small exposed flash makes crisp shadows, sharp specular highlights, and strong contrast.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "flash"
     ],
@@ -258,6 +277,7 @@
    "look": "Frontal flash lights the subject abruptly, with shiny highlights and a hard shadow directly behind it.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "flash"
     ],
@@ -272,6 +292,7 @@
    "look": "Flash reflected from a wall or ceiling spreads into soft directional light with gentle shadows.",
    "tier": "typical",
    "tags": {
+    "space": "any",
     "kind": [
      "flash",
      "bounce"
@@ -287,6 +308,7 @@
    "look": "Long narrow sources make elongated catchlights and bright strips of reflection on curved surfaces.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "soft_sources"
     ],
@@ -302,6 +324,7 @@
    "look": "Colored filters turn the illumination into saturated washes rather than neutral white light.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "color"
     ],
@@ -316,6 +339,7 @@
    "look": "The backdrop fades smoothly from a bright pool behind the subject into darker edges.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "separation"
     ],
@@ -330,6 +354,7 @@
    "look": "One concentrated light makes a defined pool of illumination with hard shadows around it.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "hard_sources"
     ],
@@ -345,6 +370,7 @@
    "look": "Light reflected from a large white folded panel fills one side of the subject with broad soft illumination.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "bounce"
     ],
@@ -359,6 +385,7 @@
    "look": "A translucent umbrella spreads light widely, giving soft shadows and rounded catchlights.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "soft_sources"
     ],
@@ -373,6 +400,7 @@
    "look": "A reflective silver umbrella gives punchy light with bright specular highlights and crisp texture.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "bounce"
     ],
@@ -387,6 +415,7 @@
    "look": "A large translucent panel softens light from above into broad highlights and gentle downward shadows.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "soft_sources"
     ],
@@ -401,6 +430,7 @@
    "look": "Black surfaces absorb reflected light on one side, making that side noticeably darker and more sculpted.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "tonal"
     ],
@@ -416,6 +446,7 @@
    "look": "Warm reflected light lifts the lower face and shadow side with a golden tint.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "bounce",
      "color"
@@ -431,6 +462,7 @@
    "look": "Bright neutral reflected light opens shadows from below or the side with crisp shiny highlights.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "bounce"
     ],
@@ -445,6 +477,7 @@
    "look": "A tightly restricted spot illuminates a small detail while nearby areas quickly fall into darkness.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "hard_sources"
     ],
@@ -460,6 +493,7 @@
    "look": "A focused theatrical beam gives sculpted highlights and clean directional shadows with controlled spill.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "hard_sources"
     ],
@@ -475,6 +509,7 @@
    "look": "Soft light stays in a narrow area, shaping the subject while keeping the surrounding background dark.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "soft_sources"
     ],
@@ -490,6 +525,7 @@
    "look": "Opposing side lights pick out both sides of the subject while the center remains comparatively dark.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "portrait_patterns"
     ],
@@ -504,6 +540,7 @@
    "look": "Light is bounced and then diffused, making a very broad wrap with barely visible shadow edges.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "soft_sources",
      "bounce"
@@ -519,6 +556,7 @@
    "look": "Diffusion on all sides gives small objects even illumination and broad white reflections with few hard shadows.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "soft_sources"
     ],
@@ -533,6 +571,7 @@
    "look": "Transparent glass appears mainly as bright edge outlines against a black background.",
    "tier": "unusual",
    "tags": {
+    "space": "any",
     "kind": [
      "tonal"
     ],
@@ -548,6 +587,7 @@
    "look": "Transparent glass sits against a luminous white background, defined by dark contours along its edges.",
    "tier": "unusual",
    "tags": {
+    "space": "any",
     "kind": [
      "tonal"
     ],
@@ -562,6 +602,7 @@
    "look": "Reflections and surface glare disappear, revealing matte-looking color and fine detail beneath shiny surfaces.",
    "tier": "unusual",
    "tags": {
+    "space": "any",
     "kind": [
      "tonal"
     ],
@@ -576,6 +617,7 @@
    "look": "Light skims almost parallel to a surface, turning tiny ridges and recesses into strong relief.",
    "tier": "plausible",
    "tags": {
+    "space": "any",
     "kind": [
      "hard_sources"
     ],

@@ -33,10 +33,11 @@
   "space": {
    "values": [
     "indoor",
-    "outdoor"
+    "outdoor",
+    "underwater"
    ],
    "default": null,
-   "about": "indoors or outdoors"
+   "about": "where the scene is: indoors, outdoors or underwater"
   },
   "locale": {
    "values": [
@@ -175,7 +176,7 @@
    },
    "space": {
     "scope": "scene",
-    "about": "indoors or outdoors (the facet of the same name)"
+    "about": "where the scene is (the facet of the same name)"
    },
    "climate": {
     "scope": "scene",

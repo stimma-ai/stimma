@@ -281,7 +281,7 @@ class TestWeighting:
         for r, d in draws_of(e, tmp_path, range(80), pins={"time": ["midnight"]}):
             light = V().get("lighting.natural").value(d["light"].value)
             assert light is not None and "night" in light.tags["time_of_day"], d["light"].value
-            assert light.tags.get("space", ["indoor"]) == ["indoor"]   # a kitchen: no outdoor-only light
+            assert light.tags["space"] == "any" or "indoor" in light.tags["space"]   # a kitchen: no outdoor-only light
             weights = dict(zip(d["light"].options, [None] * len(d["light"].options)))
             assert "harsh midday sun" in weights   # still shown (the picker can pin it), weight 0
 
@@ -462,3 +462,129 @@ def test_options_service_reads_stated_and_listed_context():
     assert o.stated_context["woman"]["eye_family"] == ("brown",)
     assert o.stated_context[None]["time_of_day"] == ("night",)
     assert "red" in o.list_context["d"]["Irish"]["hair_family"]
+
+
+# --------------------------------------------------------------------------- a setting the prompt states
+
+LIGHTS = '''
+nat = pick("nat", cls="lighting.natural", about="the light", seed=["window light"], label="Light", phase=1, line=1)
+prac = pick("prac", cls="lighting.indoor_practical", about="the light", seed=["lamplight"], label="Lamp", phase=1, line=1)
+dram = pick("dram", cls="lighting.dramatic", about="the light", seed=["rim light"], label="Look", phase=1, line=1)
+emit("A woman taking a selfie, lit by", nat, ",", prac, "and", dram)
+'''
+LIGHT_LISTS = {"nat": "lighting.natural", "prac": "lighting.indoor_practical", "dram": "lighting.dramatic"}
+
+
+class TestTheSetting:
+    """A look that places the scene somewhere (sun and sky outdoors, a window indoors, sunlight
+    underwater, a streetlight) is tagged with the setting it needs; its list takes the setting
+    with "unstated": "opt_in". With no setting stated or drawn it is held: shown, never drawn
+    unasked. Tags decide, never the words of the values."""
+
+    def test_every_light_is_tagged_with_the_setting_it_needs_or_any(self):
+        allowed = set(V().facets["space"]["values"])
+        for lid in ("lighting.natural", "lighting.indoor_practical", "lighting.dramatic", "lighting.studio"):
+            for x in V().get(lid).values:
+                space = x.tags.get("space")
+                assert space == "any" or (isinstance(space, list) and space and set(space) <= allowed), (lid, x.text)
+        assert all(x.tags["space"] == "any" for x in V().get("lighting.studio").values)
+        nat = V().get("lighting.natural")
+        assert nat.value("underwater sunlight").tags["space"] == ["underwater"]
+        assert nat.value("window light").tags["space"] == ["indoor"]
+        assert [x.text for x in nat.values if not nat.needs(x.text)] == ["soft natural light", "bright natural daylight"]
+        # Places more specific than their space are drawn only when asked for.
+        for text in ("ice-cave daylight", "aurora light", "forest shade", "canyon bounce light"):
+            assert nat.value(text).opt_in, text
+
+    def test_the_lists_take_the_setting_and_a_list_reads_it_from_the_prompt(self):
+        for lid in ("lighting.natural", "lighting.indoor_practical", "lighting.dramatic"):
+            assert V().get(lid).unstated == ("space",), lid
+        setting = V().get("scene.setting")
+        assert setting.gives == ("space",) and setting.stated and not setting.listed
+        assert given_families("scene.setting", ["outdoors"]) == {"space": ("outdoor",)}
+
+    def test_an_unknown_unstated_rule_is_an_error(self, tmp_path):
+        from prompt_programs.vocab import load
+        (tmp_path / "x").mkdir()
+        (tmp_path / "x" / "_node.json").write_text(json.dumps({"id": "x", "label": "X", "description": "x"}))
+        (tmp_path / "x" / "l.json").write_text(json.dumps({
+            "id": "x.l", "label": "L", "description": "l", "pos": "noun", "frame": "a ___", "notes": "", "closed": True,
+            "facets": [], "context": {"takes": {"space": {"mismatch": "never", "unstated": "sometimes"}}},
+            "values": [{"text": "a", "tier": "typical"}]}))
+        with pytest.raises(ValueError, match="unstated"):
+            load((tmp_path,))
+
+    def test_with_no_setting_stated_a_light_that_places_the_scene_is_never_drawn_unasked(self, tmp_path):
+        e = entry_of(LIGHTS, "a woman taking a selfie")
+        drawn = collections.Counter()
+        for r, d in draws_of(e, tmp_path, range(2000)):
+            for pid, lid in LIGHT_LISTS.items():
+                leaf, value = V().get(lid), d[pid].value
+                assert not leaf.needs(value) and not leaf.value(value).opt_in, (pid, value)
+                drawn[(pid, value)] += 1
+        # Held, not removed: the chooser still offers them.
+        assert "ice-cave daylight" in d["nat"].options and "sodium-vapor streetlight" in d["prac"].options
+        assert {v for (p, v) in drawn if p == "nat"} == {"soft natural light", "bright natural daylight"}
+        assert len({v for (p, v) in drawn if p == "prac"}) >= 10 and len({v for (p, v) in drawn if p == "dram"}) >= 20
+
+    def test_outdoors_at_dusk_draws_sunset_light_and_never_an_indoor_one(self, tmp_path):
+        e = entry_of(LIGHTS, "a woman on a porch outdoors at dusk",
+                     stated_context=[{"of": None, "cls": "scene.setting", "values": ["outdoors"]},
+                                     {"of": None, "cls": "scene.time_of_day", "values": ["sunset", "blue hour"]}])
+        nat = V().get("lighting.natural")
+        got = collections.Counter(d["nat"].value for _, d in draws_of(e, tmp_path, range(400)))
+        assert {"golden hour sunlight", "sunset afterglow", "blue hour light"} <= set(got), got
+        for value in got:
+            tags = nat.value(value).tags
+            assert tags["space"] == "any" or "outdoor" in tags["space"], value
+            assert not nat.value(value).opt_in, value   # no alpenglow: mountains are asked for, not stated by "outdoors"
+
+    def test_outdoors_alone_draws_golden_hour_sun(self, tmp_path):
+        e = entry_of(LIGHTS, "a woman outdoors",
+                     stated_context=[{"of": None, "cls": "scene.setting", "values": ["outdoors"]}])
+        got = collections.Counter(d["nat"].value for _, d in draws_of(e, tmp_path, range(300)))
+        assert got["golden hour sunlight"] > 0 and got["harsh midday sun"] > 0
+        assert not {"window light", "underwater sunlight"} & set(got), got
+
+    def test_a_picked_light_is_drawn_without_a_setting(self, tmp_path):
+        e = entry_of(LIGHTS)
+        got = {d["nat"].value for _, d in draws_of(e, tmp_path, range(20), pins={"nat": ["ice-cave daylight"]})}
+        assert got == {"ice-cave daylight"}
+        got = collections.Counter(d["nat"].value for _, d in draws_of(
+            e, tmp_path / "two", range(200), pins={"nat": ["harsh midday sun", "window light"]}))
+        assert set(got) == {"harsh midday sun", "window light"}, got
+
+    def test_a_drawn_place_states_the_setting(self, tmp_path):
+        e = entry_of(SCENE)
+        got = collections.Counter()
+        for _, d in draws_of(e, tmp_path, range(100), pins={"time": ["high noon"]}):
+            space = V().get("lighting.natural").value(d["light"].value).tags["space"]
+            assert space == "any" or "indoor" in space, d["light"].value   # a kitchen
+            got[space == "any"] += 1
+        assert got[False] > 30, got   # window light and the like: the drawn room says indoors
+
+    def test_a_revision_drawn_before_the_rule_replays_exactly(self, tmp_path):
+        e = entry_of(LIGHTS)
+        for seed in range(10):
+            rt = runtime_for(e, store=OptionStore(tmp_path), cfg=OFF)
+            rt.options.context_version = "ctx-2"   # what the last build drew under
+            old = draw(LIGHTS, seed, None, [], None, None, None, options=rt.options)
+            assert old.revision["context"] == "ctx-2"
+            again = draw(LIGHTS, seed, None, [], None, None, None,
+                         options=runtime_for(e, store=OptionStore(tmp_path), cfg=OFF, revision=old.revision).options)
+            assert again.prompt == old.prompt and again.revision == old.revision
+
+    async def test_the_setting_is_read_in_the_prompt(self, tmp_path):
+        prompt = "a woman on a porch at dusk, lit by <light>"
+        e = entry_of(LIGHTS, prompt)
+        ask = Ask(keep={prompt: ["outdoors"]})
+        await narrow_read(e, NarrowCache(tmp_path), ask)
+        assert e["stated_context"] == [{"of": None, "cls": "scene.setting", "values": ["outdoors"]}]
+        assert [p for kind, p in ask.calls if p == prompt] == [prompt]   # read once, only for the setting
+        o = GeneratedOptions(None, ProgramContext.of(e))
+        assert o.stated_context[None]["space"] == ("outdoor",)
+
+    async def test_a_prompt_that_states_no_setting_states_none(self, tmp_path):
+        e = entry_of(LIGHTS, "a woman taking a selfie, lit by <light>")
+        await narrow_read(e, NarrowCache(tmp_path), Ask())   # every setting fits: nothing stated
+        assert "stated_context" not in e

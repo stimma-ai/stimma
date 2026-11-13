@@ -632,8 +632,16 @@ def stated_context(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> Li
     """For each such scope, a detail to read what the prompt states for that list ("a Japanese
     woman" on descent, "at midnight" on the time of day): {"id", "cls", "about", "context_of"}.
     Its subset is recorded as `entry["stated_context"]`; it weights that scope's takers like a
-    drawn value would (draws.py) when nothing drawn gives the facet."""
+    drawn value would (draws.py) when nothing drawn gives the facet. The scene's setting that a
+    bound list needs stated (vocab.py: takes.<facet>.unstated) is read in what the prompt says
+    there, its "where": the lines of the slots that need it, with the comment lines (the whole
+    prompt when no line is known), so an edit to another line asks nothing again. "a porch at
+    dusk, lit by <light>" reads as outdoors; a reading that keeps the whole list states
+    nothing (_informative)."""
+    vocab = vocabulary()
     ids = {str(c.get("id")) for c in entry.get("choices") or []}
+    prompt = str(entry.get("prompt") or "").strip()
+    lines = _contexts(entry)
     out = []
     for g, who in _context_scopes(entry, bound):
         name = g.id.rsplit(".", 1)[-1]
@@ -642,7 +650,13 @@ def stated_context(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]]) -> Li
             sid += "_"
         ids.add(sid)
         of = (who.replace("_", " ") if who else "the person") if who is not None else "the scene"
-        out.append({"id": sid, "cls": g.id, "about": f"the {g.label.lower()} of {of}", "context_of": who})
+        where = ""
+        if who is None:
+            needing = [c for c in bound if set(vocab.leaves[c["cls"]].unstated) & set(g.gives)]
+            said = [lines.get(str(c.get("slot") or c["id"]), "") for c in needing]
+            where = "\n".join(dict.fromkeys(x for x in said if x)) or (prompt if needing else "")
+        out.append({"id": sid, "cls": g.id, "about": f"the {g.label.lower()} of {of}", "context_of": who,
+                    **({"where": where} if where else {})})
     return out
 
 

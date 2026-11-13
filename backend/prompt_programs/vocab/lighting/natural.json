@@ -4,7 +4,7 @@
  "description": "Named sunlight, skylight, window light, twilight, moonlight, and weather-shaped natural lighting looks.",
  "pos": "noun phrase",
  "frame": "lit by ___",
- "notes": "Named natural illumination belongs here, phrased to follow “lit by.” lighting.indoor_practical owns flames and visible fixtures; lighting.studio owns photographic setups, and lighting.dramatic owns designed cinematic effects. Time-of-day, space, and climate tags keep each look tied to compatible conditions. Window sources imply an indoor subject; the two golden-hour entries distinguish broad warmth from low raking light.",
+ "notes": "Named natural illumination belongs here, phrased to follow “lit by.” lighting.indoor_practical owns flames and visible fixtures; lighting.studio owns photographic setups, and lighting.dramatic owns designed cinematic effects. Time-of-day, space, and climate tags keep each look tied to compatible conditions. The space tag is the setting a look needs: window sources need an indoor subject, sky and sun looks an outdoor one (or either, for sunlight through a window), underwater sunlight an underwater scene; such a look is drawn only once the prompt or a drawn place states that setting (context.takes.space.unstated), and soft natural light and bright natural daylight need none. Looks that place the scene somewhere more specific than its space (ice caves, auroras, canyons, snowfields, beaches, mountains, forests, an eclipse) are opt-in: drawn only when the prompt's words or the user ask for them. The two golden-hour entries distinguish broad warmth from low raking light.",
  "facets": [
   "space",
   "time_of_day",
@@ -18,6 +18,10 @@
    "look": "Low warm sunlight bathes the scene in amber, with soft golden highlights and long shadows.",
    "tier": "typical",
    "tags": {
+    "space": [
+     "indoor",
+     "outdoor"
+    ],
     "time_of_day": [
      "golden_hour"
     ],
@@ -36,6 +40,10 @@
    "look": "Nearly horizontal sunlight skims surfaces, emphasizing texture and casting very long lateral shadows.",
    "tier": "plausible",
    "tags": {
+    "space": [
+     "indoor",
+     "outdoor"
+    ],
     "time_of_day": [
      "golden_hour"
     ],
@@ -54,6 +62,9 @@
    "look": "A cloud-covered sky spreads soft, cool light evenly, with faint shadows and subdued highlights.",
    "tier": "typical",
    "tags": {
+    "space": [
+     "outdoor"
+    ],
     "time_of_day": [
      "day"
     ],
@@ -72,6 +83,9 @@
    "look": "Bright overhead sun makes short, hard shadows, deep eye sockets, and strong highlights.",
    "tier": "typical",
    "tags": {
+    "space": [
+     "outdoor"
+    ],
     "time_of_day": [
      "day"
     ],
@@ -89,6 +103,9 @@
    "look": "Cool skylight fills a shaded subject while the sunlit background stays brighter and warmer.",
    "tier": "typical",
    "tags": {
+    "space": [
+     "outdoor"
+    ],
     "time_of_day": [
      "day"
     ],
@@ -98,9 +115,6 @@
     ],
     "source": [
      "sky"
-    ],
-    "space": [
-     "outdoor"
     ]
    }
   },
@@ -178,6 +192,9 @@
    "look": "Sun behind the subject outlines hair and edges, with washed highlights and flare across the lens.",
    "tier": "typical",
    "tags": {
+    "space": [
+     "outdoor"
+    ],
     "time_of_day": [
      "dawn",
      "day",
@@ -189,9 +206,6 @@
     ],
     "source": [
      "sun"
-    ],
-    "space": [
-     "outdoor"
     ]
    }
   },
@@ -201,6 +215,9 @@
    "look": "A bright sky leaves the foreground subject as a nearly black outline with little interior detail.",
    "tier": "plausible",
    "tags": {
+    "space": [
+     "outdoor"
+    ],
     "time_of_day": [
      "dawn",
      "day",
@@ -212,9 +229,6 @@
     ],
     "source": [
      "sky"
-    ],
-    "space": [
-     "outdoor"
     ]
    }
   },
@@ -224,6 +238,10 @@
    "look": "After the sun drops below the horizon, peach and rose sky light softly colors the scene without direct shadows.",
    "tier": "typical",
    "tags": {
+    "space": [
+     "indoor",
+     "outdoor"
+    ],
     "time_of_day": [
      "dusk"
     ],
@@ -242,6 +260,10 @@
    "look": "Deep blue twilight wraps the scene in cool, low-contrast light after sunset or before sunrise.",
    "tier": "typical",
    "tags": {
+    "space": [
+     "indoor",
+     "outdoor"
+    ],
     "time_of_day": [
      "dawn",
      "dusk"
@@ -262,6 +284,10 @@
    "look": "Dim silvery light creates cool highlights and long shadows against a dark night scene.",
    "tier": "typical",
    "tags": {
+    "space": [
+     "indoor",
+     "outdoor"
+    ],
     "time_of_day": [
      "night"
     ],
@@ -341,7 +367,8 @@
     "source": [
      "sun"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "post-rain sunlight",
@@ -450,7 +477,8 @@
     "source": [
      "sky"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "canyon bounce light",
@@ -472,7 +500,8 @@
     "source": [
      "sun"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "sand-bounced sunlight",
@@ -494,7 +523,8 @@
     "source": [
      "sun"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "water-bounced sunlight",
@@ -516,7 +546,8 @@
     "source": [
      "sun"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "curtain-filtered daylight",
@@ -726,7 +757,8 @@
     "source": [
      "sky"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "aurora light",
@@ -747,8 +779,12 @@
     ],
     "source": [
      "sky"
+    ],
+    "climate": [
+     "cold"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "solar-eclipse light",
@@ -770,7 +806,8 @@
     "source": [
      "sun"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "underwater sunlight",
@@ -779,7 +816,7 @@
    "tier": "plausible",
    "tags": {
     "space": [
-     "outdoor"
+     "underwater"
     ],
     "time_of_day": [
      "day"
@@ -812,7 +849,8 @@
      "soft",
      "cool"
     ]
-   }
+   },
+   "opt_in": true
   },
   {
    "text": "whiteout daylight",
@@ -835,6 +873,42 @@
     ],
     "source": [
      "sky"
+    ]
+   },
+   "opt_in": true
+  },
+  {
+   "text": "soft natural light",
+   "tier": "typical",
+   "look": "Gentle daylight from no single visible source wraps the subject softly, with mild shadows and true colors.",
+   "tags": {
+    "space": "any",
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ],
+    "source": [
+     "sky"
+    ],
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "bright natural daylight",
+   "short": "bright daylight",
+   "tier": "typical",
+   "look": "Clear daylight lights the subject brightly and evenly, with crisp but unforced shadows and clean color.",
+   "tags": {
+    "space": "any",
+    "time_of_day": [
+     "day"
+    ],
+    "source": [
+     "sky",
+     "sun"
     ]
    }
   }
@@ -861,7 +935,8 @@
     "mismatch": "never"
    },
    "space": {
-    "mismatch": "never"
+    "mismatch": "never",
+    "unstated": "opt_in"
    },
    "climate": {
     "mismatch": "rare",

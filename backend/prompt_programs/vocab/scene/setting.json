@@ -1,0 +1,48 @@
+{
+ "id": "scene.setting",
+ "label": "Setting",
+ "description": "Where the scene is: indoors, outdoors or underwater.",
+ "pos": "adverb",
+ "frame": "the scene is set ___",
+ "notes": "The broad setting a prompt states, read so that lights and weather that need a setting are drawn only where it is stated. Not offered for slots: a place slot binds a room or outdoor place list, which gives the same context when drawn.",
+ "facets": [
+  "space"
+ ],
+ "closed": true,
+ "catalog": false,
+ "context": {
+  "gives": [
+   "space"
+  ],
+  "stated": true
+ },
+ "values": [
+  {
+   "text": "indoors",
+   "tier": "typical",
+   "tags": {
+    "space": [
+     "indoor"
+    ]
+   }
+  },
+  {
+   "text": "outdoors",
+   "tier": "typical",
+   "tags": {
+    "space": [
+     "outdoor"
+    ]
+   }
+  },
+  {
+   "text": "underwater",
+   "tier": "unusual",
+   "tags": {
+    "space": [
+     "underwater"
+    ]
+   }
+  }
+ ]
+}
