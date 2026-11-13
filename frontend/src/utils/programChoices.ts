@@ -329,6 +329,28 @@ export function isBuilder(slot: ProgramSlot, choice: (id: string) => ProgramChoi
   return rowsOf(slot, choice).length > 1
 }
 
+/** A person or an animal stands as its words when every detail is off (a camera with its
+    details off is left out). Its As written turns them all off, on its details' card or on a
+    single detail's, and it has no Leave out of its own. */
+export function standsAsWritten(slot: Pick<ProgramSlot, 'kind'>): boolean {
+  return slot.kind === 'person' || slot.kind === 'animal'
+}
+
+/** Every detail of the slot is off, at least one by choice: it stands as written. */
+export function detailsAsWritten(slot: ProgramSlot, choice: (id: string) => ProgramChoice | undefined,
+                                 states: ProgramChoices): boolean {
+  const ids = slot.details.filter(id => choice(id))
+  return ids.length > 0 && ids.every(id => isOff(choice(id), states[id])) && ids.some(id => states[id]?.off)
+}
+
+/** The states that turn a slot's details all off (as written), or put them back. */
+export function toggleDetailsAsWritten(slot: ProgramSlot, choice: (id: string) => ProgramChoice | undefined,
+                                       states: ProgramChoices): Record<string, ChoiceState | null> {
+  const on = detailsAsWritten(slot, choice, states)
+  return Object.fromEntries(slot.details.filter(id => choice(id)).map(id => [id, on ? resetState(states[id])
+    : { off: true, ...(states[id]?.add?.length ? { add: states[id].add } : {}) }]))
+}
+
 /** Three or more of one person's details chosen: one pill for the person. */
 export const FOLD = 3
 
@@ -368,7 +390,11 @@ export function pillsOf(w: ChoiceWorld): Pill[] {
       // One row: the slot's pill is that row's ("Camera angle low angle"); what goes with it
       // (an outfit's colors) has a pill of its own once changed.
       const [one] = rowsOf(slot, get)
-      if (one) out.push(choicePill(one, slot.label, slot, { slot: slot.id }))
+      if (one && standsAsWritten(slot) && detailsAsWritten(slot, get, w.states)) {
+        // An animal with its one detail off is its words, not left out.
+        out.push({ id: one.id, open: { slot: slot.id }, label: slot.label, value: 'as written', swatches: null,
+          title: `${slot.label}\nas written`, changed: true, resets: details.map(c => c.id), folded: false })
+      } else if (one) out.push(choicePill(one, slot.label, slot, { slot: slot.id }))
       for (const c of details) if (c !== one && isChanged(st(c.id))) out.push(choicePill(c, c.label, null, { choice: c.id }))
       continue
     }

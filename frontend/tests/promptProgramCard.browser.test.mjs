@@ -122,9 +122,31 @@ test('a builder with one detail opens straight on its options, titled by the slo
   await option('beagle').click()
   await expect.poll(state).toEqual({ 'dog.breed': { values: ['beagle'] } })
   await expect(pill('dog.breed')).toHaveText('Dogbeagle')
-  await expect(card.locator('[data-as-written]')).toBeVisible()
+  // An animal is never left out: As written turns its details off, as its builder's does,
+  // and it stands as its words.
+  await expect(card.locator('[data-leave-out]')).toHaveCount(0)
+  await card.locator('[data-as-written]').click()
+  await expect.poll(state).toEqual({ 'dog.breed': { off: true } })
+  await expect(pill('dog.breed')).toHaveText('Dogas written')
+  await expect(card.locator('[data-as-written]')).toHaveAttribute('aria-pressed', 'true')
+  await card.locator('[data-as-written]').click()
+  await expect.poll(state).toEqual({})
   await page.keyboard.press('Escape')
   await expect(card).toHaveCount(0)
+})
+
+test('an outfit list opens on its options; its colors are a chooser of their own, never the slot as written', async t => {
+  const { page, pill, card, option, state } = await open(t)
+  await page.evaluate(() => window.setPrompt('a <dog> in a dorm room with a <young man> in an <outfit> and his <pet>, lit by <light>, {summer|autumn}'))
+  await pill('outfit').click()
+  await expect(card).toHaveAttribute('aria-label', 'Outfit')
+  await expect(card.locator('[data-as-written]')).toBeVisible()
+  await card.locator('[data-follower="outfit.colors"]').click()
+  await expect(card).toHaveAttribute('aria-label', 'Colors')
+  await expect(card.locator('[data-back]')).toHaveText('Outfit')
+  await expect(card.locator('[data-as-written]')).toHaveCount(0)
+  await option('navy, white and gray').click()
+  await expect.poll(state).toEqual({ 'outfit.colors': { values: ['navy, white and gray'] } })
 })
 
 test('three details chosen fold into the person’s pill; its × puts them all back', async t => {

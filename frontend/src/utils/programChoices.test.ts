@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   asWrittenState, carriedIds, carryChoices, changedCount, cleanState, drawable, isAsWritten, isChanged, keptPools, leaveOut, numberRepeats, optionsOf, pillsOf, pillValue,
-  isBuilder, isOff, resetState, rowsOf, swatchesOf, toggleToken, tokenText, turnOn, zonesOf, PALETTE_CLS,
+  detailsAsWritten, isBuilder, isOff, resetState, rowsOf, standsAsWritten, swatchesOf, toggleDetailsAsWritten, toggleToken, tokenText, turnOn, zonesOf, PALETTE_CLS,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
 
@@ -248,4 +248,11 @@ test('a builder with one detail is that detail’s chooser: one pill reading "La
   assert.deepEqual(pills.map(p => [p.label, p.value, p.open]), [
     ['Dog', 'beagle', { slot: 'dog' }], ['Outfit', '', { slot: 'outfit' }], ['Colors', 'navy, white and gray', { choice: 'outfit.colors' }],
   ])
+  // An animal with its one detail off stands as its words, as its builder does: never "No dog".
+  const off = toggleDetailsAsWritten(animal, get, {})
+  assert.deepEqual(off, { 'dog.breed': { off: true } })
+  assert.ok(standsAsWritten(animal) && !standsAsWritten(outfit) && detailsAsWritten(animal, get, off))
+  const [dogPill] = pillsOf({ slots: [animal], choices: cs, pools: {}, states: off })
+  assert.deepEqual([dogPill.label, dogPill.value, dogPill.changed, dogPill.resets], ['Dog', 'as written', true, ['dog.breed']])
+  assert.deepEqual(toggleDetailsAsWritten(animal, get, off), { 'dog.breed': null })
 })

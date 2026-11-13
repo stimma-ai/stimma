@@ -98,7 +98,7 @@ import Spinner from '../ui/Spinner.vue'
 import PromptProgramOptions from './PromptProgramOptions.vue'
 import { useAnchoredMenuPosition } from '../../composables/useContextMenuPosition'
 import { useViewport } from '../../composables/useViewport'
-import { isChanged, isOff, offLabel, pillValue, resetState } from '../../utils/programChoices'
+import { detailsAsWritten, isChanged, isOff, offLabel, pillValue, toggleDetailsAsWritten } from '../../utils/programChoices'
 import type { PromptProgram, ProgramChoice, ProgramSlot } from '../../composables/usePromptProgram'
 
 const props = defineProps<{ program: PromptProgram }>()
@@ -131,8 +131,10 @@ type View =
 
 function choiceView(c: ProgramChoice): View {
   const slot = c.slot ? props.program.slotById.value[c.slot] : null
-  // A slot that is this one choice can be drawn as written.
-  return { kind: 'choice', choice: c, slot: slot && !props.program.isBuilder(slot) ? slot : null }
+  // A slot that is this one choice can be drawn as written; what goes with it (an outfit's
+  // colors) is a choice of its own.
+  const own = slot && !props.program.isBuilder(slot) && props.program.detailsOf(slot)[0]?.id === c.id
+  return { kind: 'choice', choice: c, slot: own ? slot : null }
 }
 const topView = computed<View | null>(() => {
   const t = card.value?.target
@@ -202,13 +204,10 @@ function resetRow(d: ProgramChoice) {
   props.program.reset(withFollowers(d).map(c => c.id))
 }
 // As written: every detail left out, which leaves the slot's own words.
-const allIds = computed(() => panelSlot.value?.details.filter(id => props.program.byId.value[id]) || [])
-const slotAsWritten = computed(() => allIds.value.length > 0
-  && allIds.value.every(id => isOff(props.program.byId.value[id], props.program.states.value[id]))
-  && allIds.value.some(id => props.program.states.value[id]?.off))
+const byId = (id: string) => props.program.byId.value[id]
+const slotAsWritten = computed(() => !!panelSlot.value && detailsAsWritten(panelSlot.value, byId, props.program.states.value))
 function toggleSlotAsWritten() {
-  const st = props.program.states.value
-  props.program.setStates(Object.fromEntries(allIds.value.map(id => [id, slotAsWritten.value ? resetState(st[id]) : { off: true, ...(st[id]?.add?.length ? { add: st[id].add } : {}) }])))
+  if (panelSlot.value) props.program.setStates(toggleDetailsAsWritten(panelSlot.value, byId, props.program.states.value))
 }
 
 // Keyboard: the card is teleported to the end of the page, so focus moves into it when

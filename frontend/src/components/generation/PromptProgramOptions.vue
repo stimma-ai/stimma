@@ -136,7 +136,8 @@ import { useViewport } from '../../composables/useViewport'
 import { MANY_OPTIONS, MAX_ROWS, matchesQuery, shownOption } from '../../utils/programVocab'
 import {
   PALETTE_CLS, asWrittenState, defaultZone, drawable, groupMembers, hasToken, isAsWritten, isChanged, isOff, leaveOut, partLabel,
-  pillValue, resetState, swatchesOf, toggleToken, tokenText, tokensOf, turnOn, valueText, zonesOf, type Token,
+  pillValue, resetState, standsAsWritten, swatchesOf, toggleToken, tokenText, tokensOf, turnOn, valueText, zonesOf, type Token,
+  detailsAsWritten, toggleDetailsAsWritten,
 } from '../../utils/programChoices'
 import type { PromptProgram, ProgramChoice, ProgramSlot } from '../../composables/usePromptProgram'
 
@@ -320,12 +321,17 @@ async function more() {
 
 // As written, Leave out ------------------------------------------------------------------
 const canAsWritten = computed(() => !!props.ownSlot)
-const asWritten = computed(() => isAsWritten(props.ownSlot, state.value))
+// An animal of one detail: As written is the builder's (its details off), and it is never left out.
+const builtSlot = computed(() => (props.ownSlot && standsAsWritten(props.ownSlot) ? props.ownSlot : null))
+const byId = (id: string) => props.program.byId.value[id]
+const asWritten = computed(() => builtSlot.value ? detailsAsWritten(builtSlot.value, byId, props.program.states.value)
+  : isAsWritten(props.ownSlot, state.value))
 function toggleAsWritten() {
   if (!props.ownSlot) return
-  props.program.setState(props.choice.id, asWritten.value ? resetState(state.value) : asWrittenState(props.ownSlot, state.value))
+  if (builtSlot.value) props.program.setStates(toggleDetailsAsWritten(builtSlot.value, byId, props.program.states.value))
+  else props.program.setState(props.choice.id, asWritten.value ? resetState(state.value) : asWrittenState(props.ownSlot, state.value))
 }
-const canLeaveOut = computed(() => !isFollower.value && !isOff(props.choice, state.value))
+const canLeaveOut = computed(() => !isFollower.value && !builtSlot.value && !isOff(props.choice, state.value))
 function leave() {
   props.program.setState(props.choice.id, leaveOut(state.value, props.choice))
   emit('left-out')
