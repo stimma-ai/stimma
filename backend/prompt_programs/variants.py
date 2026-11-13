@@ -43,7 +43,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-3"   # variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-4"   # variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
