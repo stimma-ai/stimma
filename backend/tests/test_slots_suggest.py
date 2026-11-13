@@ -106,6 +106,91 @@ class TestSuggest:
         assert len(ask.calls) == 2 and len(list(tmp_path.rglob("*.json"))) == 1
 
 
+# --------------------------------------------------------------------------- a photo's photography
+
+CAMERA_LISTS = ["camera.shot_size", "camera.lens", "camera.angle", "camera.film_look"]
+LIGHT_LISTS = ["lighting.dramatic", "lighting.indoor_practical", "lighting.natural", "lighting.studio"]
+
+
+def photo(*texts, adds=(), is_photo=True, stated=()):
+    return {**vary(*texts, adds=adds), "photo": is_photo, "stated": list(stated)}
+
+
+def names(got):
+    return [a["name"] for a in got["adds"]]
+
+
+class TestPhoto:
+    async def test_a_photo_is_offered_the_photography_it_lacks(self):
+        got = await sg.suggest(DORM, Fake(photo("young man", adds=["background"])))
+        assert got["adds"] == [
+            {"name": "background", "label": "background"},
+            {"name": "camera", "label": "camera", "kind": "camera", "lists": CAMERA_LISTS},
+            {"name": "light", "label": "light", "kind": "light", "lists": LIGHT_LISTS},
+        ]
+        assert [v["text"] for v in got["vary"]] == ["young man"]
+
+    async def test_what_the_prompt_states_is_not_offered(self):
+        got = await sg.suggest(DORM, Fake(photo(stated=[" Light ", "lens"])))  # lens: not a name, skipped
+        assert names(got) == ["camera"]
+        assert names(await sg.suggest(DORM, Fake(photo(stated=["camera", "light"])))) == []
+
+    async def test_not_a_photo_offers_none(self):
+        got = await sg.suggest(DORM, Fake(photo(adds=["light"], is_photo=False)))
+        assert got["adds"] == [{"name": "light", "label": "light"}]  # the model's own, as before
+
+    @pytest.mark.parametrize("fields", [
+        {},                                       # neither field
+        {"photo": "yes", "stated": []},           # not a boolean
+        {"photo": True},                          # stated missing
+        {"photo": True, "stated": "light"},       # not a list
+        {"photo": True, "stated": ["light", 3]},  # not names
+    ])
+    async def test_unreadable_fields_offer_none_and_keep_the_rest(self, fields):
+        ask = Fake({**vary("young man", adds=["light", "background"]), **fields})
+        got = await sg.suggest(DORM, ask)
+        assert got["adds"] == [{"name": "light", "label": "light"}, {"name": "background", "label": "background"}]
+        assert [v["text"] for v in got["vary"]] == ["young man"] and len(ask.calls) == 1  # no retry for it
+
+    async def test_the_models_photography_adds_give_way(self):
+        """For a photo, an add of the same name as a photography one is the vocabulary's,
+        once, in the photography's place."""
+        got = await sg.suggest(DORM, Fake(photo(adds=["Light", "background", "camera"])))
+        assert names(got) == ["background", "camera", "light"]
+        assert all("kind" in a for a in got["adds"][1:])
+        got = await sg.suggest(DORM, Fake(photo(adds=["camera", "weather"], stated=["camera"])))
+        assert names(got) == ["weather", "light"]  # stated: the camera is offered by neither
+
+    async def test_a_slot_already_there_is_not_offered(self):
+        prompt = "a <young man> in a dorm room, shot with <Camera>"
+        got = await sg.suggest(prompt, Fake(photo()))
+        assert names(got) == ["light"]
+
+    async def test_only_lists_the_vocabulary_has(self, monkeypatch):
+        monkeypatch.setattr(sg, "PHOTO", (("camera", "camera", ("camera.lens", "camera.nope")),
+                                          ("weather", "list", ("nature.nope",)), ("light", "light", ("lighting",))))
+        got = await sg.suggest(DORM, Fake(photo()))
+        assert [(a["name"], a["lists"]) for a in got["adds"]] == [("camera", ["camera.lens"]), ("light", LIGHT_LISTS)]
+
+    async def test_the_cache_keeps_the_reply_and_offers_again(self, tmp_path):
+        cache = NarrowCache(tmp_path)
+        ask = Fake(photo(stated=["camera"]))
+        first = await sg.suggest(DORM, ask, cache, model="m")
+        assert names(first) == ["light"]
+        assert await sg.suggest(DORM, ask, cache, model="m") == first and len(ask.calls) == 1
+
+    def test_the_prompt_asks_for_both_fields(self):
+        assert '"photo": true' in sg.SUGGEST_SYSTEM and '"stated": ["light"]' in sg.SUGGEST_SYSTEM
+        for name, _, _ in sg.PHOTO:
+            assert f'"{name}"' in sg.SUGGEST_SYSTEM
+
+    def test_every_photography_add_has_its_lists(self):
+        for name, kind, lists in sg.PHOTO:
+            assert sg.photo_lists(lists), name
+            assert kind in ("camera", "light", "list")
+        assert {name for name, _, _ in sg.PHOTO} >= {"camera", "light"}
+
+
 # --------------------------------------------------------------------------- add
 
 class TestAdd:
@@ -226,6 +311,9 @@ class TestRoutes:
                                 "adds": [{"name": "light", "label": "light"}]}
             again = await c.post("/api/prompt-programs/suggest", json={"prompt": DORM})
             assert again.json() == r.json() and len(ask.calls) == 1
+            monkeypatch.setattr(sg, "ask_model", Fake(photo(stated=["camera"])))
+            r = await c.post("/api/prompt-programs/suggest", json={"prompt": "a cat on a porch"})
+            assert r.json()["adds"] == [{"name": "light", "label": "light", "kind": "light", "lists": LIGHT_LISTS}]
             assert (await c.post("/api/prompt-programs/suggest", json={"prompt": DORM, "raw": True})).json() == {
                 "vary": [], "adds": []}
         assert list((tmp_path / "a" / "prompt_programs" / "suggest").rglob("*.json"))

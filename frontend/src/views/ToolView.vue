@@ -340,6 +340,7 @@
             :placeholder="promptPlaceholder"
             :programs="promptProgram.status.value !== 'off'"
             :suggest-context="promptSuggestContext"
+            :read-slots="promptReadSlots"
             :prompt-control="fluentOn"
           >
             <template v-if="fluentOn" #mode="{ openHelp }"><FluentControl
@@ -3978,6 +3979,16 @@ const lastFluentPrompt = computed<string | null>(() => lastFluentParams.value?.p
 const lastFluentRun = computed<any | null>(() => lastFluentParams.value?.prompt_program ?? null)
 // Suggest and Add ask the project's chat model, as Prepare does.
 const promptSuggestContext = computed(() => ({ project_id: projectScopeId.value ?? null }))
+// What the prompt in the box has been read as, so Suggest doesn't offer a photo's camera or
+// light when a slot already is one. Null until this prompt is prepared.
+const promptReadSlots = computed(() => {
+  const p = promptProgram.program.value
+  if (promptProgram.status.value !== 'ready' || !p) return null
+  return {
+    kinds: p.slots.filter(s => s.state !== 'reading').map(s => s.kind),
+    lists: p.choices.flatMap(c => (c.cls ? [c.cls] : [])),
+  }
+})
 // The tool finished loading: what's in the prompt box now is what to look up (and read).
 watch(isInitialLoading, (loading) => { if (!loading) void promptProgram.lookup() })
 // Fluent's "nothing was run" is about the prompt as it was: once the prompt, its mode or

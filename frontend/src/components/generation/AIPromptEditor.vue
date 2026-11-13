@@ -283,7 +283,7 @@ import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
 import { slotEditing, wrapSlot, replaceDocument, rangeRect, setVaryEffect } from '../../composables/promptSlotEditing'
-import { usePromptSuggestions } from '../../composables/usePromptSuggestions'
+import { slotCovers, usePromptSuggestions, type ReadSlots } from '../../composables/usePromptSuggestions'
 import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
 import PromptSlotAdds from './PromptSlotAdds.vue'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
@@ -325,6 +325,9 @@ interface Props {
   programs?: boolean
   /** Extra fields for Fluent's Suggest and Add requests (the project, whose chat model answers). */
   suggestContext?: Record<string, unknown>
+  /** What the prompt's slots were read as, once read: a photography add a slot already is
+      isn't offered. */
+  readSlots?: ReadSlots | null
   /** The host fills the `mode` slot with its own prompt control (Tool View's Fluent),
       replacing Enhance, Raw and the … help entry. A prop, not a slot check: slots
       aren't reactive, and the host can switch this at runtime. */
@@ -576,9 +579,9 @@ watch([answer, fluentSlots, () => props.modelValue], () => {
 const slotAdds = computed(() => {
   const text = props.modelValue
   if (!fluentSlots.value || !text.trim() || !answer.value) return []
-  // Not something the prompt already has as a slot.
+  // Not something the prompt already has as a slot: by its words, or read as what it is.
   const have = new Set(findSlots(text).map(([from, to]) => text.slice(from + 1, to - 1).trim().toLowerCase()))
-  return answer.value.suggestions.adds.filter(a => !have.has(a.name.trim().toLowerCase()))
+  return answer.value.suggestions.adds.filter(a => !have.has(a.name.trim().toLowerCase()) && !slotCovers(a, props.readSlots))
 })
 /** Have Fluent write `name` into the prompt as a slot (one undo step), then open it. */
 async function addSlot(name: string) {

@@ -6,16 +6,22 @@
  * a moment after typing stops and when the box loses focus, remembers each answer by the
  * exact prompt text, and drops answers that come back for text that has since changed.
  *
+ * For a photo, `adds` also holds the photography the prompt lacks (camera, light). Each of
+ * those carries the slot kind it is read as and the lists it draws from, so the editor can
+ * leave it out once a slot of the prompt is read as that (`slotCovers`, in
+ * utils/promptSuggestions.ts with the answer's shapes).
+ *
  * Add has a model write one of those things into the prompt as a slot. Both fail quietly:
  * nothing changes.
  */
 import { ref, watch, onUnmounted, type Ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
+import { cleanSuggestions, type Suggestions } from '../utils/promptSuggestions'
 
-export interface SuggestedPhrase { from: number; to: number; text: string }
-export interface SuggestedAdd { name: string; label: string }
-export interface Suggestions { vary: SuggestedPhrase[]; adds: SuggestedAdd[] }
+export type { ReadSlots, SuggestedAdd, SuggestedPhrase, Suggestions } from '../utils/promptSuggestions'
+export { slotCovers } from '../utils/promptSuggestions'
+
 export interface AddResult { prompt: string; slot: { from: number; to: number } }
 
 /** How long after the last keystroke Suggest runs. */
@@ -31,14 +37,6 @@ export interface PromptSuggestionsOptions {
 }
 
 const read = <T>(v: Ref<T> | (() => T)) => (typeof v === 'function' ? (v as () => T)() : v.value)
-
-function clean(data: any): Suggestions {
-  const vary = Array.isArray(data?.vary) ? data.vary.filter((p: any) =>
-    Number.isInteger(p?.from) && Number.isInteger(p?.to) && typeof p?.text === 'string') : []
-  const adds = Array.isArray(data?.adds) ? data.adds.filter((a: any) => typeof a?.name === 'string' && a.name.trim())
-    .map((a: any) => ({ name: a.name, label: typeof a.label === 'string' && a.label.trim() ? a.label : a.name })) : []
-  return { vary, adds }
-}
 
 export function usePromptSuggestions(o: PromptSuggestionsOptions) {
   /** The latest answer, and the exact text it is for. */
@@ -58,7 +56,7 @@ export function usePromptSuggestions(o: PromptSuggestionsOptions) {
     let p = inFlight.get(text)
     if (!p) {
       p = axios.post(`${getApiBase()}/prompt-programs/suggest`, body({ prompt: text }))
-        .then(({ data }) => { const s = clean(data); cache.set(text, s); return s })
+        .then(({ data }) => { const s = cleanSuggestions(data); cache.set(text, s); return s })
         .catch(() => null)
         .finally(() => { inFlight.delete(text) })
       inFlight.set(text, p)

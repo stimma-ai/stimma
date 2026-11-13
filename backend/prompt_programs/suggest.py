@@ -5,6 +5,11 @@ underlines them; a click wraps one in brackets) and a few things the prompt does
 that would be worth varying ("+ light"). Add writes one of those into the prompt as a slot,
 the way the person would have written it (", lit by <light>").
 
+When the picture is a photo, the chips also always offer the photography the prompt doesn't
+have yet (camera, light), from the vocabulary rather than written by the model each time.
+The same reply says whether it is a photo and which of those the prompt already states; a
+reply without those fields readable offers none of them.
+
 The model decides what could vary and how the words join. Code checks only structure: that
 a phrase is an exact stretch of the prompt where a slot can stand, the counts, and that Add
 kept everything that was there. Both replies are plain JSON; a reply that can't be read gets
@@ -25,9 +30,20 @@ from prompt_programs.slots import _VERBATIM, SLOT_RE, _line_marks, _lines, find_
 
 log = get_logger(__name__)
 
-SUGGEST_VERSION = "suggest-1"
+SUGGEST_VERSION = "suggest-2"   # suggest-2: the reply says whether the picture is a photo and what photography it states
 MAX_VARY = 6
 MAX_ADDS = 3
+
+# The photography a photo is always offered, as (its name: the slot's words, its chip and how
+# the reply names it; the reader's kind for that slot; the lists that slot draws from, or a
+# node whose lists it draws from). <camera> is the builder (shot size, lens, angle, film look),
+# <light> one named look among the lighting lists. The camera directory's other lists (color
+# grade, genre, composition) would be list slots, but not every reader binds those reliably yet:
+# a slot read as written would send its bare words.
+PHOTO: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
+    ("camera", "camera", tuple(f"camera.{d}" for d in ("shot_size", "lens", "angle", "film_look"))),
+    ("light", "light", ("lighting",)),
+)
 
 Span = Tuple[int, int]
 
@@ -37,12 +53,18 @@ Read their prompt and suggest two things.
 
 vary: phrases already written in the prompt that would be worth changing from picture to picture. Prefer what a person would most want to differ between pictures: who is in it, what they wear, the place, an animal, a thing they hold or use. Copy each phrase exactly as it is written, as the smallest stretch that names the thing together with the words that describe it: "young man", not "a young man in"; "red leather jacket", not "a red leather jacket and". Never the whole prompt and never a verb alone. Leave out anything already in angle brackets, square brackets or curly braces. At most 6, the best first. Fewer is fine, and so is none.
 
-adds: things the prompt doesn't mention at all that would be worth varying in this picture. Only what is truly missing: if the prompt already says anything about it, leave it out. What fits depends on the prompt: for a portrait perhaps the background or the light, for a street scene the weather or the time of day, for a product shot the surface it stands on. Name each in one or two plain words, in the prompt's own way of speaking. At most 3, the best first.
+adds: things the prompt doesn't mention at all that would be worth varying in this picture. Only what is truly missing: if the prompt already says anything about it, leave it out. What fits depends on the prompt: for a portrait perhaps the background or the light, for a street scene the weather or the time of day, for a product shot the surface it stands on. Name each in one or two plain words, in the prompt's own way of speaking. At most 3, the best first. When photo is true, leave the camera and the light out of adds: they are offered anyway.
+
+Then say two more things.
+
+photo: true when the picture is meant to look like a photograph, as any prompt that names no other medium is; false when it asks for a painting, drawing, illustration, anime, cartoon, 3D render or another look that isn't a photograph. A prompt written as anime-style tags ("1girl, solo") is anime unless its tags ask for a photo.
+
+stated: of the two names "camera" and "light", the ones the prompt already says anything about. "camera" when it says anything about the framing, shot size, lens, angle, film or format; "light" when it says anything about the light: its source, look, quality or the time of day that sets it. Only those names, never the prompt's words: [], ["camera"], ["light"] or ["camera", "light"].
 
 Lines starting with # are notes from the user, not part of the picture's text. Never take a phrase from them. They may say what the user does or doesn't want to vary: follow them.
 
 Reply with JSON only, in this shape:
-{"vary": ["young man", "dorm room"], "adds": [{"name": "light", "label": "light"}]}
+{"vary": ["young man", "dorm room"], "adds": [{"name": "time of day", "label": "time"}], "photo": true, "stated": ["light"]}
 For each add, name is the words that would go in the angle brackets and label is the one or two words shown on its button."""
 
 ADD_SYSTEM = """You add one changing part to an image prompt. The user marks the parts that change from picture to picture with angle brackets: "dorm room with a <young man>, lit by <light>". They ask you to add a new one, and you write it into their prompt the way they would have written it themselves.
@@ -138,10 +160,11 @@ def _body(prompt: str) -> str:
     return "\n".join(line for _, _, line in _lines(prompt) if not is_comment(line)).strip()
 
 
-def check_suggestions(prompt: str, got: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
-    """The reply's usable suggestions. A phrase is kept at its first stretch of the prompt
-    where a slot could stand, outside comment lines, verbatim, lists, names and slots, and
-    not over a phrase kept before it; the whole prompt is not a phrase."""
+def check_suggestions(prompt: str, got: Dict[str, Any]) -> Dict[str, Any]:
+    """The reply's usable suggestions, and `photo`: read_photo's answer. A phrase is kept at its
+    first stretch of the prompt where a slot could stand, outside comment lines, verbatim,
+    lists, names and slots, and not over a phrase kept before it; the whole prompt is not a
+    phrase. For a photo, the model's adds leave out the photography offered_adds offers."""
     blocked, slots = _blocked(prompt)
     body = _body(prompt)
     kept: List[Dict[str, Any]] = []
@@ -164,6 +187,9 @@ def check_suggestions(prompt: str, got: Dict[str, Any]) -> Dict[str, List[Dict[s
             break
     kept.sort(key=lambda k: k["from"])
 
+    photo = read_photo(got)
+    # A photo's photography comes from the vocabulary (offered_adds), not from the model.
+    own = {name for name, _, _ in PHOTO} if photo is not None else set()
     taken = {prompt[a + 1:b - 1].casefold() for a, b in slots} | {k["text"].casefold() for k in kept}
     adds: List[Dict[str, Any]] = []
     for item in got.get("adds") if isinstance(got.get("adds"), list) else []:
@@ -173,13 +199,62 @@ def check_suggestions(prompt: str, got: Dict[str, Any]) -> Dict[str, List[Dict[s
             continue
         name = item["name"].strip()
         label = item.get("label").strip() if isinstance(item.get("label"), str) and item["label"].strip() else name
-        if not SLOT_RE.fullmatch(f"<{name}>") or name.casefold() in taken:
+        if not SLOT_RE.fullmatch(f"<{name}>") or name.casefold() in taken or name.casefold() in own:
             continue
         taken.add(name.casefold())
         adds.append({"name": name, "label": label})
         if len(adds) == MAX_ADDS:
             break
-    return {"vary": kept, "adds": adds}
+    return {"vary": kept, "adds": adds, "photo": photo}
+
+
+def read_photo(got: Dict[str, Any]) -> Optional[List[str]]:
+    """The photography the prompt already states (names from PHOTO) when the reply says the
+    picture is a photo; None when it isn't one, or when its `photo` or `stated` can't be read
+    (logged: no photography is offered then). Unknown names in `stated` are skipped."""
+    photo = got.get("photo")
+    if photo is False:
+        return None
+    stated = got.get("stated")
+    if photo is not True or not isinstance(stated, list) or not all(isinstance(x, str) for x in stated):
+        log.info(f"[suggest] no usable photo/stated in the reply: photo={photo!r}, stated={stated!r}"[:240])
+        return None
+    said = {x.strip().casefold() for x in stated}
+    return [name for name, _, _ in PHOTO if name in said]
+
+
+def photo_lists(lists: Tuple[str, ...]) -> List[str]:
+    """The vocabulary lists a photography add draws from: each id that is a list, and every list
+    under one that is a node. Ids the vocabulary doesn't have are left out."""
+    from prompt_programs.vocab import vocabulary
+    vocab = vocabulary()
+    out: List[str] = []
+    for lid in lists:
+        if lid in vocab.leaves:
+            out.append(lid)
+        elif lid in vocab.nodes:
+            out += sorted(k for k in vocab.leaves if k.startswith(lid + "."))
+    return list(dict.fromkeys(out))
+
+
+def offered_adds(prompt: str, checked: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The checked reply's adds, then, for a photo, each photography add the prompt doesn't
+    state and has no slot of, nor an add of the same words. A photography add also carries the
+    reader's `kind` for it and the `lists` it draws from, so the editor can leave it out once a
+    slot is read as that."""
+    adds = list(checked.get("adds") or [])
+    stated = checked.get("photo")
+    if not isinstance(stated, list):
+        return adds
+    _, slots = _blocked(prompt)
+    taken = {prompt[a + 1:b - 1].strip().casefold() for a, b in slots} | {a["name"].casefold() for a in adds}
+    for name, kind, lists in PHOTO:
+        if name in stated or name in taken:
+            continue
+        have = photo_lists(lists)
+        if have:
+            adds.append({"name": name, "label": name, "kind": kind, "lists": have})
+    return adds
 
 
 def suggest_key(prompt: str, model: str) -> str:
@@ -189,9 +264,10 @@ def suggest_key(prompt: str, model: str) -> str:
 
 async def suggest(prompt: str, ask: Optional[Ask] = None, cache: Optional[NarrowCache] = None,
                   project_id: Optional[int] = None, model: str = "", raw: bool = False) -> Dict[str, List[Dict[str, Any]]]:
-    """{"vary": [{from, to, text}], "adds": [{name, label}]} for the prompt as sent. No call
-    for an empty prompt (or only comment lines) or Raw mode. Cached by the exact prompt; a
-    reply that can't be read twice gives nothing and isn't cached."""
+    """{"vary": [{from, to, text}], "adds": [{name, label}, ...]} for the prompt as sent; a
+    photo's photography adds also carry {kind, lists}. No call for an empty prompt (or only
+    comment lines) or Raw mode. The checked reply is cached by the exact prompt; a reply that
+    can't be read twice gives nothing and isn't cached."""
     empty: Dict[str, List[Dict[str, Any]]] = {"vary": [], "adds": []}
     if raw or not _body(prompt):
         return empty
@@ -200,17 +276,17 @@ async def suggest(prompt: str, ask: Optional[Ask] = None, cache: Optional[Narrow
     if cache is not None:
         hit = cache.get_raw(key)
         if isinstance(hit, dict) and isinstance(hit.get("vary"), list) and isinstance(hit.get("adds"), list):
-            return hit
+            return {"vary": hit["vary"], "adds": offered_adds(prompt, hit)}
     messages: List[Dict[str, Any]] = [{"role": "system", "content": SUGGEST_SYSTEM},
                                       {"role": "user", "content": f"The prompt:\n{prompt}"}]
     for attempt in range(2):
         reply = await ask(messages, project_id, 800)
         got = _json_object(reply)
         if got is not None:
-            out = check_suggestions(prompt, got)
+            checked = check_suggestions(prompt, got)
             if cache is not None:
-                cache.put_raw(key, out)
-            return out
+                cache.put_raw(key, checked)
+            return {"vary": checked["vary"], "adds": offered_adds(prompt, checked)}
         log.info(f"[suggest] unreadable reply (try {attempt + 1}): {str(reply)[:160]!r}")
         messages = messages + [{"role": "assistant", "content": str(reply or "")},
                                {"role": "user", "content": "That reply wasn't a JSON object, so none of it could be used. "
