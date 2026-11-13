@@ -716,3 +716,18 @@ def test_the_writer_is_shown_the_words_around_the_slot():
     assert 'It stands between "taking a low quality cell phone" and ", slim to avg"' in msg[1]["content"]
     assert "no article or determiner of its own" in msg[0]["content"]
     assert slot_of("<lighting>").around() == ("(start of line)", "(end of line)")
+
+
+def test_a_top_up_fills_only_the_room_left_and_more_may_pass_the_cap_by_one_batch(tmp_path):
+    async def go():
+        fake = FakeWriter()
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
+        w.attach()
+        sl = slot_of(PROMPT, "list", "lighting", n=3)
+        w.store.append("a" * 32, {"batch": 0, "variants": [{"text": f"v{i}"} for i in range(P.MAX_POOL - 5)]})
+        new = await w.run(job_for(sl, V.Seeds(), key="a" * 32, role="top_up"))
+        assert len(new) == 5 and fake.calls[-1]["n"] == 5 and len(w.store.variants("a" * 32)) == P.MAX_POOL
+        assert await w.run(job_for(sl, V.Seeds(), key="a" * 32, role="top_up")) == []
+        assert len(await w.more(job_for(sl, V.Seeds(), key="a" * 32))) == V.TOPUP
+        assert len(w.store.variants("a" * 32)) == P.MAX_POOL + V.TOPUP
+    run(go())

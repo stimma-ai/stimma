@@ -507,13 +507,16 @@ class PoolWriter:
                 self._failed[job.key] = (why[:200], time.time())
                 log.info(f"[variants] {job.slot.words!r} stands as written: {why[:200]}")
             return out
-        if job.role == "top_up" and len(have) >= MAX_POOL:
+        # A background top-up fills only the room left under MAX_POOL. More like these, which the
+        # user asked for, may pass the cap by its own one batch.
+        n = TOPUP if job.role == "more" else min(TOPUP, MAX_POOL - len(have))
+        if n <= 0:
             return []
         b = await top_up(job.slot, seeds, [v["text"] for v in have], ask=self.ask, project_id=job.project_id,
-                         n=TOPUP, rng=random.Random(f"{job.key}|{done}"))
+                         n=n, rng=random.Random(f"{job.key}|{done}"))
         self.calls += 1
         seen = {_norm(v["text"]) for v in have}
-        kept = [v for v in b.variants if _norm(v["text"]) not in seen]
+        kept = [v for v in b.variants if _norm(v["text"]) not in seen][:n]
         if kept:
             self.store.append(job.key, self._record(job, b, done, kept))
         return [v["text"] for v in kept]
