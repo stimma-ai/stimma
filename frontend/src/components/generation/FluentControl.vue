@@ -1,7 +1,8 @@
 <template>
   <!-- Fluent: how Tool View sends a prompt to the image model. Fluent (the default)
        writes it the way this model understands it and varies it every image;
-       Direct fills in lists and saved wildcards with no model; Raw sends it exactly as typed.
+       Direct fills in lists and saved wildcards, then writes it at the Detail level as
+       Fluent does; Raw sends it exactly as typed.
        The chip says which, at rest; with no chat model set up, runs are Direct and the chip
        says so. Status only shows when there's something to wait for or fix. -->
   <div class="relative flex items-center">
@@ -66,7 +67,7 @@
           </div>
           <div class="px-3 pt-2.5 pb-2.5 text-[12px] leading-snug text-content-secondary">{{ tagline }}</div>
 
-          <template v-if="tab === 'fluent'">
+          <template v-if="tab === 'fluent' || tab === 'direct'">
             <div v-if="notice" :class="['mx-3 mb-2 rounded-md px-2.5 py-2 text-[12px] leading-snug', notice.tone === 'bad' ? 'bg-red-500/10 text-red-400' : 'bg-overlay-subtle text-content-secondary']">
               <div class="flex items-center gap-1.5 font-medium">
                 <Spinner v-if="busy" size="sm" />{{ notice.head }}
@@ -80,7 +81,7 @@
             <div class="border-t border-edge-subtle" />
             <!-- No chat model: Fluent's own settings can't apply, so they can't be reached either. -->
             <div
-              v-if="!program.unsupported.value"
+              v-if="showsDetail"
               :inert="llmUnconfigured || undefined"
               :aria-disabled="llmUnconfigured || undefined"
               :class="['flex items-center gap-3 px-3 py-2 coarse:py-3', llmUnconfigured ? 'opacity-40' : '']"
@@ -93,7 +94,7 @@
                 @update:model-value="(v) => emit('mode', v as EnhanceLevel)"
               />
             </div>
-            <div v-if="!program.unsupported.value" :class="['px-3 -mt-1 pb-2 text-[11px] leading-snug text-content-tertiary', llmUnconfigured ? 'opacity-40' : '']" data-detail-line>{{ LEVEL_LINES[enhance] }}</div>
+            <div v-if="showsDetail" :class="['px-3 -mt-1 pb-2 text-[11px] leading-snug text-content-tertiary', llmUnconfigured ? 'opacity-40' : '']" data-detail-line>{{ LEVEL_LINES[enhance] }}</div>
             <template v-if="hasLoras">
               <label class="flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer">
                 <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA trigger words</span>
@@ -101,7 +102,7 @@
               </label>
               <!-- Notes reach the model that writes each image's prompt; Yours has none. -->
               <label
-                v-if="enhance !== 'off' || program.unsupported.value"
+                v-if="improves"
                 :inert="llmUnconfigured || undefined"
                 :aria-disabled="llmUnconfigured || undefined"
                 :class="['flex items-center gap-3 px-3 py-2 coarse:py-3', llmUnconfigured ? 'opacity-40' : 'hover:bg-overlay-subtle cursor-pointer']"
@@ -110,14 +111,6 @@
                 <Toggle :model-value="!!loraNotes" label="LoRA notes" @update:model-value="(v) => emit('lora', 'loraNotes', v)" />
               </label>
             </template>
-          </template>
-          <!-- Direct has no model, so only the trigger words apply. -->
-          <template v-else-if="tab === 'direct'">
-            <div class="border-t border-edge-subtle" />
-            <label v-if="hasLoras" class="flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer">
-              <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA trigger words</span>
-              <Toggle :model-value="!!loraTriggers" label="LoRA trigger words" @update:model-value="(v) => emit('lora', 'loraTriggers', v)" />
-            </label>
           </template>
           <!-- Translate: Raw sends the prompt as typed, so it applies to the other two.
                The row shows the language; the list opens in place. -->
@@ -258,6 +251,8 @@ const props = defineProps<{
   direct: boolean
   /** Detail level: off is Yours (your wording joined up), fill is Medium (plus what the model needs), expand is High. */
   enhance: EnhanceLevel
+  /** Direct writes this tool's prompt at the Detail level (fluentSubmit directImproves). */
+  directImproves?: boolean
   /** No chat model is set up, so Fluent can't read prompts. */
   llmUnconfigured: boolean
   /** The image model's name, for the menu's one line of description. */
@@ -338,7 +333,9 @@ const tagline = computed(() => {
   // Name the features plainly; don't explain them.
   const model = props.modelName || 'the model'
   if (tab.value === 'raw') return `Your prompt goes to ${model} exactly as you typed it.`
-  if (tab.value === 'direct') return 'Fills in your lists and saved wildcards.'
+  if (tab.value === 'direct') return directWrites.value
+    ? `Fills in your lists and saved wildcards, then writes its prompt the way ${model} reads best, following your comments.`
+    : 'Fills in your lists and saved wildcards.'
   if (props.program.unsupported.value) return `Writes each image’s prompt in the form ${model} needs, following your comments.`
   return props.enhance === 'off'
     ? 'Fills in your slots and lists for every image, keeping your wording.'
@@ -358,6 +355,15 @@ const languageOptions = computed(() => [
   ...PROMPT_LANGUAGES.map(l => ({ code: l.code as string | null, label: l.label, english: l.english === l.label ? '' : l.english, picked: translating.value && languageCode.value === l.code })),
 ])
 const detail = computed(() => props.enhance === 'expand' || props.program.unsupported.value)
+// Detail level is one setting for Fluent and Direct. Fluent hides it where it always writes
+// the prompt fuller; Direct, where it sends the prompt as filled.
+const showsDetail = computed(() => tab.value === 'direct' ? !!props.directImproves : !props.program.unsupported.value)
+// Direct writes each image's prompt (at Medium or High, with a chat model).
+const directWrites = computed(() => !!props.directImproves && props.enhance !== 'off' && !props.llmUnconfigured)
+// A model writes each image's prompt in this tab, so the LoRA notes reach it.
+const improves = computed(() => tab.value === 'direct'
+  ? !!props.directImproves && props.enhance !== 'off'
+  : props.enhance !== 'off' || props.program.unsupported.value)
 const on = computed(() => running.value === 'fluent')
 const busy = computed(() => on.value && props.program.status.value === 'busy')
 // The prompt couldn't be read: runs go ahead on its words as written while it's read again
@@ -380,7 +386,9 @@ const chipTitleBase = computed(() => {
   if (running.value === 'raw') return 'Raw: sent exactly as typed'
   if (running.value === 'direct') return props.llmUnconfigured && way.value === 'fluent'
     ? `Direct: ${BRAND} needs a chat model`
-    : 'Direct: lists and saved wildcards filled in'
+    : directWrites.value
+      ? `Direct, ${props.enhance === 'fill' ? 'adding a little detail' : 'adding detail'}`
+      : 'Direct: lists and saved wildcards filled in'
   if (busy.value) return `Preparing your prompt…${props.previousRunning ? ' Images use your previous prompt until it’s ready.' : ''}`
   if (failed.value) return [fallback.value.head, fallback.value.body].filter(Boolean).join('. ')
   return detail.value ? `${BRAND}, adding detail` : props.enhance === 'fill' ? `${BRAND}, adding a little detail` : `${BRAND}, in your own words`

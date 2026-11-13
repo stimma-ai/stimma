@@ -804,8 +804,8 @@ class GenerationQueue:
         """A ready draw for this forever submit if one was made for exactly this
         signature, else None (the caller draws inline). Either way the pool is kept
         filled for this signature. `spec()` gives what realize_and_fix_many needs (entry,
-        pins, edits, zones, profile_id, project_id); it's called only when the
-        signature is new. Never blocks."""
+        pins, edits, zones, profile_id, project_id), or for Direct the prompt it fills
+        ("direct"); it's called only when the signature is new. Never blocks."""
         slots = self._forever_slots(generator_instance_id)
         if slots <= 0:
             return None
@@ -832,8 +832,12 @@ class GenerationQueue:
         from prompt_programs.program import draw_seed
 
         spec = intent['spec']
-        # Its draws wait for the judge like a submit's (this task is cancelled with the pool).
-        await await_judge(spec['entry'], project_id=spec.get('project_id'))
+        # Direct's fills (spec "direct": the prompt) share the pool: lists and saved
+        # wildcards drawn by code, no judge.
+        direct = spec.get('direct') is not None
+        if not direct:
+            # Its draws wait for the judge like a submit's (this task is cancelled with the pool).
+            await await_judge(spec['entry'], project_id=spec.get('project_id'))
         while self._prompt_warm_intent.get(generator_instance_id) is intent:
             missing = intent['concurrency'] - len(self._prompt_warm_ready.get(generator_instance_id, []))
             if missing <= 0:
@@ -841,11 +845,16 @@ class GenerationQueue:
             # Fresh seeds, exactly as a submit without a draw seed gets.
             seeds = [draw_seed() for _ in range(missing)]
             try:
-                attach_filler(spec['entry'], spec.get('profile_id'))
-                made = await asyncio.to_thread(
-                    realize_and_fix_many, spec['entry'], seeds=seeds, pins=spec.get('pins'),
-                    edits=spec.get('edits'), zones=spec.get('zones'),
-                    profile_id=spec.get('profile_id'), project_id=spec.get('project_id'))
+                if direct:
+                    from prompt_pipeline import _profile_wildcards_and_segments, draw_marked
+                    sources = _profile_wildcards_and_segments(spec.get('profile_id'))
+                    made = [draw_marked(spec['direct'], *sources) for _ in seeds]
+                else:
+                    attach_filler(spec['entry'], spec.get('profile_id'))
+                    made = await asyncio.to_thread(
+                        realize_and_fix_many, spec['entry'], seeds=seeds, pins=spec.get('pins'),
+                        edits=spec.get('edits'), zones=spec.get('zones'),
+                        profile_id=spec.get('profile_id'), project_id=spec.get('project_id'))
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -853,7 +862,10 @@ class GenerationQueue:
                 return
             if self._prompt_warm_intent.get(generator_instance_id) is not intent:
                 return  # the program, pins or settings changed meanwhile: drop it
-            good = [{'result': m[0], 'fix': m[1], 'seed': s} for s, m in zip(seeds, made) if not isinstance(m, Exception)]
+            if direct:
+                good = [{'filled': text, 'spans': [list(sp) for sp in spans]} for text, spans in made]
+            else:
+                good = [{'result': m[0], 'fix': m[1], 'seed': s} for s, m in zip(seeds, made) if not isinstance(m, Exception)]
             if not good:
                 return  # nothing draws (a pin nothing satisfies): submits say why inline
             for hot in good:
@@ -873,10 +885,14 @@ class GenerationQueue:
 
         outcome: Dict[str, Any] = {}
         settings = {k: v for k, v in spec['improve'].items() if k != 'prompt_options'}
+        if 'filled' in hot:  # a Direct fill
+            prompt, spans = hot['filled'], hot['spans']
+        else:
+            prompt, spans = hot['result'].prompt, spans_of(hot['result'])
         try:
             sent = await run_prompt_pipeline(
-                self._get_db(spec.get('profile_id')), hot['result'].prompt, spec['improve'].get('prompt_options'),
-                fixed_spans=spans_of(hot['result']), outcome=outcome, **settings)
+                self._get_db(spec.get('profile_id')), prompt, spec['improve'].get('prompt_options'),
+                fixed_spans=spans, outcome=outcome, **settings)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -3899,6 +3915,7 @@ class GenerationQueue:
             extra={k: v for k, v in {
                 "input_usage": exec_result.metadata.get("input_usage"),
                 "prompt_program": original_params.get("prompt_program"),
+                "prompt_direct": original_params.get("prompt_direct"),
             }.items() if v} or None,
         ))
         log.debug(f"Job {job.id}: Built generation_metadata for {provider.provider_id}")

@@ -38,6 +38,7 @@ INTERNAL_PARAM_KEYS = frozenset({
     "negative_prompt",
     "prompt_metadata",
     "prompt_program",
+    "prompt_direct",
     "auto_marker_ids",
     "mask_image",
     "input_images",

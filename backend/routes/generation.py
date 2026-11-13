@@ -671,6 +671,21 @@ async def _apply_generation_prompt_pipeline(
         outcome = {}
         # A preload was improved without seeing this image's draws: never used for Fluent.
         effective_preload = None
+    # Direct with a Detail level: the prompt filled as Direct fills it (lists and saved
+    # wildcards drawn, slots as their words), then improved per image like Fluent's fill,
+    # keeping every drawn value. Yours sends it as filled, and a prompt that isn't a picture
+    # to describe (an edit, a sound, a structured format) is never improved in Direct.
+    direct = not raw and not fluent and bool((prompt_options or {}).get("direct"))
+    direct_improve = direct and enhance_on and ctx["program_supported"]
+    if direct and not direct_improve and enhance_on:
+        prompt_options = {**(prompt_options or {}), "autoImprove": {**auto_improve, "enabled": False}}
+        enhance_on = False
+    if direct_improve:
+        level = "fill" if auto_improve.get("level") == "fill" else "expand"
+        prompt_options = {**(prompt_options or {}), "autoImprove": {**auto_improve, "enabled": True, "level": level}}
+        outcome = {}
+        # A preload or warm prompt was improved the classic way, without these draws.
+        effective_preload = None
     lora_context = (_shape_lora_context(await lora_context_for(tool_id, parameters, profile_id), lora_triggers, lora_notes)
                     if enhance_on else None)
     pipeline = dict(
@@ -695,12 +710,32 @@ async def _apply_generation_prompt_pipeline(
             hot_draws_for=generator_instance_id if forever else None,
             improve_ahead=improve_ahead, ahead=ahead,
         )
+    filled: Optional[str] = None
+    if direct_improve:
+        improve_ahead = None
+        if forever and generator_instance_id:
+            improve_ahead = {"signature": await improve_signature(pipeline, ctx["mode"]), "pipeline": pipeline}
+        prompt, fixed_spans = _direct_fill(prompt, profile_id=profile_id, project_id=project_id,
+                                           hot_fills_for=generator_instance_id if forever else None,
+                                           improve_ahead=improve_ahead, ahead=ahead)
+        filled = prompt
+    settings = {k: v for k, v in pipeline.items() if k != "prompt_options"}
     if ahead:
         log.info("[prompt-program] hot draw, improved ahead: no model call at submit")
         processed_prompt = ahead["sent"]
         outcome = ahead["improve"]
+    elif direct_improve:
+        try:
+            processed_prompt = await run_prompt_pipeline(
+                db, prompt, prompt_options, fixed_spans=fixed_spans, outcome=outcome, **settings)
+        except Exception as e:
+            # Direct never fails on the improver: the prompt goes as filled.
+            log.warning(f"[prompt-pipeline] Direct: Improve failed, sending the prompt as filled: {str(e)[:200]}")
+            outcome = {"improved": "fallback", "reason": "the improver failed"}
+            as_filled = {**prompt_options, "autoImprove": {**auto_improve, "enabled": False}}
+            processed_prompt = await run_prompt_pipeline(
+                db, prompt, as_filled, **{**settings, "lora_context": None, "level": None})
     else:
-        settings = {k: v for k, v in pipeline.items() if k != "prompt_options"}
         processed_prompt = await run_prompt_pipeline(
             db,
             prompt,
@@ -718,6 +753,10 @@ async def _apply_generation_prompt_pipeline(
         # sent and what the improver did.
         updated["prompt_program"] = {**program_run, "level": level, "sent": processed_prompt,
                                      "improve": outcome or {}}
+    elif filled is not None:
+        # Direct, improved: the prompt as filled, what was sent and what the improver did.
+        updated["prompt_direct"] = {"filled": filled, "level": level, "sent": processed_prompt,
+                                    "improve": outcome or {}}
     # Trigger words for every LoRA this run uses, at the front when missing (Fluent and
     # Direct; never Raw, and never inside a structured format).
     structured = ctx["mode"] == "minimax-h3" or (ctx["mode"] == "ideogram" and enhance_on)
@@ -826,6 +865,55 @@ async def _run_slots(
     if not (fix or {}).get("rounds"):  # the fix record's rounds carry each roll's prompt
         record["view"] = prompt_view(result)
     return record, result.prompt, spans
+
+
+def _direct_fill(
+    prompt: str,
+    *,
+    profile_id: Optional[str],
+    project_id: Optional[int],
+    hot_fills_for: Optional[str] = None,
+    improve_ahead: Optional[Dict[str, Any]] = None,
+    ahead: Optional[Dict[str, Any]] = None,
+) -> Tuple[str, List[Tuple[int, int]]]:
+    """One image's Direct fill for the improver (prompt_pipeline.draw_marked): the filled
+    prompt and where each drawn value stands in it. `hot_fills_for`: a forever-mode
+    submit's generator instance, served a fill its pool made, and improved, ahead (the
+    same pool as Fluent's hot draws); a fill served improved fills `ahead` with the prompt
+    to send ("sent") and what the improver did ("improve")."""
+    from prompt_pipeline import _profile_wildcards_and_segments, draw_marked
+
+    if hot_fills_for and improve_ahead:
+        hot = _take_hot_fill(hot_fills_for, prompt, profile_id=profile_id, project_id=project_id,
+                             improve_ahead=improve_ahead)
+        if hot is not None:
+            if ahead is not None and isinstance(hot.get("sent"), str):
+                ahead.update(sent=hot["sent"], improve=hot.get("improve") or {})
+            return hot["filled"], [tuple(s) for s in hot["spans"]]
+    return draw_marked(prompt, *_profile_wildcards_and_segments(profile_id))
+
+
+def _take_hot_fill(generator_instance_id: str, prompt: str, *, profile_id: Optional[str],
+                   project_id: Optional[int], improve_ahead: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """A current improved-ahead Direct fill for this forever submit, or None to fill
+    inline. Its signature is the prompt and everything the improved text depends on
+    (improve_signature, which covers the wildcards and segments it draws from), so it
+    never matches a Fluent draw's. A broken pool never costs the submit."""
+    import copy
+    import hashlib
+    from generation_queue import get_generation_queue
+    try:
+        signature = hashlib.sha256(json.dumps(
+            {"direct": prompt, "profile_id": profile_id, "project_id": project_id,
+             "improve": improve_ahead["signature"]}, sort_keys=True).encode()).hexdigest()
+
+        def spec() -> Dict[str, Any]:
+            return copy.deepcopy({"direct": prompt, "profile_id": profile_id, "project_id": project_id,
+                                  "improve": improve_ahead["pipeline"]})
+        return get_generation_queue().take_fluent_draw(generator_instance_id, signature, spec)
+    except Exception as e:
+        log.warning(f"Direct hot fills: take failed for {generator_instance_id}: {e}")
+        return None
 
 
 def pins_for_kept_choices(entry: Dict[str, Any], keep: Dict[str, Any]) -> Dict[str, List[str]]:

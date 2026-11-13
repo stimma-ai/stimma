@@ -6,7 +6,8 @@ import { isInsufficientBalanceCode, isLlmSetupCode } from './llmErrorCodes.ts'
 import { keepGroups, type KeepWorld } from './keepFromThis.ts'
 
 /** How the prompt is read for this run. With no chat model, everything but Raw is Direct:
-    lists, saved wildcards and segments fill, brackets unwrap, # lines drop, no model. */
+    lists, saved wildcards and segments fill, brackets unwrap, # lines drop, no model.
+    Direct with a chat model is improved at the Detail level, as Fluent is. */
 export type PromptWay = 'fluent' | 'direct' | 'raw'
 
 export function effectiveWay(o: { raw: boolean; direct: boolean; llmUnconfigured: boolean }): PromptWay {
@@ -24,6 +25,9 @@ export interface PromptOptionsContext {
   /** The tool's prompt format can't be prepared (Ideogram JSON, MiniMax H3): the prompt
       is written fuller per image instead, which is what the menu promises there. */
   unsupported: boolean
+  /** Direct can improve this tool's prompt (directImproves): it describes a picture or a
+      clip, not an edit, a sound or a structured format. */
+  directImproves?: boolean
   /** Fields the per-image enhancer reads (model, isVideo, mode, …). */
   enhance: Record<string, any>
   /** What the prepared program carries, or undefined when no program runs. */
@@ -96,8 +100,11 @@ export function shapePromptOptions(saved: any, c: PromptOptionsContext): any {
   const way = c.fluentOn ? effectiveWay({ raw: false, direct: !!base.direct, llmUnconfigured: c.llmUnconfigured }) : null
   // Tools with no prompt input have nothing to enhance or translate: stale UI state from
   // another tool never reaches them. Classic builds send an enabled Enhance even with no
-  // chat model, so it fails visibly; with the feature on, no chat model means Direct.
-  let enhanceOn = c.toolHasPrompt && !!base.autoImprove?.enabled && way !== 'direct'
+  // chat model, so it fails visibly; with the feature on, no chat model means Direct, with
+  // nothing improved. Direct with a chat model is improved at the Detail level where the
+  // prompt describes a picture.
+  let enhanceOn = c.toolHasPrompt && !!base.autoImprove?.enabled
+    && (way !== 'direct' || (!c.llmUnconfigured && !!c.directImproves))
   // A tool that can't be prepared hides Detail level and says it writes a fuller prompt.
   if (way === 'fluent' && c.unsupported && c.toolHasPrompt) enhanceOn = true
   return {
@@ -106,6 +113,13 @@ export function shapePromptOptions(saved: any, c: PromptOptionsContext): any {
     translate: { ...base.translate, enabled: c.toolHasPrompt && !c.llmUnconfigured && !!base.translate?.enabled },
     program: way === 'direct' ? undefined : c.program,
   }
+}
+
+/** Whether Direct improves this tool's prompt: one that describes a picture or a clip.
+    An edit instruction, a sound and a structured format (Ideogram JSON, MiniMax H3) go as
+    filled. Mirrors the backend's program_supported (routes/generation.py). */
+export function directImproves(t: { ideogram: boolean; h3: boolean; audio: boolean; inputImageCount: number }): boolean {
+  return !t.ideogram && !t.h3 && !t.audio && t.inputImageCount === 0
 }
 
 /** A run's tile in the strip, from the click until its job is queued: while the prompt is

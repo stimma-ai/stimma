@@ -57,6 +57,30 @@ test('each detail level says how much it adds, in plain words', async t => {
   assert.doesNotMatch(text, /wildcards? and follows|expands your prompt|—/)
 })
 
+test('Direct shares the detail level, and Raw has none', async t => {
+  const { page, menu } = await open(t)
+  await menu.getByRole('radio', { name: 'Direct' }).click()
+  await expect(menu.getByRole('radio', { name: 'Direct' })).toHaveAttribute('aria-checked', 'true')
+  const line = menu.locator('[data-detail-line]')
+  await expect(line).toHaveText('Adds a little: a few sentences, or a short list of tags.')
+  await expect(menu).toContainText('Fills in your lists and saved wildcards, then writes its prompt the way Krea 2 reads best')
+  await expect(menu.getByText('LoRA notes')).toBeVisible()
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/fluent-menu-direct.png` })
+  await menu.getByRole('radio', { name: 'High' }).click()
+  assert.equal(await page.evaluate(() => window.level()), 'expand')
+  await menu.getByRole('radio', { name: 'Yours' }).click()
+  await expect(line).toHaveText('Your words as written, nothing added.')
+  await expect(menu).toContainText('Fills in your lists and saved wildcards.')
+  await expect(menu.getByText('LoRA notes')).toHaveCount(0)
+  // A tool whose prompt Direct sends as filled (an edit, a sound) shows no detail level.
+  await page.evaluate(() => window.setDirectImproves(false))
+  await expect(line).toHaveCount(0)
+  await page.evaluate(() => window.setDirectImproves(true))
+  await menu.getByRole('radio', { name: 'Raw' }).click()
+  await expect(line).toHaveCount(0)
+  await expect(menu.getByText('Translate prompt')).toHaveCount(0)
+})
+
 test('on a phone the menu reads the same', async t => {
   const { menu } = await open(t, { viewport: { width: 390, height: 800 }, hasTouch: true, isMobile: true })
   await expect(menu.locator('[data-detail-line]')).toBeVisible()

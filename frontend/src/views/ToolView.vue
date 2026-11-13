@@ -348,6 +348,7 @@
               :raw="rawMode"
               :direct="directMode"
               :enhance="enhanceLevel"
+              :direct-improves="directImprovesHere"
               :llm-unconfigured="llmUnconfigured"
               :model-name="tool?.name"
               :has-loras="hasLoras"
@@ -3435,7 +3436,7 @@ import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptPro
 import PromptProgramChoices from '../components/generation/PromptProgramChoices.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
-import { DRAWING_LABEL, PREPARING_LABEL, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
+import { DRAWING_LABEL, PREPARING_LABEL, directImproves, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import PromptProgramCard from '../components/generation/PromptProgramCard.vue'
 import KeepFromThisCard from '../components/generation/KeepFromThisCard.vue'
@@ -3938,8 +3939,8 @@ const {
 
 // Prompt programs ----------------------------------------------------------------
 // In Fluent the prompt is prepared once into a program and each run draws from it (no
-// model call per image); Detail level says how much it adds. Direct and Raw use no model,
-// and with no chat model set up every run is Direct. See usePromptProgram.ts.
+// model call per image); Detail level says how much it adds, in Direct too. Raw uses no
+// model, and with no chat model set up every run is Direct, as filled. See usePromptProgram.ts.
 // Fluent's modes, only where Fluent ships (promptBrand.ts).
 const fluentOn = fluentEnabled
 const rawMode = computed(() => fluentOn.value && !!globalPrefs.value.promptOptions?.raw)
@@ -4126,6 +4127,11 @@ const enhanceUsesImage = computed(() => {
   return !!(source?.path || source?.file_path || source?.filePath)
 })
 const enhanceIsMiniMaxH3 = computed(() => /(?:minimax[\s._-]*h3|hailuo[\s._-]*(?:h3|0?3|3(?:\.0)?))/i.test(toolModelString.value || ''))
+// Direct improves at the Detail level only a prompt that describes a picture or a clip.
+const directImprovesHere = computed(() => directImproves({
+  ideogram: enhanceMode.value === 'ideogram-json', h3: enhanceIsMiniMaxH3.value,
+  audio: enhanceIsAudio.value, inputImageCount: enhanceInputImageCount.value,
+}))
 
 // Server-owned prompt warm pool: while generate-forever is running, tells the
 // server how many LLM-enhanced prompt variants to keep ready so submits pick
@@ -5827,6 +5833,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
     llmUnconfigured: llmUnconfigured.value,
     toolHasPrompt,
     unsupported: promptProgram.unsupported.value,
+    directImproves: directImprovesHere.value,
     enhance: {
       model: toolModelString.value || null,
       // Task-authoritative: video tools always get cinematography.

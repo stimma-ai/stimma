@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { effectiveWay, foreverSlot, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, readPending, shownKey, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
+import { directImproves, effectiveWay, foreverSlot, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, readPending, shownKey, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
@@ -33,11 +33,31 @@ test('no chat model on a tool that cannot be prepared is still Direct', () => {
   assert.equal(out.autoImprove.enabled, false)
 })
 
-test('Direct sends no program and no Enhance', () => {
-  const out = shapePromptOptions(saved({ direct: true }), ctx())
-  assert.equal(out.autoImprove.enabled, false)
+test('Direct sends no program, and is improved at the Detail level where its prompt describes a picture', () => {
+  const out = shapePromptOptions(saved({ direct: true, autoImprove: { enabled: true, level: 'fill' } }), ctx({ directImproves: true }))
+  assert.equal(out.direct, true)
+  assert.equal(out.autoImprove.enabled, true)
+  assert.equal(out.autoImprove.level, 'fill')
   assert.equal(out.program, undefined)
   assert.equal(out.loraTriggers, true)
+})
+
+test('Direct at Yours, on a prompt that is not a picture, or with no chat model, sends no Enhance', () => {
+  const yours = shapePromptOptions(saved({ direct: true, autoImprove: { enabled: false } }), ctx({ directImproves: true }))
+  assert.equal(yours.autoImprove.enabled, false)
+  const edit = shapePromptOptions(saved({ direct: true }), ctx({ directImproves: false }))
+  assert.equal(edit.autoImprove.enabled, false)
+  const noModel = shapePromptOptions(saved({ direct: true }), ctx({ directImproves: true, llmUnconfigured: true }))
+  assert.equal(noModel.autoImprove.enabled, false)
+})
+
+test('Direct improves a picture or a clip, never an edit, a sound or a structured format', () => {
+  const t = { ideogram: false, h3: false, audio: false, inputImageCount: 0 }
+  assert.equal(directImproves(t), true)
+  assert.equal(directImproves({ ...t, inputImageCount: 1 }), false)
+  assert.equal(directImproves({ ...t, ideogram: true }), false)
+  assert.equal(directImproves({ ...t, h3: true }), false)
+  assert.equal(directImproves({ ...t, audio: true }), false)
 })
 
 test('Raw goes untouched', () => {

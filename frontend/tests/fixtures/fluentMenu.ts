@@ -7,6 +7,9 @@ import type { EnhanceLevel } from '../../src/composables/usePromptProgram'
 // level is the menu's own setting, so `window.level()` reads what it was set to.
 const level = ref<EnhanceLevel>('fill')
 const hasLoras = ref(true)
+// The way chosen in the menu's tabs, and whether Direct can write this tool's prompt.
+const way = ref<'fluent' | 'direct' | 'raw'>('fluent')
+const directImproves = ref(true)
 const program: any = {
   status: computed(() => 'ready'),
   unsupported: computed(() => false),
@@ -20,14 +23,16 @@ const program: any = {
   previewRuns: async () => [],
 }
 ;(window as any).level = () => level.value
+;(window as any).setDirectImproves = (on: boolean) => { directImproves.value = on }
 
 createApp({
   render: () => h('div', { class: 'p-4' }, [
     h(FluentControl, {
       program,
-      raw: false,
-      direct: false,
+      raw: way.value === 'raw',
+      direct: way.value === 'direct',
       enhance: level.value,
+      directImproves: directImproves.value,
       llmUnconfigured: false,
       modelName: 'Krea 2',
       hasLoras: hasLoras.value,
@@ -35,6 +40,7 @@ createApp({
       loraNotes: true,
       lastPrompt: 'a dorm room with a 24-year-old Korean man, warm lamp light',
       onMode: (v: EnhanceLevel) => { level.value = v },
+      onWay: (v: 'fluent' | 'direct' | 'raw') => { way.value = v },
     }),
   ]),
 }).mount('#app')
