@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
-import { findSlots, lineSyntaxRanges, promptSyntaxSpans, slotAt, slotWrapRange, usableVaryPhrases } from './promptSyntax.ts'
+import { findLists, findSlots, lineSyntaxRanges, promptSyntaxSpans, slotAt, slotWrapRange, usableVaryPhrases } from './promptSyntax.ts'
 import { processFinalPrompt, unwrapSlots } from './promptProcessor.ts'
 
 // Shared with backend/tests/test_slots_grammar.py: both sides must find the same slots.
@@ -121,5 +121,12 @@ test('suggested phrases are kept only while they stand as sent, and never overla
   const at = (words: string) => ({ from: text.indexOf(words), to: text.indexOf(words) + words.length, text: words })
   assert.deepEqual(usableVaryPhrases(text, [at('young man'), at('dorm room'), at('red'), at('room with'), { from: 0, to: 4, text: 'room' }]), [
     at('dorm room'), at('young man'),
+  ])
+})
+
+test('the user’s own lists, in order, with their options; not in comments or names', () => {
+  const text = 'a {summer| autumn} and {{hair}} {x|{y|z}}\n# {no|pe}\n{red|blue}'
+  assert.deepEqual(findLists(text).map(l => [text.slice(l.from, l.to), l.items]), [
+    ['{summer| autumn}', ['summer', 'autumn']], ['{x|{y|z}}', ['x', '{y|z}']], ['{red|blue}', ['red', 'blue']],
   ])
 })

@@ -78,7 +78,8 @@
                 :class="rowClass"
                 :data-variant="o.text"
                 :aria-pressed="isPinned(o.text)"
-                @click="set(toggleValue(st, o.text))"
+                @mousedown="onRowMouseDown"
+                @click="pick(o.text, $event)"
               >
                 <span :class="tickClass">
                   <CheckIcon v-if="isPinned(o.text)" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" />
@@ -240,7 +241,7 @@ const title = computed(() => {
 })
 const st = computed<ChoiceState | null>(() => (id.value ? props.program.states.value[id.value] || null : null))
 const pool = computed(() => (id.value ? props.program.poolOf(id.value) : null))
-const kind = computed(() => (isList.value ? (st.value?.values?.length ? 'pinned' : 'varying') : lookOf(slot.value, st.value, pool.value)))
+const kind = computed(() => (isList.value ? lookOf({ state: 'ready' }, st.value) : lookOf(slot.value, st.value, pool.value)))
 const ready = computed(() => !!slot.value && kind.value !== 'writing' && slot.value.state !== 'as_written')
 /** Its reading or its writer gave nothing this time: it stands as its words. */
 const couldntWrite = computed(() => !!slot.value && slot.value.state === 'as_written' && !pool.value?.variants?.length)
@@ -300,6 +301,28 @@ const inPlay = (t: string) => !st.value?.values?.length || isPinned(t)
 const rewriting = computed(() => !isList.value && ready.value && hasSeeds(st.value) && !!pool.value?.more)
 const seedText = computed(() => seedsText(st.value) || 'what you picked')
 const pieces = (text: string) => (slot.value ? keptPieces(text, slot.value.words, pool.value?.keep) : [{ t: text }])
+
+// A click pins one or un-pins it; shift-click takes the range from the last one clicked, as
+// the last click left it (pinning or un-pinning), across what is shown.
+const anchor = ref<string | null>(null)
+watch(() => card.value, () => { anchor.value = null })
+function onRowMouseDown(e: MouseEvent) {
+  if (e.shiftKey) e.preventDefault()   // no text selection
+}
+function pick(text: string, e: MouseEvent) {
+  const shown = rows.value.map(o => o.text)
+  const from = anchor.value ? shown.indexOf(anchor.value) : -1
+  const to = shown.indexOf(text)
+  if (e.shiftKey && from >= 0 && to >= 0) {
+    const range = shown.slice(Math.min(from, to), Math.max(from, to) + 1)
+    const on = isPinned(anchor.value!)
+    const values = (st.value?.off || st.value?.as_written ? [] : st.value?.values || []).filter(v => !range.includes(v))
+    set({ ...(st.value?.seeds ? { seeds: st.value.seeds } : {}), ...(st.value?.add?.length ? { add: st.value.add } : {}), values: on ? [...values, ...range] : values })
+  } else {
+    set(toggleValue(st.value, text))
+    anchor.value = text
+  }
+}
 
 async function more() {
   if (!id.value || writing.value) return

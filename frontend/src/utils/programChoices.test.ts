@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  addOwn, asWritten, carriedIds, carryChoices, chooseAny, cleanState, clearSeed, isChanged, keptPieces, leaveOut, lineText, lookOf,
+  addOwn, asWritten, listChoiceAt, carriedIds, carryChoices, chooseAny, cleanState, clearSeed, isChanged, keptPieces, leaveOut, lineText, lookOf,
   numberRepeats, optionsOf, pinTo, regionNote, resetState, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleValue, wireState,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramSlot } from './programWire.ts'
@@ -107,6 +107,8 @@ test('the slot’s own words in a variant are found for showing quieter', () => 
   // The server's runs, when it names them; a hyphen reads as a space.
   assert.equal(pieces('a sun-lit room', 'sun lit room', ['sun lit']), 'a [sun-lit] room')
   assert.equal(pieces('nothing alike', 'room'), 'nothing alike')
+  // A slot that is only its category word keeps none of it: nothing reads quieter.
+  assert.equal(pieces('warm lighting from a lamp', 'lighting', []), 'warm lighting from a lamp')
 })
 
 test('options: a slot’s variant texts, a list’s options, the user’s own first', () => {
@@ -126,4 +128,16 @@ test('choices follow their slots through an edit, by `was`', () => {
 test('repeated labels are numbered in order', () => {
   const s = (id: string, n: number) => ({ id, n, kind: 'person' as const, label: 'Friend', words: 'friend' })
   assert.deepEqual(numberRepeats([s('a', 1), s('b', 2)]).map(x => x.label), ['Friend 1', 'Friend 2'])
+})
+
+test('a list in the text is its list choice: same place and options, else the one with those options', () => {
+  const list = (id: string, options: string[]) => ({ id, kind: 'pick' as const, label: id, source: 'list' as const, options })
+  const choices = [{ id: 'w', kind: 'variants' as const, label: 'W', slot: 'w' }, list('list1', ['a', 'b']), list('list2', ['c', 'd'])]
+  assert.equal(listChoiceAt([{ items: ['a', 'b'] }, { items: ['c', 'd'] }], choices, 2)?.id, 'list2')
+  // A list typed before them: found by its options.
+  assert.equal(listChoiceAt([{ items: ['x', 'y'] }, { items: ['a', 'b'] }, { items: ['c', 'd'] }], choices, 3)?.id, 'list2')
+  // Just typed, or edited since it was read: none yet.
+  assert.equal(listChoiceAt([{ items: ['x', 'y'] }], choices, 1), null)
+  assert.equal(lineText({ values: ['summer', 'autumn'] }, true), 'summer, autumn')
+  assert.equal(lineText({ values: ['a', 'b', 'c', 'd'] }, true), 'a, b, c +1')
 })

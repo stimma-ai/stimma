@@ -206,8 +206,9 @@ export function optionsOf(c: ProgramChoice, pool: ChoicePool | null | undefined,
 }
 
 /** A variant in pieces, the runs of the slot's own words marked `kept`, so the picker can show
-    them quieter than what the writer added. The server's `keep` names those runs; without it,
-    the longest run of the slot's words the variant holds (display only: it decides nothing). */
+    them quieter than what the writer added. The server's `keep` names those runs (`[]`: none,
+    the slot is only its category word); without it, the longest run of the slot's words the
+    variant holds (display only: it decides nothing). */
 export function keptPieces(text: string, words: string, keep?: string[] | null): Array<{ t: string; kept?: boolean }> {
   const find = (chunk: string): [number, number] | null => {
     const parts = chunk.trim().split(/[\s-]+/).filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
@@ -216,7 +217,7 @@ export function keptPieces(text: string, words: string, keep?: string[] | null):
     return m ? [m.index, m.index + m[0].length] : null
   }
   let spans: Array<[number, number]> = []
-  if (keep?.length) spans = keep.map(find).filter((x): x is [number, number] => !!x)
+  if (Array.isArray(keep)) spans = keep.map(find).filter((x): x is [number, number] => !!x)
   else {
     const ws = words.trim().split(/\s+/).filter(Boolean)
     for (let len = ws.length; len > 0 && !spans.length; len--) {
@@ -275,14 +276,31 @@ export function seedsText(s: ChoiceState | null | undefined): string {
   return [descent, gender].filter(Boolean).join(' · ')
 }
 
-/** What a slot is set to, in a few words, for its line under the prompt; '' while it varies. */
-export function lineText(s: ChoiceState | null | undefined): string {
+/** What a slot is set to, in a few words, for its line under the prompt; '' while it varies.
+    A list of the user's own names its options ("summer, autumn"). */
+export function lineText(s: ChoiceState | null | undefined, list = false): string {
   if (!s) return ''
   if (s.off) return 'left out'
   if (s.as_written) return 'as written'
   const values = s.values || []
-  const pinned = values.length === 1 ? values[0] : values.length > 1 ? `${values.length} variants` : ''
+  const pinned = list ? (values.length > 3 ? `${values.slice(0, 3).join(', ')} +${values.length - 3}` : values.join(', '))
+    : values.length === 1 ? values[0] : values.length > 1 ? `${values.length} variants` : ''
   return [seedsText(s), pinned].filter(Boolean).join(' · ')
+}
+
+/** The choice of the `n`-th list of the user's own in the text (1-based, as `findLists` counts
+    them), given the options found there: the list choice in the same place with the same
+    options, else the one list with those options. Null while the program doesn't have it
+    (just typed, or edited since it was prepared). */
+export function listChoiceAt(found: Array<{ items: string[] }>, choices: ProgramChoice[], n: number): ProgramChoice | null {
+  const at = found[n - 1]
+  if (!at) return null
+  const lists = choices.filter(c => c.source === 'list' && !c.slot)
+  const key = JSON.stringify(at.items.map(x => x.trim()))
+  const same = (c: ProgramChoice) => JSON.stringify((c.options || []).map(x => x.trim())) === key
+  if (lists[n - 1] && same(lists[n - 1])) return lists[n - 1]
+  const match = lists.filter(same)
+  return match.length === 1 ? match[0] : null
 }
 
 // Programs across edits ------------------------------------------------------------------------

@@ -81,7 +81,7 @@ const rows = computed<Line[]>(() => {
     const on = isChanged(states[id])
     const held = on ? states[id] : released[id]
     if (!held) continue
-    out.push({ id, label, on, text: lineText(held), thumb: held.values?.length === 1 && typeof held.from === 'number' ? p.thumbOf(held.from) : null })
+    out.push({ id, label, on, text: lineText(held, !p.byId.value[id].slot), thumb: held.values?.length === 1 && typeof held.from === 'number' ? p.thumbOf(held.from) : null })
   }
   return out
 })

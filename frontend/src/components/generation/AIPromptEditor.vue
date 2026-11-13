@@ -364,6 +364,9 @@ const emit = defineEmits<{
       lines and [verbatim] left out, as the grammar finds them); `rect` is where its
       words are on screen. Sent when a slot is clicked and right after one is made. */
   (e: 'open-slot', value: { n: number; words: string; rect: DOMRect }): void
+  /** A list of the user's own was clicked: its 1-based place among the prompt's lists (as
+      `findLists` counts them) and where it is. */
+  (e: 'open-list', value: { n: number; rect: DOMRect }): void
   /** The pointer is over a slot (its place and where it is), or over none (null). */
   (e: 'slot-hover', value: { n: number; rect: DOMRect } | null): void
 }>()
@@ -545,6 +548,7 @@ const slotExtensions = [
       const at = view ? findSlots(view.state.doc.toString())[n - 1] : null
       if (at && fluentSlots.value) { offer.value = null; openSlotAt(at[0] + 1) }
     },
+    onList: (n, rect) => { if (fluentSlots.value) { offer.value = null; emit('open-list', { n, rect }) } },
   }),
 ]
 

@@ -333,6 +333,7 @@
             @focusout="handlePromptFocusOut"
             @save="preparePromptNow"
             @open-slot="openPromptSlot"
+            @open-list="promptProgram.status.value !== 'off' && promptProgram.openEditorList($event)"
             @slot-hover="promptProgram.hover.value = $event"
             :rows="drawerMode ? 2 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
             external-chat

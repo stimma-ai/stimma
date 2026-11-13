@@ -17,7 +17,7 @@ import type { ChoicePool, ProgramChoice, ProgramSlot, Variant } from '../../src/
 // matches makes the server write for it (`more` while it does). `window.calls` records what was
 // sent; `window.hold(id)` keeps a slot's variants "being written".
 
-export const PROMPT = '<dominant young woman> taking a low quality cell phone <type of selfie> in a living room, wearing <clothing slightly open in the front>, lit by <lighting>, {summer|autumn}'
+export const PROMPT = '<dominant young woman> taking a low quality cell phone <type of selfie> in a living room, wearing <clothing slightly open in the front>, lit by <lighting>, {summer|autumn|winter|spring}'
 
 const at = (words: string) => { const i = PROMPT.indexOf(`<${words}>`); return [i, i + words.length + 2] as [number, number] }
 const slot = (id: string, n: number, kind: ProgramSlot['kind'], label: string, words: string): ProgramSlot =>
@@ -30,7 +30,7 @@ const SLOTS = [
 ]
 const CHOICES: ProgramChoice[] = [
   ...SLOTS.map(s => ({ id: s.id, kind: 'variants' as const, label: s.label, slot: s.id })),
-  { id: 'list1', kind: 'pick', label: 'Season', source: 'list', line: 1, options: ['summer', 'autumn'] },
+  { id: 'list1', kind: 'pick', label: 'Season', source: 'list', line: 1, options: ['summer', 'autumn', 'winter', 'spring'] },
 ]
 
 const w = (descent: string, gender: string, rest: string): Variant =>
@@ -95,6 +95,8 @@ function poolFor(id: string, choice: any): ChoicePool {
   const more = writingFor.has(id)
   return {
     kind: 'variants', state, more, variants, options: variants.map(v => v.text), chosen: choice || null,
+    // The runs of the slot's words every variant keeps (the server's, when it says).
+    ...(id === 'clothing' ? { keep: ['open in the front'] } : {}),
     ...(id === 'woman' ? { person: {
       descent: { list: 'person.ethnicity', label: 'Descent', browse: 'region', parts: DESCENT, fits: DESCENT.flatMap(d => d.values),
         picked: { values: choice?.seeds?.descent?.values || [], groups: { region: choice?.seeds?.descent?.groups?.region || [] } },
@@ -118,7 +120,7 @@ axios.defaults.adapter = async (config: any) => {
   }
   if (url === 'pools') {
     const choices: Record<string, ChoicePool> = Object.fromEntries(SLOTS.map(s => [s.id, poolFor(s.id, body.choices?.[s.id])]))
-    choices.list1 = { options: ['summer', 'autumn'], more: false }
+    choices.list1 = { options: ['summer', 'autumn', 'winter', 'spring'], more: false }
     return ok({ choices, more: Object.entries(choices).filter(([, p]) => p.more).map(([id]) => id) })
   }
   if (url === 'options') {
@@ -173,6 +175,7 @@ createApp({
       rows: 5,
       slotMarks: pp.marks.value,
       'onOpen-slot': (e: { n: number; words: string; rect: DOMRect }) => { if (pp.status.value !== 'off') pp.openEditorSlot(e) },
+      'onOpen-list': (e: { n: number; rect: DOMRect }) => { if (pp.status.value !== 'off') pp.openEditorList(e) },
       'onSlot-hover': (e: { n: number; rect: DOMRect } | null) => { pp.hover.value = e },
     }, {
       mode: () => h('span', { class: 'text-ctl text-content' }, 'Fluent'),

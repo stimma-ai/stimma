@@ -178,6 +178,8 @@ test('More like these waits on the writer with a spinner, then marks what is new
   await expect(more).toBeEnabled()
   await expect(variant('a denim jacket slightly open in the front').locator('[data-new]')).toHaveCount(1)
   await expect(variant('a white cardigan slightly open in the front').locator('[data-new]')).toHaveCount(0)
+  // The server names the words every variant keeps: those read quieter.
+  await expect(variant('a white cardigan slightly open in the front').locator('[data-kept]')).toHaveText('open in the front')
   const [sent] = await calls('options')
   assert.equal(sent.choice_id, 'clothing')
   assert.deepEqual(sent.choices, {})
@@ -237,6 +239,49 @@ test('gender: narrowed to what the words allow; a pick pins it and shows on the 
   await picker.getByRole('radio', { name: /Gender/ }).click()
   await picker.locator('[data-gender-any]').click()
   await expect.poll(state).toEqual({})
+})
+
+test('a list of the user’s own opens its picker from the text: Any, a value, a range', async t => {
+  const { page, picker, variant, line, state, shot } = await open(t)
+  const list = page.locator('[data-list-n="1"]').first()
+  // Nothing chosen: it keeps its list color.
+  await expect(list).toHaveAttribute('data-list-look', 'varying')
+  const green = await page.locator('.cm-wildcard').first().evaluate(el => getComputedStyle(el).color)
+  await list.click()
+  await expect(picker.locator('[data-picker-title]')).toHaveText('Season')
+  const listBox = await list.boundingBox()
+  const box = await picker.boundingBox()
+  assert.ok(box.y >= listBox.y + listBox.height && box.y < listBox.y + listBox.height + 20, `picker at ${JSON.stringify(box)}, list ${JSON.stringify(listBox)}`)
+  await expect(picker.locator('[data-any] svg')).toHaveCount(1)
+  await expect(picker.locator('[data-variant]')).toHaveText(['summer', 'autumn', 'winter', 'spring'])
+  await expect(picker.locator('[data-as-written]')).toHaveCount(0)
+  await expect(picker.locator('[data-leave-out]')).toHaveCount(0)
+  // A value.
+  await variant('autumn').click()
+  await expect.poll(state).toEqual({ list1: { values: ['autumn'] } })
+  await expect(list).toHaveAttribute('data-list-look', 'pinned')
+  await expect(page.locator('[data-list-glyph="1"].cm-slot-glyph-dot')).toHaveCount(1)
+  assert.notEqual(await page.locator('.cm-list-set').first().evaluate(el => getComputedStyle(el).color), green)
+  await expect(line('list1')).toContainText('autumn')
+  // A range: shift-click from the last one clicked; again from an un-pinned one un-pins it.
+  await variant('summer').click()
+  await variant('winter').click({ modifiers: ['Shift'] })
+  await expect.poll(state).toEqual({ list1: { values: ['summer', 'autumn', 'winter'] } })
+  await expect(list).toHaveAttribute('data-list-look', 'several')
+  await expect(line('list1')).toContainText('summer, autumn, winter')
+  await shot('list-picker')
+  await variant('autumn').click()
+  await variant('spring').click({ modifiers: ['Shift'] })
+  await expect.poll(state).toEqual({ list1: { values: ['summer'] } })
+  // Any of these lets it draw from all of them again, and it takes its list color back.
+  await picker.locator('[data-any]').click()
+  await expect.poll(state).toEqual({})
+  await expect(list).toHaveAttribute('data-list-look', 'varying')
+  await page.keyboard.press('Escape')
+  // Its glyph opens it too, once set.
+  await page.evaluate(() => window.setState({ list1: { values: ['winter'] } }))
+  await page.locator('[data-list-glyph="1"]').click()
+  await expect(picker.locator('[data-picker-title]')).toHaveText('Season')
 })
 
 test('hover on a desktop shows three variants images could get', async t => {

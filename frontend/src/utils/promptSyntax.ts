@@ -166,6 +166,38 @@ export function findSlots(text: string): [number, number][] {
   return out
 }
 
+/** The prompt's own `{a|b}` lists, in order, outside comment lines: where each sits (braces
+    included) and its options. A list inside a list is part of the outer one. */
+export function findLists(text: string): Array<{ from: number; to: number; items: string[] }> {
+  const out: Array<{ from: number; to: number; items: string[] }> = []
+  let at = 0
+  for (const line of text.split('\n')) {
+    if (!/^\s*#/.test(line)) {
+      const marks: PromptSyntaxRange[] = []
+      const named = findNamedWildcards(line, undefined, marks)
+      for (const { from, to } of findBraceGroups(line, marks, named)) {
+        out.push({ from: at + from, to: at + to, items: listItems(line.slice(from + 1, to - 1)) })
+      }
+    }
+    at += line.length + 1
+  }
+  return out
+}
+
+/** A list's options: its text split at the pipes not inside a nested list. */
+function listItems(inner: string): string[] {
+  const items: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < inner.length; i++) {
+    if (inner[i] === '{') depth++
+    else if (inner[i] === '}') depth--
+    else if (inner[i] === '|' && depth === 0) { items.push(inner.slice(start, i).trim()); start = i + 1 }
+  }
+  items.push(inner.slice(start).trim())
+  return items
+}
+
 function findBraceGroups(text: string, out: PromptSyntaxRange[], skip: Span[]) {
   // Match nested braces containing at least one pipe
   const found: Span[] = []

@@ -9,10 +9,13 @@
  * Slots are matched to their looks by place and words, so a slot just typed (not in the
  * prepared program yet) takes the fallback look. With no marks set, slots keep the editor's
  * plain slot look. Hovering a slot and clicking its glyph are reported to the host.
+ *
+ * The user's own `{a|b}` lists keep their list color until something is chosen for them, then
+ * take the same marks. Clicking a list is reported to the host, which opens its picker.
  */
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { StateEffect, StateField, type Extension } from '@codemirror/state'
-import { findSlots } from '../utils/promptSyntax'
+import { findLists, findSlots } from '../utils/promptSyntax'
 import type { SlotLookKind } from '../utils/programChoices'
 
 export type SlotGlyph = { kind: 'dot' } | { kind: 'thumb'; src: string | null }
@@ -25,8 +28,17 @@ export interface SlotLook {
   glyph: SlotGlyph | null
 }
 
+/** A list of the user's own that has something chosen: matched by its place and options. */
+export interface ListLook {
+  n: number
+  items: string[]
+  kind: SlotLookKind
+  glyph: SlotGlyph | null
+}
+
 export interface SlotMarks {
   looks: SlotLook[]
+  lists?: ListLook[]
   /** The look of a slot that has none (just typed). */
   fallback: SlotLookKind
 }
@@ -42,12 +54,13 @@ export const slotMarksField = StateField.define<SlotMarks | null>({
 })
 
 class Glyph extends WidgetType {
-  constructor(readonly n: number, readonly glyph: SlotGlyph) { super() }
-  eq(o: Glyph) { return o.n === this.n && JSON.stringify(o.glyph) === JSON.stringify(this.glyph) }
+  constructor(readonly n: number, readonly glyph: SlotGlyph, readonly list = false) { super() }
+  eq(o: Glyph) { return o.n === this.n && o.list === this.list && JSON.stringify(o.glyph) === JSON.stringify(this.glyph) }
   toDOM() {
     const el = document.createElement('span')
     el.className = `cm-slot-glyph cm-slot-glyph-${this.glyph.kind}`
-    el.dataset.slotGlyph = String(this.n)
+    if (this.list) el.dataset.listGlyph = String(this.n)
+    else el.dataset.slotGlyph = String(this.n)
     el.setAttribute('aria-hidden', 'true')
     if (this.glyph.kind === 'thumb' && this.glyph.src) el.style.backgroundImage = `url("${this.glyph.src.replace(/"/g, '%22')}")`
     return el
@@ -71,6 +84,17 @@ function build(text: string, marks: SlotMarks | null): DecorationSet {
     const look = lookFor(marks, n, text.slice(from + 1, to - 1))
     ranges.push(Decoration.mark({ class: `cm-slot-mark cm-slot-${look.kind}`, attributes: { 'data-slot-n': String(n), 'data-slot-look': look.kind } }).range(from, to))
     if (look.glyph) ranges.push(Decoration.widget({ widget: new Glyph(n, look.glyph), side: 1 }).range(to))
+  }
+  // Every list is marked, so a click finds it; only one with something chosen looks set.
+  for (const [i, { from, to, items }] of findLists(text).entries()) {
+    const n = i + 1
+    const look = marks.lists?.find(l => l.n === n && JSON.stringify(l.items) === JSON.stringify(items))
+    const set = look && look.kind !== 'varying' ? look : null
+    ranges.push(Decoration.mark({
+      class: `cm-list-mark${set ? ` cm-list-set cm-slot-${set.kind}` : ''}`,
+      attributes: { 'data-list-n': String(n), 'data-list-look': set?.kind || 'varying' },
+    }).range(from, to))
+    if (set?.glyph) ranges.push(Decoration.widget({ widget: new Glyph(n, set.glyph, true), side: 1 }).range(to))
   }
   return Decoration.set(ranges, true)
 }
@@ -119,6 +143,10 @@ const theme = EditorView.baseTheme({
     boxShadow: '0 0 0 1px rgb(var(--color-selection-rgb) / 0.9)',
   },
   '.cm-slot-glyph:hover': { filter: 'brightness(1.2)' },
+  '.cm-list-mark': { cursor: 'pointer' },
+  // A list with something chosen takes the slot marks over its own list color.
+  '.cm-list-set': { borderRadius: '3px' },
+  '.cm-list-set .cm-wildcard': { color: 'inherit', backgroundColor: 'transparent' },
 })
 
 export interface SlotMarkHandlers {
@@ -126,6 +154,8 @@ export interface SlotMarkHandlers {
   onHover: (n: number | null, rect: DOMRect | null) => void
   /** A slot's glyph was clicked. */
   onGlyph: (n: number) => void
+  /** A list of the user's own (its place among the lists), or its glyph, was clicked. */
+  onList: (n: number, rect: DOMRect) => void
 }
 
 export function slotMarks(h: SlotMarkHandlers): Extension {
@@ -150,11 +180,25 @@ export function slotMarks(h: SlotMarkHandlers): Extension {
       },
       mouseleave() { this.over = null; h.onHover(null, null) },
       mousedown(e) {
-        const g = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-slot-glyph]') : null
+        const el = e.target instanceof Element ? e.target : null
+        const lg = el?.closest<HTMLElement>('[data-list-glyph]')
+        if (lg) {
+          e.preventDefault()
+          const list = lg.parentElement?.querySelector<HTMLElement>(`[data-list-n="${lg.dataset.listGlyph}"]`)
+          h.onList(Number(lg.dataset.listGlyph), (list || lg).getBoundingClientRect())
+          return true
+        }
+        const g = el?.closest<HTMLElement>('[data-slot-glyph]')
         if (!g) return false
         e.preventDefault()
         h.onGlyph(Number(g.dataset.slotGlyph))
         return true
+      },
+      click(e, view) {
+        if (!view.state.selection.main.empty) return false
+        const list = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-list-n]') : null
+        if (list) h.onList(Number(list.dataset.listN), list.getBoundingClientRect())
+        return false
       },
     },
   })

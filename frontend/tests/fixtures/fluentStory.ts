@@ -109,6 +109,7 @@ const App = defineComponent({
         rows: 5,
         slotMarks: program.marks.value,
         'onOpen-slot': (e: { n: number; words: string; rect: DOMRect }) => { if (program.status.value !== 'off') program.openEditorSlot(e) },
+        'onOpen-list': (e: { n: number; rect: DOMRect }) => { if (program.status.value !== 'off') program.openEditorList(e) },
         'onSlot-hover': (e: { n: number; rect: DOMRect } | null) => { program.hover.value = e },
       }, {
         mode: ({ openHelp }: any) => h(FluentControl, {

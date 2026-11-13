@@ -3,11 +3,12 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { prepareBody, prepareErrorCode, prepareSettingsSig, readPending, shownKey, type PrepareInputs } from '../utils/fluentSubmit'
 import {
-  addOwn as addOwnTo, carriedIds, carryChoices, cleanState, isChanged, keptPools, lookOf, numberRepeats, optionsOf as optionsIn,
+  addOwn as addOwnTo, carriedIds, carryChoices, cleanState, isChanged, keptPools, listChoiceAt, lookOf, numberRepeats, optionsOf as optionsIn,
   resetState, wireState, type SlotLookKind,
 } from '../utils/programChoices'
 import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareResponse, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
-import type { SlotLook, SlotMarks } from './promptSlotMarks'
+import { findLists } from '../utils/promptSyntax'
+import type { ListLook, SlotGlyph, SlotLook, SlotMarks } from './promptSlotMarks'
 
 export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 
@@ -402,15 +403,27 @@ export function usePromptProgram(o: Options) {
   }
   /** The editor's marks: one look per slot of the prepared program, by its place and words. A
       slot the editor has that isn't here yet (just typed) shows as still being written. */
+  const glyphOf = (kind: SlotLookKind, from: number | undefined): SlotGlyph | null => kind === 'keep'
+    ? { kind: 'thumb', src: typeof from === 'number' ? o.thumbOf?.(from) ?? null : null }
+    : kind === 'pinned' || kind === 'several' ? { kind: 'dot' } : null
+  /** The prompt's own lists as the editor finds them in the text. */
+  const listsInText = computed(() => findLists(o.prompt.value || ''))
   const marks = computed<SlotMarks | null>(() => {
     if (status.value === 'off') return null
     const looks: SlotLook[] = slots.value.map((s) => {
       const kind = lookOfSlot(s.id)
-      const from = states.value[s.id]?.from
-      const thumb = kind === 'keep' && typeof from === 'number' ? o.thumbOf?.(from) ?? null : null
-      return { n: s.n, words: s.words, kind, glyph: kind === 'keep' ? { kind: 'thumb', src: thumb } : kind === 'pinned' || kind === 'several' ? { kind: 'dot' } : null }
+      return { n: s.n, words: s.words, kind, glyph: glyphOf(kind, states.value[s.id]?.from) }
     })
-    return { looks, fallback: 'writing' }
+    // A list looks set once something is chosen for it; it has no state of being written.
+    const lists: ListLook[] = []
+    listsInText.value.forEach((l, i) => {
+      const c = listChoiceAt(listsInText.value, choices.value, i + 1)
+      const s = c ? states.value[c.id] : null
+      if (!c || !isChanged(s)) return
+      const kind = lookOf({ state: 'ready' }, s)
+      lists.push({ n: i + 1, items: l.items, kind, glyph: glyphOf(kind, s?.from) })
+    })
+    return { looks, lists, fallback: 'writing' }
   })
 
   /** Lines the user unticked: what they held, so ticking again puts it back. By choice id. */
@@ -488,6 +501,13 @@ export function usePromptProgram(o: Options) {
     hover.value = null
     openCard.value = { target: { slot: { n: e.n, words: e.words } }, anchor: e.rect }
   }
+  /** A list of the user's own was clicked in the text: open its picker. One the program doesn't
+      have yet (just typed) opens once the prompt is read. */
+  function openEditorList(e: { n: number; rect: DOMRect }) {
+    const c = listChoiceAt(listsInText.value, choices.value, e.n)
+    if (c) openChoice(c.id, e.rect)
+    else if (needsRead()) void prepare()
+  }
   function close() { openCard.value = null }
   // A picker waiting on a slot that isn't read yet reads the prompt as soon as the prompt with
   // the slot has reached us (the editor may say so before or after the text changes).
@@ -525,7 +545,7 @@ export function usePromptProgram(o: Options) {
     program, status, error, unsupported, slots, choices, byId, slotById, pools, fresh, states, openCard, hover, marks, released,
     lookup, prepare, needsRead, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns,
     poolOf, optionsOf, moreLikeThese, addOwn, setState, setStates, setValues, reset, resetAll, lookOfSlot,
-    release, restore, removeLine, slotFor, thumbOf: (media: number) => o.thumbOf?.(media) ?? null, openSlot, openChoice, openEditorSlot, close,
+    release, restore, removeLine, slotFor, openEditorList, thumbOf: (media: number) => o.thumbOf?.(media) ?? null, openSlot, openChoice, openEditorSlot, close,
   }
 }
 
