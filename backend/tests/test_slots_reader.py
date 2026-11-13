@@ -94,11 +94,11 @@ def test_the_prompt_is_numbered_in_place():
 def test_the_prompt_carries_the_person_guidance_and_the_catalogs():
     text = reader.system_text()
     for words in ("Lines starting with # are notes", "Leave out expression", "accessories", "need not include every",
-                  "already says what they wear", "- hair_color:", "- person.outfit.casual:", "- person.hairstyle:"):
+                  "unless clothes has words", "- hair_color:", "- person.outfit.casual:", "- person.hairstyle:"):
         assert words in text
     assert "EXACT" in text and "{catalog}" not in text and "{details}" not in text
     # Each kind's own fields are shown in their object: a list's id goes inside "list": {...}.
-    assert '"list": {"list": "<the list\'s id>", "about": "..."}' in text
+    assert '"list": {"list": "<the list\'s id>", "about": "...", "presentation": ""}' in text
     assert "are never a person" in text
     # A worked tag prompt shows parts about the girl read as lists, their leads only the comma.
     assert '"1girl, ⟨1: hairstyle⟩, ⟨2: outfit⟩, beach"' in text and '"about": "the girl\'s hairstyle"' in text
@@ -529,7 +529,7 @@ def test_a_person_with_no_outfit_still_closes_with_the_comma():
     reading["slots"][0]["person"]["outfit"] = ""
     e = slots.compose(parse(PORCH_PROMPT), {r["n"]: r for r in reading["slots"]})
     body = draw(e, 0).prompt.split("\n")[-1]
-    assert re.search(r"man with [^,]+, [^,]+, reading on a porch", body), body
+    assert re.search(r"man with [^,]+ and [^,]+, reading on a porch", body), body
     details = [c["id"] for c in e["choices"] if c["id"].startswith("elderly_african_man.")]
     bare = draw(e, 1, edits={d: {"off": True} for d in details}).prompt.split("\n")[-1]
     assert bare.startswith("An elderly African man reading on a porch"), bare
@@ -619,9 +619,15 @@ async def test_an_animal_reading_is_checked_for_its_shape():
                             project_id=None, model="m")
     assert got["slots"][0]["animal"] == {"noun": "pet", "vary": ["species", "life_stage"], "breed": "", "stated": {}}
     both = {**animal, "animal": {"noun": "pet", "vary": ["species", "breed"], "breed": "animal.dog_breed", "stated": {}}}
-    model = FakeModel(json.dumps({"slots": [both]}), json.dumps({"slots": [animal]}))
-    await reader.read(parse("a girl walking her <pet>"), ask=model, project_id=None, model="m")
-    assert "never beside species" in model.asked[1][-1]["content"]
+    # A breed beside species, or a breed list that isn't there ("a cat breed"), is dropped; the rest stands.
+    got = await reader.read(parse("a girl walking her <pet>"), ask=FakeModel(json.dumps({"slots": [both]})),
+                            project_id=None, model="m")
+    assert got["slots"][0]["animal"]["vary"] == ["species"]
+    kitten = {**animal, "animal": {"noun": "kitten", "vary": ["breed", "life_stage"], "breed": "animal.cat_breed",
+                                   "stated": {"life_stage": "kitten"}}}
+    got = await reader.read(parse("a <kitten> on a windowsill"), ask=FakeModel(json.dumps({"slots": [kitten]})),
+                            project_id=None, model="m")
+    assert not got["slots"][0].get("degraded") and got["slots"][0]["animal"]["vary"] == ["life_stage"]
     old = {**animal, "animal": {"noun": "dog", "vary": ["breed"], "breed": "animal.dog_breed", "stated": {"life_stage": "old"}}}
     got = await reader.read(parse("an <old dog> asleep"), ask=FakeModel(json.dumps({"slots": [old]})), project_id=None, model="m")
     assert got["slots"][0]["animal"]["vary"] == ["breed", "life_stage"]
@@ -637,3 +643,31 @@ async def test_a_light_reading_may_name_a_lighting_list():
     model = FakeModel(json.dumps({"slots": [wrong]}), json.dumps({"slots": [light]}))
     await reader.read(parse("a portrait in <light>"), ask=model, project_id=None, model="m")
     assert "not one of the lighting lists" in model.asked[1][-1]["content"]
+
+
+def test_face_is_read_only_when_the_reading_says_it_was_asked_for():
+    parsed = parse("a close portrait of a <young woman>")
+    seg = next(s for s in parsed.segments if s.kind == "slot")
+    base = {"n": 1, "kind": "person", "label": "Young woman", "lead": "",
+            "person": {"noun": "woman", "presentation": "feminine", "stated": {"age": "young"},
+                       "vary": ["age", "hair", "face", "eyes"], "outfit": ""}}
+    got = reader.check_slot(base, seg, "a close portrait of a ", [], strict=False)
+    assert "face" not in got["person"]["vary"] and "eyes" in got["person"]["vary"]
+    asked = copy.deepcopy(base)
+    asked["person"]["face"] = True
+    assert "face" in reader.check_slot(asked, seg, "a close portrait of a ", [], strict=False)["person"]["vary"]
+    assert "- face:" not in reader.system_text().split("Person details:")[1].split("Lists:")[0]
+
+
+
+async def test_a_person_with_no_outfit_is_asked_once_why_then_stands():
+    bare = {"n": 1, "kind": "person", "label": "Young man", "lead": "",
+            "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "young"}, "vary": ["age"], "outfit": ""}}
+    model = FakeModel(json.dumps({"slots": [bare]}))
+    got = await reader.read(parse("a <young man> in a dorm room"), ask=model, project_id=None, model="m")
+    assert len(model.asked) == 2 and '"clothes"' in model.asked[1][-1]["content"]
+    assert not got["slots"][0].get("degraded") and got["slots"][0]["person"]["outfit"] == ""
+    dressed = {**bare, "person": {**bare["person"], "clothes": "in a red raincoat"}}
+    model = FakeModel(json.dumps({"slots": [dressed]}))
+    await reader.read(parse("a <young man> in a red raincoat"), ask=model, project_id=None, model="m")
+    assert len(model.asked) == 1

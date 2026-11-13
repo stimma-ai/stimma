@@ -73,7 +73,7 @@ def porch():
 def test_a_reading_makes_its_picks_and_choices(dorm, porch):
     assert [c["id"] for c in dorm["choices"]] == [
         "young_man.build", "young_man.age", "young_man.descent", "young_man.hair", "young_man.hair_color",
-        "young_man.outfit", "young_man.outfit.colors", "light"]
+        "young_man.facial_hair", "young_man.face", "young_man.outfit", "young_man.outfit.colors", "light"]
     assert next(c for c in porch["choices"] if c["id"] == "list1")["label"] == "Season"
     slots = {s["id"]: s for s in porch["slots"]}
     assert slots["pet"]["details"] == ["pet"] and slots["pet"]["line"] == 2 and slots["pet"]["state"] == "ready"
@@ -82,7 +82,7 @@ def test_a_reading_makes_its_picks_and_choices(dorm, porch):
     assert porch["slot_words"] == {"elderly_african_man.age": "elderly", "elderly_african_man.descent": "African",
                                    "pet": "pet"}
     assert porch["template"].split("\n")[1] == (
-        "An [Build] [Age] [Ethnicity] man with [Hair] [Hair color] hair, [Facial hair], wearing [Outfit], "
+        "An [Build] [Age] [Ethnicity] man with [Hair] [Hair color] hair and [Facial hair], wearing [Outfit], "
         "reading on a porch with his [Pet], [Season] evening")
 
 
@@ -112,9 +112,10 @@ def test_leaving_a_slot_out_takes_its_lead(dorm, porch):
 
 
 def test_a_detail_off_takes_its_joiners(dorm):
-    no_hair = draw(dorm, 5, edits={"young_man.hair": {"off": True}, "young_man.hair_color": {"off": True}}).prompt
+    no_hair = draw(dorm, 5, edits={"young_man.hair": {"off": True}, "young_man.hair_color": {"off": True},
+                                   "young_man.facial_hair": {"off": True}}).prompt
     assert no_hair.split(" man", 1)[1].startswith(", wearing") and "hair" not in no_hair
-    color_only = draw(dorm, 5, edits={"young_man.hair": {"off": True}})
+    color_only = draw(dorm, 5, edits={"young_man.hair": {"off": True}, "young_man.facial_hair": {"off": True}})
     assert f"man with {values(color_only)['young_man.hair_color']} hair, wearing" in color_only.prompt
 
 
@@ -188,6 +189,77 @@ def test_a_person_as_written_is_the_slots_own_words(porch):
     assert re.search(r"An? \d+-year-old man, wearing", aged), aged
 
 
+KITCHEN_PROMPT = "A <young woman> in a kitchen at <time of day>"
+KITCHEN_READING = {"slots": [
+    {"n": 1, "kind": "person", "label": "Young woman", "lead": "",
+     "person": {"noun": "woman", "presentation": "feminine", "stated": {"age": "young"},
+                "vary": ["age", "descent", "build", "skin", "hair", "hair_color", "eyes"], "outfit": "person.outfit.casual"}},
+    {"n": 2, "kind": "free", "label": "Time of day", "lead": " at",
+     "free": {"about": "the time of day", "kinds": ["dawn", "noon", "dusk"], "instead": []}},
+]}
+YOUNG = [f"{a}-year-old" for a in range(20, 30)]
+
+
+def test_face_detail_starts_left_out_and_turns_on_when_chosen():
+    e = entry_of(KITCHEN_PROMPT, KITCHEN_READING, {"young_woman.age": YOUNG})
+    face = next(c for c in e["choices"] if c["id"] == "young_woman.face")
+    assert face["starts_off"] and "young_woman.face" in e["slots"][0]["details"]
+    assert all("young_woman.face" not in values(draw(e, s)) for s in range(10))
+    on = draw(e, 3, edits={"young_woman.face": {"on": True}})
+    assert values(on).get("young_woman.face") and values(on)["young_woman.face"] in on.prompt
+    picked = next(iter(face["options"]))
+    assert values(draw(e, 3, pins={"young_woman.face": [picked]}))["young_woman.face"] == picked
+    asked = {**KITCHEN_READING["slots"][0], "person": {**KITCHEN_READING["slots"][0]["person"],
+                                                       "vary": ["age", "hair", "face"]}}
+    e2 = entry_of(KITCHEN_PROMPT, {"slots": [asked, KITCHEN_READING["slots"][1]]})
+    assert not next(c for c in e2["choices"] if c["id"] == "young_woman.face").get("starts_off")
+    assert values(draw(e2, 1)).get("young_woman.face")
+
+
+def test_a_young_persons_hair_fits_their_age():
+    e = entry_of(KITCHEN_PROMPT, KITCHEN_READING, {"young_woman.age": YOUNG})
+    for s in range(300):
+        assert values(draw(e, s))["young_woman.hair"] not in ("thinning", "sparse")
+
+
+def test_the_person_reads_as_one_clean_phrase_whatever_is_on():
+    from itertools import product
+    from prompt_programs.fill import DETAILS
+    reading = {**KITCHEN_READING["slots"][0], "person": {**KITCHEN_READING["slots"][0]["person"],
+                                                         "vary": list(DETAILS)}}
+    e = entry_of(KITCHEN_PROMPT, {"slots": [reading, KITCHEN_READING["slots"][1]]}, {"young_woman.age": YOUNG})
+    ids = [c["id"] for c in e["choices"] if c["id"].startswith("young_woman.") and not c["id"].endswith(".colors")]
+    # Values with no joiners of their own, so every joiner in the text is the fill's.
+    simple = {"build": "slender", "age": "24-year-old", "descent": "Korean", "skin": "fair", "hair": "short straight",
+              "hair_color": "black", "eyes": "hazel", "face": "a small nose", "outfit": "a navy coat"}
+    said = {"skin": "fair skin", "hair": "short straight", "hair_color": "black", "eyes": "hazel eyes", "face": "a small nose"}
+    pins = {cid: [simple[cid.split(".", 1)[1]]] for cid in ids}
+    for on in product((True, False), repeat=len(ids)):
+        off = {cid: {"off": True} for cid, keep in zip(ids, on) if not keep}
+        got = draw(e, 1, pins={k: v for k, v in pins.items() if k not in off}, edits=off).prompt
+        kept = {cid.split(".", 1)[1] for cid, keep in zip(ids, on) if keep}
+        before = " ".join(simple[k] for k in ("build", "age", "descent") if k in kept)
+        details = [said[k] for k in ("skin", "hair", "eyes", "face") if k in kept or (k == "hair" and "hair_color" in kept)]
+        if "hair" in kept or "hair_color" in kept:
+            hair = " ".join(simple[k] for k in ("hair", "hair_color") if k in kept) + " hair"
+            details[[d for d in details].index(said["hair"])] = hair
+        listed = (", ".join(details[:-1]) + " and " + details[-1]) if len(details) > 1 else "".join(details)
+        person = " ".join(x for x in (before, "woman" if before or details else "young woman") if x)
+        if details:
+            person += " with " + listed
+        if "outfit" in kept:
+            person += ", wearing a navy coat"
+        want = f"{person}{',' if details or 'outfit' in kept else ''} in a kitchen at "
+        assert got.startswith(("A " + want, "An " + want)), (on, got)
+    for s in range(200):
+        r = draw(e, s, edits={d: {"on": True} for d in ids})
+        got = r.prompt
+        for a, b, _ in reversed(r.spans):   # the joiners are checked, not the values' own words
+            got = got[:a] + "X" + got[b:]
+        assert ", with" not in got and ", and" not in got and "  " not in got and ", ," not in got, got
+        assert not re.search(r"\b(with|and|wearing),", got) and not re.search(r"\b(with|and) (with|and)\b", got), got
+
+
 def test_the_same_words_twice_are_two_people():
     r = {"kind": "person", "label": "Friend", "lead": "",
          "person": {"noun": "friend", "presentation": "", "stated": {}, "vary": ["age", "hair"], "outfit": ""}}
@@ -259,7 +331,7 @@ def test_an_animal_is_its_life_stage_and_its_kind_narrowed_by_the_slots_words():
     pets = ["cat", "dog", "rabbit"]
     e = entry_of("an old man with his <pet> on a porch", {"slots": [PET]}, {"pet.species": pets})
     assert [c["id"] for c in e["choices"]] == ["pet.species", "pet.life_stage"]
-    assert e["slot_words"] == {"pet.species": "pet"} and e["slots"][0]["kind"] == "animal"
+    assert e["slot_words"] == {"pet.species": "pet", "pet.life_stage": "pet"} and e["slots"][0]["kind"] == "animal"
     stages = {v.text for v in vocabulary().get("animal.life_stage").values}
     assert stages == {"baby", "juvenile", "adult", "elderly"}
     for s in range(12):
@@ -289,3 +361,80 @@ def test_light_is_one_named_look_from_a_lighting_list_or_its_examples():
     assert {values(draw(e, s))["light"] for s in range(10)} <= looks
     written = entry_of(DORM_PROMPT, DORM_READING)
     assert {values(draw(written, s))["light"] for s in range(10)} <= set(DORM_READING["slots"][1]["light"]["examples"])
+
+
+async def test_an_age_is_narrowed_by_the_slots_words_and_kept_across_an_edit_elsewhere(tmp_path):
+    from prompt_programs.narrow import NarrowCache, narrow_entry
+    asked = []
+
+    async def ask(messages, project_id, tokens):
+        user = messages[-1]["content"]
+        asked.append(user)
+        if "the woman's age" in user:
+            return json.dumps(YOUNG)
+        return '["ALL"]'
+
+    cache = NarrowCache(tmp_path)
+    e = entry_of(KITCHEN_PROMPT, KITCHEN_READING)
+    await narrow_entry(e, cache, ask)
+    ages = [m for m in asked if "the woman's age" in m]
+    assert len(ages) == 1 and 'fit "young woman"' in ages[0] and KITCHEN_PROMPT in ages[0]
+    assert e["filters"]["young_woman.age"] == YOUNG
+    # Another line edited: the age is read in its own line and the notes, so nothing is asked again.
+    asked.clear()
+    e2 = entry_of(KITCHEN_PROMPT + "\nshe is cooking pasta, steam rising", KITCHEN_READING)
+    await narrow_entry(e2, cache, ask)
+    assert not [m for m in asked if "the woman's age" in m] and e2["filters"]["young_woman.age"] == YOUNG
+    # A note is read with it: a new one asks again.
+    e3 = entry_of("# she is a student\n" + KITCHEN_PROMPT, KITCHEN_READING)
+    await narrow_entry(e3, cache, ask)
+    assert [m for m in asked if "the woman's age" in m and "# she is a student" in m]
+    # Cache only (what a generation reads) finds it too.
+    e4 = entry_of(KITCHEN_PROMPT + "\nwide shot", KITCHEN_READING)
+    await narrow_entry(e4, cache, None)
+    assert e4["filters"]["young_woman.age"] == YOUNG and "young_woman.age" not in (e4.get("narrow_pending") or {})
+
+
+async def test_a_list_about_a_person_follows_how_they_present(tmp_path):
+    from prompt_programs.narrow import NarrowCache, narrow_entry
+
+    async def ask(messages, project_id, tokens):
+        return '["ALL"]'
+
+    reading = {"slots": [{"n": 1, "kind": "list", "label": "Outfit", "lead": ",",
+                          "list": {"list": "person.outfit.casual", "about": "the boy's outfit", "presentation": "masculine"}}]}
+    e = entry_of("1boy, <outfit>, city street", reading)
+    await narrow_entry(e, NarrowCache(tmp_path), ask)
+    leaf = vocabulary().get("person.outfit.casual")
+    masculine = {v.text for v in leaf.matching({"presentation": ["masculine"]})}
+    assert masculine and set(e["filters"]["outfit"]) <= masculine
+    assert len(masculine) < len(leaf.values)
+    assert draw(e, 3).prompt.startswith("1boy, ")
+
+
+def test_a_group_chosen_is_still_drawn_to_fit_the_age_but_one_value_holds(dorm):
+    from prompt_programs.choices import expand
+    e = {**dorm, "filters": {"young_man.age": ["22-year-old"]}}
+    leaf = vocabulary().get("person.hair_color")
+    pins, edits, _ = expand(e, {"young_man.hair_color": {"groups": {"shade": ["black"]}}})
+    group = set(pins["young_man.hair_color"])
+    graying = {v.text for v in leaf.values if set((v.tags or {}).get("graying") or []) - {"none"}}
+    assert group & graying
+    got = {values(draw(e, s, pins=pins))["young_man.hair_color"] for s in range(60)}
+    assert got <= group and not got & graying
+    one = next(iter(group & graying))
+    assert values(draw(e, 1, pins={"young_man.hair_color": [one]}))["young_man.hair_color"] == one
+
+
+def test_an_animals_words_narrow_its_life_stage_too():
+    reading = {"slots": [{"n": 1, "kind": "animal", "label": "Kitten", "lead": "",
+                          "animal": {"noun": "kitten", "vary": ["species", "life_stage"], "breed": "", "stated": {}}}]}
+    e = entry_of("a <kitten> on a windowsill", reading)
+    assert e["slot_words"] == {"kitten.species": "kitten", "kitten.life_stage": "kitten"}
+
+
+def test_a_lead_without_its_comma_leaves_nothing_hanging():
+    reading = json.loads(json.dumps(DORM_READING))
+    reading["slots"][1]["lead"] = "lit by"
+    got = draw(entry_of(DORM_PROMPT, reading), 3, edits={"light": {"off": True}}).prompt
+    assert "lit by" not in got and not got.endswith(",") and got.endswith(tidy_text([got]))

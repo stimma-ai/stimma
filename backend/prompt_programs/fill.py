@@ -54,6 +54,12 @@ DETAILS: Dict[str, Tuple[str, str, str, str, int]] = {
 }
 
 
+# Details a person has that start left out unless the reading asks for them (the chooser turns them on).
+STARTS_OFF = ("face",)
+# Details every person varies, whatever the reading lists (facial hair only for a masculine person).
+CORE = ("age", "descent", "build", "hair", "hair_color", "facial_hair")
+
+
 class ProgramError(Exception):
     """A draw that can't be made (kept under its old name: callers catch it as the run's error)."""
 
@@ -285,6 +291,11 @@ class Opt(tuple):
     the words leading to it go with it (", lit by" with the light)."""
 
 
+class Series(tuple):
+    """Opts said as a list: those kept joined by commas, the last by "and" ("warm beige skin,
+    wavy black hair and hazel eyes"). Goes when none is kept."""
+
+
 @dataclass(frozen=True)
 class Val:
     """A drawn value in the text, with the pick it is the value of (None: off)."""
@@ -299,18 +310,32 @@ def _clean(t: str) -> str:
     return t.strip() + ("\n" if t.rstrip(" \t").endswith("\n") else "")
 
 
+def _series_parts(s: Series) -> Optional[List[Tuple[str, Optional[str]]]]:
+    """A Series' text: the Opts kept, joined by commas and a last "and"; None when none is."""
+    kept = [got for got in (_opt_parts(o) for o in s) if got]
+    if not kept:
+        return None
+    out: List[Tuple[str, Optional[str]]] = []
+    for i, got in enumerate(kept):
+        if i:
+            out.append(("and" if i == len(kept) - 1 else ",", None))
+        out += got
+    return out
+
+
 def _opt_parts(o: Opt) -> Optional[List[Tuple[str, Optional[str]]]]:
-    """An Opt's text, or None when it goes: a value in it is off, or every Opt inside it went
-    ("with" and the hair group go when both hair picks are off, stay when one is on). A ","
-    leading an inner Opt separates it from one kept before it, so it goes when none was."""
+    """An Opt's text, or None when it goes: a value in it is off, or every Opt (or Series)
+    inside it went ("with" and the hair group go when both hair picks are off, stay when one
+    is on). A "," leading an inner Opt separates it from one kept before it, so it goes when
+    none was."""
     if any(p is None or (isinstance(p, Val) and p.value is None) for p in o):
         return None
     out: List[Tuple[str, Optional[str]]] = []
     inner = kept = 0
     for p in o:
-        if isinstance(p, Opt):
+        if isinstance(p, (Opt, Series)):
             inner += 1
-            got = _opt_parts(p)
+            got = _opt_parts(p) if isinstance(p, Opt) else _series_parts(p)
             if got is None:
                 continue
             if not kept and got and got[0][0] == ",":
@@ -331,6 +356,8 @@ def flatten(parts: Sequence[Part]) -> List[Tuple[str, Optional[str]]]:
             continue
         if isinstance(p, Opt):
             out += _opt_parts(p) or []
+        elif isinstance(p, Series):
+            out += _series_parts(p) or []
         elif isinstance(p, list):
             out += flatten(p)
         elif isinstance(p, Val):
@@ -421,6 +448,7 @@ def _tidy_line(s: str) -> str:
     s = re.sub(r"([,;])\1+", r"\1", s)
     s = re.sub(r",\s*\.", ".", s)
     s = re.sub(r"\.\s*\.", ".", s)
+    s = re.sub(r"\s*[,;:]+$", "", s)   # a joiner left hanging at the line's end (a slot left out after it)
     s = re.sub(r"(^|[.!?]\s+)([a-z])", lambda m: m.group(1) + m.group(2).upper(), s)
     return s.strip()
 
@@ -491,19 +519,27 @@ def picks_of(cid: str, words: str, reading: Dict[str, Any], *, close: str = "") 
     if kind == "person":
         noun = str(got.get("noun") or "person")
         presentation = got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else ""
-        show = [d for d in got.get("vary") or [] if d in DETAILS]
-        keys = [k for k in DETAILS if k in show and (k != "facial_hair" or presentation == "masculine")]
+        # The fixed things about a person always vary (design: age within what is stated, descent,
+        # build, hair); the reading adds what this picture shows besides (eyes, skin, face).
+        show = [*CORE, *(d for d in got.get("vary") or [] if d in DETAILS)]
+        # Face detail is part of every person but starts left out: it is drawn only when the
+        # reading says the prompt or a note asks for it, or the user turns it on in the chooser.
+        quiet = {k for k in STARTS_OFF if k not in show and vocab.get(DETAILS[k][0]) is not None}
+        keys = [k for k in DETAILS if (k in show or k in quiet) and (k != "facial_hair" or presentation == "masculine")]
         picks = []
         for k in keys:
             lid, dlabel, what, seed, phase = DETAILS[k]
             where: Any = None
             if k == "age" and noun != "person":
-                # What they are speaks to their age ("boy", "grandmother"): read beside the slot's words.
-                where = noun
+                # What they are speaks to their age ("boy", "grandmother"): the age is read in the
+                # slot's own words whole ("young woman"), not the stated word alone.
+                where = words
             elif k in ("face", "build") and presentation:
                 where = {"presentation": presentation}
             picks.append(_pick(f"{cid}.{k}", label=dlabel, about=f"the {noun}'s {what}", phase=phase, cls=lid,
                                seed=[seed], where=where, slot=cid))
+            if k in quiet:
+                picks[-1]["starts_off"] = True
         outfit = str(got.get("outfit") or "")
         outfit_id = ""
         if outfit:
@@ -545,10 +581,12 @@ def picks_of(cid: str, words: str, reading: Dict[str, Any], *, close: str = "") 
         picks = [_pick(f"{cid}.{d}", label=vocab.get(lists[d]).label if d != "species" else "Kind",
                        about=f"the {noun}'s {'kind' if d == 'species' else d.replace('_', ' ')}", phase=1 if d != "life_stage" else 2,
                        cls=lists[d], slot=cid) for d in vary]
-        # The slot's words narrow what kind of animal it is ("pet" keeps pets), unless they say more of it.
+        # The slot's words narrow what kind of animal it is ("pet" keeps pets) and its life stage
+        # ("kitten" keeps the young), unless the reading says which of its words say so.
         said = {f"{cid}.{d}": w for d, w in stated.items()}
-        if "species" in vary:
-            said.setdefault(f"{cid}.species", words)
+        for d in ("species", "life_stage"):
+            if d in vary:
+                said.setdefault(f"{cid}.{d}", words)
         form = {"kind": "animal", "noun": noun, "words": words, "keys": [p["id"] for p in picks]}
         return picks, {"form": form, "stated": stated, "slot_words": said}
     if kind == "light":
@@ -563,9 +601,12 @@ def picks_of(cid: str, words: str, reading: Dict[str, Any], *, close: str = "") 
     if kind == "list":
         lid = listed(got.get("list"))
         # The slot's words narrow its list, said of what the reader says it is in this image.
-        p = _pick(cid, label=label, about=str(got.get("about") or "").strip() or words, cls=lid, slot=cid)
-        picks = [p]
         leaf = vocab.get(lid)
+        # How the person it is about presents narrows a list that has that facet (an outfit, a face).
+        shown = got.get("presentation") if got.get("presentation") in leaf.local_facets.get("presentation", ()) else ""
+        p = _pick(cid, label=label, about=str(got.get("about") or "").strip() or words, cls=lid, slot=cid,
+                  where={"presentation": shown} if shown else None)
+        picks = [p]
         if leaf.slots and vocab.get(leaf.slots) is not None:
             picks.append(_colors(cid, p))
         return picks, {"form": {"kind": "one", "id": cid}, "slot_words": {cid: words}}
@@ -662,9 +703,9 @@ def text_parts(entry: Dict[str, Any], value: Any) -> List[Part]:
 
 
 def person_parts(form: Dict[str, Any], value: Any) -> List[Part]:
-    """A person described: "slender 32-year-old Korean man with shoulder-length wavy dark brown
-    hair, a goatee, wearing a navy coat," Each group goes with its joiners when it is off;
-    with every detail off they stand as the user's own words."""
+    """A person described: "slender 32-year-old Korean man with warm beige skin, shoulder-length
+    wavy dark brown hair and a goatee, wearing a navy coat," Each group goes with its joiners
+    when it is off; with every detail off they stand as the user's own words."""
     v = {k.rsplit(".", 1)[-1]: value(k) for k in form["keys"]}
     noun = form["noun"]
     if form.get("words") and v:
@@ -678,7 +719,8 @@ def person_parts(form: Dict[str, Any], value: Any) -> List[Part]:
                           Opt((v["face"],)) if "face" in v else None) if g is not None]
     tail: List[Part] = []
     if groups:
-        tail.append(Opt(("with", groups[0], *(Opt((",", g)) for g in groups[1:]))))
+        # One "with" and one list: "with warm beige skin, wavy black hair and hazel eyes".
+        tail.append(Opt(("with", Series(groups))))
     if form.get("outfit"):
         tail.append(Opt((", wearing", value(form["outfit"]))))
     if form.get("close") and tail:
@@ -701,8 +743,9 @@ def animal_parts(form: Dict[str, Any], value: Any) -> List[Part]:
 
 def template_text(entry: Dict[str, Any]) -> str:
     """The prompt with every pick shown as [Label]: what the option writer is shown."""
-    labels = {p["id"]: p["label"] for p in entry.get("picks") or []}
-    return tidy_text([t for t, _ in flatten(text_parts(entry, lambda cid: Val(cid, f"[{labels.get(cid, cid)}]")))])
+    labels = {p["id"]: p["label"] for p in entry.get("picks") or [] if not p.get("starts_off")}
+    return tidy_text([t for t, _ in flatten(text_parts(
+        entry, lambda cid: Val(cid, f"[{labels[cid]}]" if cid in labels else None)))])
 
 
 # --------------------------------------------------------------------------- drawing
@@ -879,9 +922,18 @@ class _Fill:
         v = self._weighted(items)
         return v, False, v in pool.own
 
+    def _off(self, p: Dict[str, Any]) -> bool:
+        """Left out: by the user, or a detail that starts left out and wasn't turned on (a pin,
+        their own option, a kept value or `on`)."""
+        cid = p["id"]
+        e = self.edits.get(cid) or {}
+        if e.get("off"):
+            return True
+        return bool(p.get("starts_off")) and not (e.get("on") or cid in self.pins or cid in self.fixed)
+
     def pick(self, p: Dict[str, Any], phase: int) -> None:
         cid = p["id"]
-        if (self.edits.get(cid) or {}).get("off") or (p.get("follows") and p["follows"] not in self.drawn):
+        if self._off(p) or (p.get("follows") and p["follows"] not in self.drawn):
             self.values[cid] = None
             return
         if p.get("follows"):
@@ -899,12 +951,20 @@ class _Fill:
                         said=said, zones=tuple((str(z), tuple(v)) for z, v in zones.items()))
         if source != "list" and spec.cls != AGE_LIST:
             spec.minor = self._minor(cid)
-        if leaf is not None and leaf.takes and self.context_on and cid not in self.pins and not said:
+        if leaf is not None and leaf.takes and self.context_on and cid not in self.single and not said:
             spec.context = self._given(cid, leaf)
+            if cid in self.pins:
+                # Values the user ticked draw evenly, but what can't fit at all still goes: a group of
+                # black shades for a 20-year-old draws no salt-and-pepper. One value chosen is drawn as it is.
+                spec.context = tuple((f, v) for f, v in spec.context
+                                     if (leaf.takes.get(f) or ("",))[0] in ("drop", "never"))
         if leaf is not None and leaf.slots:
             self._unfill_kept(cid, leaf)
         pins = self.pins.get(cid)
         pool, items = self._eligible(spec, pins)
+        if pins and spec.context and not any(w > 0 for _, w in items):
+            spec.context = ()   # nothing chosen fits: what was chosen holds over fit
+            pool, items = self._eligible(spec, pins)
         if pins and not items and (len(pins) > 1 or source == "list"):
             pool, items = self._eligible(spec, None)   # ticks that match nothing it has now are passed by
         value, pinned, own = self._choose(spec, pool, items)
@@ -1023,7 +1083,7 @@ def _revision(entry: Dict[str, Any], f: _Fill, edits: Dict[str, Any]) -> Dict[st
     return rev
 
 
-__all__ = ["CAMERA", "COLORS", "COLORS_ABOUT", "CONTEXT_VERSION", "DETAILS", "Draw", "DrawAborted", "DrawResult", "KINDS",
-           "LiteralOptions", "Opt", "OptionsService", "PickSpec", "Pool", "ProgramError", "RANK_DECAY", "ReadingError",
+__all__ = ["CAMERA", "COLORS", "COLORS_ABOUT", "CONTEXT_VERSION", "DETAILS", "STARTS_OFF", "Draw", "DrawAborted", "DrawResult", "KINDS",
+           "LiteralOptions", "Opt", "OptionsService", "Series", "PickSpec", "Pool", "ProgramError", "RANK_DECAY", "ReadingError",
            "RunResult", "Val", "choice_options", "context_suffix", "fill", "fix_articles", "flatten", "owns",
            "person_of", "picks_of", "pool_key", "subject_of", "template_text", "text_parts", "tidy_text", "value_spans"]

@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/prompt-programs", tags=["prompt-programs"])
 
 # What a slot and a choice say to the editor (the program text itself stays server-side unless asked for).
 _SLOT_KEYS = ("id", "n", "kind", "label", "words", "span", "line", "details", "stated", "degraded", "state")
-_CHOICE_KEYS = ("id", "kind", "label", "cls", "options", "follows", "parent", "when")
+_CHOICE_KEYS = ("id", "kind", "label", "cls", "options", "follows", "parent", "when", "starts_off")
 
 
 class PrepareRequest(BaseModel):

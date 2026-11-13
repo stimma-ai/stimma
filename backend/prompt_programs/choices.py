@@ -20,6 +20,8 @@ The editor sends one object per choice (`promptOptions.program.choices`, and /po
   and `instead` (the rest, values drawn only when picked one by one left out), and choosing
   `instead` pins the values of the zones chosen.
 - `off`: the choice is left out (with its lead). `add` (or `<id>#add`): the user's own options.
+- `on`: a detail that starts left out (`starts_off`: a person's face) is drawn; choosing values,
+  groups or zones on it turns it on too.
 
 "Any" (`{"any": true}`) and `zones == ["kinds"]` alone are the default draw, so they are
 stored as no choice: a pin draws differently from the default (no context weighting).
@@ -124,6 +126,9 @@ def expand(entry: Dict[str, Any], choices: Optional[Dict[str, Any]]
         if ch.get("off"):
             edits.setdefault(cid, {})["off"] = True
             continue
+        if (ch.get("on") or ch.get("any")) and (_choice(entry, cid) or {}).get("starts_off"):
+            # A detail that starts left out (a person's face) is drawn once the user turns it on.
+            edits.setdefault(cid, {})["on"] = True
         if ch.get("any"):
             continue
         values = _strings(ch.get("values") or [])

@@ -52,7 +52,7 @@ from prompt_programs.vocab import AGE_LIST, Leaf, minor_ages, vocabulary
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-10"   # narrow-10: a grouped list is answered as {"groups", "items"}; an empty answer stands. narrow-9: a list with declared groups (descent) is shown by group. narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
+NARROW_VERSION = "narrow-12"   # narrow-12: "elderly" is 70 and over. narrow-11: an age is read in its own line and the notes; "young" is 18 to 29. narrow-10: a grouped list is answered as {"groups", "items"}; an empty answer stands. narrow-9: a list with declared groups (descent) is shown by group. narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
 NARROW_SECONDS = 180.0   # all of a program's narrowing calls together; past it the prepare fails. With no reasoning one call takes a few seconds
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
@@ -87,10 +87,11 @@ Ages: a person is an adult (18 or over) unless the description itself makes them
 a teenager: "a child", "a baby", "a toddler", "kids", "a teenage boy", "a 10-year-old", "a
 little girl", "a schoolboy". Such words call for the ages under 18 that match them, and only
 those. A man or a woman is an adult, of whatever ages the rest of the description allows.
-A "teenage boy" is 13 to 19.
+A "teenage boy" is 13 to 19. "Young", said of an adult ("a young woman", "a young man"), is
+their twenties at most: 18 to 29. "Elderly" is 70 and over.
 
 "A girl" or "a boy" alone says neither: people say it of a child and of a young woman or man
-alike. For an age you are also given the whole prompt, and the prompt decides:
+alike. For an age you are also given the prompt it is said in, and the prompt decides:
 - When the prompt is sexual, nude, romantic or otherwise adult in what it shows or asks for,
   or shows an adult's life (a job, a bar, a date, driving, a wedding), they are an adult: keep
   the ages from 18 to 29 and never one under 18.
@@ -176,7 +177,7 @@ def messages_for(leaf: Leaf, phrase: str, values: Sequence[str], about: str = ""
     user = (f'The list "{leaf.label}" ({leaf.description}):\n{json.dumps(list(values), ensure_ascii=False)}\n\n'
             f'Which of these fit "{phrase}"{said}?')
     if prompt.strip():   # an age is read in the whole prompt (see _SYSTEM)
-        user += f"\n\nThe whole prompt:\n{prompt.strip()}"
+        user += f"\n\nThe prompt it is said in:\n{prompt.strip()}"
     shown = set(values)
     asked = [_shown(v.text) for v in leaf.values if v.opt_in and _shown(v.text) in shown]
     if asked:  # opt-in values (vocab.py): never kept by default
@@ -382,6 +383,14 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     # hidden part makes it an adult prompt. Then the age is read from its own words, as before:
     # "a girl" alone is a young adult.
     whole = "" if entry.get("exact") else str(entry.get("prompt") or "")
+    seen_in = _contexts(entry) if whole else {}
+
+    def context(c: Dict[str, Any]) -> str:
+        """What an age is read in: its slot's line and the prompt's comment lines, so an edit to
+        another line keeps the narrowing (cached by it); the whole prompt when no line is known."""
+        if not whole or c.get("cls") != AGE_LIST:
+            return ""
+        return seen_in.get(c.get("list_of") or person_of(str(c.get("id"))) or str(c.get("id")), whole)
     stated = stated_ages(entry, bound, said_ages)
     stated_ctx = stated_context(entry, bound)
     listed = list_age_values(entry, bound)
@@ -391,10 +400,10 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     early: Dict[Tuple[str, str, str], Tuple[str, str, "asyncio.Task[Optional[List[str]]]"]] = {}
     for c in listed + listed_ctx:
         phrase = phrase_of(c)
-        k = (c["cls"], _norm(phrase), _norm(c.get("about") or ""))
+        k = (c["cls"], _norm(phrase), _norm(c.get("about") or ""), context(c))
         if phrase and k not in early:
             early[k] = (phrase, c.get("about") or "", asyncio.ensure_future(
-                subset(vocab.leaves[c["cls"]], phrase, cache, ask, project_id, c.get("about") or "", whole)))
+                subset(vocab.leaves[c["cls"]], phrase, cache, ask, project_id, c.get("about") or "", context(c))))
     # The slot reader already said which of a slot's words state each detail (fill.picks_of).
     read = {str(k): str(v) for k, v in (entry.get("slot_words") or {}).items() if str(v).strip()}
     seconds = max(1.0, seconds - (asyncio.get_running_loop().time() - t0))
@@ -411,7 +420,7 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
     for c, m in members:
         if not read.get(c["id"]) and (m.group(1), m.group(2)) in shared:
             read[c["id"]] = shared[(m.group(1), m.group(2))]
-    wanted: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}   # (list, words, about) → choices
+    wanted: Dict[Tuple[str, str, str, str], List[Dict[str, Any]]] = {}   # (list, words, about, context) → choices
     for c in bound:
         phrase = phrase_of(c, read)
         if phrase:
@@ -419,24 +428,24 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
                 c["where_words"] = phrase   # the facet filter stays; the words narrow within it
             else:
                 c["where"] = phrase
-            wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
+            wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or ""), context(c)), []).append(c)
     # a stated age or context, or a user list's value: narrowed on its list, recorded apart
     for c in [*stated, *listed, *stated_ctx, *listed_ctx]:
         phrase = phrase_of(c, read)
         if phrase:
-            wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or "")), []).append(c)
+            wanted.setdefault((c["cls"], _norm(phrase), _norm(c.get("about") or ""), context(c)), []).append(c)
     words: Dict[str, List[str]] = {}
 
-    def job(k: Tuple[str, str, str]) -> "asyncio.Future[Optional[List[str]]]":
+    def job(k: Tuple[str, str, str, str]) -> "asyncio.Future[Optional[List[str]]]":
         phrase, about = phrase_of(wanted[k][0], read), wanted[k][0].get("about") or ""
         started = early.pop(k, None)
         if started is not None and (started[0], started[1]) == (phrase, about):
             return started[2]
         if started is not None:  # asked in other words than it is now: ask as it is
             started[2].cancel()
-        return asyncio.ensure_future(subset(vocab.leaves[k[0]], phrase, cache, ask, project_id, about, whole))
+        return asyncio.ensure_future(subset(vocab.leaves[k[0]], phrase, cache, ask, project_id, about, k[3]))
 
-    async def batch(keys: List[Tuple[str, str, str]]) -> List[Optional[List[str]]]:
+    async def batch(keys: List[Tuple[str, str, str, str]]) -> List[Optional[List[str]]]:
         # Each answer that came back in time holds; only the ones still out are pending.
         jobs = [job(k) for k in keys]
         if not jobs:
@@ -542,6 +551,19 @@ async def narrow_entry(entry: Dict[str, Any], cache: Optional[NarrowCache], ask:
             if c["id"] in unfinished:
                 entry["narrow_pending"][c["id"]] = {"cls": c["cls"], "options": [], "context": True}
     return notes
+
+
+def _contexts(entry: Dict[str, Any]) -> Dict[str, str]:
+    """Per slot (by id) and per user list (by pick id), its line of the prompt with the prompt's
+    comment lines: what an age said there is read in."""
+    lines = str(entry.get("prompt") or "").split("\n")
+    notes = [str(sg.get("text") or "").strip() for sg in entry.get("segments") or [] if sg.get("kind") == "comment"]
+    out: Dict[str, str] = {}
+    for x in [*(entry.get("slots") or []), *(entry.get("lists") or [])]:
+        n = x.get("line")
+        if isinstance(n, int) and 0 < n <= len(lines) and x.get("id"):
+            out[str(x["id"])] = "\n".join(dict.fromkeys([*notes, lines[n - 1].strip()]))
+    return out
 
 
 def stated_ages(entry: Dict[str, Any], bound: Sequence[Dict[str, Any]],

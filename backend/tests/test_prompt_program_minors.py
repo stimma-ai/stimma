@@ -225,8 +225,8 @@ class TestNarrowing:
         assert "never one under 18" in _SYSTEM and "they are a young adult" in _SYSTEM
         assert "a boy or a girl is under 18" not in _SYSTEM
         with_prompt = messages_for(ages(), "girl", ["18-year-old"], "her age", "a girl walking to the store with her mom")[1]["content"]
-        assert "The whole prompt:\na girl walking to the store with her mom" in with_prompt
-        assert "The whole prompt" not in messages_for(ages(), "girl", ["18-year-old"], "her age")[1]["content"]
+        assert "The prompt it is said in:\na girl walking to the store with her mom" in with_prompt
+        assert "The prompt it is said in" not in messages_for(ages(), "girl", ["18-year-old"], "her age")[1]["content"]
         from prompt_programs.narrow import NarrowCache
         k = lambda p: NarrowCache.key(ages(), "girl", ["18-year-old"], "her age", p)   # noqa: E731
         assert k("a girl in a cafe") != k("a girl walking to the store with her mom")
@@ -241,7 +241,7 @@ class TestNarrowing:
             return "[]"
         asyncio.run(subset(vocabulary().get("person.eye_color"), "dark", None, ask, None, "her eyes", "a girl with dark eyes"))
         asyncio.run(subset(ages(), "girl", None, ask, None, "her age", "a girl with dark eyes"))
-        assert "The whole prompt" not in seen[0] and "The whole prompt:\na girl with dark eyes" in seen[1]
+        assert "The prompt it is said in" not in seen[0] and "The prompt it is said in:\na girl with dark eyes" in seen[1]
 
 
     def test_the_opt_in_ages_are_still_named_as_such(self):

@@ -27,7 +27,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-9"   # reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-11"   # reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -82,14 +82,19 @@ For a person:
   young, "elderly African man" stays elderly and of African descent), their descent, build,
   hair and the like. Most often: age, descent, build, hair and hair_color, with facial_hair
   for a masculine person. Choose what this picture shows of them: a small figure in a wide
-  scene shows age, build and hair, not eyes; a close portrait adds face and eyes.
+  scene shows age, build and hair, not eyes; a close portrait adds eyes.
   You need not include every detail, but leave one out only for a reason. Facial hair only
   for a masculine person.
+- face: true only when the prompt or a note asks for their face or its features to change
+  from image to image ("# a different face each time"); a close portrait alone doesn't.
+  Else false.
 - Leave out expression unless the prompt or a note asks for it to change. Leave out pose and
   accessories: they are not part of the person.
-- outfit: their clothes change too, unless the prompt already says what they wear. Give the id
-  of the outfit list below that suits the scene, or "written" if none does, or "" when the
-  prompt already describes their clothes or none show.
+- clothes: the words of the prompt or a note that say what they wear, or that no clothes
+  show, copied exactly ("in a red raincoat", "headshot"); "" when nothing says so, which is
+  most prompts.
+- outfit: their clothes change too, unless clothes has words. Give the id of the outfit list
+  below that suits the scene, or "written" if none does; "" only when clothes has words.
 - outfit_examples: when outfit is "written", three outfits that suit the scene, each as it
   would read after "wearing"; else [].
 
@@ -113,7 +118,9 @@ none does; and examples, three looks of light that fit this scene.
 For a list: list (its id) and about (what it is in this image, and whose, in a few words, with
 what the prompt and notes say of them: "the girl's hairstyle", "a middle-aged man's hairstyle",
 "his pet, on the porch"). The part's words and the about decide which of the list's items fit.
-  "list": {"list": "<the list's id>", "about": "..."}
+When it is about a person whose words or the notes say how they present ("1boy", "a woman"),
+presentation: "feminine" or "masculine"; else "".
+  "list": {"list": "<the list's id>", "about": "...", "presentation": ""}
 
 For free: about (what it is in this image, a few words), kinds (three specific kinds of the
 thing the words name) and instead: up to three other things that would naturally stand in the
@@ -152,8 +159,8 @@ SHAPE = {
     "slots": [
         {"n": 1, "kind": "person", "label": "Elderly African man", "lead": "an",
          "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "elderly", "descent": "African"},
-                    "vary": ["age", "descent", "build", "hair", "hair_color", "facial_hair"],
-                    "outfit": "person.outfit.casual", "outfit_examples": []}},
+                    "vary": ["age", "descent", "build", "hair", "hair_color", "facial_hair"], "face": False,
+                    "clothes": "", "outfit": "person.outfit.casual", "outfit_examples": []}},
         {"n": 2, "kind": "animal", "label": "Pet", "lead": " with his",
          "animal": {"noun": "pet", "vary": ["species", "life_stage"], "breed": "", "stated": {}}},
     ],
@@ -163,9 +170,9 @@ SHAPE = {
 TAGS = {
     "slots": [
         {"n": 1, "kind": "list", "label": "Hairstyle", "lead": ",",
-         "list": {"list": "person.hairstyle", "about": "the girl's hairstyle"}},
+         "list": {"list": "person.hairstyle", "about": "the girl's hairstyle", "presentation": "feminine"}},
         {"n": 2, "kind": "list", "label": "Outfit", "lead": ",",
-         "list": {"list": "person.outfit.summer", "about": "the girl's outfit, at the beach"}},
+         "list": {"list": "person.outfit.summer", "about": "the girl's outfit, at the beach", "presentation": "feminine"}},
     ],
     "lists": [],
 }
@@ -175,9 +182,9 @@ CATALOG_ROOTS = ("person", "animal", "place", "scene", "camera", "lighting", "ar
 
 
 def system_text() -> str:
-    from prompt_programs.fill import DETAILS
+    from prompt_programs.fill import DETAILS, STARTS_OFF
     from prompt_programs.vocab import vocabulary
-    details = "\n".join(f"- {k}: {v[2]}" for k, v in DETAILS.items())
+    details = "\n".join(f"- {k}: {v[2]}" for k, v in DETAILS.items() if k not in STARTS_OFF)
     return (SYSTEM.replace("{details}", details).replace("{catalog}", vocabulary().catalog(CATALOG_ROOTS))
             .replace("{shape}", json.dumps(SHAPE, ensure_ascii=False, indent=1))
             .replace("{tags}", json.dumps(TAGS, ensure_ascii=False)))
@@ -294,7 +301,8 @@ def _copied(words: str, sources: Sequence[str]) -> bool:
     return any(_span(words, s) for s in sources)
 
 
-def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str]) -> Dict[str, Any]:
+def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str], prompt: str = "",
+               strict: bool = True) -> Dict[str, Any]:
     """One slot's reading as the builder takes it, or _Bad. Details it doesn't know, stated
     words that aren't the user's and a lead that isn't the text before the slot are dropped."""
     from prompt_programs.fill import DETAILS
@@ -325,7 +333,11 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
                 if d in DETAILS and isinstance(w, str) and w.strip() and _copied(w, sources)}
         # A detail the words state is drawn, within the words: left undrawn, the person would be
         # only their noun and the words would be lost ("young man" drawn as "a man").
-        vary = list(dict.fromkeys([*(d for d in _strings(got.get("vary"), f"part {n}: vary") if d in DETAILS), *kept]))
+        from prompt_programs.fill import STARTS_OFF
+        # Face detail is drawn only when the reading says it was asked for ("face": true).
+        asked = list(STARTS_OFF) if got.get("face") is True else []
+        vary = list(dict.fromkeys([*(d for d in _strings(got.get("vary"), f"part {n}: vary")
+                                     if d in DETAILS and d not in STARTS_OFF), *asked, *kept]))
         noun = str(got.get("noun") or "").strip()
         if not noun or not _copied(noun, sources):
             # Copied, as stated words are: a person is named by their own part. A reading whose noun
@@ -333,6 +345,12 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
             raise _Bad(f'part {n}: a person\'s noun is one of their own words, and "{noun}" is not among the '
                        f'words "{seg.words}". Words that name only something about a person, or about someone '
                        'the prompt already has, are a "list" when a list covers them, else "free"')
+        clothes = got.get("clothes") if isinstance(got.get("clothes"), str) else ""
+        # Asked once (`strict`): a reading that still gives no outfit on the retry stands as it is.
+        if strict and (vary or outfit) and not outfit and not (clothes.strip() and _copied(clothes, [seg.words, before, *notes, prompt])):
+            raise _Bad(f'part {n}: a person\'s clothes change unless the prompt says what they wear: give an outfit '
+                       'list\'s id (or "written" with three outfit_examples), or copy the prompt\'s words about '
+                       'their clothes into "clothes"')
         if not vary and not outfit:
             raise _Bad(f"part {n}: a person needs details to vary (from {', '.join(DETAILS)}) or an outfit; "
                        "words about part of a person are a list or free, not a person")
@@ -355,11 +373,9 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
         vary = [d for d in dict.fromkeys(_strings(got.get("vary"), f"part {n}: vary")) if d in ANIMAL]
         breed = got.get("breed") if isinstance(got.get("breed"), str) else ""
         if breed and (vocab.get(breed) is None or breed in ANIMAL_LISTS.values() or not breed.startswith("animal.")):
-            raise _Bad(f'part {n}: breed "{breed}" is not one of the animal lists')
-        if "breed" in vary and not breed:
-            raise _Bad(f"part {n}: a breed that varies needs its list's id in breed")
-        if "breed" in vary and "species" in vary:
-            raise _Bad(f"part {n}: breed varies only when the words name one kind, so never beside species")
+            breed = ""   # a kind with no breed list ("kitten"): the rest of the reading stands
+        if "breed" in vary and (not breed or "species" in vary):
+            vary = [d for d in vary if d != "breed"]
         stated = got.get("stated") if isinstance(got.get("stated"), dict) else {}
         kept = {d: w.strip() for d, w in stated.items()
                 if d in ANIMAL and isinstance(w, str) and w.strip() and _copied(w, sources)}
@@ -381,6 +397,8 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
             raise _Bad(f'part {n}: list "{lid}" is not one of the lists (the id goes in "list": {{"list": "<id>", "stated": ""}})')
         about = got.get("about") if isinstance(got.get("about"), str) else ""
         out["list"] = {"list": lid, "about": about.strip() or seg.words}
+        if got.get("presentation") in ("feminine", "masculine"):
+            out["list"]["presentation"] = got["presentation"]
     else:
         kinds = _strings(got.get("kinds"), f"part {n}: kinds")
         if not kinds:
@@ -390,7 +408,7 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
     return out
 
 
-def check_parts(reply: str, parsed: Parsed, asked: Sequence[Tuple[str, int]]
+def check_parts(reply: str, parsed: Parsed, asked: Sequence[Tuple[str, int]], strict: bool = True
                 ) -> Tuple[Dict[int, Any], Dict[int, str], Dict[Tuple[str, int], str]]:
     """The asked slots' readings and lists' labels that a reply gives in a usable form, and
     for each asked part it doesn't, what is wrong, said plainly. Never raises: one part's bad
@@ -417,7 +435,7 @@ def check_parts(reply: str, parsed: Parsed, asked: Sequence[Tuple[str, int]]
             continue
         seen.add(n)
         try:
-            slots[n] = check_slot(r, marks[("slot", n)], before.get(n, ""), notes)
+            slots[n] = check_slot(r, marks[("slot", n)], before.get(n, ""), notes, parsed.prompt, strict)
         except _Bad as e:
             bad[("slot", n)] = str(e)
     lists: Dict[int, str] = {}
@@ -499,7 +517,7 @@ async def read_part(parsed: Parsed, kind: str, n: int, *, ask: Ask, project_id: 
     why = ""
     for attempt in range(2):
         reply = await ask(messages, project_id, READING_TOKENS + SLOT_TOKENS)
-        slots, lists, bad = check_parts(reply, parsed, [(kind, n)])
+        slots, lists, bad = check_parts(reply, parsed, [(kind, n)], strict=attempt == 0)
         if kind == "slot" and n in slots:
             why = _unusable(parsed, n, slots[n]) or ""
             if not why:
