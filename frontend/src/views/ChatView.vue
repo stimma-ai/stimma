@@ -1485,6 +1485,7 @@ import { copyToClipboard } from '../utils/clipboard'
 import { addToast, reportActionError } from '../composables/useToasts'
 import { useAuth } from '../composables/useAuth'
 import { useAvailableModels } from '../composables/useAvailableModels'
+import { isAwaitingSwitch, replacementFor } from '../utils/servedChange'
 import {
   ClipboardDocumentListIcon,
   ListBulletIcon,
@@ -4058,29 +4059,57 @@ function pickFallbackModelSlug() {
   return first?.slug || null
 }
 
+// The model this chat has saved now. A model switch repoints saved chats on
+// the server, so the saved row can be ahead of what this view holds.
+async function adoptSavedChatModel() {
+  const id = chatId.value
+  if (id == null) return false
+  const response = await fetch(`${getApiBase()}/chats/${id}`)
+  if (!response.ok) throw new Error(`Chat read failed: ${response.status}`)
+  const saved = await response.json()
+  if (chatId.value !== id || !chat.value) return false
+  const moved = saved.model_slug !== chat.value.model_slug
+  chat.value.model_slug = saved.model_slug
+  chat.value.reasoning_effort = saved.reasoning_effort
+  return moved
+}
+
 let recoveringChatModel = false
 async function recoverUnavailableChatModel() {
   if (recoveringChatModel) return
   if (!modelsFetched.value || modelsLoading.value) return
   if (noUsableChatModels.value) return
   if (!chat.value || !isChatModelUnavailable.value) return
-  const fallback = pickFallbackModelSlug()
-  if (!fallback) return
+  // Its server stopped serving it: the person switches or chooses in Settings,
+  // and a switch carries this chat along. Moving it now would lose that.
+  if (isAwaitingSwitch(availableModels.value, chat.value.model_slug || globalDefault.value)) return
+  if (!pickFallbackModelSlug()) return
   recoveringChatModel = true
-  chat.value.model_slug = fallback
+  let adopted = false
   try {
-    if (chatId.value != null) {
-      await fetch(`${getApiBase()}/chats/${chatId.value}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model_slug: fallback }),
-      })
+    // Never overwrite a choice the server already moved (a switch whose
+    // catalog refresh landed here before its event did): follow it instead.
+    adopted = await adoptSavedChatModel()
+    if (!adopted && chat.value && isChatModelUnavailable.value) {
+      const fallback = pickFallbackModelSlug()
+      if (fallback) {
+        chat.value.model_slug = fallback
+        if (chatId.value != null) {
+          await fetch(`${getApiBase()}/chats/${chatId.value}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model_slug: fallback }),
+          })
+        }
+      }
     }
   } catch (err) {
     console.warn('Failed to persist fallback chat model:', err)
   } finally {
     recoveringChatModel = false
   }
+  // The saved model may itself be unavailable; that one recovers as usual.
+  if (adopted) void recoverUnavailableChatModel()
 }
 
 watch(
@@ -6267,6 +6296,16 @@ function setupWebSocketSubscriptions() {
     if (data.settings_changed) {
       console.log('Chat settings updated via WebSocket')
     }
+  }))
+
+  // A model switch repointed this chat on the server: follow it here at once,
+  // before the catalog refresh drops the old model and recovery could see it.
+  wsUnsubscribes.push(onWsEvent('llm_providers_updated', (data) => {
+    const next = replacementFor(chat.value?.model_slug, data?.replaces)
+    if (!next) return
+    chat.value.model_slug = next
+    // The server kept or dropped the pinned effort for the new model.
+    adoptSavedChatModel().catch(err => console.warn('Failed to read switched chat model:', err))
   }))
 
   // Background work: status while it runs, and when it ends.

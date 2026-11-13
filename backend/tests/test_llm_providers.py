@@ -842,7 +842,7 @@ async def test_adding_openai_key_checks_models_and_stores_branded_contracts(monk
     saved = []
 
     monkeypatch.setattr(models_route, "get_settings", lambda: settings)
-    monkeypatch.setattr(models_route, "_save_providers", lambda providers: saved.extend(providers))
+    monkeypatch.setattr(models_route, "_save_providers", lambda providers, *_: saved.extend(providers))
 
     async def discover(_provider):
         return [{"id": model_id} for model_id in ("gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna")]
@@ -895,7 +895,7 @@ async def test_single_openrouter_model_is_profiled_and_added_automatically(monke
     saved = []
     profiled = []
     monkeypatch.setattr(models_route, "get_settings", lambda: settings)
-    monkeypatch.setattr(models_route, "_save_providers", lambda providers: saved.extend(providers))
+    monkeypatch.setattr(models_route, "_save_providers", lambda providers, *_: saved.extend(providers))
 
     async def discover(_provider):
         return [compatible_openrouter_row()]
@@ -926,7 +926,7 @@ async def test_empty_model_selection_stages_single_model_provider_without_profil
     settings = SimpleNamespace(llm_providers=[])
     profiled = []
     monkeypatch.setattr(models_route, "get_settings", lambda: settings)
-    monkeypatch.setattr(models_route, "_save_providers", lambda _providers: None)
+    monkeypatch.setattr(models_route, "_save_providers", lambda _providers, *_: None)
 
     async def discover(_provider):
         return [compatible_openrouter_row()]
@@ -972,7 +972,7 @@ async def test_updating_branded_provider_key_marks_connection_ready(monkeypatch)
         return [{"id": "grok-4.5"}]
 
     monkeypatch.setattr(models_route, "_discover_provider_models", discover)
-    monkeypatch.setattr(models_route, "_save_providers", lambda _providers: None)
+    monkeypatch.setattr(models_route, "_save_providers", lambda _providers, *_: None)
 
     response = await models_route.update_llm_provider(
         "xai-test",
@@ -2112,3 +2112,72 @@ async def test_after_a_replace_the_new_model_is_offered_and_resolves_old_pins(sw
         config = await llm_resolver.get_effective_llm_config("chat")
     assert config.model == "new-model"
     assert config.url == "http://gpu-box:8000/v1"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_database_repoint_saves_nothing_and_can_be_retried(swap_app, monkeypatch):
+    import llm_model_repoint
+    from config import get_settings
+
+    client = swap_app.client
+    chat = (await client.post("/api/chats", json={"name": "Pinned", "model_slug": OLD})).json()
+    await client.patch("/api/settings/agent", json={"models": {"chat": {"model": OLD, "effort": None}}})
+    real = llm_model_repoint._repoint_profile_database
+    failures = [RuntimeError("database is locked")]
+
+    async def flaky(profile_id, replaces, levels):
+        if failures:
+            raise failures.pop()
+        return await real(profile_id, replaces, levels)
+
+    monkeypatch.setattr(llm_model_repoint, "_repoint_profile_database", flaky)
+    new = _model_with_levels("local-gpu", "new-model", ["off", "high"])
+    request = {"models": [new.model_dump()], "replaces": {OLD: NEW}}
+
+    response = await client.patch("/api/models/providers/local-gpu", json=request)
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Could not update saved model choices. Try again."
+    provider = next(p for p in get_settings().llm_providers if p.id == "local-gpu")
+    assert [model.id for model in provider.models] == [OLD]
+    assert (await client.get(f"/api/chats/{chat['id']}")).json()["model_slug"] == OLD
+    assert (await client.get("/api/settings/agent")).json()["models"]["chat"]["model"] == OLD
+
+    response = await client.patch("/api/models/providers/local-gpu", json=request)
+
+    assert response.status_code == 200, response.text
+    assert [model["id"] for model in response.json()["models"]] == [NEW]
+    assert (await client.get(f"/api/chats/{chat['id']}")).json()["model_slug"] == NEW
+    assert (await client.get("/api/settings/agent")).json()["models"]["chat"]["model"] == NEW
+
+
+@pytest.mark.asyncio
+async def test_a_replace_is_broadcast_once_with_its_mapping_after_the_repoint(swap_app, monkeypatch):
+    import asyncio
+
+    steps = []
+
+    async def broadcast(event, data, include_profile=True):
+        steps.append((event, data))
+
+    real_databases = models_route.repoint_profile_databases
+    real_config = models_route.repoint_config_selections
+
+    async def databases(replaces, levels):
+        result = await real_databases(replaces, levels)
+        steps.append("databases")
+        return result
+
+    def config(replaces, levels):
+        result = real_config(replaces, levels)
+        steps.append("config")
+        return result
+
+    monkeypatch.setattr(models_route.ws_manager, "broadcast", broadcast)
+    monkeypatch.setattr(models_route, "repoint_profile_databases", databases)
+    monkeypatch.setattr(models_route, "repoint_config_selections", config)
+
+    await _swap(swap_app.client)
+    await asyncio.sleep(0)
+
+    assert steps == ["databases", "config", ("llm_providers_updated", {"replaces": {OLD: NEW}})]

@@ -94,7 +94,7 @@
 
 <script setup lang="ts">
 import { reportActionError } from '../../../composables/useToasts'
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
 import RoleModelRows from '../RoleModelRows.vue'
@@ -103,6 +103,8 @@ import type { ToolConfig } from '../../../composables/useAgentPresetsApi'
 import { useProvidersApi, type ProviderToolSummary } from '../../../composables/useProvidersApi'
 import { useProfile } from '../../../composables/useProfile'
 import { useAvailableModels } from '../../../composables/useAvailableModels'
+import { useWebSocket } from '../../../composables/useWebSocket'
+import { replacementFor } from '../../../utils/servedChange'
 
 type RoleSelection = { model: string; effort: string | null }
 type RoleModels = Record<string, RoleSelection>
@@ -298,4 +300,11 @@ onMounted(() => {
 watch(currentProfileId, () => {
   loadSettings()
 })
+
+// A model switch repointed saved roles: reload so a row neither shows the old
+// model nor saves it back with an effort change.
+const stopFollowingModelSwitch = useWebSocket().on('llm_providers_updated', (data: { replaces?: Record<string, string> }) => {
+  if (Object.values(localModels.value).some(sel => replacementFor(sel?.model, data?.replaces))) loadSettings()
+})
+onUnmounted(stopFollowingModelSwitch)
 </script>

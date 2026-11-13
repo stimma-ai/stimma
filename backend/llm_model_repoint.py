@@ -15,11 +15,6 @@ from sqlalchemy import select
 
 from config import LLMModelPromptConfig, RoleModelSelection, get_settings
 from config_writer import _load_config_yaml, patch_global_section, patch_profile_section
-from core.logging import get_logger
-
-log = get_logger(__name__)
-
-
 def _kept_effort(effort: Optional[str], levels: list[str]) -> Optional[str]:
     return effort if effort and effort in levels else None
 
@@ -132,17 +127,29 @@ async def _repoint_profile_database(
     return counts
 
 
-async def repoint_model_selections(
+async def repoint_profile_databases(
     replaces: dict[str, str], levels: dict[str, list[str]],
-) -> dict:
-    """Repoint every saved choice of an old model slug to its replacement.
-
-    ``levels`` maps each new slug to the reasoning levels it offers; an effort
-    pinned alongside a repointed choice survives only if the new model has it.
+) -> dict[str, dict[str, int]]:
+    """Repoint chats, project overrides and frozen tools in every profile's
+    database. Runs before the provider is saved: a failure propagates, nothing
+    about the provider has changed yet, and the same request can be retried.
+    Each profile commits in one transaction, and a repeat finds nothing left to
+    move in a profile that already committed.
     """
-    if not replaces:
-        return {}
-    summary: dict = {
+    from database_registry import get_database_registry
+
+    registry = get_database_registry()
+    counts: dict[str, dict[str, int]] = {}
+    for profile in getattr(get_settings(), "profiles", None) or []:
+        if registry.has_profile(profile.id):
+            counts[profile.id] = await _repoint_profile_database(profile.id, replaces, levels)
+    return counts
+
+
+def repoint_config_selections(replaces: dict[str, str], levels: dict[str, list[str]]) -> dict:
+    """Repoint role selections and the per-model settings keyed by slug in
+    config.yaml. Repeating it after a partial run is harmless."""
+    return {
         "profiles": _repoint_profile_roles(replaces, levels),
         "reasoning_levels": _repoint_slug_map(
             "llm_reasoning_levels", replaces,
@@ -151,19 +158,4 @@ async def repoint_model_selections(
         "model_prompts": _repoint_slug_map(
             "llm_model_prompts", replaces, lambda _slug, _value: True,
         ),
-        "databases": {},
     }
-    from database_registry import get_database_registry
-
-    registry = get_database_registry()
-    for profile in getattr(get_settings(), "profiles", None) or []:
-        if not registry.has_profile(profile.id):
-            continue
-        try:
-            summary["databases"][profile.id] = await _repoint_profile_database(
-                profile.id, replaces, levels,
-            )
-        except Exception as exc:  # one profile's database must not stop the rest
-            log.warning("Could not repoint model choices", profile=profile.id, error=str(exc))
-    log.info("model choices repointed", replaces=replaces, summary=summary)
-    return summary

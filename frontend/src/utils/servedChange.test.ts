@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { isNotServed, servedChange } from './servedChange.ts'
+import { isAwaitingSwitch, isNotServed, replacementFor, servedChange } from './servedChange.ts'
 
 const model = (modelId: string, extra = {}) => ({ id: `local-gpu:${modelId}`, model_id: modelId, name: modelId, enabled: true, served: true, ...extra })
 const provider = (models: any[], unadded: any[] = [], extra = {}) => ({
@@ -55,4 +55,28 @@ test('the flag on the model is what makes it not served', () => {
   assert.equal(isNotServed(model('a', { served: false })), true)
   assert.equal(isNotServed(model('a')), false)
   assert.equal(isNotServed({ id: 'x', model_id: 'x' }), false)
+})
+
+test('a choice of a model no longer served waits for a switch', () => {
+  const catalog = [
+    { slug: 'local-gpu:old-model', status: 'not_served' },
+    { slug: 'local-gpu:other', status: 'available' },
+    { slug: 'stimma:cloud', status: 'cloud_unavailable' },
+  ]
+  assert.equal(isAwaitingSwitch(catalog, 'local-gpu:old-model'), true)
+  assert.equal(isAwaitingSwitch(catalog, 'local-gpu:other'), false)
+  assert.equal(isAwaitingSwitch(catalog, 'stimma:cloud'), false)
+  // Gone from the catalog altogether: not waiting, ordinary recovery applies.
+  assert.equal(isAwaitingSwitch(catalog, 'local-gpu:gone'), false)
+  assert.equal(isAwaitingSwitch(catalog, null), false)
+  assert.equal(isAwaitingSwitch(null, 'local-gpu:old-model'), false)
+})
+
+test('a switch moves only the choices it replaced', () => {
+  const replaces = { 'local-gpu:old-model': 'local-gpu:new-model' }
+  assert.equal(replacementFor('local-gpu:old-model', replaces), 'local-gpu:new-model')
+  assert.equal(replacementFor('local-gpu:other', replaces), null)
+  assert.equal(replacementFor('toString', replaces), null)
+  assert.equal(replacementFor(null, replaces), null)
+  assert.equal(replacementFor('local-gpu:old-model', undefined), null)
 })

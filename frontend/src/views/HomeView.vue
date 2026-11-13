@@ -336,6 +336,7 @@ import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import SetStackPreview from '../components/chat/SetStackPreview.vue'
 import { useMediaState } from '../composables/useMediaState'
 import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
+import { replacementFor } from '../utils/servedChange'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import FlowStatusPill from '../components/flow/FlowStatusPill.vue'
 import ToolIcon from '../components/tools/ToolIcon.vue'
@@ -396,6 +397,11 @@ const selectedNewChatModel = ref(restoredDraft.model || null)
 watch([inputText, inputAttachments, selectedNewChatModel], () => {
   try { sessionStorage.setItem(draftKey, JSON.stringify({ text: inputText.value, attachments: inputAttachments.value, model: selectedNewChatModel.value })) } catch {}
 }, { deep: true })
+// A model switch moves the draft's pick too, or the new chat would save the old model.
+const stopFollowingModelSwitch = useWebSocket().on('llm_providers_updated', (data) => {
+  const next = replacementFor(selectedNewChatModel.value, data?.replaces)
+  if (next) selectedNewChatModel.value = next
+})
 const selectedNewChatModelInfo = computed(() => {
   const slug = selectedNewChatModel.value || roleDefaults.value?.chat?.project || globalDefault.value
   return getSelectableModel(slug)
@@ -1371,6 +1377,7 @@ onDeactivated(() => {
 })
 
 onUnmounted(() => {
+  stopFollowingModelSwitch()
   active = false
   cleanupResizeObserver()
   if (unsubscribeFromProviderChanges) {

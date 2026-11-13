@@ -109,7 +109,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import RoleModelRows from '../components/settings/RoleModelRows.vue'
@@ -118,6 +118,8 @@ import Button from '../components/ui/Button.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { useProjectDeletion } from '../composables/useProjectDeletion'
+import { useWebSocket } from '../composables/useWebSocket'
+import { replacementFor } from '../utils/servedChange'
 
 const props = defineProps({
   project: {
@@ -127,7 +129,7 @@ const props = defineProps({
 })
 
 const router = useRouter()
-const { updateProject } = useMediaApi()
+const { getProject, updateProject } = useMediaApi()
 const deleteProjectAndCleanUp = useProjectDeletion()
 const deleting = ref(false)
 const { listAllTools } = useProvidersApi()
@@ -326,4 +328,17 @@ async function confirmDeleteProject() {
 onMounted(() => {
   loadTools()
 })
+
+// A model switch repointed this project's overrides on the server: show them.
+const stopFollowingModelSwitch = useWebSocket().on('llm_providers_updated', async (data) => {
+  if (!Object.values(localModels.value).some(slug => replacementFor(slug, data?.replaces))) return
+  const id = props.project.id
+  try {
+    const project = await getProject(id)
+    if (props.project.id === id) Object.assign(props.project, project)
+  } catch (err) {
+    console.warn('Failed to reload project models:', err)
+  }
+})
+onUnmounted(stopFollowingModelSwitch)
 </script>

@@ -38,7 +38,7 @@ from llm_resolver import (
     set_catalog_cache,
 )
 from privacy_lockdown import is_privacy_lockdown_enabled
-from llm_model_repoint import repoint_model_selections
+from llm_model_repoint import repoint_config_selections, repoint_profile_databases
 from utils.websocket import ws_manager
 from llm_provider_catalog import (
     FIXED_MODEL_PROVIDERS,
@@ -181,19 +181,26 @@ def _served_report(provider: LLMProviderConfig) -> dict:
 _provider_broadcasts: set[asyncio.Task] = set()
 
 
-def _save_providers(providers: list[LLMProviderConfig]) -> None:
+def _save_providers(
+    providers: list[LLMProviderConfig], replaces: Optional[dict[str, str]] = None,
+) -> None:
     patch_global_section("llm_providers", [provider.model_dump() for provider in providers])
     # Config reload is file-watcher driven. Keep this process authoritative
     # immediately so a GET following provider creation cannot return the old
     # unconfigured state.
     get_settings().llm_providers = providers
     # Other windows and devices refresh their model lists and provider rows.
+    # After a replace, open views holding an old slug follow it to the new one.
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         return
     task = loop.create_task(
-        ws_manager.broadcast("llm_providers_updated", {}, include_profile=False)
+        ws_manager.broadcast(
+            "llm_providers_updated",
+            {"replaces": dict(replaces)} if replaces else {},
+            include_profile=False,
+        )
     )
     _provider_broadcasts.add(task)
     task.add_done_callback(_provider_broadcasts.discard)
@@ -938,7 +945,11 @@ async def profile_llm_provider_model(
 
 @router.patch("/providers/{provider_id}")
 async def update_llm_provider(provider_id: str, request: ProviderUpdateRequest):
-    providers, provider = _find_provider(provider_id)
+    providers, saved = _find_provider(provider_id)
+    # Edit a copy: nothing in memory changes unless the whole update is saved,
+    # so a request that fails part way can be retried as it was sent.
+    provider = saved.model_copy(deep=True)
+    providers[providers.index(saved)] = provider
     replaces = _validated_replaces(provider, request)
     updates = request.model_dump(exclude_unset=True)
     if "api_key" in updates and str(updates["api_key"] or "").startswith("***"):
@@ -996,10 +1007,19 @@ async def update_llm_provider(provider_id: str, request: ProviderUpdateRequest):
     if cached and cached[0] != provider.base_url:
         # Another server: what the old one advertised says nothing about it.
         _forget_discovery(provider.id)
-    _save_providers(providers)
     if replaces:
         levels = {model.id: list(model.reasoning.levels) for model in provider.models}
-        await repoint_model_selections(replaces, levels)
+        # Databases first: until the provider is saved, the old model is still
+        # in its list, so a failed repoint can be retried with the same request.
+        try:
+            await repoint_profile_databases(replaces, levels)
+            repoint_config_selections(replaces, levels)
+        except Exception as exc:
+            log.warning("Could not repoint model choices", replaces=replaces, error=str(exc))
+            raise HTTPException(
+                status_code=503, detail="Could not update saved model choices. Try again.",
+            ) from exc
+    _save_providers(providers, replaces)
     return _provider_response(provider)
 
 

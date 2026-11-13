@@ -54,3 +54,17 @@ export function servedChange(provider: Provider | null | undefined): ServedChang
     verb: target ? 'Switch' : unadded.length ? 'Choose model' : '',
   }
 }
+
+type CatalogModel = { slug: string; status?: string | null }
+
+/** Whether a saved choice is a model its server stopped serving: it waits for
+ * the person to switch or choose, so nothing may move it in the meantime. */
+export function isAwaitingSwitch(catalog: readonly CatalogModel[] | null | undefined, slug: string | null | undefined): boolean {
+  return Boolean(slug) && (catalog || []).some(model => model.slug === slug && model.status === 'not_served')
+}
+
+/** The model a switch moved this choice to, or null when it did not move. */
+export function replacementFor(slug: string | null | undefined, replaces: Record<string, string> | null | undefined): string | null {
+  if (!slug || !replaces) return null
+  return Object.prototype.hasOwnProperty.call(replaces, slug) ? replaces[slug] : null
+}
