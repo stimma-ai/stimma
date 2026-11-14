@@ -132,6 +132,8 @@ def kind_plan(kind: Any, reading: Dict[str, Any], words: str) -> Dict[str, Any]:
         if not _holds(got, kind, rule.when, True) or _holds(got, kind, rule.unless, False):
             continue
         for lid in _rule_lists(rule, kind, got, vary):
+            if any(b["role"] == BANK_ROLE[rule.role] and b["list"] == lid for b in banks):
+                continue   # one bank per list and role: a pack's rule and the reader's choice may name the same list
             where = {}
             for f, w in rule.where.items():
                 v = _answer(got, kind, str(w["answer"])) if isinstance(w, dict) else w

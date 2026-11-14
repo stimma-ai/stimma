@@ -111,6 +111,8 @@ def test_an_elf_in_a_forest_draws_a_clan_per_variant(pack, monkeypatch):
     p = seeding.plan(reading, "elf")
     assert ("descent", "vael.clan") in [(b["role"], b["list"]) for b in p["banks"]]
     assert "vael.dress" in [b["list"] for b in p["banks"] if b["role"] == "idea"]
+    same = seeding.plan(_person(being="elf", outfit="vael.dress"), "elf")   # the reader chose it too: one bank
+    assert [b["list"] for b in same["banks"]].count("vael.dress") == 1
     rec = _record(monkeypatch, reading, "elf", "an <elf> in a forest", home="US")
     assert "place" not in rec   # the user's default country weights human descent, not clans
     seeds = seeding.seeds_of(rec)

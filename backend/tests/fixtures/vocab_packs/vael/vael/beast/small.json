@@ -1,7 +1,7 @@
 {
  "id": "vael.beast.small",
  "label": "Small beasts",
- "description": "Beasts of the Vael's world small enough to hold or carry.",
+ "description": "Beasts of the Vael's world small enough to hold or carry, kept as familiars, companions and pets.",
  "pos": "noun phrase",
  "frame": "a ___",
  "catalog": false,
