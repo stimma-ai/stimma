@@ -709,7 +709,8 @@ PEOPLE_NOTES = {
                "role, adults unless the prompt's words make one a child, and gives them the heritage they share and "
                "a family likeness; a look idea may suit one of them or several. 12 to 35 words beyond the marked words."),
     "group": ("The marked words name several people who aren't related. Each variant gives each of them a few "
-              "words of their own, so they read as different people (heritage, gender, age and look as the prompt "
+              "words of their own, one by one (\"two coworkers, a tall woman in a gray suit and a stocky man with a "
+              "shaved head\"), never one description for all of them, so they read as different people (heritage, gender, age and look as the prompt "
               "allows), adults unless the prompt's words make one a child, with as many people as the words say. 12 to 35 words beyond the marked words."),
 }
 
