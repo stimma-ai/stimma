@@ -336,7 +336,7 @@ class Seeds:
     who_list: str = ""                    # the list the who role draws from
     who_label: str = "gender"             # the who role's label on a seed line
     who_say: str = "short"                # "short": the value's short form; "value": the value
-    notes: Tuple[str, ...] = ()           # lines for the writer's turn (several people, a light part)
+    notes: Tuple[str, ...] = ()           # the chosen options' lines for the writer's turn (several people)
     room: int = 0                         # words a variant may add (0: MAX_ADDED_WORDS)
     second: float = 0.0                   # the share of variants whose second person gets a heritage of their own
 
@@ -416,8 +416,6 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
             notes += [o.note] if o.note else []
             room = max(room, o.room)
             second = max(second, o.second_heritage)
-    if k.note:
-        notes.append(k.note)
     who_rule = next((r for r in k.draws if r.role == "who" and isinstance(r.list, str)
                      and (who is None or r.list == who[0])), None)
     core = spread = None
@@ -871,7 +869,11 @@ def messages(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -
         lines.append(f'The whole part is the category "{cat}": every variant is a specific kind of it.')
     if seeds.minor:
         lines.append(minor_line(seeds.minor))
-    lines += list(seeds.notes)   # the kind's and its chosen options' notes (several people, a light part)
+    lines += list(seeds.notes)   # the chosen options' notes (several people)
+    from prompt_programs.vocab import vocabulary
+    kind = vocabulary().kind(slot.kind)
+    if kind is not None and kind.note:
+        lines.append(kind.note)   # the kind's own (a light part), in every first turn, seeded or not
     lines.append("")
     for b in drawn.short:
         lines.append(f"Spread the variants across these {b.label.lower()} choices where they fit: "

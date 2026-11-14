@@ -145,3 +145,5 @@ def test_several_people_get_more_words_and_a_light_part_its_note():
         {"kind": "light", "light": {"list": ""}}, "light")["banks"]]})
     note = vocabulary().kind("light").note
     assert note and note in V.messages(light, V.draw_seeds(random.Random(1), seeds, 3), seeds)[1]["content"]
+    # the unseeded first turn, written while its lists are narrowed, is told too (fluent.early_job)
+    assert note in V.first_turn(light, V.draw_seeds(random.Random(1), V.Seeds(), 3), V.Seeds())[1]["content"]

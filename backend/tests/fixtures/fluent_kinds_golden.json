@@ -2146,6 +2146,7 @@
    "minor": []
   },
   "person": true,
+  "early": "Prompt:\n\"\"\"\na ⟦chef⟧ in a kitchen\n\"\"\"\n\nMarked part: \"chef\".\nIt stands between \"a\" and \"in a kitchen\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"chef\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -4327,6 +4328,7 @@
    "minor": []
   },
   "person": true,
+  "early": "Prompt:\n\"\"\"\na ⟦young woman⟧ in a kitchen at night\n\"\"\"\n\nMarked part: \"young woman\".\nIt stands between \"a\" and \"in a kitchen at night\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"young woman\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -6350,6 +6352,7 @@
    "minor": []
   },
   "person": true,
+  "early": "Prompt:\n\"\"\"\nan ⟦elderly African man⟧ reading on a porch\n\"\"\"\n\nMarked part: \"elderly African man\".\nIt stands between \"an\" and \"reading on a porch\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"elderly African man\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -8914,6 +8917,7 @@
    "minor": []
   },
   "person": true,
+  "early": "Prompt:\n\"\"\"\na ⟦farmer⟧ in rural Vietnam\n\"\"\"\n\nMarked part: \"farmer\".\nIt stands between \"a\" and \"in rural Vietnam\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"farmer\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -11548,6 +11552,7 @@
    "minor": []
   },
   "person": true,
+  "early": "Prompt:\n\"\"\"\na ⟦couple⟧ at a restaurant\n\"\"\"\n\nMarked part: \"couple\".\nIt stands between \"a\" and \"at a restaurant\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"couple\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -13286,6 +13291,7 @@
    "minor": []
   },
   "person": true,
+  "early": "Prompt:\n\"\"\"\na ⟦family⟧ at the beach\n\"\"\"\n\nMarked part: \"family\".\nIt stands between \"a\" and \"at the beach\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"family\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -13643,6 +13649,7 @@
    "minor": []
   },
   "person": true,
+  "early": "Prompt:\n\"\"\"\n⟦three friends⟧ waiting at a bus stop\n\"\"\"\n\nMarked part: \"three friends\".\nIt stands between \"(start of line)\" and \"waiting at a bus stop\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"three friends\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -15047,6 +15054,7 @@
    "minor": []
   },
   "person": true,
+  "early": "Prompt:\n\"\"\"\nan ⟦elf⟧ in a forest\n\"\"\"\n\nMarked part: \"elf\".\nIt stands between \"an\" and \"in a forest\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"elf\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -17310,6 +17318,7 @@
    "minor": []
   },
   "person": true,
+  "early": "Prompt:\n\"\"\"\na ⟦dancer⟧ in a <costume>\n\"\"\"\n\nMarked part: \"dancer\".\nIt stands between \"a\" and \"in a <costume>\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"dancer\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -19989,6 +19998,7 @@
    "minor": []
   },
   "person": true,
+  "early": "Prompt:\n\"\"\"\na ⟦nurse⟧ in green scrubs\n\"\"\"\n\nMarked part: \"nurse\".\nIt stands between \"a\" and \"in green scrubs\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"nurse\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -20643,6 +20653,7 @@
    "minor": []
   },
   "person": false,
+  "early": "Prompt:\n\"\"\"\na man on a porch with his ⟦pet⟧\n\"\"\"\n\nMarked part: \"pet\".\nIt stands between \"man on a porch with his\" and \"(end of line)\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"pet\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -21589,6 +21600,7 @@
    "minor": []
   },
   "person": false,
+  "early": "Prompt:\n\"\"\"\na ⟦dog⟧ on a porch\n\"\"\"\n\nMarked part: \"dog\".\nIt stands between \"a\" and \"on a porch\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"dog\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -22338,6 +22350,7 @@
    "minor": []
   },
   "person": false,
+  "early": "Prompt:\n\"\"\"\na farmer in a field, ⟦camera⟧\n\"\"\"\n\nMarked part: \"camera\".\nIt stands between \"a farmer in a field,\" and \"(end of line)\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"camera\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -22621,6 +22634,7 @@
    "minor": []
   },
   "person": false,
+  "early": "Prompt:\n\"\"\"\na couple at a restaurant, lit by ⟦light⟧\n\"\"\"\n\nMarked part: \"light\".\nIt stands between \"couple at a restaurant, lit by\" and \"(end of line)\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"light\".\nThis part is the light. Each variant says how the light looks: its quality, direction, color and strength, the time of day or the weather. Name no lamp, fixture, screen, sign, spotlight, sconce, headlight or other source the prompt doesn't already have.\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -22929,6 +22943,7 @@
    "minor": []
   },
   "person": false,
+  "early": "Prompt:\n\"\"\"\na portrait, ⟦studio lighting⟧\n\"\"\"\n\nMarked part: \"studio lighting\".\nIt stands between \"a portrait,\" and \"(end of line)\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"studio lighting\".\nThis part is the light. Each variant says how the light looks: its quality, direction, color and strength, the time of day or the weather. Name no lamp, fixture, screen, sign, spotlight, sconce, headlight or other source the prompt doesn't already have.\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -23751,6 +23766,7 @@
    "minor": []
   },
   "person": false,
+  "early": "Prompt:\n\"\"\"\n1girl, ⟦hairstyle⟧, beach\n\"\"\"\n\nMarked part: \"hairstyle\".\nIt stands between \"1girl,\" and \", beach\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"hairstyle\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -24108,6 +24124,7 @@
    "minor": []
   },
   "person": false,
+  "early": "Prompt:\n\"\"\"\na dog on a porch, ⟦camera angle⟧\n\"\"\"\n\nMarked part: \"camera angle\".\nIt stands between \"a dog on a porch,\" and \"(end of line)\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"camera angle\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [
@@ -25051,6 +25068,7 @@
    "minor": []
   },
   "person": false,
+  "early": "Prompt:\n\"\"\"\na ⟦sports car⟧ on a mountain road\n\"\"\"\n\nMarked part: \"sports car\".\nIt stands between \"a\" and \"on a mountain road\": each variant must read correctly there, as one continuous phrase.\nNo category word: every variant contains exactly these words: \"sports car\".\n\n\nWrite 10 variants.\nNumber them from 1; I will ask for more in later turns.",
   "draws": [
    {
     "lines": [

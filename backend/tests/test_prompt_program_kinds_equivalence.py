@@ -114,6 +114,8 @@ def snapshot(monkeypatch: Any) -> Dict[str, Any]:
             msgs = V.messages(slot, drawn, seeds)
             rows.append({"lines": [s.line() for s in drawn.specs], "seeds": [s.seeds() for s in drawn.specs],
                          "user": msgs[1]["content"]})
+        # the unseeded first turn a slot opens with while its lists are narrowed (fluent.early_job)
+        early = V.first_turn(slot, V.draw_seeds(random.Random(3), V.Seeds(), 10, words), V.Seeds())[1]["content"]
         banks = [{k: v for k, v in b.items() if k in ("role", "list", "phrase", "where", "age", "scene", "narrowed")}
                  for b in record["banks"]]
 
@@ -125,7 +127,7 @@ def snapshot(monkeypatch: Any) -> Dict[str, Any]:
         out[pid] = {"plan": [(b["role"], b["list"], b["phrase"]) for b in p["banks"]], "banks": banks,
                     "place": record.get("place"), "people": record.get("people", ""), "n": slot.n,
                     "descent": list(seeds.descent.values) if seeds.descent is not None else None, "seeds": summary,
-                    "person": kind == "person", "draws": rows}
+                    "person": kind == "person", "early": early, "draws": rows}
     return out
 
 
@@ -151,6 +153,7 @@ def test_built_in_draws_match_the_snapshot(monkeypatch):
         # so its pool no longer changes with the default place it never used.
         assert got[pid]["place"] == (want[pid]["place"] if want[pid]["descent"] is not None else None), pid
         assert got[pid]["seeds"] == want[pid]["seeds"], pid
+        assert got[pid]["early"] == want[pid]["early"], pid
         for g, w in zip(got[pid]["draws"], want[pid]["draws"]):
             if want[pid]["person"]:   # drawn from the same random stream: the very same seed lines
                 assert g["lines"] == w["lines"], pid
