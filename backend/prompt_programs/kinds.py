@@ -133,6 +133,8 @@ class DrawRule:
     label: str = ""
     say: str = "value"             # "short": the list's short form of the value
     show: str = ""                 # "must": the variant carries the value's words
+    stages: Dict[str, str] = field(default_factory=dict)   # a who rule's list for a person read as a child or a teenager
+    adults: bool = False           # drawn only for an adult: left out of a child's or a teenager's seeds (a build)
 
 
 @dataclass(frozen=True)
@@ -252,6 +254,7 @@ def _question(d: Any, where: str) -> Question:
 
 
 _LIST_FORMS = ("answer", "option", "detail", "varied")
+STAGE_READINGS = ("child", "teenager")   # the readings a who rule's stages name (ages.py)
 _PHRASE_FORMS = ("stated",)
 
 
@@ -279,9 +282,15 @@ def _rule(d: Any, where: str) -> DrawRule:
         raise Bad(f"{w}: show is \"must\" or left out")
     if role in ("who", "each") and not _str(d, "label", w):
         raise Bad(f"{w}: a {role} rule needs the label its seed line shows")
+    stages = _dict(d, "stages", w)
+    if stages and (role != "who" or not isinstance(lst, str)):
+        raise Bad(f"{w}: only a who rule with a list id has stages")
+    if any(k not in STAGE_READINGS or not isinstance(v, str) or not v for k, v in stages.items()):
+        raise Bad(f"{w}: stages map {' or '.join(STAGE_READINGS)} to a list id")
     return DrawRule(role, lst, ph, _str(d, "about", w), dict(d.get("where") or {}), d.get("scene") is True,
                     dict(d.get("when") or {}), dict(d.get("unless") or {}), _str(d, "label", w),
-                    str(d.get("say") or "value"), str(d.get("show") or ""))
+                    str(d.get("say") or "value"), str(d.get("show") or ""), {str(k): str(v) for k, v in stages.items()},
+                    d.get("adults") is True)
 
 
 def _aspects(d: Any, where: str) -> Optional[Aspects]:
@@ -372,6 +381,8 @@ def check_kind_lists(k: Kind, vocab_get: Any) -> None:
         for o in q.options:
             need(o.heritage, f"option {o.answer!r} of {q.key}")
     for r in k.draws:
+        for st, lid in r.stages.items():
+            need(lid, f"a {r.role} rule's {st} stage")
         if isinstance(r.list, str):
             need(r.list, f"a {r.role} rule")
         elif "answer" in r.list:

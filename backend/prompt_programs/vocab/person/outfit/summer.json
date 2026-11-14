@@ -1252,7 +1252,8 @@
         "coverage": [
           "light"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a {main} tankini top and matching swim shorts",

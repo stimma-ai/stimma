@@ -1,0 +1,56 @@
+{
+ "id": "person.couple_teen",
+ "label": "Couple (teenagers)",
+ "description": "Who a teenage couple is: a teenage boy and girl, two teenage girls or two teenage boys. Each value stands for the couple value it is tagged with (the pair facet).",
+ "pos": "noun phrase",
+ "frame": "a couple, ___",
+ "notes": "Seeds a couple's variants in place of person.couple, by the same shares, when the couple reads as teenagers (the who rule's stages): they are written as a boy and a girl, never a man and a woman. Not a slot's list.",
+ "closed": true,
+ "catalog": false,
+ "local_facets": {
+  "pair": [
+   "man and woman",
+   "two women",
+   "two men"
+  ]
+ },
+ "shares": {
+  "pair": {
+   "man and woman": 0.9,
+   "two women": 0.05,
+   "two men": 0.05
+  }
+ },
+ "values": [
+  {
+   "text": "a teenage boy and girl",
+   "tier": "typical",
+   "tags": {
+    "pair": [
+     "man and woman"
+    ]
+   },
+   "short": "boy, girl"
+  },
+  {
+   "text": "two teenage girls",
+   "tier": "typical",
+   "tags": {
+    "pair": [
+     "two women"
+    ]
+   },
+   "short": "girls"
+  },
+  {
+   "text": "two teenage boys",
+   "tier": "typical",
+   "tags": {
+    "pair": [
+     "two men"
+    ]
+   },
+   "short": "boys"
+  }
+ ]
+}

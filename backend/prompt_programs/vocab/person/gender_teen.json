@@ -1,0 +1,95 @@
+{
+ "id": "person.gender_teen",
+ "label": "Gender (teenager)",
+ "description": "A teenager's gender: teenage girl, teenage boy, trans teenage girl, trans teenage boy or non-binary teenager. Each value stands for the adult gender it is tagged with (the gender facet), so a teenager's words narrowed on the adult gender list keep the same values here.",
+ "pos": "noun phrase",
+ "frame": "a ___",
+ "notes": "Seeds a teenager's variants in place of person.gender, one value per variant by the same shares, when the person reads as a teenager (the who rule's stages). A teenager is written as a girl or a boy, never a woman or a man. Not a slot's list; the chooser offers person.gender, and a pick maps here by its gender tag.",
+ "facets": [
+  "presentation"
+ ],
+ "closed": true,
+ "catalog": false,
+ "local_facets": {
+  "gender": [
+   "woman",
+   "man",
+   "trans woman",
+   "trans man",
+   "non-binary person"
+  ]
+ },
+ "shares": {
+  "gender": {
+   "woman": 0.46,
+   "man": 0.46,
+   "trans woman": 0.027,
+   "trans man": 0.027,
+   "non-binary person": 0.026
+  }
+ },
+ "values": [
+  {
+   "text": "teenage girl",
+   "tier": "typical",
+   "tags": {
+    "gender": [
+     "woman"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "short": "girl"
+  },
+  {
+   "text": "teenage boy",
+   "tier": "typical",
+   "tags": {
+    "gender": [
+     "man"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   },
+   "short": "boy"
+  },
+  {
+   "text": "trans teenage girl",
+   "tier": "typical",
+   "tags": {
+    "gender": [
+     "trans woman"
+    ],
+    "presentation": [
+     "feminine"
+    ]
+   },
+   "short": "trans girl"
+  },
+  {
+   "text": "trans teenage boy",
+   "tier": "typical",
+   "tags": {
+    "gender": [
+     "trans man"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   },
+   "short": "trans boy"
+  },
+  {
+   "text": "non-binary teenager",
+   "tier": "typical",
+   "tags": {
+    "gender": [
+     "non-binary person"
+    ]
+   },
+   "short": "non-binary"
+  }
+ ]
+}

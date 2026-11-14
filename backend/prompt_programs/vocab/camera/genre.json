@@ -466,7 +466,8 @@
      "people",
      "everyday_vernacular"
     ]
-   }
+   },
+   "adult_only": true
   },
   {
    "text": "a school sports team photo",

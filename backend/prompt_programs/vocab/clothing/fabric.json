@@ -548,7 +548,8 @@
     "kind": [
      "sheer"
     ]
-   }
+   },
+   "adult_only": true
   },
   {
    "text": "Swiss dot fabric",
@@ -633,7 +634,8 @@
     "kind": [
      "leather_synthetic"
     ]
-   }
+   },
+   "adult_only": true
   },
   {
    "text": "latex",
@@ -643,7 +645,8 @@
     "kind": [
      "leather_synthetic"
     ]
-   }
+   },
+   "adult_only": true
   },
   {
    "text": "transparent vinyl",
@@ -654,7 +657,8 @@
      "leather_synthetic",
      "sheer"
     ]
-   }
+   },
+   "adult_only": true
   },
   {
    "text": "metallic leather",

@@ -116,7 +116,7 @@
       "answer": "family",
       "text": "people related to each other: \"family\", \"mother and daughter\", \"grandparents\", \"siblings\"",
       "room": 45,
-      "note": "The marked words name a family or other related people. Each variant names its members, two or more (\"a father in his fifties with his grown daughter and her husband\"), each with an age that suits their role, adults unless the prompt's words make one a child, and gives them the heritage they share and a family likeness; a look idea may suit one of them or several. 12 to 35 words beyond the marked words."
+      "note": "The marked words name a family or other related people. Each variant names its members, two or more (\"a father in his fifties with his grown daughter and her husband\"), each with an age that suits their role, and gives them the heritage they share and a family likeness; a look idea may suit one of them or several. Unless the scene is one for adults only, a family has children among its members, at ages that suit them (\"a mother in her thirties with her two boys, six and nine\"). 12 to 35 words beyond the marked words."
      },
      {
       "answer": "group",
@@ -381,7 +381,11 @@
     ]
    },
    "label": "gender",
-   "say": "short"
+   "say": "short",
+   "stages": {
+    "child": "person.gender_child",
+    "teenager": "person.gender_teen"
+   }
   },
   {
    "role": "who",
@@ -394,7 +398,10 @@
     ]
    },
    "label": "who",
-   "say": "value"
+   "say": "value",
+   "stages": {
+    "teenager": "person.couple_teen"
+   }
   },
   {
    "role": "age",
@@ -430,7 +437,8 @@
      "one",
      "couple"
     ]
-   }
+   },
+   "adults": true
   },
   {
    "role": "idea",
@@ -587,7 +595,7 @@
    "gender: write the person as that, with those exact words in the variant (\"a trans woman\", \"a young trans woman\"), woven in naturally; the marked words still stay.",
    "who: who the couple are. Say it through the two of them, in the variant's own words (\"the man in a linen shirt, the woman with her hair pinned up\"; \"two women in their thirties\"), never as a label repeated at the end.",
    "develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must. \"What someone like them would typically wear or carry here\": the clothes, headwear and things most people like them have at work or in this place and time, as a photograph of a real one would show them (a fisherman's oilskins and boots, a nurse's scrubs and lanyard).",
-   "age: about how old the person looks; work it in before their words (\"a 34-year-old chef\") or say it another natural way (\"a chef in her forties\"), never as a number tacked on at the end."
+   "age: about how old the person looks; work it in before their words (\"a 34-year-old chef\") or say it another natural way (\"a chef in her forties\"), never as a number tacked on at the end. When the prompt already says their age, write it no second time."
   ]
  }
 }

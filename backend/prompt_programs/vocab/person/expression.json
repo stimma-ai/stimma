@@ -675,7 +675,8 @@
         "mood": [
           "flirtatious"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "a shy smile with lips pressed together and raised inner brows",
@@ -695,7 +696,8 @@
         "mood": [
           "shy"
         ]
-      }
+      },
+      "adult_only": true
     },
     {
       "text": "an embarrassed smile with tightly drawn lips and dimpled cheeks",
