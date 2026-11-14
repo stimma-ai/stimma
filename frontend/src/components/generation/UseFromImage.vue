@@ -12,14 +12,14 @@
         data-use-list
         data-escape-layer
         tabindex="-1"
-        class="fixed z-menu outline-none w-[300px] max-w-[calc(100vw-16px)] max-h-[min(28rem,calc(100dvh-16px))] bg-surface border border-edge-subtle rounded-lg shadow-lg p-1 flex flex-col gap-px overflow-y-auto overscroll-contain"
+        class="fixed z-menu outline-none w-[320px] max-w-[calc(100vw-16px)] max-h-[min(28rem,calc(100dvh-16px))] bg-surface border border-edge-subtle rounded-lg shadow-lg p-1 flex flex-col gap-px overflow-y-auto overscroll-contain"
         :style="menuStyle"
         @click.stop
       >
         <div class="shrink-0 px-2 pt-1 pb-1 text-[11px] text-content-tertiary">Use in your prompt</div>
         <template v-for="p in parts" :key="p.key">
           <div v-if="!p.here" class="flex items-baseline gap-2 px-2 py-1.5 text-xs coarse:text-[13px] text-content-muted" :data-use-gone="p.key">
-            <span class="w-16 shrink-0 truncate">{{ p.label }}</span>
+            <span class="w-20 shrink-0 break-words">{{ p.label }}</span>
             <span class="flex-1 min-w-0">Not in your prompt now</span>
           </div>
           <template v-else>
@@ -30,12 +30,12 @@
               :data-use-part="p.key"
               @click="use(p)"
             >
-              <span class="w-16 shrink-0 truncate text-content-tertiary">{{ p.label }}</span>
+              <span class="w-20 shrink-0 break-words text-content-tertiary">{{ p.label }}</span>
               <span class="flex-1 min-w-0 leading-snug break-words text-content"><span v-for="(x, k) in pieces(p)" :key="k" :class="x.kept ? 'text-content-muted' : ''">{{ x.t }}</span></span>
               <span class="shrink-0 text-[11px] text-selection opacity-0 group-hover/use:opacity-100 group-focus-visible/use:opacity-100 coarse:opacity-100">Use</span>
             </button>
             <!-- A person's broad strokes, each its own use. -->
-            <div v-if="p.person" class="flex flex-wrap items-baseline gap-x-1 pl-[5rem] pr-2 pb-1.5 text-[11px] coarse:text-xs" :data-use-facets="p.key">
+            <div v-if="p.person" class="flex flex-wrap items-baseline gap-x-1 pl-[6rem] pr-2 pb-1.5 text-[11px] coarse:text-xs" :data-use-facets="p.key">
               <span class="text-content-muted">or use {{ p.person.pronoun }}:</span>
               <template v-for="(f, i) in p.person.facets" :key="f.id">
                 <span v-if="i" class="text-content-muted" aria-hidden="true">·</span>
