@@ -37,8 +37,9 @@ VARY_DOC = (
     "part that should change from image to image, as <young woman> or <pet>: options are "
     "found for it within its words. Write your own options as {a|b|c}. Lines starting with "
     "# are notes for choosing and writing; they never reach the image model. Choices are "
-    "made to fit together, and the result lists what each image got. The first call with a "
-    "new prompt takes a few seconds longer; calls with the same prompt share that work. "
+    "made to fit together, and the result lists what each image got. Calls never wait for "
+    "the options: a part whose options aren't ready yet goes in as its own words, and later "
+    "images vary it. "
     "Without vary, each {a|b|c} picks one option at random, <words> are sent as their words "
     "and the rest is sent as written."
 )
@@ -63,12 +64,8 @@ ENHANCE_DOC = (
 )
 
 UNCHECKED_NOTE = (
-    "These choices weren't checked to fit together: that check isn't available right now "
-    "(it keeps downloading in the background). Later calls are checked once it's ready."
-)
-UNCHECKED_LOCKDOWN_NOTE = (
-    "These choices weren't checked to fit together: that check needs a download, and "
-    "Privacy Lockdown is on."
+    "These choices weren't checked to fit together: the chat model that checks them "
+    "wasn't available. Later calls are checked once it is."
 )
 
 NO_CHOICES_NOTE = (
@@ -378,11 +375,11 @@ async def _vary(job_params: Dict[str, Any], prompt: str, *, ctx: Dict[str, Any],
 
 def unchecked_note(record: Optional[Dict[str, Any]]) -> Optional[str]:
     """A line for the result when the run's choices shipped without the fit check
-    (the judge couldn't be had); None when they were checked, or needed no check."""
+    (the chat model that checks them wasn't available); None when they were checked, or needed no check."""
     fix = record.get("fix") if isinstance(record, dict) else None
     if not isinstance(fix, dict) or not fix.get("skipped"):
         return None
-    return UNCHECKED_LOCKDOWN_NOTE if fix["skipped"] == "lockdown" else UNCHECKED_NOTE
+    return UNCHECKED_NOTE
 
 
 async def source_prompt_for_vary(session, media_id: Any) -> Optional[Dict[str, Any]]:

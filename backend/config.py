@@ -487,9 +487,10 @@ class ServerConfig(BaseModel):
 
 class FluentConfig(BaseModel):
     """Fluent (Tool View prompt programs) draws: the fix judge."""
-    # The fix judge: a small ONNX model that checks each finished draw and rerolls the
-    # picks it flags (prompt_programs.fix). "default": the pinned pick judge, downloaded
-    # from launch; "" or "off": off; anything else: a local model directory (dev).
+    # The fix judge checks each finished draw and rerolls the picks it flags
+    # (prompt_programs.fix). "default": the Tool View chat model (prompt_programs.llm_judge;
+    # a draw ships unchecked while it isn't available); "" or "off": off; anything else: a
+    # local classifier model directory (dev).
     fix_model: str = "default"
     fix_cut: float = 0.0     # 0: the cut the model directory names
     fix_rounds: int = 4
