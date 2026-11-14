@@ -412,18 +412,22 @@ def _part_ids(parsed: Parsed) -> List[str]:
 
 def _worn_moved(r: Dict[str, Any], old: List[Tuple[str, int, Segment]], new: List[Tuple[str, int, Segment]],
                 matched: Dict[int, int]) -> Optional[Dict[str, Any]]:
-    """A person's reading carried into the edited prompt, the slot that is what they wear
-    (clothes_part) followed to its number there; None when that slot is gone, so the person is
-    read again rather than carried wearing nothing drawn. Any other reading as it is."""
-    person = r.get("person") if isinstance(r.get("person"), dict) else {}
-    worn = person.get("clothes_part")
-    if not isinstance(worn, dict):
-        return r
-    i = next((i for i, (kind, n, _) in enumerate(old) if kind == "slot" and n == worn.get("n")), None)
-    j = matched.get(i) if i is not None else None
-    if j is None or new[j][0] != "slot":
-        return None
-    return {**r, "person": {**person, "clothes_part": {"n": new[j][1], "words": new[j][2].words}}}
+    """A reading carried into the edited prompt, each other part it names (a part question's
+    answer: what a person wears, clothes_part) followed to its number there; None when such a part
+    is gone, so the slot is read again rather than carried wearing nothing drawn. Any other reading
+    as it is."""
+    kind = r.get("kind")
+    got = r.get(kind) if isinstance(r.get(kind), dict) else {}
+    moved = dict(got)
+    for key, worn in got.items():
+        if not (isinstance(worn, dict) and set(worn) == {"n", "words"}):
+            continue
+        i = next((i for i, (k, n, _) in enumerate(old) if k == "slot" and n == worn.get("n")), None)
+        j = matched.get(i) if i is not None else None
+        if j is None or new[j][0] != "slot":
+            return None
+        moved[key] = {"n": new[j][1], "words": new[j][2].words}
+    return {**r, kind: moved} if moved != got else r
 
 
 def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
