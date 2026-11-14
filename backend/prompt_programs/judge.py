@@ -9,7 +9,7 @@
     fix_rounds: 4                      STIMMA_FLUENT_FIX_ROUNDS  (rerolls per draw at most)
     fix_threads: 0 (up to 8)           STIMMA_FLUENT_FIX_THREADS
     people_from: unset                 STIMMA_FLUENT_PEOPLE_FROM (where people are from by default: a
-                                                                  places.json code, or "anywhere"; unset
+                                                                  countries table code, or "anywhere"; unset
                                                                   until the app first sets it from the
                                                                   browser's region; prompt_programs.places)
 

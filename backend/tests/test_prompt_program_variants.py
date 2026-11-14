@@ -213,7 +213,7 @@ def test_check():
 
 def test_descent_is_drawn_from_the_lists_distribution_and_never_echoed_whole():
     seeds = V.person_seeds()
-    leaf = vocabulary().get(V.DESCENT)
+    leaf = vocabulary().get("person.ethnicity")
     assert seeds.descent is not None and len(seeds.descent.values) == len(leaf.values)
     rng = random.Random(7)
     counts: Counter = Counter()
@@ -231,7 +231,7 @@ def test_descent_is_drawn_from_the_lists_distribution_and_never_echoed_whole():
 
 
 def test_gender_is_drawn_by_its_shares_and_narrowed_by_the_words():
-    leaf = vocabulary().get(V.GENDER)
+    leaf = vocabulary().get("person.gender")
     assert [v.text for v in leaf.values] == ["woman", "man", "trans woman", "trans man", "non-binary person"]
     assert not leaf.listed   # never a slot's list
     n = 20000
@@ -280,7 +280,7 @@ def test_a_person_who_may_be_a_minor_gets_no_adult_only_seed_and_the_writer_is_t
     # an adult keeps every value; the rule about who is an adult is always said
     adult_seeds = V.person_seeds(ideas=[("person.makeup", None)])
     assert adult <= set(adult_seeds.ideas[0].texts())
-    assert '"a girl" or "a boy" alone is a young adult' in V.SYSTEM
+    assert '"a girl" or "a boy" alone is a young adult' in V.system_text()
     # a list slot about a child: the same
     child_list = V.list_seeds([("person.makeup", None)], minor=("9-year-old",))
     assert not set(child_list.ideas[0].texts()) & adult
@@ -481,7 +481,7 @@ def test_a_picked_life_stage_seeds_ages_within_what_the_words_allow():
     s = young.pinned(V.Pins(age=("young adult",)))
     assert set(s.age.texts()) == set(YOUNG_AGES)
     d = V.draw_seeds(random.Random(4), s, 40)
-    assert all(sp.age in YOUNG_AGES for sp in d.specs) and any(V.AGE_SHOWS in sp.develop for sp in d.specs)
+    assert all(sp.age in YOUNG_AGES for sp in d.specs) and any("how their age shows" in sp.develop for sp in d.specs)
     # a stage the words rule out, or one under 18 the minors rules don't allow, changes nothing
     assert young.pinned(V.Pins(age=("elderly",))).age is None
     assert chef.pinned(V.Pins(age=("teen", "child", "baby"))).age == chef.age
@@ -626,7 +626,7 @@ def test_person_pickers():
     got = P.person_pickers(POOL, P.Choice(pins=V.Pins(regions=("East Asia",))), fits=["Korean", "Japanese"])
     d = got["descent"]
     assert d["browse"] == "region" and d["parts"][0]["id"] == "East Asia" and "Korean" in d["parts"][0]["values"]
-    assert sum(len(p["values"]) for p in d["parts"]) == len(vocabulary().get(V.DESCENT).values)
+    assert sum(len(p["values"]) for p in d["parts"]) == len(vocabulary().get("person.ethnicity").values)
     assert d["fits"] == ["Korean", "Japanese"] and d["picked"]["groups"]["region"] == ["East Asia"]
     assert d["in_pool"]["Korean"] == 1
     g = got["gender"]
@@ -903,7 +903,7 @@ def test_a_person_states_its_gender_and_develops_rotated_aspects():
     trans = [x for x in d.specs if x.gender == "trans woman"]
     woman = [x for x in d.specs if x.gender == "woman"]
     assert all(x.gender_needs == ("trans",) for x in trans) and all(x.gender_needs == () for x in woman)
-    assert all(len(x.develop) == 2 and V.CLOTHES not in x.develop and V.AGE_SHOWS not in x.develop for x in d.specs)
+    assert all(len(x.develop) == 2 and "what they wear" not in x.develop and "how their age shows" not in x.develop for x in d.specs)
     assert len({x.develop for x in d.specs}) >= 6                     # no one template
     msg = V.messages(sl, d, seeds)[1]["content"]
     assert 'gender: "trans woman"' not in msg or trans                  # told only where it adds a word
@@ -1057,8 +1057,8 @@ def test_a_picked_descent_must_still_appear():
 def test_each_variant_has_its_own_ideas_no_repeats_in_a_batch_and_chunks_carry_them():
     seeds = V.person_seeds(ideas=[("person.hair_color", None), ("person.build", None), ("person.hairstyle", None)])
     d = V.draw_seeds(random.Random(11), seeds, 20, "dominant young woman")
-    assert all(1 <= len(s.ideas) <= 2 for s in d.specs if V.TYPICAL not in s.develop)
-    assert all(not s.ideas for s in d.specs if V.TYPICAL in s.develop)    # what is typical here, no list idea
+    assert all(1 <= len(s.ideas) <= 2 for s in d.specs if V.typical_text() not in s.develop)
+    assert all(not s.ideas for s in d.specs if V.typical_text() in s.develop)    # what is typical here, no list idea
     texts = [t for t, _ in d.ideas]
     assert len(texts) == len(set(texts))                                   # no repeats in a batch
     assert not any("{" in t for t in texts)                                # palette slots filled
@@ -1355,8 +1355,8 @@ def test_a_write_splits_into_turns_with_seeds_drawn_once():
     assert [s for p in parts for s in p.specs] == whole.specs            # the one draw, in order
     assert [i for p in parts for i in p.ideas] == whole.ideas            # every idea once, shared out
     assert all(p.short == whole.short for p in parts)
-    assert len({s.develop for s in whole.specs if V.TYPICAL not in s.develop}) == 14   # aspects rotate across turns
-    assert sum(V.TYPICAL in s.develop for s in whole.specs) == 6        # every third: what is typical here
+    assert len({s.develop for s in whole.specs if V.typical_text() not in s.develop}) == 14   # aspects rotate across turns
+    assert sum(V.typical_text() in s.develop for s in whole.specs) == 6        # every third: what is typical here
     assert [len(p.specs) for p in V.split(V.draw_seeds(random.Random(1), V.Seeds(), 17))] == [8, 9]
     assert len(V.split(V.draw_seeds(random.Random(1), V.Seeds(), 5))[0].specs) == 5
 

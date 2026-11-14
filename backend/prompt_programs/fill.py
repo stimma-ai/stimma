@@ -19,30 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 FILL_VERSION = "variants-1"
-KINDS = ("person", "animal", "camera", "light", "list", "free")
-ANIMAL = ("species", "breed", "life_stage")
-ANIMAL_LISTS = {"species": "animal.species", "life_stage": "animal.life_stage"}
-CAMERA = ("shot_size", "lens", "angle", "film_look")
 MAX_PROMPT_CHARS = 100_000
-
-# A person's details the reader may say their words state, and vary: detail name -> (list, label,
-# what it is of the person, an example, phase). They seed a person's variants (seeding.py).
-DETAILS: Dict[str, Tuple[str, str, str, str, int]] = {
-    "build": ("person.build", "Build", "build", "slender", 2),
-    "age": ("person.age_band", "Age", "age", "32-year-old", 1),
-    "descent": ("person.ethnicity", "Ethnicity", "descent", "Korean", 1),
-    "skin": ("person.skin_tone", "Skin", "skin tone", "warm beige", 2),
-    "hair": ("person.hair_length", "Hair length", "hair length", "shoulder-length", 2),
-    "hair_texture": ("person.hair_texture", "Hair texture", "hair texture", "wavy", 2),
-    "hair_color": ("person.hair_color", "Hair color", "hair color", "dark brown", 2),
-    "hairstyle": ("person.hairstyle", "Hairstyle", "hairstyle", "a low ponytail", 2),
-    "eyes": ("person.eye_color", "Eyes", "eye color", "hazel", 2),
-    "facial_hair": ("person.facial_hair", "Facial hair", "facial hair", "light stubble", 2),
-    "face": ("person.face", "Face", "face", "a long, narrow nose, a light scatter of freckles across the nose", 2),
-}
-# The fixed things about a person: a reading that varies none of them is words about someone (reader.py).
-CORE = ("age", "descent", "build", "hair", "hair_texture", "hair_color", "facial_hair")
-
 
 class ProgramError(Exception):
     """A draw that can't be made (kept under its old name: callers catch it as the run's error)."""
@@ -504,6 +481,6 @@ def fill(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Sequence[str
     return DrawResult(prompt, draws, seed, revision=revision, more_coming=more, value_parts=parts)
 
 
-__all__ = ["CAMERA", "CORE", "DETAILS", "Draw", "DrawAborted", "DrawResult", "FILL_VERSION", "KINDS", "MAX_PROMPT_CHARS",
+__all__ = ["Draw", "DrawAborted", "DrawResult", "FILL_VERSION", "MAX_PROMPT_CHARS",
            "Opt", "OptionsService", "ProgramError", "RunResult", "Series", "Val", "fill", "fix_articles", "flatten",
            "template_text", "text_parts", "tidy_text", "value_spans"]

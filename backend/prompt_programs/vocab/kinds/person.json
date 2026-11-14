@@ -1,0 +1,593 @@
+{
+ "id": "person",
+ "order": 10,
+ "noun_default": "person",
+ "first_write": 40,
+ "reader": {
+  "recognize": [
+   "someone the prompt doesn't already have, or several people, named by the part's own words: \"young man\", \"nurse\", \"my friend\", \"elderly African man\", \"couple\", \"three friends\". Their noun is one of those words. Two parts with the same words are two different people.",
+   "Words that name only something about a person, or about someone the prompt already has in its own words or as another part (\"1girl, ⟨hairstyle⟩\", \"a woman with ⟨hair color⟩ hair\", \"1boy, ⟨outfit⟩, ⟨expression⟩\", \"a knight in ⟨armor⟩\", \"a ⟨1: girl⟩ with a ⟨2: shy smile⟩\"): their expression, pose, face, body or clothes, are never a person, even when that is all the part is about: that person is already in the prompt. They are a \"list\" when a list below covers them, else \"free\"."
+  ],
+  "heading": "For a person:",
+  "category": "\"\" for a person: \"elderly African man\", \"young woman\", \"chef\" and \"couple\" keep all their words.",
+  "details_heading": "Person details:",
+  "questions": [
+   {
+    "key": "noun",
+    "type": "words",
+    "store": "always",
+    "ask": "what they are, in one word from their words (\"man\", \"nurse\", \"friend\").",
+    "required": "part {n}: a person's noun is one of their own words, and \"{value}\" is not among the words \"{words}\". Words that name only something about a person, or about someone the prompt already has, are a \"list\" when a list covers them, else \"free\""
+   },
+   {
+    "key": "presentation",
+    "type": "choice",
+    "store": "always",
+    "options": [
+     {
+      "answer": "feminine"
+     },
+     {
+      "answer": "masculine"
+     }
+    ],
+    "ask": "\"feminine\" or \"masculine\" when their words or the notes say which, else \"\"."
+   },
+   {
+    "key": "stated",
+    "type": "stated",
+    "store": "always",
+    "ask": "for each detail their words or the notes settle, the words that settle it, copied exactly: {\"age\": \"elderly\", \"descent\": \"African\"}. Only what is said; nothing guessed."
+   },
+   {
+    "key": "vary",
+    "type": "vary",
+    "store": "always",
+    "with_stated": true,
+    "except": [
+     "face"
+    ],
+    "needs_one_of": [
+     "age",
+     "descent",
+     "build",
+     "hair",
+     "hair_texture",
+     "hair_color",
+     "facial_hair"
+    ],
+    "needs_message": "part {n}: a person needs details to vary, some of age, descent, build, hair; words that name something about a person or about someone the prompt already has (their expression, pose, face, body or clothes) are not a person: they are a \"list\" when a list covers them, else \"free\"",
+    "ask": "the details that change from image to image, from the person details below. They are the fixed things about the person: their age, within what the words say (\"young man\" stays young, \"elderly African man\" stays elderly and of African descent), their descent, build, hair and the like. Most often: age, descent, build, hair, hair_texture and hair_color, with facial_hair for a masculine person. hairstyle only when the prompt or a note asks for it to change. Choose what this picture shows of them: a small figure in a wide scene shows age, build and hair, not eyes; a close portrait adds eyes. You need not include every detail, but leave one out only for a reason. Facial hair only for a masculine person.",
+    "more": [
+     "Leave out expression unless the prompt or a note asks for it to change. Leave out pose and accessories: they are not part of the person."
+    ]
+   },
+   {
+    "key": "clothes_part",
+    "type": "part",
+    "ask": "when another numbered part is what they wear, or some of it, its number: 2 in \"⟨1: woman⟩ in a ⟨2: kimono⟩\" or \"⟨1: man⟩ in ⟨2: pajamas⟩\"; else 0."
+   },
+   {
+    "key": "clothes",
+    "type": "words",
+    "from": [
+     "part",
+     "before",
+     "notes",
+     "prompt"
+    ],
+    "ask": "the words of the prompt or a note that say what they wear, or that no clothes show, copied exactly (\"in a red raincoat\", \"headshot\"); \"\" when nothing says so, which is most prompts."
+   },
+   {
+    "key": "outfit",
+    "type": "list",
+    "store": "always",
+    "also": [
+     "written"
+    ],
+    "cleared_by": "clothes_part",
+    "invalid": "part {n}: outfit \"{value}\" is not one of the lists",
+    "ask": "their clothes change too, unless clothes has words or clothes_part names a part. Give the id of the outfit list below that suits the scene, or \"written\" if none does; \"\" only when clothes has words or clothes_part is not 0."
+   },
+   {
+    "key": "place",
+    "type": "context",
+    "none": "\"\" when it doesn't say, which is most prompts.",
+    "invalid": "part {n}: place \"{value}\" is not a country's name: give only the country the picture is set in, by its plain common name in English (\"Vietnam\", \"Japan\", \"Morocco\"; England, Scotland, Wales, Northern Ireland or Hawaii as themselves), or \"\" when the prompt doesn't say"
+   },
+   {
+    "key": "people",
+    "type": "choice",
+    "default": "one",
+    "ask": "who the part's words name, read in the whole prompt",
+    "options": [
+     {
+      "answer": "one",
+      "text": "one person: \"chef\", \"old man\", \"my friend\""
+     },
+     {
+      "answer": "couple",
+      "text": "a romantic pair: \"couple\", \"newlyweds\", \"lovers\"",
+      "room": 45,
+      "second_heritage": 0.15,
+      "note": "The marked words name a couple. Each variant describes both partners briefly, as two people who belong together, in one phrase that keeps the marked words where they read naturally (\"young Ugandan couple, the man in a crisp white shirt, the woman with her braids pinned up\"), never tacked on at the end (\"..., couple\"). Each variant contains the marked words. Say who they are as the seed line says, through the two of them. Their ages are about the age given and close to each other, unless the prompt says otherwise. A look idea may suit one of them or both. 12 to 35 words beyond the marked words."
+     },
+     {
+      "answer": "family",
+      "text": "people related to each other: \"family\", \"mother and daughter\", \"grandparents\", \"siblings\"",
+      "room": 45,
+      "note": "The marked words name a family or other related people. Each variant names its members, two or more (\"a father in his fifties with his grown daughter and her husband\"), each with an age that suits their role, adults unless the prompt's words make one a child, and gives them the heritage they share and a family likeness; a look idea may suit one of them or several. 12 to 35 words beyond the marked words."
+     },
+     {
+      "answer": "group",
+      "text": "people who aren't related: \"three friends\", \"coworkers\", \"a crowd\", \"a band\"",
+      "room": 45,
+      "note": "The marked words name several people who aren't related. Each variant gives each of them a few words of their own, one by one (\"two coworkers, a tall woman in a gray suit and a stocky man with a shaved head\"), never one description for all of them, so they read as different people (heritage, gender, age and look as the prompt allows), adults unless the prompt's words make one a child, with as many people as the words say. 12 to 35 words beyond the marked words."
+     }
+    ]
+   },
+   {
+    "key": "being",
+    "type": "choice",
+    "default": "human",
+    "ask": "what sort of being they are, read in the whole prompt",
+    "options": [
+     {
+      "answer": "human",
+      "text": "a real-world human, who has a heritage and the look of one",
+      "heritage": "person.ethnicity"
+     },
+     {
+      "answer": "other",
+      "last": true,
+      "text": "any other sort of being, to whom a real people's heritage doesn't apply: a fantasy being, a robot, an alien, a demon, an animal character, a toy, a statue, a figure in a style with no real people's looks"
+     }
+    ]
+   }
+  ],
+  "require_one": {
+   "of": [
+    "outfit",
+    "clothes_part",
+    "clothes"
+   ],
+   "message": "part {n}: a person's clothes change unless the prompt says what they wear: when another part is what they wear, give its number as \"clothes_part\"; when the prompt's own words say, copy them into \"clothes\"; else give an outfit list's id, or \"written\" when none suits"
+  },
+  "examples": [
+   {
+    "intro": "An example. For the prompt \"an ⟨1: elderly African man⟩ reading on a porch with his ⟨2: pet⟩, {L1: summer|autumn} evening\" the reply is:",
+    "indent": 1,
+    "reply": {
+     "slots": [
+      {
+       "n": 1,
+       "kind": "person",
+       "label": "Elderly African man",
+       "lead": "an",
+       "category": "",
+       "person": {
+        "noun": "man",
+        "presentation": "masculine",
+        "stated": {
+         "age": "elderly",
+         "descent": "African"
+        },
+        "vary": [
+         "age",
+         "descent",
+         "build",
+         "hair",
+         "hair_texture",
+         "hair_color",
+         "facial_hair"
+        ],
+        "clothes_part": 0,
+        "clothes": "",
+        "outfit": "person.outfit.casual",
+        "place": "",
+        "people": "one",
+        "being": "human"
+       }
+      },
+      {
+       "n": 2,
+       "kind": "animal",
+       "label": "Pet",
+       "lead": " with his",
+       "category": "pet",
+       "animal": {
+        "noun": "pet",
+        "vary": [
+         "species",
+         "life_stage"
+        ],
+        "type": "pet",
+        "breed": "",
+        "stated": {}
+       }
+      }
+     ],
+     "lists": [
+      {
+       "n": 1,
+       "label": "Season"
+      }
+     ]
+    }
+   },
+   {
+    "intro": "Another. The prompt \"1girl, ⟨1: hairstyle⟩, ⟨2: outfit⟩, beach\" has one person, the girl, in its own words; both parts are about her:",
+    "reply": {
+     "slots": [
+      {
+       "n": 1,
+       "kind": "list",
+       "label": "Hairstyle",
+       "lead": ",",
+       "category": "hairstyle",
+       "list": {
+        "list": "person.hairstyle",
+        "about": "the girl's hairstyle",
+        "presentation": "feminine"
+       }
+      },
+      {
+       "n": 2,
+       "kind": "list",
+       "label": "Outfit",
+       "lead": ",",
+       "category": "outfit",
+       "list": {
+        "list": "person.outfit.summer",
+        "about": "the girl's outfit, at the beach",
+        "presentation": "feminine"
+       }
+      }
+     ],
+     "lists": []
+    }
+   },
+   {
+    "intro": "Another. The prompt \"a ⟨1: dancer⟩ in a ⟨2: costume⟩ with a ⟨3: proud look⟩\" has one person, the dancer; part 2 is what the dancer wears, so the dancer draws no outfit, and part 3 is the dancer's expression, not another person:",
+    "reply": {
+     "slots": [
+      {
+       "n": 1,
+       "kind": "person",
+       "label": "Dancer",
+       "lead": "a",
+       "category": "",
+       "person": {
+        "noun": "dancer",
+        "presentation": "",
+        "stated": {},
+        "vary": [
+         "age",
+         "descent",
+         "build",
+         "hair",
+         "hair_texture",
+         "hair_color"
+        ],
+        "clothes_part": 2,
+        "clothes": "",
+        "outfit": "",
+        "place": "",
+        "people": "one",
+        "being": "human"
+       }
+      },
+      {
+       "n": 2,
+       "kind": "free",
+       "label": "Costume",
+       "lead": " in a",
+       "category": "costume",
+       "free": {
+        "about": "the dancer's costume",
+        "lists": []
+       }
+      },
+      {
+       "n": 3,
+       "kind": "list",
+       "label": "Expression",
+       "lead": " with a",
+       "category": "look",
+       "list": {
+        "list": "person.expression",
+        "about": "the dancer's expression",
+        "presentation": ""
+       }
+      }
+     ],
+     "lists": []
+    }
+   }
+  ]
+ },
+ "details": {
+  "build": {
+   "list": "person.build",
+   "about": "build"
+  },
+  "age": {
+   "list": "person.age_band",
+   "about": "age"
+  },
+  "descent": {
+   "list": "person.ethnicity",
+   "about": "descent"
+  },
+  "skin": {
+   "list": "person.skin_tone",
+   "about": "skin tone"
+  },
+  "hair": {
+   "list": "person.hair_length",
+   "about": "hair length"
+  },
+  "hair_texture": {
+   "list": "person.hair_texture",
+   "about": "hair texture"
+  },
+  "hair_color": {
+   "list": "person.hair_color",
+   "about": "hair color"
+  },
+  "hairstyle": {
+   "list": "person.hairstyle",
+   "about": "hairstyle"
+  },
+  "eyes": {
+   "list": "person.eye_color",
+   "about": "eye color"
+  },
+  "facial_hair": {
+   "list": "person.facial_hair",
+   "about": "facial hair"
+  },
+  "face": {
+   "list": "person.face",
+   "about": "face",
+   "reader": false
+  }
+ },
+ "draws": [
+  {
+   "role": "heritage",
+   "list": {
+    "option": "being",
+    "field": "heritage"
+   },
+   "phrase": {
+    "stated": "descent"
+   },
+   "about": "the {noun}'s descent",
+   "unless": {
+    "people": [
+     "group"
+    ]
+   }
+  },
+  {
+   "role": "who",
+   "list": "person.gender",
+   "phrase": "words",
+   "about": "the {noun}'s gender",
+   "when": {
+    "people": [
+     "one"
+    ]
+   },
+   "label": "gender",
+   "say": "short"
+  },
+  {
+   "role": "who",
+   "list": "person.couple",
+   "phrase": "words",
+   "about": "who the {noun} are",
+   "when": {
+    "people": [
+     "couple"
+    ]
+   },
+   "label": "who",
+   "say": "value"
+  },
+  {
+   "role": "age",
+   "list": "person.age_band",
+   "phrase": {
+    "stated": "age",
+    "join": "words"
+   },
+   "about": "the {noun}'s age",
+   "when": {
+    "people": [
+     "one",
+     "couple"
+    ]
+   }
+  },
+  {
+   "role": "idea",
+   "list": {
+    "detail": "build"
+   },
+   "phrase": {
+    "stated": "build"
+   },
+   "about": "the {noun}'s build",
+   "where": {
+    "presentation": {
+     "answer": "presentation"
+    }
+   },
+   "when": {
+    "people": [
+     "one",
+     "couple"
+    ]
+   }
+  },
+  {
+   "role": "idea",
+   "list": {
+    "detail": "hair"
+   },
+   "phrase": {
+    "stated": "hair"
+   },
+   "about": "the {noun}'s hair",
+   "when": {
+    "people": [
+     "one",
+     "couple"
+    ]
+   }
+  },
+  {
+   "role": "idea",
+   "list": {
+    "detail": "hair_texture"
+   },
+   "phrase": {
+    "stated": "hair_texture"
+   },
+   "about": "the {noun}'s hair texture",
+   "when": {
+    "people": [
+     "one",
+     "couple"
+    ]
+   }
+  },
+  {
+   "role": "idea",
+   "list": {
+    "detail": "hair_color"
+   },
+   "phrase": {
+    "stated": "hair_color"
+   },
+   "about": "the {noun}'s hair color",
+   "when": {
+    "people": [
+     "one",
+     "couple"
+    ]
+   }
+  },
+  {
+   "role": "idea",
+   "list": {
+    "detail": "hairstyle"
+   },
+   "phrase": {
+    "stated": "hairstyle",
+    "or": "words"
+   },
+   "about": "the {noun}'s hairstyle",
+   "scene": true,
+   "when": {
+    "people": [
+     "one",
+     "couple"
+    ]
+   }
+  },
+  {
+   "role": "idea",
+   "list": {
+    "detail": "facial_hair"
+   },
+   "phrase": {
+    "stated": "facial_hair"
+   },
+   "about": "the {noun}'s facial hair",
+   "when": {
+    "people": [
+     "one",
+     "couple"
+    ],
+    "presentation": [
+     "masculine"
+    ]
+   }
+  },
+  {
+   "role": "idea",
+   "list": {
+    "answer": "outfit"
+   },
+   "phrase": "words",
+   "about": "what the {noun} wears",
+   "where": {
+    "presentation": {
+     "answer": "presentation"
+    }
+   },
+   "scene": true,
+   "unless": {
+    "people": [
+     "group"
+    ],
+    "clothes_part": "answered",
+    "clothes": "answered"
+   }
+  }
+ ],
+ "aspects": {
+  "list": [
+   "bearing and posture",
+   "expression",
+   "styling and grooming",
+   "what they wear",
+   "build",
+   "face",
+   "what they carry or hold",
+   "how their age shows"
+  ],
+  "per_variant": 2,
+  "drop": {
+   "what they wear": {
+    "answered": [
+     "clothes_part",
+     "clothes"
+    ]
+   },
+   "how their age shows": {
+    "no_draw": "age"
+   }
+  },
+  "typical": {
+   "text": "what someone like them would typically wear or carry here",
+   "share": 0.333333,
+   "replaces": "what they wear",
+   "unless": {
+    "answered": [
+     "clothes_part",
+     "clothes"
+    ]
+   }
+  }
+ },
+ "writer": {
+  "examples": [
+   "\"a ⟦young woman⟧ in a kitchen\" (keep \"young woman\") -> \"freckled young woman with a short black bob\"",
+   "\"a ⟦dominant young woman⟧ in a living room\", three variants with their seed lines (\"Tunisian\", develop: bearing and posture and expression / \"Korean\", gender: \"trans woman\", develop: styling and grooming and what they carry / \"Peruvian\", develop: build and what they wear, ideas: \"tall\") -> \"dominant young woman of Tunisian heritage, shoulders squared and chin lifted, giving the camera a cool, level stare that dares it to look away\", \"dominant young trans woman, Korean, hair slicked straight back, a dark lip, car keys looped around one finger like she owns the room\", \"tall, broad-shouldered dominant young woman, Peruvian, in a fitted black blazer worn over bare skin, sleeves pushed up\""
+  ],
+  "rules": [
+   "A person: 12 to 25 words beyond the marked words. Write each variant as an authored take on who this is, leaning into the marked words themselves: for \"dominant young woman\", how her dominance shows in her bearing, expression, styling and attitude, and in what she wears or carries when the prompt leaves that open. Each variant develops the aspects its seed line names, so the set differs in far more than hair. No shared template: vary how each variant is phrased and where things fall in it (the marked words first in some, after a detail in others: \"broad-shouldered Peruvian dominant young woman in a fitted blazer\"; the descent before the words, after them, or as \"of Tunisian heritage\"), and weave its seeds in where they read naturally, never as a list or a prefix. Never describe what another part of the prompt owns (a clothing part elsewhere owns the clothes)."
+  ],
+  "seed_rules": [
+   "a quoted descent: give the person that heritage's look (the look given with it in brackets, when there is one), and write that exact word or words into the variant where it reads naturally. If the marked words name several people, it is the heritage they share, unless the line gives one for each. When it can't be true in this prompt (a figure who isn't of that people, such as a creature or a stylized character, or a setting or the user's words that settle who they are), leave it out and list it under \"rejected\", copied exactly. A descent marked (must appear) is always written in.",
+   "gender: write the person as that, with those exact words in the variant (\"a trans woman\", \"a young trans woman\"), woven in naturally; the marked words still stay.",
+   "who: who the couple are. Say it through the two of them, in the variant's own words (\"the man in a linen shirt, the woman with her hair pinned up\"; \"two women in their thirties\"), never as a label repeated at the end.",
+   "develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must. \"What someone like them would typically wear or carry here\": the clothes, headwear and things most people like them have at work or in this place and time, as a photograph of a real one would show them (a fisherman's oilskins and boots, a nurse's scrubs and lanyard).",
+   "age: about how old the person looks; work it in before their words (\"a 34-year-old chef\") or say it another natural way (\"a chef in her forties\"), never as a number tacked on at the end."
+  ]
+ }
+}

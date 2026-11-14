@@ -36,7 +36,7 @@ def tv(got, want):
 
 
 def region_of(text):
-    return vocabulary().get(V.DESCENT).value(text).tags["region"][0]
+    return vocabulary().get("person.ethnicity").value(text).tags["region"][0]
 
 
 # --------------------------------------------------------------------------- the mix
@@ -48,7 +48,7 @@ REGION_SHARES = {"South Asia": 0.16, "East Asia": 0.15, "Sub-Saharan Africa": 0.
 
 def test_the_global_prior_gives_each_region_its_share_split_by_tier():
     g = places.global_prior()
-    eth = vocabulary().get(V.DESCENT)
+    eth = vocabulary().get("person.ethnicity")
     assert len(g) == len(eth.values) == 113 and abs(sum(g.values()) - 1) < 1e-9
     assert set(REGION_SHARES) == set(eth.local_facets["region"]) and sum(REGION_SHARES.values()) == pytest.approx(1)
     by, mass = Counter(), Counter()
@@ -74,7 +74,7 @@ def test_small_regions_no_longer_lead_a_default_place():
 
 
 def test_the_descent_tiers_are_typical_or_plausible_and_every_region_has_a_typical_one():
-    eth = vocabulary().get(V.DESCENT)
+    eth = vocabulary().get("person.ethnicity")
     assert {v.tier for v in eth.values} == {"typical", "plausible"}
     assert {region_of(v.text) for v in eth.values if v.tier == "typical"} == set(eth.local_facets["region"])
 
@@ -89,8 +89,8 @@ def test_with_no_place_draws_follow_the_global_prior():
     assert all(abs(k / N - REGION_SHARES[r]) < 0.012 for r, k in regions.items()), regions
     # the tier applies once: a typical heritage beside a plausible one is drawn about 1 / 0.3 as often
     europe = sum(got[t] for t in got if region_of(t) == "Europe")
-    typical = sum(got[v.text] for v in vocabulary().get(V.DESCENT).values if v.tier == "typical" and region_of(v.text) == "Europe")
-    want = sum(g for t, g in places.global_prior().items() if region_of(t) == "Europe" and vocabulary().get(V.DESCENT).value(t).tier == "typical") / REGION_SHARES["Europe"]
+    typical = sum(got[v.text] for v in vocabulary().get("person.ethnicity").values if v.tier == "typical" and region_of(v.text) == "Europe")
+    want = sum(g for t, g in places.global_prior().items() if region_of(t) == "Europe" and vocabulary().get("person.ethnicity").value(t).tier == "typical") / REGION_SHARES["Europe"]
     assert abs(typical / europe - want) < 0.03, (typical / europe, want)
 
 
@@ -108,7 +108,7 @@ def test_a_place_mixes_its_shares_with_the_global_prior(source, w):
     assert tv(got, want) < 0.04
     assert abs(got["Japanese"] / N - want["Japanese"]) < 0.015
     # the rest of the world is still drawn: the global part keeps every region in
-    assert {region_of(t) for t in got} == set(vocabulary().get(V.DESCENT).local_facets["region"])
+    assert {region_of(t) for t in got} == set(vocabulary().get("person.ethnicity").local_facets["region"])
 
 
 def test_a_stated_descent_restricts_the_mix_and_renormalizes_within_it():
@@ -136,7 +136,7 @@ def test_a_settler_majority_country_draws_its_own_majority_heritage(code, majori
     assert max(m, key=m.get) == majority
     assert m[majority] == pytest.approx(places.FROM_PROMPT * (share + (1 - sum(dict(vocabulary().places[code].shares).values())) * places.global_prior()[majority])
                                         + (1 - places.FROM_PROMPT) * places.global_prior()[majority])
-    european = {v.text for v in vocabulary().get(V.DESCENT).values if region_of(v.text) == "Europe"}
+    european = {v.text for v in vocabulary().get("person.ethnicity").values if region_of(v.text) == "Europe"}
     assert not european & set(dict(vocabulary().places[code].shares)) - {"Ashkenazi Jewish"}
     got = drawn(V.person_seeds(place=place))
     assert abs(got[majority] / N - m[majority]) < 0.015
@@ -146,7 +146,7 @@ def test_a_plausible_heritage_keeps_its_whole_local_share():
     """Māori is plausible, yet in New Zealand it is drawn at its mix share: the place mix replaces
     the bank's tier weight rather than multiplying it."""
     place = {"code": "NZ", "from": "prompt"}
-    assert vocabulary().get(V.DESCENT).value("Māori").tier == "plausible"
+    assert vocabulary().get("person.ethnicity").value("Māori").tier == "plausible"
     m = places.mix(place)
     got = drawn(V.person_seeds(place=place))
     assert m["Māori"] > 0.12 and abs(got["Māori"] / N - m["Māori"]) < 0.01
@@ -165,7 +165,7 @@ def test_a_picked_descent_restricts_the_mix_too():
     got = drawn(seeds)
     assert {region_of(t) for t in got} == {"Sub-Saharan Africa"}
     m = places.mix(place)
-    sub = [v.text for v in vocabulary().get(V.DESCENT).values if region_of(v.text) == "Sub-Saharan Africa"]
+    sub = [v.text for v in vocabulary().get("person.ethnicity").values if region_of(v.text) == "Sub-Saharan Africa"]
     assert tv(got, {t: m[t] / sum(m[t] for t in sub) for t in sub}) < 0.03
     # a pick outside what the words allow keeps the place's mix as well
     seeds = V.person_seeds(descent=["Korean"], place=place).pinned(V.Pins(descent=("Nigerian", "Ghanaian")))
@@ -194,8 +194,8 @@ def test_the_default_place_is_a_table_code_or_none(monkeypatch, value, code):
 def test_a_person_reading_carries_its_place_into_the_plan_and_seeds():
     r = {"kind": "person", "person": {"noun": "vendor", "stated": {}, "outfit": "person.outfit.casual", "place": "Nigeria"}}
     p = plan(r, "vendor")
-    assert p["said_place"] == "Nigeria"
-    seeds = seeds_of({"kind": "person", "banks": [{"role": "descent", "list": V.DESCENT, "narrowed": None}],
+    assert p["said"] == {"place": "Nigeria"}
+    seeds = seeds_of({"kind": "person", "banks": [{"role": "descent", "list": "person.ethnicity", "narrowed": None}],
                       "place": {"code": "NG", "from": "prompt"}})
     got = drawn(seeds, 4000)
     assert got["Nigerian"] / 4000 > 0.7

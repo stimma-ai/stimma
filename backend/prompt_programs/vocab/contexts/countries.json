@@ -1,6 +1,15 @@
 {
- "about": "Where pictures are set: per country or territory (ISO 3166-1 alpha-2, or ISO 3166-2 for a part kept apart), its English name, other names a reader may give, and the heritages (person.ethnicity values) common there with their shares of its people. Shares need not sum to 1: the rest is spread by the global prior. A person's descent is drawn from w * this mix + (1 - w) * the global prior (places.py).",
- "places": {
+ "id": "countries",
+ "about": "Where pictures are set: per country or territory (ISO 3166-1 alpha-2, or ISO 3166-2 for a part kept apart), its English name, other names a reader may give, and the heritages (person.ethnicity values) common there with their shares of its people. Shares need not sum to 1: the rest is spread by the global prior. A person's descent is drawn from w * this mix + (1 - w) * the global prior (places.py): w is weight.prompt when the prompt sets the picture here, weight.default when this is only the user's default place.",
+ "weights": "person.ethnicity",
+ "weight": {
+  "prompt": 0.9,
+  "default": 0.8
+ },
+ "user_default": true,
+ "code_pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$",
+ "ask": "the country the picture is set in, when the prompt or a note states or clearly implies where it is, as the country's plain common name in English and nothing else: \"a market in Lagos\": \"Nigeria\", \"feudal Japan\": \"Japan\", \"a Tokyo subway\": \"Japan\", \"rural Vietnam\": \"Vietnam\", \"a souk in Marrakesh\": \"Morocco\". England, Scotland, Wales, Northern Ireland and Hawaii are named as themselves (\"the Scottish Highlands\": \"Scotland\"). Never a city, a region or other words with it.",
+ "entries": {
   "AD": {
    "name": "Andorra",
    "shares": {

@@ -116,10 +116,21 @@ def snapshot(monkeypatch: Any) -> Dict[str, Any]:
                          "user": msgs[1]["content"]})
         banks = [{k: v for k, v in b.items() if k in ("role", "list", "phrase", "where", "age", "scene", "narrowed")}
                  for b in record["banks"]]
+
+        def vals(b):
+            return [b.list_id, [list(x) for x in b.values]] if b is not None else None
+        summary = {"descent": vals(seeds.descent), "gender": vals(seeds.gender), "age": vals(seeds.age),
+                   "core": vals(seeds.core), "spread": vals(seeds.spread), "ideas": [vals(b) for b in seeds.ideas],
+                   "minor": list(seeds.minor)}
         out[pid] = {"plan": [(b["role"], b["list"], b["phrase"]) for b in p["banks"]], "banks": banks,
                     "place": record.get("place"), "people": record.get("people", ""), "n": slot.n,
-                    "descent": list(seeds.descent.values) if seeds.descent is not None else None, "draws": rows}
+                    "descent": list(seeds.descent.values) if seeds.descent is not None else None, "seeds": summary,
+                    "person": kind == "person", "draws": rows}
     return out
+
+
+def _unseeded(user: str) -> str:
+    return user.split("\nSeeds, one line per variant:")[0].split("\nSpread the variants across")[0]
 
 
 def _jsonable(x: Any) -> Any:
@@ -134,9 +145,19 @@ def test_built_in_draws_match_the_snapshot(monkeypatch):
     want = json.loads(GOLDEN.read_text())
     assert sorted(got) == sorted(want)
     for pid in want:
-        for field in ("plan", "banks", "place", "people", "n", "descent"):
+        for field in ("plan", "banks", "people", "n", "descent"):
             assert got[pid][field] == want[pid][field], (pid, field)
+        # A place context weights a heritage; a slot that draws none (a group, an elf) has none now,
+        # so its pool no longer changes with the default place it never used.
+        assert got[pid]["place"] == (want[pid]["place"] if want[pid]["descent"] is not None else None), pid
+        assert got[pid]["seeds"] == want[pid]["seeds"], pid
         for g, w in zip(got[pid]["draws"], want[pid]["draws"]):
-            assert g["lines"] == w["lines"], pid
-            assert g["seeds"] == w["seeds"], pid
-            assert g["user"] == w["user"], pid
+            if want[pid]["person"]:   # drawn from the same random stream: the very same seed lines
+                assert g["lines"] == w["lines"], pid
+                assert g["seeds"] == w["seeds"], pid
+                assert g["user"] == w["user"], pid
+            else:
+                # The code before shuffled a person's aspects for every slot, so a slot of another
+                # kind drew its ideas from a later point of the random stream: the same banks
+                # (above) and the same turn text besides the seed lines, drawn afresh.
+                assert _unseeded(g["user"]) == _unseeded(w["user"]), pid

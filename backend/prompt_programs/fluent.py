@@ -141,11 +141,12 @@ def early_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", p
     (descent, gender, age and the minors rules need the narrowing), never a slot narrowing reads
     an age for (a list under person. or clothing.: seeding.narrow_seeds' about_ages), never one
     whose record says it may be under 18 (MINORS_POLICY.md). Structure only."""
+    from prompt_programs.seeding import _people_like
     from prompt_programs.variants import Seeds
-    if not slot.get("pool") or slot["id"] not in (entry.get("seeds_pending") or []) or slot.get("kind") == "person":
+    if not slot.get("pool") or slot["id"] not in (entry.get("seeds_pending") or []) or _people_like(slot.get("kind")):
         return None
     record = (entry.get("seeds") or {}).get(slot["id"])
-    if not isinstance(record, dict) or record.get("kind") == "person" or record.get("minor"):
+    if not isinstance(record, dict) or _people_like(record.get("kind")) or record.get("minor"):
         return None
     if any(str(b.get("list") or "").startswith(("person.", "clothing.")) for b in record.get("banks") or []):
         return None
@@ -323,21 +324,25 @@ def pool_view(entry: Dict[str, Any], chosen: Optional[Dict[str, Choice]] = None,
         keep = kept_chunks(s["words"], valid_category(s["words"], s.get("category") or "", str(s.get("kind") or "")))
         view: Dict[str, Any] = {"kind": "variants", "state": slot_state(entry, s, writer), "more": more, "keep": keep,
                                 "variants": listed, "options": [v["text"] for v in listed], "chosen": c.to_dict()}
-        if s.get("kind") == "person" and not s.get("degraded"):
+        from prompt_programs.seeding import _people_like
+        if _people_like(s.get("kind")) and not s.get("degraded"):
             record = (entry.get("seeds") or {}).get(sid) or {}
             banks = {b.get("role"): b for b in record.get("banks") or []}
             fits = (banks.get("descent") or {}).get("narrowed")
             gfits = (banks.get("gender") or {}).get("narrowed")
             from prompt_programs.seeding import age_choices
-            # the rows of what was seeded (a couple's who they are, no descent for an elf), every row
-            # while the seeds aren't in yet
-            from prompt_programs.variants import GENDER
+            from prompt_programs.vocab import vocabulary
+            # the rows of what was seeded (a couple's who they are, an elf's clan, no heritage for a
+            # robot), and while the seeds aren't in yet, the rows the kind's first rules draw
+            kind = vocabulary().kind(s.get("kind"))
+            first = {r.role: r.list for r in reversed(kind.draws) if isinstance(r.list, str)} if kind else {}
+            heritage = (banks.get("descent") or {}).get("list") if record else (kind.heritage_lists()[:1] or [""])[0]
             view["person"] = person_pickers(variants, c, fits=fits if isinstance(fits, list) else None,
                                             gender_fits=gfits if isinstance(gfits, list) else None,
                                             ages=age_choices(record),
-                                            gender_list=(banks.get("gender") or {}).get("list") if record else GENDER,
-                                            descent="descent" in banks or not record,
-                                            age="age" in banks or not record)
+                                            gender_list=(banks.get("gender") or {}).get("list") if record else first.get("who"),
+                                            descent=heritage or None,
+                                            age="age" in banks or (not record and "age" in first))
         out[sid] = view
     return {"choices": out, "more": busy}
 

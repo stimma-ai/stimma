@@ -1,0 +1,69 @@
+{
+ "id": "camera",
+ "order": 30,
+ "reader": {
+  "recognize": [
+   "how the picture is taken: shot size, lens, angle, film look. Words that name only one of those (\"camera angle\", \"selfie angle\", \"lens\") are a \"list\" of it, not a camera."
+  ],
+  "heading": "For a camera:",
+  "text": "vary, the parts of it that change, from: shot_size, lens, angle, film_look; all four unless the prompt or a note settles some.",
+  "example": {
+   "vary": [
+    "shot_size",
+    "lens",
+    "angle",
+    "film_look"
+   ]
+  },
+  "single_detail": "list",
+  "questions": [
+   {
+    "key": "vary",
+    "type": "vary",
+    "store": "always",
+    "needs_one_of": [
+     "shot_size",
+     "lens",
+     "angle",
+     "film_look"
+    ],
+    "needs_message": "part {n}: a camera must vary some of shot_size, lens, angle, film_look"
+   }
+  ]
+ },
+ "details": {
+  "shot_size": {
+   "list": "camera.shot_size",
+   "about": "shot size"
+  },
+  "lens": {
+   "list": "camera.lens",
+   "about": "lens"
+  },
+  "angle": {
+   "list": "camera.angle",
+   "about": "angle"
+  },
+  "film_look": {
+   "list": "camera.film_look",
+   "about": "film look"
+  }
+ },
+ "draws": [
+  {
+   "role": "idea",
+   "list": {
+    "varied": true
+   }
+  }
+ ],
+ "writer": {
+  "examples": [
+   "\"a street, ⟦camera⟧\" (keep nothing; category \"camera\") -> \"a wide shot at eye level on a 35mm lens\", \"a low-angle close-up on Kodak Portra 400 film\", never \"a 35mm film camera\" or \"a vintage camera\": a camera part is how the picture is taken, never a camera in it",
+   "\"⟦selfie camera angle⟧\" (keep \"selfie\"; category \"camera angle\") -> \"a high-angle selfie, phone held above her head\", \"a low selfie angle from chest height\""
+  ]
+ },
+ "improve": [
+  "A value that says how the picture is taken (a shot, a lens, an angle, a film stock) is how it is photographed, never a thing in it: no one holds, uses or is framed by a camera because of it."
+ ]
+}

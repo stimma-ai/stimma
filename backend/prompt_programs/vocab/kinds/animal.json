@@ -1,0 +1,136 @@
+{
+ "id": "animal",
+ "order": 20,
+ "reader": {
+  "recognize": [
+   "an animal the prompt doesn't already have, named by the part's own words: \"pet\", \"dog\", \"old cat\", \"animal\"."
+  ],
+  "heading": "For an animal:",
+  "example": {
+   "noun": "dog",
+   "vary": [
+    "breed",
+    "life_stage"
+   ],
+   "type": "",
+   "breed": "<a breed list's id>",
+   "stated": {}
+  },
+  "questions": [
+   {
+    "key": "noun",
+    "type": "words",
+    "store": "always",
+    "ask": "what it is, in one word from its words (\"pet\", \"dog\", \"cat\").",
+    "required": "part {n}: an animal's noun is one of its own words, and \"{value}\" is not among the words \"{words}\""
+   },
+   {
+    "key": "vary",
+    "type": "vary",
+    "store": "always",
+    "with_stated": true,
+    "needs_one_of": [
+     "species",
+     "breed",
+     "life_stage"
+    ],
+    "needs_message": "part {n}: an animal needs something to vary, from species, breed, life_stage",
+    "ask": "what changes from image to image, from: species (what kind of animal, when the words leave it open: \"pet\", \"animal\"), breed (when the words name one kind that has a breed or coat list below: \"dog\", \"kitten\"; never beside species), life_stage (baby, juvenile, adult, elderly)."
+   },
+   {
+    "key": "type",
+    "type": "choice",
+    "options_from": {
+     "list": "animal.species",
+     "facet": "kind"
+    },
+    "only_if_varies": "species",
+    "ask": "when species varies, the kind of animal the words call for, from: {options}. \"pet\" is \"pet\"; \"farm animal\" is \"farm\". \"\" when the words call for any animal (\"animal\", \"creature\")."
+   },
+   {
+    "key": "breed",
+    "type": "list",
+    "store": "always",
+    "under": "animal",
+    "exclude": [
+     "animal.species",
+     "animal.life_stage"
+    ],
+    "only_if_varies": "breed",
+    "ask": "the id of that kind's breed or coat list below, or \"\"."
+   },
+   {
+    "key": "stated",
+    "type": "stated",
+    "store": "always",
+    "ask": "for each of those the words settle, the words that settle it, copied exactly: {\"life_stage\": \"old\"}; a young animal's own word settles its life stage: \"kitten\" or \"puppy\" is {\"life_stage\": \"kitten\"}."
+   }
+  ]
+ },
+ "details": {
+  "species": {
+   "list": "animal.species",
+   "about": "what kind of animal"
+  },
+  "breed": {
+   "list": "animal.species",
+   "about": "breed",
+   "needs": {
+    "answered": "breed",
+    "unless_varied": "species"
+   }
+  },
+  "life_stage": {
+   "list": "animal.life_stage",
+   "about": "life stage"
+  }
+ },
+ "draws": [
+  {
+   "role": "idea",
+   "list": "animal.species",
+   "phrase": "words",
+   "about": "what kind of animal the {noun} is",
+   "where": {
+    "kind": {
+     "answer": "type"
+    }
+   },
+   "when": {
+    "vary": [
+     "species"
+    ]
+   }
+  },
+  {
+   "role": "idea",
+   "list": {
+    "answer": "breed"
+   },
+   "phrase": {
+    "stated": "breed",
+    "or": "words"
+   },
+   "about": "the {noun}'s breed",
+   "when": {
+    "vary": [
+     "breed"
+    ],
+    "breed": "answered"
+   }
+  },
+  {
+   "role": "idea",
+   "list": "animal.life_stage",
+   "phrase": {
+    "stated": "life_stage"
+   },
+   "about": "the {noun}'s life stage",
+   "when": {
+    "vary": [
+     "life_stage"
+    ]
+   }
+  }
+ ]
+}

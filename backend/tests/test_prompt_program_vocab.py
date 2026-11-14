@@ -90,14 +90,15 @@ class TestTheVocabulary:
         assert v.resolve("person.eye_colr").id == "person.eye_color"
         assert v.resolve("person.nostril") is None and v.resolve("interior.bedroom") is None
 
-    def test_a_leaf_defined_twice_is_an_error(self, tmp_path):
+    def test_a_leaf_defined_twice_is_skipped_from_a_later_root(self, tmp_path):
         for root in ("a", "b"):
             d = tmp_path / root / "person"
             d.mkdir(parents=True)
             (d / "_node.json").write_text('{"id": "person"}')
-            (d / "eyes.json").write_text('{"values": [{"text": "brown", "tier": "typical"}]}')
-        with pytest.raises(ValueError):
-            load((tmp_path / "a", tmp_path / "b"))
+            (d / "eyes.json").write_text('{"values": [{"text": "%s", "tier": "typical"}]}' % ("brown" if root == "a" else "teal"))
+        got = load((tmp_path / "a", tmp_path / "b"))   # the first root stands; the second's copy is skipped, logged
+        assert [v.text for v in got.leaves["person.eyes"].values] == ["brown"]
+        assert any("defined twice" in p for p in got.problems)
 
 
 class TestArticles:
@@ -619,7 +620,7 @@ class TestCameraLists:
         assert "a selfie-stick selfie" in {x.text for x in drawn}
 
 
-# --------------------------------------------------------------------------- where pictures are set (places.json)
+# --------------------------------------------------------------------------- where pictures are set (contexts/countries.json)
 
 class TestPlaces:
     """The places table: every heritage it names is a descent value, and no name means two places."""
@@ -661,13 +662,14 @@ class TestPlaces:
         ({"XX": {"name": "Nowhere", "shares": {"Korean": 0.7, "Thai": 0.7}}}, "sum past 1"),
         ({"XX": {"name": "Nowhere", "shares": {"Korean": 0.5}}, "XY": {"name": "Elsewhere", "aliases": ["nowhere"],
                                                                        "shares": {"Thai": 0.5}}}, "stands for both"),
-        ({"xx": {"name": "Nowhere", "shares": {"Korean": 0.5}}}, "not ISO 3166"),
+        ({"xx": {"name": "Nowhere", "shares": {"Korean": 0.5}}}, "code pattern"),
     ])
     def test_the_loader_refuses_a_bad_table(self, tmp_path, places, error):
         from prompt_programs.vocab import ROOT, load
         import shutil
         root = tmp_path / "vocab"
         shutil.copytree(ROOT, root)
-        (root / "places.json").write_text(json.dumps({"places": places}))
+        t = json.loads((root / "contexts" / "countries.json").read_text())
+        (root / "contexts" / "countries.json").write_text(json.dumps({**t, "entries": places}))
         with pytest.raises(ValueError, match=error):
             load((root,))

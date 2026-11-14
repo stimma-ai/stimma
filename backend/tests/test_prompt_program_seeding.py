@@ -19,7 +19,7 @@ def test_a_person_seeds_descent_gender_age_and_their_look():
                                            "stated": {"age": "elderly", "descent": "African"},
                                            "outfit": "person.outfit.casual"}}, "elderly African man")
     got = roles(p)
-    assert got[:3] == [("descent", V.DESCENT, "African"), ("gender", V.GENDER, "elderly African man"),
+    assert got[:3] == [("descent", "person.ethnicity", "African"), ("gender", "person.gender", "elderly African man"),
                        ("age", V.AGE, "elderly African man")]
     assert next(b for b in p["banks"] if b["role"] == "age")["age"] is True
     ideas = [lid for role, lid, _ in got if role == "idea"]
@@ -75,8 +75,8 @@ def test_a_reading_naming_no_list_is_an_error():
 
 def test_seeds_from_a_narrowed_plan():
     record = {"kind": "person", "stated_descent": True, "minor": ["9-year-old"],
-              "banks": [{"role": "descent", "list": V.DESCENT, "narrowed": ["Nigerian", "Ghanaian"]},
-                        {"role": "gender", "list": V.GENDER, "narrowed": ["woman", "trans woman"]},
+              "banks": [{"role": "descent", "list": "person.ethnicity", "narrowed": ["Nigerian", "Ghanaian"]},
+                        {"role": "gender", "list": "person.gender", "narrowed": ["woman", "trans woman"]},
                         {"role": "age", "list": V.AGE, "narrowed": None, "failed": True},
                         {"role": "idea", "list": "person.makeup", "narrowed": None}]}
     s = seeds_of(record)
@@ -99,12 +99,12 @@ def person(**kw):
 def test_a_couple_draws_who_they_are_one_heritage_and_one_age():
     p = plan(person(people="couple"), "couple")
     got = roles(p)
-    assert ("descent", V.DESCENT, "") in got and ("gender", "person.couple", "couple") in got
+    assert ("descent", "person.ethnicity", "") in got and ("gender", "person.couple", "couple") in got
     assert ("age", V.AGE, "couple") in got
     assert p["people"] == "couple"
     rec = {"kind": "person", "banks": [{**b, "narrowed": None} for b in p["banks"]], "people": "couple"}
     seeds = seeds_of(rec)
-    assert seeds.people == "couple" and seeds.gender.list_id == "person.couple"
+    assert seeds.second == 0.15 and seeds.room == 45 and seeds.who_label == "who" and seeds.gender.list_id == "person.couple"
     assert dict(seeds.gender.values) == {"a man and a woman": 0.9, "two women": 0.05, "two men": 0.05}
 
 
@@ -115,8 +115,8 @@ def test_a_family_shares_a_heritage_and_a_group_draws_no_one_look():
     assert grp["banks"] == []   # no descent, gender, age or one look for all of them: the writer varies them
 
 
-def test_a_figure_a_heritage_doesnt_apply_to_draws_no_descent():
-    p = plan(person(noun="elf", heritage=False), "elf warrior")
+def test_a_sort_of_being_without_a_heritage_list_draws_no_descent():
+    p = plan(person(noun="elf", being="other"), "elf warrior")
     assert "descent" not in [b["role"] for b in p["banks"]]
     assert "gender" in [b["role"] for b in p["banks"]]
 

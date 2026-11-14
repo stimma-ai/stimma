@@ -53,11 +53,12 @@ weight 0 for the picker. A value tagged "any" or not at all places nothing and i
 All of the knowledge is data; the engine only matches tag sets.
 The user's own lists, wildcards, pins and additions are never weighted (draws.py).
 
-`places.json` at the root is not a list: it is the table of where pictures are set (Place),
-keyed by ISO 3166-1 alpha-2 code (ISO 3166-2 for a part kept apart, "GB-SCT"), each with its
-English name, other names, and `shares` of the descent list's heritages common there. The
-loader checks every heritage is a value of person.ethnicity and no name stands for two places.
-places.py draws a person's descent from it.
+Two folders of a root are not lists. `kinds/` holds the kinds of slot (kinds.py: how the reader
+knows each, what it asks, which lists its variants draw and how, what the writer and Improve are
+told of it). `contexts/` holds context tables (kinds.Table): entries whose shares weight a list,
+such as the countries, keyed by ISO 3166 code, whose shares weight the descent list
+(contexts/countries.json; places.py draws a person's descent from it). The loader checks every
+share names a value of its list and no name stands for two entries.
 
 A list whose values share settings can declare them once as "groups" ({name: {about,
 tags, less_common}}); a value's "group" names one, and its own tags add to the group's.
@@ -67,7 +68,10 @@ A list may name one of its local facets as the one it is browsed by ("browse": "
 value sits in exactly one part of it, and the chooser opens on a row per part (descent's world
 regions), each leading to its values. Its declared groups then aren't offered as chips.
 
-More roots can be added (a stimpack's vocabulary); ids must not collide.
+More roots can be added after the built-in one (roots(): STIMMA_VOCAB_ROOTS). A later root may
+add lists, values to a list ("extend": true), kinds and additions to a kind, tables and entries;
+what would replace something already there is skipped and logged (load). The schema for pack
+authors is in stimma-plans active/fluent-ship/VOCAB_SCHEMA.md.
 """
 
 from __future__ import annotations
@@ -85,8 +89,7 @@ ROOT = Path(__file__).parent / "vocab"
 TIER_WEIGHTS = {"typical": 1.0, "plausible": 0.3, "unusual": 0.03}
 OPEN_SHARE = 0.5      # an open leaf's list values' share of its pool's weight once generated options exist
 EXAMPLES = 10         # list values shown to the options generator for an open leaf
-CATALOG_ROOTS = ("person", "clothing", "animal", "plant", "place", "interior_space", "exterior_space", "scene", "camera",
-                 "lighting", "art", "object", "vehicle", "food")   # every directory: what a slot may be bound to
+CATALOG_ROOTS = None   # what a slot may be bound to: every list of every root (a list may opt out: "catalog": false)
 TYPO_CUTOFF = 0.85    # difflib ratio above which an unknown id is read as a typo of a known one
 AGE_LIST = "person.age_band"     # the list a person's age is drawn from
 MINOR = ("child", "teen")        # the age facet's values under 18
@@ -389,14 +392,7 @@ class Node:
     description: str
 
 
-@dataclass(frozen=True)
-class Place:
-    """A country or territory a picture may be set in (places.json)."""
-    code: str
-    name: str
-    aliases: Tuple[str, ...]
-    shares: Tuple[Tuple[str, float], ...]   # (heritage of person.ethnicity, share of its people)
-    notes: str = ""
+from prompt_programs.kinds import Entry as Place  # noqa: E402  (a country or a realm: an entry of a context table)
 
 
 @dataclass
@@ -406,17 +402,56 @@ class Vocabulary:
     facets: Dict[str, Dict[str, Any]]
     version: str
     context: Dict[str, Dict[str, Any]] = field(default_factory=dict)   # context facet -> {scope, values, neutral, about}
-    places: Dict[str, Place] = field(default_factory=dict)             # code -> Place (places.json)
+    kinds: Dict[str, Any] = field(default_factory=dict)               # id -> kinds.Kind (kinds/*.json)
+    tables: Dict[str, Any] = field(default_factory=dict)              # id -> kinds.Table (contexts/*.json)
+    problems: Tuple[str, ...] = ()                                     # what a later root had skipped (logged)
+
+    def kind(self, kid: Any) -> Optional[Any]:
+        return self.kinds.get(str(kid or ""))
+
+    def ordered_kinds(self) -> List[Any]:
+        """The declared kinds in the order every composed prompt lists them."""
+        return sorted(self.kinds.values(), key=lambda k: (k.order, k.id))
+
+    def kind_names(self) -> Tuple[str, ...]:
+        """Every kind a reading may give: the declared ones, then the engine's list and free."""
+        from prompt_programs.kinds import ENGINE_KINDS
+        return (*(k.id for k in self.ordered_kinds()), *ENGINE_KINDS)
+
+    def heritage_lists(self) -> Tuple[str, ...]:
+        """The lists that play the heritage role for some kind or sort of being."""
+        return tuple(dict.fromkeys(x for k in self.ordered_kinds() for x in k.heritage_lists()))
+
+    def table_for(self, list_id: str) -> Optional[Any]:
+        """The context table that weights a list (a country's mix weights descent), or None."""
+        return next((t for t in sorted(self.tables.values(), key=lambda t: t.id) if t.weights == list_id), None)
+
+    @property
+    def user_table(self) -> Optional[Any]:
+        """The table the user's default place is picked from (the countries)."""
+        return next((t for t in self.tables.values() if t.user_default), None)
+
+    @property
+    def places(self) -> Dict[str, Place]:
+        """The user-default table's entries (the countries), by code."""
+        t = self.user_table
+        return dict(t.entries) if t is not None else {}
 
     def place_named(self, name: Any) -> Optional[Place]:
-        """The place a name or alias names exactly, case and surrounding space aside; None for
-        anything else (structure only: no near matches)."""
-        key = str(name or "").strip().casefold()
-        return self._place_names.get(key) if key else None
+        """The user-default table's entry a name or alias names exactly, case and surrounding space
+        aside; None for anything else (structure only: no near matches)."""
+        t = self.user_table
+        return t.named(name) if t is not None else None
 
-    @cached_property
-    def _place_names(self) -> Dict[str, Place]:
-        return {n.strip().casefold(): p for p in self.places.values() for n in (p.name, *p.aliases)}
+    def context_named(self, name: Any, tables: Sequence[str] = ()) -> Optional[Tuple[Any, Place]]:
+        """(table, entry) a name names exactly in any context table (or those given); None else."""
+        for t in sorted(self.tables.values(), key=lambda t: t.id):
+            if tables and t.id not in tables:
+                continue
+            e = t.named(name)
+            if e is not None:
+                return t, e
+        return None
 
     @property
     def context_neutral(self) -> Dict[str, Tuple[str, ...]]:
@@ -446,13 +481,13 @@ class Vocabulary:
             leaf = self.leaves[near[0]] if near else None
         return leaf
 
-    def catalog(self, roots: Sequence[str] = CATALOG_ROOTS) -> str:
+    def catalog(self, roots: Optional[Sequence[str]] = None) -> str:
         """The lists a slot may be bound to, one line each: id, part of speech, where a value
         fits, what it's for. No sample values (a fixed sample shown to every reader ends up in
         every prompt) and no groups (the slot's words narrow a list after it is bound)."""
         lines = []
         for lid in sorted(self.leaves):
-            if not any(lid == r or lid.startswith(r + ".") for r in roots):
+            if roots is not None and not any(lid == r or lid.startswith(r + ".") for r in roots):
                 continue
             leaf = self.leaves[lid]
             if any(other.slots == lid for other in self.leaves.values()):
@@ -672,100 +707,260 @@ def _browse(lid: str, leaf: Leaf, facet: str) -> str:
     return facet
 
 
-PLACES_FILE = "places.json"
-_PLACE_CODE = re.compile(r"^[A-Z]{2}(-[A-Z0-9]{1,3})?$")
+KINDS_DIR, CONTEXTS_DIR = "kinds", "contexts"   # reserved folders of a root: kinds of slot and context tables
+ROOTS_ENV = "STIMMA_VOCAB_ROOTS"                # more vocabulary roots, after the built-in one (separated like PATH)
 
 
-def _places(raw: Dict[str, Any], leaves: Dict[str, Leaf]) -> Dict[str, Place]:
-    """places.json's places, checked: codes, heritages of the descent list, shares in (0, 1]
-    summing to at most 1, and no name or alias standing for two places."""
-    descent = leaves.get("person.ethnicity")
-    heritages = {v.text for v in descent.values} if descent is not None else set()
-    out: Dict[str, Place] = {}
-    names: Dict[str, str] = {}
-    for code, d in (raw.get("places") or {}).items():
-        if not _PLACE_CODE.match(code):
-            raise ValueError(f"vocabulary: place code {code!r} is not ISO 3166")
-        shares = tuple((str(h), float(w)) for h, w in (d.get("shares") or {}).items())
-        for h, w in shares:
-            if h not in heritages:
-                raise ValueError(f"vocabulary: place {code} names {h!r}, which is not a person.ethnicity value")
-            if not 0 < w <= 1:
-                raise ValueError(f"vocabulary: place {code} gives {h!r} a share of {w}")
-        if sum(w for _, w in shares) > 1.0001:
-            raise ValueError(f"vocabulary: place {code}'s shares sum past 1")
-        place = Place(code, str(d["name"]), tuple(str(a) for a in d.get("aliases") or ()), shares, str(d.get("notes") or ""))
-        for n in (place.name, *place.aliases):
-            k = n.strip().casefold()
-            if k in names:
-                raise ValueError(f"vocabulary: the place name {n!r} stands for both {names[k]} and {code}")
-            names[k] = code
-        out[code] = place
+def roots() -> Tuple[Path, ...]:
+    """The vocabulary's roots in order: the built-in tree, then each directory STIMMA_VOCAB_ROOTS
+    lists. The one seam a pack's vocabulary goes in by (a stimpack's `vocab/` folder would be
+    added here once the vocabulary is scoped per profile)."""
+    import os
+    extra = [Path(x).expanduser() for x in os.environ.get(ROOTS_ENV, "").split(os.pathsep) if x.strip()]
+    return (ROOT, *extra)
+
+
+class _Problems:
+    """What a load had to skip. The first root is the app's own: a problem there raises, so its
+    data is caught by its tests. A later root's problem skips the file (or the part of it that
+    conflicts), is logged, and is kept for the dev browser and tests."""
+
+    def __init__(self) -> None:
+        self.items: List[str] = []
+
+    def __call__(self, strict: bool, msg: str) -> None:
+        if strict:
+            raise ValueError(f"vocabulary: {msg}")
+        from core.logging import get_logger
+        get_logger(__name__).warning(f"[vocab] skipped: {msg}")
+        self.items.append(msg)
+
+
+def _read(p: Path, h: Any, rel: Path, bad: _Problems, strict: bool) -> Optional[Any]:
+    raw = p.read_bytes()
+    h.update(str(rel).encode() + raw)
+    try:
+        return json.loads(raw)
+    except ValueError as e:
+        bad(strict, f"{p}: not valid JSON ({e})")
+        return None
+
+
+def _list_files(root: Path) -> List[Path]:
+    return [p for p in sorted(root.rglob("*.json"))
+            if p.relative_to(root).parts[0] not in (KINDS_DIR, CONTEXTS_DIR) and p.relative_to(root).name != "facets.json"]
+
+
+def _built(lid: str, d: Dict[str, Any]) -> Leaf:
+    leaf = _leaf(lid, d)
+    if d.get("catalog") is False:
+        leaf = replace(leaf, listed=False)
+    if d.get("strict") is True:
+        leaf = replace(leaf, strict=True)
+    if d.get("plain"):
+        if leaf.value(str(d["plain"])) is None:
+            raise ValueError(f"vocabulary: {lid}'s plain value {d['plain']!r} is not one of its values")
+        leaf = replace(leaf, plain=str(d["plain"]))
+    if d.get("browse"):
+        leaf = replace(leaf, browse=_browse(lid, leaf, str(d["browse"])))
+    return leaf
+
+
+_EXTENDS = ("values", "groups")
+
+
+def _extended(lid: str, base: Dict[str, Any], ext: Dict[str, Any], where: str, bad: _Problems) -> Dict[str, Any]:
+    """A list's JSON with a later root's added values (and groups); a value whose text the list
+    has, a group it names already, or any other field is skipped, logged."""
+    out = dict(base)
+    have = {str(v.get("text") or "") for v in base.get("values") or []}
+    vals = list(base.get("values") or [])
+    for v in ext.get("values") or []:
+        if not isinstance(v, dict) or not str(v.get("text") or "").strip():
+            bad(False, f"{where}: a value of {lid} needs its text")
+        elif v["text"] in have:
+            bad(False, f"{where}: {lid} has {v['text']!r} already")
+        else:
+            vals.append(v)
+            have.add(v["text"])
+    groups = dict(base.get("groups") or {})
+    for g, x in (ext.get("groups") or {}).items():
+        if g in groups:
+            bad(False, f"{where}: {lid} has the group {g!r} already")
+        else:
+            groups[g] = x
+    for k in ext:
+        if k not in (*_EXTENDS, "id", "extend"):
+            bad(False, f"{where}: {k} of {lid} is the list's own and isn't replaced")
+    out["values"], out["groups"] = vals, groups
     return out
 
 
-def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
-    nodes: Dict[str, Node] = {}
+def _load_lists(root_files: Sequence[Tuple[int, Path, Path]], h: Any, bad: _Problems,
+                nodes: Dict[str, Node]) -> Tuple[Dict[str, Leaf], Dict[str, Dict[str, Any]]]:
     leaves: Dict[str, Leaf] = {}
-    facets: Dict[str, Dict[str, Any]] = {}
-    context: Dict[str, Dict[str, Any]] = {}
+    raws: Dict[str, Dict[str, Any]] = {}
     composed: Dict[str, Dict[str, Any]] = {}
-    places_raw: Dict[str, Any] = {}
-    h = hashlib.sha256()
-    for root in roots:
-        if not root.is_dir():
+    for i, root, p in root_files:
+        rel = p.relative_to(root)
+        strict = i == 0
+        d = _read(p, h, rel, bad, strict)
+        if d is None:
             continue
-        fpath = root / "facets.json"
-        if fpath.exists():
-            raw = fpath.read_bytes()
-            h.update(raw)
-            got = json.loads(raw)
-            for k, v in (got.get("facets") or {}).items():
-                facets.setdefault(k, v)
-            for k, v in ((got.get("context") or {}).get("facets") or {}).items():
-                context.setdefault(k, v)
-        for p in sorted(root.rglob("*.json")):
-            rel = p.relative_to(root)
-            if rel.name == "facets.json":
-                continue
-            if rel == Path(PLACES_FILE):
-                raw = p.read_bytes()
-                h.update(str(rel).encode() + raw)
-                got = json.loads(raw)
-                places_raw = {"places": {**(places_raw.get("places") or {}), **(got.get("places") or {})}}
-                continue
-            raw = p.read_bytes()
-            h.update(str(rel).encode() + raw)
-            d = json.loads(raw)
-            if rel.name == "_node.json":
-                nid = ".".join(rel.parts[:-1])
+        if not isinstance(d, dict):
+            bad(strict, f"{p}: a list file must be an object")
+            continue
+        if rel.name == "_node.json":
+            nid = ".".join(rel.parts[:-1])
+            if nid not in nodes:
                 nodes[nid] = Node(nid, str(d.get("label") or nid), str(d.get("description") or ""))
-            else:
-                lid = ".".join(rel.with_suffix("").parts)
-                if lid in leaves:
-                    raise ValueError(f"vocabulary: {lid} is defined twice")
-                leaves[lid] = _leaf(lid, d)
-                if d.get("catalog") is False:
-                    leaves[lid] = replace(leaves[lid], listed=False)
-                if d.get("strict") is True:
-                    leaves[lid] = replace(leaves[lid], strict=True)
-                if d.get("plain"):
-                    if leaves[lid].value(str(d["plain"])) is None:
-                        raise ValueError(f"vocabulary: {lid}'s plain value {d['plain']!r} is not one of its values")
-                    leaves[lid] = replace(leaves[lid], plain=str(d["plain"]))
-                if d.get("browse"):
-                    leaves[lid] = replace(leaves[lid], browse=_browse(lid, leaves[lid], str(d["browse"])))
-                if d.get("compose"):
-                    composed[lid] = d["compose"]
+            continue
+        lid = ".".join(rel.with_suffix("").parts)
+        if lid in raws:
+            if d.get("extend") is not True:
+                bad(strict, f"{lid} is defined twice ({p}); a later root adds values with \"extend\": true")
+                continue
+            merged = _extended(lid, raws[lid], d, str(p), bad)
+            try:
+                leaves[lid] = _built(lid, merged)
+                raws[lid] = merged
+            except (ValueError, TypeError, KeyError) as e:
+                bad(strict, f"{p}: the values it adds to {lid} don't load ({e})")
+            continue
+        if d.get("extend") is True:
+            bad(strict, f"{p}: extends {lid}, which no earlier root has")
+            continue
+        try:
+            leaves[lid] = _built(lid, d)
+            raws[lid] = d
+        except (ValueError, TypeError, KeyError) as e:
+            if strict:
+                raise
+            bad(False, f"{p}: {e}")
+            continue
+        if d.get("compose"):
+            composed[lid] = d["compose"]
     for lid, spec in composed.items():
         leaves[lid] = replace(leaves[lid], values=_composed(lid, spec, leaves),
                               parts=tuple(spec["parts"]) if spec.get("each") else ())
-    return Vocabulary(nodes, leaves, facets, "vocab-" + h.hexdigest()[:12], context, _places(places_raw, leaves))
+    return leaves, raws
+
+
+def _load_tables(files: Sequence[Tuple[int, Path, Path]], h: Any, bad: _Problems,
+                 leaves: Dict[str, Leaf]) -> Dict[str, Any]:
+    from prompt_programs.kinds import Bad, Table, parse_entries, parse_table_head
+    tables: Dict[str, Table] = {}
+    heads: Dict[str, Dict[str, Any]] = {}
+    for i, root, p in files:
+        strict = i == 0
+        d = _read(p, h, p.relative_to(root), bad, strict)
+        if d is None:
+            continue
+        try:
+            head = parse_table_head(d, str(p))
+            tid = head["id"]
+            taken = {n.strip().casefold(): f"{t.id}:{e.code}" for t in tables.values() if t.id != tid
+                     for e in t.entries.values() for n in (e.name, *e.aliases)}
+            if tid in tables:
+                if d.get("extend") is not True:
+                    raise Bad(f"table {tid} is defined twice ({p}); a later root adds entries with \"extend\": true")
+                base = heads[tid]
+                extra = {k for k in d if k not in ("id", "extend", "entries")}
+                for k in sorted(extra):
+                    bad(False, f"{p}: {k} of table {tid} is the table's own and isn't replaced")
+                new = {}
+                for code, x in (d.get("entries") or {}).items():
+                    if code in base["entries"]:
+                        bad(False, f"{p}: table {tid} has the entry {code!r} already")
+                    else:
+                        new[code] = x
+                head = {**base, "entries": {**base["entries"], **new}}
+            elif d.get("extend") is True:
+                raise Bad(f"{p}: extends table {tid}, which no earlier root has")
+            leaf = leaves.get(head["weights"])
+            if leaf is None:
+                raise Bad(f"table {tid} weights {head['weights']!r}, which isn't a list")
+            if head.get("user_default") and any(t.user_default for t in tables.values() if t.id != tid):
+                raise Bad(f"table {tid}: only one table may be the user's default place")
+            entries, _ = parse_entries(tid, head.get("entries") or {}, {v.text for v in leaf.values},
+                                       str(head.get("code_pattern") or ""), head["weights"], taken)
+            w = head.get("weight") or {}
+            tables[tid] = Table(tid, head["weights"], entries, float(w.get("prompt", 0.9)), float(w.get("default", 0.8)),
+                                head.get("user_default") is True, str(head.get("ask") or ""), str(head.get("about") or ""))
+            heads[tid] = head
+        except Bad as e:
+            bad(strict, str(e))
+    return tables
+
+
+def _load_kinds(files: Sequence[Tuple[int, Path, Path]], h: Any, bad: _Problems, leaves: Dict[str, Leaf],
+                tables: Dict[str, Any]) -> Dict[str, Any]:
+    from prompt_programs.kinds import Bad, check_kind_lists, extend_kind, parse_kind
+    kinds: Dict[str, Any] = {}
+    raws: Dict[str, Dict[str, Any]] = {}
+    for i, root, p in files:
+        strict = i == 0
+        d = _read(p, h, p.relative_to(root), bad, strict)
+        if d is None:
+            continue
+        try:
+            if not isinstance(d, dict):
+                raise Bad(f"{p}: a kind file must be an object")
+            kid = d.get("id")
+            skipped: List[str] = []
+            if kid in raws:
+                if d.get("extend") is not True:
+                    raise Bad(f"kind {kid} is defined twice ({p}); a later root adds to it with \"extend\": true")
+                merged, skipped = extend_kind(raws[kid], d, str(p))
+            elif d.get("extend") is True:
+                raise Bad(f"{p}: extends kind {kid!r}, which no earlier root has")
+            else:
+                merged = d
+            k = parse_kind(merged, str(p))
+            check_kind_lists(k, leaves.get)
+            for q in k.questions:
+                for t in q.tables:
+                    if t not in tables:
+                        raise Bad(f"kind {k.id}: question {q.key} names the table {t!r}, which isn't loaded")
+            for s in skipped:
+                bad(False, s)
+            kinds[k.id], raws[k.id] = k, merged
+        except Bad as e:
+            bad(strict, str(e))
+    return kinds
+
+
+def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
+    """The vocabulary from its roots, in order (roots()): lists, nodes, kinds of slot and context
+    tables. A later root may add to what an earlier one has (VOCAB_SCHEMA.md); conflicts and
+    bad files of a later root are skipped and logged (Vocabulary.problems)."""
+    nodes: Dict[str, Node] = {}
+    facets: Dict[str, Dict[str, Any]] = {}
+    context: Dict[str, Dict[str, Any]] = {}
+    h = hashlib.sha256()
+    bad = _Problems()
+    present = [(i, r) for i, r in enumerate(roots) if r.is_dir()]
+    for i, root in present:
+        fpath = root / "facets.json"
+        if fpath.exists():
+            got = _read(fpath, h, Path("facets.json"), bad, i == 0)
+            if isinstance(got, dict):
+                for k, v in (got.get("facets") or {}).items():
+                    facets.setdefault(k, v)
+                for k, v in ((got.get("context") or {}).get("facets") or {}).items():
+                    context.setdefault(k, v)
+    leaves, _ = _load_lists([(i, r, p) for i, r in present for p in _list_files(r)], h, bad, nodes)
+    tables = _load_tables([(i, r, p) for i, r in present for p in sorted((r / CONTEXTS_DIR).glob("*.json"))],
+                          h, bad, leaves)
+    kinds = _load_kinds([(i, r, p) for i, r in present for p in sorted((r / KINDS_DIR).glob("*.json"))],
+                        h, bad, leaves, tables)
+    return Vocabulary(nodes, leaves, facets, "vocab-" + h.hexdigest()[:12], context, kinds=kinds, tables=tables,
+                      problems=tuple(bad.items))
 
 
 @lru_cache(maxsize=1)
 def vocabulary() -> Vocabulary:
-    return load()
+    return load(roots())
 
 
 def given_families(cls: str, values: Sequence[str]) -> Dict[str, Tuple[str, ...]]:
@@ -793,5 +988,5 @@ def minor_ages(values: Sequence[str]) -> Tuple[str, ...]:
     return tuple(v.text for v in leaf.values if v.text in want and v.minor)
 
 
-__all__ = ["AGE_LIST", "LESS", "Leaf", "Node", "PLACES_FILE", "Place", "Value", "Vocabulary", "given_families", "load", "minor_ages", "vocabulary",
+__all__ = ["AGE_LIST", "LESS", "Leaf", "Node", "Place", "ROOTS_ENV", "roots", "Value", "Vocabulary", "given_families", "load", "minor_ages", "vocabulary",
            "TIER_WEIGHTS", "OPEN_SHARE"]

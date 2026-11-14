@@ -46,7 +46,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
 from prompt_programs.variants import (
-    AGE, DESCENT, GENDER, HAVE_SHOWN, MIN_POOL, MORE_TURNS, STAGE, TOPUP, TURN, VARIANTS_VERSION, Ask, Pins, Seeds, Session, Slot, Turn,
+    AGE, HAVE_SHOWN, MIN_POOL, MORE_TURNS, STAGE, TOPUP, TURN, VARIANTS_VERSION, Ask, Pins, Seeds, Session, Slot, Turn,
     age_stages, age_years, ask_writer, draw_seeds, first_turn, more_turn, reply_text, split, stages_of, write_turn,
     year_ages,
 )
@@ -437,8 +437,8 @@ def in_pool_years(variants: Sequence[Dict[str, Any]]) -> Dict[str, int]:
 
 def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: Optional[Sequence[str]] = None,
                    gender_fits: Optional[Sequence[str]] = None,
-                   ages: Optional[Dict[str, List[str]]] = None, gender_list: Optional[str] = GENDER,
-                   descent: bool = True, age: bool = True) -> Dict[str, Any]:
+                   ages: Optional[Dict[str, List[str]]] = None, gender_list: Optional[str] = "",
+                   descent: Optional[str] = "", age: bool = True) -> Dict[str, Any]:
     """A person slot's descent, gender and age pickers for /pools (VARIANTS_IMPL.md section 4):
     descent browsed by its list's browse facet (Region > heritage), what the words allow of it
     (`fits`), what is picked and how many variants carry each value; the same for gender, a short
@@ -446,13 +446,19 @@ def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: 
     stages the person may be (`ages`: variants.age_stages, their narrowed ages and the minors
     rules; None: every adult stage), each with the span of years it holds for them. Several people
     seed differently (seeding.plan): a couple's gender row is who they are (`gender_list`, the
-    couple list), a family or group has none (None), a group or a figure with no real heritage no
-    descent row, and a family or group no age row."""
+    couple list), a family or group has none (None), a group or a figure with no heritage no
+    descent row (`descent`: the heritage list, an elf's clans; None for none), and a family or
+    group no age row. "" (the defaults): the first heritage and who lists the kinds declare."""
     from prompt_programs.vocab import vocabulary
     vocab = vocabulary()
+    if descent == "":
+        descent = (vocab.heritage_lists()[:1] or [None])[0]
+    if gender_list == "":
+        gender_list = next((r.list for k in vocab.ordered_kinds() for r in k.draws
+                            if r.role == "who" and isinstance(r.list, str)), None)
     out: Dict[str, Any] = {}
-    d = vocab.get(DESCENT)
-    if d is not None and descent:
+    d = vocab.get(descent) if descent else None
+    if d is not None:
         facet = d.browse
         parts: Dict[str, List[str]] = {p: [] for p in d.local_facets.get(facet, ())} if facet else {}
         for v in d.values:

@@ -1,0 +1,47 @@
+{
+ "id": "light",
+ "order": 40,
+ "reader": {
+  "recognize": [
+   "the light in the scene, as one look: soft side light, golden hour light, a softbox, chiaroscuro."
+  ],
+  "heading": "For light:",
+  "text": "list, the id of the lighting list for it: \"lighting.scene\" (light described as light: its quality, direction, color, the time of day) for light in general (\"light\", \"lighting\", \"soft light\", \"evening light\"); another lighting list below only when the part's words call for that kind of named look (\"studio lighting\", \"dramatic lighting\", \"neon light\", \"lamplight\").",
+  "example": {
+   "list": "lighting.scene"
+  },
+  "questions": [
+   {
+    "key": "list",
+    "type": "list",
+    "store": "always",
+    "under": "lighting",
+    "invalid": "part {n}: light list \"{value}\" is not one of the lighting lists"
+   }
+  ]
+ },
+ "draws": [
+  {
+   "role": "core",
+   "list": {
+    "answer": "list",
+    "default": "lighting.scene"
+   },
+   "phrase": "words",
+   "about": "the light in this picture",
+   "scene": true
+  }
+ ],
+ "writer": {
+  "examples": [
+   "\"lit by ⟦lighting⟧\" (keep nothing; category \"lighting\") -> \"soft, warm light falling from one side\", \"cool, even morning light\""
+  ],
+  "rules": [
+   "A light describes the light itself: its quality, direction, color and strength, the time of day, the weather. Name a source only when the prompt's own words already have it, or when nearly every such scene has it (the sun or sky outdoors, a window indoors, a candle on a dinner table); never a lamp, screen, sign or fixture the prompt doesn't have, since naming one puts it in the picture: not \"light from a streetlamp\", \"an overhead spotlight\", \"wall sconces\", \"a passing car's headlights\" or \"a TV in the corner\", but how the light looks (\"cool, even light\", \"warm light low from one side\"). A light core stays light: build on it with where it falls and how it looks on this scene, never with a source for it. The light must suit this exact place and time: no golden-hour sun on a beach indoors, no shade from a tree in a living room. Reject a light idea that this place wouldn't have."
+  ],
+  "note": "This part is the light. Each variant says how the light looks: its quality, direction, color and strength, the time of day or the weather. Name no lamp, fixture, screen, sign, spotlight, sconce, headlight or other source the prompt doesn't already have."
+ },
+ "improve": [
+  "A value that describes the light is the light itself: add no lamp, screen or fixture for it that the request doesn't name."
+ ]
+}
