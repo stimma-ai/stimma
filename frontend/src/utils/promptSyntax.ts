@@ -49,7 +49,7 @@ export interface PromptSyntaxOptions {
  * also not follow a letter, digit, `_` or `<` (see `findSlots`). Both sides are
  * tested against slotGrammar.cases.json.
  */
-export const SLOT_RE = /<(?![/\s])([^<>{}[\]|#:=\n]{1,79}[^<>{}[\]|#:=\s])>/g
+const SLOT_RE = /<(?![/\s])([^<>{}[\]|#:=\n]{1,79}[^<>{}[\]|#:=\s])>/g
 const SLOT_GUARD = /[<\p{L}\p{N}_]/u
 
 /** The marked ranges of one line, sorted by start (ranges may nest). */

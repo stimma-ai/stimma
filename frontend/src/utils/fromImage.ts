@@ -58,7 +58,7 @@ export interface ImagePart {
 /** The image was made from a slot program, with draws to use. */
 export function isSlotRun(run: any): boolean {
   return !!run && typeof run.version === 'string' && run.version.startsWith('slots')
-    && Array.isArray(run.draws) && run.draws.length > 0 && run.fallback?.rung !== 'words'
+    && Array.isArray(run.draws) && run.draws.length > 0
 }
 
 const HER = new Set(['woman', 'trans woman', 'girl', 'trans girl'])

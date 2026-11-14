@@ -66,9 +66,10 @@ export interface PreparedProgram {
   /** The key of the program the request said it shows, when its slots' and lists' `was` say
       which of that program's parts they are. */
   from?: string
-  /** Dev dialog only (include_program): what each part was read as, its picks, one draw. */
+  /** Dev dialog only (include_program): what each part was read as, the seeds its variants
+      are written from, one draw. */
   readings?: unknown
-  picks?: unknown
+  seeds?: unknown
   example?: string
 }
 

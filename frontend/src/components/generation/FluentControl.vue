@@ -196,8 +196,8 @@
               <div class="flex-1 min-h-0" data-reading><ReadOnlyCode :text="readingText" name="reading.json" wrap /></div>
             </div>
             <div class="min-h-0 flex flex-col rounded-md border border-edge-subtle bg-surface-overlay overflow-hidden">
-              <div class="shrink-0 px-3 pt-1.5 pb-1 text-[11px] font-semibold text-content-tertiary">Picks</div>
-              <div class="flex-1 min-h-0"><ReadOnlyCode :text="programText" name="picks.json" wrap /></div>
+              <div class="shrink-0 px-3 pt-1.5 pb-1 text-[11px] font-semibold text-content-tertiary">Seeds and one draw</div>
+              <div class="flex-1 min-h-0" data-seeds><ReadOnlyCode :text="programText" name="seeds.json" wrap /></div>
             </div>
           </div>
           <div v-if="!nothingVaries" class="px-4 pt-3 pb-4 overflow-y-auto min-h-0">
@@ -261,8 +261,6 @@ const props = defineProps<{
   hasLoras?: boolean
   loraTriggers?: boolean
   loraNotes?: boolean
-  /** Generate forever is running the last prepared version while this one prepares. */
-  previousRunning?: boolean
   /** Translate the prompt before generating (not in Raw). */
   translate?: { enabled: boolean; language: string }
   /** What the newest image made in this mode was sent with, for the developer dialog. */
@@ -389,7 +387,7 @@ const chipTitleBase = computed(() => {
     : directWrites.value
       ? `Direct, ${props.enhance === 'fill' ? 'adding a little detail' : 'adding detail'}`
       : 'Direct: lists and saved wildcards filled in'
-  if (busy.value) return `Preparing your prompt…${props.previousRunning ? ' Images use your previous prompt until it’s ready.' : ''}`
+  if (busy.value) return 'Preparing your prompt…'
   if (failed.value) return [fallback.value.head, fallback.value.body].filter(Boolean).join('. ')
   return detail.value ? `${BRAND}, adding detail` : props.enhance === 'fill' ? `${BRAND}, adding a little detail` : `${BRAND}, in your own words`
 })
@@ -402,10 +400,7 @@ const notice = computed<Notice | null>(() => {
     head: 'Needs a chat model',
     actions: [{ label: 'Set one up', run: () => { menuOpen.value = false; window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' })) } }],
   }
-  if (busy.value) return {
-    head: 'Preparing your prompt…',
-    body: props.previousRunning ? 'Images use your previous prompt until it’s ready.' : undefined,
-  }
+  if (busy.value) return { head: 'Preparing your prompt…' }
   if (failed.value) {
     const f = fallback.value
     const actions: Action[] = f.action === 'retry'
@@ -493,22 +488,18 @@ async function showProgram() {
   showError.value = ''
   samples.value = []
   try {
-    if (!(await props.program.ensureReady())) {
-      showError.value = props.program.error.value?.message || 'Couldn’t read this prompt.'
-      return
-    }
-    if (programText.value === null) return  // closed while reading
+    props.program.ensureReady()
     if (!props.program.program.value?.key) { nothingVaries.value = true; return }
     const got = await props.program.fetchProgramText()
     if (programText.value === null) return
     if (!got.program) {
-      showError.value = 'Couldn’t load the picks. Try again.'
+      showError.value = 'Couldn’t load the seeds. Try again.'
       return
     }
     programText.value = got.program
     readingText.value = got.reading == null ? '' : JSON.stringify(got.reading, null, 2)
   } catch (e: any) {
-    if (programText.value !== null) showError.value = e?.response?.data?.detail?.message || 'Couldn’t load the picks.'
+    if (programText.value !== null) showError.value = e?.response?.data?.detail?.message || 'Couldn’t load the seeds.'
     return
   }
   void loadSamples()

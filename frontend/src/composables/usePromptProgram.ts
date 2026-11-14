@@ -53,7 +53,7 @@ interface Options {
 
 /** How long typing in the prompt pauses before it is read: long enough to ride over a breath
     mid-phrase, so a slot isn't read (or shown as being written) half typed. */
-export const TYPING_IDLE_MS = 1500
+const TYPING_IDLE_MS = 1500
 
 /** How often the editor looks for a program the server prepared in the background after a failure. */
 const ERROR_POLL_MS = 15_000
@@ -77,21 +77,6 @@ export function usePromptProgram(o: Options) {
   /** Everything but the prompt text: a prompt prepared under the same settings can still run. */
   const settingsSig = computed(() => prepareSettingsSig(inputs()))
   const signature = computed(() => JSON.stringify({ prompt: (o.prompt.value || '').trim(), settings: settingsSig.value }))
-  // The last prompt that was prepared, with the settings it was prepared under. Generate
-  // forever keeps running it while a newer version of the prompt is being written or prepared.
-  const lastReady = ref<{ prompt: string; settings: string } | null>(null)
-  function markReady(sig: string) {
-    try {
-      const { prompt, settings } = JSON.parse(sig)
-      if (prompt) lastReady.value = { prompt, settings }
-    } catch { /* not ours */ }
-  }
-  /** The last prepared prompt, if it still fits the current settings. */
-  function readyPrompt(): string | null {
-    const r = lastReady.value
-    return r && r.settings === settingsSig.value ? r.prompt : null
-  }
-
   const status = computed<ProgramStatus>(() => {
     if (!o.enabled.value || !(o.prompt.value || '').trim()) return 'off'
     if (unsupportedSig.value === signature.value) return 'off'
@@ -228,7 +213,6 @@ export function usePromptProgram(o: Options) {
       }
       landed(data, sig)
       if (error.value?.sig === sig) error.value = null  // prepared since (the server's background try)
-      markReady(sig)
       // Slots the server hasn't been asked to read yet (a tool just opened, a preset): ask now,
       // unless the user is still typing; the answer comes at once and the reading runs behind it.
       if (data.reading && !data.working && o.prepareWhenFound?.() && startedSig !== sig) void prepare()
@@ -284,7 +268,6 @@ export function usePromptProgram(o: Options) {
         unsupportedSig.value = sig
         return true
       }
-      markReady(sig)  // runnable now, whatever the box says by the time it's back
       if (sig !== signature.value) {
         // The inputs moved on while this ran, and their lookup was skipped (busy): look now.
         setTimeout(() => { void lookup() }, 0)
@@ -305,30 +288,26 @@ export function usePromptProgram(o: Options) {
     }
   }
 
-  /** A run never waits for preparing: the server draws from whatever of the prompt is read
-      by then (a slot not read yet goes in as its words). */
-  function needsPrepare(): boolean {
-    return false
-  }
-
   /** The prompt in the box hasn't been sent for reading: stale, or looked up with slots still
       unread and nothing reading them (a look-up never starts reading). */
   function needsRead(): boolean {
     return readPending(status.value, program.value, startedSig === signature.value)
   }
 
-  /** Before a run: start reading the prompt if it isn't yet, and go on at once. */
-  async function ensureReady(): Promise<boolean> {
+  /** Before a run: start reading the prompt if it isn't yet. A run never waits for it: the
+      server draws from whatever of the prompt is read by then (a slot not read yet goes in as
+      its words). */
+  function ensureReady() {
     if (needsRead()) void prepare()
-    return true
   }
 
-  /** Dev: what each part was read as, the picks made from that, and one draw. */
+  /** Dev: what each part was read as, the seeds each slot's variants are written from, and
+      one draw. */
   async function fetchProgramText(): Promise<{ program: string; reading: unknown }> {
     const sig = signature.value
     const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`, request({ cache_only: true, include_program: true }))
     if (!holdsProgram(data)) forget(sig)
-    const program = data?.picks ? JSON.stringify({ picks: data.picks, example: data.example }, null, 2) : ''
+    const program = data?.seeds || data?.example ? JSON.stringify({ seeds: data.seeds ?? null, example: data.example ?? null }, null, 2) : ''
     return { program, reading: data?.readings ?? null }
   }
 
@@ -538,7 +517,7 @@ export function usePromptProgram(o: Options) {
 
   return {
     program, status, error, unsupported, typing, doneTyping, leftSlot, slots, choices, byId, slotById, pools, fresh, states, openCard, openId, marks,
-    lookup, prepare, needsRead, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns,
+    lookup, prepare, needsRead, ensureReady, payload, fetchProgramText, previewRuns,
     poolOf, optionsOf, moreLikeThese, addOwn, setState, setStates, setValues, reset, resetAll, lookOfSlot,
     slotFor, toggleRow, openEditorList, openEditorSlot, close,
   }

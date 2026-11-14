@@ -80,7 +80,6 @@ test('a person’s age, gender and descent are each a seed pick; covered already
 test('only images made from slots offer it', () => {
   assert.equal(isSlotRun(run), true)
   assert.equal(isSlotRun({ ...run, version: undefined }), false)
-  assert.equal(isSlotRun({ ...run, fallback: { rung: 'words' } }), false)
   assert.deepEqual(imageParts({ key: 'k', draws: run.draws }, world()), [])
   assert.deepEqual(imageParts({ ...run, draws: [{ id: 'woman.age', value: '24-year-old' }] }, world()), [])
 })

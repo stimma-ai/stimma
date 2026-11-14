@@ -22,12 +22,12 @@ import { getApiBase } from '../apiConfig'
 import { cleanSuggestions, joinFor, type Suggestions } from '../utils/promptSuggestions'
 
 export type { ReadSlots, SuggestedAdd, SuggestedPhrase, Suggestions } from '../utils/promptSuggestions'
-export { shownAdds, slotCovers } from '../utils/promptSuggestions'
+export { shownAdds } from '../utils/promptSuggestions'
 
 export interface AddResult { prompt: string; slot: { from: number; to: number } }
 
 /** How long after the last keystroke Suggest runs. */
-export const SUGGEST_DELAY_MS = 900
+const SUGGEST_DELAY_MS = 900
 
 export interface PromptSuggestionsOptions {
   /** The prompt as typed. */

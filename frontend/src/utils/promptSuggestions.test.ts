@@ -31,38 +31,17 @@ test('an add keeps where it goes only when both its words and its insert came ba
   ])
 })
 
-test('a slot read as a photography add\'s kind, or drawing from one of its lists, covers it', () => {
-  const read = { kinds: ['person', 'light'], lists: ['person.age', 'camera.angle'] }
-  assert.equal(slotCovers(light, read), true)
-  assert.equal(slotCovers(grade, read), false)
-  assert.equal(slotCovers(grade, { kinds: ['list'], lists: ['camera.color_grade'] }), true)
-})
-
-test('the camera is covered part by part', () => {
-  // A slot on the angle list covers "+ angle" only: the lens is still offered.
-  const angleSlot = { kinds: ['person', 'list'], lists: ['person.age', 'camera.angle'] }
-  assert.equal(slotCovers(angle, angleSlot), true)
-  assert.equal(slotCovers(lens, angleSlot), false)
-  // A whole camera covers the parts its details draw from, not the kind alone.
-  const camera = { kinds: ['camera'], lists: ['camera.shot_size', 'camera.lens'] }
-  assert.equal(slotCovers(lens, camera), true)
-  assert.equal(slotCovers(angle, camera), false)
-  assert.equal(slotCovers(angle, { kinds: ['camera'], lists: [] }), false)
-  // List ids compare structurally: a list under the add's list counts, a sibling with a longer name doesn't.
-  assert.equal(slotCovers({ ...light, lists: ['lighting'] }, { kinds: ['list'], lists: ['lighting.studio'] }), true)
-  assert.equal(slotCovers(lens, { kinds: ['list'], lists: ['camera.lens_flare'] }), false)
-})
-
-test('the model\'s named light is covered like the plain one', () => {
+test('a slot read as a photography add\'s kind covers it; a camera part is never covered by kind', () => {
+  assert.equal(slotCovers(light, { kinds: ['person', 'light'] }), true)
   const windowLight: SuggestedAdd = { name: 'window light', label: 'window light', kind: 'light', lists: ['lighting.natural'] }
-  assert.equal(slotCovers(windowLight, { kinds: ['light'], lists: [] }), true)
-  assert.equal(slotCovers(windowLight, { kinds: ['list'], lists: ['camera.lens'] }), false)
+  assert.equal(slotCovers(windowLight, { kinds: ['light'] }), true)
+  assert.equal(slotCovers(grade, { kinds: ['list'] }), false)
+  assert.equal(slotCovers(angle, { kinds: ['camera'] }), false)
 })
 
-test('a list kind alone covers nothing, nor does anything before the slots are read', () => {
-  assert.equal(slotCovers(grade, { kinds: ['list'], lists: ['person.age'] }), false)
+test('nothing is covered before the slots are read, nor is the model\'s own add', () => {
   assert.equal(slotCovers(light, null), false)
-  assert.equal(slotCovers({ name: 'light', label: 'light' }, { kinds: ['light'], lists: [] }), false)  // the model's own add
+  assert.equal(slotCovers({ name: 'light', label: 'light' }, { kinds: ['light'] }), false)
 })
 
 test('a join is sent only for the exact prompt Suggest answered, even when its words survive an edit', () => {
@@ -89,11 +68,11 @@ test('covered parts are hidden before the cap, so the next part moves up', () =>
   assert.equal(MAX_CHIPS, 5)
   // Nothing read yet: the best three parts.
   assert.deepEqual(names(shownAdds(adds, null, none)), ['weather', 'season', 'light', 'camera angle', 'lens'])
-  // A slot read on the angle list hides the angle, and the film look moves up.
-  const read = { kinds: ['person', 'list'], lists: ['person.age', 'camera.angle'] }
-  assert.deepEqual(names(shownAdds(adds, read, none)), ['weather', 'season', 'light', 'lens', 'film look'])
+  // A slot read as a light hides the light, and the film look moves up.
+  const read = { kinds: ['person', 'light'] }
+  assert.deepEqual(names(shownAdds(adds, read, none)), ['weather', 'season', 'camera angle', 'lens', 'film look'])
   // A slot of the same words hides it too, before the cap.
-  assert.deepEqual(names(shownAdds(adds, read, new Set(['light']))), ['weather', 'season', 'lens', 'film look', 'framing'])
+  assert.deepEqual(names(shownAdds(adds, null, new Set(['camera angle']))), ['weather', 'season', 'light', 'lens', 'film look'])
   // Five chips in all, whatever the mix.
   const many = [...own, { name: 'sky', label: 'sky' }, ...adds.slice(2)]
   assert.deepEqual(names(shownAdds(many, null, none)), ['weather', 'season', 'sky', 'light', 'camera angle'])

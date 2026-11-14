@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  shownOption,
   buildVocabTree,
   effectiveContext,
   matchesQuery,
@@ -46,11 +45,4 @@ test('buildVocabTree nests by longest node prefix and counts values', () => {
   const person = tree[1]
   assert.deepEqual(person.leaves.map(l => l.id), ['person.expression'])
   assert.deepEqual(person.children.map(c => [c.id, c.count, c.leaves.map(l => l.id)]), [['person.outfit', 2, ['person.outfit.casual']]])
-})
-
-test('a template reads without its color slots', () => {
-  assert.equal(shownOption('a {main} technical T-shirt and {accent} running shorts'), 'a technical T-shirt and running shorts')
-  assert.equal(shownOption('a {main} oversized hoodie'), 'an oversized hoodie')
-  assert.equal(shownOption('a sweater with {main} and {accent} stripes'), 'a sweater with stripes')
-  assert.equal(shownOption('a white karate gi'), 'a white karate gi')
 })

@@ -22,7 +22,7 @@ export const setVaryEffect = StateEffect.define<VaryPhrase[]>()
 const varyMark = Decoration.mark({ class: 'cm-could-vary' })
 
 /** The underlined phrases: kept through edits while their words stand as they were. */
-export const varyField = StateField.define<VaryPhrase[]>({
+const varyField = StateField.define<VaryPhrase[]>({
   create: () => [],
   update(value, tr) {
     for (const e of tr.effects) if (e.is(setVaryEffect)) value = e.value

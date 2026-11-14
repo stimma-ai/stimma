@@ -357,7 +357,6 @@
               :has-loras="hasLoras"
               :lora-triggers="globalPrefs.promptOptions?.loraTriggers !== false"
               :lora-notes="globalPrefs.promptOptions?.loraNotes !== false"
-              :previous-running="uiState.generateForeverMode && promptProgram.needsPrepare() && promptProgram.readyPrompt() != null"
               :translate="globalPrefs.promptOptions?.translate"
               :last-prompt="lastFluentPrompt"
               :last-run="lastFluentRun"
@@ -3445,7 +3444,7 @@ import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptPro
 import FluentSlotList from '../components/generation/FluentSlotList.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
-import { DRAWING_LABEL, PREPARING_LABEL, directImproves, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
+import { DRAWING_LABEL, directImproves, fallbackNotice, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import UseFromImage from '../components/generation/UseFromImage.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
@@ -3990,15 +3989,12 @@ const lastFluentPrompt = computed<string | null>(() => lastFluentParams.value?.p
 const lastFluentRun = computed<any | null>(() => lastFluentParams.value?.prompt_program ?? null)
 // Suggest and Add ask the project's chat model, as Prepare does.
 const promptSuggestContext = computed(() => ({ project_id: projectScopeId.value ?? null }))
-// What the prompt in the box has been read as, so Suggest doesn't offer a photo's camera or
-// light when a slot already is one. Null until this prompt is prepared.
+// What the prompt in the box has been read as, so Suggest doesn't offer a photo's light when
+// a slot already is one. Null until this prompt is prepared.
 const promptReadSlots = computed(() => {
   const p = promptProgram.program.value
   if (promptProgram.status.value !== 'ready' || !p) return null
-  return {
-    kinds: p.slots.filter(s => s.state !== 'reading').map(s => s.kind),
-    lists: p.choices.flatMap(c => (c.cls ? [c.cls] : [])),
-  }
+  return { kinds: p.slots.filter(s => s.state !== 'reading').map(s => s.kind) }
 })
 // The tool finished loading: what's in the prompt box now is what to look up (and read).
 watch(isInitialLoading, (loading) => { if (!loading) void promptProgram.lookup() })
@@ -5543,11 +5539,6 @@ type ForeverSubmitOptions = {
   // Prompt programs: replay these draws exactly (same choices, new seed).
   programFixed?: Record<string, any>
   programDrawSeed?: number
-  // Generate forever while a newer prompt is written or prepared: run this, the last
-  // version of the prompt that was prepared.
-  programPrompt?: string
-  // The model catalog was just re-read after the server said there's no chat model.
-  modelRechecked?: boolean
   // This job's tile, opened when the run was clicked (submitJob).
   runTile?: RunTile
 }
@@ -5631,78 +5622,18 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
     return noSubmit(options)
   }
 
-  // Generate forever never waits on, or prepares, a prompt you're still writing: it keeps
-  // running the last prepared version, and moves to the new one once you leave the box
-  // and it's prepared. Generate runs what's in the box. A prompt that couldn't be read
-  // still runs, on its words as written (the server's fallback, while it tries again in
-  // the background); it never quietly keeps the old prompt.
-  let failedRead = false
-  if (options.foreverSessionId != null && options.programPrompt == null) {
-    const slot = foreverSlot({
-      needsPrepare: promptProgram.needsPrepare(),
-      status: promptProgram.status.value,
-      readyPrompt: promptProgram.readyPrompt(),
-      editing: !!aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
-    })
-    if (slot.kind === 'words') failedRead = true
-    else if (slot.kind === 'previous') {
-      if (slot.prepare) void promptProgram.prepare()
-      options = { ...options, programPrompt: slot.prompt }
-    }
-  }
-
   const count = options.foreverBackendName
     ? 1
     : Math.min(8, Math.max(1, options.countOverride ?? uiState.value.batchSize ?? 1))
-  // A Fluent run's tiles go up now, one per image, before anything is waited for: reading
-  // the prompt (once, before the batch), then each image's draw, which the chat model
-  // checks on the server before the job is queued. submitOneJob hands each to its job.
-  const preparing = !failedRead && options.programPrompt == null && promptProgram.needsPrepare()
+  // A Fluent run's tiles go up now, one per image, while each image's slots are filled and
+  // checked to fit together on the server before its job is queued. A run never waits for
+  // the prompt to be read: a slot not read yet goes in as its words. submitOneJob hands each
+  // tile to its job.
+  promptProgram.ensureReady()
   const tiles: RunTile[] = promptProgram.status.value !== 'off'
-    ? Array.from({ length: count }, () => openRunTile(preparing ? PREPARING_LABEL : DRAWING_LABEL))
+    ? Array.from({ length: count }, () => openRunTile(DRAWING_LABEL))
     : []
   const closeTiles = () => tiles.forEach(t => t.close())
-  const allCancelled = () => tiles.length > 0 && tiles.every(t => jobsManager.wasPendingJobCancelled(t.id))
-  let ready = false
-  // A program found gone when the run confirmed it is read again here: the tiles say so.
-  const stopLabelling = watch(promptProgram.status, (st) => {
-    if (st === 'busy') for (const t of tiles) jobsManager.setPendingJobLabel(t.id, PREPARING_LABEL)
-  })
-  try {
-    ready = !failedRead && (options.programPrompt != null || await promptProgram.ensureReady())
-  } catch (e) {
-    closeTiles()
-    throw e
-  } finally {
-    stopLabelling()
-  }
-  // Every tile cancelled while the prompt was read: nothing runs, and a forever slot is
-  // handed back. A session that ended meanwhile has no slot to hand back.
-  if (allCancelled()) {
-    closeTiles()
-    return noSubmit(options)
-  }
-  if (!isForeverSubmissionCurrent(options)) {
-    closeTiles()
-    return noSubmit(options, false)
-  }
-  // (A format that turned out not to be prepared is written per image: the tile's own words.)
-  for (const t of tiles) jobsManager.setPendingJobLabel(t.id, promptProgram.status.value === 'off' ? null : DRAWING_LABEL)
-  if (!ready) {
-    const code = promptProgram.error.value?.code
-    // The chat model went away since this view last looked (removed in Settings, or on
-    // another client): learn that, and the run goes Direct like any no-model setup.
-    if (code === 'llm_not_configured' && !options.modelRechecked) {
-      await checkAgentModels(null, true)
-      if (llmUnconfigured.value) {
-        closeTiles()
-        return submitJob({ ...options, modelRechecked: true })
-      }
-    }
-    // Otherwise the run goes ahead: the server runs this prompt on its words as written
-    // (or the same words' earlier program) and keeps trying to read it in the background.
-    // Fluent's chip says so, quietly; nothing stops, Generate forever included.
-  }
 
   let submitted = false
   let declineReservation = noSubmit(options).declineReservation
@@ -5785,7 +5716,6 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
 
   // Build captured state from schema
   const capturedState = buildCapturedState(builderConfig, builderState, uploadResults)
-  if (options.programPrompt != null) capturedState.parameters.prompt = options.programPrompt
 
   // Thread inspiration lineage into parameters
   if (remixSource.value) {

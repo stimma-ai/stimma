@@ -6,24 +6,7 @@
 /** `opt_in`: a value drawn only when asked for (an age under 18 the prompt didn't ask for). */
 export type VocabTier = 'typical' | 'plausible' | 'unusual' | 'generated' | 'opt_in'
 
-/** Choices with more options than this get a search field. */
-export const MANY_OPTIONS = 12
-
-/** The most rows a card renders at once; a longer list is narrowed by searching. */
-export const MAX_ROWS = 150
-
 export const TIER_ORDER: VocabTier[] = ['typical', 'plausible', 'unusual', 'generated', 'opt_in']
-
-/** A list value as the picker shows it: without a template's color slots ({main},
- *  {accent}, {neutral}), since its colors are chosen inside it (the outfit's Colors). */
-export function shownOption(text: string): string {
-  return text
-    .replace(/ with \{(?:main|accent|neutral)\} and \{(?:main|accent|neutral)\} (\w+)/g, ' with $1')
-    .replace(/\{(?:main|accent|neutral)\} and \{(?:main|accent|neutral)\} /g, '')
-    .replace(/\{(?:main|accent|neutral)\} ?/g, '')
-    .replace(/^a ([aeiou])/i, 'an $1')
-    .replace(/\s{2,}/g, ' ').trim()
-}
 
 /** Case-insensitive; every word in the query must appear somewhere in the option. */
 export function matchesQuery(text: string, query: string): boolean {

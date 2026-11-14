@@ -5,7 +5,5 @@
 export function unjudgedNote(run: any, brand: string): string | null {
   const why = run?.fix?.skipped
   if (!why) return null
-  return why === 'lockdown'
-    ? 'Choices weren’t checked to fit together: Privacy Lockdown is on.'
-    : `Choices weren’t checked to fit together: ${brand} wasn’t ready.`
+  return `Choices weren’t checked to fit together: ${brand} wasn’t ready.`
 }

@@ -41,7 +41,7 @@ export interface SlotMarks {
 
 export const setSlotMarks = StateEffect.define<SlotMarks | null>()
 
-export const slotMarksField = StateField.define<SlotMarks | null>({
+const slotMarksField = StateField.define<SlotMarks | null>({
   create: () => null,
   update(value, tr) {
     for (const e of tr.effects) if (e.is(setSlotMarks)) value = e.value
@@ -50,7 +50,7 @@ export const slotMarksField = StateField.define<SlotMarks | null>({
 })
 
 /** The look for the slot at place `n` with these words. */
-export function lookFor(marks: SlotMarks, n: number, words: string): SlotLook {
+function lookFor(marks: SlotMarks, n: number, words: string): SlotLook {
   const exact = marks.looks.find(l => l.n === n && l.words === words)
   if (exact) return exact
   const same = marks.looks.filter(l => l.words === words)

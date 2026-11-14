@@ -35,7 +35,7 @@ export interface PromptOptionsContext {
 }
 
 /** The prompt menu's LoRA choices as Fluent sends them: on unless switched off. */
-export function loraChoices(saved: any): { loraTriggers: boolean; loraNotes: boolean } {
+function loraChoices(saved: any): { loraTriggers: boolean; loraNotes: boolean } {
   return { loraTriggers: saved?.loraTriggers !== false, loraNotes: saved?.loraNotes !== false }
 }
 
@@ -122,29 +122,9 @@ export function directImproves(t: { ideogram: boolean; h3: boolean; audio: boole
   return !t.ideogram && !t.h3 && !t.audio && t.inputImageCount === 0
 }
 
-/** A run's tile in the strip, from the click until its job is queued: while the prompt is
-    read, then while this image's details are drawn and checked to fit together. */
-export const PREPARING_LABEL = 'Preparing your prompt…'
-export const DRAWING_LABEL = 'Choosing details…'
-
-/** What a Generate-forever slot does while the prompt isn't prepared. */
-export type ForeverSlot =
-  /** Run the last prepared prompt (and maybe start preparing the new one). */
-  | { kind: 'previous'; prompt: string; prepare: boolean }
-  /** Reading this prompt failed: run it anyway, on its words as written, while the server
-      tries again in the background. Never the old prompt: it isn't what's in the box. */
-  | { kind: 'words' }
-  /** Prepare first, like Generate. */
-  | { kind: 'prepare' }
-  /** Nothing to wait for. */
-  | { kind: 'ready' }
-
-export function foreverSlot(o: { needsPrepare: boolean; status: ProgramStatus; readyPrompt: string | null; editing: boolean }): ForeverSlot {
-  if (!o.needsPrepare) return { kind: 'ready' }
-  if (o.status === 'error') return { kind: 'words' }
-  if (o.readyPrompt) return { kind: 'previous', prompt: o.readyPrompt, prepare: !o.editing && o.status === 'stale' }
-  return { kind: 'prepare' }
-}
+/** A run's tile in the strip, from the click until its job is queued: while this image's
+    slots are filled and checked to fit together. */
+export const DRAWING_LABEL = 'Filling in your prompt…'
 
 /** The code a failed prepare request carries. Only no response at all (timeout,
     network) means the chat model couldn't be reached; a server error is just a failure. */
@@ -195,10 +175,6 @@ export function programRunActions(
 ): RunActions {
   const use = current.status === 'ready' && !!current.world && imageParts(run, current.world).some(p => p.here)
   if (current.status === 'off') return { replay: false, reason: 'Not available with your current prompt settings.', use }
-  // Made while the prompt couldn't be read: from the words as written there are no draws to
-  // repeat; from the same words' earlier settings, only its picks that still apply.
-  if (run?.fallback?.rung === 'words') return { replay: false, reason: 'Made from your words as written.', use }
-  if (run?.fallback?.rung === 'previous') return { replay: false, reason: 'Made with this prompt’s earlier settings.', use }
   if (!run?.key || current.status !== 'ready' || run.key !== current.key) {
     return { replay: false, reason: 'Your prompt has changed since this image was made.', use }
   }

@@ -7,5 +7,4 @@ test('Generation details notes an unchecked image, and only that', () => {
   assert.equal(unjudgedNote({ draws: [] }, 'Fluent'), null)
   assert.equal(unjudgedNote(null, 'Fluent'), null)
   assert.equal(unjudgedNote({ fix: { skipped: 'unavailable' } }, 'Fluent'), 'Choices weren’t checked to fit together: Fluent wasn’t ready.')
-  assert.equal(unjudgedNote({ fix: { skipped: 'lockdown' } }, 'Fluent'), 'Choices weren’t checked to fit together: Privacy Lockdown is on.')
 })

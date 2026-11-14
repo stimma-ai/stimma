@@ -18,7 +18,7 @@ type Person = ChoicePool['person']
 const uniq = (xs: unknown[] | undefined) => [...new Set((xs || []).filter((x): x is string => typeof x === 'string' && !!x.trim()))]
 
 /** The seeds as stored: empty parts dropped. Null when nothing is picked. */
-export function cleanSeeds(seeds: ChoiceSeeds | null | undefined): ChoiceSeeds | null {
+function cleanSeeds(seeds: ChoiceSeeds | null | undefined): ChoiceSeeds | null {
   if (!seeds) return null
   const values = uniq(seeds.descent?.values)
   const region = uniq(seeds.descent?.groups?.region)
@@ -150,7 +150,7 @@ export function pickedYears(seeds: ChoiceSeeds | null | undefined, age: AgePicke
 
 /** Whether a variant is what the picked seeds ask for (as the server draws). A seed facet with
     nothing picked allows anything. */
-export function variantMatches(v: Variant, seeds: ChoiceSeeds | null | undefined, person: Person | null | undefined): boolean {
+function variantMatches(v: Variant, seeds: ChoiceSeeds | null | undefined, person: Person | null | undefined): boolean {
   const heritages = pickedHeritages(seeds, person?.descent)
   if (heritages.length && !heritages.includes(v.seeds?.descent || '')) return false
   const genders = seeds?.gender?.values || []

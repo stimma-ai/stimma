@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { directImproves, effectiveWay, foreverSlot, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, readPending, shownKey, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
+import { directImproves, effectiveWay, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, readPending, shownKey, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
@@ -94,19 +94,6 @@ test('without the feature, newer settings are dropped and Enhance goes as saved'
   assert.equal(out.autoImprove.enabled, true, 'classic Enhance fails visibly with no model')
 })
 
-test('forever: a failed read keeps running, on the words as written, never the old prompt', () => {
-  assert.deepEqual(foreverSlot({ needsPrepare: true, status: 'error', readyPrompt: 'old prompt', editing: false }), { kind: 'words' })
-  assert.deepEqual(foreverSlot({ needsPrepare: true, status: 'error', readyPrompt: null, editing: true }), { kind: 'words' })
-})
-
-test('forever: runs the previous prompt while the new one is written or prepared', () => {
-  assert.deepEqual(foreverSlot({ needsPrepare: true, status: 'stale', readyPrompt: 'old', editing: false }), { kind: 'previous', prompt: 'old', prepare: true })
-  assert.deepEqual(foreverSlot({ needsPrepare: true, status: 'stale', readyPrompt: 'old', editing: true }), { kind: 'previous', prompt: 'old', prepare: false })
-  assert.deepEqual(foreverSlot({ needsPrepare: true, status: 'busy', readyPrompt: 'old', editing: false }), { kind: 'previous', prompt: 'old', prepare: false })
-  assert.deepEqual(foreverSlot({ needsPrepare: true, status: 'stale', readyPrompt: null, editing: false }), { kind: 'prepare' })
-  assert.deepEqual(foreverSlot({ needsPrepare: false, status: 'ready', readyPrompt: 'x', editing: false }), { kind: 'ready' })
-})
-
 test('prepare errors: only no response means the chat model is unreachable', () => {
   assert.equal(prepareErrorCode({ code: 'ECONNABORTED' }), 'llm_unavailable')
   assert.equal(prepareErrorCode({ response: { status: 500, data: { detail: 'Internal Server Error' } } }), undefined)
@@ -137,15 +124,6 @@ const world = {
 const run = { key: 'k1', version: 'slots-1', draws: [
   { id: 'man', value: 'tall man with a bob', about: 'man' }, { id: 'gone', value: 'x', about: 'gone' },
 ] }
-
-test('an image made while the prompt couldn’t be read offers no Same draws and nothing to keep', () => {
-  const words = programRunActions({ key: null, draws: [], fallback: { rung: 'words', code: 'prepare_timeout' } },
-    { key: 'k1', status: 'ready', world })
-  assert.deepEqual(words, { replay: false, reason: 'Made from your words as written.', use: false })
-  const earlier = programRunActions({ ...run, key: 'k0', fallback: { rung: 'previous' } }, { key: 'k1', status: 'ready', world })
-  assert.equal(earlier.replay, false)
-  assert.equal(earlier.use, true)  // Use still offers what applies
-})
 
 test('Same draws, new seed only against the program the image used', () => {
   assert.equal(programRunActions(run, { key: 'k1', status: 'ready', world }).replay, true)

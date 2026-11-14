@@ -10,15 +10,16 @@ export interface SuggestedAdd {
   /** A photo's photography add (its light, or one part of its camera: angle, lens, film look,
       framing): the kind its slot is read as (`light`, or `list` for a camera part)… */
   kind?: string
-  /** …and the vocabulary lists it draws from (a camera part: its one list, e.g. `camera.lens`). */
+  /** …and the vocabulary lists it draws from (a camera part: its one list, e.g. `camera.lens`).
+      The server says; the editor doesn't use it. */
   lists?: string[]
   /** Where it goes: words of the prompt it was suggested for, written in right after them… */
   after?: string
   /** …as these words, which hold its slot. Sent with Add, which splices them in with no model call. */
   insert?: string
 }
-/** What the prompt's slots were read as: their kinds and the lists their choices draw from. */
-export interface ReadSlots { kinds: string[]; lists: string[] }
+/** What the prompt's slots were read as: their kinds. */
+export interface ReadSlots { kinds: string[] }
 export interface Suggestions { vary: SuggestedPhrase[]; adds: SuggestedAdd[] }
 
 /** A /suggest answer, keeping only well-formed parts. */
@@ -46,15 +47,13 @@ export function joinFor(answer: { text: string; suggestions: Suggestions } | nul
   return add?.after != null && add.insert != null ? { after: add.after, insert: add.insert, suggested_for: answer.text } : null
 }
 
-/** Whether a slot of the prompt already is this photography add: read as its kind (a light),
-    or drawing from one of its lists, or from a list under one of them. A camera part is a
-    `list`, so it is covered per part: a slot on the angle list, or a whole camera whose details
-    include the angle, covers "+ angle" and leaves "+ lens" offered. Unknown until the slots are
-    read: false. Structure only: list ids, never the slot's words. */
+/** Whether a slot of the prompt already is this photography add: read as its kind (a light).
+    A camera part is a `list`, which says nothing about which part, so it is never covered this
+    way (a slot of the same words still hides it: `shownAdds`). Unknown until the slots are
+    read: false. Structure only, never the slot's words. */
 export function slotCovers(add: SuggestedAdd, read: ReadSlots | null | undefined): boolean {
-  if (!read || !add.kind) return false
-  if (add.kind !== 'list' && read.kinds.includes(add.kind)) return true
-  return !!add.lists?.some(l => read.lists.some(r => r === l || r.startsWith(`${l}.`)))
+  if (!read || !add.kind || add.kind === 'list') return false
+  return read.kinds.includes(add.kind)
 }
 
 /** At most this many photography chips (a photo's light and camera parts)… */

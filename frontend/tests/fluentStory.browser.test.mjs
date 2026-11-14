@@ -89,7 +89,7 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
         return json({ key: read.key, slots, choices, reading: true, working: read.slots.some(sl => reads.get(sl.words) === 'working') })
       }
       return json({ ...read, slots: read.slots.map(s => ({ ...s, state: 'ready' })), reading: false, working: false, example: 'A dorm room with a 24-year-old Korean man', seconds: 0.7,
-        ...(body.include_program ? { picks: [{ id: 'young_man', kind: 'variants' }], example: 'Dorm room with a 21-year-old man', readings: { slots: [{ n: 1, kind: 'person', label: 'Young man' }] } } : {}) })
+        ...(body.include_program ? { seeds: { young_man: { banks: [{ role: 'descent', narrowed: ['Irish'] }] } }, example: 'Dorm room with a 21-year-old man', readings: { slots: [{ n: 1, kind: 'person', label: 'Young man' }] } } : {}) })
     }
     if (url.endsWith('/prompt-programs/pools')) {
       calls.pools.push(body)
@@ -320,7 +320,7 @@ test('editing the words of a slot already read waits for a pause, and its row st
   await expect(mark(2)).toHaveAttribute('data-slot-look', 'varying')
 })
 
-test('the developer view shows the slot reading and the picks made from it', async t => {
+test('the developer view shows the slot reading, the seeds and one draw', async t => {
   const { page, card } = await open(t, { start: 'dorm room with a <young man>', dev: true })
   await expect(page.locator('[data-slot-n="1"]')).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
   await expect(card).toHaveCount(0)
@@ -329,6 +329,7 @@ test('the developer view shows the slot reading and the picks made from it', asy
   const dialog = page.locator('[data-program-debug]')
   await expect(dialog).toContainText('"young_man"')
   await expect(dialog.locator('[data-reading]')).toContainText('"kind": "person"')
+  await expect(dialog.locator('[data-seeds]')).toContainText('Dorm room with a 21-year-old man')
   await expect(dialog).toContainText('A dorm room with a 21-year-old Irish man')
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/dev-dialog.png` })
 })
