@@ -135,7 +135,7 @@ async def test_a_slot_not_read_or_not_written_goes_in_as_its_words(monkeypatch, 
     r = prep.realize(first, profile_id=profile, seed=1)
     assert r.prompt.lower() == "a cozy room with a crackling fireplace"
     # read, but its pool not written (the write failed): still its words, never dropped
-    monkeypatch.setattr(P, "ASK", FakeWriter(["raise", "prose"] * 5))
+    monkeypatch.setattr(P, "ASK", FakeWriter(["raise", "prose"] * P.N_OTHER))
     reading = {"slots": [{"n": 1, "kind": "free", "label": "Room", "lead": "", "category": "room",
                           "free": {"about": "the room", "kinds": ["den"], "instead": [], "lists": []}}], "lists": []}
     monkeypatch.setattr(prep, "ask_model", FakeModel(reading))
@@ -422,26 +422,27 @@ async def test_polling_the_picker_never_asks_a_failing_writer_again(monkeypatch,
     while, or an explicit retry, is the model asked again."""
     reading = {"slots": [{"n": 1, "kind": "free", "label": "Room", "lead": "", "category": "room",
                           "free": {"about": "the room", "kinds": ["den"], "instead": [], "lists": []}}], "lists": []}
-    failing = FakeWriter(["empty"] * 20)
+    failing = FakeWriter(["empty"] * 100)
+    rounds = 2 * (P.N_OTHER // P.PICK_CHUNK)   # a write: its chunks, and once more under MIN_POOL
     use(monkeypatch, FakeModel(reading), failing)
     prompt = "a cozy <room> with a crackling fireplace"
     entry = await settled(prompt, profile)
-    assert len(failing.calls) == 2   # the first write, and once more under MIN_POOL
+    assert len(failing.calls) == rounds
     for _ in range(3):
         pool_view(entry, {}, profile_id=profile)
         await slots.prepare(prompt, profile_id=profile)
         await P.writer_for(profile).drain()
-    assert len(failing.calls) == 2
+    assert len(failing.calls) == rounds
     w = P.writer_for(profile)
     assert w.state(slot(entry, "room")["pool"]) == "as_written"
     await slots.prepare(prompt, profile_id=profile, force=True)   # an explicit retry
     await slots.idle()
     await w.drain()
-    assert len(failing.calls) == 4
+    assert len(failing.calls) == 2 * rounds
     monkeypatch.setattr(P, "RETRY_AFTER", 0.0)   # and after a while
     pool_view(entry, {}, profile_id=profile)
     await w.drain()
-    assert len(failing.calls) == 6
+    assert len(failing.calls) == 3 * rounds
 
 
 async def test_a_replay_holds_its_values_though_the_slot_is_not_read_now(monkeypatch, profile):

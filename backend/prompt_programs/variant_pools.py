@@ -15,7 +15,9 @@ with no model call:
   path. After a counted draw, when 80% of what the slot draws from has been drawn this round, a
   top-up of 20 starts. "More like these" is the same call, awaited. A batch someone waits for (More
   like these, seeds the user picked) is written as chunks of PICK_CHUNK side by side, each stored
-  as it lands, in a lane of its own: the picker sees matches in about 4 s, not 11-14 s.
+  as it lands, in a lane of its own: the picker sees matches in about 4 s, not 11-14 s. A first
+  write is chunked the same way, under a cap of CALLS calls in flight per profile (CallGate), so a
+  new slot shows variants in about 4-6 s rather than 15-40 s.
 
 A failed write is never stored: the slot stands as written and the next prepare that starts
 work asks again.
@@ -24,7 +26,10 @@ work asks again.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
+import heapq
+import itertools
 import json
 import os
 import random
@@ -38,7 +43,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from core.logging import get_logger
 from prompt_programs.variants import (
     AGE, DESCENT, GENDER, STAGE, TOPUP, VARIANTS_VERSION, Ask, Batch, Pins, Seeds, Slot, age_stages, age_years,
-    PICK_CHUNK, ask_writer, stages_of, top_up, write_chunks, write_first, year_ages,
+    N_OTHER, N_PERSON, PICK_CHUNK, ask_writer, stages_of, top_up, write_chunks, write_first, year_ages,
 )
 
 log = get_logger(__name__)
@@ -48,7 +53,14 @@ TOPUP_AT = 0.8      # share of what a slot draws from drawn this round that star
 MAX_POOL = 300      # a pool this big stops topping up and cycles least-used
 RETRY_AFTER = 120.0 # seconds a failed first write stands as written before a prepare or poll asks again
 MIN_MATCH = 8       # picked seeds that match fewer variants than this write more that match, at once
-WORKERS = 2         # writes in flight per profile
+WORKERS = 4         # writes in flight per profile (each may be several calls; CALLS caps those)
+CALLS = 6           # writer calls in flight per profile. Measured on a local ~70 tok/s model, a prompt
+                    # of four new slots (28 chunks of 5): a cap of 4 shows every slot's first variants
+                    # in 3-5 s but takes 30 s for all; 6, 4-6 s and 24 s; 8, 4.5-7 s and 21 s (each
+                    # stream slows to ~35 tok/s at 8). Every slot's first chunks go first.
+URGENT_CALLS = 4    # calls a pick or More like these may run beyond CALLS, so it never queues behind first writes
+GATE_SETTLE = 0.01  # seconds calls arriving together are gathered before any is granted, so the first
+                    # chunks of every slot a prepare starts go ahead of any one slot's later chunks
 YIELD_POLL = 0.25   # seconds between looks while a background top-up gives way to a prepare
 SEEDS_KEPT = 500    # draws with an explicit draw seed remembered per prompt
 
@@ -395,6 +407,58 @@ def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: 
     return out
 
 
+# --------------------------------------------------------------------------- the cap on calls in flight
+
+class CallGate:
+    """At most `limit` writer calls in flight, granted in priority order (lowest first; ties in
+    arrival order). Calls arriving within `settle` seconds of each other are weighed together. An
+    urgent call (a pick, More like these) may run `extra` beyond the limit."""
+
+    def __init__(self, limit: int = CALLS, extra: int = URGENT_CALLS, settle: float = GATE_SETTLE):
+        self.limit, self.extra, self.settle = limit, extra, settle
+        self._pending: Optional[asyncio.TimerHandle] = None
+        self.running = 0
+        self._waiting: List[Tuple[Tuple[int, ...], int, bool, "asyncio.Future[None]"]] = []
+        self._seq = itertools.count()
+
+    @contextlib.asynccontextmanager
+    async def slot(self, priority: Tuple[int, ...], urgent: bool = False):
+        fut: "asyncio.Future[None]" = asyncio.get_running_loop().create_future()
+        heapq.heappush(self._waiting, (priority, next(self._seq), urgent, fut))
+        if self._pending is None:
+            self._pending = asyncio.get_running_loop().call_later(self.settle, self._settled)
+        try:
+            await fut
+        except asyncio.CancelledError:
+            if fut.done() and not fut.cancelled():
+                self._release()   # granted as it was cancelled
+            raise
+        try:
+            yield
+        finally:
+            self._release()
+
+    def _settled(self) -> None:
+        self._pending = None
+        self._pump()
+
+    def _release(self) -> None:
+        self.running -= 1
+        self._pump()
+
+    def _pump(self) -> None:
+        while self._waiting:
+            _, _, urgent, fut = self._waiting[0]
+            if fut.done():   # cancelled while waiting
+                heapq.heappop(self._waiting)
+                continue
+            if self.running >= self.limit + (self.extra if urgent else 0):
+                return
+            heapq.heappop(self._waiting)
+            self.running += 1
+            fut.set_result(None)
+
+
 # --------------------------------------------------------------------------- writing in the background
 
 @dataclass
@@ -445,6 +509,7 @@ class PoolWriter:
         self._failed: Dict[str, Tuple[str, float]] = {}   # key -> (why, when)
         self._sem: Optional[asyncio.Semaphore] = None
         self._urgent_sem: Optional[asyncio.Semaphore] = None
+        self._gate: Optional[CallGate] = None
         self._workers = workers
         self.calls = 0
 
@@ -472,7 +537,7 @@ class PoolWriter:
         loop = loop or asyncio.get_running_loop()
         if self.loop is not loop:
             self.loop = loop
-            self._sem = self._urgent_sem = None
+            self._sem = self._urgent_sem = self._gate = None
         with self._lock:
             queued, self._queued = self._queued, []
         for job in queued:
@@ -543,6 +608,16 @@ class PoolWriter:
                 "keep": job.slot.keep(), "pinned": job.pins.to_dict(), "variants": kept,
                 "dropped": dict(batch.dropped), "repairs": batch.repairs, "ideas": batch.ideas}
 
+    def gate(self, job: Job) -> Callable[[int], Any]:
+        """The call cap a job's chunks run in: urgent ones first, then every pool's first chunks
+        ahead of their later ones (so four new slots each show variants in the first wave),
+        then background top-ups."""
+        if self._gate is None:
+            self._gate = CallGate()
+        g = self._gate
+        rank = 0 if job.urgent else 1 if job.role == "first" else 2
+        return lambda i: g.slot((rank, i), urgent=job.urgent)
+
     async def run(self, job: Job) -> List[str]:
         """One write for one pool, stored as it lands. Returns the new variants' texts."""
         seeds = job.seeds.pinned(job.pins)
@@ -551,13 +626,18 @@ class PoolWriter:
         if job.role == "first":
             if have:
                 return []
-            batches = await write_first(job.slot, seeds, ask=self.ask, project_id=job.project_id, key=job.key)
-            self.calls += len(batches)
             out: List[str] = []
-            for i, b in enumerate(batches):
-                if b.variants:
-                    self.store.append(job.key, self._record(job, b, done + i, b.variants))
-                    out += b.texts()
+            seen: set = set()
+
+            def landed_first(b: Batch) -> None:
+                kept = [v for v in b.variants if _norm(v["text"]) not in seen]
+                seen.update(_norm(v["text"]) for v in kept)
+                if kept:
+                    self.store.append(job.key, self._record(job, b, len(self.store.batches(job.key)), kept))
+                    out.extend(v["text"] for v in kept)
+            batches = await write_first(job.slot, seeds, ask=self.ask, project_id=job.project_id, key=job.key,
+                                        landed=landed_first, gate=self.gate(job))
+            self.calls += len(batches)
             if not out:
                 why = "; ".join(dict.fromkeys(b.error or ", ".join(b.dropped) or "nothing usable" for b in batches))
                 self._failed[job.key] = (why[:200], time.time())
@@ -585,11 +665,12 @@ class PoolWriter:
                     self.store.append(job.key, self._record(job, b, len(self.store.batches(job.key)), kept))
                     out.extend(v["text"] for v in kept)
             batches = await write_chunks(job.slot, seeds, n, ask=self.ask, project_id=job.project_id, have=shown,
-                                         rng=rng, used_cores=cores, landed=landed)
+                                         rng=rng, used_cores=cores, landed=landed, gate=self.gate(job))
             self.calls += len(batches)
             return out
-        b = await top_up(job.slot, seeds, [v["text"] for v in have], ask=self.ask, project_id=job.project_id,
-                         n=n, rng=rng, used_cores=cores)
+        async with self.gate(job)(0):
+            b = await top_up(job.slot, seeds, [v["text"] for v in have], ask=self.ask, project_id=job.project_id,
+                             n=n, rng=rng, used_cores=cores)
         self.calls += 1
         kept = [v for v in b.variants if _norm(v["text"]) not in seen][:n]
         if kept:
@@ -698,5 +779,5 @@ def writer_for(profile_id: Optional[str]) -> PoolWriter:
     return w
 
 
-__all__ = ["Choice", "Job", "MAX_POOL", "MIN_MATCH", "RETRY_AFTER", "POOL_VERSION", "Pick", "PoolWriter", "TOPUP_AT", "VariantStore", "drawable",
+__all__ = ["CALLS", "CallGate", "Choice", "Job", "MAX_POOL", "MIN_MATCH", "RETRY_AFTER", "POOL_VERSION", "Pick", "PoolWriter", "TOPUP_AT", "VariantStore", "drawable",
            "due", "in_pool", "in_pool_years", "matches", "person_pickers", "pick", "pool_key", "store_for", "writer_for"]

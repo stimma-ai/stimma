@@ -336,8 +336,8 @@ def test_a_person_gets_40_and_its_descent_checked():
     sl = slot_of(PROMPT, "person")
     adults = [v.text for v in vocabulary().get(V.AGE).values if not v.opt_in]   # words that leave age open
     batches = run(V.write_first(sl, V.person_seeds(ages=adults), ask=fake, key="k" * 32))
-    assert len(fake.calls) == 1 and fake.calls[0]["n"] == V.N_PERSON
-    vs = batches[0].variants
+    assert [c["n"] for c in fake.calls] == [V.PICK_CHUNK] * (V.N_PERSON // V.PICK_CHUNK)   # side by side
+    vs = [v for b in batches for v in b.variants]
     assert len(vs) == 40
     assert all(V.has_run(v["text"], v["seeds"]["descent"]) and V.has_run(v["text"], "dominant young woman") for v in vs)
     assert all(v["seeds"].get("gender") and v["seeds"]["age"] in adults for v in vs)
@@ -368,12 +368,19 @@ def test_a_write_that_times_out_degrades(monkeypatch):
 
 def test_under_min_pool_asks_once_more_then_stands_as_written():
     sl = slot_of(PROMPT, "person")
-    fake = FakeWriter(["empty"])
+    chunks = V.N_PERSON // V.PICK_CHUNK
+    fake = FakeWriter(["empty"] * chunks)   # every chunk of the first round comes back empty
     batches = run(V.write_first(sl, V.person_seeds(), ask=fake))
-    assert len(fake.calls) == 2 and sum(len(b.variants) for b in batches) == 40
-    fake = FakeWriter(["raise", "prose"])
+    assert len(fake.calls) == 2 * chunks and sum(len(b.variants) for b in batches) == 40
+    fake = FakeWriter(["empty"] * (chunks - 2))   # 10 survive across the chunks: under MIN_POOL, once more
     batches = run(V.write_first(sl, V.person_seeds(), ask=fake))
-    assert len(batches) == 2 and not any(b.variants for b in batches)
+    assert len(fake.calls) == 2 * chunks and sum(len(b.variants) for b in batches) == 10 + 40
+    fake = FakeWriter(["empty"] * (chunks - 3))   # 15 survive: enough
+    batches = run(V.write_first(sl, V.person_seeds(), ask=fake))
+    assert len(fake.calls) == chunks and sum(len(b.variants) for b in batches) == 15
+    fake = FakeWriter(["raise", "prose"] * chunks)
+    batches = run(V.write_first(sl, V.person_seeds(), ask=fake))
+    assert len(batches) == 2 * chunks and not any(b.variants for b in batches)
 
 
 def test_duplicates_and_what_the_pool_has_are_dropped():
@@ -639,12 +646,12 @@ def test_the_first_pool_is_written_in_the_background_and_stored(tmp_path):
         assert rec["role"] == "first" and rec["keep"] == ["dominant young woman"] and rec["model"] == "fake"
         assert not w.submit(job_for(job.slot, job.seeds))   # written already
         return fake
-    assert len(run(go()).calls) == 1
+    assert len(run(go()).calls) == V.N_PERSON // V.PICK_CHUNK
 
 
 def test_a_failed_first_write_is_not_stored_and_asked_again(tmp_path):
     async def go():
-        w = P.PoolWriter(P.VariantStore(tmp_path), ask=FakeWriter(["raise", "prose"]))
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=FakeWriter(["raise", "prose"] * (V.N_PERSON // V.PICK_CHUNK)))
         w.attach()
         job = job_for(slot_of(PROMPT, "person"), V.person_seeds())
         w.submit(job)
@@ -926,6 +933,20 @@ async def until(cond, seconds: float = 5.0) -> None:
     raise AssertionError("timed out")
 
 
+async def open_all(fake: GatedWriter, w: P.PoolWriter) -> None:
+    """Let every call through, the ones still to come included, until the writer is done."""
+    async def keep_opening():
+        while True:
+            for g in fake.gates:
+                g.set()
+            await asyncio.sleep(0.005)
+    opener = asyncio.ensure_future(keep_opening())
+    try:
+        await asyncio.wait_for(w.drain(), 5)
+    finally:
+        opener.cancel()
+
+
 def test_a_batch_splits_into_chunks_with_seeds_drawn_once():
     seeds = V.person_seeds(ideas=[("person.hair_color", None), ("person.build", None)])
     whole = V.draw_seeds(random.Random(4), seeds, 20, "dominant young woman")
@@ -987,11 +1008,7 @@ def test_a_pick_never_waits_behind_background_writes(tmp_path):
             g.set()
         await until(lambda: len(P.drawable(w.store.variants(key), choice)) >= V.TOPUP)
         assert w.busy(key)
-        while len([g for g in fake.gates if not g.is_set()]):
-            for g in fake.gates:
-                g.set()
-            await asyncio.sleep(0.01)
-        await asyncio.wait_for(w.drain(), 5)
+        await open_all(fake, w)
     run(go())
 
 
@@ -1008,4 +1025,51 @@ def test_a_chunk_that_slips_keeps_the_others(tmp_path):
         await asyncio.wait_for(w.drain(), 5)
         assert len(P.drawable(w.store.variants(key), choice)) == 2 * V.PICK_CHUNK
         assert P.pick(w.store.variants(key), {}, choice, random.Random(), sl.words).source == "variant"
+    run(go())
+
+
+def test_the_call_gate_caps_calls_and_grants_by_priority():
+    async def go():
+        gate = P.CallGate(limit=2, extra=1)
+        order: List[str] = []
+        release = asyncio.Event()
+
+        async def call(name, prio, urgent=False):
+            async with gate.slot(prio, urgent):
+                order.append(name)
+                await release.wait()
+        tasks = [asyncio.ensure_future(call(n, p)) for n, p in (("a0", (1, 0)), ("a1", (1, 1)), ("b1", (1, 1)),
+                                                                  ("top", (2, 0)), ("b0", (1, 0)))]
+        await until(lambda: len(order) == 2)
+        assert order == ["a0", "b0"] and gate.running == 2   # arriving together: first chunks first
+        tasks.append(asyncio.ensure_future(call("pick", (0, 0), urgent=True)))   # beyond the cap, at once
+        await until(lambda: len(order) == 3)
+        assert order[-1] == "pick" and gate.running == 3
+        release.set()
+        await asyncio.wait_for(asyncio.gather(*tasks), 5)
+        assert order == ["a0", "b0", "pick", "a1", "b1", "top"]   # later chunks next, top-ups last
+        assert gate.running == 0
+    run(go())
+
+
+def test_a_first_write_shows_its_first_chunks_under_the_cap(tmp_path, monkeypatch):
+    async def go():
+        fake = GatedWriter()
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
+        w.attach()
+        person, room = "1" * 32, "2" * 32
+        w.submit(job_for(slot_of(PROMPT, "person"), V.person_seeds(), key=person))
+        w.submit(job_for(slot_of(PROMPT, "list", "lighting", n=3), V.Seeds(), key=room))
+        await until(lambda: len(fake.gates) == P.CALLS)                    # 8 + 6 chunks, 8 at a time
+        await asyncio.sleep(0.05)
+        assert len(fake.gates) == P.CALLS
+        words = [c["words"] for c in fake.calls]
+        assert words.count("lighting") >= 3 and words.count("dominant young woman") >= 3   # both pools' first chunks
+        fake.gates[0].set()
+        await until(lambda: w.store.has(fake.calls[0]["words"] == "lighting" and room or person))
+        assert w.state(person if fake.calls[0]["words"] != "lighting" else room) == "ready"
+        assert w.busy(person) and w.busy(room)                             # /pools: ready, more coming
+        await open_all(fake, w)
+        assert len(w.store.variants(person)) == V.N_PERSON and len(w.store.variants(room)) == V.N_OTHER
+        assert len(w.store.batches(person)) == V.N_PERSON // V.PICK_CHUNK  # a record per chunk
     run(go())

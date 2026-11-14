@@ -3,9 +3,11 @@
     <dominant young woman> standing in her living room in <clothing slightly open in the front>
 
 A slot is an area of the prompt where the user wants variety. Its value is one variant: a
-specific, concrete take that keeps the slot's words, never a replacement for them. One call per
-slot, with reasoning off and plain JSON, sees the whole prompt with the slot marked and writes
-about 30 variants (40 for a person); top-ups write 20 more. The pool is stored and drawn from
+specific, concrete take that keeps the slot's words, never a replacement for them. A write, with
+reasoning off and plain JSON, sees the whole prompt with the slot marked and writes about 30
+variants (40 for a person); top-ups write 20 more. A first write, a pick and More like these
+draw their seeds once and are written as chunks of PICK_CHUNK side by side, each stored as it
+lands. The pool is stored and drawn from
 with no model call per image (variant_pools.py).
 
 - Words. A variant keeps every word of the slot exactly, except its category word, which the
@@ -830,17 +832,25 @@ async def write_batch(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id:
 
 
 async def write_first(slot: Slot, seeds: Seeds, *, ask: Ask, project_id: Optional[int] = None,
-                      key: str = "") -> List[Batch]:
-    """A slot's first pool: one call for Slot.n variants, and once more with fresh seeds when
-    fewer than MIN_POOL survive. The batches in order; none kept anything when every one is
-    empty, and the slot then stands as written."""
+                      key: str = "", landed: Optional[Callable[[Batch], None]] = None,
+                      gate: Optional[Callable[[int], Any]] = None) -> List[Batch]:
+    """A slot's first pool: Slot.n variants with seeds drawn once, written as chunks of
+    PICK_CHUNK side by side (write_chunks: each handed to `landed` as it lands, so a new slot
+    shows variants in seconds), and once more with fresh seeds when fewer than MIN_POOL distinct
+    ones survive across the chunks. The batches in the order they landed; none kept anything
+    when every one is empty, and the slot then stands as written."""
     batches: List[Batch] = []
     have: List[str] = []
-    for b in range(2):
-        got = await write_batch(slot, seeds, slot.n, ask=ask, project_id=project_id, have=have,
-                                rng=random.Random(f"{key}|{b}") if key else None)
-        batches.append(got)
-        have += got.texts()
+    for r in range(2):
+        got = await write_chunks(slot, seeds, slot.n, ask=ask, project_id=project_id, have=have,
+                                 rng=random.Random(f"{key}|{r}") if key else None, landed=landed, gate=gate,
+                                 first_index=r * -(-slot.n // PICK_CHUNK))
+        batches += got
+        seen = {_norm(t).lower() for t in have}
+        for t in (t for b in got for t in b.texts()):
+            if _norm(t).lower() not in seen:
+                seen.add(_norm(t).lower())
+                have.append(t)
         if len(have) >= MIN_POOL:
             break
     return batches
@@ -862,23 +872,30 @@ def split(drawn: Drawn, size: int = PICK_CHUNK) -> List[Drawn]:
 
 async def write_chunks(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id: Optional[int] = None,
                        have: Sequence[str] = (), rng: Optional[random.Random] = None, used_cores: Sequence[str] = (),
-                       size: int = PICK_CHUNK, landed: Optional[Callable[[Batch], None]] = None) -> List[Batch]:
+                       size: int = PICK_CHUNK, landed: Optional[Callable[[Batch], None]] = None,
+                       gate: Optional[Callable[[int], Any]] = None, first_index: int = 0) -> List[Batch]:
     """`n` variants as chunks of `size` written side by side, each handed to `landed` the moment
     it is checked, so a picker sees the first ones in a few seconds rather than after the whole
     batch (measured on a local 80 tok/s model: 20 in one call ~11-13 s; 4 x 5 ~4-6 s, the first
-    ~3-5 s). The batches in the order they landed. Never raises."""
+    ~3-5 s). `gate(i)`: an async context manager each chunk's call runs in (the writer's cap on
+    calls in flight), told the chunk's index from `first_index`. The batches in the order they
+    landed. Never raises."""
     parts = split(draw_seeds(rng or random.Random(), seeds, n, slot.words, used_cores), size)
     out: List[Batch] = []
 
-    async def one(d: Drawn) -> None:
-        b = await write_batch(slot, seeds, len(d.specs), ask=ask, project_id=project_id, have=have, drawn=d)
+    async def one(i: int, d: Drawn) -> None:
+        if gate is not None:
+            async with gate(first_index + i):
+                b = await write_batch(slot, seeds, len(d.specs), ask=ask, project_id=project_id, have=have, drawn=d)
+        else:
+            b = await write_batch(slot, seeds, len(d.specs), ask=ask, project_id=project_id, have=have, drawn=d)
         out.append(b)
         if landed is not None:
             try:
                 landed(b)
             except Exception as e:   # storing one chunk failing never loses the others
                 log.warning(f"[variants] keeping a chunk for {slot.words!r} failed: {e}")
-    await asyncio.gather(*(one(d) for d in parts))
+    await asyncio.gather(*(one(i, d) for i, d in enumerate(parts)))
     return out
 
 

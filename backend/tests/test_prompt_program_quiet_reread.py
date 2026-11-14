@@ -89,8 +89,12 @@ def _pools(entry: Dict[str, Any]) -> Dict[str, str]:
 
 
 def _written() -> List[str]:
-    """The slots' words of every pool write so far, in order."""
-    return [c["words"] for c in P.ASK.calls]
+    """The slots' words of every pool write so far, in order: a write's chunks (the same slot in
+    the same prompt) counted once."""
+    seen: Dict[tuple, str] = {}
+    for c in P.ASK.calls:
+        seen.setdefault((c["words"], c["user"].split("Marked part:")[0]), c["words"])
+    return list(seen.values())
 
 
 def _states(entry: Dict[str, Any]) -> List[str]:
