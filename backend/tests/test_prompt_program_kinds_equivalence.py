@@ -9,6 +9,7 @@ Regenerate only on purpose: FLUENT_KINDS_GOLDEN=write uv run pytest tests/test_p
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import random
@@ -109,26 +110,35 @@ def snapshot(monkeypatch: Any) -> Dict[str, Any]:
         seeds = seeding.seeds_of(record)
         slot = V.Slot(words=words, prompt=prompt, span=(a, a + len(words) + 2), kind=kind, category="")
         rows = []
-        for seed in (1, 2):
+        for seed in (1, 2):   # the turn texts as digests, the seed lines whole (what to read when one differs)
             drawn = V.draw_seeds(random.Random(seed), seeds, slot.n, words)
             msgs = V.messages(slot, drawn, seeds)
-            rows.append({"lines": [s.line() for s in drawn.specs], "seeds": [s.seeds() for s in drawn.specs],
-                         "user": msgs[1]["content"]})
+            lines = [s.line() for s in drawn.specs]
+            rows.append({"lines": lines if seed == 1 else _digest(json.dumps(lines)),
+                         "seeds": [s.seeds() for s in drawn.specs] if seed == 1 else _digest(json.dumps([s.seeds() for s in drawn.specs])),
+                         "user": _digest(msgs[1]["content"]), "unseeded": _digest(_unseeded(msgs[1]["content"]))})
         # the unseeded first turn a slot opens with while its lists are narrowed (fluent.early_job)
         early = V.first_turn(slot, V.draw_seeds(random.Random(3), V.Seeds(), 10, words), V.Seeds())[1]["content"]
         banks = [{k: v for k, v in b.items() if k in ("role", "list", "phrase", "where", "age", "scene", "narrowed")}
                  for b in record["banks"]]
 
-        def vals(b):
-            return [b.list_id, [list(x) for x in b.values]] if b is not None else None
+        def vals(b):   # a bank as its list, its size and a digest of its weighted values
+            if b is None:
+                return None
+            blob = json.dumps([[t, round(w, 12)] for t, w in b.values], ensure_ascii=False)
+            return [b.list_id, len(b.values), hashlib.sha256(blob.encode()).hexdigest()[:16]]
         summary = {"descent": vals(seeds.descent), "gender": vals(seeds.gender), "age": vals(seeds.age),
                    "core": vals(seeds.core), "spread": vals(seeds.spread), "ideas": [vals(b) for b in seeds.ideas],
                    "minor": list(seeds.minor)}
         out[pid] = {"plan": [(b["role"], b["list"], b["phrase"]) for b in p["banks"]], "banks": banks,
                     "place": record.get("place"), "people": record.get("people", ""), "n": slot.n,
-                    "descent": list(seeds.descent.values) if seeds.descent is not None else None, "seeds": summary,
-                    "person": kind == "person", "early": early, "draws": rows}
+                    "descent": vals(seeds.descent), "seeds": summary,
+                    "person": kind == "person", "early": _digest(early), "draws": rows}
     return out
+
+
+def _digest(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
 def _unseeded(user: str) -> str:
@@ -163,4 +173,4 @@ def test_built_in_draws_match_the_snapshot(monkeypatch):
                 # The code before shuffled a person's aspects for every slot, so a slot of another
                 # kind drew its ideas from a later point of the random stream: the same banks
                 # (above) and the same turn text besides the seed lines, drawn afresh.
-                assert _unseeded(g["user"]) == _unseeded(w["user"]), pid
+                assert g["unseeded"] == w["unseeded"], pid
