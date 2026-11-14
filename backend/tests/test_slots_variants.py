@@ -261,6 +261,44 @@ async def test_shipped_draws_count_and_top_up(monkeypatch, profile):
     assert store.uses(light["pool"]) == before
 
 
+class _Refuses:
+    """A judge that refuses one value wherever it stands."""
+    version, cut = "stub-1", 0.5
+
+    def __init__(self, value):
+        self.value = value
+
+    def p_wrong(self, items):
+        return [1.0 if it.value == self.value else 0.0 for it in items]
+
+
+async def test_a_variant_the_judge_refused_counts_as_a_use_when_the_draw_ships(monkeypatch, profile):
+    # Refused and rerolled, a variant used to stay least-used and lead every next draw again.
+    use(monkeypatch)
+    entry = await settled(PROMPT, profile)
+    store = P.store_for(profile)
+    light = slot(entry, "lighting")
+    from prompt_programs.fix import realize_and_fix
+    from prompt_programs.judge import FluentSettings
+    first = next(d.value for d in prep.realize(entry, profile_id=profile, seed=5).draws if d.id == "lighting")
+    assert store.uses(light["pool"]) == {}   # a preview counts nothing
+    cfg = FluentSettings(fix_model="off", fix_rounds=2)
+    result, fix = realize_and_fix(entry, seed=5, profile_id=profile, judge=_Refuses(first), cfg=cfg)
+    shipped = next(d.value for d in result.draws if d.id == "lighting")
+    assert shipped != first and fix["rerolls"] >= 1
+    counted = count_draw(entry, result, profile_id=profile, fix=fix)
+    uses = store.uses(light["pool"])
+    assert uses[P._norm(first)] == 1 and uses[P._norm(shipped)] == 1
+    assert (light["pool"], first) in counted and (light["pool"], shipped) in counted
+    # the next draw with the same seed takes neither
+    again = next(d.value for d in prep.realize(entry, profile_id=profile, seed=5).draws if d.id == "lighting")
+    assert again not in (first, shipped)
+    # a refused value that isn't a variant of the pool (the slot's own words) is never counted
+    fake = {"rounds": [{"rerolled": {"id": "lighting", "value": "lighting"}}]}
+    count_draw(entry, result, profile_id=profile, fix=fake)
+    assert "lighting" not in store.uses(light["pool"])
+
+
 async def test_a_batch_of_buffered_draws_takes_different_variants(monkeypatch, profile):
     use(monkeypatch)
     entry = await settled(PROMPT, profile)

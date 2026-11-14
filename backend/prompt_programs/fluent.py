@@ -164,15 +164,36 @@ def start_pools(entry: Dict[str, Any], *, profile_id: Optional[str] = None, proj
     return out
 
 
+def refused(fix: Any) -> Dict[str, List[str]]:
+    """Per slot id, the values the judge refused and rerolled on the way to a shipped draw, as
+    its fix record (fix.py) lists them round by round."""
+    out: Dict[str, List[str]] = {}
+    rounds = fix.get("rounds") if isinstance(fix, dict) else None
+    for step in rounds if isinstance(rounds, list) else []:
+        r = step.get("rerolled") if isinstance(step, dict) else None
+        if not isinstance(r, dict):
+            continue
+        for x in [r, *(r.get("with") or [])]:
+            if isinstance(x, dict) and x.get("id") and isinstance(x.get("value"), str) and x["value"].strip():
+                out.setdefault(str(x["id"]), []).append(x["value"])
+    return out
+
+
 def count_draw(entry: Dict[str, Any], result: Any, *, profile_id: Optional[str] = None,
-               project_id: Optional[int] = None, chosen: Optional[Dict[str, Choice]] = None) -> None:
+               project_id: Optional[int] = None, chosen: Optional[Dict[str, Choice]] = None,
+               fix: Optional[Dict[str, Any]] = None) -> List[Tuple[str, str]]:
     """Count a shipped draw's variants (a generation, a buffered draw); a pool 80% drawn this
-    round tops up in the background. Never raises."""
+    round tops up in the background. A variant the judge refused on the way (`fix`, the draw's
+    fix record) counts as one use too, so it rotates like the rest instead of leading the next
+    draw again. Returns what was counted, (pool key, text) each, so a buffered draw dropped
+    unshipped can be taken back (uncount). Never raises."""
+    counted: List[Tuple[str, str]] = []
     try:
         w = _writer(profile_id)
         if w is None:
-            return
+            return counted
         slots = {s["id"]: s for s in entry.get("slots") or []}
+        vetoed = refused(fix)
         for d in getattr(result, "draws", []) or []:
             s = slots.get(d.id)
             if s is None or not s.get("pool"):
@@ -180,9 +201,24 @@ def count_draw(entry: Dict[str, Any], result: Any, *, profile_id: Optional[str] 
             job = slot_job(entry, s, model=_model(entry), project_id=project_id)
             if job is None:
                 continue
-            w.drew(job, Pick(d.value, d.source, dict(d.seeds or {})), choice=(chosen or {}).get(d.id))
+            choice = (chosen or {}).get(d.id)
+            # Only a refused variant of the pool (or the user's own) counts, never the slot's own words.
+            known = {" ".join(v["text"].split()).lower()
+                     for k in (s.get("pool"), s.get("stand_in")) if k for v in w.store.variants(str(k))}
+            known |= {" ".join(t.split()).lower() for t in (choice.add if choice else ())}
+            shipped = " ".join(str(d.value or "").split()).lower()
+            gone = [t for t in dict.fromkeys(vetoed.get(d.id) or [])
+                    if " ".join(t.split()).lower() in known and " ".join(t.split()).lower() != shipped]
+            if gone:
+                w.store.mark_used(job.key, gone)
+                counted += [(job.key, t) for t in gone]
+            pick = Pick(d.value, d.source, dict(d.seeds or {}))
+            w.drew(job, pick, choice=choice)
+            if pick.counted and pick.text:
+                counted.append((job.key, str(pick.text)))
     except Exception as e:
         log.warning(f"[fluent] counting a draw of {entry.get('key')} failed: {e}")
+    return counted
 
 
 def slot_state(entry: Dict[str, Any], slot: Dict[str, Any], writer: Optional[PoolWriter]) -> str:
@@ -254,5 +290,5 @@ def pool_view(entry: Dict[str, Any], chosen: Optional[Dict[str, Choice]] = None,
     return {"choices": out, "more": busy}
 
 
-__all__ = ["ENGINE", "Variants", "attach_filler", "attach_writer", "count_draw", "has_draws", "more_like_these",
+__all__ = ["ENGINE", "Variants", "attach_filler", "attach_writer", "count_draw", "has_draws", "refused", "more_like_these",
            "pool_view", "runtime_for", "slot_job", "slot_state", "start_pools"]

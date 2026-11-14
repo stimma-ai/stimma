@@ -855,8 +855,9 @@ async def _run_slots(
             result, fix = await asyncio.to_thread(
                 realize_and_fix, entry, seed=seed, pins=pins,
                 fixed=fixed, edits=edits, chosen=chosen, profile_id=profile_id, project_id=project_id)
-            # A shipped draw counts toward its pools (a hot draw was counted when its buffer drew it).
-            count_draw(entry, result, profile_id=profile_id, project_id=project_id, chosen=chosen)
+            # A shipped draw counts toward its pools, with the variants the judge refused on the way
+            # (a hot draw was counted when its buffer drew it).
+            count_draw(entry, result, profile_id=profile_id, project_id=project_id, chosen=chosen, fix=fix)
             if store is not None:
                 slots_of = {s["id"] for s in entry.get("slots") or []} | {p["id"] for p in entry.get("picks") or []}
                 try:
