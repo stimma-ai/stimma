@@ -407,8 +407,8 @@
    }
   },
   {
-   "text": "a low-resolution webcam",
-   "short": "webcam",
+   "text": "low-resolution video-call footage",
+   "short": "video-call footage",
    "tier": "plausible",
    "look": "Soft low-resolution detail, indoor color casts, and blotchy noise in flat front-facing video.",
    "tags": {
@@ -596,8 +596,8 @@
    }
   },
   {
-   "text": "a VHS camcorder",
-   "short": "VHS camcorder still",
+   "text": "VHS home video",
+   "short": "VHS still",
    "tier": "plausible",
    "look": "Soft analog video with bleeding colors, horizontal tracking noise, and interlaced edges.",
    "tags": {
@@ -610,7 +610,7 @@
    }
   },
   {
-   "text": "a MiniDV camcorder",
+   "text": "MiniDV home video",
    "short": "MiniDV still",
    "tier": "plausible",
    "look": "Sharper standard-definition video with interlaced motion edges, clipped whites, and blocky compression.",
