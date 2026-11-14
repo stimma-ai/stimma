@@ -718,7 +718,7 @@ async def _inject_local_system(
 # Public API
 # ──────────────────────────────────────────────────────────────────────
 
-async def llm_completion(
+async def _call_kwargs(
     config: LLMConfig,
     messages: List[Dict[str, Any]],
     *,
@@ -730,26 +730,11 @@ async def llm_completion(
     cacheable: bool = False,
     session_id: Optional[str] = None,
     apply_endpoint_extras: bool = True,
-) -> LLMResponse:
-    """Make an LLM call and return a normalized response.
-
-    This is the primary entry point for callers that need the full response
-    (agent loop, tool calling, thinking extraction).
-
-    Args:
-        cacheable: Signal that this request is part of a multi-turn conversation
-            with a stable message prefix. Enables prompt caching on supported
-            providers (Anthropic explicit caching, OpenAI automatic prefix caching).
-    """
+) -> Dict[str, Any]:
+    """The raw call's arguments for one request (llm_completion, llm_stream_text)."""
     model = config.get_model()
     api_key = config.get_api_key()
     api_base = config.get_api_base()
-
-    messages = _normalize_parallel_tool_history(messages)
-
-    if os.environ.get("STIMMA_TEST_PROVIDER") and api_base == _ACCEPTANCE_LLM_URL:
-        return _acceptance_response(config, messages, tools)
-
     # Self-hosted endpoints: apply content policy, extra system prompt, fixed
     # extra_body, and reasoning-method translation. Cloud handles its own.
     if apply_endpoint_extras and getattr(config, "reasoning_control", None):
@@ -782,6 +767,40 @@ async def llm_completion(
         kwargs["thinking"] = thinking
     if extra_body:
         kwargs["extra_body"] = extra_body
+
+    return kwargs
+
+
+async def llm_completion(
+    config: LLMConfig,
+    messages: List[Dict[str, Any]],
+    *,
+    tools: Optional[List[Dict]] = None,
+    max_tokens: Optional[int] = None,
+    temperature: Optional[float] = None,
+    thinking: Optional[Dict] = None,
+    extra_body: Optional[Dict] = None,
+    cacheable: bool = False,
+    session_id: Optional[str] = None,
+    apply_endpoint_extras: bool = True,
+) -> LLMResponse:
+    """Make an LLM call and return a normalized response.
+
+    This is the primary entry point for callers that need the full response
+    (agent loop, tool calling, thinking extraction).
+
+    Args:
+        cacheable: Signal that this request is part of a multi-turn conversation
+            with a stable message prefix. Enables prompt caching on supported
+            providers (Anthropic explicit caching, OpenAI automatic prefix caching).
+    """
+    api_base = config.get_api_base()
+    messages = _normalize_parallel_tool_history(messages)
+    if os.environ.get("STIMMA_TEST_PROVIDER") and api_base == _ACCEPTANCE_LLM_URL:
+        return _acceptance_response(config, messages, tools)
+    kwargs = await _call_kwargs(config, messages, tools=tools, max_tokens=max_tokens, temperature=temperature,
+                                thinking=thinking, extra_body=extra_body, cacheable=cacheable, session_id=session_id,
+                                apply_endpoint_extras=apply_endpoint_extras)
 
     start = time.time()
     raw = await _raw_acompletion(**kwargs)
@@ -868,6 +887,31 @@ async def llm_complete_text(
         ),
     )
     return ""
+
+
+async def llm_stream_text(
+    config: LLMConfig,
+    messages: List[Dict[str, Any]],
+    *,
+    max_tokens: int = 500,
+    temperature: float = 0.3,
+    enable_thinking: bool = False,
+    cacheable: bool = False,
+):
+    """Stream a completion's text: an async iterator of content deltas, with the same request as
+    llm_complete_text (reasoning off by default, the endpoint's reasoning dialect, content policy
+    and extra system prompt). Raises llm_http.StreamUnsupported before any delta where this
+    provider or endpoint can't stream here; the caller then asks llm_complete_text for the whole
+    reply. Sets no deadline: the caller enforces its own."""
+    from agent.v2.llm_options import agent_llm_options
+    from llm_http import StreamUnsupported, astream_chat
+    if os.environ.get("STIMMA_TEST_PROVIDER") and config.get_api_base() == _ACCEPTANCE_LLM_URL:
+        raise StreamUnsupported("acceptance")
+    kwargs = await _call_kwargs(config, _normalize_parallel_tool_history(messages), max_tokens=max_tokens,
+                                temperature=temperature, cacheable=cacheable,
+                                **agent_llm_options(enable_thinking=enable_thinking))
+    async for delta in astream_chat(**kwargs):
+        yield delta
 
 
 async def llm_complete_vision(

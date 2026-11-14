@@ -1043,38 +1043,10 @@ def _chat_completion_messages(messages: list[dict]) -> list[dict]:
     return converted
 
 
-async def _acompletion_once(*, model, messages, api_key=None, api_base=None,
-                       thinking=None, cacheable=False, session_id=None,
-                       provider_kind=None, _auth_refresh_state=None, **kwargs) -> _Obj:
-    """Make a raw HTTP POST to an OpenAI-compatible /chat/completions endpoint.
-
-    Returns an _Obj with the same attribute shape as the openai SDK response:
-    response.choices[0].message.content, .tool_calls, response.usage, etc.
-
-    Args:
-        cacheable: Signal that this request is part of a multi-turn conversation
-            whose message prefix is stable across calls. Downstream providers
-            (Stimma Cloud -> Anthropic/OpenAI) use this to enable prompt caching.
-        session_id: Stable identifier for the conversation. Forwarded to Stimma
-            Cloud as X-Stimma-Session so the proxy can pin routing for prefix
-            caching (e.g. Cloudflare Workers AI's x-session-affinity).
-    """
-    if provider_kind == "openai":
-        return await _acompletion_openai_responses(
-            model=model, messages=messages, api_key=api_key, api_base=api_base,
-            thinking=thinking, cacheable=cacheable, session_id=session_id, **kwargs,
-        )
-    if provider_kind == "chatgpt":
-        return await _acompletion_chatgpt(
-            model=model, messages=messages, api_key=api_key, api_base=api_base,
-            thinking=thinking, cacheable=cacheable, session_id=session_id, **kwargs,
-        )
-    if provider_kind == "anthropic":
-        return await _acompletion_anthropic(
-            model=model, messages=messages, api_key=api_key, api_base=api_base,
-            thinking=thinking, cacheable=cacheable, session_id=session_id, **kwargs,
-        )
-
+def _chat_request(*, model, messages, api_key=None, api_base=None, thinking=None, cacheable=False,
+                  session_id=None, _auth_refresh_state=None, **kwargs) -> tuple[str, dict, dict, bool]:
+    """The url, body, headers and whether it is Stimma Cloud for one OpenAI-compatible
+    /chat/completions request (shared by the plain and the streamed call)."""
     body: dict = {
         "model": model,
         # Namespaced continuation state is for Stimma's adapters, never an
@@ -1153,6 +1125,47 @@ async def _acompletion_once(*, model, messages, api_key=None, api_base=None,
             headers["User-Agent"] = user_agent()
         except Exception:
             pass
+
+    return url, body, headers, bool(is_stimma_cloud)
+
+
+async def _acompletion_once(*, model, messages, api_key=None, api_base=None,
+                       thinking=None, cacheable=False, session_id=None,
+                       provider_kind=None, _auth_refresh_state=None, **kwargs) -> _Obj:
+    """Make a raw HTTP POST to an OpenAI-compatible /chat/completions endpoint.
+
+    Returns an _Obj with the same attribute shape as the openai SDK response:
+    response.choices[0].message.content, .tool_calls, response.usage, etc.
+
+    Args:
+        cacheable: Signal that this request is part of a multi-turn conversation
+            whose message prefix is stable across calls. Downstream providers
+            (Stimma Cloud -> Anthropic/OpenAI) use this to enable prompt caching.
+        session_id: Stable identifier for the conversation. Forwarded to Stimma
+            Cloud as X-Stimma-Session so the proxy can pin routing for prefix
+            caching (e.g. Cloudflare Workers AI's x-session-affinity).
+    """
+    if provider_kind == "openai":
+        return await _acompletion_openai_responses(
+            model=model, messages=messages, api_key=api_key, api_base=api_base,
+            thinking=thinking, cacheable=cacheable, session_id=session_id, **kwargs,
+        )
+    if provider_kind == "chatgpt":
+        return await _acompletion_chatgpt(
+            model=model, messages=messages, api_key=api_key, api_base=api_base,
+            thinking=thinking, cacheable=cacheable, session_id=session_id, **kwargs,
+        )
+    if provider_kind == "anthropic":
+        return await _acompletion_anthropic(
+            model=model, messages=messages, api_key=api_key, api_base=api_base,
+            thinking=thinking, cacheable=cacheable, session_id=session_id, **kwargs,
+        )
+
+    url, body, headers, is_stimma_cloud = _chat_request(
+        model=model, messages=messages, api_key=api_key, api_base=api_base, thinking=thinking,
+        cacheable=cacheable, session_id=session_id, _auth_refresh_state=_auth_refresh_state, **kwargs,
+    )
+    auth_refresh_state = _auth_refresh_state if _auth_refresh_state is not None else {}
 
     dump_dir = _dump_dir_for(model, session_id)
     if dump_dir is not None:
@@ -1293,3 +1306,71 @@ async def _acompletion_once(*, model, messages, api_key=None, api_base=None,
             endpoint=api_base,
             is_cloud=bool(is_stimma_cloud),
         ) from e
+
+
+class StreamUnsupported(Exception):
+    """This endpoint or provider can't stream a chat completion here: ask it for the whole reply."""
+
+
+# (api_base, model) pairs that answered a streamed request without streaming, or refused one.
+_NO_STREAM: set = set()
+
+
+async def astream_chat(*, model, messages, api_key=None, api_base=None, thinking=None, cacheable=False,
+                       session_id=None, provider_kind=None, **kwargs):
+    """Stream an OpenAI-compatible /chat/completions reply: an async iterator of its text deltas
+    (reasoning deltas are never yielded). Raises StreamUnsupported before any delta when this
+    provider has no streamed chat path here (native OpenAI Responses, ChatGPT, Anthropic), when
+    the endpoint refused a streamed request, or when it answered without streaming; the caller
+    asks for the whole reply instead. It sets no deadline of its own: the caller enforces them
+    (an open connection that sends nothing is not something an HTTP read timeout always ends).
+    No retries: a stream that has started can't be replayed."""
+    if provider_kind in ("openai", "chatgpt", "anthropic") or (api_base, model) in _NO_STREAM:
+        raise StreamUnsupported(provider_kind or "endpoint")
+    url, body, headers, is_stimma_cloud = _chat_request(
+        model=model, messages=messages, api_key=api_key, api_base=api_base, thinking=thinking,
+        cacheable=cacheable, session_id=session_id, **kwargs,
+    )
+    body["stream"] = True
+    body["stream_options"] = {"include_usage": True}
+    headers["Accept"] = "text/event-stream"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, read=600.0, connect=10.0)) as client:
+            async with client.stream("POST", url, json=body, headers=headers) as resp:
+                if resp.status_code == 401 and is_stimma_cloud:
+                    raise StreamUnsupported("auth")   # the whole-reply path refreshes the token
+                if resp.status_code in (400, 404, 405, 415, 422, 501):
+                    await resp.aread()
+                    _NO_STREAM.add((api_base, model))
+                    log.info(f"streaming refused by {model} ({resp.status_code}); asking for whole replies")
+                    raise StreamUnsupported(str(resp.status_code))
+                if resp.status_code >= 400:
+                    await resp.aread()
+                    raise _provider_http_error(resp, provider="LLM")
+                if "text/event-stream" not in (resp.headers.get("content-type") or ""):
+                    _NO_STREAM.add((api_base, model))   # answered whole: take it, and ask whole next time
+                    data = json.loads(await resp.aread() or b"{}")
+                    msg = ((data.get("choices") or [{}])[0] or {}).get("message") or {}
+                    if msg.get("content"):
+                        yield str(msg["content"])
+                    return
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        return
+                    try:
+                        ev = json.loads(data)
+                    except ValueError:
+                        continue
+                    if isinstance(ev, dict) and ev.get("error"):
+                        raise LLMStreamError(str(ev["error"])[:300])
+                    for ch in (ev.get("choices") or []) if isinstance(ev, dict) else []:
+                        txt = (ch.get("delta") or {}).get("content")
+                        if txt:
+                            yield str(txt)
+    except httpx.RequestError as e:
+        target = "Stimma" if is_stimma_cloud else f"the LLM endpoint at {api_base}"
+        raise LLMConnectionError(f"Couldn't connect to {target}: {str(e).strip() or type(e).__name__}",
+                                 endpoint=api_base, is_cloud=bool(is_stimma_cloud)) from e
