@@ -1,6 +1,6 @@
 """Prompt programs: prepare a prompt into a program, and preview a run of it."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -30,6 +30,10 @@ class PrepareRequest(BaseModel):
     cache_only: bool = False
     # force: read the prompt's slots again, even those already read.
     force: bool = False
+    # retry: Try again on parts that stand as their words because their reading or their
+    # variants failed: read those again and write their variants again at once; the rest keep
+    # what they have.
+    retry: bool = False
     # The program the cards are showing. Options and pools work on it even while a newer
     # version of the prompt is being prepared, and a prepare keeps its readings for the parts
     # the new version still has.
@@ -121,7 +125,14 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
         return {"key": None, "slots": [], "choices": []}
     # Readings and seeds that land start their pools (slots._settle); a slot whose pool isn't
     # written yet stands as its words.
+    if req.retry and not req.cache_only:
+        from prompt_programs import program as prep
+        prep.on_prepared(entry, project_id=req.project_id, profile_id=get_current_profile(), retry=True)
+        # What is read again now stands as being read: answer with that.
+        entry = await _prepare(req.model_copy(update={"cache_only": True, "retry": False}))
     out = public(entry, req.prompt)
+    from prompt_programs.events import watch
+    watch(entry, get_current_profile())
     if req.include_program:   # the dev dialog: what each part was read as, its seeds, and one draw
         from prompt_programs.program import realize
         out["readings"] = entry.get("readings")
@@ -138,10 +149,6 @@ class OptionsRequest(PrepareRequest):
     choice_id: str
     # What the user chose (their picked seeds steer the batch).
     choices: Dict[str, Any] = Field(default_factory=dict)
-    # Ignored for a slot; kept so older clients' requests still parse.
-    existing: List[str] = Field(default_factory=list, max_length=200)
-    count: int = 6
-    zone: Optional[str] = None
 
 
 async def _shown(req: PrepareRequest) -> Optional[Dict[str, Any]]:
@@ -186,9 +193,34 @@ async def pools(req: PreviewRequest) -> Dict[str, Any]:
     entry = await _shown(req)
     if entry is None or entry.get("unsupported"):
         return {"choices": {}, "more": []}
+    from prompt_programs.events import watch
     attach_writer(entry, get_current_profile())
+    watch(entry, get_current_profile())
     _, _, chosen = expand(entry, req.choices)
     return pool_view(entry, chosen, profile_id=get_current_profile(), project_id=req.project_id)
+
+
+class RemoveVariantRequest(PrepareRequest):
+    # The slot, and the variant to remove from its pool.
+    choice_id: str
+    text: str = Field(min_length=1, max_length=4000)
+
+
+@router.post("/remove-variant")
+async def remove_variant(req: RemoveVariantRequest) -> Dict[str, Any]:
+    """Remove one variant from a slot's pool for good: it is never drawn or listed again, and a
+    later batch that writes the same text doesn't bring it back."""
+    from prompt_programs.events import prompt_changed
+    from prompt_programs.variant_pools import store_for
+    entry = await _shown(req)
+    s = next((x for x in (entry or {}).get("slots") or [] if x.get("id") == req.choice_id), None)
+    if s is None or not s.get("pool"):
+        raise HTTPException(status_code=404, detail={"code": "not_prepared", "message": "That part of the prompt isn't there any more."})
+    store = store_for(get_current_profile())
+    for pool in dict.fromkeys(k for k in (s.get("pool"), s.get("stand_in")) if k):
+        store.remove(str(pool), [req.text])
+    prompt_changed(entry.get("key"), get_current_profile())
+    return {"removed": True}
 
 
 @router.get("/vocabulary")

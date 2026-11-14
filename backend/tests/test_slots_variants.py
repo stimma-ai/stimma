@@ -620,3 +620,131 @@ async def test_a_replay_holds_its_values_though_the_slot_is_not_read_now(monkeyp
     for text in kept.values():
         assert text.lower() in r.prompt.lower()
     assert {d.id: d.source for d in r.draws} == {k: "fixed" for k in kept}
+
+
+def _routes(monkeypatch, profile):
+    import routes.generation as gen
+    import routes.prompt_programs as rp
+    monkeypatch.setattr(rp, "get_current_profile", lambda: profile)
+    monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {"mode": "prose", "program_supported": True})
+    return rp
+
+
+async def test_a_removed_variant_is_never_drawn_or_listed_again(monkeypatch, profile):
+    """Removing a variant in the picker: gone from the pool on disk (a sidecar beside the pool's
+    .jsonl), from /pools and from every draw; a later batch that writes the same text again
+    doesn't bring it back, and the rest of the pool is untouched."""
+    use(monkeypatch)
+    rp = _routes(monkeypatch, profile)
+    entry = await settled(PROMPT, profile)
+    store = P.store_for(profile)
+    pool = slot(entry, "lighting")["pool"]
+    before = [v["text"] for v in store.variants(pool)]
+    bad = before[0]
+    base = {"tool_id": "t", "prompt": PROMPT, "key": entry["key"]}
+    assert (await rp.remove_variant(rp.RemoveVariantRequest(**base, choice_id="lighting", text=bad))) == {"removed": True}
+    assert [v["text"] for v in store.variants(pool)] == before[1:]
+    side = store._path(pool, ".removed.json")
+    assert side.parent == store._path(pool).parent and json.loads(side.read_text("utf-8")) == [" ".join(bad.split()).lower()]
+    got = await rp.pools(rp.PreviewRequest(**base, cache_only=True, choices={}))
+    assert bad not in got["choices"]["lighting"]["options"] and len(got["choices"]["lighting"]["options"]) == len(before) - 1
+    store.append(pool, {"batch": 99, "role": "top_up", "variants": [{"text": bad.upper(), "seeds": {}}]})
+    assert bad.lower() not in {v["text"].lower() for v in store.variants(pool)}
+    for seed in range(40):
+        r = prep.realize(entry, profile_id=profile, seed=seed)
+        assert next(d for d in r.draws if d.id == "lighting").value.lower() != bad.lower()
+    # A part that isn't in the prompt (any more) says so.
+    with pytest.raises(Exception) as gone:
+        await rp.remove_variant(rp.RemoveVariantRequest(**base, choice_id="hat", text=bad))
+    assert getattr(gone.value, "status_code", None) == 404
+
+
+async def test_try_again_asks_a_failed_write_again_at_once(monkeypatch, profile):
+    """A slot whose variants failed stands as its words (as_written, nothing the user chose); Try
+    again (/prepare with retry) writes it again at once, and the answer shows it being written."""
+    reading = {"slots": [{"n": 1, "kind": "free", "label": "Room", "lead": "", "category": "room",
+                          "free": {"about": "the room", "kinds": ["den"], "instead": [], "lists": []}}], "lists": []}
+    failing = FakeWriter(["empty"] * 100)
+    rounds = 2 * (P.N_OTHER // P.PICK_CHUNK)
+    use(monkeypatch, FakeModel(reading), failing)
+    rp = _routes(monkeypatch, profile)
+    prompt = "a cozy <room> with a crackling fireplace"
+    await settled(prompt, profile)
+    base = {"tool_id": "t", "prompt": prompt}
+    shown = await rp.prepare(rp.PrepareRequest(**base, cache_only=True))
+    assert shown["slots"][0]["state"] == "as_written"
+    await rp.prepare(rp.PrepareRequest(**base))   # an ordinary prepare doesn't ask again
+    await P.writer_for(profile).drain()
+    assert len(failing.calls) == rounds
+    monkeypatch.setattr(P, "ASK", FakeWriter())   # the model answers now
+    out = await rp.prepare(rp.PrepareRequest(**base, retry=True))
+    assert out["slots"][0]["state"] == "writing"
+    await P.writer_for(profile).drain()
+    again = await rp.prepare(rp.PrepareRequest(**base, cache_only=True))
+    assert again["slots"][0]["state"] == "ready"
+
+
+async def test_try_again_reads_a_slot_whose_reading_failed(monkeypatch, profile):
+    """A slot whose reading couldn't be used stands as its words; Try again reads it again, and
+    the answer shows it being read."""
+    class Down(FakeModel):
+        down = True
+
+        async def __call__(self, messages, project_id, max_tokens):
+            if self.down and messages[0]["content"].startswith("You read the parts of an image prompt"):
+                raise RuntimeError("the chat model is unreachable")
+            return await super().__call__(messages, project_id, max_tokens)
+    reading = {"slots": [{"n": 1, "kind": "free", "label": "Room", "lead": "", "category": "room",
+                          "free": {"about": "the room", "kinds": ["den"], "instead": [], "lists": []}}], "lists": []}
+    model = Down(reading)
+    use(monkeypatch, model)
+    rp = _routes(monkeypatch, profile)
+    prompt = "a cozy <room> with a crackling fireplace"
+    await settled(prompt, profile)
+    base = {"tool_id": "t", "prompt": prompt}
+    shown = await rp.prepare(rp.PrepareRequest(**base, cache_only=True))
+    assert shown["slots"][0]["state"] == "as_written" and shown["slots"][0]["degraded"] is True
+    model.down = False
+    out = await rp.prepare(rp.PrepareRequest(**base, retry=True))
+    assert out["slots"][0]["state"] == "reading"
+    await slots.idle()
+    await P.writer_for(profile).drain()
+    await slots.idle()
+    done = await rp.prepare(rp.PrepareRequest(**base, cache_only=True))
+    assert done["slots"][0]["state"] == "ready" and not done["slots"][0].get("degraded")
+
+
+async def test_the_editor_hears_when_a_prompt_changes(monkeypatch, profile):
+    """A reading landing, a pool chunk stored and a variant removed each send one
+    fluent_prompt_changed with the prompt's key; a burst for one prompt goes out once."""
+    from prompt_programs import events
+    from tests.helpers.ws import MockWebSocketManager
+    import utils.websocket as wsmod
+    ws = MockWebSocketManager()
+    monkeypatch.setattr(wsmod, "ws_manager", ws)
+    monkeypatch.setattr(events, "_pools", events.OrderedDict())
+    monkeypatch.setattr(events, "_pending", {})
+    monkeypatch.setattr(events, "_flush", None)
+    monkeypatch.setattr(events, "GATHER", 0.01)
+    use(monkeypatch)
+    rp = _routes(monkeypatch, profile)
+    out = await rp.prepare(rp.PrepareRequest(tool_id="t", prompt=PROMPT))
+    await slots.idle()
+    await P.writer_for(profile).drain()
+    await slots.idle()
+    await asyncio.sleep(0.05)
+    sent = [d for e, d in ws.broadcasts if e == events.EVENT]
+    assert sent and all(d == {"key": out["key"], "profile_id": profile} for d in sent)
+    entry = await slots.prepare(PROMPT, profile_id=profile, start=False)
+    await rp.pools(rp.PreviewRequest(tool_id="t", prompt=PROMPT, key=out["key"], cache_only=True, choices={}))
+    ws.broadcasts.clear()
+    pool = slot(entry, "lighting")["pool"]
+    for i in range(3):   # three chunks landing together
+        P.store_for(profile).append(pool, {"batch": 50 + i, "variants": [{"text": f"new light {i}", "seeds": {}}]})
+    await asyncio.sleep(0.05)
+    assert [d["key"] for e, d in ws.broadcasts if e == events.EVENT] == [out["key"]]
+    ws.broadcasts.clear()
+    await rp.remove_variant(rp.RemoveVariantRequest(tool_id="t", prompt=PROMPT, key=out["key"], choice_id="lighting",
+                                                    text="new light 0"))
+    await asyncio.sleep(0.05)
+    assert [d["key"] for e, d in ws.broadcasts if e == events.EVENT] == [out["key"]]

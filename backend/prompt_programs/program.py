@@ -173,7 +173,9 @@ def on_prepared(entry: Dict[str, Any], *, project_id: Optional[int], profile_id:
     """Called once a program is stored: start writing its pools in the background.
     Never blocks, never fails the prepare."""
     try:
+        from prompt_programs.events import prompt_changed
         from prompt_programs.fluent import start_pools
+        prompt_changed(entry.get("key"), profile_id)
         start_pools(entry, profile_id=profile_id, project_id=project_id, retry=retry)
     except Exception as e:
         log.warning(f"[prompt-program] starting the pools failed for {entry.get('key')}: {e}")

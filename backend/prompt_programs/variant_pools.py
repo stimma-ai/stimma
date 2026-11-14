@@ -90,7 +90,8 @@ def _norm(text: str) -> str:
 # --------------------------------------------------------------------------- the store
 
 class VariantStore:
-    """Pools on disk: `<key[:2]>/<key>.jsonl`, one line per batch, and `<key>.uses.json`."""
+    """Pools on disk: `<key[:2]>/<key>.jsonl`, one line per batch, `<key>.uses.json`, and the
+    variants the user removed, `<key>.removed.json`."""
 
     def __init__(self, root: Path):
         self.root = Path(root)
@@ -129,8 +130,8 @@ class VariantStore:
 
     def variants(self, key: str) -> List[Dict[str, Any]]:
         """The pool in order: {"text", "seeds", "batch"}; the first of two texts that differ only in
-        case and spacing wins."""
-        seen: set = set()
+        case and spacing wins. A text the user removed is never in it."""
+        seen: set = set(self.removed(key))
         out: List[Dict[str, Any]] = []
         for rec in self.batches(key):
             for v in rec.get("variants") or []:
@@ -156,6 +157,28 @@ class VariantStore:
                 f.flush()
                 os.fsync(f.fileno())
             self._mem.pop(key, None)
+        from prompt_programs.events import pool_changed
+        pool_changed(key)
+
+    def removed(self, key: str) -> List[str]:
+        """The texts removed from a pool (normalized)."""
+        try:
+            got = json.loads(self._path(key, ".removed.json").read_text("utf-8"))
+        except (OSError, ValueError):
+            return []
+        return [str(t) for t in got if isinstance(t, str)] if isinstance(got, list) else []
+
+    def remove(self, key: str, texts: Sequence[str]) -> None:
+        """Remove variants from a pool for good: never drawn or listed again, even when a later
+        batch writes the same text."""
+        p = self._path(key, ".removed.json")
+        with self._lock:
+            got = list(dict.fromkeys([*self.removed(key), *(_norm(t) for t in texts if str(t).strip())]))
+            p.parent.mkdir(parents=True, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=p.parent, suffix=".tmp")
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(got, f, ensure_ascii=False)
+            os.replace(tmp, p)
 
     def uses(self, key: str) -> Dict[str, int]:
         try:
@@ -615,6 +638,8 @@ class PoolWriter:
         with self._lock:
             if self._inflight.get(key) is fut:
                 del self._inflight[key]
+        from prompt_programs.events import pool_changed
+        pool_changed(key.split("|")[0])
 
     async def _guarded(self, job: Job) -> List[str]:
         if self._sem is None:
