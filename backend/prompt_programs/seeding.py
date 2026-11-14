@@ -32,13 +32,16 @@ from prompt_programs import variants as V
 
 log = get_logger(__name__)
 
-SEEDS_VERSION = "seeds-1"
+SEEDS_VERSION = "seeds-2"   # seeds-2: groups, heritage, scene-narrowed clothes, hairstyle and light
 
 # A person's look: detail -> list (fill.DETAILS' names, which the reader's `stated` uses).
 PERSON_IDEAS = (("build", "person.build"), ("hair", "person.hair_length"), ("hair_texture", "person.hair_texture"),
                 ("hair_color", "person.hair_color"), ("hairstyle", "person.hairstyle"),
                 ("facial_hair", "person.facial_hair"))
 ANIMAL_LISTS = {"species": "animal.species", "life_stage": "animal.life_stage"}
+COUPLE = "person.couple"        # who a couple is: a man and a woman, two women, two men
+SCENE_LIGHT = "lighting.scene"  # a light slot's list when its reading names none
+PEOPLE = ("one", "couple", "family", "group")   # reader.PEOPLE
 
 
 class ReadingError(ValueError):
@@ -68,33 +71,50 @@ def plan(reading: Dict[str, Any], words: str = "") -> Dict[str, Any]:
     banks: List[Dict[str, Any]] = []
 
     def add(role: str, lid: str, phrase: str = "", about: str = "", where: Optional[Dict[str, str]] = None,
-            age: bool = False) -> None:
+            age: bool = False, scene: bool = False) -> None:
         leaf = _leaf(lid)
         if where:
             where = {f: p for f, p in where.items() if p in leaf.local_facets.get(f, ()) or f in leaf.facets}
         banks.append({"role": role, "list": leaf.id, "phrase": phrase.strip(), "about": about,
-                      **({"where": where} if where else {}), **({"age": True} if age else {})})
+                      **({"where": where} if where else {}), **({"age": True} if age else {}),
+                      **({"scene": True} if scene else {})})
 
     if kind == "person":
         noun = str(got.get("noun") or "person")
         stated = {str(k): str(v) for k, v in (got.get("stated") or {}).items() if str(v).strip()}
         presentation = got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else ""
-        add("descent", V.DESCENT, stated.get("descent", ""), f"the {noun}'s descent")
-        add("gender", V.GENDER, words, f"the {noun}'s gender")
-        age_words = stated.get("age", "")
-        phrase = words if not age_words or age_words.lower() in words.lower() else f"{age_words}, {words}"
-        add("age", V.AGE, phrase, f"the {noun}'s age", age=True)
-        for detail, lid in PERSON_IDEAS:
-            if detail == "facial_hair" and presentation != "masculine":
-                continue
-            add("idea", lid, stated.get(detail, ""), f"the {noun}'s {detail.replace('_', ' ')}",
-                {"presentation": presentation} if presentation and detail == "build" else None)
+        people = got.get("people") if got.get("people") in PEOPLE else "one"
+        vary = set(got.get("vary") or ())
+        # A real people's heritage applies only to a real-world human (the reading's `heritage`:
+        # an elf has none), and an unrelated group shares none: no descent seed then. A couple and
+        # a family share one heritage, drawn as for one person.
+        if got.get("heritage") is not False and people != "group":
+            add("descent", V.DESCENT, stated.get("descent", ""), f"the {noun}'s descent")
+        if people == "one":
+            add("gender", V.GENDER, words, f"the {noun}'s gender")
+        elif people == "couple":   # who the two are, one value per variant (vocab person.couple's shares)
+            add("gender", COUPLE, words, f"who the {noun} are")
+        if people in ("one", "couple"):   # a family's or a group's ages follow each member's role
+            age_words = stated.get("age", "")
+            phrase = words if not age_words or age_words.lower() in words.lower() else f"{age_words}, {words}"
+            add("age", V.AGE, phrase, f"the {noun}'s age", age=True)
+            for detail, lid in PERSON_IDEAS:
+                if detail == "facial_hair" and presentation != "masculine" or vary and detail not in vary:
+                    continue   # the details the reading varies (hairstyle only when the prompt asks)
+                # a hairstyle suits who they are and where (a farmer's isn't a salon cut): read in the scene
+                add("idea", lid, stated.get(detail, "") or (words if detail == "hairstyle" else ""),
+                    f"the {noun}'s {detail.replace('_', ' ')}",
+                    {"presentation": presentation} if presentation and detail == "build" else None,
+                    scene=detail == "hairstyle")
         outfit = str(got.get("outfit") or "")
         if outfit and outfit != "written" and not got.get("clothes_part") and not str(got.get("clothes") or "").strip():
-            add("idea", outfit, "", f"the {noun}'s outfit", {"presentation": presentation} if presentation else None)
+            # What they wear is narrowed by who they are and the scene ("farmer" in rural Vietnam
+            # keeps work clothes, not a neon jersey top), like any list a slot's words narrow.
+            add("idea", outfit, words, f"what the {noun} wears", {"presentation": presentation} if presentation else None,
+                scene=True)
         owned = bool(got.get("clothes_part")) or bool(str(got.get("clothes") or "").strip())
         return {"kind": kind, "banks": banks, "stated_descent": bool(stated.get("descent")), "clothes_owned": owned,
-                "said_place": str(got.get("place") or "").strip()}
+                "said_place": str(got.get("place") or "").strip(), **({"people": people} if people != "one" else {})}
     if kind == "animal":
         noun = str(got.get("noun") or words)
         stated = {str(k): str(v) for k, v in (got.get("stated") or {}).items() if str(v).strip()}
@@ -115,8 +135,9 @@ def plan(reading: Dict[str, Any], words: str = "") -> Dict[str, Any]:
     if kind == "light":
         # Ideas, not cores: one random look per variant pushed sources the place doesn't have
         # (stage footlights, a vending machine in a living room); the writer rejects ideas that don't fit.
-        if got.get("list"):
-            add("idea", str(got["list"]), words, words)
+        # The scene list by default: light described as light, narrowed by the whole scene, so a
+        # restaurant keeps evening and candle light, not track lights or a TV's glow.
+        add("idea", str(got.get("list") or SCENE_LIGHT), words, "the light in this picture", scene=True)
         return {"kind": kind, "banks": banks}
     if kind == "list":
         p = got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else ""
@@ -153,6 +174,7 @@ def seeds_of(record: Dict[str, Any]) -> V.Seeds:
             ages=narrowed(age) if age is not None and age.get("narrowed") is not None else None,
             ideas=[(b["list"], narrowed(b)) for b in banks if b["role"] == "idea"],
             stated=stated, minor=minor, clothes_owned=bool(record.get("clothes_owned")),
+            people=str(record.get("people") or ""), gender_list=by["gender"]["list"] if "gender" in by else V.GENDER,
             place=record.get("place") if isinstance(record.get("place"), dict) else None)
     cores = [b for b in banks if b["role"] == "core"]
     lists = [(b["list"], narrowed(b)) for b in (cores or banks)]
@@ -220,9 +242,10 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
     jobs: Dict[Tuple[str, str, str, str], "asyncio.Future[Optional[List[str]]]"] = {}
 
     def job(lid: str, phrase: str, about: str = "", prompt: str = "") -> "asyncio.Future[Optional[List[str]]]":
-        k = (lid, phrase.strip().lower(), about, prompt if lid == AGE_LIST else "")
+        k = (lid, phrase.strip().lower(), about, prompt)
         if k not in jobs:
-            jobs[k] = asyncio.ensure_future(subset(vocab.leaves[lid], phrase, cache, ask, project_id, about, k[3]))
+            jobs[k] = asyncio.ensure_future(subset(vocab.leaves[lid], phrase, cache, ask, project_id, about, k[3],
+                                                   scene=bool(prompt) and lid != AGE_LIST))
         return jobs[k]
 
     plans: Dict[str, Dict[str, Any]] = {}
@@ -241,7 +264,7 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
             continue
         plans[s["id"]] = p
         ctx = contexts.get(s["id"], s["words"])
-        asks[s["id"]] = [(b, job(b["list"], b["phrase"], b["about"], ctx if b.get("age") else ""))
+        asks[s["id"]] = [(b, job(b["list"], b["phrase"], b["about"], ctx if b.get("age") or b.get("scene") else ""))
                          for b in p["banks"] if b["phrase"]]
         givers = _scene_givers([vocab.leaves[b["list"]] for b in p["banks"]])
         scene[s["id"]] = [(g, job(g.id, ctx, f"the {g.label.lower()} of the scene")) for g in givers]
@@ -317,6 +340,7 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
                 minor += minor_ages(got)
         place = place_for(p.get("said_place"), home) if p["kind"] == "person" else None
         out[sid] = {"v": SEEDS_VERSION, "kind": p["kind"], "banks": banks, "stated_descent": p.get("stated_descent", False),
+                    **({"people": p["people"]} if p.get("people") else {}),
                     **({"place": place} if place else {}),
                     "clothes_owned": p.get("clothes_owned", False),
                     **({"stated": stated} if stated else {}), **({"minor": list(dict.fromkeys(minor))} if minor else {})}
@@ -325,4 +349,4 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
     entry["seeds"], entry["seeds_pending"] = out, pending
 
 
-__all__ = ["PERSON_IDEAS", "ReadingError", "SEEDS_VERSION", "age_basis", "age_choices", "narrow_seeds", "plan", "seeds_of"]
+__all__ = ["COUPLE", "PEOPLE", "PERSON_IDEAS", "SCENE_LIGHT", "ReadingError", "SEEDS_VERSION", "age_basis", "age_choices", "narrow_seeds", "plan", "seeds_of"]

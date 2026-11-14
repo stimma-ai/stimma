@@ -56,7 +56,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-15"   # variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-16"   # variants-16: a couple, a family and a group are written as such (who a couple is drawn by its list, one shared heritage); a third of a person's variants wear what is typical for who and where they are; light is described as light; a camera part is how the picture is taken. variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -76,6 +76,7 @@ WRITE_TEMPERATURE = 0.8
 
 DESCENT = "person.ethnicity"
 GENDER = "person.gender"
+COUPLE = "person.couple"   # who a couple is: one value per variant, as a gender is for one person
 AGE = "person.age_band"
 STAGE = "life_stage"   # the age list's facet the picker browses it by (baby, child, teen, young adult, ...)
 
@@ -322,6 +323,7 @@ class Seeds:
     person: bool = False                  # a person: each variant develops its own aspects (ASPECTS)
     place: Optional[Tuple[Tuple[str, str], ...]] = None   # a person's place context (places.py), as items
     clothes_owned: bool = False           # the prompt or another part says what they wear
+    people: str = ""                      # several people: "couple", "family" or "group" (seeding.plan); "" for one
 
     def pinned(self, pins: Optional[Pins]) -> "Seeds":
         """The seeds with the user's picks: descent and gender drawn only from what was picked
@@ -355,7 +357,8 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
                  gender: Optional[Sequence[str]] = None,
                  ages: Optional[Sequence[str]] = None, ideas: Sequence[Tuple[str, Optional[Sequence[str]]]] = (),
                  stated: Optional[Dict[str, Sequence[str]]] = None, minor: Sequence[str] = (),
-                 clothes_owned: bool = False, place: Optional[Dict[str, str]] = None) -> Seeds:
+                 clothes_owned: bool = False, place: Optional[Dict[str, str]] = None,
+                 people: str = "", gender_list: str = GENDER) -> Seeds:
     """A person's seeds. `descent`: the descent values their words allow (narrowed; None when the
     words state none: the whole list). `stated_descent`: their words state it, so a single value
     left needs no seed. `gender`: the genders their words allow (narrowed: "woman" keeps woman and
@@ -368,7 +371,8 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
     states of the scene (bank). `minor`: ages under 18 they may be besides their own (a user list
     of ages on their line). `clothes_owned`: the prompt or another part says what they wear, so no
     variant develops their clothes. `place`: where they are from ({"code", "from"}, places.py),
-    which weighs their descent; None: the global prior."""
+    which weighs their descent; None: the global prior. `people`: they are several ("couple",
+    "family", "group"), and `gender_list` the list `gender` is of (a couple's: who the two are)."""
     from prompt_programs.vocab import minor_ages, vocabulary
     minor = tuple(dict.fromkeys([*(minor_ages(list(ages)) if ages else ()), *minor]))
     # What their age gives the lists of their look (graying, life stage: vocab tags), so a young
@@ -386,7 +390,8 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
         d = None   # their words name it already
     if d is not None:
         d = replace(d, values=weigh(d.values, place))   # the place mix, within what their words allow
-    return Seeds(descent=d, place=tuple(sorted(place.items())) if place else None, gender=bank(GENDER, gender),
+    return Seeds(descent=d, place=tuple(sorted(place.items())) if place else None, people=people,
+                 gender=bank(gender_list, gender) if gender_list in (GENDER, COUPLE) else None,
                  gender_fits=tuple(gender) if gender is not None else None, person=True, clothes_owned=clothes_owned,
                  age=bank(AGE, ages, minor=bool(minor)) if ages is not None and _open_age(ages) else None, minor=minor,
                  age_fits=tuple(ages) if ages is not None else None,
@@ -433,10 +438,13 @@ class Spec:
     gender_needs: Tuple[str, ...] = ()   # the words of its gender the variant must state (none: the slot's words do)
     descent_required: bool = False  # a descent the user picked: the variant must carry it
     ideas: Tuple[Tuple[str, str], ...] = ()   # this variant's own look ideas: (text, list id)
+    descent2: str = ""              # a couple's second partner's own heritage (DESCENT2 of them)
+    pair: bool = False              # `gender` is who a couple is (person.couple)
 
     def line(self) -> str:
-        parts = ([f'"{self.descent}"' + (" (must appear)" if self.descent_required else "")] if self.descent else []) \
-            + ([f'gender: "{gender_mark(self.gender)}"'] if self.gender_needs else []) \
+        heritage = f'"{self.descent}"' + (f' for one, "{self.descent2}" for the other' if self.descent2 else "")
+        parts = ([heritage + (" (must appear)" if self.descent_required else "")] if self.descent else []) \
+            + ([f'who: "{self.gender}"' if self.pair else f'gender: "{gender_mark(self.gender)}"'] if self.gender_needs else []) \
             + ([f"age: {self.age}"] if self.age else []) + ([f'core: "{self.core}"'] if self.core else []) \
             + ([f"develop: {' and '.join(self.develop)}"] if self.develop else []) \
             + (["ideas: " + "; ".join(f'"{t}"' for t, _ in self.ideas)] if self.ideas else [])
@@ -450,16 +458,26 @@ class Spec:
 CLOTHES = "what they wear"
 # The aspects of a person the writer is asked to develop, two per variant, rotated (draw_seeds).
 AGE_SHOWS = "how their age shows"
+# A share of a person's variants (TYPICAL_EVERY) take no look ideas from the lists and develop
+# this instead: what such a person in such a place would ordinarily wear or carry (a farmer's hat
+# in a rice field), so the pool keeps the expected look beside the list's breadth.
+TYPICAL = "what someone like them would typically wear or carry here"
+TYPICAL_EVERY = 3
+DESCENT2 = 0.15   # a couple's variants whose second partner is given a heritage of their own
 ASPECTS = ("bearing and posture", "expression", "styling and grooming", CLOTHES, "build", "face",
            "what they carry or hold", AGE_SHOWS)
 
 
 def gender_mark(value: str) -> str:
     """What a variant must say of a gender: the gender list's short form (vocab person.gender:
-    "trans woman", "non-binary"), else the value."""
+    "trans woman", "non-binary"), or of who a couple is (person.couple: "man, woman", "women"),
+    else the value."""
     from prompt_programs.vocab import vocabulary
-    leaf = vocabulary().get(GENDER)
-    return leaf.short(value) if leaf is not None else value
+    for lid in (GENDER, COUPLE):
+        leaf = vocabulary().get(lid)
+        if leaf is not None and leaf.value(value) is not None:
+            return leaf.short(value)
+    return value
 
 
 def gender_needs(value: str, words: str = "", fits: Optional[Sequence[str]] = None) -> Tuple[str, ...]:
@@ -580,11 +598,16 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_c
         if seeds.descent is not None:
             s.descent = descents[i]
             s.descent_required = seeds.descent_pinned
+            if seeds.people == "couple" and not seeds.descent_pinned and rng.random() < DESCENT2:
+                s.descent2 = _weighted(rng, [x for x in seeds.descent.values if x[0] != s.descent] or seeds.descent.values)
         if seeds.gender is not None:
             s.gender = _weighted(rng, seeds.gender.values)
             s.gender_needs = gender_needs(s.gender, words, seeds.gender_fits)
+            s.pair = seeds.gender.list_id == COUPLE
         if seeds.person and pairs:
             s.develop = pairs[i % len(pairs)]
+            if not seeds.clothes_owned and i % TYPICAL_EVERY == TYPICAL_EVERY - 1:   # no look ideas: see TYPICAL
+                s.develop = (TYPICAL, next(a for a in s.develop if a != CLOTHES))
         if seeds.age is not None:
             s.age = _weighted(rng, seeds.age.values)
         if cores:
@@ -595,6 +618,8 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_c
     seen: set = set()
     if long_:
         for s in specs:
+            if TYPICAL in s.develop:
+                continue
             mine: List[Tuple[str, str]] = []
             for b in rng.sample(long_, min(len(long_), rng.choice([1, 2]))):
                 t = ""
@@ -618,7 +643,8 @@ The prompt is below. The part to vary is marked ⟦like this⟧. Write {n} varia
 
 Words. Every variant contains the words you are told to keep, exactly, in order, as part of a natural phrase. The category word (if there is one) may be replaced by a specific kind of it, and usually should be:
 - "⟦clothing slightly open in the front⟧" (keep "slightly open in the front"; category "clothing") -> "a white cardigan slightly open in the front", "a satin robe slightly open in the front"
-- "lit by ⟦lighting⟧" (keep nothing; category "lighting") -> "warm lamplight from a bedside lamp", "cold blue light from a phone screen"
+- "lit by ⟦lighting⟧" (keep nothing; category "lighting") -> "soft, warm light falling from one side", "cool, even morning light"
+- "a street, ⟦camera⟧" (keep nothing; category "camera") -> "a wide shot at eye level on a 35mm lens", "a low-angle close-up on Kodak Portra 400 film", never "a 35mm film camera" or "a vintage camera": a camera part is how the picture is taken, never a camera in it
 - "⟦selfie camera angle⟧" (keep "selfie"; category "camera angle") -> "a high-angle selfie, phone held above her head", "a low selfie angle from chest height"
 - "a ⟦young woman⟧ in a kitchen" (keep "young woman") -> "freckled young woman with a short black bob"
 - "a ⟦dominant young woman⟧ in a living room", three variants with their seed lines ("Tunisian", develop: bearing and posture and expression / "Korean", gender: "trans woman", develop: styling and grooming and what they carry / "Peruvian", develop: build and what they wear, ideas: "tall") -> "dominant young woman of Tunisian heritage, shoulders squared and chin lifted, giving the camera a cool, level stare that dares it to look away", "dominant young trans woman, Korean, hair slicked straight back, a dark lip, car keys looped around one finger like she owns the room", "tall, broad-shouldered dominant young woman, Peruvian, in a fitted black blazer worn over bare skin, sleeves pushed up"
@@ -630,7 +656,7 @@ Rules:
 - Fit the whole prompt: its place, time, medium, framing, number of people, and the notes (lines starting with #). Never move the scene somewhere else.
 - Other parts in <angle brackets> vary on their own: don't fill them in, and don't repeat what the rest of the prompt already says.
 - Never add a person or an animal the prompt doesn't have, including through framing: no group selfie, group portrait, two-shot or crowd unless the prompt has that many people.
-- Light comes only from sources that would ordinarily be in or reach this exact place: a living room has lamps, ceiling lights, a TV or screens, candles, a fireplace and its windows; never stage, shop, office, industrial, bathroom, darkroom, stadium or street fixtures unless the prompt puts them there, and never shade from a tree, dappled leaves, golden-hour sun on a beach or underwater light indoors. With no stated place, ordinary light that could be anywhere. Reject a light idea that this place wouldn't have.
+- A light describes the light itself: its quality, direction, color and strength, the time of day, the weather. Name a source only when the prompt's own words already have it, or when nearly every such scene has it (the sun or sky outdoors, a window indoors, a candle on a dinner table); never a lamp, screen, sign or fixture the prompt doesn't have, since naming one puts it in the picture. The light must suit this exact place and time: no golden-hour sun on a beach indoors, no shade from a tree in a living room. Reject a light idea that this place wouldn't have.
 - Visual and concrete: what it looks like, not mood or story.
 - Make the variants clearly different from each other, across the whole range the words allow, including uncommon but real choices. At most 20 words each beyond the kept words.
 - A person: 12 to 25 words beyond the marked words. Write each variant as an authored take on who this is, leaning into the marked words themselves: for "dominant young woman", how her dominance shows in her bearing, expression, styling and attitude, and in what she wears or carries when the prompt leaves that open. Each variant develops the aspects its seed line names, so the set differs in far more than hair. No shared template: vary how each variant is phrased and where things fall in it (the marked words first in some, after a detail in others: "broad-shouldered Peruvian dominant young woman in a fitted blazer"; the descent before the words, after them, or as "of Tunisian heritage"), and weave its seeds in where they read naturally, never as a list or a prefix. Never describe what another part of the prompt owns (a clothing part elsewhere owns the clothes).
@@ -639,10 +665,11 @@ Rules:
 - If a person may be under 18, nothing sexual or adult-coded.
 
 Per-variant seeds, one line per variant when given:
-- a quoted descent: give the person that heritage's look, and write that exact word or words into the variant where it reads naturally. If the marked words name several people, it applies to one of them. When it can't be true in this prompt (a creature or a stylized character who isn't human, or a setting or the user's words that settle who they are), leave it out and list it under "rejected", copied exactly. A descent marked (must appear) is always written in.
+- a quoted descent: give the person that heritage's look, and write that exact word or words into the variant where it reads naturally. If the marked words name several people, it is the heritage they share, unless the line gives one for each. When it can't be true in this prompt (a creature or a stylized character who isn't human, or a setting or the user's words that settle who they are), leave it out and list it under "rejected", copied exactly. A descent marked (must appear) is always written in.
 - ideas: random ideas from vocabulary lists for this variant, for breadth and uncommon picks. Use each where it could be true here, adjusting its wording a little if needed, and name the ones used in the variant's "idea" field, separated by "; " ("" for none). Reject one that can't be true in this prompt or doesn't suit this variant, listing it under "rejected", copied exactly.
 - gender: write the person as that, with those exact words in the variant ("a trans woman", "a young trans woman"), woven in naturally; the marked words still stay.
-- develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must.
+- who: who the couple are; state both, with those exact words ("a man and a woman", "two women").
+- develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must. "What someone like them would typically wear or carry here": the clothes, headwear or things such a person ordinarily has in this place and time, as most of them would look.
 - age: about how old the person looks; work it in before their words ("a 34-year-old chef") or say it another natural way ("a chef in her forties"), never as a number tacked on at the end.
 - core: build this variant on that value, adding a few words that place it in this prompt. If it can't be true in this prompt, use another value of the same kind and list the core under "rejected".
 
@@ -655,6 +682,23 @@ CORE_NOTE = ("The cores are random values of a list, and some won't fit this pro
              "doesn't have, or name another kind of picture than this one (a mirror selfie in a photo that isn't a "
              "selfie), or a thing this place wouldn't have, doesn't fit: put it under \"rejected\" and write that "
              "variant with another value of the same kind that fits.")
+
+
+# What the writer is told of a person part that names several people (Seeds.people).
+PEOPLE_NOTES = {
+    "couple": ("The marked words name a couple. Each variant describes both partners briefly, as two people who "
+               "belong together, in one phrase that keeps the marked words where they read naturally (\"young Ugandan "
+               "couple, the man in a crisp white shirt, the woman with her braids pinned up\"), never tacked on at the "
+               "end (\"..., couple\"). State who they are as the seed line says. Their ages are about the age given "
+               "and close to each other, unless the prompt says otherwise. A look idea may suit one of them or both. "
+               "12 to 30 words beyond the marked words."),
+    "family": ("The marked words name a family or other related people. Each variant names who they are, with an "
+               "age for each that suits their role, and gives them the heritage they share and a family "
+               "likeness; a look idea may suit one of them or several. 12 to 30 words beyond the marked words."),
+    "group": ("The marked words name several people who aren't related. Each variant gives each of them a few "
+              "words of their own, so they read as different people (heritage, gender, age and look as the prompt "
+              "allows), with as many people as the words say. 12 to 30 words beyond the marked words."),
+}
 
 
 def minor_words(ages: Sequence[str]) -> str:
@@ -717,6 +761,8 @@ def messages(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -
         lines.append(f'The whole part is the category "{cat}": every variant is a specific kind of it.')
     if seeds.minor:
         lines.append(minor_line(seeds.minor))
+    if seeds.people in PEOPLE_NOTES:
+        lines.append(PEOPLE_NOTES[seeds.people])
     lines.append("")
     for b in drawn.short:
         lines.append(f"Spread the variants across these {b.label.lower()} choices where they fit: "

@@ -437,18 +437,22 @@ def in_pool_years(variants: Sequence[Dict[str, Any]]) -> Dict[str, int]:
 
 def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: Optional[Sequence[str]] = None,
                    gender_fits: Optional[Sequence[str]] = None,
-                   ages: Optional[Dict[str, List[str]]] = None) -> Dict[str, Any]:
+                   ages: Optional[Dict[str, List[str]]] = None, gender_list: Optional[str] = GENDER,
+                   descent: bool = True, age: bool = True) -> Dict[str, Any]:
     """A person slot's descent, gender and age pickers for /pools (VARIANTS_IMPL.md section 4):
     descent browsed by its list's browse facet (Region > heritage), what the words allow of it
     (`fits`), what is picked and how many variants carry each value; the same for gender, a short
     list shown whole (`gender_fits`: what the words allow of it); age by life stage, only the
     stages the person may be (`ages`: variants.age_stages, their narrowed ages and the minors
-    rules; None: every adult stage), each with the span of years it holds for them."""
+    rules; None: every adult stage), each with the span of years it holds for them. Several people
+    seed differently (seeding.plan): a couple's gender row is who they are (`gender_list`, the
+    couple list), a family or group has none (None), a group or a figure with no real heritage no
+    descent row, and a family or group no age row."""
     from prompt_programs.vocab import vocabulary
     vocab = vocabulary()
     out: Dict[str, Any] = {}
     d = vocab.get(DESCENT)
-    if d is not None:
+    if d is not None and descent:
         facet = d.browse
         parts: Dict[str, List[str]] = {p: [] for p in d.local_facets.get(facet, ())} if facet else {}
         for v in d.values:
@@ -459,12 +463,12 @@ def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: 
                           "fits": list(fits) if fits else [v.text for v in d.values],
                           "picked": {"values": list(choice.pins.descent), "groups": {facet or "region": list(choice.pins.regions)}},
                           "in_pool": in_pool(variants, "descent")}
-    g = vocab.get(GENDER)
+    g = vocab.get(gender_list) if gender_list else None
     if g is not None:
         out["gender"] = {"list": g.id, "label": g.label, "options": [v.text for v in g.values],
                          "fits": list(gender_fits) if gender_fits else [v.text for v in g.values],
                          "picked": {"values": list(choice.pins.gender)}, "in_pool": in_pool(variants, "gender")}
-    a = vocab.get(AGE)
+    a = vocab.get(AGE) if age else None
     if a is not None:
         stages = ages if ages is not None else age_stages()
         out["age"] = {"list": a.id, "label": a.label, "browse": STAGE, "options": list(stages),

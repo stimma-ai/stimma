@@ -31,13 +31,17 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-21"   # reader-21: a person names the country the picture is set in (place), when the prompt says. reader-20: a person keeps the words saying what they wear (clothes), so their variants draw no outfit; a free part no longer gives kinds or things instead, nor a light examples (nothing used them). reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-22"   # reader-22: a person says how many people they are (one, a couple, a family, a group) and whether a real-world heritage applies to them; light names the scene list unless its words call for a named look. reader-21: a person names the country the picture is set in (place), when the prompt says. reader-20: a person keeps the words saying what they wear (clothes), so their variants draw no outfit; a free part no longer gives kinds or things instead, nor a light examples (nothing used them). reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
 # A reading's reply budget: a couple of hundred tokens a part is room enough with no reasoning
 # (a person, the longest, is about 120), and a runaway reply stops in seconds instead of minutes.
 READING_TOKENS, SLOT_TOKENS = 200, 250
+
+# Who a person part's words name (the reading's `people`): one person, a romantic pair, people
+# related to each other, people who aren't. seeding.plan seeds each its own way.
+PEOPLE = ("one", "couple", "family", "group")
 
 
 class ReaderFailed(Exception):
@@ -59,8 +63,8 @@ after its kind: "person": {...}, "animal": {...}, "camera": {...}, "light": {...
 "free": {...}.
 
 kind:
-- "person": someone the prompt doesn't already have, named by the part's own words: "young
-  man", "nurse", "my friend", "elderly African man". Their noun is one of those words. Two parts
+- "person": someone the prompt doesn't already have, or several people, named by the part's own
+  words: "young man", "nurse", "my friend", "elderly African man", "couple", "three friends". Their noun is one of those words. Two parts
   with the same words are two different people.
 - Words that name only something about a person, or about someone the prompt already has in
   its own words or as another part ("1girl, ⟨hairstyle⟩", "a woman with ⟨hair color⟩ hair",
@@ -72,8 +76,8 @@ kind:
   "dog", "old cat", "animal".
 - "camera": how the picture is taken: shot size, lens, angle, film look. Words that name only
   one of those ("camera angle", "selfie angle", "lens") are a "list" of it, not a camera.
-- "light": the light in the scene, as one named look (a softbox, flash, chiaroscuro, golden
-  hour light), never split into its source, direction or color.
+- "light": the light in the scene, as one look: soft side light, golden hour light, a softbox,
+  chiaroscuro.
 - "list": something one of the lists below holds: the list's items are kinds of the very thing
   the words name, not of something like it, and its description names that thing. Give its
   id. Clothes most of all: "⟨boots⟩" is a footwear list, but a garment that no list's
@@ -108,6 +112,14 @@ For a person:
 - place: the country the picture is set in, in English, when the prompt or a note states or
   clearly implies where it is ("a market in Lagos": "Nigeria", "feudal Japan": "Japan", "a
   Tokyo subway": "Japan"); "" when it doesn't say, which is most prompts.
+- people: who the part's words name, read in the whole prompt: "one" (one person: "chef",
+  "old man", "my friend"), "couple" (a romantic pair: "couple", "newlyweds", "lovers"), "family"
+  (people related to each other: "family", "mother and daughter", "grandparents", "siblings") or
+  "group" (people who aren't related: "three friends", "coworkers", "a crowd", "a band").
+- heritage: true when the figure is a real-world human, who has a heritage and the look of one;
+  false when a real people's heritage doesn't apply to them: an elf, a dwarf, an orc, a robot, an
+  alien, a demon, an animal character, a toy, a statue, a figure in a style with no real
+  people's looks.
 
 For an animal:
 - noun: what it is, in one word from its words ("pet", "dog", "cat").
@@ -127,9 +139,11 @@ For a camera: vary, the parts of it that change, from: shot_size, lens, angle, f
 four unless the prompt or a note settles some.
   "camera": {"vary": ["shot_size", "lens", "angle", "film_look"]}
 
-For light: list, the id of the lighting list below whose looks suit this scene, or "" only when
-none of them could.
-  "light": {"list": "<a lighting list's id, or empty>"}
+For light: list, the id of the lighting list for it: "lighting.scene" (light described as light:
+its quality, direction, color, the time of day) for light in general ("light", "lighting", "soft
+light", "evening light"); another lighting list below only when the part's words call for that
+kind of named look ("studio lighting", "dramatic lighting", "neon light", "lamplight").
+  "light": {"list": "lighting.scene"}
 
 For a list: list (its id) and about (what it is in this image, and whose, in a few words, with
 what the prompt and notes say of them: "the girl's hairstyle", "a middle-aged man's hairstyle",
@@ -183,7 +197,8 @@ SHAPE = {
         {"n": 1, "kind": "person", "label": "Elderly African man", "lead": "an", "category": "",
          "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "elderly", "descent": "African"},
                     "vary": ["age", "descent", "build", "hair", "hair_texture", "hair_color", "facial_hair"],
-                    "clothes_part": 0, "clothes": "", "outfit": "person.outfit.casual", "place": ""}},
+                    "clothes_part": 0, "clothes": "", "outfit": "person.outfit.casual", "place": "",
+                    "people": "one", "heritage": True}},
         {"n": 2, "kind": "animal", "label": "Pet", "lead": " with his", "category": "pet",
          "animal": {"noun": "pet", "vary": ["species", "life_stage"], "type": "pet", "breed": "", "stated": {}}},
     ],
@@ -206,7 +221,8 @@ WORN = {
         {"n": 1, "kind": "person", "label": "Dancer", "lead": "a", "category": "",
          "person": {"noun": "dancer", "presentation": "", "stated": {},
                     "vary": ["age", "descent", "build", "hair", "hair_texture", "hair_color"],
-                    "clothes_part": 2, "clothes": "", "outfit": "", "place": ""}},
+                    "clothes_part": 2, "clothes": "", "outfit": "", "place": "",
+                    "people": "one", "heritage": True}},
         {"n": 2, "kind": "free", "label": "Costume", "lead": " in a", "category": "costume",
          "free": {"about": "the dancer's costume", "lists": []}},
         {"n": 3, "kind": "list", "label": "Expression", "lead": " with a", "category": "look",
@@ -451,6 +467,11 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
             "outfit": outfit, **({"clothes": clothes} if clothes else {}),
             # the country it is set in, as the model says it; places.py matches it to the table exactly
             **({"place": got["place"].strip()[:80]} if isinstance(got.get("place"), str) and got["place"].strip() else {}),
+            # how many people the words name, as the model reads them in the prompt (one, a
+            # couple, a family, an unrelated group), and whether a real people's heritage applies
+            # (an elf's doesn't): plain fields, never read from the words here
+            **({"people": got["people"]} if got.get("people") in PEOPLE[1:] else {}),
+            **({"heritage": False} if got.get("heritage") is False else {}),
             **({"clothes_part": {"n": worn, "words": worn_words}} if worn_words is not None else {}),
         }
     elif kind == "camera":
@@ -782,6 +803,6 @@ async def changed_parts(items: Sequence[Dict[str, Any]], *, ask: Ask, project_id
     return got
 
 
-__all__ = ["CHECK_SYSTEM", "READER_VERSION", "fit_lead", "ReaderFailed", "SYSTEM", "as_written", "cached", "changed_parts",
+__all__ = ["CHECK_SYSTEM", "PEOPLE", "READER_VERSION", "fit_lead", "ReaderFailed", "SYSTEM", "as_written", "cached", "changed_parts",
            "check_message", "check_parts", "check_reply", "check_slot", "leads", "numbered", "parse_changed", "part_key",
            "read", "read_part", "rest_of", "scene_mark", "seen_in", "system_text", "user_message"]

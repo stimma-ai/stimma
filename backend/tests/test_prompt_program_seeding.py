@@ -48,7 +48,9 @@ def test_a_list_slot_is_one_list_with_a_core_and_a_light_its_ideas():
     assert roles(p) == [("core", "camera.angle", "selfie camera angle")]
     p = plan({"kind": "light", "light": {"list": "lighting.natural", "examples": []}}, "light")
     assert roles(p) == [("idea", "lighting.natural", "light")]   # ideas the writer may reject, not cores
-    assert plan({"kind": "light", "light": {"list": "", "examples": ["lamplight"]}}, "light")["banks"] == []
+    assert p["banks"][0]["scene"] is True   # narrowed in the scene, not by the word "light" alone
+    # a light naming no list is the scene list: light described as light, no fixtures
+    assert roles(plan({"kind": "light", "light": {"list": ""}}, "light")) == [("idea", "lighting.scene", "light")]
 
 
 def test_a_camera_an_animal_and_a_free_slot_seed_ideas():
@@ -86,3 +88,46 @@ def test_seeds_from_a_narrowed_plan():
     assert core.core is not None and core.ideas == ()
     dropped = seeds_of({"kind": "list", "banks": [{"role": "core", "list": "camera.angle", "narrowed": []}]})
     assert dropped.core is None and dropped.ideas == ()
+
+
+def person(**kw):
+    return {"kind": "person", "person": {"noun": kw.pop("noun", "couple"), "presentation": "", "stated": {},
+                                         "vary": ["age", "descent", "build", "hair", "hair_color"],
+                                         "outfit": "person.outfit.casual", **kw}}
+
+
+def test_a_couple_draws_who_they_are_one_heritage_and_one_age():
+    p = plan(person(people="couple"), "couple")
+    got = roles(p)
+    assert ("descent", V.DESCENT, "") in got and ("gender", "person.couple", "couple") in got
+    assert ("age", V.AGE, "couple") in got
+    assert p["people"] == "couple"
+    rec = {"kind": "person", "banks": [{**b, "narrowed": None} for b in p["banks"]], "people": "couple"}
+    seeds = seeds_of(rec)
+    assert seeds.people == "couple" and seeds.gender.list_id == "person.couple"
+    assert dict(seeds.gender.values) == {"a man and a woman": 0.9, "two women": 0.05, "two men": 0.05}
+
+
+def test_a_family_shares_a_heritage_and_a_group_draws_no_one_look():
+    fam = roles(plan(person(noun="family", people="family"), "family"))
+    assert [r for r, *_ in fam if r != "idea"] == ["descent"]   # no single gender or age forced on them
+    grp = plan(person(noun="friends", people="group"), "three friends")
+    assert [b["role"] for b in grp["banks"]] == ["idea"]        # no descent, gender or age
+    assert [b["list"] for b in grp["banks"]] == ["person.outfit.casual"]
+
+
+def test_a_figure_a_heritage_doesnt_apply_to_draws_no_descent():
+    p = plan(person(noun="elf", heritage=False), "elf warrior")
+    assert "descent" not in [b["role"] for b in p["banks"]]
+    assert "gender" in [b["role"] for b in p["banks"]]
+
+
+def test_what_a_person_wears_and_their_hairstyle_are_narrowed_in_the_scene():
+    p = plan(person(noun="farmer", vary=["age", "descent", "hair", "hairstyle"]), "farmer")
+    outfit = next(b for b in p["banks"] if b["list"] == "person.outfit.casual")
+    assert outfit["phrase"] == "farmer" and outfit["scene"] is True
+    style = next(b for b in p["banks"] if b["list"] == "person.hairstyle")
+    assert style["phrase"] == "farmer" and style["scene"] is True
+    # only the details the reading varies: no hairstyle unless it says so, no build here
+    lists = [b["list"] for b in plan(person(noun="farmer", vary=["age", "descent", "hair"]), "farmer")["banks"]]
+    assert "person.hairstyle" not in lists and "person.build" not in lists and "person.hair_length" in lists

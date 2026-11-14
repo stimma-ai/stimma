@@ -557,7 +557,10 @@ def _protected_text_guidance(
             "character, with their capitals and lower case as given, and keep the marks around them. Change "
             "the sentence around a value, never the value: one that starts in lower case goes inside a "
             "sentence (\"A cat sleeps beside ⟦a red vase⟧\"), not at its start with a capital added. "
-            "Never restate a value in other words, split it up or contradict it elsewhere."
+            "Never restate a value in other words, split it up or contradict it elsewhere. A value that says how "
+            "the picture is taken (a shot, a lens, an angle, a film stock) is how it is photographed, never a "
+            "thing in it: no one holds, uses or is framed by a camera because of it. A value that describes the "
+            "light is the light itself: add no lamp, screen or fixture for it that the request doesn't name."
         )
         if keyword_mode:
             bullet += (" Each marked value is one tag, kept whole however long it is, with its marks: never break "

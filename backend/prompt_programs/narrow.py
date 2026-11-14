@@ -32,7 +32,7 @@ from prompt_programs.vocab import AGE_LIST, Leaf
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-13"   # narrow-13: the gender list, whose description says words for a woman fit a trans woman too. narrow-12: "elderly" is 70 and over. narrow-11: an age is read in its own line and the notes; "young" is 18 to 29. narrow-10: a grouped list is answered as {"groups", "items"}; an empty answer stands. narrow-9: a list with declared groups (descent) is shown by group. narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
+NARROW_VERSION = "narrow-14"   # narrow-14: a list may be read in its scene (what a person wears, the light). narrow-13: the gender list, whose description says words for a woman fit a trans woman too. narrow-12: "elderly" is 70 and over. narrow-11: an age is read in its own line and the notes; "young" is 18 to 29. narrow-10: a grouped list is answered as {"groups", "items"}; an empty answer stands. narrow-9: a list with declared groups (descent) is shown by group. narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
 NARROW_SECONDS = 180.0   # all of a prompt's narrowing calls together; past it what hasn't answered seeds nothing
 WORDS_CHUNK = 80         # a list longer than this is asked in chunks of about this many, side by side
 
@@ -133,8 +133,12 @@ def messages_for(leaf: Leaf, phrase: str, values: Sequence[str], about: str = ""
         return [{"role": "system", "content": system}, {"role": "user", "content": user}]
     user = (f'The list "{leaf.label}" ({leaf.description}):\n{json.dumps(list(values), ensure_ascii=False)}\n\n'
             f'Which of these fit "{phrase}"{said}?')
-    if prompt.strip():   # an age is read in the whole prompt (see _SYSTEM)
+    if prompt.strip() and leaf.id == AGE_LIST:   # an age is read in the whole prompt (see _SYSTEM)
         user += f"\n\nThe prompt it is said in:\n{prompt.strip()}"
+    elif prompt.strip():   # a list read in its scene
+        user += (f"\n\nThe prompt it is said in:\n{prompt.strip()}\n\nKeep only the items that suit it there: who "
+                 "this is, what they are doing, the place, the time and the kind of picture. Leave out an item a "
+                 "reader of this prompt would find out of place, even when the words alone don't rule it out.")
     shown = set(values)
     asked = [_shown(v.text) for v in leaf.values if v.opt_in and _shown(v.text) in shown]
     if asked:  # opt-in values (vocab.py): never kept by default
@@ -246,7 +250,8 @@ def chunks(values: Sequence[str], size: int = WORDS_CHUNK) -> List[List[str]]:
 
 
 async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Optional[Ask],
-                 project_id: Optional[int] = None, about: str = "", prompt: str = "") -> Optional[List[str]]:
+                 project_id: Optional[int] = None, about: str = "", prompt: str = "",
+                 scene: bool = False) -> Optional[List[str]]:
     """The values of `leaf` that fit `phrase` (said of `about`: "young" said of "the woman's age"
     rules out children), from the cache or model calls. None while any chunk has no answer (a
     failed call, an unreadable answer: never cached, worth asking again). `ask=None` reads the
@@ -254,7 +259,9 @@ async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Opt
     list, read whole by the minors rules, nor one read by its groups) is asked in chunks side by
     side, each cached on its own."""
     values = [v.text for v in leaf.eligible()]
-    prompt = prompt if leaf.id == AGE_LIST else ""   # only an age is read with the whole prompt
+    # An age is read with the whole prompt (the minors rules), and so is a list narrowed by its
+    # scene (`scene`: what a person wears, the light): which items suit who this is and where.
+    prompt = prompt if leaf.id == AGE_LIST or scene else ""
     if len(values) <= WORDS_CHUNK or leaf.id == AGE_LIST or grouped(leaf, [_shown(v) for v in values]):
         parts = [values]
     else:

@@ -1,0 +1,501 @@
+{
+ "id": "lighting.scene",
+ "label": "Light",
+ "description": "The light in a scene, described as light: its quality, direction, color and strength, the time of day and the weather. It names no lamp, screen or fixture; the only sources it names (sun, moon, a window, candlelight, lamplight) are ones nearly any such scene has.",
+ "pos": "noun phrase",
+ "frame": "lit by ___",
+ "notes": "The default list for a light slot that names no particular look ('light', 'lighting', 'soft light'). Variety is in mood, time and direction, not in fixtures: a fixture drawn as a light seed was written into the scene as a prop and often didn't belong there (a TV in a restaurant, track lights at a seaside bistro). lighting.indoor_practical owns the fixtures, for slots whose words ask for one. Window, candle and lamp light are indoor; sun and sky looks need a time of day that has them. The slot's narrowing reads the whole scene, so a look the place can't have is left out.",
+ "facets": [
+  "space",
+  "time_of_day"
+ ],
+ "closed": false,
+ "local_facets": {
+  "mood": [
+   "soft",
+   "warm",
+   "cool",
+   "harsh",
+   "dramatic",
+   "moody"
+  ]
+ },
+ "context": {
+  "takes": {
+   "time_of_day": {
+    "mismatch": "never"
+   },
+   "space": {
+    "mismatch": "never",
+    "unstated": "opt_in"
+   }
+  }
+ },
+ "values": [
+  {
+   "text": "soft, even light",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "warm, low light from one side",
+   "short": "warm side light",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "warm",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "soft light falling from one side",
+   "short": "soft side light",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "bright, even daylight",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "soft"
+    ],
+    "time_of_day": [
+     "day"
+    ]
+   }
+  },
+  {
+   "text": "cool, clear morning light",
+   "short": "clear morning light",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "cool",
+     "soft"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day"
+    ]
+   }
+  },
+  {
+   "text": "warm golden-hour light",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "warm"
+    ],
+    "time_of_day": [
+     "golden_hour"
+    ]
+   }
+  },
+  {
+   "text": "low late-afternoon sun with long shadows",
+   "short": "late-afternoon sun",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "warm",
+     "dramatic"
+    ],
+    "time_of_day": [
+     "golden_hour"
+    ]
+   }
+  },
+  {
+   "text": "the last warm light of sunset",
+   "short": "sunset light",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "warm",
+     "soft"
+    ],
+    "time_of_day": [
+     "dusk"
+    ]
+   }
+  },
+  {
+   "text": "pale, quiet dawn light",
+   "tier": "plausible",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "soft",
+     "cool"
+    ],
+    "time_of_day": [
+     "dawn"
+    ]
+   }
+  },
+  {
+   "text": "blue twilight",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "cool",
+     "moody"
+    ],
+    "time_of_day": [
+     "dawn",
+     "dusk"
+    ]
+   }
+  },
+  {
+   "text": "cool moonlight",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "cool",
+     "moody"
+    ],
+    "time_of_day": [
+     "night"
+    ]
+   }
+  },
+  {
+   "text": "dim, warm evening light with deep shadows",
+   "short": "dim evening light",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "warm",
+     "moody"
+    ],
+    "time_of_day": [
+     "dusk",
+     "night"
+    ]
+   }
+  },
+  {
+   "text": "warm pools of light in a dark room",
+   "short": "warm pools of light",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "mood": [
+     "warm",
+     "moody"
+    ],
+    "time_of_day": [
+     "dusk",
+     "night"
+    ]
+   }
+  },
+  {
+   "text": "soft window light",
+   "tier": "typical",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ]
+   }
+  },
+  {
+   "text": "bright light pouring in through tall windows",
+   "short": "bright window light",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ]
+   }
+  },
+  {
+   "text": "flat, overcast light",
+   "tier": "typical",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "mood": [
+     "soft",
+     "cool"
+    ],
+    "time_of_day": [
+     "day"
+    ]
+   }
+  },
+  {
+   "text": "hazy, diffused sunlight",
+   "tier": "typical",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "mood": [
+     "soft",
+     "warm"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ]
+   }
+  },
+  {
+   "text": "harsh midday sun with hard shadows",
+   "short": "harsh midday sun",
+   "tier": "typical",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "mood": [
+     "harsh"
+    ],
+    "time_of_day": [
+     "day"
+    ]
+   }
+  },
+  {
+   "text": "dappled sunlight",
+   "tier": "typical",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "mood": [
+     "soft"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day",
+     "golden_hour"
+    ]
+   }
+  },
+  {
+   "text": "soft gray light from a rainy sky",
+   "short": "rainy-sky light",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "mood": [
+     "cool",
+     "soft",
+     "moody"
+    ],
+    "time_of_day": [
+     "day"
+    ]
+   }
+  },
+  {
+   "text": "fog-softened light",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "mood": [
+     "soft",
+     "cool"
+    ],
+    "time_of_day": [
+     "dawn",
+     "day"
+    ]
+   }
+  },
+  {
+   "text": "stormy light under heavy clouds",
+   "short": "stormy light",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "outdoor"
+    ],
+    "mood": [
+     "dramatic",
+     "cool"
+    ],
+    "time_of_day": [
+     "day"
+    ]
+   }
+  },
+  {
+   "text": "backlight that rims the edges in gold",
+   "short": "golden rim light",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "warm",
+     "dramatic"
+    ],
+    "time_of_day": [
+     "golden_hour"
+    ]
+   }
+  },
+  {
+   "text": "high-contrast light with deep shadows",
+   "short": "high-contrast light",
+   "tier": "plausible",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "dramatic"
+    ]
+   }
+  },
+  {
+   "text": "soft top light",
+   "tier": "plausible",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "gentle, warm glow",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "warm",
+     "soft"
+    ]
+   }
+  },
+  {
+   "text": "cool, bluish light",
+   "tier": "plausible",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "cool",
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "bright, airy light",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "soft"
+    ],
+    "time_of_day": [
+     "day"
+    ]
+   }
+  },
+  {
+   "text": "moody low light",
+   "tier": "typical",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "moody"
+    ]
+   }
+  },
+  {
+   "text": "warm candlelight",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "mood": [
+     "warm",
+     "soft"
+    ],
+    "time_of_day": [
+     "dusk",
+     "night"
+    ]
+   }
+  },
+  {
+   "text": "soft lamplight",
+   "tier": "plausible",
+   "tags": {
+    "space": [
+     "indoor"
+    ],
+    "mood": [
+     "warm",
+     "soft"
+    ],
+    "time_of_day": [
+     "dusk",
+     "night"
+    ]
+   }
+  },
+  {
+   "text": "crisp light with clean shadows",
+   "short": "crisp light",
+   "tier": "plausible",
+   "tags": {
+    "space": "any",
+    "mood": [
+     "harsh"
+    ],
+    "time_of_day": [
+     "day"
+    ]
+   }
+  }
+ ]
+}

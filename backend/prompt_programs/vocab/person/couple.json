@@ -1,0 +1,21 @@
+{
+ "id": "person.couple",
+ "label": "Couple",
+ "description": "Who a romantic couple is: a man and a woman, two women or two men.",
+ "pos": "noun phrase",
+ "frame": "a couple, ___",
+ "notes": "Seeds a couple's variants, one value per variant, drawn by its shares: a man and a woman 90%, two women 5%, two men 5%. A couple's words narrow it ('lesbian couple' keeps two women; 'husband and wife' keeps a man and a woman). A value's short form is the words its variant must say of who they are. Not a slot's list: the reader never binds a slot to it.",
+ "closed": true,
+ "catalog": false,
+ "local_facets": {
+  "pair": ["man and woman", "two women", "two men"]
+ },
+ "shares": {
+  "pair": {"man and woman": 0.9, "two women": 0.05, "two men": 0.05}
+ },
+ "values": [
+  {"text": "a man and a woman", "tier": "typical", "tags": {"pair": ["man and woman"]}, "short": "man, woman"},
+  {"text": "two women", "tier": "typical", "tags": {"pair": ["two women"]}, "short": "women"},
+  {"text": "two men", "tier": "typical", "tags": {"pair": ["two men"]}, "short": "men"}
+ ]
+}

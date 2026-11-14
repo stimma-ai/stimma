@@ -1057,7 +1057,8 @@ def test_a_picked_descent_must_still_appear():
 def test_each_variant_has_its_own_ideas_no_repeats_in_a_batch_and_chunks_carry_them():
     seeds = V.person_seeds(ideas=[("person.hair_color", None), ("person.build", None), ("person.hairstyle", None)])
     d = V.draw_seeds(random.Random(11), seeds, 20, "dominant young woman")
-    assert all(1 <= len(s.ideas) <= 2 for s in d.specs)
+    assert all(1 <= len(s.ideas) <= 2 for s in d.specs if V.TYPICAL not in s.develop)
+    assert all(not s.ideas for s in d.specs if V.TYPICAL in s.develop)    # what is typical here, no list idea
     texts = [t for t, _ in d.ideas]
     assert len(texts) == len(set(texts))                                   # no repeats in a batch
     assert not any("{" in t for t in texts)                                # palette slots filled
@@ -1354,7 +1355,8 @@ def test_a_write_splits_into_turns_with_seeds_drawn_once():
     assert [s for p in parts for s in p.specs] == whole.specs            # the one draw, in order
     assert [i for p in parts for i in p.ideas] == whole.ideas            # every idea once, shared out
     assert all(p.short == whole.short for p in parts)
-    assert len({s.develop for s in whole.specs}) == 20                   # aspects rotate across turns
+    assert len({s.develop for s in whole.specs if V.TYPICAL not in s.develop}) == 14   # aspects rotate across turns
+    assert sum(V.TYPICAL in s.develop for s in whole.specs) == 6        # every third: what is typical here
     assert [len(p.specs) for p in V.split(V.draw_seeds(random.Random(1), V.Seeds(), 17))] == [8, 9]
     assert len(V.split(V.draw_seeds(random.Random(1), V.Seeds(), 5))[0].specs) == 5
 

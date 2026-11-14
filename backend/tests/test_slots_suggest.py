@@ -110,7 +110,7 @@ class TestSuggest:
 
 # --------------------------------------------------------------------------- a photo's photography
 
-LIGHT_LISTS = ["lighting.dramatic", "lighting.indoor_practical", "lighting.natural", "lighting.studio"]
+LIGHT_LISTS = ["lighting.dramatic", "lighting.indoor_practical", "lighting.natural", "lighting.scene", "lighting.studio"]
 PARTS = {  # each photography chip, as it is offered
     "light": {"name": "light", "label": "light", "kind": "light", "lists": LIGHT_LISTS},
     "angle": {"name": "camera angle", "label": "angle", "kind": "list", "lists": ["camera.angle"]},
