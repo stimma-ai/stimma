@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       linux_only:
-        description: Validate only Linux desktop builds and the complete quality gate
+        description: Validate only Linux desktop builds and background quality checks
         type: boolean
         default: false
       publish_updates:
@@ -78,6 +78,8 @@ jobs:
     with:
       ref: ${{ needs.version.outputs.ref }}
       runs_on: '["self-hosted","linux","x64","stimma-test"]'
+      acceptance_runs_on: '["self-hosted","linux","x64","stimma-test-fast"]'
+      reuse_ci: true
 
   macos:
     if: ${{ github.event_name == 'push' || !inputs.linux_only }}
@@ -91,6 +93,7 @@ jobs:
       version: ${{ needs.version.outputs.version }}
       publish_updates: ${{ github.event_name == 'push' || inputs.publish_updates }}
       wait_for_quality_gate: true
+      publication_gate: Compute canary version
       publish_github_release: false
     secrets: inherit
 
@@ -105,6 +108,7 @@ jobs:
       version: ${{ needs.version.outputs.version }}
       publish_updates: ${{ github.event_name == 'push' || inputs.publish_updates }}
       wait_for_quality_gate: true
+      publication_gate: Compute canary version
       publish_github_release: false
     secrets: inherit
 
@@ -119,6 +123,7 @@ jobs:
       version: ${{ needs.version.outputs.version }}
       publish_updates: ${{ github.event_name == 'push' || inputs.publish_updates }}
       wait_for_quality_gate: true
+      publication_gate: Compute canary version
       publish_github_release: false
       arch: aarch64
       runs_on: '["self-hosted","linux","arm64","spark"]'
@@ -136,6 +141,7 @@ jobs:
       version: ${{ needs.version.outputs.version }}
       publish_updates: ${{ github.event_name == 'push' || inputs.publish_updates }}
       wait_for_quality_gate: true
+      publication_gate: Compute canary version
       publish_github_release: false
     secrets: inherit
 
@@ -150,4 +156,19 @@ jobs:
       version: ${{ needs.version.outputs.version }}
       publish_updates: ${{ github.event_name == 'push' || inputs.publish_updates }}
       wait_for_quality_gate: true
+      publication_gate: Compute canary version
     secrets: inherit
+
+  linux-ready:
+    name: Linux canary ready
+    needs: [version, linux, linux-arm64]
+    runs-on: [self-hosted, linux, x64, stimma-test]
+    steps:
+      - name: Report Linux readiness independently of background checks
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          COMMIT: ${{ needs.version.outputs.ref }}
+          PUBLISHED: ${{ github.event_name == 'push' || inputs.publish_updates }}
+        run: |
+          printf 'Linux builds ready: %s (%s), published=%s\n' "$VERSION" "$COMMIT" "$PUBLISHED" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Acceptance/regression feedback and macOS are independent of canary readiness.' >> "$GITHUB_STEP_SUMMARY"

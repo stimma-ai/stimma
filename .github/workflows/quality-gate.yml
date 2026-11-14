@@ -4,6 +4,14 @@ run-name: Quality Gate - ${{ inputs.ref || github.ref_name || 'manual' }}
 on:
   workflow_call:
     inputs:
+      reuse_ci:
+        description: Reuse successful same-repository PR checks for an identical source tree
+        type: boolean
+        default: false
+      acceptance_runs_on:
+        description: Optional faster pool for serial browser acceptance lanes
+        type: string
+        default: ""
       runs_on:
         description: Runner pool (trusted builds may use isolated self-hosted slots)
         type: string
@@ -36,16 +44,37 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
+  evidence:
+    name: Resolve test evidence
+    runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-24.04"') }}
+    outputs:
+      reused: ${{ steps.proof.outputs.reused }}
+      ref: ${{ steps.proof.outputs.ref }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - name: Look for identical tested source
+        id: proof
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REUSE_CI: ${{ inputs.reuse_ci }}
+          ACCEPTANCE_SUITE: ${{ inputs.acceptance_suite || 'smoke' }}
+        run: python3 scripts/ci-quality-proof.py lookup
+
   release-cleanup-tests:
+    needs: evidence
+    if: needs.evidence.outputs.reused != 'true'
     name: Release tooling tests
     runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-24.04"') }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs.evidence.outputs.ref }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: '0.13.7'
@@ -58,6 +87,8 @@ jobs:
       - run: tools/stimma test ci-runner
 
   desktop-tests:
+    needs: evidence
+    if: needs.evidence.outputs.reused != 'true'
     name: Electron type check and unit tests
     runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-24.04"') }}
     timeout-minutes: 10
@@ -65,7 +96,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs.evidence.outputs.ref }}
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -82,6 +113,8 @@ jobs:
         run: tools/stimma test desktop --unit
 
   backend-tests:
+    needs: evidence
+    if: needs.evidence.outputs.reused != 'true'
     name: Backend tests (${{ matrix.shard }}/4)
     strategy:
       fail-fast: false
@@ -94,7 +127,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs.evidence.outputs.ref }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3
@@ -125,6 +158,8 @@ jobs:
         run: python3 scripts/ci-test-scratch.py cleanup
 
   frontend-tests:
+    needs: evidence
+    if: needs.evidence.outputs.reused != 'true'
     name: Frontend regressions (${{ matrix.shard }}/2)
     strategy:
       fail-fast: false
@@ -137,7 +172,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs.evidence.outputs.ref }}
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -174,19 +209,21 @@ jobs:
         run: python3 scripts/ci-test-scratch.py cleanup
 
   acceptance-tests:
+    needs: evidence
+    if: needs.evidence.outputs.reused != 'true'
     name: Acceptance tests (${{ matrix.lane }})
     strategy:
       fail-fast: false
       matrix:
         lane: [desktop, phone-1, phone-2, phone-3]
-    runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-24.04"') }}
+    runs-on: ${{ fromJSON(inputs.acceptance_runs_on || inputs.runs_on || '"ubuntu-24.04"') }}
     timeout-minutes: ${{ inputs.acceptance_suite == 'full' && 35 || 12 }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs.evidence.outputs.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -266,14 +303,28 @@ jobs:
   passed:
     name: Quality gate passed
     if: always()
-    needs: [backend-tests, frontend-tests, acceptance-tests, desktop-tests, release-cleanup-tests]
+    needs: [evidence, backend-tests, frontend-tests, acceptance-tests, desktop-tests, release-cleanup-tests]
     runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-24.04"') }}
     steps:
       - name: Require every test shard
         env:
+          EVIDENCE: ${{ needs.evidence.result }}
+          REUSED: ${{ needs.evidence.outputs.reused }}
           BACKEND: ${{ needs.backend-tests.result }}
           FRONTEND: ${{ needs.frontend-tests.result }}
           ACCEPTANCE: ${{ needs.acceptance-tests.result }}
           DESKTOP: ${{ needs.desktop-tests.result }}
           RELEASE_CLEANUP: ${{ needs.release-cleanup-tests.result }}
-        run: test "$BACKEND" = success && test "$FRONTEND" = success && test "$ACCEPTANCE" = success && test "$DESKTOP" = success && test "$RELEASE_CLEANUP" = success
+        run: test "$EVIDENCE" = success && { test "$REUSED" = true || { test "$BACKEND" = success && test "$FRONTEND" = success && test "$ACCEPTANCE" = success && test "$DESKTOP" = success && test "$RELEASE_CLEANUP" = success; }; }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.evidence.outputs.ref }}
+      - name: Record tested source tree
+        env:
+          ACCEPTANCE_SUITE: ${{ inputs.acceptance_suite || 'smoke' }}
+        run: python3 scripts/ci-quality-proof.py record
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: quality-proof-${{ inputs.acceptance_suite || 'smoke' }}
+          path: ${{ runner.temp }}/quality-proof.json
+          retention-days: 7

@@ -1,0 +1,51 @@
+name: Nightly regressions
+on:
+  schedule:
+    # 3 AM ET in winter, 4 AM ET in summer.
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: nightly-regressions
+  cancel-in-progress: false
+jobs:
+  source:
+    runs-on: [self-hosted, linux, x64, stimma-test]
+    outputs:
+      ref: ${{ steps.source.outputs.ref }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: source
+        run: echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  quality:
+    needs: source
+    uses: ./.github/workflows/quality-gate.yml
+    with:
+      ref: ${{ needs.source.outputs.ref }}
+      runs_on: '["self-hosted","linux","x64","stimma-test"]'
+      acceptance_runs_on: '["self-hosted","linux","x64","stimma-test-fast"]'
+      acceptance_suite: full
+  updater:
+    needs: source
+    permissions:
+      contents: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runs_on: '["self-hosted","linux","x64","stimma-build-fast"]'
+          - arch: aarch64
+            runs_on: '["self-hosted","linux","arm64","spark"]'
+    uses: ./.github/workflows/linux-appimage.yml
+    with:
+      ref: ${{ needs.source.outputs.ref }}
+      channel: canary
+      version: 0.0.0-canary.0
+      arch: ${{ matrix.arch }}
+      runs_on: ${{ matrix.runs_on }}
+      run_updater_tests: true
+      publish_updates: false

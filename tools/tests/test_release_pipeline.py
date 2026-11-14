@@ -18,6 +18,11 @@ gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)
 
 
+proof_spec = importlib.util.spec_from_file_location('proof', ROOT / 'scripts/ci-quality-proof.py')
+proof = importlib.util.module_from_spec(proof_spec)
+proof_spec.loader.exec_module(proof)
+
+
 def workflow(name):
     return yaml.load((ROOT / '.github/workflows' / name).read_text(), Loader=yaml.BaseLoader)
 
@@ -85,6 +90,67 @@ class FFmpegSetupTests(unittest.TestCase):
         self.assertFalse(self.cache.exists())
 
 
+class QualityProofTests(unittest.TestCase):
+    def test_only_complete_identical_tree_suite_and_run_match(self):
+        receipt = {'schema': 1, 'tree': 'tree-a', 'suite': 'smoke', 'run_id': '42'}
+        self.assertTrue(proof.matches(receipt, 'tree-a', 'smoke', 42))
+        for key, value in [('schema', 2), ('tree', 'tree-b'), ('suite', 'full'), ('run_id', '43')]:
+            with self.subTest(key=key):
+                self.assertFalse(proof.matches(receipt | {key: value}, 'tree-a', 'smoke', 42))
+        self.assertFalse(proof.matches(receipt, 'tree-a', 'full', 42))
+
+    def test_forks_failed_cancelled_and_incomplete_runs_cannot_supply_proof(self):
+        run = {'event': 'pull_request', 'status': 'completed', 'conclusion': 'success',
+               'head_repository': {'full_name': 'org/app'}, 'repository': {'full_name': 'org/app'}}
+        self.assertTrue(proof.eligible(run, 'org/app'))
+        for update in [{'head_repository': {'full_name': 'fork/app'}}, {'repository': {'full_name': 'other/app'}},
+                       {'conclusion': 'failure'}, {'conclusion': 'cancelled'}, {'status': 'in_progress'},
+                       {'event': 'push'}]:
+            self.assertFalse(proof.eligible(run | update, 'org/app'))
+
+    def test_lookup_requires_unexpired_matching_artifact_from_successful_ci(self):
+        run = {'id': 42, 'html_url': 'https://github.com/org/app/actions/runs/42',
+               'event': 'pull_request', 'status': 'completed', 'conclusion': 'success',
+               'head_repository': {'full_name': 'org/app'}, 'repository': {'full_name': 'org/app'}}
+        artifact = {'id': 50, 'name': 'quality-proof-smoke', 'expired': False, 'size_in_bytes': 400}
+        receipt = {'schema': 1, 'tree': 'tree-a', 'suite': 'smoke', 'run_id': '42'}
+        def get(path, archive=False):
+            if archive: return receipt
+            if '/artifacts?' in path: return {'artifacts': [artifact]}
+            return {'workflow_runs': [run]}
+        with patch.dict(os.environ, {'GITHUB_REPOSITORY': 'org/app'}):
+            self.assertTrue(proof.lookup('tree-a', 'smoke', get))
+            self.assertFalse(proof.lookup('tree-b', 'smoke', get))
+            artifact['expired'] = True
+            self.assertFalse(proof.lookup('tree-a', 'smoke', get))
+
+    def test_gate_allows_reuse_or_all_success_but_never_partial_checks(self):
+        step = workflow('quality-gate.yml')['jobs']['passed']['steps'][0]
+        base = dict(os.environ, EVIDENCE='success', REUSED='false', BACKEND='success', FRONTEND='success',
+                    ACCEPTANCE='success', DESKTOP='success', RELEASE_CLEANUP='success')
+        def check(**values):
+            return subprocess.run(['bash', '-c', step['run']], env=base | values).returncode
+        self.assertEqual(check(), 0)
+        self.assertEqual(check(REUSED='true', BACKEND='skipped', ACCEPTANCE='skipped'), 0)
+        for key in ['BACKEND', 'FRONTEND', 'ACCEPTANCE', 'DESKTOP', 'RELEASE_CLEANUP', 'EVIDENCE']:
+            self.assertNotEqual(check(**{key: 'failure'}), 0)
+        self.assertNotEqual(check(REUSED='true', EVIDENCE='failure'), 0)
+
+    def test_canaries_publish_independently_but_releases_keep_full_checks(self):
+        canary = workflow('canary.yml')['jobs']
+        for name in ['linux', 'linux-arm64', 'macos', 'windows', 'headless']:
+            self.assertEqual(canary[name]['with']['publication_gate'], canary['version']['name'])
+        self.assertEqual(canary['linux-ready']['needs'], ['version', 'linux', 'linux-arm64'])
+        self.assertEqual(workflow('release.yml')['jobs']['quality-gate']['with']['acceptance_suite'], 'full')
+        linux = workflow('linux-appimage.yml')
+        update = next(s for s in linux['jobs']['linux-appimage']['steps'] if s.get('name') == 'Test packaged AppImage update cycle')
+        self.assertEqual(update['if'], "inputs.channel != 'canary' || inputs.run_updater_tests")
+        nightly = workflow('nightly.yml')['jobs']['updater']['with']
+        self.assertEqual(nightly['run_updater_tests'], 'true')
+        self.assertEqual(nightly['publish_updates'], 'false')
+        self.assertEqual(workflow('ci.yml')['jobs']['quality-gate']['with']['ref'], '${{ github.sha }}')
+
+
 class PublicationTests(unittest.TestCase):
     def test_ci_workflows_use_the_same_tested_tool_versions(self):
         def walk(value):
@@ -114,7 +180,7 @@ class PublicationTests(unittest.TestCase):
         jobs = workflow('quality-gate.yml')['jobs']
         for name, config in jobs.items():
             with self.subTest(job=name):
-                self.assertEqual(config['runs-on'], '${{ fromJSON(inputs.runs_on || \'"ubuntu-24.04"\') }}')
+                self.assertIn('inputs.runs_on', config['runs-on'])
         for name in ['canary.yml', 'release.yml', 'build-desktop.yml']:
             self.assertIn('stimma-test', workflow(name)['jobs']['quality-gate']['with']['runs_on'])
         self.assertNotIn('runs_on', workflow('ci.yml')['jobs']['quality-gate']['with'])

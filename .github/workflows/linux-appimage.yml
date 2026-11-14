@@ -4,6 +4,10 @@ run-name: ${{ github.event_name == 'push' && format('Build / Linux AppImage - {0
 on:
   workflow_call:
     inputs:
+      run_updater_tests:
+        description: Exercise packaged update hops on canaries (nightly validation)
+        type: boolean
+        default: false
       publication_gate:
         description: Job that must succeed before any release publication
         type: string
@@ -37,7 +41,7 @@ on:
       # dependency on current distributions (the kernel FUSE device remains).
       runs_on:
         required: false
-        default: '["self-hosted","linux","x64","stimma-build"]'
+        default: '["self-hosted","linux","x64","stimma-build-fast"]'
         type: string
 
 permissions:
@@ -295,6 +299,7 @@ jobs:
             node electron/tests/packaged-smoke.mjs "$APPIMAGE"
 
       - name: Test packaged AppImage update cycle
+        if: inputs.channel != 'canary' || inputs.run_updater_tests
         # The lane builds three AppImages and drives two update hops; it lands
         # in about two minutes warm and under six cold. Ten minutes leaves room
         # for a cold runner while still failing a hang reasonably fast -- this

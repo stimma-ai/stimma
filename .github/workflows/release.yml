@@ -129,6 +129,8 @@ jobs:
     with:
       ref: ${{ needs.release-meta.outputs.ref }}
       runs_on: '["self-hosted","linux","x64","stimma-test"]'
+      acceptance_runs_on: '["self-hosted","linux","x64","stimma-test-fast"]'
+      acceptance_suite: full
 
   release-ref:
     name: Release publication permitted
