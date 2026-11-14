@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { directImproves, effectiveWay, isPrepareFailureCode, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, readPending, shownKey, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
+import { directImproves, effectiveWay, isPrepareFailureCode, pollDelay, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, readPending, shownKey, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
@@ -185,4 +185,13 @@ test('a looked-up prompt whose readings were kept from before an edit is sent to
   assert.equal(readPending('ready', { reading: false, working: false }, false), false, 'checked and kept')
   assert.equal(readPending('stale', null, true), true)
   assert.equal(readPending('busy', { reading: true }, false), false)
+})
+
+test('looking again backs off to a slow poll and never stops while something is out', () => {
+  assert.equal(pollDelay('reading', 0), 1200)
+  assert.equal(pollDelay('reading', 10), 5000)
+  assert.equal(pollDelay('reading', 10_000), 5000)
+  assert.equal(pollDelay('pools', 0), 2000)
+  assert.equal(pollDelay('pools', 59), 6000)
+  assert.equal(pollDelay('pools', 10_000), 6000)
 })

@@ -45,13 +45,17 @@ function readSlots(prompt) {
 }
 const variantsOf = (id, words) => (VARIANTS[id] || [`a ${words}`, `an old ${words}`, `a small ${words}`]).map(text => ({ text, seeds: {} }))
 
-async function open(t, { theme = 'dark', width = 900, height = 760, mobile = false, start = '', dev = false, run = null } = {}) {
+async function open(t, { theme = 'dark', width = 900, height = 760, mobile = false, start = '', dev = false, run = null, failing = [] } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2, hasTouch: mobile, isMobile: mobile, colorScheme: theme })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  const calls = { prepare: [], suggest: [], add: [], pools: [] }
+  const calls = { prepare: [], suggest: [], add: [], pools: [], remove: [] }
+  // Slots whose variants failed (as_written) until a prepare asks again (retry), and variants
+  // removed for good.
+  const failed = new Set(failing)
+  const removed = new Set()
   // The slots the server has read, by their words: 'working' while it reads one, then 'read'.
   const reads = new Map()
   await page.route('**/*', async route => {
@@ -70,8 +74,14 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
       const next = `${body.prompt}, lit by <${body.name}>`
       return json({ prompt: next, slot: { from: next.length - body.name.length - 2, to: next.length } })
     }
+    if (url.endsWith('/prompt-programs/remove-variant')) {
+      calls.remove.push(body)
+      removed.add(body.text)
+      return json({ removed: true })
+    }
     if (url.endsWith('/prompt-programs/prepare')) {
       calls.prepare.push(body)
+      if (body.retry) failed.clear()
       const read = readSlots(body.prompt)
       if (!read.key) return json({ key: null, slots: [], choices: [] })
       // As slots.prepare answers: at once, every slot from the parse, each `reading` until it
@@ -88,15 +98,15 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
         const choices = read.choices.filter(c => done.has(c.slot))
         return json({ key: read.key, slots, choices, reading: true, working: read.slots.some(sl => reads.get(sl.words) === 'working') })
       }
-      return json({ ...read, slots: read.slots.map(s => ({ ...s, state: 'ready' })), reading: false, working: false, example: 'A dorm room with a 24-year-old Korean man', seconds: 0.7,
+      return json({ ...read, slots: read.slots.map(s => ({ ...s, state: failed.has(s.words) ? 'as_written' : 'ready' })), reading: false, working: false, example: 'A dorm room with a 24-year-old Korean man', seconds: 0.7,
         ...(body.include_program ? { seeds: { young_man: { banks: [{ role: 'descent', narrowed: ['Irish'] }] } }, example: 'Dorm room with a 21-year-old man', readings: { slots: [{ n: 1, kind: 'person', label: 'Young man' }] } } : {}) })
     }
     if (url.endsWith('/prompt-programs/pools')) {
       calls.pools.push(body)
       const read = readSlots(body.prompt)
       return json({ choices: Object.fromEntries(read.slots.map((sl) => {
-        const variants = variantsOf(sl.id, sl.words)
-        return [sl.id, { kind: 'variants', state: 'ready', more: false, variants, options: variants.map(v => v.text), chosen: body.choices?.[sl.id] || null }]
+        const variants = failed.has(sl.words) ? [] : variantsOf(sl.id, sl.words).filter(v => !removed.has(v.text))
+        return [sl.id, { kind: 'variants', state: failed.has(sl.words) ? 'as_written' : 'ready', more: false, variants, options: variants.map(v => v.text), chosen: body.choices?.[sl.id] || null }]
       })), more: [] })
     }
     if (url.endsWith('/prompt-programs/preview')) return json({ prompt: 'A dorm room with a 21-year-old Irish man with a buzz cut', draws: [{ id: 'young_man', value: MEN[1] }] })
@@ -332,6 +342,36 @@ test('the developer view shows the slot reading, the seeds and one draw', async 
   await expect(dialog.locator('[data-seeds]')).toContainText('Dorm room with a 21-year-old man')
   await expect(dialog).toContainText('A dorm room with a 21-year-old Irish man')
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/dev-dialog.png` })
+})
+
+test('a slot that couldn’t be varied says so quietly and tries again; a variant can be removed for good', async t => {
+  const { page, calls, card, shot } = await open(t, { start: 'dorm room with a <young man>, lit by <light>', failing: ['light'] })
+  const row = id => page.locator(`[data-row="${id}"]`)
+  await expect(row('light').locator('[data-failed]')).toContainText('Couldn’t vary this', { timeout: 4000 })
+  await expect(row('light')).toContainText('“light”')
+  await expect(row('young_man').locator('[data-failed]')).toHaveCount(0)
+  await row('light').click()
+  await expect(card.locator('[data-failed]')).toHaveText('Couldn’t vary this part')
+  await expect(card.locator('[data-more]')).toHaveCount(0)
+  await shot('failed-slot')
+  await card.locator('[data-retry]').click()
+  await expect.poll(() => calls.prepare.some(b => b.retry === true)).toBe(true)
+  await expect(card.locator(`[data-variant="${LIGHTS[0]}"]`)).toBeVisible({ timeout: 4000 })
+  await expect(row('light').locator('[data-failed]')).toHaveCount(0)
+
+  // Pin a variant, then remove it: gone from the picker, unpinned, never asked for again.
+  await row('young_man').click()
+  await card.locator(`[data-variant="${MEN[1]}"]`).click()
+  await expect.poll(() => page.evaluate(() => window.options().programChoices?.young_man ?? null)).toEqual({ values: [MEN[1]] })
+  await card.locator(`[data-variant="${MEN[1]}"]`).hover()
+  await shot('remove-variant-hover')
+  await card.locator(`[data-remove-variant="${MEN[1]}"]`).click()
+  await expect(card.locator(`[data-variant="${MEN[1]}"]`)).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => window.options().programChoices?.young_man ?? null)).toBe(null)
+  assert.equal(calls.remove.length, 1)
+  assert.equal(calls.remove[0].choice_id, 'young_man')
+  assert.equal(calls.remove[0].text, MEN[1])
+  await expect(card.locator('[data-variant]')).toHaveCount(2)
 })
 
 test('the developer view of a prompt with nothing that varies says so', async t => {

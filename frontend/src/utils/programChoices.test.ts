@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  addOwn, addValue, inPlayCount, listChoiceAt, readChoices, setPicked, carriedIds, followId, carryChoices, cleanState, clearSeed, isChanged, keptPieces, lineOf, lookOf,
+  addOwn, addValue, dropVariant, inPlayCount, poolWithout, slotFailed, listChoiceAt, readChoices, setPicked, carriedIds, followId, carryChoices, cleanState, clearSeed, isChanged, keptPieces, lineOf, lookOf,
   numberRepeats, optionsOf, pickedYears, resetState, rowValue, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleStage,
   toggleValue, toggleYear, wireState,
 } from './programChoices.ts'
@@ -127,7 +127,7 @@ test('how a slot shows: writing, varying, restricted, its words when it can’t 
 test('a row says the pool size, the picks as one or two then +N, or the words in quotes', () => {
   const slot = { state: 'ready' as const, words: 'dominant young woman' }
   assert.deepEqual(rowValue(slot, null, pool), { kind: 'varying', text: '4 options' })
-  assert.deepEqual(rowValue({ state: 'as_written', words: 'dominant young woman' }, null, pool), { kind: 'words', text: '“dominant young woman”' })
+  assert.deepEqual(rowValue({ state: 'as_written', words: 'dominant young woman' }, null, pool), { kind: 'words', text: '“dominant young woman”', failed: true })
   assert.deepEqual(rowValue({ state: 'writing', words: 'x' }, null, null), { kind: 'writing' })
   const picked = rowValue(slot, { seeds: { age: { values: ['young adult'], years: [40] }, gender: { values: ['trans woman'] }, descent: { values: ['Korean', 'Irish', 'Samoan'] } } }, pool)
   assert.deepEqual(picked, { kind: 'restricted', lines: [{ shown: 'Young adult, 40', more: 0 }, { shown: 'Trans woman', more: 0 }, { shown: 'Korean, Irish', more: 1 }] })
@@ -191,4 +191,30 @@ test('a late More like these follows its slot through an edit, and is dropped wh
   const later = { ...one, key: 'k3', from: 'k2' }
   assert.equal(followId('mug_2', two, later), null)   // moved on further: dropped
   assert.equal(followId('mug', null, two), null)
+})
+
+test('a slot that couldn’t be varied is told apart from the user’s own choice of its words', () => {
+  // Its reading failed (the slot says so), or its variants did (the pool says so).
+  assert.equal(slotFailed({ state: 'as_written' }, null), true)
+  assert.equal(slotFailed(ready, null, { options: [], state: 'as_written' }), true)
+  assert.equal(lookOf(ready, null, { options: [], state: 'as_written' }), 'words')
+  // Left as its words by the user (an older choice): its words, but nothing failed.
+  assert.equal(slotFailed(ready, { off: true }, pool), false)
+  assert.deepEqual(rowValue({ state: 'ready', words: 'pet' }, { off: true }, pool), { kind: 'words', text: '“pet”' })
+  // Varying, written, or being written again after Try again: nothing failed.
+  assert.equal(slotFailed(ready, null, pool), false)
+  assert.equal(slotFailed({ state: 'writing' }, null, { options: [], state: 'writing' }), false)
+  assert.equal(slotFailed(null, null), false)
+})
+
+test('a removed variant leaves the picks, the user’s own and the pool shown', () => {
+  assert.deepEqual(dropVariant({ values: [korean, 'own one'], add: ['own one'] }, korean), { values: ['own one'], add: ['own one'] })
+  assert.deepEqual(dropVariant({ values: ['own one'], add: ['own one'] }, 'own one'), null)
+  assert.deepEqual(dropVariant({ seeds: { gender: { values: ['woman'] } } }, korean), { seeds: { gender: { values: ['woman'] } } })
+  assert.equal(dropVariant(null, korean), null)
+  const p = { ...pool, options: pool.variants!.map(v => v.text) }
+  const out = poolWithout(p, korean)
+  assert.equal(out.variants!.length, pool.variants!.length - 1)
+  assert.ok(!out.options.includes(korean) && !out.variants!.some(v => v.text === korean))
+  assert.deepEqual(poolWithout({ options: ['a', 'b'] }, 'a'), { options: ['b'] })
 })

@@ -119,20 +119,33 @@
           <div v-for="i in 5" :key="i" class="flex items-center gap-2 px-2 py-2"><span class="w-3.5" /><span class="h-2.5 rounded-full fluent-shimmer" :style="{ width: `${50 + ((i * 37) % 40)}%` }" /></div>
         </template>
         <template v-else>
-          <div v-if="!all.length && !query.trim()" class="px-2 py-1.5 text-xs text-content-muted" data-none>No variants for this part yet</div>
+          <template v-if="failed && !query.trim()">
+            <div class="px-2 py-1.5 text-xs text-content-muted" data-failed>{{ program.unreachable.value ? 'Can’t reach your chat model' : 'Couldn’t vary this part' }}</div>
+            <button type="button" :disabled="program.retrying.value" :class="[rowClass, 'disabled:opacity-50 disabled:pointer-events-none']" data-retry @click="program.retrySlots()">
+              <span :class="tickClass"><Spinner v-if="program.retrying.value" size="sm" /><ArrowPathIcon v-else class="w-3.5 h-3.5 text-content-muted" /></span>
+              <span class="flex-1 text-content-secondary">Try again</span>
+            </button>
+          </template>
+          <div v-else-if="!all.length && !query.trim()" class="px-2 py-1.5 text-xs text-content-muted" data-none>No variants for this part yet</div>
           <div v-if="writingMore && !query.trim()" class="flex items-center gap-2 px-2 py-1.5 text-xs text-content-muted" data-writing-more>
             <span :class="tickClass"><Spinner size="sm" /></span>
             <span class="flex-1">Writing more…</span>
           </div>
           <template v-for="g in groups" :key="g.id">
             <div v-if="g.label" class="px-2 pt-2 pb-0.5 text-[11px] font-semibold text-content-tertiary">{{ g.label }}</div>
-            <button v-for="o in g.items" :key="o.text" type="button" :class="rowClass" :data-variant="o.text" :aria-pressed="isPinned(o.text)" @mousedown="onRowMouseDown" @click="pick(o.text, $event)">
-              <span :class="tickClass">
-                <CheckIcon v-if="isPinned(o.text)" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" />
-                <span v-else-if="isFresh(o.text)" class="w-1.5 h-1.5 rounded-full bg-accent" title="New" data-new />
-              </span>
-              <span :class="['flex-1 min-w-0 leading-snug break-words', inPlay(o.text) ? 'text-content' : 'text-content-secondary']"><span v-for="(p, k) in pieces(o)" :key="k" :class="p.kept ? 'text-content-muted' : ''" :data-kept="p.kept ? '' : undefined">{{ p.t }}</span></span>
-            </button>
+            <!-- A variant, and on hover (always on touch) a trash that removes it for good. -->
+            <div v-for="o in g.items" :key="o.text" class="group/variant flex items-stretch rounded-md hover:bg-overlay-subtle">
+              <button type="button" :class="[rowClass, 'flex-1 min-w-0 hover:bg-transparent']" :data-variant="o.text" :aria-pressed="isPinned(o.text)" @mousedown="onRowMouseDown" @click="pick(o.text, $event)">
+                <span :class="tickClass">
+                  <CheckIcon v-if="isPinned(o.text)" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" />
+                  <span v-else-if="isFresh(o.text)" class="w-1.5 h-1.5 rounded-full bg-accent" title="New" data-new />
+                </span>
+                <span :class="['flex-1 min-w-0 leading-snug break-words', inPlay(o.text) ? 'text-content' : 'text-content-secondary']"><span v-for="(p, k) in pieces(o)" :key="k" :class="p.kept ? 'text-content-muted' : ''" :data-kept="p.kept ? '' : undefined">{{ p.t }}</span></span>
+              </button>
+              <button v-if="!isList" type="button" :disabled="removing === o.text" class="shrink-0 px-2 coarse:min-w-11 flex items-center justify-center rounded-md text-content-muted hover:text-red-400 opacity-0 group-hover/variant:opacity-100 focus-visible:opacity-100 coarse:opacity-100 disabled:pointer-events-none outline-none focus-visible:ring-1 focus-visible:ring-selection/60 transition-opacity" :aria-label="`Remove “${o.text}”`" title="Remove" :data-remove-variant="o.text" @click="remove(o.text)">
+                <TrashIcon class="w-3.5 h-3.5" />
+              </button>
+            </div>
           </template>
           <template v-if="query.trim() && !rows.length">
             <div class="px-2 py-1.5 text-xs text-content-muted">No matches</div>
@@ -155,7 +168,7 @@
         <button v-if="query.trim() && rows.length" type="button" :class="footClass" :data-select-matches="allMatchesOn ? 'off' : 'on'" @mousedown.prevent @click="selectMatches">{{ allMatchesOn ? `Deselect all ${rows.length}` : `Select all ${rows.length}` }}</button>
       </template>
       <template v-else>
-        <button v-if="!isList" type="button" :disabled="writingMore" :class="footClass" data-more @click="more">
+        <button v-if="!isList && !failed" type="button" :disabled="writingMore" :class="footClass" data-more @click="more">
           <Spinner v-if="writingMore" size="sm" /><SparklesIcon v-else class="w-3.5 h-3.5" />
           More
         </button>
@@ -170,13 +183,13 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, PlusIcon, SparklesIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, PlusIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import SearchField from '../ui/SearchField.vue'
 import Spinner from '../ui/Spinner.vue'
 import { matchesQuery } from '../../utils/programVocab'
 import {
   ageItems, cap, clearSeed, descentItems, genderItems, hasSeeds, keptPieces, lineString, lookOf, optionsOf,
-  pickedHeritages, pickedYears, setPicked, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleStage, toggleValue, toggleYear,
+  pickedHeritages, pickedYears, setPicked, shownVariants, slotFailed, toggleGender, toggleHeritage, toggleRegion, toggleStage, toggleValue, toggleYear,
   yearOfAge,
 } from '../../utils/programChoices'
 import type { AgePicker, ChoiceState, Variant } from '../../utils/programWire'
@@ -201,6 +214,8 @@ const pool = computed(() => props.program.poolOf(props.id))
 const kind = computed(() => (isList.value ? 'varying' : lookOf(slot.value, st.value, pool.value)))
 const ready = computed(() => isList.value || kind.value !== 'writing')
 const person = computed(() => (slot.value?.kind === 'person' ? pool.value?.person || null : null))
+// Its reading or its variants failed: it goes in as its words until tried again.
+const failed = computed(() => !isList.value && slotFailed(slot.value, st.value, pool.value))
 
 function set(next: ChoiceState | null) {
   props.program.setState(props.id, next)
@@ -338,6 +353,22 @@ async function more() {
 function add() {
   props.program.addOwn(props.id, query.value)
   query.value = ''
+}
+// Remove a variant for good; one that was picked is unpicked.
+const removing = ref<string | null>(null)
+watch(() => props.id, () => { removing.value = null })
+async function remove(text: string) {
+  const at = props.id
+  removing.value = text
+  moreError.value = ''
+  try {
+    await props.program.removeVariant(at, text)
+    if (anchor.value === text) anchor.value = null
+  } catch {
+    if (at === props.id) moreError.value = 'Couldn’t remove that just now'
+  } finally {
+    if (at === props.id) removing.value = null
+  }
 }
 
 // Filters ------------------------------------------------------------------------------------

@@ -126,6 +126,15 @@ export function directImproves(t: { ideogram: boolean; h3: boolean; audio: boole
     slots are filled and checked to fit together. */
 export const DRAWING_LABEL = 'Filling in your prompt…'
 
+/** How long the editor waits before looking again while the server is still reading the
+    prompt, or still writing variants (`round` counts from 0): soon at first, then slowly, for as
+    long as anything is still out. The server also says when something lands
+    (`fluent_prompt_changed`), so this is the fallback for when that is missed. */
+export function pollDelay(kind: 'reading' | 'pools', round: number): number {
+  if (kind === 'reading') return round < 10 ? 1_200 : 5_000
+  return round < 15 ? 2_000 : 6_000
+}
+
 /** The code a failed prepare request carries. Only no response at all (timeout,
     network) means the chat model couldn't be reached; a server error is just a failure. */
 export function prepareErrorCode(e: any): string | undefined {

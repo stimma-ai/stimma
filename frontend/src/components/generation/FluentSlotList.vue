@@ -38,6 +38,11 @@
               <span v-for="(l, i) in r.value.lines" :key="i">{{ l.shown }}<span v-if="l.more" class="ml-1 text-content-tertiary tabular-nums" data-more-count>+{{ l.more }}</span></span>
             </span>
           </template>
+          <!-- Couldn't be varied (its reading or its variants failed, nothing the user chose):
+               quietly, with one way to try again. -->
+          <span v-if="r.value.kind === 'words' && r.value.failed" class="flex items-center gap-1.5 text-[11px] text-content-muted" data-failed>
+            {{ program.unreachable.value ? 'Can’t reach your chat model' : 'Couldn’t vary this' }}<span aria-hidden="true">·</span><button type="button" :disabled="program.retrying.value" class="px-1 -mx-1 coarse:py-1 rounded text-content-tertiary hover:text-content hover:bg-overlay-subtle disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-1 focus-visible:ring-selection/60" data-retry @click.stop="program.retrySlots()">Try again</button>
+          </span>
           <!-- Open and limited: how many of the pool, and back to any. -->
           <span v-if="openId === r.id && r.of" class="flex items-center gap-1.5 text-[11px] text-content-muted tabular-nums" data-of>
             {{ r.of }}<span aria-hidden="true">·</span><button type="button" class="px-1 -mx-1 coarse:py-1 rounded text-content-tertiary hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60" data-clear @click.stop="clear(r.id)">Clear</button>

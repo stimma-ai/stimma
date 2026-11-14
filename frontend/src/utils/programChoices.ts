@@ -114,6 +114,17 @@ export function addValue(s: ChoiceState | null | undefined, text: string): Choic
   return setPicked(s, [text], true)
 }
 
+/** A variant removed from the slot: no longer pinned, nor one of the user's own. */
+export function dropVariant(s: ChoiceState | null | undefined, text: string): ChoiceState | null {
+  if (!s) return null
+  return cleanState({ ...s, values: (s.values || []).filter(v => v !== text), add: (s.add || []).filter(v => v !== text) })
+}
+
+/** A pool with one variant gone (shown at once, before /pools reads back). */
+export function poolWithout(pool: ChoicePool, text: string): ChoicePool {
+  return { ...pool, ...(pool.variants ? { variants: pool.variants.filter(v => v.text !== text) } : {}), options: pool.options.filter(o => o !== text) }
+}
+
 /** Add the user's own variant and pin it. */
 export function addOwn(s: ChoiceState | null | undefined, text: string): ChoiceState | null {
   const v = text.trim()
@@ -309,8 +320,15 @@ export function lookOf(slot: Pick<ProgramSlot, 'state'> | null | undefined, s: C
   if (s?.values?.length || hasSeeds(s)) return 'restricted'
   const state = pool?.state || slot?.state
   if (!slot || slot.state === 'reading' || state === 'writing' || state === 'reading') return 'writing'
-  if (slot.state === 'as_written') return 'words'
+  if (state === 'as_written' || slot.state === 'as_written') return 'words'
   return 'varying'
+}
+
+/** The slot goes in as its words because its reading or its variants failed, not because of
+    anything the user chose: it can be tried again. */
+export function slotFailed(slot: Pick<ProgramSlot, 'state'> | null | undefined, s: ChoiceState | null | undefined,
+                           pool?: ChoicePool | null): boolean {
+  return !!slot && !s?.off && lookOf(slot, s, pool) === 'words'
 }
 
 /** "trans woman" as a row says it. */
@@ -341,7 +359,8 @@ export const lineString = (items: string[]) => { const f = lineOf(items); return
 export type RowValue =
   | { kind: 'writing' }
   | { kind: 'varying'; text: string }
-  | { kind: 'words'; text: string }
+  /** `failed`: the slot couldn't be varied (slotFailed), not the user's choice. */
+  | { kind: 'words'; text: string; failed?: boolean }
   | { kind: 'restricted'; lines: Array<{ shown: string; more: number }> }
 
 /** What a slot's row says: how many options its pool holds while it varies freely (the row
@@ -351,7 +370,7 @@ export type RowValue =
 export function rowValue(slot: Pick<ProgramSlot, 'state' | 'words'> | null, s: ChoiceState | null | undefined,
                          pool: ChoicePool | null | undefined, options: string[] = []): RowValue {
   const kind = slot ? lookOf(slot, s, pool) : (s?.values?.length ? 'restricted' : 'varying')
-  if (kind === 'words') return { kind, text: `\u201c${slot?.words || ''}\u201d` }
+  if (kind === 'words') return { kind, text: `\u201c${slot?.words || ''}\u201d`, ...(slotFailed(slot, s, pool) ? { failed: true } : {}) }
   if (kind === 'writing') return { kind }
   if (kind === 'restricted') {
     const person = pool?.person

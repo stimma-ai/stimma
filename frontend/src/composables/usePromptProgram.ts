@@ -1,13 +1,14 @@
 import { computed, nextTick, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
-import { prepareBody, prepareErrorCode, prepareSettingsSig, readPending, shownKey, type PrepareInputs } from '../utils/fluentSubmit'
+import { pollDelay, prepareBody, prepareErrorCode, prepareSettingsSig, readPending, shownKey, type PrepareInputs } from '../utils/fluentSubmit'
 import {
-  addOwn as addOwnTo, carriedIds, carryChoices, cleanState, followId, isChanged, keptPools, listChoiceAt, lookOf, numberRepeats, optionsOf as optionsIn,
+  addOwn as addOwnTo, carriedIds, carryChoices, cleanState, dropVariant, followId, isChanged, keptPools, listChoiceAt, lookOf, numberRepeats, optionsOf as optionsIn, poolWithout,
   readChoices, resetState, wireState, type SlotLookKind,
 } from '../utils/programChoices'
 import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareResponse, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 import { findLists } from '../utils/promptSyntax'
+import { useWebSocket } from './useWebSocket'
 import type { ListLook, SlotLook, SlotMarks } from './promptSlotMarks'
 
 export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
@@ -57,9 +58,6 @@ const TYPING_IDLE_MS = 1500
 
 /** How often the editor looks for a program the server prepared in the background after a failure. */
 const ERROR_POLL_MS = 15_000
-/** How often, and how many times, the editor looks again while the server is still reading slots. */
-const READING_POLL_MS = 1_200
-const READING_POLLS = 150
 
 export function usePromptProgram(o: Options) {
   const program = ref<PreparedProgram | null>(null)
@@ -222,16 +220,16 @@ export function usePromptProgram(o: Options) {
     }
   }
 
-  // While the server reads this prompt's slots, look again now and then: slots fill in as
-  // each reading lands.
+  // While the server reads this prompt's slots, look again now and then (slowly after a while,
+  // never giving up while it's still reading): slots fill in as each reading lands. The server
+  // also says when one lands (fluent_prompt_changed, below).
   let readingTimer: ReturnType<typeof setTimeout> | null = null
   let readingPolls = 0
   let startedSig: string | null = null
   function pollReading(data: PrepareResponse) {
     if (readingTimer) { clearTimeout(readingTimer); readingTimer = null }
     if (!data.working) { readingPolls = 0; return }
-    if (++readingPolls > READING_POLLS) return
-    readingTimer = setTimeout(() => { readingTimer = null; void lookup() }, READING_POLL_MS)
+    readingTimer = setTimeout(() => { readingTimer = null; void lookup() }, pollDelay('reading', readingPolls++))
   }
   onUnmounted(() => { if (readingTimer) clearTimeout(readingTimer) })
 
@@ -346,7 +344,8 @@ export function usePromptProgram(o: Options) {
 
   // Each slot's pool of variants (a list's options), as /pools says now. A slot's first
   // variants keep arriving for a while after preparing, and a pick or More like these writes
-  // more: while any is being written, look again now and then.
+  // more: while any is being written, look again now and then (slowly after a while, never
+  // giving up while it's still writing), and whenever the server says something landed.
   const pools = ref<Record<string, ChoicePool>>({})
   /** slot id -> the variants More like these just added (marked new in the picker). */
   const fresh = ref<Record<string, string[]>>({})
@@ -365,7 +364,7 @@ export function usePromptProgram(o: Options) {
         request({ key: program.value?.key, choices: wireChoices.value }))
       if (id !== poolsId || sig !== signature.value) return
       pools.value = data?.choices || {}
-      if (writingNow(data) && rounds < 60) poolsTimer = setTimeout(() => { void fetchPools(rounds + 1) }, 2000)
+      if (writingNow(data)) poolsTimer = setTimeout(() => { void fetchPools(rounds + 1) }, pollDelay('pools', rounds))
     } catch { /* the variants shown still show */ }
   }
   // A slot's state moving on (read, then written) is news for its pool too.
@@ -414,6 +413,47 @@ export function usePromptProgram(o: Options) {
   function addOwn(id: string, text: string) {
     setState(id, addOwnTo(states.value[id], text))
   }
+
+  /** Remove a variant from a slot's pool for good (never drawn or listed again); one the user
+      added only leaves their own. Unpinned either way. Rejects when the server couldn't. */
+  async function removeVariant(id: string, text: string): Promise<void> {
+    const pool = pools.value[id]
+    const own = !!pool?.variants?.find(v => v.text === text)?.own || !(pool?.variants || []).some(v => v.text === text)
+    if (!own) {
+      await axios.post(`${getApiBase()}/prompt-programs/remove-variant`, request({ key: program.value?.key, choice_id: id, text }))
+    }
+    const now = pools.value[id]
+    if (now) pools.value = { ...pools.value, [id]: poolWithout(now, text) }
+    if (fresh.value[id]?.includes(text)) fresh.value = { ...fresh.value, [id]: fresh.value[id].filter(t => t !== text) }
+    setState(id, dropVariant(states.value[id], text))
+  }
+
+  /** Try again: the parts standing as their words because their reading or their variants
+      failed are read and written again at once. */
+  const retrying = ref(false)
+  async function retrySlots(): Promise<void> {
+    if (retrying.value) return
+    const sig = signature.value
+    retrying.value = true
+    try {
+      const { data } = await axios.post<PrepareResponse>(`${getApiBase()}/prompt-programs/prepare`,
+        request({ retry: true, key: shownKey(program.value, preparedSig.value, settingsSig.value) }))
+      if (sig !== signature.value || !holdsProgram(data)) return
+      landed(data, sig)
+      error.value = null
+      pollReading(data)
+      void fetchPools()
+    } catch (e: any) {
+      if (sig === signature.value) {
+        const detail = e?.response?.data?.detail
+        error.value = { sig, code: prepareErrorCode(e), message: (typeof detail === 'string' ? detail : detail?.message) || 'Couldn’t read this prompt.' }
+      }
+    } finally {
+      retrying.value = false
+    }
+  }
+  /** The chat model couldn't be reached, the last time it was asked. */
+  const unreachable = computed(() => error.value?.sig === signature.value && error.value.code === 'llm_unavailable')
 
   // How each slot shows in the text --------------------------------------------------------
 
@@ -506,6 +546,20 @@ export function usePromptProgram(o: Options) {
   const onFocus = () => { void lookup() }
   window.addEventListener('focus', onFocus)
   onUnmounted(() => window.removeEventListener('focus', onFocus))
+  // The server says this prompt changed (a reading landed, variants were stored, a write
+  // ended): look again now. Several at once look once.
+  const ws = useWebSocket()
+  let changedTimer: ReturnType<typeof setTimeout> | null = null
+  const onChanged = (data: { key?: string } | null) => {
+    if (!data?.key || data.key !== program.value?.key || changedTimer) return
+    changedTimer = setTimeout(() => {
+      changedTimer = null
+      void lookup()
+      void fetchPools()
+    }, 150)
+  }
+  ws.on('fluent_prompt_changed', onChanged)
+  onUnmounted(() => { ws.off('fluent_prompt_changed', onChanged); if (changedTimer) clearTimeout(changedTimer) })
   // While this prompt runs on its words as written, the server keeps trying to read it in
   // the background: look now and then, so the editor (and the next run) pick it up.
   let errorPoll: ReturnType<typeof setInterval> | null = null
@@ -518,7 +572,7 @@ export function usePromptProgram(o: Options) {
   return {
     program, status, error, unsupported, typing, doneTyping, leftSlot, slots, choices, byId, slotById, pools, fresh, states, openCard, openId, marks,
     lookup, prepare, needsRead, ensureReady, payload, fetchProgramText, previewRuns,
-    poolOf, optionsOf, moreLikeThese, addOwn, setState, setStates, setValues, reset, resetAll, lookOfSlot,
+    poolOf, optionsOf, moreLikeThese, addOwn, removeVariant, retrySlots, retrying, unreachable, setState, setStates, setValues, reset, resetAll, lookOfSlot,
     slotFor, toggleRow, openEditorList, openEditorSlot, close,
   }
 }
