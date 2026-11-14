@@ -203,6 +203,24 @@ class VariantStore:
             os.replace(tmp, p)
         return got
 
+    def unmark_used(self, key: str, texts: Sequence[str]) -> None:
+        """Take back one counted draw of each text (a buffered draw dropped before it shipped)."""
+        p = self._path(key, ".uses.json")
+        with self._lock:
+            got = self.uses(key)
+            for t in texts:
+                n = _norm(t)
+                if got.get(n, 0) > 1:
+                    got[n] -= 1
+                else:
+                    got.pop(n, None)
+            if not p.parent.is_dir():
+                return
+            fd, tmp = tempfile.mkstemp(dir=p.parent, suffix=".tmp")
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(got, f, ensure_ascii=False)
+            os.replace(tmp, p)
+
 
 # --------------------------------------------------------------------------- the user's choice
 

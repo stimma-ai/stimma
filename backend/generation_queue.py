@@ -649,7 +649,7 @@ class GenerationQueue:
         )
         if existing_snapshot != new_snapshot:
             self._cancel_prompt_warm_tasks(generator_instance_id)
-            self._prompt_warm_ready[generator_instance_id] = []
+            self._drop_prompt_warm_ready(generator_instance_id)
 
         self._prompt_warm_intent[generator_instance_id] = {
             **new_snapshot,
@@ -814,7 +814,7 @@ class GenerationQueue:
             self._cancel_prompt_warm_tasks(generator_instance_id)
             intent = {'kind': 'fluent', 'signature': signature, 'spec': spec()}
             self._prompt_warm_intent[generator_instance_id] = intent
-            self._prompt_warm_ready[generator_instance_id] = []
+            self._drop_prompt_warm_ready(generator_instance_id)
         intent['concurrency'] = slots
         intent['updated_at'] = time.monotonic()
         ready = self._prompt_warm_ready.setdefault(generator_instance_id, [])
@@ -866,9 +866,6 @@ class GenerationQueue:
                 good = [{'filled': text, 'spans': [list(sp) for sp in spans]} for text, spans in made]
             else:
                 good = [{'result': m[0], 'fix': m[1], 'seed': s} for s, m in zip(seeds, made) if not isinstance(m, Exception)]
-                for hot in good:   # a buffered draw counts toward its pools now, so top-ups run ahead
-                    count_draw(spec['entry'], hot['result'], profile_id=spec.get('profile_id'),
-                               project_id=spec.get('project_id'), chosen=spec.get('chosen'))
             if not good:
                 return  # nothing draws (a pin nothing satisfies): submits say why inline
             for hot in good:
@@ -876,6 +873,13 @@ class GenerationQueue:
                     await self._improve_fluent_draw(generator_instance_id, hot, spec)
                 if self._prompt_warm_intent.get(generator_instance_id) is not intent:
                     return  # moved on while this one was being improved: drop it
+                if not direct:
+                    # A buffered draw counts toward its pools as it joins the buffer, so top-ups run
+                    # ahead; a buffer dropped unshipped takes its counts back (_drop_prompt_warm_ready).
+                    hot['counted'] = count_draw(spec['entry'], hot['result'], profile_id=spec.get('profile_id'),
+                                                project_id=spec.get('project_id'), chosen=spec.get('chosen'),
+                                                fix=hot['fix'])
+                    hot['profile_id'] = spec.get('profile_id')
                 self._prompt_warm_ready.setdefault(generator_instance_id, []).append(hot)
 
     async def _improve_fluent_draw(self, generator_instance_id: str, hot: Dict[str, Any],
@@ -903,8 +907,20 @@ class GenerationQueue:
             return
         hot['sent'], hot['improve'] = sent, outcome
 
+    def _drop_prompt_warm_ready(self, generator_instance_id: str) -> None:
+        """Empty this instance's ready pool. A Fluent draw dropped there never ships, so the
+        uses it counted toward its pools are taken back."""
+        dropped = self._prompt_warm_ready.pop(generator_instance_id, None) or []
+        self._prompt_warm_ready[generator_instance_id] = []
+        if any(isinstance(hot, dict) and hot.get('counted') for hot in dropped):
+            from prompt_programs.fluent import uncount
+            for hot in dropped:
+                if isinstance(hot, dict) and hot.get('counted'):
+                    uncount(hot['counted'], profile_id=hot.get('profile_id'))
+
     def teardown_prompt_warm_pool(self, generator_instance_id: str) -> None:
         self._cancel_prompt_warm_tasks(generator_instance_id)
+        self._drop_prompt_warm_ready(generator_instance_id)
         self._prompt_warm_ready.pop(generator_instance_id, None)
         self._prompt_warm_intent.pop(generator_instance_id, None)
 

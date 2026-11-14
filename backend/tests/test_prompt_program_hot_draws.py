@@ -1,7 +1,7 @@
 """Fluent hot draws: forever mode keeps finished draws (drawn and judged) ready, so a
 submit never waits on the fix judge. Several draws share each judge pass, and a pass
 asked for while one runs joins the next. A batch's draws each take another variant, and a
-buffered draw counts toward its pools when it is made."""
+buffered draw counts toward its pools when it is made, and a dropped one takes it back."""
 
 import asyncio
 import threading
@@ -218,6 +218,30 @@ class TestPool:
         uses = P.store_for(PROFILE).uses(outfit["pool"])
         drawn = [values(h["result"])["outfit"] for h in queue._prompt_warm_ready["gen-1"]]
         assert sum(uses.values()) == 3 and len(set(drawn)) == 3
+
+    async def test_a_dropped_buffer_takes_its_counts_back(self, queue):
+        # A new signature (or forever stopping) drops the buffered draws unshipped: the uses they
+        # counted are taken back; a draw taken from the buffer keeps its count.
+        queue.judge.rule = lambda it: 0.01  # nothing rerolls
+        entry = counted(entry_for())
+        outfit = next(s for s in entry["slots"] if s["id"] == "outfit")
+        store = P.store_for(PROFILE)
+        queue.take_fluent_draw("gen-1", "sig-a", spec_for(entry))
+        await settle(queue, "gen-1")
+        taken = queue.take_fluent_draw("gen-1", "sig-a", spec_for(entry))
+        queue._cancel_prompt_warm_tasks("gen-1")   # no refill behind it: three buffered, one shipped
+        await asyncio.sleep(0)
+        assert sum(store.uses(outfit["pool"]).values()) == 3
+        queue.take_fluent_draw("gen-1", "sig-b", spec_for(entry, pins={"job": ["nun"]}))
+        queue._cancel_prompt_warm_tasks("gen-1")
+        await asyncio.sleep(0)
+        assert store.uses(outfit["pool"]) == {P._norm(values(taken["result"])["outfit"]): 1}
+        # forever stopping drops the buffer too
+        queue.take_fluent_draw("gen-1", "sig-c", spec_for(entry))
+        await settle(queue, "gen-1")
+        assert sum(store.uses(outfit["pool"]).values()) == 4
+        await queue.unregister_forever_mode("gen-1", "backend-a")
+        assert store.uses(outfit["pool"]) == {P._norm(values(taken["result"])["outfit"]): 1}
 
     async def test_three_draws_fill_in_one_judge_pass(self, queue):
         queue.judge.rule = lambda it: 0.01  # nothing rerolls: one round

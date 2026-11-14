@@ -221,6 +221,24 @@ def count_draw(entry: Dict[str, Any], result: Any, *, profile_id: Optional[str] 
     return counted
 
 
+def uncount(counted: List[Tuple[str, str]], *, profile_id: Optional[str] = None) -> None:
+    """Take back what count_draw counted for a draw that never shipped (generate-forever's
+    buffer, dropped when what it was drawn for changed). Never raises."""
+    if not counted:
+        return
+    try:
+        store = _store(profile_id)
+        if store is None:
+            return
+        by: Dict[str, List[str]] = {}
+        for key, text in counted:
+            by.setdefault(str(key), []).append(str(text))
+        for key, texts in by.items():
+            store.unmark_used(key, texts)
+    except Exception as e:
+        log.warning(f"[fluent] taking back a dropped draw's counts failed: {e}")
+
+
 def slot_state(entry: Dict[str, Any], slot: Dict[str, Any], writer: Optional[PoolWriter]) -> str:
     """reading | writing | ready | as_written (stimma-plans VARIANTS_IMPL.md section 1)."""
     if slot.get("state") != "ready":
@@ -291,4 +309,4 @@ def pool_view(entry: Dict[str, Any], chosen: Optional[Dict[str, Choice]] = None,
 
 
 __all__ = ["ENGINE", "Variants", "attach_filler", "attach_writer", "count_draw", "has_draws", "refused", "more_like_these",
-           "pool_view", "runtime_for", "slot_job", "slot_state", "start_pools"]
+           "pool_view", "runtime_for", "slot_job", "slot_state", "start_pools", "uncount"]
