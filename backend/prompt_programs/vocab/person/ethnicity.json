@@ -4,7 +4,7 @@
   "description": "National or ethnic descent adjectives, drawn by where the picture is set (places.json): every world region equal with no place.",
   "pos": "adjective",
   "frame": "the ___ person",
-  "notes": "National or ethnic descent adjectives at a named people or country level, never continental categories. A descent word means that heritage's typical look: each value belongs to a named group that declares the coloring families typical of that heritage for drawing (skin_family, eye_family, hair_family, texture) and, where a heritage is mostly one look but often another, the families seen less commonly (less_common). A person's skin tone, eye color, hair color and texture drawn after it are weighted toward the typical families, the less common ones are drawn less often, and anything else stays possible, rarely. Groups are named per people or region, never merged across unrelated regions because their coloring coincides. These are drawing defaults, not claims about any person; nations with wide variation carry every family. Membership categories can overlap and are neither exhaustive nor a claim about citizenship. Bengali and Bangladeshi, Punjabi and Indian, Tamil and Indian or Sri Lankan, and Pashtun and Pakistani or Afghan are retained as distinct ethnic and national descent labels with overlapping membership. Each value sits in one world region (the local facet region), the way the chooser is browsed: a region is where a person looks for a descent, never its coloring, which stays with the value's group. Values also read before woman or man. Mixed descent is left to explicit composition rather than enumerating pairs.",
+  "notes": "National or ethnic descent adjectives at a named people or country level, never continental categories. A descent word means that heritage's typical look: each value belongs to a named group that declares the coloring families typical of that heritage for drawing (skin_family, eye_family, hair_family, texture) and, where a heritage is mostly one look but often another, the families seen less commonly (less_common). A person's skin tone, eye color, hair color and texture drawn after it are weighted toward the typical families, the less common ones are drawn less often, and anything else stays possible, rarely. Groups are named per people or region, never merged across unrelated regions because their coloring coincides. These are drawing defaults, not claims about any person; nations with wide variation carry every family. Membership categories can overlap and are neither exhaustive nor a claim about citizenship. Bengali and Bangladeshi, Punjabi and Indian, Tamil and Indian or Sri Lankan, and Pashtun and Pakistani or Afghan are retained as distinct ethnic and national descent labels with overlapping membership. Each value sits in one world region (the local facet region), the way the chooser is browsed: a region is where a person looks for a descent, never its coloring, which stays with the value's group. Values also read before woman or man. Tier is by size: typical for a people of about 15 million or more, plausible for a smaller one, so with no place a small people is drawn about a third as often as a large one in its region. White American, White Canadian, White Australian and White New Zealander are the settler majorities of those countries, named as residents name them, in place of their European ancestries. Mixed descent is left to explicit composition rather than enumerating pairs.",
   "facets": [],
   "closed": true,
   "local_facets": {
@@ -354,7 +354,7 @@
       }
     },
     "middle_eastern": {
-      "about": "Iranian, Turkish, Lebanese, Iraqi, Syrian, Palestinian.",
+      "about": "Iranian, Turkish, Lebanese, Iraqi, Syrian, Palestinian, Mizrahi Jewish.",
       "tags": {
         "skin_family": [
           "fair",
@@ -418,7 +418,7 @@
       }
     },
     "horn_of_africa": {
-      "about": "Ethiopian, Eritrean, Somali, Sudanese.",
+      "about": "Ethiopian, Eritrean, Somali, Sudanese, Ethiopian Jewish.",
       "tags": {
         "skin_family": [
           "brown",
@@ -611,7 +611,7 @@
       }
     },
     "southern_cone": {
-      "about": "Chilean, Argentinian: mostly brown or hazel eyes, light eyes sometimes; dark to mid brown hair, blonde sometimes.",
+      "about": "Chilean, Argentinian, Uruguayan: mostly brown or hazel eyes, light eyes sometimes; dark to mid brown hair, blonde sometimes.",
       "tags": {
         "skin_family": [
           "fair",
@@ -911,6 +911,100 @@
           "straight"
         ]
       }
+    },
+    "white_north_american": {
+      "about": "White American, White Canadian: North Americans of mixed European descent: brown, hazel and light eyes all common; dark brown to blonde hair, black or red sometimes.",
+      "tags": {
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      },
+      "less_common": {
+        "hair_family": [
+          "black",
+          "red"
+        ]
+      }
+    },
+    "white_australasian": {
+      "about": "White Australian, White New Zealander: Australians and New Zealanders of mostly British and Irish descent: mostly light or hazel eyes, brown sometimes; dark brown to blonde hair, red sometimes.",
+      "tags": {
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "hazel",
+          "light"
+        ],
+        "hair_family": [
+          "dark_brown",
+          "brown",
+          "blonde"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      },
+      "less_common": {
+        "eye_family": [
+          "brown"
+        ],
+        "hair_family": [
+          "red",
+          "black"
+        ]
+      }
+    },
+    "ashkenazi_jewish": {
+      "about": "Ashkenazi Jewish: mostly brown or hazel eyes, light eyes sometimes; dark brown to black hair, often wavy or curly, red or blonde sometimes.",
+      "tags": {
+        "skin_family": [
+          "fair",
+          "light"
+        ],
+        "eye_family": [
+          "brown",
+          "hazel"
+        ],
+        "hair_family": [
+          "black",
+          "dark_brown",
+          "brown"
+        ],
+        "texture": [
+          "straight",
+          "wavy",
+          "curly"
+        ]
+      },
+      "less_common": {
+        "eye_family": [
+          "light"
+        ],
+        "hair_family": [
+          "red",
+          "blonde"
+        ]
+      }
     }
   },
   "values": [
@@ -956,7 +1050,7 @@
     },
     {
       "text": "Mongolian",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "mongolian_tibetan",
       "tags": {
         "region": [
@@ -966,7 +1060,7 @@
     },
     {
       "text": "Tibetan",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "mongolian_tibetan",
       "tags": {
         "region": [
@@ -1006,7 +1100,7 @@
     },
     {
       "text": "Kyrgyz",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "central_asian",
       "tags": {
         "region": [
@@ -1016,7 +1110,7 @@
     },
     {
       "text": "Turkmen",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "central_asian",
       "tags": {
         "region": [
@@ -1056,7 +1150,7 @@
     },
     {
       "text": "Lao",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "southeast_asian",
       "tags": {
         "region": [
@@ -1236,7 +1330,7 @@
     },
     {
       "text": "Armenian",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "caucasus_anatolia",
       "tags": {
         "region": [
@@ -1246,7 +1340,7 @@
     },
     {
       "text": "Georgian",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "caucasus_anatolia",
       "tags": {
         "region": [
@@ -1256,7 +1350,7 @@
     },
     {
       "text": "Lebanese",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "middle_eastern",
       "tags": {
         "region": [
@@ -1286,7 +1380,17 @@
     },
     {
       "text": "Palestinian",
-      "tier": "typical",
+      "tier": "plausible",
+      "group": "middle_eastern",
+      "tags": {
+        "region": [
+          "Middle East and North Africa"
+        ]
+      }
+    },
+    {
+      "text": "Mizrahi Jewish",
+      "tier": "plausible",
       "group": "middle_eastern",
       "tags": {
         "region": [
@@ -1356,7 +1460,17 @@
     },
     {
       "text": "Eritrean",
-      "tier": "typical",
+      "tier": "plausible",
+      "group": "horn_of_africa",
+      "tags": {
+        "region": [
+          "Sub-Saharan Africa"
+        ]
+      }
+    },
+    {
+      "text": "Ethiopian Jewish",
+      "tier": "plausible",
       "group": "horn_of_africa",
       "tags": {
         "region": [
@@ -1476,7 +1590,7 @@
     },
     {
       "text": "Tunisian",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "north_african",
       "tags": {
         "region": [
@@ -1486,7 +1600,7 @@
     },
     {
       "text": "Libyan",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "north_african",
       "tags": {
         "region": [
@@ -1506,7 +1620,7 @@
     },
     {
       "text": "Irish",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "irish_scottish_welsh",
       "tags": {
         "region": [
@@ -1516,7 +1630,7 @@
     },
     {
       "text": "Scottish",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "irish_scottish_welsh",
       "tags": {
         "region": [
@@ -1526,7 +1640,7 @@
     },
     {
       "text": "Welsh",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "irish_scottish_welsh",
       "tags": {
         "region": [
@@ -1636,7 +1750,7 @@
     },
     {
       "text": "Portuguese",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "southern_european",
       "tags": {
         "region": [
@@ -1646,7 +1760,7 @@
     },
     {
       "text": "Greek",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "southern_european",
       "tags": {
         "region": [
@@ -1656,7 +1770,7 @@
     },
     {
       "text": "Swedish",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "nordic",
       "tags": {
         "region": [
@@ -1666,7 +1780,7 @@
     },
     {
       "text": "Norwegian",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "nordic",
       "tags": {
         "region": [
@@ -1676,7 +1790,7 @@
     },
     {
       "text": "Danish",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "nordic",
       "tags": {
         "region": [
@@ -1686,8 +1800,18 @@
     },
     {
       "text": "Finnish",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "nordic",
+      "tags": {
+        "region": [
+          "Europe"
+        ]
+      }
+    },
+    {
+      "text": "Ashkenazi Jewish",
+      "tier": "plausible",
+      "group": "ashkenazi_jewish",
       "tags": {
         "region": [
           "Europe"
@@ -1698,6 +1822,26 @@
       "text": "African American",
       "tier": "typical",
       "group": "african_american",
+      "tags": {
+        "region": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "White American",
+      "tier": "typical",
+      "group": "white_north_american",
+      "tags": {
+        "region": [
+          "North America"
+        ]
+      }
+    },
+    {
+      "text": "White Canadian",
+      "tier": "typical",
+      "group": "white_north_american",
       "tags": {
         "region": [
           "North America"
@@ -1726,7 +1870,7 @@
     },
     {
       "text": "Salvadoran",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "central_andean_american",
       "tags": {
         "region": [
@@ -1736,7 +1880,7 @@
     },
     {
       "text": "Jamaican",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "jamaican_haitian",
       "tags": {
         "region": [
@@ -1746,7 +1890,7 @@
     },
     {
       "text": "Haitian",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "jamaican_haitian",
       "tags": {
         "region": [
@@ -1756,7 +1900,7 @@
     },
     {
       "text": "Cuban",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "hispanic_caribbean",
       "tags": {
         "region": [
@@ -1766,7 +1910,7 @@
     },
     {
       "text": "Dominican",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "hispanic_caribbean",
       "tags": {
         "region": [
@@ -1776,7 +1920,7 @@
     },
     {
       "text": "Puerto Rican",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "hispanic_caribbean",
       "tags": {
         "region": [
@@ -1836,7 +1980,7 @@
     },
     {
       "text": "Bolivian",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "central_andean_american",
       "tags": {
         "region": [
@@ -1865,8 +2009,18 @@
       }
     },
     {
+      "text": "Uruguayan",
+      "tier": "plausible",
+      "group": "southern_cone",
+      "tags": {
+        "region": [
+          "Latin America and the Caribbean"
+        ]
+      }
+    },
+    {
       "text": "Māori",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "polynesian",
       "tags": {
         "region": [
@@ -1876,7 +2030,7 @@
     },
     {
       "text": "Native Hawaiian",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "polynesian",
       "tags": {
         "region": [
@@ -1886,7 +2040,7 @@
     },
     {
       "text": "Samoan",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "polynesian",
       "tags": {
         "region": [
@@ -1896,7 +2050,7 @@
     },
     {
       "text": "Tongan",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "polynesian",
       "tags": {
         "region": [
@@ -1906,7 +2060,7 @@
     },
     {
       "text": "Fijian",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "melanesian",
       "tags": {
         "region": [
@@ -1916,7 +2070,7 @@
     },
     {
       "text": "Papua New Guinean",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "melanesian",
       "tags": {
         "region": [
@@ -1926,7 +2080,7 @@
     },
     {
       "text": "Aboriginal Australian",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "aboriginal_australian",
       "tags": {
         "region": [
@@ -1935,8 +2089,28 @@
       }
     },
     {
-      "text": "Navajo",
+      "text": "White Australian",
       "tier": "typical",
+      "group": "white_australasian",
+      "tags": {
+        "region": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "White New Zealander",
+      "tier": "plausible",
+      "group": "white_australasian",
+      "tags": {
+        "region": [
+          "Oceania"
+        ]
+      }
+    },
+    {
+      "text": "Navajo",
+      "tier": "plausible",
       "group": "native_american",
       "tags": {
         "region": [
@@ -1946,7 +2120,7 @@
     },
     {
       "text": "Cherokee",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "native_american",
       "tags": {
         "region": [
@@ -1956,7 +2130,7 @@
     },
     {
       "text": "Inuit",
-      "tier": "typical",
+      "tier": "plausible",
       "group": "inuit",
       "tags": {
         "region": [

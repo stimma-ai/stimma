@@ -190,8 +190,8 @@ class TestTemplates:
 class TestDescentRegions:
     """Descent is browsed by world region: each value in one region, the chooser a row per region."""
 
-    REGIONS = {"East Asia": 6, "Southeast Asia": 8, "South Asia": 10, "Central Asia": 5, "Middle East and North Africa": 16,
-               "Sub-Saharan Africa": 14, "Europe": 19, "North America": 4, "Latin America and the Caribbean": 16, "Oceania": 7}
+    REGIONS = {"East Asia": 6, "Southeast Asia": 8, "South Asia": 10, "Central Asia": 5, "Middle East and North Africa": 17,
+               "Sub-Saharan Africa": 15, "Europe": 20, "North America": 6, "Latin America and the Caribbean": 17, "Oceania": 9}
 
     def test_every_descent_sits_in_one_region(self):
         eth = vocabulary().get("person.ethnicity")
@@ -204,12 +204,12 @@ class TestDescentRegions:
 
     def test_with_no_place_every_region_is_seeded_equally_however_many_values_it_has(self):
         """Regions organize the chooser, and with no place they are the prior: each region an equal
-        share of the descent seeds, split evenly among its heritages (places.global_prior)."""
+        share of the descent seeds, split among its heritages by tier (places.global_prior)."""
         eth = vocabulary().get("person.ethnicity")
         drawn, standby = eth.pool_values()
-        assert not standby and len(drawn) == 105 and {v.weight for v in drawn} == {1.0}
+        assert not standby and len(drawn) == 113 and {v.weight for v in drawn} == {1.0, 0.3}
         seeds = V.person_seeds()
-        assert len(seeds.descent.values) == 105
+        assert len(seeds.descent.values) == 113
         n = 6000
         got = collections.Counter(eth.value(s.descent).tags["region"][0]
                                   for s in V.draw_seeds(random.Random(5), seeds, n).specs)

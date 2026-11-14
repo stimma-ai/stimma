@@ -117,26 +117,21 @@
   "AU": {
    "name": "Australia",
    "shares": {
-    "English": 0.45,
-    "Irish": 0.08,
-    "Scottish": 0.07,
-    "Chinese": 0.05,
-    "Indian": 0.03,
-    "Italian": 0.03,
-    "Aboriginal Australian": 0.03,
-    "German": 0.02,
-    "Greek": 0.015,
-    "Vietnamese": 0.012,
-    "Filipino": 0.012,
+    "White Australian": 0.73,
+    "Chinese": 0.055,
+    "Aboriginal Australian": 0.032,
+    "Indian": 0.031,
+    "Filipino": 0.013,
+    "Vietnamese": 0.013,
     "Lebanese": 0.01,
     "Māori": 0.007,
     "Korean": 0.005,
-    "Dutch": 0.005,
     "Nepali": 0.005,
     "Sri Lankan": 0.005,
-    "South African": 0.005
+    "South African": 0.005,
+    "Iranian": 0.003
    },
-   "notes": "Anglo-Australians are drawn as English, Irish and Scottish."
+   "notes": "Australians of European descent, Italian and Greek Australians among them, are drawn as White Australian."
   },
   "AW": {
    "name": "Aruba",
@@ -359,25 +354,28 @@
   "CA": {
    "name": "Canada",
    "shares": {
-    "English": 0.25,
-    "French": 0.2,
-    "Scottish": 0.1,
-    "Irish": 0.09,
-    "German": 0.05,
-    "Chinese": 0.045,
+    "White Canadian": 0.66,
+    "Chinese": 0.047,
     "Indian": 0.04,
-    "Italian": 0.025,
-    "Filipino": 0.025,
+    "Filipino": 0.026,
     "Punjabi": 0.02,
-    "Ukrainian": 0.02,
-    "Polish": 0.015,
-    "Jamaican": 0.01,
+    "Ashkenazi Jewish": 0.009,
+    "Pakistani": 0.007,
+    "Jamaican": 0.007,
+    "Vietnamese": 0.007,
+    "Lebanese": 0.006,
+    "Iranian": 0.006,
+    "Korean": 0.006,
     "Haitian": 0.005,
-    "Lebanese": 0.005,
-    "Pakistani": 0.005,
+    "Sri Lankan": 0.004,
+    "Nigerian": 0.003,
+    "Japanese": 0.003,
+    "Mexican": 0.003,
+    "Somali": 0.002,
+    "Colombian": 0.002,
     "Inuit": 0.002
    },
-   "notes": "Québécois are drawn as French. First Nations have no listed heritage besides Navajo, Cherokee and Inuit; left to the global remainder rather than naming the wrong nation."
+   "notes": "White Canadians, Québécois among them, are drawn as White Canadian. First Nations and Métis have no listed heritage besides Navajo, Cherokee and Inuit; left to the global remainder rather than naming the wrong nation."
   },
   "CD": {
    "name": "Democratic Republic of the Congo",
@@ -1019,7 +1017,7 @@
    "shares": {
     "Filipino": 0.55,
     "Samoan": 0.1,
-    "English": 0.05,
+    "White American": 0.05,
     "Korean": 0.02,
     "Chinese": 0.02
    },
@@ -1130,22 +1128,14 @@
   "IL": {
    "name": "Israel",
    "shares": {
-    "Palestinian": 0.21,
-    "Moroccan": 0.1,
-    "Russian": 0.1,
-    "Polish": 0.07,
-    "Iraqi": 0.07,
-    "Ukrainian": 0.05,
-    "Lebanese": 0.05,
-    "Iranian": 0.04,
-    "Yemeni": 0.03,
-    "Romanian": 0.03,
-    "German": 0.02,
-    "Tunisian": 0.02,
-    "Ethiopian": 0.015,
-    "Georgian": 0.01
+    "Mizrahi Jewish": 0.36,
+    "Ashkenazi Jewish": 0.34,
+    "Palestinian": 0.2,
+    "Russian": 0.03,
+    "Ethiopian Jewish": 0.016,
+    "Ukrainian": 0.01
    },
-   "notes": "The heritage list has no Jewish heritage: Ashkenazi Jews are drawn as Russian, Polish, Ukrainian, Romanian and German; Mizrahi and Sephardi Jews as Moroccan, Iraqi, Iranian, Yemeni, Tunisian and Lebanese; Beta Israel as Ethiopian. Arab citizens are drawn as Palestinian."
+   "notes": "Mizrahi and Sephardi Jews are drawn as Mizrahi Jewish, Beta Israel as Ethiopian Jewish, and Arab citizens, Druze among them, as Palestinian; Russian and Ukrainian are immigrants from the former Soviet Union who are not Jewish."
   },
   "IN": {
    "name": "India",
@@ -1836,20 +1826,17 @@
     "Aotearoa"
    ],
    "shares": {
-    "English": 0.5,
-    "Māori": 0.17,
-    "Scottish": 0.1,
-    "Irish": 0.05,
+    "White New Zealander": 0.6,
+    "Māori": 0.16,
     "Chinese": 0.05,
+    "Indian": 0.045,
     "Samoan": 0.04,
-    "Indian": 0.04,
-    "Tongan": 0.015,
-    "Filipino": 0.01,
-    "Dutch": 0.01,
-    "Fijian": 0.006,
-    "Korean": 0.006
+    "Tongan": 0.018,
+    "Filipino": 0.015,
+    "Korean": 0.007,
+    "Fijian": 0.006
    },
-   "notes": "Pākehā are drawn as English, Scottish and Irish."
+   "notes": "Pākehā are drawn as White New Zealander; Cook Islands Māori as Māori."
   },
   "OM": {
    "name": "Oman",
@@ -2457,34 +2444,29 @@
     "America"
    ],
    "shares": {
-    "German": 0.14,
-    "Irish": 0.11,
-    "English": 0.11,
-    "African American": 0.13,
+    "White American": 0.57,
+    "African American": 0.125,
     "Mexican": 0.11,
-    "Italian": 0.05,
-    "Polish": 0.03,
-    "Scottish": 0.03,
-    "French": 0.02,
-    "Puerto Rican": 0.02,
+    "Puerto Rican": 0.018,
+    "Ashkenazi Jewish": 0.015,
     "Chinese": 0.015,
     "Indian": 0.015,
     "Filipino": 0.012,
-    "Dutch": 0.01,
-    "Swedish": 0.01,
-    "Norwegian": 0.01,
-    "Vietnamese": 0.007,
     "Cuban": 0.007,
     "Salvadoran": 0.007,
+    "Dominican": 0.007,
+    "Vietnamese": 0.007,
     "Korean": 0.006,
-    "Dominican": 0.006,
     "Guatemalan": 0.005,
     "Colombian": 0.004,
     "Japanese": 0.003,
     "Cherokee": 0.003,
-    "Navajo": 0.002
+    "Navajo": 0.002,
+    "Native Hawaiian": 0.002,
+    "Lebanese": 0.002,
+    "Iranian": 0.002
    },
-   "notes": "White Americans have no heritage of their own: drawn as their largest ancestries (German, Irish, English, Italian and others). First Nations have no listed heritage besides Navajo, Cherokee and Inuit; left to the global remainder rather than naming the wrong nation."
+   "notes": "White Americans of every European ancestry are drawn as White American. First Nations have no listed heritage besides Navajo, Cherokee and Inuit; left to the global remainder rather than naming the wrong nation."
   },
   "US-HI": {
    "name": "Hawaii",
@@ -2495,11 +2477,9 @@
     "Native Hawaiian": 0.2,
     "Japanese": 0.16,
     "Filipino": 0.16,
-    "English": 0.1,
+    "White American": 0.16,
     "Chinese": 0.05,
     "Portuguese": 0.03,
-    "German": 0.03,
-    "Irish": 0.03,
     "Samoan": 0.03,
     "Korean": 0.02,
     "African American": 0.02,
@@ -2512,12 +2492,12 @@
   "UY": {
    "name": "Uruguay",
    "shares": {
-    "Argentinian": 0.85,
-    "Italian": 0.03,
-    "Spanish": 0.03,
-    "Brazilian": 0.02
-   },
-   "notes": "Uruguayans are drawn as Argentinian."
+    "Uruguayan": 0.9,
+    "Argentinian": 0.02,
+    "Brazilian": 0.02,
+    "Venezuelan": 0.01,
+    "Cuban": 0.005
+   }
   },
   "UZ": {
    "name": "Uzbekistan",
@@ -2573,7 +2553,7 @@
     "Jamaican": 0.7,
     "Puerto Rican": 0.1,
     "Dominican": 0.05,
-    "English": 0.05
+    "White American": 0.05
    },
    "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
   },
