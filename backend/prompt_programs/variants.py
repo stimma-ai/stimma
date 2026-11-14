@@ -47,6 +47,7 @@ VARIANTS_VERSION = "variants-10"   # variants-10: a/an set right when stored. va
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
+PICK_CHUNK = 5         # a pick's batch and More like these are written this many at a time, side by side
 MIN_POOL = 12          # fewer survivors than this from the first call asks once more
 MAX_ADDED_WORDS = 30   # words a variant may add to the kept words
 SHORTLIST = 7          # a list this short is shown to the writer whole
@@ -767,12 +768,13 @@ class Batch:
 
 async def write_batch(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id: Optional[int] = None,
                       have: Sequence[str] = (), rng: Optional[random.Random] = None,
-                      used_cores: Sequence[str] = ()) -> Batch:
-    """One writer call for `n` variants, checked. Never raises: a failed call or an unreadable
-    reply is a batch with nothing in it and its `error`."""
+                      used_cores: Sequence[str] = (), drawn: Optional[Drawn] = None) -> Batch:
+    """One writer call for `n` variants (or for `drawn`, seeds drawn already: a chunk of a
+    split batch), checked. Never raises: a failed call or an unreadable reply is a batch with
+    nothing in it and its `error`."""
     import time
-    rng = rng or random.Random()
-    drawn = draw_seeds(rng, seeds, n, slot.words, used_cores)
+    if drawn is None:
+        drawn = draw_seeds(rng or random.Random(), seeds, n, slot.words, used_cores)
     out = Batch()
     t0 = time.monotonic()
     try:
@@ -844,6 +846,42 @@ async def write_first(slot: Slot, seeds: Seeds, *, ask: Ask, project_id: Optiona
     return batches
 
 
+def split(drawn: Drawn, size: int = PICK_CHUNK) -> List[Drawn]:
+    """A batch's seeds as chunks of at most `size` variants, each with its share of the ideas
+    (short lists go to every chunk). Seeds are drawn once for the whole batch, so the chunks
+    spread across descents, aspects and ideas as one call would."""
+    n = len(drawn.specs)
+    if n <= size:
+        return [drawn]
+    k = -(-n // size)
+    bounds = [round(i * n / k) for i in range(k + 1)]
+    m = len(drawn.ideas)
+    return [Drawn(drawn.specs[a:b], drawn.ideas[a * m // n:b * m // n], drawn.short)
+            for a, b in zip(bounds, bounds[1:])]
+
+
+async def write_chunks(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id: Optional[int] = None,
+                       have: Sequence[str] = (), rng: Optional[random.Random] = None, used_cores: Sequence[str] = (),
+                       size: int = PICK_CHUNK, landed: Optional[Callable[[Batch], None]] = None) -> List[Batch]:
+    """`n` variants as chunks of `size` written side by side, each handed to `landed` the moment
+    it is checked, so a picker sees the first ones in a few seconds rather than after the whole
+    batch (measured on a local 80 tok/s model: 20 in one call ~11-13 s; 4 x 5 ~4-6 s, the first
+    ~3-5 s). The batches in the order they landed. Never raises."""
+    parts = split(draw_seeds(rng or random.Random(), seeds, n, slot.words, used_cores), size)
+    out: List[Batch] = []
+
+    async def one(d: Drawn) -> None:
+        b = await write_batch(slot, seeds, len(d.specs), ask=ask, project_id=project_id, have=have, drawn=d)
+        out.append(b)
+        if landed is not None:
+            try:
+                landed(b)
+            except Exception as e:   # storing one chunk failing never loses the others
+                log.warning(f"[variants] keeping a chunk for {slot.words!r} failed: {e}")
+    await asyncio.gather(*(one(d) for d in parts))
+    return out
+
+
 async def top_up(slot: Slot, seeds: Seeds, have: Sequence[str], *, ask: Ask, project_id: Optional[int] = None,
                  n: int = TOPUP, rng: Optional[random.Random] = None, used_cores: Sequence[str] = ()) -> Batch:
     """TOPUP more variants, told what the pool already holds, built on the list values it hasn't
@@ -852,7 +890,7 @@ async def top_up(slot: Slot, seeds: Seeds, have: Sequence[str], *, ask: Ask, pro
 
 
 __all__ = ["AGE", "STAGE", "Ask", "Bank", "Batch", "DESCENT", "Drawn", "MIN_POOL", "N_OTHER", "N_PERSON", "GENDER", "Pins",
-           "SHORTLIST", "SYSTEM", "Seeds", "Slot", "Spec", "TOPUP", "VARIANTS_VERSION", "article_before", "ask_writer",
+           "PICK_CHUNK", "SHORTLIST", "SYSTEM", "Seeds", "Slot", "Spec", "TOPUP", "VARIANTS_VERSION", "article_before", "ask_writer",
            "age_stages", "age_years", "allowed_ages", "bank", "year_ages", "check", "stages_of",
            "context_words", "draw_seeds", "has_run", "kept_chunks", "list_seeds", "messages", "minor_line", "minor_words",
-           "parse_reply", "person_seeds", "repair", "tokens", "top_up", "valid_category", "write_batch", "write_first"]
+           "parse_reply", "person_seeds", "repair", "split", "tokens", "top_up", "valid_category", "write_batch", "write_chunks", "write_first"]

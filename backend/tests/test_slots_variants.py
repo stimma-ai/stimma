@@ -371,7 +371,7 @@ async def test_the_routes_answer_the_picker(monkeypatch, profile):
     assert got["choices"]["lighting"]["keep"] == []
     before = len(P.store_for(profile).variants(slot(entry, "lighting")["pool"]))
     out = await rp.options(rp.OptionsRequest(**base, choice_id="lighting", choices={"lighting": {"values": []}}))
-    assert len(out["options"]) == 20 and writer.calls[-1]["n"] == 20
+    assert len(out["options"]) == 20 and [c["n"] for c in writer.calls[-4:]] == [P.PICK_CHUNK] * 4   # side by side
     assert len(P.store_for(profile).variants(slot(entry, "lighting")["pool"])) == before + 20
 
 

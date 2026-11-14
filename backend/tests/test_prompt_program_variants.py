@@ -751,8 +751,8 @@ def test_more_like_these_is_the_same_call_awaited(tmp_path):
         new = await w.more(job_for(sl, V.Seeds()))   # waits for the first write, then writes 20 more
         assert len(new) == 20 and len(w.store.variants(job.key)) == 50
         assert w.store.batches(job.key)[-1]["role"] == "more"
-        assert fake.calls[-1]["n"] == V.TOPUP
-        failing = P.PoolWriter(P.VariantStore(tmp_path / "x"), ask=FakeWriter(["raise"]))
+        assert [c["n"] for c in fake.calls[-4:]] == [V.PICK_CHUNK] * 4   # 20, written 5 at a time side by side
+        failing = P.PoolWriter(P.VariantStore(tmp_path / "x"), ask=FakeWriter(["raise"] * 4))
         failing.attach()
         assert await failing.more(job_for(sl, V.Seeds())) == []
     run(go())
@@ -895,3 +895,117 @@ def test_a_and_an_are_set_right_when_a_variant_is_stored():
             return json.dumps({"variants": [{"n": i, "text": f"a off-center selfie no{i}"} for i in range(1, req["n"] + 1)]})
     b = run(V.write_batch(slot_of("<selfie camera angle>, phone photo", "list", "camera angle"), V.Seeds(), 3, ask=Off()))
     assert b.texts() and all(t.startswith("an off-center selfie") for t in b.texts())
+
+
+# --------------------------------------------------------------------------- a pick's batch, fast
+
+class GatedWriter(FakeWriter):
+    """A FakeWriter whose calls each wait for their own gate, to look at a write mid-flight."""
+
+    def __init__(self, slips: Optional[List[str]] = None):
+        super().__init__(slips)
+        self.gates: List[asyncio.Event] = []
+
+    async def __call__(self, messages, project_id, max_tokens, temperature=0.8) -> str:
+        gate = asyncio.Event()
+        self.gates.append(gate)
+        try:
+            reply = await super().__call__(messages, project_id, max_tokens, temperature)
+        except RuntimeError:
+            await gate.wait()
+            raise
+        await gate.wait()
+        return reply
+
+
+async def until(cond, seconds: float = 5.0) -> None:
+    for _ in range(int(seconds / 0.01)):
+        if cond():
+            return
+        await asyncio.sleep(0.01)
+    raise AssertionError("timed out")
+
+
+def test_a_batch_splits_into_chunks_with_seeds_drawn_once():
+    seeds = V.person_seeds(ideas=[("person.hair_color", None), ("person.build", None)])
+    whole = V.draw_seeds(random.Random(4), seeds, 20, "dominant young woman")
+    parts = V.split(whole)
+    assert [len(p.specs) for p in parts] == [V.PICK_CHUNK] * 4
+    assert [s for p in parts for s in p.specs] == whole.specs            # the one draw, in order
+    assert [i for p in parts for i in p.ideas] == whole.ideas            # every idea once, shared out
+    assert all(p.short == whole.short for p in parts)
+    assert len({s.develop for s in whole.specs}) == 20                   # aspects rotate across chunks
+    assert [len(p.specs) for p in V.split(V.draw_seeds(random.Random(1), V.Seeds(), 7))] == [4, 3]
+    assert V.split(V.draw_seeds(random.Random(1), V.Seeds(), 5))[0].specs.__len__() == 5
+
+
+def test_a_pick_shows_its_first_chunk_while_the_rest_are_written(tmp_path):
+    async def go():
+        fake = GatedWriter()
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake, paused=lambda: True)
+        w.attach()
+        sl = slot_of(PROMPT, "person")
+        key = "7" * 32
+        w.store.append(key, {"batch": 0, "variants": POOL})
+        choice = P.Choice(pins=V.Pins(descent=("Korean",)))
+        assert w.picked(job_for(sl, V.person_seeds(), key=key), choice)
+        await until(lambda: len(fake.gates) == 4)                        # four calls side by side, at once
+        assert [c["n"] for c in fake.calls] == [V.PICK_CHUNK] * 4
+        korean = [v["text"] for v in POOL if v["seeds"]["descent"] == "Korean"]
+        for c in fake.calls:   # told only what already matches the pick
+            shown = c["user"].split("Already written")[1].split("\n\n")[0] if "Already written" in c["user"] else ""
+            assert all(t in shown for t in korean) and not any(f"- {v['text']}\n" in shown + "\n"
+                                                                for v in POOL if v["text"] not in korean)
+        fake.gates[2].set()
+        await until(lambda: len(P.drawable(w.store.variants(key), choice)) == len(korean) + V.PICK_CHUNK)
+        assert w.busy(key)                                               # /pools: more stays on
+        for g in fake.gates:
+            g.set()
+        await asyncio.wait_for(w.drain(), 5)
+        got = P.drawable(w.store.variants(key), choice)
+        assert len(got) == len(korean) + V.TOPUP and not w.busy(key)
+        assert all(b["pinned"] == {"descent": ["Korean"]} for b in w.store.batches(key)[1:])
+        assert len(w.store.batches(key)) == 1 + 4                        # one record per chunk
+    run(go())
+
+
+def test_a_pick_never_waits_behind_background_writes(tmp_path):
+    async def go():
+        fake = GatedWriter()
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake, workers=1)
+        w.attach()
+        sl = slot_of(PROMPT, "person")
+        key = "6" * 32
+        w.store.append(key, {"batch": 0, "variants": POOL})
+        assert w.submit(job_for(sl, V.person_seeds(), key=key, role="top_up"))   # a background top-up, held
+        assert w.submit(job_for(sl, V.person_seeds(), key="5" * 32))             # and another pool's first write
+        await until(lambda: len(fake.gates) == 1)
+        choice = P.Choice(pins=V.Pins(gender=("trans man",)))
+        assert w.picked(job_for(sl, V.person_seeds(), key=key), choice)          # same pool, its own lane
+        await until(lambda: len(fake.gates) == 1 + 4)
+        for g in fake.gates[1:]:
+            g.set()
+        await until(lambda: len(P.drawable(w.store.variants(key), choice)) >= V.TOPUP)
+        assert w.busy(key)
+        while len([g for g in fake.gates if not g.is_set()]):
+            for g in fake.gates:
+                g.set()
+            await asyncio.sleep(0.01)
+        await asyncio.wait_for(w.drain(), 5)
+    run(go())
+
+
+def test_a_chunk_that_slips_keeps_the_others(tmp_path):
+    async def go():
+        fake = FakeWriter(["raise", "prose"])
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake, paused=lambda: True)
+        w.attach()
+        sl = slot_of(PROMPT, "person")
+        key = "4" * 32
+        w.store.append(key, {"batch": 0, "variants": POOL})
+        choice = P.Choice(pins=V.Pins(descent=("Welsh",)))
+        assert w.picked(job_for(sl, V.person_seeds(), key=key), choice)
+        await asyncio.wait_for(w.drain(), 5)
+        assert len(P.drawable(w.store.variants(key), choice)) == 2 * V.PICK_CHUNK
+        assert P.pick(w.store.variants(key), {}, choice, random.Random(), sl.words).source == "variant"
+    run(go())

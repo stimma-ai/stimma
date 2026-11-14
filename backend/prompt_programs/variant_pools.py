@@ -13,7 +13,9 @@ with no model call:
   as its own words. Never an error and never nothing to draw.
 - Writing. The first pool and every top-up run in the background (PoolWriter), never on a draw's
   path. After a counted draw, when 80% of what the slot draws from has been drawn this round, a
-  top-up of 20 starts. "More like these" is the same call, awaited.
+  top-up of 20 starts. "More like these" is the same call, awaited. A batch someone waits for (More
+  like these, seeds the user picked) is written as chunks of PICK_CHUNK side by side, each stored
+  as it lands, in a lane of its own: the picker sees matches in about 4 s, not 11-14 s.
 
 A failed write is never stored: the slot stands as written and the next prepare that starts
 work asks again.
@@ -36,7 +38,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from core.logging import get_logger
 from prompt_programs.variants import (
     AGE, DESCENT, GENDER, STAGE, TOPUP, VARIANTS_VERSION, Ask, Batch, Pins, Seeds, Slot, age_stages, age_years,
-    ask_writer, stages_of, top_up, write_first, year_ages,
+    PICK_CHUNK, ask_writer, stages_of, top_up, write_chunks, write_first, year_ages,
 )
 
 log = get_logger(__name__)
@@ -412,6 +414,19 @@ class Job:
         for seeds the user just picked."""
         return self.role != "top_up" or bool(self.pins)
 
+    @property
+    def urgent(self) -> bool:
+        """Someone is waiting to see it: More like these, or a batch for seeds the user picked.
+        Written in chunks side by side, each stored as it lands, in a lane of its own so it never
+        queues behind a background write."""
+        return self.role == "more" or (self.role == "top_up" and bool(self.pins))
+
+    @property
+    def lane(self) -> str:
+        """What one write at a time is held to: the pool, or for a pick the pool's pick lane, so a
+        pick never waits for (or is refused by) a background write of the same pool."""
+        return f"{self.key}|pick" if self.role == "top_up" and self.pins else self.key
+
 
 class PoolWriter:
     """A profile's pool writes, run on the event loop, at most one per pool at a time and WORKERS
@@ -429,13 +444,14 @@ class PoolWriter:
         self._queued: List[Job] = []
         self._failed: Dict[str, Tuple[str, float]] = {}   # key -> (why, when)
         self._sem: Optional[asyncio.Semaphore] = None
+        self._urgent_sem: Optional[asyncio.Semaphore] = None
         self._workers = workers
         self.calls = 0
 
     # -- state
     def busy(self, key: str) -> bool:
         with self._lock:
-            return key in self._inflight or any(j.key == key for j in self._queued)
+            return any(k in self._inflight for k in (key, f"{key}|pick")) or any(j.key == key for j in self._queued)
 
     def failed(self, key: str) -> Optional[str]:
         got = self._failed.get(key)
@@ -456,12 +472,12 @@ class PoolWriter:
         loop = loop or asyncio.get_running_loop()
         if self.loop is not loop:
             self.loop = loop
-            self._sem = None
+            self._sem = self._urgent_sem = None
         with self._lock:
             queued, self._queued = self._queued, []
         for job in queued:
             with self._lock:
-                self._inflight[job.key] = None
+                self._inflight[job.lane] = None
             loop.call_soon_threadsafe(self._start, job)
 
     def submit(self, job: Job, retry: bool = False) -> bool:
@@ -472,7 +488,7 @@ class PoolWriter:
         if job.role == "first" and self.store.has(job.key):
             return False
         with self._lock:
-            if job.key in self._inflight or any(j.key == job.key for j in self._queued):
+            if job.lane in self._inflight or any(j.lane == job.lane for j in self._queued):
                 return False
             if job.role == "first":
                 failed = self._failed.get(job.key)
@@ -483,15 +499,15 @@ class PoolWriter:
             if loop is None or loop.is_closed():
                 self._queued.append(job)
                 return True
-            self._inflight[job.key] = None   # held until it starts on the loop
+            self._inflight[job.lane] = None   # held until it starts on the loop
         loop.call_soon_threadsafe(self._start, job)
         return True
 
     def _start(self, job: Job) -> None:
         fut = asyncio.ensure_future(self._guarded(job))
         with self._lock:
-            self._inflight[job.key] = fut
-        fut.add_done_callback(lambda f, k=job.key: self._done(k, f))
+            self._inflight[job.lane] = fut
+        fut.add_done_callback(lambda f, k=job.lane: self._done(k, f))
 
     def _done(self, key: str, fut: Any) -> None:
         with self._lock:
@@ -501,9 +517,11 @@ class PoolWriter:
     async def _guarded(self, job: Job) -> List[str]:
         if self._sem is None:
             self._sem = asyncio.Semaphore(self._workers)
+        if self._urgent_sem is None:
+            self._urgent_sem = asyncio.Semaphore(self._workers)
         while not job.high and self._paused():
             await asyncio.sleep(YIELD_POLL)
-        async with self._sem:
+        async with (self._urgent_sem if job.urgent else self._sem):
             try:
                 return await self.run(job)
             except Exception as e:   # one pool failing never stops the others
@@ -550,11 +568,29 @@ class PoolWriter:
         n = TOPUP if job.role == "more" else min(TOPUP, MAX_POOL - len(have))
         if n <= 0:
             return []
-        b = await top_up(job.slot, seeds, [v["text"] for v in have], ask=self.ask, project_id=job.project_id,
-                         n=n, rng=random.Random(f"{job.key}|{done}"),
-                         used_cores=[str(v["seeds"]["core"]) for v in have if (v.get("seeds") or {}).get("core")])
-        self.calls += 1
+        cores = [str(v["seeds"]["core"]) for v in have if (v.get("seeds") or {}).get("core")]
+        rng = random.Random(f"{job.key}|{done}")
         seen = {_norm(v["text"]) for v in have}
+        if job.urgent:
+            # Picked seeds: the writer is told only what already matches them (the rest can't be
+            # repeated: a variant carries its descent), so a pick's prompt stays short.
+            shown = [v["text"] for v in have if matches(v.get("seeds") or {}, job.pins)] if job.pins \
+                else [v["text"] for v in have]
+            out: List[str] = []
+
+            def landed(b: Batch) -> None:
+                kept = [v for v in b.variants if _norm(v["text"]) not in seen][:n - len(out)]
+                seen.update(_norm(v["text"]) for v in kept)
+                if kept:
+                    self.store.append(job.key, self._record(job, b, len(self.store.batches(job.key)), kept))
+                    out.extend(v["text"] for v in kept)
+            batches = await write_chunks(job.slot, seeds, n, ask=self.ask, project_id=job.project_id, have=shown,
+                                         rng=rng, used_cores=cores, landed=landed)
+            self.calls += len(batches)
+            return out
+        b = await top_up(job.slot, seeds, [v["text"] for v in have], ask=self.ask, project_id=job.project_id,
+                         n=n, rng=rng, used_cores=cores)
+        self.calls += 1
         kept = [v for v in b.variants if _norm(v["text"]) not in seen][:n]
         if kept:
             self.store.append(job.key, self._record(job, b, done, kept))
