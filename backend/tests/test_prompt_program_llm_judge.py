@@ -59,13 +59,12 @@ def test_no_is_rerolled_yes_is_kept_and_an_unanswered_choice_stands(loop):
     assert lp.judge.version == "llm:m" and lp.judge.reroll_all
 
 
-def test_rare_is_kept_about_one_time_in_four_and_the_same_every_time(loop):
-    lp = loop(lambda k: "rare")
-    its = items(*[f"value {i}" for i in range(400)])
+def test_rare_is_never_rerolled_but_scores_apart_from_yes(loop):
+    lp = loop(lambda k: "rare" if k[4].startswith("value") else "yes")
+    its = items(*[f"value {i}" for i in range(400)], "brown")
     got = lp.judge.p_wrong(its)
-    kept = sum(p < lp.judge.cut for p in got)
-    assert 60 < kept < 140
-    assert lp.judge.p_wrong(its) == got
+    assert all(0.0 < p < lp.judge.cut for p in got[:-1])
+    assert got[-1] == 0.0
 
 
 def test_a_draws_choices_go_in_one_call_and_an_answer_is_asked_once(loop):
@@ -100,10 +99,24 @@ def test_default_means_the_tool_view_model_and_without_it_a_draw_ships_unjudged(
     llm_judge.reset()
     cfg = FluentSettings()
     assert fix_mode(cfg.fix_model) == "default" and judge_identity(cfg) == "llm"
-    entry = entry_for("A field under <sky>.", (SKY,), {"sky": ["a clear sky", "a stormy sky"]}, key="k")
+    entry = entry_for("A field of <crop> under <sky>.", (CROP, {**SKY, "n": 2}),
+                      {"sky": ["a clear sky", "a stormy sky"], "crop": ["wheat", "rye"]}, key="k")
     r, rec = realize_and_fix(entry, seed=3, cfg=cfg, profile_id=PROFILE)
-    assert r.prompt in ("A field under a clear sky.", "A field under a stormy sky.")
+    assert r.prompt.startswith("A field of ")
     assert rec == {"judge": "llm", "skipped": "unavailable"}
+
+
+def test_a_draw_with_one_judged_part_asks_no_judge(monkeypatch, loop):
+    lp = loop(lambda k: "no")
+    monkeypatch.setitem(llm_judge._judges, None, lp.judge)
+    entry = entry_for("A field under <sky>.", (SKY,), {"sky": ["a clear sky", "a stormy sky"]}, key="k1")
+    r, rec = realize_and_fix(entry, seed=3, cfg=FluentSettings(), profile_id=PROFILE)
+    assert r.prompt in ("A field under a clear sky.", "A field under a stormy sky.")
+    assert rec == {"judge": lp.judge.version, "skipped": "one part"} and lp.asked == []
+    # a user's own list counts as a judged part: a slot and a list are judged together
+    entry = entry_for("A field of {wheat|rye} under <sky>.", (SKY,), {"sky": ["a clear sky", "a stormy sky"]}, key="k3")
+    r, rec = realize_and_fix(entry, seed=3, cfg=FluentSettings(), profile_id=PROFILE)
+    assert "rounds" in rec and lp.asked
 
 
 def test_everything_refused_in_a_round_is_rerolled_together(monkeypatch, loop):

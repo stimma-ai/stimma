@@ -75,6 +75,8 @@ DEFAULTS: Dict[str, Any] = {
 REROLL_STRIDE = 10007   # reroll r draws on seed + stride * r
 DEFAULT_ROUNDS = 4
 MAX_BATCH = 64          # pairs per model call; a bigger pass runs as several
+MIN_JUDGED = 2          # a draw with fewer judged parts than this has nothing to conflict: no judge pass
+SKIPPED_ALONE = "one part"   # the fix record's "skipped" for such a draw ("unavailable": no judge to ask)
 
 
 class FixJudgeUnavailable(RuntimeError):
@@ -668,8 +670,9 @@ def realize_and_fix(entry: Dict[str, Any], *, seed: int, pins: Optional[Dict[str
                     chosen: Optional[Dict[str, Any]] = None) -> Tuple[Any, Optional[Dict[str, Any]]]:
     """realize(), then the fix pass when a fix judge is set (fix_model) and the program
     has pick specs. An exact replay (`revision`) is never fixed. Returns the result and
-    the fix record (None when no fix ran; {"judge", "skipped", "error"} when the pinned
-    judge can't be had). Blocking, and the judge's model calls run on the event loop: run
+    the fix record (None when no fix ran; {"judge", "skipped"} when the draw has fewer than
+    MIN_JUDGED judged parts or the judge can't be had; {"judge", "error"} when a classifier
+    can't be loaded). Blocking, and the judge's model calls run on the event loop: run
     it in a worker thread, after await_judge."""
     if revision:
         from prompt_programs.program import realize
@@ -726,20 +729,30 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
     if not has_draws(entry):
         return [shipped(r) for r in out]
     cfg = cfg or settings()
-    if judge is None:
-        mode = fix_mode(cfg.fix_model)
-        if mode == "off":
+    mode = fix_mode(cfg.fix_model)
+    if judge is None and mode == "off":
+        return [shipped(r) for r in out]
+    # Nothing can conflict in a draw with fewer than two judged parts (slots and the user's own
+    # lists together): it ships unjudged, with no model call, and its record says why.
+    alone = [i for i in drawn if len(judged_picks(out[i], list(fixed or {}))) < MIN_JUDGED]
+    if alone:
+        name = getattr(judge, "version", "") if judge is not None else judge_identity(cfg, project_id)
+        for i in alone:
+            out[i] = (out[i], {"judge": name, "skipped": SKIPPED_ALONE})
+        drawn = [i for i in drawn if i not in set(alone)]
+        if not drawn:
             return [shipped(r) for r in out]
+    if judge is None:
         if mode == "default":  # the Tool View model, readied on the event loop (await_judge)
             from prompt_programs import llm_judge
             judge = llm_judge.current(project_id)
             if judge is None:
-                return [shipped(r if isinstance(r, Exception) else (r, {"judge": "llm", "skipped": "unavailable"})) for r in out]
+                return [shipped((r, {"judge": "llm", "skipped": "unavailable"}) if i in drawn else r) for i, r in enumerate(out)]
         else:
             try:
                 judge = fix_judge(cfg.fix_model, cfg.fix_threads)
             except FixJudgeUnavailable as e:
-                return [shipped(r if isinstance(r, Exception) else (r, {"error": str(e)})) for r in out]
+                return [shipped((r, {"error": str(e)}) if i in drawn else r) for i, r in enumerate(out)]
     cut = float(cfg.fix_cut) if cfg.fix_cut else float(getattr(judge, "cut", DEFAULTS["cut"]))
     user_prompt = str(entry.get("prompt") or "")
     fixers = [_fixer(out[i], judge=judge, redraw=draw_once, seed=seeds[i], user_prompt=user_prompt, cut=cut,
@@ -753,5 +766,5 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
     return [shipped(r) for r in out]
 
 
-__all__ = ["DEFAULT_JUDGE", "FixJudgeUnavailable", "Item", "OnnxJudge", "default_threads", "fix_draw", "fix_judge",
+__all__ = ["DEFAULT_JUDGE", "FixJudgeUnavailable", "MIN_JUDGED", "SKIPPED_ALONE", "Item", "OnnxJudge", "default_threads", "fix_draw", "fix_judge",
            "fix_mode", "await_judge", "judge_identity", "judged_picks", "needs_judge", "locate", "mask", "prompt_view", "realize_and_fix", "realize_and_fix_many", "score_draw", "shown_picks"]

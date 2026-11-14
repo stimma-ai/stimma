@@ -125,7 +125,9 @@ async def test_a_submit_waits_on_nothing_but_the_judge_and_improve(tool, monkeyp
     assert len(tool) == 1                            # the one model call in line: Improve
     record = out["prompt_program"]
     assert record["filled"].split("\n")[1] in AS_WRITTEN
-    assert {d["id"] for d in record["draws"]} == {"list1"} and judge.asked and record["fix"]["judge"] == "fake-judge"
+    # one judged part (the list; the slots stand as their words): nothing can conflict, so no judge call
+    assert {d["id"] for d in record["draws"]} == {"list1"} and not judge.asked
+    assert record["fix"] == {"judge": "fake-judge", "skipped": "one part"}
 
     model.go.set()
     await slots.idle()
@@ -137,7 +139,7 @@ async def test_a_submit_waits_on_nothing_but_the_judge_and_improve(tool, monkeyp
     await P.writer_for(profile).drain()
     later = (await asyncio.wait_for(_submit(), 3.0))["prompt_program"]
     assert all(d["source"] == "variant" for d in later["draws"] if d["id"] != "list1") and "more_coming" not in later
-    assert len(tool) == 3
+    assert len(tool) == 3 and judge.asked and later["fix"]["judge"] == "fake-judge"   # the variants are judged
 
 
 async def test_each_image_draws_its_slots_then_is_improved_with_its_values_kept(tool, monkeypatch, profile):

@@ -375,9 +375,11 @@ async def _vary(job_params: Dict[str, Any], prompt: str, *, ctx: Dict[str, Any],
 
 def unchecked_note(record: Optional[Dict[str, Any]]) -> Optional[str]:
     """A line for the result when the run's choices shipped without the fit check
-    (the chat model that checks them wasn't available); None when they were checked, or needed no check."""
+    (the chat model that checks them wasn't available); None when they were checked, or needed no
+    check (a draw with one choice has nothing to fit together: skipped "one part")."""
+    from prompt_programs.fix import SKIPPED_ALONE
     fix = record.get("fix") if isinstance(record, dict) else None
-    if not isinstance(fix, dict) or not fix.get("skipped"):
+    if not isinstance(fix, dict) or not fix.get("skipped") or fix.get("skipped") == SKIPPED_ALONE:
         return None
     return UNCHECKED_NOTE
 

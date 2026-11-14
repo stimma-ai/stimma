@@ -216,6 +216,13 @@ class TestVary:
         assert out.params["prompt_program"]["fix"]["skipped"] == "unavailable"
         assert out.note == ph.UNCHECKED_NOTE and out.choices
 
+        def alone(*a, **k):  # one choice: nothing to fit together, so nothing is said
+            result, _ = real(*a, **k)
+            return result, {"judge": "llm", "skipped": fx.SKIPPED_ALONE}
+
+        monkeypatch.setattr(fx, "realize_and_fix", alone)
+        assert (await _vary()).note is None
+
     async def test_one_prepare_for_many_calls(self, writer):
         import asyncio
         outs = await asyncio.gather(*[_vary() for _ in range(6)])

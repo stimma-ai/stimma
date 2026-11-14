@@ -1,9 +1,10 @@
 // Tool View's prompt feature (PROMPT_BRAND) has each image's choices checked to fit
 // together by the chat model, on the server, as the image is drawn.
 
-/** Generation details: one quiet line when this image's choices weren't checked. */
+/** Generation details: one quiet line when this image's choices weren't checked because the
+    checker wasn't there. A draw with only one choice has nothing to check (skipped "one part"). */
 export function unjudgedNote(run: any, brand: string): string | null {
   const why = run?.fix?.skipped
-  if (!why) return null
+  if (!why || why === 'one part') return null
   return `Choices weren’t checked to fit together: ${brand} wasn’t ready.`
 }

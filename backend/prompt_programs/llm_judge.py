@@ -3,8 +3,8 @@
 A prototype's judge. Every varying choice of a draw is shown in full context (the user's prompt,
 the finished prompt with only that choice masked as [Label], what the choice is, and the value
 drawn) and answered "no" (it breaks the picture), "rare" (nothing is broken, but it is a stretch)
-or "yes". The fix pass (prompt_programs.fix) rerolls a "no", and a "rare" three times in four
-(which ones is fixed by the choice and its context, so a draw replays the same).
+or "yes". The fix pass (prompt_programs.fix) rerolls only a "no"; a "rare" is kept and recorded
+with its score in the fix record, as a "yes" is.
 
 One call covers a batch of choices, so a draw costs one model call, and one more for each round
 that rerolls something. Answers are remembered for the life of the process, keyed by what was
@@ -40,18 +40,19 @@ Unusual people and places are welcome. When unsure between "rare" and "yes", say
 
 Reply with one JSON object per line and nothing else, in the form {"id": 1, "answer": "yes"}."""
 
-CUT = 0.5                # above this a choice is rerolled: every "no", and most "rare"
-RARE_KEPT = 0.25         # the share of "rare" answers a draw keeps
+CUT = 0.5                # above this a choice is rerolled: only a "no"
+RARE = 0.25              # a "rare" answer's score: below the cut, so kept, and told apart from "yes" in the record
 BATCH = 24               # choices per call: a draw's choices go together
 TIMEOUT = 45.0           # seconds for one pass of the fix loop's questions
 
 
-def _score(key: Tuple[str, str, str, str, str], answer: str) -> float:
+def _score(answer: str) -> float:
+    """An answer as P(wrong): "no" is rerolled; "rare" is kept (scored below the cut, so the fix
+    record still shows it was a stretch); "yes" is 0."""
     if answer == "no":
         return 1.0
-    if answer == "rare":   # kept once in a while, the same every time this choice is asked in this context
-        kept = int(hashlib.sha256("\x1f".join(key).encode("utf-8")).hexdigest()[:8], 16) / 0xFFFFFFFF < RARE_KEPT
-        return 0.25 if kept else 0.75
+    if answer == "rare":
+        return RARE
     return 0.0
 
 
@@ -96,7 +97,7 @@ class LlmJudge:
                 if len(self._answers) > 50_000:
                     self._answers.clear()
         with self._lock:
-            return [_score(k, self._answers.get(k, "yes")) for k in keys]
+            return [_score(self._answers.get(k, "yes")) for k in keys]
 
     async def _ask(self, todo: List[Tuple[str, str, str, str, str]]) -> Dict[Tuple[str, str, str, str, str], str]:
         # One call per finished prompt: its choices are read together, against the prompt whole.
