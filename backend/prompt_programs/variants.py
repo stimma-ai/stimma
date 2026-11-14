@@ -291,6 +291,7 @@ class Seeds:
     age: Optional[Bank] = None            # a person's age: one per variant, told
     age_fits: Optional[Tuple[str, ...]] = None   # a person's ages as narrowed by their words (None: not narrowed)
     core: Optional[Bank] = None           # a slot bound to one list: one value per variant to build on
+    spread: Optional[Bank] = None         # a slot bound to a list too short for cores: shown whole
     ideas: Tuple[Bank, ...] = ()          # lists ideas are drawn from (the writer may reject them)
     minor: Tuple[str, ...] = ()           # the ages under 18 the person may be
     person: bool = False                  # a person: each variant develops its own aspects (ASPECTS)
@@ -379,16 +380,20 @@ def _open_age(ages: Sequence[str]) -> bool:
 
 
 def list_seeds(lists: Sequence[Tuple[str, Optional[Sequence[str]]]], *, single: bool = False,
-               minor: Sequence[str] = (), stated: Optional[Dict[str, Sequence[str]]] = None) -> Seeds:
+               minor: Sequence[str] = (), stated: Optional[Dict[str, Sequence[str]]] = None,
+               n: int = N_OTHER) -> Seeds:
     """The seeds of a slot that isn't a person: (list, narrowed or None) per list it draws on.
-    `single`: the slot is bound to that one list, which gives each variant its core; a list of
-    SHORTLIST values or fewer is shown whole instead (cores would repeat, and the writer copies a
-    repeated core). `minor`: the ages under 18 of the person it is about, if any. `stated`: what
-    the prompt states of the scene (bank)."""
+    `single`: the slot is bound to that one list, which gives each variant its core when it holds
+    at least `n` values (the pool's first write); a list with fewer is shown whole instead, with
+    "spread the variants across these" (cores would repeat, and the writer copies a repeated
+    core: 8 selfie angles for 30 variants). `minor`: the ages under 18 of the person it is about,
+    if any. `stated`: what the prompt states of the scene (bank)."""
     m = tuple(minor)
-    banks = [b for b in (bank(lid, n, minor=bool(m), stated=stated) for lid, n in lists) if b is not None]
-    if single and len(lists) == 1 and banks and len(banks[0].values) > SHORTLIST:
-        return Seeds(core=banks[0], minor=m)
+    banks = [b for b in (bank(lid, nar, minor=bool(m), stated=stated) for lid, nar in lists) if b is not None]
+    if single and len(lists) == 1 and banks:
+        if len(banks[0].values) >= n:
+            return Seeds(core=banks[0], minor=m)
+        return Seeds(spread=banks[0], minor=m)
     return Seeds(ideas=tuple(banks), minor=m)
 
 
@@ -535,7 +540,7 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_c
         if cores:
             s.core = _palette_fill(cores[i], rng, seeds.core.list_id)
         specs.append(s)
-    short = [b for b in seeds.ideas if len(b.values) <= SHORTLIST]
+    short = [b for b in seeds.ideas if len(b.values) <= SHORTLIST] + ([seeds.spread] if seeds.spread is not None else [])
     long_ = [b for b in seeds.ideas if len(b.values) > SHORTLIST]
     seen: set = set()
     if long_:
@@ -778,15 +783,20 @@ def repair(text: str, left: Sequence[str], right: Sequence[str], *, words: str =
 _MARKUP = set("<>⟦⟧{}[]\n")
 
 
-def check(text: str, words: str, keep: Sequence[str], spec: Spec) -> str:
-    """"" when a repaired variant passes, else why not."""
+def check(text: str, words: str, keep: Sequence[str], spec: Spec, *, cut: bool = False) -> str:
+    """"" when a repaired variant passes, else why not. `cut`: repair cut it at another slot's
+    markup (a reply that copied the prompt), so what is left may be a fragment ("a", "fighting
+    a"): it must still end on more than a grammar word. A variant of grammar words alone is never
+    one. Structure only: the closed lists of articles and determiners, never content words."""
     if not text:
         return "empty"
     if any(c in _MARKUP for c in text):
         return "markup in text"
     tt = tokens(text)
-    if all(t in _DETERMINERS for t in tt):
-        return "empty"   # an article or determiner alone ("a": the rest was cut as copied markup)
+    if tt and all(t in _DETERMINERS for t in tt):
+        return "fragment"
+    if cut and (not tt or tt[-1] in _DETERMINERS):
+        return "fragment"
     if spec.gender_needs and not all(t in tt for t in spec.gender_needs):
         return "gender missing"
     # The words of a gender may stand inside the user's own run ("young trans woman").
@@ -938,7 +948,7 @@ async def write_batch(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id:
         from prompt_programs.fill import fix_articles
         fixed = fix_articles(fixed)   # "a off-center selfie" is stored as "an off-center selfie"
         out.repairs += bool(did)
-        why = check(fixed, slot.words, keep, spec)
+        why = check(fixed, slot.words, keep, spec, cut="markup" in did)
         if why:
             out.dropped[why] += 1
             continue

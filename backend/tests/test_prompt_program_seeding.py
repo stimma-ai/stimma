@@ -82,7 +82,7 @@ def test_seeds_from_a_narrowed_plan():
     assert s.age is None and s.minor == ("9-year-old",)   # a failed age seeds nothing; the list's age still counts
     adult = {v.text for v in vocabulary().get("person.makeup").values if v.adult_only}
     assert not set(s.ideas[0].texts()) & adult
-    core = seeds_of({"kind": "list", "banks": [{"role": "core", "list": "camera.angle", "narrowed": None}]})
+    core = seeds_of({"kind": "list", "banks": [{"role": "core", "list": "clothing.top", "narrowed": None}]})
     assert core.core is not None and core.ideas == ()
     dropped = seeds_of({"kind": "list", "banks": [{"role": "core", "list": "camera.angle", "narrowed": []}]})
     assert dropped.core is None and dropped.ideas == ()

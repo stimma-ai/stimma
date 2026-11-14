@@ -265,7 +265,7 @@ def test_opt_in_values_are_seeds_only_when_narrowing_asks():
 def test_an_empty_narrowing_drops_the_bank_never_the_slot():
     assert V.bank("camera.angle", []) is None
     s = V.list_seeds([("camera.angle", [])], single=True)
-    assert s.core is None and s.ideas == ()
+    assert s.core is None and s.spread is None and s.ideas == ()
     # and the writer still writes for it
     fake = FakeWriter()
     b = run(V.write_batch(slot_of("<selfie camera angle>, phone photo", "list", "camera angle"), s, 5, ask=fake))
@@ -273,22 +273,26 @@ def test_an_empty_narrowing_drops_the_bank_never_the_slot():
 
 
 def test_a_single_list_gives_each_variant_a_core_each_value_once_before_repeats():
-    s = V.list_seeds([("camera.angle", None)], single=True)
-    assert s.core is not None and s.ideas == ()
+    s = V.list_seeds([("clothing.top", None)], single=True)
+    assert s.core is not None and s.ideas == () and len(s.core.values) >= V.N_OTHER
     n = len(s.core.values)
     cores = [x.core for x in V.draw_seeds(random.Random(2), s, n + 3).specs]
     assert len(set(cores[:n])) == n
-    msg = V.messages(slot_of("<camera angle>, studio photo", "list", "camera angle"),
+    msg = V.messages(slot_of("<clothing>, studio photo", "list", "clothing"),
                      V.draw_seeds(random.Random(2), s, 5), s)[1]["content"]
     assert 'core: "' in msg and "The cores are random values" in msg
-    # a short list (the selfie list without its opt-in framings) is shown whole: cores would repeat
-    short = V.list_seeds([("camera.selfie", None)], single=True)
-    assert short.core is None and [b.list_id for b in short.ideas] == ["camera.selfie"]
-    d = V.draw_seeds(random.Random(2), short, 30)
-    assert [b.list_id for b in d.short] == ["camera.selfie"] and not any(x.core for x in d.specs)
+    # a list with fewer values than the first write asks for is shown whole: cores would repeat,
+    # and the writer copies a repeated core (19 camera angles, 9 selfie angles, for 30 variants)
+    for lid in ("camera.angle", "camera.selfie"):
+        short = V.list_seeds([(lid, None)], single=True)
+        assert short.core is None and short.spread is not None and short.spread.list_id == lid
+        d = V.draw_seeds(random.Random(2), short, 30)
+        assert [b.list_id for b in d.short] == [lid] and not any(x.core for x in d.specs)
+        msg = V.messages(slot_of("<camera angle>, studio photo", "list", "camera angle"), d, short)[1]["content"]
+        assert "Spread the variants across these" in msg and all(f'"{t}"' in msg for t in short.spread.texts())
     # several lists: ideas
     multi = V.list_seeds([("camera.angle", None), ("camera.lens", None)])
-    assert multi.core is None and len(multi.ideas) == 2
+    assert multi.core is None and multi.spread is None and len(multi.ideas) == 2
 
 
 def test_short_lists_are_shown_whole_long_ones_as_ideas():
@@ -790,10 +794,10 @@ def test_an_idea_that_only_repeats_the_core_is_not_recorded():
             out = []
             for i in range(1, req["n"] + 1):
                 core = re.search(r'core: "([^"]+)"', req["seeds"][i]).group(1)
-                out.append({"n": i, "text": f"{core}, from below no{i}", "idea": core})
+                out.append({"n": i, "text": f"{core}, slightly open in the front no{i}", "idea": core})
             return json.dumps({"variants": out})
-    s = V.list_seeds([("camera.angle", None)], single=True)
-    b = run(V.write_batch(slot_of("<camera angle>, studio photo", "list", "camera angle"), s, 5, ask=Echo()))
+    s = V.list_seeds([("clothing.top", None)], single=True)
+    b = run(V.write_batch(slot_of("<clothing slightly open in the front>, studio photo", "list", "clothing"), s, 5, ask=Echo()))
     assert len(b.variants) == 5 and all("idea" not in v["seeds"] and v["seeds"]["core"] for v in b.variants)
 
 
@@ -1366,8 +1370,8 @@ def test_a_variant_that_copies_the_line_before_it_with_another_slot_is_cut_back_
 
 def test_a_variant_that_is_an_article_alone_is_dropped():
     # Overnight, <place> stored "a" and porch_dog's light drew "a": "on a porch, a, an overhead shot".
-    assert V.check("a", "place", [], V.Spec()) == "empty"
-    assert V.check("her", "her pet", ["her"], V.Spec()) == "empty"
+    assert V.check("a", "place", [], V.Spec()) == "fragment"
+    assert V.check("her", "her pet", ["her"], V.Spec()) == "fragment"
     assert V.check("a gravel driveway", "place", [], V.Spec()) == ""
 
 
@@ -1381,3 +1385,20 @@ def test_a_variant_that_copies_the_words_up_to_the_next_slot_is_cut_back():
             assert V.repair(t, left, right, words=sl.words)[0] == t   # no markup cut: a variant may end on "with"
             continue
         assert V.repair(t, left, right, words=sl.words)[0] == "short White American grandmother"
+
+def test_a_fragment_cut_at_markup_is_dropped():
+    prompt = "a woman in a <place>, at dusk"
+    sl = slot_of(prompt, "free", "place")
+    left, right = V.context_words(prompt, sl.span)
+    for reply in ("fighting a <place>", "a <place>, at dusk", "a"):
+        text, did = V.repair(reply, left, right, words=sl.words)
+        assert V.check(text, sl.words, sl.keep(), V.Spec(), cut="markup" in did) == "fragment"
+    text, did = V.repair("a dim alley <thing>", left, right, words=sl.words)
+    assert text == "dim alley" and V.check(text, sl.words, sl.keep(), V.Spec(), cut=True) == ""   # its article: the prompt has one
+    # grammar words alone are never a variant, cut or not; a phrase may still end on a possessive uncut
+    assert V.check("the", "lighting", [], V.Spec()) == "fragment"
+    assert V.check("her", "outfit", [], V.Spec()) == "fragment"
+    assert V.check("a scarf borrowed from her", "outfit", [], V.Spec()) == ""
+    assert V.check("a scarf borrowed from her", "outfit", [], V.Spec(), cut=True) == "fragment"
+    # and a cut variant still holds every kept run
+    assert V.check("dominant young", "dominant young woman", ["dominant young woman"], V.Spec(), cut=True) == "words not kept"
