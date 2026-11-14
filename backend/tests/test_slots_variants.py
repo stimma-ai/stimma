@@ -800,7 +800,7 @@ async def test_a_grandmother_gets_a_full_pool_of_her_own_words(monkeypatch, prof
     entry = await settled(prompt, profile)
     s = slot(entry, "grandmother")
     pool = P.store_for(profile).variants(s["pool"])
-    assert len(pool) == P.N_PERSON
+    assert len(pool) == V.N_PERSON
     assert {v["seeds"]["gender"] for v in pool} <= {"woman", "trans woman"}
     assert all("trans" in v["text"] for v in pool if v["seeds"]["gender"] == "trans woman")
     assert not any('gender: "woman"' in c["user"] for c in writer.calls)
@@ -821,7 +821,7 @@ async def test_a_sports_car_is_seeded_by_its_kinds_and_read_however_the_model_fe
     bank = entry["seeds"]["sports_car"]["banks"][0]
     assert bank["phrase"] == "sports car" and bank["list"] == "vehicle.road_vehicle"
     s = slot(entry, "sports_car")
-    assert len(P.store_for(profile).variants(s["pool"])) == P.N_OTHER
+    assert len(P.store_for(profile).variants(s["pool"])) == V.N_OTHER
 async def test_minors_and_adults_never_share_a_session(monkeypatch, profile):
     """`a 30-year-old in <clothing>` and `a 10-year-old in <clothing>`: two pools, two sessions;
     the child's log never holds an adult turn, and the adult's never the minors line."""

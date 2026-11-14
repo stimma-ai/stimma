@@ -56,10 +56,12 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-12"   # variants-12: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-15"   # variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
+MIN_POOL = 12          # a first write that keeps fewer asks more turns (MORE_TURNS), then once more later
+MORE_TURNS = 3         # at most this many turns past a first write's planned ones, while it is under MIN_POOL
 TURN = 10              # variants a session's turn asks for: the first 5 in about 2 s, the next turn under 1 s later
 COMPACT_AT = 100       # past this many variants in its log, a session sends a compact list of the middle
 COMPACT_CHARS = 8000   # at most this much of that list (about 2k tokens)
@@ -962,6 +964,10 @@ class ObjectReader:
                     self.buf = []
         return out
 
+    def rest(self) -> str:
+        """An object still open when the text ended (a reply cut at its token budget)."""
+        return "".join(self.buf) if self.depth > 0 else ""
+
 
 def turn_tokens(n: int) -> int:
     """A turn's reply budget: about WRITE_TOKENS per N_PERSON variants, with room to spare."""
@@ -1215,6 +1221,27 @@ async def write_turn(slot: Slot, drawn: Drawn, sent: List[Dict[str, Any]], *, as
         for obj in reader.feed(delta):
             take(obj)
 
+    def on_whole(reply: str) -> None:
+        # A whole reply may be the old shape fenced more than once: an answer, talk, and another
+        # answer (its last one counts), or one cut off inside its variants list (the closed ones).
+        objs = _objects(reply)
+        full = [o for o in objs if isinstance(o.get("variants"), list)]
+        cut = None if full else _cut_variants(reply)
+        if full or cut is not None:
+            for o in objs:
+                if "rejected" in o and not isinstance(o.get("variants"), list):
+                    take({"rejected": o["rejected"]})
+            take(full[-1] if full else cut)
+        else:
+            on_text(reply)
+
+    def on_end() -> None:
+        tail = reader.rest()   # a streamed reply in the old shape, cut off before its object closed
+        if tail:
+            cut = _cut_variants(tail)
+            if cut is not None:
+                take(cut)
+
     t0 = time.monotonic()
     stream = getattr(ask, "stream", None)
     tokens_ = turn_tokens(len(drawn.specs))
@@ -1231,13 +1258,15 @@ async def write_turn(slot: Slot, drawn: Drawn, sent: List[Dict[str, Any]], *, as
             async with asyncio.timeout(TURN_SECONDS):
                 reply = await ask(sent, project_id, tokens_, temperature=WRITE_TEMPERATURE)
             out.first = round(time.monotonic() - t0, 3)
-            on_text(str(reply or ""))
+            on_whole(str(reply or ""))
     except Deadline as e:
         out.error = str(e)
     except TimeoutError:
         out.error = "overall deadline"
     except Exception as e:   # a model slip or an unreachable model degrades: the slot stands as written
         out.error = f"{type(e).__name__}: {e}"[:200] or "call failed"
+    if out.streamed or out.error:
+        on_end()
     out.seconds = round(time.monotonic() - t0, 2)
     if out.error:
         log.warning(f"[variants] a turn for {slot.words!r} ended early ({out.error}); keeping {len(out.variants)}")
@@ -1265,7 +1294,7 @@ def split(drawn: Drawn, size: int = TURN) -> List[Drawn]:
     return [Drawn(drawn.specs[a:b], drawn.short) for a, b in zip(bounds, bounds[1:])]
 
 
-__all__ = ["AGE", "STAGE", "Ask", "Bank", "DESCENT", "Deadline", "Drawn", "N_OTHER", "N_PERSON", "GENDER",
+__all__ = ["AGE", "STAGE", "Ask", "Bank", "DESCENT", "Deadline", "Drawn", "N_OTHER", "N_PERSON", "GENDER", "MIN_POOL", "MORE_TURNS",
            "ObjectReader", "Pins", "SHORTLIST", "SYSTEM", "Seeds", "Session", "Slot", "Spec", "TOPUP", "TURN", "Turn",
            "VARIANTS_VERSION", "age_stages", "age_years", "allowed_ages", "article_before", "ask_writer", "bank",
            "check", "context_words", "draw_seeds", "first_turn", "gender_mark", "gender_needs", "has_run", "kept_chunks", "list_seeds", "messages",

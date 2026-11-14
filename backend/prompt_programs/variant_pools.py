@@ -46,7 +46,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
 from prompt_programs.variants import (
-    AGE, DESCENT, GENDER, HAVE_SHOWN, STAGE, TOPUP, TURN, VARIANTS_VERSION, Ask, Pins, Seeds, Session, Slot, Turn,
+    AGE, DESCENT, GENDER, HAVE_SHOWN, MIN_POOL, MORE_TURNS, STAGE, TOPUP, TURN, VARIANTS_VERSION, Ask, Pins, Seeds, Session, Slot, Turn,
     age_stages, age_years, ask_writer, draw_seeds, first_turn, more_turn, reply_text, split, stages_of, write_turn,
     year_ages,
 )
@@ -604,6 +604,7 @@ class PoolWriter:
         self._queued: List[Job] = []
         self._failed: Dict[str, Tuple[str, float]] = {}   # key -> (why, when)
         self._early: set = set()   # pools an unseeded opening turn was asked for (once each)
+        self._thin: set = set()    # pools whose short first write was asked again (once each)
         self._gate: Optional[CallGate] = None
         self._turns: Dict[str, CallGate] = {}   # per pool: one turn at a time, by priority
         self._streams = streams
@@ -615,8 +616,14 @@ class PoolWriter:
             return any(f"{key}{x}" in self._inflight for x in LANES) or any(j.key == key for j in self._queued)
 
     def first_written(self, key: str) -> bool:
-        """Whether a pool's first write is stored: an unseeded opening turn alone isn't it."""
-        return any(b.get("role") != "early" and b.get("variants") for b in self.store.batches(key))
+        """Whether a pool's first write is stored: an unseeded opening turn alone isn't it, and nor
+        is one that kept fewer than MIN_POOL (most of its turns failed or were unreadable) until it
+        has been asked again once; a top-up or More like these stored means it was."""
+        batches = [b for b in self.store.batches(key) if b.get("role") != "early" and b.get("variants")]
+        if not batches:
+            return False
+        return key in self._thin or any(b.get("role") != "first" for b in batches) or \
+            sum(len(b["variants"]) for b in batches) >= MIN_POOL
 
     def failed(self, key: str) -> Optional[str]:
         got = self._failed.get(key)
@@ -776,14 +783,18 @@ class PoolWriter:
         """One write for one pool: turns of TURN in the pool's session, each variant stored the
         moment it is checked. A turn that keeps under half of what it asked for never joins the
         log; the session is asked again once from a fresh first turn with fresh seeds, and a
-        second such turn ends the write (the slot stands as it is, asked again later). Returns
-        the new variants' texts."""
+        second such turn ends the write (the slot stands as it is, asked again later). A first
+        write still under MIN_POOL after its planned turns asks up to MORE_TURNS more; one left
+        short draws what it has and is asked again once after RETRY_AFTER. Returns the new
+        variants' texts."""
         if job.role == "early" and self.store.has(job.key):
             return []
         if job.role == "first":
             await self._wait_early(job)
             if self.first_written(job.key):
                 return []
+            if any(b.get("role") == "first" and b.get("variants") for b in self.store.batches(job.key)):
+                self._thin.add(job.key)   # a short first write, asked again once: its session goes on
         seeds = Seeds() if job.role == "early" else job.seeds.pinned(job.pins)
         have = self.store.variants(job.key)
         n = self._quota(job, have)
@@ -795,12 +806,24 @@ class PoolWriter:
         out: List[str] = []
         restarted = False
         fresh = False
+        more = 0
+        asked = 0
         i = 0
-        while i < len(parts):
+        while i < len(parts) or (job.role == "first" and more < MORE_TURNS
+                                 and len(self.store.variants(job.key)) < MIN_POOL):
+            if i == len(parts):
+                # Short of MIN_POOL after its planned turns (repeats, drops): one more turn, a few times.
+                more += 1
+                n = max(n, len(out) + TURN)
+                extra = draw_seeds(random.Random(f"{job.key}|{base}|more{more}"), seeds, TURN, job.slot.words, cores)
+                parts = parts + [extra]
             part = parts[i]
             async with self._turn(job, i):
                 if not self._room(job, out, n):
                     break
+                if job.role == "top_up" and not job.pins and i > 0 and \
+                        len(self.store.variants(job.key)) - len(have) - len(out) >= n - len(out):
+                    break   # More like these went ahead and wrote at least what this top-up had left
                 session = Session() if fresh else Session.of(self.store.session(job.key))
                 removed = self.store.removed(job.key)
                 pool = self.store.variants(job.key)
@@ -813,7 +836,8 @@ class PoolWriter:
                     a = 1
                     sent = first_turn(job.slot, part, seeds, have=[v["text"] for v in pool][-HAVE_SHOWN:])
                     user = sent[1]
-                batch = base + i + (len(parts) if restarted else 0)
+                batch = base + asked   # one label per turn asked, restarts and extra turns too
+                asked += 1
 
                 def landed(v: Dict[str, Any], batch: int = batch) -> bool:
                     if not self._room(job, out, n):
@@ -851,14 +875,19 @@ class PoolWriter:
                          f"({turn.error or dict(turn.dropped)}); starting its session again")
                 continue
             i += 1
-        if not out and job.role == "first":
+        if job.role == "first" and not self.first_written(job.key):
             why = "nothing usable"
             last = [b for b in self.store.batches(job.key) if "asked" in b][-2:]
             if last:
                 why = "; ".join(dict.fromkeys(str(b.get("error") or ", ".join(b.get("dropped") or {}) or "nothing usable")
                                               for b in last))
-            self._failed[job.key] = (why[:200], time.time())
-            log.info(f"[variants] {job.slot.words!r} stands as written: {why[:200]}")
+            if not self.store.variants(job.key):
+                self._failed[job.key] = (why[:200], time.time())
+                log.info(f"[variants] {job.slot.words!r} stands as written: {why[:200]}")
+            else:   # short: it draws from what it has and is asked again after RETRY_AFTER (submit)
+                self._failed[job.key] = (f"thin: {why}"[:200], time.time())
+                log.info(f"[variants] {job.slot.words!r} kept only {len(self.store.variants(job.key))}; "
+                         f"asked again later: {why[:200]}")
         return out
 
     async def more(self, job: Job) -> List[str]:

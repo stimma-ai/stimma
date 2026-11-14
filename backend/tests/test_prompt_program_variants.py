@@ -75,6 +75,8 @@ class FakeWriter:
                     f"{g.group(1) + ' ' if g else ''}{base} no{i}c{len(self.calls)}")
             if slip == "drop_words":
                 text = f"{ADJ[i % len(ADJ)]} thing no{i}"
+            if slip == "half" and 2 * i > req["n"]:
+                text = "the"   # a fragment: dropped whatever the slot keeps
             out.append({"n": req["a"] + i - 1, "text": text, "idea": ""})
         return reply_lines(out)
 
@@ -1129,15 +1131,20 @@ def test_a_cut_reply_is_written_as_the_variants_that_closed():
 
     async def cut(*a, **k):
         return full[:full.index('"text": "a bright yellow')]
-    b = run(V.write_batch(sl, V.Seeds(), 5, ask=cut))
+    b = turn_of(sl, V.Seeds(), 5, ask=cut)
     assert len(b.variants) == 3 and b.dropped["missing"] == 2 and not b.error
+    # streamed in the old shape and cut at the budget: the outer object never closes
+    streamer = FakeStreamer()
+    streamer.reply = lambda *a: full[:full.index('"text": "a bright yellow')]
+    b = turn_of(sl, V.Seeds(), 5, ask=streamer)
+    assert b.streamed and len(b.variants) == 3 and b.dropped["missing"] == 2
 
 
 def test_a_writes_token_budget_follows_the_variants_it_asks_for():
     fake = FakeWriter()
-    run(V.write_batch(slot_of(PROMPT, "person"), V.person_seeds(), 5, ask=fake))
-    assert fake.calls[0]["max_tokens"] == V.write_tokens(5) < 1500   # a runaway is cut in seconds
-    assert V.write_tokens(40) == V.WRITE_TOKENS and V.write_tokens(20) < V.WRITE_TOKENS
+    turn_of(slot_of(PROMPT, "person"), V.person_seeds(), 5, ask=fake)
+    assert fake.calls[0]["max_tokens"] == V.turn_tokens(5) < 1500   # a runaway is cut in seconds
+    assert V.turn_tokens(V.TURN) < V.turn_tokens(20) < V.turn_tokens(40) and V.turn_tokens(40) >= V.WRITE_TOKENS
 
 
 # --------------------------------------------------------------------------- a gender the words carry
@@ -1176,10 +1183,10 @@ def test_a_grandmother_is_written_with_no_gender_word_and_a_trans_one_says_so():
     async def ask(*a, **k):
         return reply
     woman = V.Drawn([V.Spec(gender="woman", gender_needs=V.gender_needs("woman", sl.words, ["woman"]))] * 3, [])
-    b = run(V.write_batch(sl, seeds, 3, ask=ask, drawn=woman))
+    b = turn_of(sl, seeds, 3, ask=ask, drawn=woman)
     assert len(b.variants) == 3 and not b.dropped
     trans = V.Drawn([V.Spec(gender="trans woman", gender_needs=("trans",))] * 3, [])
-    assert run(V.write_batch(sl, seeds, 3, ask=ask, drawn=trans)).dropped["gender missing"] == 3
+    assert turn_of(sl, seeds, 3, ask=ask, drawn=trans).dropped["gender missing"] == 3
 
 
 def test_what_the_seed_line_shows_of_a_gender_passes_the_check():
@@ -1209,32 +1216,43 @@ def test_a_gender_picked_for_a_grandmother_shows_where_it_tells_her_apart():
 def test_a_short_first_write_draws_what_it_has_and_is_asked_again_once(tmp_path, monkeypatch):
     # Overnight, <sports car> kept 5 of 30 (unreadable replies, then timeouts), was stored as its
     # first write, and stayed at 5 for every image.
-    chunks = V.N_OTHER // V.PICK_CHUNK
     sl = slot_of("a <sports car> parked in <place>, low angle, golden hour", "free", "sports car")
 
     async def go():
-        fake = FakeWriter(["prose"] * (chunks - 1) + ["prose"] * chunks)   # 5 kept, in two rounds
+        fake = FakeWriter(["", "prose", "prose"])   # 10 kept, then a failed turn and a failed fresh one
         w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
         w.attach()
         job = job_for(sl, V.Seeds())
         w.submit(job)
         await w.drain()
-        assert len(w.store.variants(job.key)) == 5 and w.state(job.key) == "ready"
-        assert not w.first_written(job.key)
+        assert len(w.store.variants(job.key)) == V.TURN < V.MIN_POOL and w.state(job.key) == "ready"
+        assert not w.first_written(job.key) and w.failed(job.key).startswith("thin")
         first = w.store.variants(job.key)[0]["text"]
         assert not w.submit(job_for(sl, V.Seeds()))   # not at once: after RETRY_AFTER
         monkeypatch.setattr(P, "RETRY_AFTER", 0.0)
         assert w.submit(job_for(sl, V.Seeds()))
         await w.drain()
         assert len(w.store.variants(job.key)) == V.N_OTHER and w.first_written(job.key)
-        assert first in fake.calls[-1]["user"]   # told what the pool holds
+        assert first in json.dumps(fake.calls[-1]["log"], ensure_ascii=False)   # its session goes on
         assert not w.submit(job_for(sl, V.Seeds()))   # done
-        return fake
     run(go())
 
 
+def test_a_first_write_under_the_minimum_asks_more_turns_up_to_a_cap(tmp_path, monkeypatch):
+    # Turns that each keep half pass, yet a pool of them can end short: it asks on, a few turns.
+    monkeypatch.setattr(P, "MIN_POOL", 20)
+    sl = slot_of("a <sports car> parked in <place>, low angle, golden hour", "free", "sports car")
+    fake = FakeWriter(["half"] * 100)
+    w = written(tmp_path, sl, V.Seeds(), fake)
+    assert len(fake.calls) == V.N_OTHER // V.TURN + 1 and len(w.store.variants("a" * 32)) == 20
+    assert fake.calls[-1]["more"] and w.first_written("a" * 32)
+    monkeypatch.setattr(P, "MIN_POOL", 1000)
+    fake = FakeWriter(["half"] * 100)
+    w = written(tmp_path / "2", sl, V.Seeds(), fake)
+    assert len(fake.calls) == V.N_OTHER // V.TURN + V.MORE_TURNS   # the cap
+
+
 def test_a_short_first_write_asked_again_and_short_again_is_left_to_top_ups(tmp_path, monkeypatch):
-    chunks = V.N_OTHER // V.PICK_CHUNK
     monkeypatch.setattr(P, "RETRY_AFTER", 0.0)
     sl = slot_of("a <sports car> parked in <place>, low angle, golden hour", "free", "sports car")
 
@@ -1261,7 +1279,7 @@ def test_a_variant_that_copies_the_line_before_it_with_another_slot_is_cut_back_
 
     async def ask(*a, **k):
         return reply
-    b = run(V.write_batch(sl, V.Seeds(), 3, ask=ask))
+    b = turn_of(sl, V.Seeds(), 3, ask=ask)
     assert b.texts() == ["her tabby cat curled in her lap", "her pet guinea pig", "her bright orange koi in a glass bowl"]
 
 
@@ -1465,6 +1483,32 @@ def test_a_waited_for_turn_goes_ahead_of_background_turns_in_the_same_session(tm
         assert [c["more"] for c in fake.calls] == [False, True, True, True, True]
         assert [c["a"] for c in fake.calls] == [1, 11, 21, 31, 41]
     run(go())
+
+def test_more_goes_ahead_of_a_background_top_up_which_then_stops(tmp_path):
+    async def go():
+        fake = GatedWriter()
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
+        w.attach()
+        sl = slot_of(PROMPT, "list", "lighting", n=3)
+        key = "7" * 32
+        w.submit(job_for(sl, V.Seeds(), key=key))
+        await open_all(fake, w)
+        n0 = len(fake.calls)
+        w.submit(job_for(sl, V.Seeds(), key=key, role="top_up"))   # its first turn held
+        await until(lambda: len(fake.gates) == n0 + 1)
+        more = asyncio.ensure_future(w.more(job_for(sl, V.Seeds(), key=key)))
+        await asyncio.sleep(0.05)
+        assert len(fake.gates) == n0 + 1                  # one stream per pool at a time
+        await open_all(fake, w)
+        assert len(await more) == V.TOPUP
+        roles = [b["role"] for b in tallies(w, key)][3:]
+        # the top-up's held turn lands, More's turns go next, and the top-up asks no more: More
+        # wrote what it still had to
+        assert roles == ["top_up", "more", "more"]
+        assert [c["a"] for c in fake.calls[n0:]] == [31, 41, 51]
+        assert len(w.store.variants(key)) == V.N_OTHER + V.TURN + V.TOPUP
+    run(go())
+
 
 def test_slots_stream_side_by_side_each_first_turn_first(tmp_path):
     async def go():
