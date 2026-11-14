@@ -194,7 +194,16 @@ created only after tests pass, with `--expected-tag` preventing a concurrent tag
 from silently changing the built version. All builders wait for their own run's
 publication gate before uploading either GitHub release assets or R2 updates.
 Release branch/tag builds remain pinned to their event commit even if main moves.
-The macOS signing, notarization and stapling sequence is unchanged.
+Beta, production and manual macOS builds sign, notarize and staple before
+publication. Automatic main canaries sign and publish first, then the independent
+`Canary / macOS notarization` workflow notarizes the exact archived ZIP on a
+hosted Mac. Its Apple receipt and a separately stapled ZIP are retained as CI
+artifacts for seven days. Published updater archives and hashes are never
+rewritten. Downloaded canaries may encounter Gatekeeper before Apple accepts
+them; after acceptance, online Macs can retrieve the ticket. The separately
+stapled copy supports offline installs. Superseding canary runs do not cancel
+the follow-up. Set the repository variable `CANARY_ASYNC_NOTARIZATION=false`
+to restore inline notarization if canary distribution broadens.
 
 To verify the complete release pipeline without creating tags or publishing,
 manually dispatch `Release` with `validate_only=true` and the desired `ref`.
@@ -313,6 +322,8 @@ pre-release number).
   public key embedded in the previously installed updater client.
 - macOS builds additionally Apple-code-sign + notarize when
   `vars.ENABLE_APPLE_SIGNING == 'true'` (Developer ID cert + Apple ID secrets).
+  Automatic main canaries defer notarization as described above; other builds
+  complete notarization and stapling before publication.
 
 ## How to cut each release
 

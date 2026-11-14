@@ -1,6 +1,8 @@
 import importlib.util
 import io
+import json
 import os
+import plistlib
 import shutil
 import subprocess
 import sys
@@ -21,6 +23,10 @@ spec.loader.exec_module(gate)
 proof_spec = importlib.util.spec_from_file_location('proof', ROOT / 'scripts/ci-quality-proof.py')
 proof = importlib.util.module_from_spec(proof_spec)
 proof_spec.loader.exec_module(proof)
+
+notary_spec = importlib.util.spec_from_file_location('notary', ROOT / 'scripts/notarize-canary.py')
+notary = importlib.util.module_from_spec(notary_spec)
+notary_spec.loader.exec_module(notary)
 
 
 def workflow(name):
@@ -410,6 +416,130 @@ class PublicationTests(unittest.TestCase):
                                            check=False, capture_output=True, text=True)
             self.assertNotEqual(refused_again.returncode, 0)
             self.assertEqual(subprocess.check_output(['git', '--git-dir', str(origin), 'tag', '--list']), b'v1.2.3-beta.2\n')
+
+
+class DeferredCanaryNotarizationTests(unittest.TestCase):
+    def setUp(self):
+        self.scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(self.scratch.cleanup)
+        self.root = Path(self.scratch.name)
+        self.inputs = self.root / 'input'
+        self.inputs.mkdir()
+        self.archive = self.inputs / 'Canary.zip'
+        self.archive.write_bytes(b'original signed updater archive')
+        self.output = self.root / 'result'
+        self.calls = []
+        self.bundle_id = 'ai.stimma.stimma.canary'
+        self.status = 'Accepted'
+        self.wait_code = 0
+        self.wait_timeout = False
+        self.staple_code = 0
+        self.credentials = {'APPLE_ID': 'notary-user', 'APPLE_PASSWORD': 'secret-password', 'APPLE_TEAM_ID': 'team-id'}
+        self.env = patch.dict(os.environ, self.credentials)
+        self.env.start()
+        self.addCleanup(self.env.stop)
+        self.process = patch.object(notary.subprocess, 'run', side_effect=self.command)
+        self.process.start()
+        self.addCleanup(self.process.stop)
+
+    def command(self, args, **kwargs):
+        self.calls.append(args)
+        stdout, stderr, code = '', '', 0
+        if args[:3] == ['ditto', '-x', '-k']:
+            contents = Path(args[-1]) / 'Stimma Canary.app/Contents'
+            contents.mkdir(parents=True)
+            with (contents / 'Info.plist').open('wb') as fh:
+                plistlib.dump({'CFBundleIdentifier': self.bundle_id,
+                              'CFBundleShortVersionString': '1.0.18-canary.1'}, fh)
+        elif args[:3] == ['xcrun', 'notarytool', 'submit']:
+            stdout = json.dumps({'id': '12345678-1234-1234-1234-123456789abc'})
+        elif args[:3] == ['xcrun', 'notarytool', 'wait']:
+            self.assertTrue((self.output / 'receipt.json').exists())
+            if self.wait_timeout:
+                raise subprocess.TimeoutExpired(args, 1000)
+            stdout = json.dumps({'status': self.status})
+            code = self.wait_code
+        elif args[:3] == ['xcrun', 'notarytool', 'log']:
+            stdout = json.dumps({'status': self.status})
+        elif args[:3] == ['xcrun', 'stapler', 'staple']:
+            code = self.staple_code
+            stderr = 'error for secret-password' if code else ''
+        elif args[:3] == ['ditto', '-c', '-k']:
+            Path(args[-1]).write_bytes(b'stapled copy')
+        return subprocess.CompletedProcess(args, code, stdout, stderr)
+
+    def test_acceptance_precedes_stapling_and_never_rewrites_input(self):
+        notary.notarize(self.inputs, self.output)
+        self.assertEqual(self.archive.read_bytes(), b'original signed updater archive')
+        self.assertEqual((self.output / 'stapled-Canary.zip').read_bytes(), b'stapled copy')
+        actions = [args[2] for args in self.calls if args[0] == 'xcrun']
+        self.assertEqual(actions, ['submit', 'wait', 'staple', 'validate'])
+        self.assertNotIn('--wait', next(args for args in self.calls if args[:3] == ['xcrun', 'notarytool', 'submit']))
+        self.calls.clear()
+        notary.notarize(self.inputs, self.output)
+        self.assertFalse(any(args[:3] == ['xcrun', 'notarytool', 'submit'] for args in self.calls))
+        self.archive.write_bytes(b'different build')
+        with self.assertRaisesRegex(RuntimeError, 'different archive'):
+            notary.notarize(self.inputs, self.output)
+
+    def test_rejection_preserves_receipt_and_cannot_produce_stapled_archive(self):
+        self.status = 'Invalid'
+        with self.assertRaisesRegex(RuntimeError, 'did not accept'):
+            notary.notarize(self.inputs, self.output)
+        self.assertTrue((self.output / 'receipt.json').exists())
+        self.assertTrue((self.output / 'log.json').exists())
+        self.assertFalse(any(args[:2] == ['xcrun', 'stapler'] for args in self.calls))
+        self.assertFalse((self.output / 'stapled-Canary.zip').exists())
+        self.wait_code = 69
+        with self.assertRaisesRegex(RuntimeError, 'Apple wait failed'):
+            notary.notarize(self.inputs, self.output)
+
+    def test_timeout_keeps_submission_for_resume_without_exposing_auth_arguments(self):
+        self.wait_timeout = True
+        with self.assertRaisesRegex(RuntimeError, 'timed out') as error:
+            notary.notarize(self.inputs, self.output)
+        for credential in self.credentials.values():
+            self.assertNotIn(credential, str(error.exception))
+        self.assertTrue((self.output / 'receipt.json').exists())
+        self.assertFalse((self.output / 'stapled-Canary.zip').exists())
+        self.wait_timeout = False
+        self.calls.clear()
+        notary.notarize(self.inputs, self.output)
+        self.assertFalse(any(args[:3] == ['xcrun', 'notarytool', 'submit'] for args in self.calls))
+
+    def test_wrong_channel_cannot_be_submitted_and_stapling_failure_redacts_credentials(self):
+        self.bundle_id = 'ai.stimma.stimma.beta'
+        with self.assertRaisesRegex(RuntimeError, 'only canary'):
+            notary.notarize(self.inputs, self.output)
+        self.assertFalse(any(args[:2] == ['xcrun', 'notarytool'] for args in self.calls))
+        self.bundle_id = 'ai.stimma.stimma.canary'
+        self.staple_code = 1
+        with self.assertRaisesRegex(RuntimeError, r'Stapler staple failed: error for \*\*\*'):
+            notary.notarize(self.inputs, self.output)
+        self.assertFalse((self.output / 'stapled-Canary.zip').exists())
+
+    def test_followup_is_independent_and_only_consumes_a_trusted_main_push(self):
+        build = workflow('release-macos.yml')['jobs']['release-macos']
+        policy = build['env']['STIMMA_DEFER_NOTARIZATION']
+        for guard in ["github.event_name == 'push'", "github.ref == 'refs/heads/main'", "inputs.channel == 'canary'",
+                      "vars.CANARY_ASYNC_NOTARIZATION != 'false'"]:
+            self.assertIn(guard, policy)
+        steps = build['steps']
+        index = lambda name: next(i for i, step in enumerate(steps) if step.get('name') == name)
+        self.assertLess(index('Archive canary notarization input'), index('Publish updater artifacts to Cloudflare R2'))
+        archive = steps[index('Archive canary notarization input')]
+        self.assertEqual(archive['with']['name'], 'canary-macos-notary-input-${{ github.run_attempt }}')
+        followup = workflow('canary-macos-notarize.yml')
+        self.assertNotIn('concurrency', followup)
+        self.assertEqual(followup['on']['workflow_run']['branches'], ['main'])
+        self.assertEqual(followup['on']['workflow_run']['types'], ['completed'])
+        job = followup['jobs']['notarize']
+        self.assertIn("workflow_run.event == 'push'", job['if'])
+        self.assertIn('workflow_run.head_repository.full_name == github.repository', job['if'])
+        download = next(s for s in job['steps'] if s.get('name') == 'Download exact signed canary')
+        self.assertEqual(download['with']['run-id'], '${{ github.event.workflow_run.id }}')
+        self.assertEqual(download['with']['name'], 'canary-macos-notary-input-${{ github.event.workflow_run.run_attempt }}')
+        self.assertEqual(job['runs-on'], 'macos-15')
 
 
 if __name__ == '__main__':

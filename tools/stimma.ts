@@ -1563,13 +1563,18 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
     ? "windows-x86_64"
     : `linux-${Deno.build.arch === "aarch64" ? "aarch64" : "x86_64"}`;
   const updateFeedUrl = updateBase ? `${updateBase}/stimma/${channel}/${platformDir}` : null;
-  // Notarize only when release CI provides Apple notary credentials.
-  const notarize = Deno.build.os === "darwin" && !!Deno.env.get("APPLE_ID") &&
+  // Automatic canaries publish signed builds first; the follow-up workflow
+  // notarizes the exact archived build. Other channels must never defer.
+  const deferNotarization = channel === "canary" && Deno.env.get("STIMMA_DEFER_NOTARIZATION") === "1";
+  const notarize = !deferNotarization && Deno.build.os === "darwin" && !!Deno.env.get("APPLE_ID") &&
     !!(Deno.env.get("APPLE_APP_SPECIFIC_PASSWORD") || Deno.env.get("APPLE_PASSWORD")) &&
     !!Deno.env.get("APPLE_TEAM_ID");
   if (notarize && !Deno.env.get("APPLE_APP_SPECIFIC_PASSWORD")) {
     // electron-builder reads APPLE_APP_SPECIFIC_PASSWORD; our CI secret is APPLE_PASSWORD.
     Deno.env.set("APPLE_APP_SPECIFIC_PASSWORD", Deno.env.get("APPLE_PASSWORD")!);
+  }
+  if (Deno.build.os === "darwin" && deferNotarization) {
+    console.log("Canary notarization deferred until after publication; code signing remains enabled.");
   }
 
   const builderConfig: Record<string, unknown> = {

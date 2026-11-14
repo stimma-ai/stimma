@@ -77,6 +77,9 @@ jobs:
       # three app layers. Release CI is the ONLY place this is set.
       STIMMA_DISTRIBUTION: official
       STIMMA_RELEASE_CHANNEL: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) && (contains(github.ref_name, '-beta.') && 'beta' || 'production') || inputs.channel }}
+      # Only automatic main canaries use the independent follow-up workflow.
+      # Set CANARY_ASYNC_NOTARIZATION=false to restore inline notarization.
+      STIMMA_DEFER_NOTARIZATION: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && inputs.channel == 'canary' && vars.CANARY_ASYNC_NOTARIZATION != 'false' && '1' || '0' }}
       STIMMA_UPDATE_BASE_URL: ${{ vars.STIMMA_UPDATE_BASE_URL || 'https://updates.stimma.ai' }}
       R2_BUCKET: ${{ vars.R2_BUCKET }}
       R2_S3_ENDPOINT: ${{ vars.R2_S3_ENDPOINT }}
@@ -256,7 +259,7 @@ jobs:
               hdiutil detach "$volume" || diskutil unmount force "$volume" || true
             done
 
-      - name: Build signed and notarized macOS app (Electron)
+      - name: Build signed macOS app (inline notarization except deferred canaries)
         if: vars.ENABLE_APPLE_SIGNING == 'true'
         timeout-minutes: 30
         env:
@@ -384,6 +387,18 @@ jobs:
           echo "app_tar=$APP_TAR" >> "$GITHUB_OUTPUT"
           echo "app_sig=$APP_SIG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # Persist the exact signed ZIP before publication. If a newer push cancels
+      # this run afterward, workflow_run can still finish its notarization.
+      - name: Archive canary notarization input
+        if: vars.ENABLE_APPLE_SIGNING == 'true' && env.STIMMA_DEFER_NOTARIZATION == '1'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: canary-macos-notary-input-${{ github.run_attempt }}
+          path: ${{ steps.collect.outputs.mac_zip }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
 
       - name: Wait for matching quality gate
         if: inputs.wait_for_quality_gate

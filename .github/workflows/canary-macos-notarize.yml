@@ -1,0 +1,71 @@
+name: Canary / macOS notarization
+run-name: Notarize canary from run ${{ github.event.workflow_run.id }}
+
+on:
+  workflow_run:
+    workflows: [Canary]
+    types: [completed]
+    branches: [main]
+
+# Independent of Canary's cancel-in-progress group. Superseding builds must
+# not abandon Apple's processing of an already published signed app.
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  notarize:
+    if: github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository
+    name: Notarize and staple published canary
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Find exact source-run input
+        id: input
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          INPUT_ARTIFACT: canary-macos-notary-input-${{ github.event.workflow_run.run_attempt }}
+        run: |
+          set -euo pipefail
+          artifact_names="$(gh api "repos/$GH_REPO/actions/runs/$SOURCE_RUN_ID/artifacts?per_page=100" --jq '.artifacts[] | select(.expired == false) | .name')"
+          if printf '%s\n' "$artifact_names" | grep -Fxq "$INPUT_ARTIFACT"; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo 'No deferred notarization input (inline build or canceled before archival).' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Checkout trusted main-push source
+        if: steps.input.outputs.available == 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Download exact signed canary
+        if: steps.input.outputs.available == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: canary-macos-notary-input-${{ github.event.workflow_run.run_attempt }}
+          path: notary-input
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Notarize and save a stapled copy
+        if: steps.input.outputs.available == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: python3 scripts/notarize-canary.py --input-dir notary-input --output-dir notary-result
+
+      - name: Preserve Apple receipt and stapled archive
+        if: always() && steps.input.outputs.available == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: canary-macos-notarized-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}-${{ github.run_attempt }}
+          path: notary-result/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
