@@ -45,7 +45,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
 from prompt_programs.variants import (
-    AGE, DESCENT, GENDER, STAGE, TOPUP, VARIANTS_VERSION, Ask, Batch, Pins, Seeds, Slot, age_stages, age_years,
+    AGE, DESCENT, GENDER, MIN_POOL, STAGE, TOPUP, VARIANTS_VERSION, Ask, Batch, Pins, Seeds, Slot, age_stages, age_years,
     N_OTHER, N_PERSON, PICK_CHUNK, ask_writer, stages_of, top_up, write_batch, write_chunks, write_first, year_ages,
 )
 
@@ -561,6 +561,7 @@ class PoolWriter:
         self._queued: List[Job] = []
         self._failed: Dict[str, Tuple[str, float]] = {}   # key -> (why, when)
         self._early: set = set()   # pools an unseeded first chunk was asked for (once each)
+        self._thin: set = set()    # pools whose short first write was asked again (once each)
         self._sem: Optional[asyncio.Semaphore] = None
         self._urgent_sem: Optional[asyncio.Semaphore] = None
         self._gate: Optional[CallGate] = None
@@ -574,8 +575,14 @@ class PoolWriter:
                 any(j.key == key for j in self._queued)
 
     def first_written(self, key: str) -> bool:
-        """Whether a pool's first write is stored: an unseeded first chunk alone isn't it."""
-        return any(b.get("role") != "early" and b.get("variants") for b in self.store.batches(key))
+        """Whether a pool's first write is stored: an unseeded first chunk alone isn't it, and nor
+        is one that kept fewer than MIN_POOL (most of its calls failed or were unreadable) until it
+        has been asked again once; a top-up or More like these stored means it was."""
+        batches = [b for b in self.store.batches(key) if b.get("role") != "early" and b.get("variants")]
+        if not batches:
+            return False
+        return key in self._thin or any(b.get("role") != "first" for b in batches) or \
+            sum(len(b["variants"]) for b in batches) >= MIN_POOL
 
     def failed(self, key: str) -> Optional[str]:
         got = self._failed.get(key)
@@ -713,6 +720,9 @@ class PoolWriter:
         if job.role == "first":
             if self.first_written(job.key):
                 return []
+            again = any(b.get("role") == "first" and b.get("variants") for b in self.store.batches(job.key))
+            if again:
+                self._thin.add(job.key)   # a short first write, asked again once: told what it holds
             out: List[str] = []
             seen: set = {_norm(v["text"]) for v in have}
 
@@ -725,10 +735,14 @@ class PoolWriter:
             batches = await write_first(job.slot, seeds, ask=self.ask, project_id=job.project_id, key=job.key,
                                         landed=landed_first, gate=self.gate(job), written=[v["text"] for v in have])
             self.calls += len(batches)
-            if not out:
-                why = "; ".join(dict.fromkeys(b.error or ", ".join(b.dropped) or "nothing usable" for b in batches))
+            why = "; ".join(dict.fromkeys(b.error or ", ".join(b.dropped) or "nothing usable" for b in batches))
+            if not out and not have:
                 self._failed[job.key] = (why[:200], time.time())
                 log.info(f"[variants] {job.slot.words!r} stands as written: {why[:200]}")
+            elif not self.first_written(job.key):
+                # Short: it draws from what it has and is asked again after RETRY_AFTER (submit).
+                self._failed[job.key] = (f"thin: {why}"[:200], time.time())
+                log.info(f"[variants] {job.slot.words!r} kept only {len(have) + len(out)}; asked again later: {why[:200]}")
             return out
         # A background top-up fills only the room left under MAX_POOL. More like these, which the
         # user asked for, may pass the cap by its own one batch.

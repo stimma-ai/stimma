@@ -759,8 +759,9 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
                      rounds=cfg.fix_rounds, fixed=fixed, edits=edits, exact=exact) for i in drawn]
     for i, res in zip(drawn, _drive(judge, fixers)):
         if isinstance(res, Exception):  # the judge failing must never cost the image: ship the draw as made
-            log.warning(f"[fluent-fix] fix pass failed, keeping the draw as made: {res}")
-            out[i] = (out[i], {"judge": getattr(judge, "version", ""), "error": f"the fix pass failed ({res})"})
+            why = str(res) or type(res).__name__   # a timeout says nothing of itself
+            log.warning(f"[fluent-fix] fix pass failed, keeping the draw as made: {why}")
+            out[i] = (out[i], {"judge": getattr(judge, "version", ""), "error": f"the fix pass failed ({why})"})
         else:
             out[i] = res
     return [shipped(r) for r in out]

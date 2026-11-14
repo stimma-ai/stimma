@@ -198,7 +198,7 @@ def test_gender_is_drawn_by_its_shares_and_narrowed_by_the_words():
     got = Counter(s.gender for s in V.draw_seeds(random.Random(3), V.person_seeds(gender=["woman", "trans woman"]), n).specs)
     assert set(got) == {"woman", "trans woman"} and abs(got["trans woman"] / n - 0.027 / 0.487) < 0.01
     # the writer is told it per variant
-    s = V.person_seeds(gender=["non-binary person"])
+    s = V.person_seeds().pinned(V.Pins(gender=("non-binary person",)))
     msg = V.messages(slot_of("a <person> in a kitchen", "person"), V.draw_seeds(random.Random(1), s, 3), s)[1]["content"]
     assert 'gender: "non-binary"' in msg
 
@@ -1179,3 +1179,171 @@ def test_idea_counts_are_kept_per_batch_and_a_rejected_idea_counts():
     b = run(V.write_batch(slot_of("a woman with <hair>, portrait"), s, 8, ask=Uses(), rng=random.Random(2)))
     offered, used, rejected = b.ideas["offered"], b.ideas["used"], b.ideas["rejected"]
     assert offered >= 8 and used == 8 and rejected == offered - 8
+
+
+# --------------------------------------------------------------------------- replies as a local model sends them
+
+def _fenced(variants, rejected=()):
+    return "```json\n" + json.dumps({"rejected": list(rejected), "variants": variants}, indent=2) + "\n```"
+
+
+CARS = [{"n": i + 1, "text": t, "idea": "none"} for i, t in enumerate(
+    ["a sleek red sports car", "a vintage silver roadster", "a matte black aerodynamic coupe",
+     "a bright yellow convertible", "a wide-bodied electric grand tourer"])]
+
+
+def test_a_reply_that_answers_talks_and_answers_again_is_read_by_its_last_answer():
+    # The shape that kept <sports car> at 5 variants: a fenced object, prose arguing with the
+    # seeds, then another fenced object. Reading first "{" to last "}" spanned both.
+    second = [{**v, "text": v["text"].replace("a ", "a low ", 1)} for v in CARS]
+    reply = (_fenced(CARS, ["logging truck", "taxi"]) + "\n\nWait, looking at the prompt instructions again, "
+             "the seeds are *not* sports cars. Let's provide 5 variants where I treat {the seeds} as kinds:\n\n"
+             + _fenced(second))
+    got = V.parse_reply(reply)
+    assert [v["text"] for v in got["variants"]] == [v["text"] for v in second] and got["rejected"] == []
+
+
+def test_a_reply_with_a_fence_per_variant_or_prose_around_it_is_read():
+    assert len(V.parse_reply("Here you go:\n" + _fenced(CARS) + "\nHope these help!")["variants"]) == 5
+    assert len(V.parse_reply(json.dumps({"variants": CARS}))["variants"]) == 5
+    assert V.parse_reply("Sure! Here are some variants you might like.") is None
+    assert V.parse_reply('```json\n{"slots": []}\n```') == {"slots": []}
+
+
+def test_a_reply_cut_at_the_token_budget_keeps_the_variants_before_the_cut():
+    full = _fenced(CARS, ["school bus", "tractor"])
+    cut = full[:full.index('"text": "a bright yellow')]   # cut inside variant 4
+    got = V.parse_reply(cut)
+    assert [v["text"] for v in got["variants"]] == [v["text"] for v in CARS[:3]]
+    assert got["rejected"] == ["school bus", "tractor"]
+    # an answer closed, then talk cut off mid-sentence (finish_reason "length"): the closed answer
+    got = V.parse_reply(full + '\nOne last check: "a ⟦sports car⟧ parked in <place>".\nVariant 1: "')
+    assert len(got["variants"]) == 5
+    assert V.parse_reply('```json\n{\n  "rejected": [],\n  "variants": [\n    {\n      "n": 1,\n      "te') is None
+
+
+def test_a_cut_reply_is_written_as_the_variants_that_closed():
+    sl = slot_of("a <sports car> parked in <place>, low angle, golden hour", "free", "sports car")
+    full = _fenced(CARS)
+
+    async def cut(*a, **k):
+        return full[:full.index('"text": "a bright yellow')]
+    b = run(V.write_batch(sl, V.Seeds(), 5, ask=cut))
+    assert len(b.variants) == 3 and b.dropped["missing"] == 2 and not b.error
+
+
+def test_a_writes_token_budget_follows_the_variants_it_asks_for():
+    fake = FakeWriter()
+    run(V.write_batch(slot_of(PROMPT, "person"), V.person_seeds(), 5, ask=fake))
+    assert fake.calls[0]["max_tokens"] == V.write_tokens(5) < 1500   # a runaway is cut in seconds
+    assert V.write_tokens(40) == V.WRITE_TOKENS and V.write_tokens(20) < V.WRITE_TOKENS
+
+
+# --------------------------------------------------------------------------- a gender the words carry
+
+GRANDMOTHER = "a small apartment on a rainy evening\na <grandmother> with <her pet>, <light>\n# make it look like a 1990s snapshot"
+
+
+def test_a_gender_needs_only_the_words_that_tell_it_from_the_others_the_words_allow():
+    assert V.gender_needs("woman", "grandmother", ["woman", "trans woman"]) == ()
+    assert V.gender_needs("trans woman", "grandmother", ["woman", "trans woman"]) == ("trans",)
+    assert V.gender_needs("woman", "grandmother", ["woman"]) == ()
+    assert V.gender_needs("trans man", "grandfather", ["man", "trans man"]) == ("trans",)
+    # words that narrow nothing: every word of it not in the slot's words (today's rule)
+    assert V.gender_needs("woman", "chef") == ("woman",)
+    assert V.gender_needs("trans woman", "person") == ("trans", "woman")
+    assert V.gender_needs("trans woman", "young woman", ["woman", "trans woman"]) == ("trans",)
+    assert V.gender_needs("non-binary person", "chef") == ("non", "binary")
+    # a pick outside what the words allow still shows
+    assert V.gender_needs("man", "grandmother", ["woman", "trans woman"]) == ("man",)
+
+
+def test_a_grandmother_is_written_with_no_gender_word_and_a_trans_one_says_so():
+    # The overnight run: every seed line said gender "woman", the writer wrote "... grandmother ...",
+    # and every variant was dropped for "gender missing", so <grandmother> went out as its word.
+    sl = slot_of(GRANDMOTHER, "person")
+    seeds = V.person_seeds(gender=["woman", "trans woman"])
+    drawn = V.draw_seeds(random.Random(2), seeds, 200, sl.words)
+    assert {s.gender_needs for s in drawn.specs} == {(), ("trans",)}
+    lines = [s.line() for s in drawn.specs]
+    assert not any("gender" in ln for s, ln in zip(drawn.specs, lines) if s.gender == "woman")
+    assert all('gender: "trans woman"' in ln for s, ln in zip(drawn.specs, lines) if s.gender == "trans woman")
+    reply = _fenced([{"n": 1, "text": "a Bangladeshi grandmother wearing a turquoise cotton T-shirt and straight blue jeans", "idea": ""},
+                     {"n": 2, "text": "a stocky Peruvian grandmother with ear-length hair and a gentle, weathered expression", "idea": ""},
+                     {"n": 3, "text": "a White American grandmother with wavy hair and a kind, smiling face", "idea": ""}])
+
+    async def ask(*a, **k):
+        return reply
+    woman = V.Drawn([V.Spec(gender="woman", gender_needs=V.gender_needs("woman", sl.words, ["woman"]))] * 3, [])
+    b = run(V.write_batch(sl, seeds, 3, ask=ask, drawn=woman))
+    assert len(b.variants) == 3 and not b.dropped
+    trans = V.Drawn([V.Spec(gender="trans woman", gender_needs=("trans",))] * 3, [])
+    assert run(V.write_batch(sl, seeds, 3, ask=ask, drawn=trans)).dropped["gender missing"] == 3
+
+
+def test_what_the_seed_line_shows_of_a_gender_passes_the_check():
+    for words, fits in (("grandmother", ["woman", "trans woman"]), ("chef", None), ("young woman", ["woman", "trans woman"]),
+                        ("person", None), ("grandfather", ["man", "trans man"])):
+        for g in ("woman", "man", "trans woman", "trans man", "non-binary person"):
+            spec = V.Spec(gender=g, gender_needs=V.gender_needs(g, words, fits))
+            shown = re.search(r'gender: "([^"]+)"', spec.line())
+            text = f"tall {shown.group(1)} {words} in a coat" if shown else f"tall {words} in a coat"
+            assert V.check(text, words, [words], spec) == "", (words, g)
+
+
+def test_a_gender_picked_for_a_grandmother_shows_where_it_tells_her_apart():
+    seeds = V.person_seeds(gender=["woman", "trans woman"]).pinned(V.Pins(gender=("trans woman",)))
+    assert seeds.gender_fits == ("woman", "trans woman")
+    specs = V.draw_seeds(random.Random(1), seeds, 20, "grandmother").specs
+    assert {s.gender for s in specs} == {"trans woman"} and {s.gender_needs for s in specs} == {("trans",)}
+    seeds = V.person_seeds(gender=["woman", "trans woman"]).pinned(V.Pins(gender=("woman",)))
+    assert {s.gender_needs for s in V.draw_seeds(random.Random(1), seeds, 20, "grandmother").specs} == {()}
+    # a person whose words narrow nothing shows a picked woman
+    seeds = V.person_seeds().pinned(V.Pins(gender=("woman",)))
+    assert {s.gender_needs for s in V.draw_seeds(random.Random(1), seeds, 20, "chef").specs} == {("woman",)}
+
+
+# --------------------------------------------------------------------------- a short first write
+
+def test_a_short_first_write_draws_what_it_has_and_is_asked_again_once(tmp_path, monkeypatch):
+    # Overnight, <sports car> kept 5 of 30 (unreadable replies, then timeouts), was stored as its
+    # first write, and stayed at 5 for every image.
+    chunks = V.N_OTHER // V.PICK_CHUNK
+    sl = slot_of("a <sports car> parked in <place>, low angle, golden hour", "free", "sports car")
+
+    async def go():
+        fake = FakeWriter(["prose"] * (chunks - 1) + ["prose"] * chunks)   # 5 kept, in two rounds
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
+        w.attach()
+        job = job_for(sl, V.Seeds())
+        w.submit(job)
+        await w.drain()
+        assert len(w.store.variants(job.key)) == 5 and w.state(job.key) == "ready"
+        assert not w.first_written(job.key)
+        first = w.store.variants(job.key)[0]["text"]
+        assert not w.submit(job_for(sl, V.Seeds()))   # not at once: after RETRY_AFTER
+        monkeypatch.setattr(P, "RETRY_AFTER", 0.0)
+        assert w.submit(job_for(sl, V.Seeds()))
+        await w.drain()
+        assert len(w.store.variants(job.key)) == V.N_OTHER and w.first_written(job.key)
+        assert first in fake.calls[-1]["user"]   # told what the pool holds
+        assert not w.submit(job_for(sl, V.Seeds()))   # done
+        return fake
+    run(go())
+
+
+def test_a_short_first_write_asked_again_and_short_again_is_left_to_top_ups(tmp_path, monkeypatch):
+    chunks = V.N_OTHER // V.PICK_CHUNK
+    monkeypatch.setattr(P, "RETRY_AFTER", 0.0)
+    sl = slot_of("a <sports car> parked in <place>, low angle, golden hour", "free", "sports car")
+
+    async def go():
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=FakeWriter(["prose"] * 100))
+        w.attach()
+        job = job_for(sl, V.Seeds())
+        w.store.append(job.key, {"batch": 0, "role": "first", "variants": [{"text": "sleek red sports car", "seeds": {}}]})
+        assert not w.first_written(job.key) and w.submit(job)
+        await w.drain()
+        assert w.first_written(job.key) and not w.submit(job_for(sl, V.Seeds()))
+        assert len(w.store.variants(job.key)) == 1
+    run(go())

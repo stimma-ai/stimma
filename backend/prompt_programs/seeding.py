@@ -122,9 +122,13 @@ def plan(reading: Dict[str, Any], words: str = "") -> Dict[str, Any]:
         p = got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else ""
         add("core", str(got.get("list")), words, str(got.get("about") or words), {"presentation": p} if p else None)
         return {"kind": kind, "banks": banks}
+    # Narrowed by the words like any other list: "sports car" keeps the kinds of sports car of a
+    # road vehicle list, not a tractor or a city bus (a seed that contradicts the words sends the
+    # writer arguing with itself). A list the words say nothing about keeps every value.
+    about = str(got.get("about") or words)
     for lid in (got.get("lists") or [])[:3]:
         try:
-            add("idea", str(lid))
+            add("idea", str(lid), words, about)
         except ReadingError:
             continue   # a list the vocabulary no longer has
     return {"kind": kind, "banks": banks}

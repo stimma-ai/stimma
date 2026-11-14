@@ -59,7 +59,9 @@ def test_a_camera_an_animal_and_a_free_slot_seed_ideas():
     assert [b["list"] for b in p["banks"]] == ["animal.species", "animal.life_stage"]
     assert p["banks"][0]["where"] == {"kind": "pet"}
     p = plan({"kind": "free", "free": {"kinds": ["den"], "lists": ["interior_space.room", "no.such.list"]}}, "room")
-    assert roles(p) == [("idea", "interior_space.room", "")]
+    assert roles(p) == [("idea", "interior_space.room", "room")]   # narrowed by its words like any list
+    p = plan({"kind": "free", "free": {"about": "a sports car", "lists": ["vehicle.road_vehicle"]}}, "sports car")
+    assert roles(p) == [("idea", "vehicle.road_vehicle", "sports car")] and p["banks"][0]["about"] == "a sports car"
 
 
 def test_a_reading_naming_no_list_is_an_error():

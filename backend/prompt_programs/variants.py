@@ -48,7 +48,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-11"   # variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-12"   # variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -59,6 +59,15 @@ SHORTLIST = 7          # a list this short is shown to the writer whole
 HAVE_SHOWN = 80        # the pool's latest texts a top-up is told it already has
 WRITE_TOKENS = 4500    # a write's reply budget: 40 variants of about 20 words, with no reasoning
 WRITE_SECONDS = 150.0  # one write call, at most
+TOKENS_PER_VARIANT = 150   # a call's budget per variant asked for (a long person variant with its idea: ~80)
+TOKENS_BASE = 300          # and for the reply's frame and rejected list
+
+
+def write_tokens(n: int) -> int:
+    """A write call's reply budget: room for `n` variants about twice over, at most WRITE_TOKENS.
+    A model that keeps talking after its JSON is cut off in seconds rather than running to the
+    whole budget and the call's deadline; the variants that closed before the cut are kept."""
+    return min(WRITE_TOKENS, TOKENS_BASE + TOKENS_PER_VARIANT * max(1, n))
 WRITE_TEMPERATURE = 0.8
 
 DESCENT = "person.ethnicity"
@@ -278,6 +287,7 @@ class Seeds:
     descent: Optional[Bank] = None        # a person's descent: one per variant, its look given, its word where it can be true
     descent_pinned: bool = False          # the descents are the user's picks: each must appear
     gender: Optional[Bank] = None         # a person's gender: one per variant, told
+    gender_fits: Optional[Tuple[str, ...]] = None   # the genders their words allow (None: not narrowed); picks don't change it
     age: Optional[Bank] = None            # a person's age: one per variant, told
     age_fits: Optional[Tuple[str, ...]] = None   # a person's ages as narrowed by their words (None: not narrowed)
     core: Optional[Bank] = None           # a slot bound to one list: one value per variant to build on
@@ -350,7 +360,8 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
         d = None   # their words name it already
     if d is not None:
         d = replace(d, values=weigh(d.values, place))   # the place mix, within what their words allow
-    return Seeds(descent=d, place=tuple(sorted(place.items())) if place else None, gender=bank(GENDER, gender), person=True, clothes_owned=clothes_owned,
+    return Seeds(descent=d, place=tuple(sorted(place.items())) if place else None, gender=bank(GENDER, gender),
+                 gender_fits=tuple(gender) if gender is not None else None, person=True, clothes_owned=clothes_owned,
                  age=bank(AGE, ages, minor=bool(minor)) if ages is not None and _open_age(ages) else None, minor=minor,
                  age_fits=tuple(ages) if ages is not None else None,
                  ideas=tuple(b for b in (bank(lid, n, minor=bool(minor), stated=look) for lid, n in ideas)
@@ -421,6 +432,24 @@ def gender_mark(value: str) -> str:
     return leaf.short(value) if leaf is not None else value
 
 
+def gender_needs(value: str, words: str = "", fits: Optional[Sequence[str]] = None) -> Tuple[str, ...]:
+    """The words of a drawn gender a variant must state: those of its short form (gender_mark)
+    that distinguish it from the other genders the person's words allow, and that the words don't
+    state already. `fits`: the genders the words narrowed the list to ("grandmother" keeps woman and
+    trans woman), whose short forms' shared words the words already carry, so "woman" needs nothing
+    there and "trans woman" needs "trans"; None (the words narrow nothing: "person", "chef"): the
+    whole list, which shares no word, so every word of it not in the slot's words. A gender the
+    user picked outside what the words allow still has its distinguishing words to show."""
+    from prompt_programs.vocab import vocabulary
+    if fits is None:
+        leaf = vocabulary().get(GENDER)
+        fits = [v.text for v in leaf.values] if leaf is not None else []
+    marks = [set(tokens(gender_mark(v))) for v in fits]
+    shared = set.intersection(*marks) if marks else set()
+    said = set(tokens(words))
+    return tuple(t for t in tokens(gender_mark(value)) if t not in shared and t not in said)
+
+
 def _weighted(rng: random.Random, pairs: Sequence[Tuple[str, float]]) -> str:
     total = sum(w for _, w in pairs)
     x = rng.random() * total
@@ -483,7 +512,8 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_c
     before any repeats, the ones the pool hasn't built on first) and, for a person, two aspects to
     develop (rotated, so the set doesn't share one template); its own 1-2 ideas from the long
     idea lists, on its seed line, no repeats in a batch; short idea lists shown whole. `words`:
-    the slot's words (a gender they state needs no seed line)."""
+    the slot's words (a gender they state, or that every gender they allow shares, needs no seed
+    line: gender_needs)."""
     cores = _spread(rng, seeds.core, n, used_cores) if seeds.core is not None else []
     aspects = [a for a in ASPECTS if not (seeds.clothes_owned and a == CLOTHES)
                and not (a == AGE_SHOWS and seeds.age is None)]   # words that state an age carry it ("young")
@@ -497,7 +527,7 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_c
             s.descent_required = seeds.descent_pinned
         if seeds.gender is not None:
             s.gender = _weighted(rng, seeds.gender.values)
-            s.gender_needs = tuple(t for t in tokens(gender_mark(s.gender)) if t not in tokens(words))
+            s.gender_needs = gender_needs(s.gender, words, seeds.gender_fits)
         if seeds.person and pairs:
             s.develop = pairs[i % len(pairs)]
         if seeds.age is not None:
@@ -755,19 +785,79 @@ def check(text: str, words: str, keep: Sequence[str], spec: Spec) -> str:
     return ""
 
 
+_DECODER = json.JSONDecoder()
+
+
+def _objects(s: str) -> List[Dict[str, Any]]:
+    """Every complete JSON object in `s`, outermost first, in order: fences, prose and other
+    objects around them aside."""
+    out: List[Dict[str, Any]] = []
+    i = 0
+    while True:
+        j = s.find("{", i)
+        if j < 0:
+            return out
+        try:
+            v, end = _DECODER.raw_decode(s, j)
+        except ValueError:
+            i = j + 1   # not an object here (prose, a cut-off one): look inside and past it
+            continue
+        if isinstance(v, dict):
+            out.append(v)
+        i = end
+
+
+def _cut_variants(s: str) -> Optional[Dict[str, Any]]:
+    """A reply cut off inside its variants list (the token budget ran out): the variants that
+    closed before the cut, with the rejected list when it closed; None when none did."""
+    k = s.rfind('"variants"')
+    j = s.find("[", k) if k >= 0 else -1
+    if j < 0:
+        return None
+    items: List[Any] = []
+    i = j + 1
+    while True:
+        while i < len(s) and s[i] in " \t\r\n,":
+            i += 1
+        if i >= len(s) or s[i] != "{":
+            break
+        try:
+            v, i = _DECODER.raw_decode(s, i)
+        except ValueError:
+            break   # the cut
+        items.append(v)
+    if not items:
+        return None
+    out: Dict[str, Any] = {"variants": items}
+    r = s.rfind('"rejected"', 0, k)
+    if r >= 0:
+        a = s.find("[", r)
+        try:
+            got, _ = _DECODER.raw_decode(s, a) if 0 <= a < k else (None, 0)
+        except ValueError:
+            got = None
+        if isinstance(got, list):
+            out["rejected"] = got
+    return out
+
+
 def parse_reply(reply: Optional[str]) -> Optional[Dict[str, Any]]:
-    """The reply's JSON object, fences and chatter around it aside; None when there is none."""
+    """The reply's JSON object however it is fenced or surrounded; None when there is none. A
+    model that writes an object, talks, and writes another (each in its own fence) is read by its
+    last object with a variants list, its final answer. A reply cut off before any such object
+    closed keeps the variants that closed before the cut. With no variants list anywhere, the last
+    object."""
     if not reply:
         return None
-    s = re.sub(r"^```(?:json)?|```$", "", reply.strip(), flags=re.M).strip()
-    if "{" not in s:
-        return None
-    s = s[s.find("{"): s.rfind("}") + 1]
-    try:
-        v = json.loads(s)
-    except ValueError:
-        return None
-    return v if isinstance(v, dict) else None
+    s = str(reply)
+    objs = _objects(s)
+    full = [o for o in objs if isinstance(o.get("variants"), list)]
+    if full:
+        return full[-1]
+    cut = _cut_variants(s)
+    if cut is not None:
+        return cut
+    return objs[-1] if objs else None
 
 
 # --------------------------------------------------------------------------- one batch
@@ -799,7 +889,7 @@ async def write_batch(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id:
     out = Batch()
     t0 = time.monotonic()
     try:
-        reply = await asyncio.wait_for(ask(messages(slot, drawn, seeds, have), project_id, WRITE_TOKENS,
+        reply = await asyncio.wait_for(ask(messages(slot, drawn, seeds, have), project_id, write_tokens(len(drawn.specs)),
                                            temperature=WRITE_TEMPERATURE), WRITE_SECONDS)
     except Exception as e:   # a model slip or an unreachable model degrades: the slot stands as written
         out.error = f"{type(e).__name__}: {e}"[:200] or "call failed"
@@ -936,5 +1026,5 @@ async def top_up(slot: Slot, seeds: Seeds, have: Sequence[str], *, ask: Ask, pro
 __all__ = ["AGE", "STAGE", "Ask", "Bank", "Batch", "DESCENT", "Drawn", "MIN_POOL", "N_OTHER", "N_PERSON", "GENDER", "Pins",
            "PICK_CHUNK", "SHORTLIST", "SYSTEM", "Seeds", "Slot", "Spec", "TOPUP", "VARIANTS_VERSION", "article_before", "ask_writer",
            "age_stages", "age_years", "allowed_ages", "bank", "year_ages", "check", "stages_of",
-           "context_words", "draw_seeds", "has_run", "kept_chunks", "list_seeds", "messages", "minor_line", "minor_words",
-           "parse_reply", "person_seeds", "repair", "split", "tokens", "top_up", "valid_category", "write_batch", "write_chunks", "write_first"]
+           "context_words", "draw_seeds", "gender_mark", "gender_needs", "has_run", "kept_chunks", "list_seeds", "messages", "minor_line", "minor_words",
+           "parse_reply", "person_seeds", "write_tokens", "repair", "split", "tokens", "top_up", "valid_category", "write_batch", "write_chunks", "write_first"]

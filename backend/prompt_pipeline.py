@@ -133,8 +133,14 @@ def verify_and_unmark(output: str, values: Sequence[str]) -> Optional[str]:
     marks dropped is still a good answer."""
     plain = output.replace(_MARK_OPEN, "").replace(_MARK_CLOSE, "")
     # A value counts where it stands whole: "short" inside "shorts" is not the value.
+    # One that opens a sentence may come back with a capital ("⟦The pale light ...⟧", or
+    # "The ⟦pale light ...⟧" with its article outside the marks): the same words. Elsewhere a
+    # capital is a change ("a ⟦Young woman⟧").
     def whole(v: str) -> int:
-        return len(re.findall(rf"(?<!\w){re.escape(v)}(?!\w)", plain))
+        n = len(re.findall(rf"(?<!\w){re.escape(v)}(?!\w)", plain))
+        if v[:1].isalpha() and v[:1].islower():
+            n += len(re.findall(rf"(?:^|(?<=[.!?])\s+|(?<=\n))\s*{re.escape(v[0].upper() + v[1:])}(?!\w)", plain))
+        return n
     if any(whole(v) < n for v, n in Counter(values).items()):
         return None
     # A value that opens with its own article sometimes gets a second one written

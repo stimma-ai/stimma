@@ -748,3 +748,69 @@ async def test_the_editor_hears_when_a_prompt_changes(monkeypatch, profile):
                                                     text="new light 0"))
     await asyncio.sleep(0.05)
     assert [d["key"] for e, d in ws.broadcasts if e == events.EVENT] == [out["key"]]
+
+
+# --------------------------------------------------------------------------- the overnight comparison's failures
+
+class Gemma(FakeWriter):
+    """Writes as the local model did overnight: a person in their own words ("a Peruvian
+    grandmother", no "woman"), "trans" only where the seed line names it, every reply in a json
+    fence; with `argue`, a fenced answer, prose, and a second fenced answer (finish "stop")."""
+
+    def __init__(self, argue: bool = False):
+        super().__init__()
+        self.argue = argue
+
+    async def __call__(self, messages, project_id, max_tokens, temperature=0.8):
+        import re
+        from test_prompt_program_variants import ADJ, parse_request
+        req = parse_request(messages)
+        self.calls.append({**req, "max_tokens": max_tokens})
+        out = []
+        for i in range(1, req["n"] + 1):
+            line = req["seeds"].get(i, "")
+            d = re.match(r'"([^"]+)"', line)
+            trans = "trans " if re.search(r'gender: "trans', line) else ""
+            out.append({"n": i, "text": f"a {ADJ[(i + len(self.calls)) % len(ADJ)]} {d.group(1) + ' ' if d else ''}"
+                                        f"{trans}{req['words']} no{i}c{len(self.calls)}", "idea": "none"})
+        fence = "```json\n" + json.dumps({"rejected": [], "variants": out}, indent=2) + "\n```"
+        if not self.argue:
+            return fence
+        first = "```json\n" + json.dumps({"rejected": ["logging truck"], "variants": out[:2]}, indent=2) + "\n```"
+        return first + "\n\nWait, looking at the instructions again, {the seeds} are not kinds of it. Let's provide them:\n\n" + fence
+
+
+async def test_a_grandmother_gets_a_full_pool_of_her_own_words(monkeypatch, profile):
+    # Overnight: gender narrowed to "woman", every seed line said gender "woman", and every
+    # variant of <grandmother> was dropped for "gender missing": it stood as written.
+    reading = {"slots": [{"n": 1, "kind": "person", "label": "Grandmother", "lead": "", "category": "",
+                          "person": {"noun": "grandmother", "presentation": "feminine", "stated": {},
+                                     "vary": ["descent", "build", "hair"], "clothes_part": 0, "clothes": "", "outfit": ""}}],
+               "lists": []}
+    prompt = "a small apartment on a rainy evening\na <grandmother> by the window\n# make it look like a 1990s snapshot"
+    model, writer = use(monkeypatch, FakeModel(reading), Gemma())
+    entry = await settled(prompt, profile)
+    s = slot(entry, "grandmother")
+    pool = P.store_for(profile).variants(s["pool"])
+    assert len(pool) == P.N_PERSON
+    assert {v["seeds"]["gender"] for v in pool} <= {"woman", "trans woman"}
+    assert all("trans" in v["text"] for v in pool if v["seeds"]["gender"] == "trans woman")
+    assert not any('gender: "woman"' in c["user"] for c in writer.calls)
+    r = prep.realize(entry, profile_id=profile, seed=1)
+    assert r.draws[0].source == "variant" and r.draws[0].value != "grandmother"
+
+
+async def test_a_sports_car_is_seeded_by_its_kinds_and_read_however_the_model_fences_it(monkeypatch, profile):
+    # Overnight: <sports car> (a free slot) drew ideas from the whole road vehicle list (a
+    # logging truck, a tractor), the writer argued with them in fenced answers the app couldn't
+    # read, and the pool stopped at 5.
+    reading = {"slots": [{"n": 1, "kind": "free", "label": "Sports car", "lead": "a", "category": "sports car",
+                          "free": {"about": "a sports car", "lists": ["vehicle.road_vehicle"]}},
+                         ], "lists": []}
+    model, writer = use(monkeypatch, FakeModel(reading), Gemma(argue=True))
+    entry = await settled("a <sports car> parked in a garage, low angle, golden hour", profile)
+    assert "Road vehicle" in model.narrowed
+    bank = entry["seeds"]["sports_car"]["banks"][0]
+    assert bank["phrase"] == "sports car" and bank["list"] == "vehicle.road_vehicle"
+    s = slot(entry, "sports_car")
+    assert len(P.store_for(profile).variants(s["pool"])) == P.N_OTHER

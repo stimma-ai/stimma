@@ -56,6 +56,25 @@ def test_verify_and_unmark_needs_every_value_exactly():
     assert pp.verify_and_unmark("A ⟦Young woman⟧ reads on ⟦35mm⟧.", values) is None
 
 
+
+def test_a_value_that_opens_a_sentence_may_come_back_capitalized():
+    # Overnight, four of eight <grandmother> images lost Improve to these: the value was copied
+    # whole, only with a sentence's capital, or with its article just outside the marks.
+    values = ["grandmother", "her pet tabby cat", "the dim blue light from a television screen"]
+    got = pp.verify_and_unmark(
+        "A 1990s snapshot of a small apartment. A ⟦grandmother⟧ sits on a sofa with ⟦her pet tabby cat⟧. "
+        "⟦The dim blue light from a television screen⟧ shines on a coffee table.", values)
+    assert got is not None and "The dim blue light from a television screen shines" in got
+    assert pp.verify_and_unmark(
+        "A ⟦grandmother⟧ holds ⟦her pet tabby cat⟧. The ⟦dim blue light from a television screen⟧ hangs above.", values)
+    assert pp.verify_and_unmark(
+        "An ⟦eye-level shot from the dog's perspective⟧ shows a beagle.", ["an eye-level shot from the dog's perspective"])
+    # mid-sentence a capital is still a change, and so are other words
+    assert pp.verify_and_unmark("She sits by ⟦The dim blue light from a television screen⟧.", values[2:]) is None
+    assert pp.verify_and_unmark("An eye-level shot from the perspective of a beagle.",
+                                ["an eye-level shot from the dog's perspective"]) is None
+
+
 async def test_correct_answer_comes_back_without_marks(generation_app, generation_db_session, monkeypatch):
     requests = _fake_improve(monkeypatch, [lambda r: r.prompt + ", lit by a flickering tube light"])
     outcome = {}
