@@ -134,8 +134,9 @@ def slot_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", pr
 
 def early_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", project_id: Optional[int] = None
               ) -> Optional[Job]:
-    """While a slot's seeds are still narrowed, one unseeded chunk written from its words and the
-    prompt alone, so it shows variants without waiting (variant_pools.PoolWriter._early_chunk);
+    """While a slot's seeds are still narrowed, one unseeded turn written from its words and the
+    prompt alone, so it shows variants without waiting: it opens the pool's session, and the
+    seeded first write continues it (variant_pools.PoolWriter.run);
     None when it must wait. Only for a slot that can't be about a person's age: never a person
     (descent, gender, age and the minors rules need the narrowing), never a slot narrowing reads
     an age for (a list under person. or clothing.: seeding.narrow_seeds' about_ages), never one
@@ -313,7 +314,7 @@ def pool_view(entry: Dict[str, Any], chosen: Optional[Dict[str, Choice]] = None,
                    "uses": uses.get(" ".join(v["text"].split()).lower(), 0), "own": False} for v in variants]
         listed += [{"text": t, "seeds": {}, "uses": uses.get(" ".join(t.split()).lower(), 0), "own": True}
                    for t in c.add if " ".join(t.split()).lower() not in have]
-        # (an unseeded first chunk shown while its seeds are narrowed: the rest is coming)
+        # (an unseeded opening turn shown while its seeds are narrowed: the rest is coming)
         more = bool(writer is not None and s.get("pool") and (writer.busy(str(s["pool"])) or (
             variants and sid in (entry.get("seeds_pending") or []) and not writer.first_written(str(s["pool"])))))
         if more:

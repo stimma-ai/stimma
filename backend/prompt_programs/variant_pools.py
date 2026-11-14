@@ -12,15 +12,16 @@ with no model call:
   user pinned, the variants whose seeds match the seeds the user picked, else any variant; each
   time the least-used one, ties broken by the draw's seeded RNG. A slot with no pool yet goes in
   as its own words. Never an error and never nothing to draw.
-- Writing. The first pool and every top-up run in the background (PoolWriter), never on a draw's
-  path. After a counted draw, when 80% of what the slot draws from has been drawn this round, a
-  top-up of 20 starts. "More like these" is the same call, awaited. A batch someone waits for (More
-  like these, seeds the user picked) is written as chunks of PICK_CHUNK side by side, each stored
-  as it lands, in a lane of its own: the picker sees matches in about 4 s, not 11-14 s. A first
-  write is chunked the same way, under a cap of CALLS calls in flight per profile (CallGate), so a
-  new slot shows variants in about 4-6 s rather than 15-40 s. A slot not about a person whose
-  seeds are still narrowed gets one unseeded chunk first (role "early"), which the first write
-  is told and counts toward its pool, never toward MIN_POOL.
+- Writing. Each pool has one chat session (variants.Session), stored beside it
+  (`<key>.session.json`), and every write is one or more turns of it: the first pool, a
+  background top-up (after a counted draw, when 80% of what the slot draws from has been drawn
+  this round), "More like these" (awaited) and a batch for seeds the user picked. A pool runs one
+  turn at a time, the most urgent waiting one next (what someone waits for, then first writes,
+  then top-ups), so a turn someone waits for never opens a second, blind conversation. Slots run
+  side by side under a cap of STREAMS streams per profile, every slot's first turn ahead of any
+  slot's later ones. Each variant is stored the moment its object closes in the stream. A slot not
+  about a person whose seeds are still narrowed opens its session with one unseeded turn (role
+  "early"); the seeded turns that follow continue that log, and it counts toward its pool.
 
 A failed write is never stored: the slot stands as written and the next prepare that starts
 work asks again.
@@ -45,8 +46,9 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
 from prompt_programs.variants import (
-    AGE, DESCENT, GENDER, MIN_POOL, STAGE, TOPUP, VARIANTS_VERSION, Ask, Batch, Pins, Seeds, Slot, age_stages, age_years,
-    N_OTHER, N_PERSON, PICK_CHUNK, ask_writer, stages_of, top_up, write_batch, write_chunks, write_first, year_ages,
+    AGE, DESCENT, GENDER, HAVE_SHOWN, STAGE, TOPUP, TURN, VARIANTS_VERSION, Ask, Pins, Seeds, Session, Slot, Turn,
+    age_stages, age_years, ask_writer, draw_seeds, first_turn, more_turn, reply_text, split, stages_of, write_turn,
+    year_ages,
 )
 
 log = get_logger(__name__)
@@ -56,14 +58,12 @@ TOPUP_AT = 0.8      # share of what a slot draws from drawn this round that star
 MAX_POOL = 300      # a pool this big stops topping up and cycles least-used
 RETRY_AFTER = 120.0 # seconds a failed first write stands as written before a prepare or poll asks again
 MIN_MATCH = 8       # picked seeds that match fewer variants than this write more that match, at once
-WORKERS = 4         # writes in flight per profile (each may be several calls; CALLS caps those)
-CALLS = 6           # writer calls in flight per profile. Measured on a local ~70 tok/s model, a prompt
-                    # of four new slots (28 chunks of 5): a cap of 4 shows every slot's first variants
-                    # in 3-5 s but takes 30 s for all; 6, 4-6 s and 24 s; 8, 4.5-7 s and 21 s (each
-                    # stream slows to ~35 tok/s at 8). Every slot's first chunks go first.
-URGENT_CALLS = 4    # calls a pick or More like these may run beyond CALLS, so it never queues behind first writes
-GATE_SETTLE = 0.01  # seconds calls arriving together are gathered before any is granted, so the first
-                    # chunks of every slot a prepare starts go ahead of any one slot's later chunks
+STREAMS = 6         # writer streams in flight per profile, one per pool at most. Measured on local
+                    # models, four new slots each streaming turns of 10 show every slot's first variant
+                    # in 1.4-2.9 s and fill all four in 32-33 s; every slot's first turn goes first.
+URGENT_STREAMS = 2  # streams a pick or More like these may run beyond STREAMS, so it never queues behind first writes
+GATE_SETTLE = 0.01  # seconds turns arriving together are gathered before any is granted, so the first
+                    # turn of every slot a prepare starts goes ahead of any one slot's later turns
 YIELD_POLL = 0.25   # seconds between looks while a background top-up gives way to a prepare
 SEEDS_KEPT = 500    # draws with an explicit draw seed remembered per prompt
 
@@ -93,8 +93,9 @@ def _norm(text: str) -> str:
 # --------------------------------------------------------------------------- the store
 
 class VariantStore:
-    """Pools on disk: `<key[:2]>/<key>.jsonl`, one line per batch, `<key>.uses.json`, and the
-    variants the user removed, `<key>.removed.json`."""
+    """Pools on disk: `<key[:2]>/<key>.jsonl`, one line per stored variant and one per turn's
+    tally, `<key>.uses.json`, the variants the user removed, `<key>.removed.json`, and the pool's
+    session log, `<key>.session.json`."""
 
     def __init__(self, root: Path):
         self.root = Path(root)
@@ -162,6 +163,24 @@ class VariantStore:
             self._mem.pop(key, None)
         from prompt_programs.events import pool_changed
         pool_changed(key)
+
+    def session(self, key: str) -> Dict[str, Any]:
+        """The pool's session log as stored (variants.Session.to_dict), {} when there is none."""
+        try:
+            got = json.loads(self._path(key, ".session.json").read_text("utf-8"))
+        except (OSError, ValueError):
+            return {}
+        return got if isinstance(got, dict) else {}
+
+    def save_session(self, key: str, session: Dict[str, Any]) -> None:
+        """Replace the pool's session log (written whole after each turn that joins it)."""
+        p = self._path(key, ".session.json")
+        with self._lock:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=p.parent, suffix=".tmp")
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(session, f, ensure_ascii=False)
+            os.replace(tmp, p)
 
     def removed(self, key: str) -> List[str]:
         """The texts removed from a pool (normalized)."""
@@ -458,19 +477,24 @@ def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: 
     return out
 
 
-# --------------------------------------------------------------------------- the cap on calls in flight
+# --------------------------------------------------------------------------- the cap on streams in flight
 
 class CallGate:
-    """At most `limit` writer calls in flight, granted in priority order (lowest first; ties in
-    arrival order). Calls arriving within `settle` seconds of each other are weighed together. An
-    urgent call (a pick, More like these) may run `extra` beyond the limit."""
+    """At most `limit` holders at once, granted in priority order (lowest first; ties in arrival
+    order). Requests arriving within `settle` seconds of each other are weighed together. An
+    urgent one (a pick, More like these) may run `extra` beyond the limit. The profile's cap on
+    writer streams, and (limit 1) a pool's one turn at a time."""
 
-    def __init__(self, limit: int = CALLS, extra: int = URGENT_CALLS, settle: float = GATE_SETTLE):
+    def __init__(self, limit: int = STREAMS, extra: int = URGENT_STREAMS, settle: float = GATE_SETTLE):
         self.limit, self.extra, self.settle = limit, extra, settle
         self._pending: Optional[asyncio.TimerHandle] = None
         self.running = 0
         self._waiting: List[Tuple[Tuple[int, ...], int, bool, "asyncio.Future[None]"]] = []
         self._seq = itertools.count()
+
+    @property
+    def idle(self) -> bool:
+        return self.running == 0 and not any(not f.done() for *_, f in self._waiting)
 
     @contextlib.asynccontextmanager
     async def slot(self, priority: Tuple[int, ...], urgent: bool = False):
@@ -494,8 +518,13 @@ class CallGate:
         self._pump()
 
     def _release(self) -> None:
+        """A holder is done: the next grant waits `settle`, so the holder's own next request (a
+        write's next turn) is weighed with the ones already waiting."""
         self.running -= 1
-        self._pump()
+        if self.settle <= 0:
+            self._pump()
+        elif self._pending is None:
+            self._pending = asyncio.get_running_loop().call_later(self.settle, self._settled)
 
     def _pump(self) -> None:
         while self._waiting:
@@ -514,11 +543,11 @@ class CallGate:
 
 @dataclass
 class Job:
-    """One write for one pool."""
+    """One write for one pool: one or more turns of its session."""
     key: str
     slot: Slot
     seeds: Seeds
-    role: str = "first"                # early (one unseeded chunk while its seeds are narrowed), first, top_up, more
+    role: str = "first"                # early (an unseeded opening turn while its seeds are narrowed), first, top_up, more
     pins: Pins = field(default_factory=Pins)
     project_id: Optional[int] = None
     model: str = ""
@@ -531,28 +560,42 @@ class Job:
 
     @property
     def urgent(self) -> bool:
-        """Someone is waiting to see it: More like these, or a batch for seeds the user picked.
-        Written in chunks side by side, each stored as it lands, in a lane of its own so it never
-        queues behind a background write."""
+        """Someone is waiting to see it: More like these, or a batch for seeds the user picked. Its
+        turns go next in the pool's session, ahead of any background turn, and may run beyond the
+        profile's cap on streams."""
         return self.role == "more" or (self.role == "top_up" and bool(self.pins))
 
     @property
+    def rank(self) -> int:
+        """Priority: what someone waits for, then first writes (every slot's first turn before
+        any slot's later ones), then background top-ups."""
+        return 0 if self.urgent else 1 if self.role in ("first", "early") else 2
+
+    @property
     def lane(self) -> str:
-        """What one write at a time is held to: the pool, or for a pick the pool's pick lane, so a
-        pick never waits for (or is refused by) a background write of the same pool."""
+        """What one write at a time is held to: the pool, or for an early turn, a pick or More like
+        these a lane of their own, so they never wait for (or are refused by) a background write of
+        the same pool. Their turns still go one at a time in the pool's one session."""
         if self.role == "early":
             return f"{self.key}|early"
+        if self.role == "more":
+            return f"{self.key}|more"
         return f"{self.key}|pick" if self.role == "top_up" and self.pins else self.key
 
 
-class PoolWriter:
-    """A profile's pool writes, run on the event loop, at most one per pool at a time and WORKERS
-    at once. `submit()` is safe from any thread (a draw may run in a worker thread). A background
-    top-up gives way while `paused()` (a prepare is reading on the same chat model). A write that
-    keeps nothing is never stored: `failed(key)` says why until the next first write is asked."""
+LANES = ("", "|pick", "|early", "|more")
 
-    def __init__(self, store: VariantStore, ask: Ask = ask_writer, workers: int = WORKERS,
-                 paused: Optional[Callable[[], bool]] = None):
+
+class PoolWriter:
+    """A profile's pool writes, run on the event loop. Each pool has one session (its chat log,
+    stored with it); a write is one or more turns of it, one turn at a time per pool, the most
+    urgent waiting turn next. At most STREAMS turns stream at once per profile. `submit()` is safe
+    from any thread (a draw may run in a worker thread). A background top-up gives way while
+    `paused()` (a prepare is reading on the same chat model). A write that keeps nothing is never
+    stored: `failed(key)` says why until the next first write is asked."""
+
+    def __init__(self, store: VariantStore, ask: Ask = ask_writer, paused: Optional[Callable[[], bool]] = None,
+                 streams: int = STREAMS):
         self.store, self.ask = store, ask
         self.paused = paused or (lambda: False)
         self.loop: Optional[asyncio.AbstractEventLoop] = None
@@ -560,29 +603,20 @@ class PoolWriter:
         self._inflight: Dict[str, "asyncio.Future[List[str]]"] = {}
         self._queued: List[Job] = []
         self._failed: Dict[str, Tuple[str, float]] = {}   # key -> (why, when)
-        self._early: set = set()   # pools an unseeded first chunk was asked for (once each)
-        self._thin: set = set()    # pools whose short first write was asked again (once each)
-        self._sem: Optional[asyncio.Semaphore] = None
-        self._urgent_sem: Optional[asyncio.Semaphore] = None
+        self._early: set = set()   # pools an unseeded opening turn was asked for (once each)
         self._gate: Optional[CallGate] = None
-        self._workers = workers
-        self.calls = 0
+        self._turns: Dict[str, CallGate] = {}   # per pool: one turn at a time, by priority
+        self._streams = streams
+        self.calls = 0   # turns asked
 
     # -- state
     def busy(self, key: str) -> bool:
         with self._lock:
-            return any(k in self._inflight for k in (key, f"{key}|pick", f"{key}|early")) or \
-                any(j.key == key for j in self._queued)
+            return any(f"{key}{x}" in self._inflight for x in LANES) or any(j.key == key for j in self._queued)
 
     def first_written(self, key: str) -> bool:
-        """Whether a pool's first write is stored: an unseeded first chunk alone isn't it, and nor
-        is one that kept fewer than MIN_POOL (most of its calls failed or were unreadable) until it
-        has been asked again once; a top-up or More like these stored means it was."""
-        batches = [b for b in self.store.batches(key) if b.get("role") != "early" and b.get("variants")]
-        if not batches:
-            return False
-        return key in self._thin or any(b.get("role") != "first" for b in batches) or \
-            sum(len(b["variants"]) for b in batches) >= MIN_POOL
+        """Whether a pool's first write is stored: an unseeded opening turn alone isn't it."""
+        return any(b.get("role") != "early" and b.get("variants") for b in self.store.batches(key))
 
     def failed(self, key: str) -> Optional[str]:
         got = self._failed.get(key)
@@ -603,7 +637,8 @@ class PoolWriter:
         loop = loop or asyncio.get_running_loop()
         if self.loop is not loop:
             self.loop = loop
-            self._sem = self._urgent_sem = self._gate = None
+            self._gate = None
+            self._turns = {}
         with self._lock:
             queued, self._queued = self._queued, []
         for job in queued:
@@ -612,7 +647,7 @@ class PoolWriter:
             loop.call_soon_threadsafe(self._start, job)
 
     def submit(self, job: Job, retry: bool = False) -> bool:
-        """Queue a write unless one for its pool is queued or running (a first write for a pool
+        """Queue a write unless one for its lane is queued or running (a first write for a pool
         that has variants is skipped, and so is one that failed less than RETRY_AFTER ago unless
         `retry`: a picker polling /pools never asks a failing model again and again). Returns
         whether it was queued."""
@@ -652,20 +687,15 @@ class PoolWriter:
         pool_changed(key.split("|")[0])
 
     async def _guarded(self, job: Job) -> List[str]:
-        if self._sem is None:
-            self._sem = asyncio.Semaphore(self._workers)
-        if self._urgent_sem is None:
-            self._urgent_sem = asyncio.Semaphore(self._workers)
         while not job.high and self._paused():
             await asyncio.sleep(YIELD_POLL)
-        async with (self._urgent_sem if job.urgent else self._sem):
-            try:
-                return await self.run(job)
-            except Exception as e:   # one pool failing never stops the others
-                log.warning(f"[variants] writing {job.slot.words!r} failed: {e}")
-                if job.role == "first":
-                    self._failed[job.key] = (str(e)[:200] or type(e).__name__, time.time())
-                return []
+        try:
+            return await self.run(job)
+        except Exception as e:   # one pool failing never stops the others
+            log.warning(f"[variants] writing {job.slot.words!r} failed: {e}")
+            if job.role == "first":
+                self._failed[job.key] = (str(e)[:200] or type(e).__name__, time.time())
+            return []
 
     def _paused(self) -> bool:
         try:
@@ -674,148 +704,182 @@ class PoolWriter:
             return False
 
     # -- the writes
-    def _record(self, job: Job, batch: Batch, n: int, kept: List[Dict[str, Any]]) -> Dict[str, Any]:
-        return {"batch": n, "role": job.role, "version": VARIANTS_VERSION, "at": time.time(), "model": job.model,
-                "seconds": batch.seconds, "words": job.slot.words, "category": job.slot.category,
-                "keep": job.slot.keep(), "pinned": job.pins.to_dict(), "variants": kept,
-                "dropped": dict(batch.dropped), "repairs": batch.repairs, "ideas": batch.ideas,
-                **({"descents": dict(batch.descents)} if batch.descents else {})}
-
     def gate(self, job: Job) -> Callable[[int], Any]:
-        """The call cap a job's chunks run in: urgent ones first, then every pool's first chunks
-        ahead of their later ones (so four new slots each show variants in the first wave),
-        then background top-ups."""
+        """The cap on streams a job's turns run in, by priority (Job.rank, then the turn's index
+        in its write, so four new slots each stream their first turn in the first wave)."""
         if self._gate is None:
-            self._gate = CallGate()
+            self._gate = CallGate(limit=self._streams)
         g = self._gate
-        rank = 0 if job.urgent else 1 if job.role in ("first", "early") else 2
-        return lambda i: g.slot((rank, i), urgent=job.urgent)
+        return lambda i: g.slot((job.rank, i), urgent=job.urgent)
 
-    def _room(self, job: Job) -> int:
-        """Room left under MAX_POOL as a chunk lands: another lane may have filled it meanwhile.
-        More like these, which the user asked for, may pass the cap by its own batch."""
+    @contextlib.asynccontextmanager
+    async def _turn(self, job: Job, i: int):
+        """A pool's one turn at a time: the most urgent waiting turn of its session goes next,
+        then the turn takes its place under the profile's cap on streams."""
+        g = self._turns.get(job.key)
+        if g is None:
+            g = self._turns[job.key] = CallGate(limit=1, extra=0)
+        try:
+            async with g.slot((job.rank, i)):
+                async with self.gate(job)(i):
+                    yield
+        finally:
+            if g.idle and self._turns.get(job.key) is g:
+                del self._turns[job.key]
+
+    def _room(self, job: Job, out: Sequence[str], n: int) -> bool:
+        """Room for one more variant as it lands: under MAX_POOL (another lane may have filled it
+        meanwhile) and within what this write asked for. More like these, which the user asked
+        for, may pass the cap by its own batch."""
+        if len(out) >= n:
+            return False
+        return job.role == "more" or len(self.store.variants(job.key)) < MAX_POOL
+
+    def _record(self, job: Job, batch: int, **kw: Any) -> Dict[str, Any]:
+        return {"batch": batch, "role": job.role, "version": VARIANTS_VERSION, "at": time.time(), "model": job.model,
+                **kw}
+
+    def _tally(self, job: Job, batch: int, turn: Turn, *, logged: bool, restarted: bool) -> Dict[str, Any]:
+        return self._record(job, batch, words=job.slot.words, category=job.slot.category, keep=job.slot.keep(),
+                            pinned=job.pins.to_dict(), variants=[], asked=turn.asked, kept=len(turn.variants),
+                            dropped=dict(turn.dropped), repairs=turn.repairs, ideas=turn.ideas,
+                            seconds=turn.seconds, first=turn.first, streamed=turn.streamed, logged=logged,
+                            restarted=restarted, **({"error": turn.error} if turn.error else {}),
+                            **({"descents": dict(turn.descents)} if turn.descents else {}))
+
+    def _quota(self, job: Job, have: Sequence[Dict[str, Any]]) -> int:
+        """How many variants a write asks for."""
+        if job.role == "early":
+            return TURN
+        if job.role == "first":
+            return max(TURN, job.slot.n - len(have))
         if job.role == "more":
             return TOPUP
-        return max(0, MAX_POOL - len(self.store.variants(job.key)))
+        return min(TOPUP, MAX_POOL - len(have))
 
-    async def run(self, job: Job) -> List[str]:
-        """One write for one pool, stored as it lands. Returns the new variants' texts."""
-        seeds = job.seeds.pinned(job.pins)
-        if job.role == "early":
-            return await self._early_chunk(job)
-        while job.role == "first":   # an unseeded chunk in flight lands first, so the first write is told it
+    async def _wait_early(self, job: Job) -> None:
+        """An unseeded opening turn in flight lands first, so the first write continues its session."""
+        while True:
             with self._lock:
                 held = f"{job.key}|early" in self._inflight
                 early = self._inflight.get(f"{job.key}|early")
             if not held:
-                break
+                return
             if early is None:   # queued, not started yet
                 await asyncio.sleep(0)
                 continue
             with contextlib.suppress(Exception):
                 await asyncio.shield(early)
-            break
-        have = self.store.variants(job.key)
-        done = len(self.store.batches(job.key))
+            return
+
+    async def run(self, job: Job) -> List[str]:
+        """One write for one pool: turns of TURN in the pool's session, each variant stored the
+        moment it is checked. A turn that keeps under half of what it asked for never joins the
+        log; the session is asked again once from a fresh first turn with fresh seeds, and a
+        second such turn ends the write (the slot stands as it is, asked again later). Returns
+        the new variants' texts."""
+        if job.role == "early" and self.store.has(job.key):
+            return []
         if job.role == "first":
+            await self._wait_early(job)
             if self.first_written(job.key):
                 return []
-            again = any(b.get("role") == "first" and b.get("variants") for b in self.store.batches(job.key))
-            if again:
-                self._thin.add(job.key)   # a short first write, asked again once: told what it holds
-            out: List[str] = []
-            seen: set = {_norm(v["text"]) for v in have}
-
-            def landed_first(b: Batch) -> None:
-                kept = [v for v in b.variants if _norm(v["text"]) not in seen]
-                seen.update(_norm(v["text"]) for v in kept)
-                if kept:
-                    self.store.append(job.key, self._record(job, b, len(self.store.batches(job.key)), kept))
-                    out.extend(v["text"] for v in kept)
-            batches = await write_first(job.slot, seeds, ask=self.ask, project_id=job.project_id, key=job.key,
-                                        landed=landed_first, gate=self.gate(job), written=[v["text"] for v in have])
-            self.calls += len(batches)
-            why = "; ".join(dict.fromkeys(b.error or ", ".join(b.dropped) or "nothing usable" for b in batches))
-            if not out and not have:
-                self._failed[job.key] = (why[:200], time.time())
-                log.info(f"[variants] {job.slot.words!r} stands as written: {why[:200]}")
-            elif not self.first_written(job.key):
-                # Short: it draws from what it has and is asked again after RETRY_AFTER (submit).
-                self._failed[job.key] = (f"thin: {why}"[:200], time.time())
-                log.info(f"[variants] {job.slot.words!r} kept only {len(have) + len(out)}; asked again later: {why[:200]}")
-            return out
-        # A background top-up fills only the room left under MAX_POOL. More like these, which the
-        # user asked for, may pass the cap by its own one batch.
-        n = TOPUP if job.role == "more" else min(TOPUP, MAX_POOL - len(have))
+        seeds = Seeds() if job.role == "early" else job.seeds.pinned(job.pins)
+        have = self.store.variants(job.key)
+        n = self._quota(job, have)
         if n <= 0:
             return []
         cores = [str(v["seeds"]["core"]) for v in have if (v.get("seeds") or {}).get("core")]
-        rng = random.Random(f"{job.key}|{done}")
-        seen = {_norm(v["text"]) for v in have}
-        if job.urgent:
-            # Picked seeds: the writer is told only what already matches them (the rest can't be
-            # repeated: a variant carries its descent), so a pick's prompt stays short.
-            shown = [v["text"] for v in have if matches(v.get("seeds") or {}, job.pins)] if job.pins \
-                else [v["text"] for v in have]
-            out: List[str] = []
+        base = len(self.store.batches(job.key))
+        parts = split(draw_seeds(random.Random(f"{job.key}|{base}"), seeds, n, job.slot.words, cores), TURN)
+        out: List[str] = []
+        restarted = False
+        fresh = False
+        i = 0
+        while i < len(parts):
+            part = parts[i]
+            async with self._turn(job, i):
+                if not self._room(job, out, n):
+                    break
+                session = Session() if fresh else Session.of(self.store.session(job.key))
+                removed = self.store.removed(job.key)
+                pool = self.store.variants(job.key)
+                seen = {_norm(v["text"]) for v in pool} | set(removed)
+                a = len(session.texts) + 1
+                if session.open:
+                    user = {"role": "user", "content": more_turn(part, a, seeds, unseeded_start=not session.seeded)}
+                    sent = session.sent(user["content"], removed)
+                else:   # a session's opening, or a fresh one over a pool that has variants already
+                    a = 1
+                    sent = first_turn(job.slot, part, seeds, have=[v["text"] for v in pool][-HAVE_SHOWN:])
+                    user = sent[1]
+                batch = base + i + (len(parts) if restarted else 0)
 
-            def landed(b: Batch) -> None:
-                kept = [v for v in b.variants if _norm(v["text"]) not in seen][:min(n - len(out), self._room(job))]
-                seen.update(_norm(v["text"]) for v in kept)
-                if kept:
-                    self.store.append(job.key, self._record(job, b, len(self.store.batches(job.key)), kept))
-                    out.extend(v["text"] for v in kept)
-            batches = await write_chunks(job.slot, seeds, n, ask=self.ask, project_id=job.project_id, have=shown,
-                                         rng=rng, used_cores=cores, landed=landed, gate=self.gate(job))
-            self.calls += len(batches)
-            return out
-        async with self.gate(job)(0):
-            b = await top_up(job.slot, seeds, [v["text"] for v in have], ask=self.ask, project_id=job.project_id,
-                             n=n, rng=rng, used_cores=cores)
-        self.calls += 1
-        kept = [v for v in b.variants if _norm(v["text"]) not in seen][:min(n, self._room(job))]
-        if kept:
-            self.store.append(job.key, self._record(job, b, done, kept))
-        return [v["text"] for v in kept]
-
-    async def _early_chunk(self, job: Job) -> List[str]:
-        """One chunk of PICK_CHUNK written from the slot's words and the prompt alone, while its
-        seeds are still narrowed (fluent.early_job says which slots may), so it shows variants at
-        once; the first write fills the rest of its pool seeded, told these. A chunk that keeps
-        nothing stores nothing and marks nothing failed."""
-        if self.store.has(job.key):
-            return []
-        async with self.gate(job)(0):
-            b = await write_batch(job.slot, job.seeds, PICK_CHUNK, ask=self.ask, project_id=job.project_id,
-                                  rng=random.Random(f"{job.key}|early"))
-        self.calls += 1
-        if b.error or not b.variants or self.store.has(job.key):
-            log.info(f"[variants] an early chunk for {job.slot.words!r} kept nothing: {b.error or dict(b.dropped)}")
-            return []
-        self.store.append(job.key, self._record(job, b, 0, b.variants))
-        return [v["text"] for v in b.variants]
+                def landed(v: Dict[str, Any], batch: int = batch) -> bool:
+                    if not self._room(job, out, n):
+                        return False
+                    self.store.append(job.key, self._record(job, batch, turn=i, variants=[v]))
+                    out.append(v["text"])
+                    return True
+                turn = await write_turn(job.slot, part, sent, ask=self.ask, a=a, project_id=job.project_id,
+                                        seen=seen, landed=landed)
+                self.calls += 1
+                logged = turn.passed
+                if logged:
+                    if not session.open:
+                        session = Session(messages=[dict(sent[0])], seeded=job.role != "early",
+                                          restarts=session.restarts + int(restarted))
+                    session.log(dict(user), reply_text(turn.variants, a, turn.rejected), turn.texts())
+                    if job.role != "early":
+                        session.seeded = True   # what an unseeded opening lacked has been shown now
+                    self.store.save_session(job.key, session.to_dict())
+                    fresh = False
+                self.store.append(job.key, self._tally(job, batch, turn, logged=logged, restarted=restarted))
+            if not logged:
+                if restarted or job.role == "early":   # an unseeded opening is asked once; the first write follows
+                    if job.role == "early":
+                        log.info(f"[variants] an early turn for {job.slot.words!r} kept {len(turn.variants)}")
+                        break
+                    log.info(f"[variants] {job.slot.words!r}: a second turn kept under half; it stands as it is")
+                    break
+                # Not appended. Once more from a fresh first turn with fresh seeds for what is left.
+                restarted, fresh = True, True
+                left = sum(len(p.specs) for p in parts[i:])
+                again = draw_seeds(random.Random(f"{job.key}|{base}|again"), seeds, left, job.slot.words, cores)
+                parts = parts[:i] + split(again, TURN)
+                log.info(f"[variants] {job.slot.words!r}: a turn kept {len(turn.variants)} of {turn.asked} "
+                         f"({turn.error or dict(turn.dropped)}); starting its session again")
+                continue
+            i += 1
+        if not out and job.role == "first":
+            why = "nothing usable"
+            last = [b for b in self.store.batches(job.key) if "asked" in b][-2:]
+            if last:
+                why = "; ".join(dict.fromkeys(str(b.get("error") or ", ".join(b.get("dropped") or {}) or "nothing usable")
+                                              for b in last))
+            self._failed[job.key] = (why[:200], time.time())
+            log.info(f"[variants] {job.slot.words!r} stands as written: {why[:200]}")
+        return out
 
     async def more(self, job: Job) -> List[str]:
-        """More like these: one batch of TOPUP, awaited. A write already in flight for the pool
-        is waited for first, so the new batch is told what it wrote."""
+        """More like these: TOPUP more, awaited. Its turns go next in the pool's session, ahead of
+        any background turn, so it is told everything the session wrote."""
         job.role = "more"
         while True:
             with self._lock:
-                held = job.key in self._inflight
-                running = self._inflight.get(job.key)
+                held = job.lane in self._inflight
+                running = self._inflight.get(job.lane)
             if not held:
                 break
             if running is None:   # queued, not started yet
                 await asyncio.sleep(0)
                 continue
-            try:
-                await asyncio.shield(running)
-            except Exception:
-                pass
+            with contextlib.suppress(Exception):
+                return await asyncio.shield(running)   # the same More, asked twice: one batch
         fut = asyncio.ensure_future(self.run(job))
         with self._lock:
-            self._inflight[job.key] = fut
-        fut.add_done_callback(lambda f, k=job.key: self._done(k, f))
+            self._inflight[job.lane] = fut
+        fut.add_done_callback(lambda f, k=job.lane: self._done(k, f))
         return await fut
 
     def picked(self, job: Job, choice: Choice) -> bool:
@@ -870,8 +934,21 @@ _writers: Dict[str, PoolWriter] = {}
 ASK: Ask = ask_writer
 
 
-async def _ask(*args: Any, **kwargs: Any) -> str:
-    return await ASK(*args, **kwargs)
+class _Ask:
+    """The profile writers' `ask`: whatever ASK is now, streamed where it can stream."""
+
+    async def __call__(self, *args: Any, **kwargs: Any) -> str:
+        return await ASK(*args, **kwargs)
+
+    def stream(self, *args: Any, **kwargs: Any) -> Any:
+        stream = getattr(ASK, "stream", None)
+        if stream is None:
+            from llm_http import StreamUnsupported
+            raise StreamUnsupported("whole replies only")
+        return stream(*args, **kwargs)
+
+
+_ask = _Ask()
 
 
 def store_for(profile_id: Optional[str]) -> VariantStore:
@@ -897,5 +974,5 @@ def writer_for(profile_id: Optional[str]) -> PoolWriter:
     return w
 
 
-__all__ = ["CALLS", "CallGate", "Choice", "Job", "MAX_POOL", "MIN_MATCH", "RETRY_AFTER", "POOL_VERSION", "Pick", "PoolWriter", "TOPUP_AT", "VariantStore", "drawable",
+__all__ = ["STREAMS", "CallGate", "Choice", "Job", "MAX_POOL", "MIN_MATCH", "RETRY_AFTER", "POOL_VERSION", "Pick", "PoolWriter", "TOPUP_AT", "VariantStore", "drawable",
            "due", "in_pool", "in_pool_years", "matches", "person_pickers", "pick", "pool_key", "store_for", "writer_for"]

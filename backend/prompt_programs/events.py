@@ -1,7 +1,7 @@
 """Telling the editor a prepared prompt changed, so it looks again instead of polling.
 
 One event, `fluent_prompt_changed` with the prompt's key and its profile: a reading landed (a
-prompt settled, slots._settle -> program.on_prepared), a chunk of a pool was stored, a pool's
+prompt settled, slots._settle -> program.on_prepared), a variant of a pool was stored, a pool's
 write ended (kept something or failed), or a variant was removed. A pool can serve several
 prompts, so the prompts the editor was shown (`watch`, from /prepare and /pools) are remembered
 by the pools they draw from. Events for one prompt arriving together go out as one. Never raises

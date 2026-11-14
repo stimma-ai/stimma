@@ -13,6 +13,7 @@ import pytest
 from prompt_programs import program as prep
 from prompt_programs import slots
 from prompt_programs import variant_pools as P
+from prompt_programs import variants as V
 from prompt_programs.choices import expand
 from prompt_programs.fill import ProgramError
 from prompt_programs.fluent import count_draw, pool_view
@@ -141,7 +142,7 @@ async def test_a_slot_not_read_or_not_written_goes_in_as_its_words(monkeypatch, 
     r = prep.realize(first, profile_id=profile, seed=1)
     assert r.prompt.lower() == "a cozy room with a crackling fireplace"
     # read, but its pool not written (the write failed): still its words, never dropped
-    monkeypatch.setattr(P, "ASK", FakeWriter(["raise", "prose"] * P.N_OTHER))
+    monkeypatch.setattr(P, "ASK", FakeWriter(["raise", "prose"] * 10))
     reading = {"slots": [{"n": 1, "kind": "free", "label": "Room", "lead": "", "category": "room",
                           "free": {"about": "the room", "kinds": ["den"], "instead": [], "lists": []}}], "lists": []}
     monkeypatch.setattr(prep, "ask_model", FakeModel(reading))
@@ -301,12 +302,12 @@ async def test_a_slot_not_about_a_person_shows_an_unseeded_chunk_while_its_narro
     assert set(look["seeds_pending"]) == {"dominant_young_woman", "clothing_slightly_open_in_the_front", "lighting"}
     light, person, top = slot(look, "lighting"), slot(look, "dominant_young_woman"), slot(look, "clothing_slightly_open_in_the_front")
     # the light (lighting lists only) shows a chunk at once; the person and a clothing list wait
-    assert [b["role"] for b in store.batches(light["pool"])] == ["early"]
+    assert {b["role"] for b in store.batches(light["pool"])} == {"early"}
     early = [v["text"] for v in store.variants(light["pool"])]
-    assert len(early) == P.PICK_CHUNK and not writer.calls[0]["seeds"]   # written from the words alone
+    assert len(early) == V.TURN and not writer.calls[0]["seeds"]   # written from the words alone
     assert not store.has(person["pool"]) and not store.has(top["pool"])
     view = pool_view(look, profile_id=profile)["choices"]["lighting"]
-    assert view["state"] == "ready" and view["more"] and len(view["variants"]) == P.PICK_CHUNK
+    assert view["state"] == "ready" and view["more"] and len(view["variants"]) == V.TURN
     assert not P.writer_for(profile).first_written(light["pool"])
     # asked once: polling again writes no second early chunk
     pool_view(look, profile_id=profile)
@@ -317,10 +318,12 @@ async def test_a_slot_not_about_a_person_shows_an_unseeded_chunk_while_its_narro
     entry = await settled(PROMPT, profile)
     light = slot(entry, "lighting")
     roles = [b["role"] for b in store.batches(light["pool"])]
-    assert roles[0] == "early" and set(roles[1:]) == {"first"}
+    assert roles[:V.TURN + 1] == ["early"] * (V.TURN + 1) and set(roles[V.TURN + 1:]) == {"first"}
     later = [c for c in writer.calls[1:] if c["words"] == "lighting"]
-    assert later and all(all(t in c["user"] for t in early) for c in later)
-    assert len(store.variants(light["pool"])) == P.N_OTHER   # the early chunk counts toward the first pool
+    # the seeded turns continue the session the early turn opened: they see what it wrote, and are
+    # shown what an unseeded opening lacked
+    assert later and all(c["more"] and all(t in json.dumps(c["log"]) for t in early) for c in later)
+    assert len(store.variants(light["pool"])) == V.N_OTHER   # the early turn counts toward the first pool
     assert store.has(slot(entry, "dominant_young_woman")["pool"])
 
 
@@ -337,7 +340,7 @@ async def test_a_failed_early_chunk_leaves_the_first_write_as_it_was(monkeypatch
     assert pool_view(look, profile_id=profile)["choices"]["lighting"]["state"] == "writing"
     model.go.set()
     entry = await settled(PROMPT, profile)
-    assert {b["role"] for b in store.batches(slot(entry, "lighting")["pool"])} == {"first"}
+    assert {b["role"] for b in store.batches(slot(entry, "lighting")["pool"]) if b["variants"]} == {"first"}
 
 
 def test_an_early_chunk_is_never_for_a_person_a_clothing_list_or_a_minor():
@@ -474,8 +477,13 @@ async def test_a_person_who_may_be_a_minor_has_a_pool_of_their_own(monkeypatch, 
     assert "This person is under 18 (5, 6 or 7 years old)" in req
     adult = {v.text for leaf in vocabulary().leaves.values() for v in leaf.values if v.adult_only}
     assert not any(f'"{t}"' in req for t in adult)
-
-
+    # its own session: every turn of it carries the minors line in its first user turn, and no
+    # adult pool's log is ever continued for it
+    store = P.store_for(profile)
+    s = V.Session.of(store.session(slot(entry, "little_girl")["pool"]))
+    assert s.open and "This person is under 18" in s.messages[1]["content"]
+    assert store.session(adult_key) == {}
+    assert all("This person is under 18" in c["first"] for c in writer.calls)
 async def test_a_user_list_of_ages_on_the_persons_line_may_make_them_a_minor(monkeypatch, profile):
     prompt = "a <woman> at the beach, {9-year-old|30-year-old}"
     reading = {"slots": [{"n": 1, "kind": "person", "label": "Woman", "lead": "a", "category": "",
@@ -531,7 +539,7 @@ async def test_the_routes_answer_the_picker(monkeypatch, profile):
     assert got["choices"]["lighting"]["keep"] == []
     before = len(P.store_for(profile).variants(slot(entry, "lighting")["pool"]))
     out = await rp.options(rp.OptionsRequest(**base, choice_id="lighting", choices={"lighting": {"values": []}}))
-    assert len(out["options"]) == 20 and [c["n"] for c in writer.calls[-4:]] == [P.PICK_CHUNK] * 4   # side by side
+    assert len(out["options"]) == 20 and [c["n"] for c in writer.calls[-2:]] == [V.TURN] * 2   # two more turns
     assert len(P.store_for(profile).variants(slot(entry, "lighting")["pool"])) == before + 20
 
 
@@ -583,7 +591,7 @@ async def test_polling_the_picker_never_asks_a_failing_writer_again(monkeypatch,
     reading = {"slots": [{"n": 1, "kind": "free", "label": "Room", "lead": "", "category": "room",
                           "free": {"about": "the room", "kinds": ["den"], "instead": [], "lists": []}}], "lists": []}
     failing = FakeWriter(["empty"] * 100)
-    rounds = 2 * (P.N_OTHER // P.PICK_CHUNK)   # a write: its chunks, and once more under MIN_POOL
+    rounds = 2   # a write: its first turn, and once more from a fresh one
     use(monkeypatch, FakeModel(reading), failing)
     prompt = "a cozy <room> with a crackling fireplace"
     entry = await settled(prompt, profile)
@@ -665,7 +673,7 @@ async def test_try_again_asks_a_failed_write_again_at_once(monkeypatch, profile)
     reading = {"slots": [{"n": 1, "kind": "free", "label": "Room", "lead": "", "category": "room",
                           "free": {"about": "the room", "kinds": ["den"], "instead": [], "lists": []}}], "lists": []}
     failing = FakeWriter(["empty"] * 100)
-    rounds = 2 * (P.N_OTHER // P.PICK_CHUNK)
+    rounds = 2   # a first turn and its fresh restart
     use(monkeypatch, FakeModel(reading), failing)
     rp = _routes(monkeypatch, profile)
     prompt = "a cozy <room> with a crackling fireplace"
@@ -814,3 +822,28 @@ async def test_a_sports_car_is_seeded_by_its_kinds_and_read_however_the_model_fe
     assert bank["phrase"] == "sports car" and bank["list"] == "vehicle.road_vehicle"
     s = slot(entry, "sports_car")
     assert len(P.store_for(profile).variants(s["pool"])) == P.N_OTHER
+async def test_minors_and_adults_never_share_a_session(monkeypatch, profile):
+    """`a 30-year-old in <clothing>` and `a 10-year-old in <clothing>`: two pools, two sessions;
+    the child's log never holds an adult turn, and the adult's never the minors line."""
+    reading = {"slots": [{"n": 1, "kind": "list", "label": "Clothing", "lead": " in", "category": "clothing",
+                          "list": {"list": "clothing.top", "about": "what they wear"}}], "lists": []}
+
+    class Ages(FakeModel):
+        async def __call__(self, messages, project_id, max_tokens):
+            user = messages[-1]["content"]
+            if user.startswith('The list "Age"'):
+                said = user.split('Which of these fit "', 1)[1]
+                return json.dumps(["10-year-old"] if said.startswith("a 10") else ["30-year-old"])
+            return await super().__call__(messages, project_id, max_tokens)
+    _, writer = use(monkeypatch, Ages(reading))
+    adult = await settled("a 30-year-old in <clothing>", profile)
+    child = await settled("a 10-year-old in <clothing>", profile, shown=adult["key"])
+    store = P.store_for(profile)
+    a, c = slot(adult, "clothing")["pool"], slot(child, "clothing")["pool"]
+    assert a != c
+    sa, sc = V.Session.of(store.session(a)), V.Session.of(store.session(c))
+    assert sa.open and sc.open
+    assert "This person is under 18" not in json.dumps(sa.messages) and "This person is under 18" in sc.messages[1]["content"]
+    assert not set(sa.texts) & set(sc.texts)
+    child_calls = [x for x in writer.calls if "a 10-year-old" in x["first"]]
+    assert child_calls and all("a 30-year-old" not in json.dumps(x["log"]) for x in child_calls)

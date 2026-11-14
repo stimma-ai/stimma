@@ -123,18 +123,36 @@ async def test_suggest_and_add_ask_for_no_reasoning(wire):
     _asked_for_no_reasoning(sent[-1])
 
 
-async def test_the_variant_writer_asks_for_no_reasoning(wire):
+async def test_the_variant_writer_asks_for_no_reasoning(wire, monkeypatch):
+    import llm_http
     from prompt_programs import variants as V
 
     sent, state = wire
-    state["answer"] = json.dumps({"rejected": [], "variants": [{"n": 1, "text": "lamplight from a brass lamp", "idea": ""}]})
+    streamed: List[Dict[str, Any]] = []
+    line = json.dumps({"n": 1, "text": "lamplight from a brass lamp", "idea": ""})
+
+    async def stream(**kwargs):
+        streamed.append(kwargs)
+        for piece in (line[:9], line[9:]):
+            yield piece
+    monkeypatch.setattr(llm_http, "astream_chat", stream)
     slot = V.Slot(words="lighting", prompt="a kitchen, lit by <lighting>", span=(18, 28), kind="light", category="lighting")
-    batches = await V.write_first(slot, V.list_seeds([]), ask=V.ask_writer)
-    assert batches and sent
+    d = V.draw_seeds(__import__("random").Random(1), V.list_seeds([]), 3, slot.words)
+    t = await V.write_turn(slot, d, V.first_turn(slot, d, V.list_seeds([])), ask=V.ask_writer)
+    assert t.streamed and t.texts() == ["lamplight from a brass lamp"] and streamed and not sent
+    for call in streamed:   # streamed: the same request, reasoning off, its log marked cacheable
+        _asked_for_no_reasoning(call, V.WRITE_TOKENS)
+        assert call["cacheable"] is True
+
+    async def refuses(**kwargs):
+        raise llm_http.StreamUnsupported("anthropic")
+        yield ""
+    monkeypatch.setattr(llm_http, "astream_chat", refuses)
+    state["answer"] = line
+    t = await V.write_turn(slot, d, V.first_turn(slot, d, V.list_seeds([])), ask=V.ask_writer)
+    assert not t.streamed and t.texts() == ["lamplight from a brass lamp"] and sent   # whole, the same switches
     for call in sent:
         _asked_for_no_reasoning(call, V.WRITE_TOKENS)
-
-
 async def test_the_judge_asks_for_no_reasoning(wire):
     import asyncio
 

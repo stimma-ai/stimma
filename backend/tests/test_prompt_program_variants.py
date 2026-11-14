@@ -26,28 +26,36 @@ ADJ = ["freckled", "tall", "lanky", "stocky", "wiry", "pale", "tanned", "curly-h
 
 
 def parse_request(messages: List[Dict[str, str]]) -> Dict[str, Any]:
-    user = messages[-1]["content"]
-    n = int(re.search(r"Write (\d+) variants\.", user).group(1))
-    words = re.search(r'Marked part: "(.+)"\.', user).group(1)
-    keep = re.search(r"Every variant contains exactly(?: these words)?: (.+)\.$", user, re.M)
+    """What a session turn asks: its count, its first number, the slot's words and kept runs (from
+    the first user turn), and this turn's seed lines by their place in the turn (1..n)."""
+    first, user = messages[1]["content"], messages[-1]["content"]
+    more = re.search(r"Write (\d+) more variants .*?numbered (\d+) to", user)
+    n, a = (int(more.group(1)), int(more.group(2))) if more else (int(re.search(r"Write (\d+) variants\.", user).group(1)), 1)
+    words = re.search(r'Marked part: "(.+)"\.', first).group(1)
+    keep = re.search(r"Every variant contains exactly(?: these words)?: (.+)\.$", first, re.M)
     chunks = re.findall(r'"([^"]+)"', keep.group(1)) if keep else []
     seeds: Dict[int, str] = {}
     if "Seeds, one line per variant:" in user:
         for m in re.finditer(r"^(\d+)\. (.*)$", user.split("Seeds, one line per variant:")[1], re.M):
-            seeds[int(m.group(1))] = m.group(2)
-    return {"n": n, "words": words, "chunks": chunks, "seeds": seeds, "user": user,
-            "system": messages[0]["content"]}
+            seeds[int(m.group(1)) - a + 1] = m.group(2)
+    return {"n": n, "a": a, "words": words, "chunks": chunks, "seeds": seeds, "user": user, "first": first,
+            "log": messages, "system": messages[0]["content"], "more": bool(more)}
+
+
+def reply_lines(items: List[Dict[str, Any]]) -> str:
+    return "\n".join(json.dumps(it) for it in items)
 
 
 class FakeWriter:
-    """An `ask` that writes valid variants; `slips` decide per call what goes wrong."""
+    """An `ask` that writes valid variants as whole replies (a provider that can't stream);
+    `slips` decide per call what goes wrong."""
 
     def __init__(self, slips: Optional[List[str]] = None, prefix: str = ""):
         self.calls: List[Dict[str, Any]] = []
         self.slips = list(slips or [])
         self.prefix = prefix
 
-    async def __call__(self, messages, project_id, max_tokens, temperature=0.8) -> str:
+    def reply(self, messages, max_tokens, temperature) -> str:
         req = parse_request(messages)
         self.calls.append({**req, "max_tokens": max_tokens, "temperature": temperature})
         slip = self.slips.pop(0) if self.slips else ""
@@ -56,7 +64,7 @@ class FakeWriter:
         if slip == "prose":
             return "Sure! Here are some variants you might like."
         if slip == "empty":
-            return json.dumps({"rejected": [], "variants": []})
+            return ""
         base = " ".join(req["chunks"]) or req["words"]
         out = []
         for i in range(1, req["n"] + 1):
@@ -67,8 +75,38 @@ class FakeWriter:
                     f"{g.group(1) + ' ' if g else ''}{base} no{i}c{len(self.calls)}")
             if slip == "drop_words":
                 text = f"{ADJ[i % len(ADJ)]} thing no{i}"
-            out.append({"n": i, "text": text, "idea": ""})
-        return json.dumps({"rejected": [], "variants": out})
+            out.append({"n": req["a"] + i - 1, "text": text, "idea": ""})
+        return reply_lines(out)
+
+    async def __call__(self, messages, project_id, max_tokens, temperature=0.8) -> str:
+        return self.reply(messages, max_tokens, temperature)
+
+
+class FakeStreamer(FakeWriter):
+    """A FakeWriter that streams its reply in pieces of `size` characters, `delay` seconds apart
+    (`hang`: after `hang` characters it sends nothing more, its connection held open;
+    `first_delay`: seconds before the first piece)."""
+
+    def __init__(self, *a: Any, size: int = 7, delay: float = 0.0, hang: Optional[int] = None,
+                 first_delay: float = 0.0, **kw: Any):
+        super().__init__(*a, **kw)
+        self.size, self.delay, self.hang, self.first_delay = size, delay, hang, first_delay
+        self.whole = 0
+
+    async def __call__(self, messages, project_id, max_tokens, temperature=0.8) -> str:
+        self.whole += 1
+        return self.reply(messages, max_tokens, temperature)
+
+    async def stream(self, messages, project_id, max_tokens, temperature=0.8):
+        text = self.reply(messages, max_tokens, temperature)
+        if self.first_delay:
+            await asyncio.sleep(self.first_delay)
+        for i in range(0, len(text), self.size):
+            if self.hang is not None and i >= self.hang:
+                await asyncio.sleep(3600)
+            if self.delay:
+                await asyncio.sleep(self.delay)
+            yield text[i:i + self.size]
 
 
 def run(coro):
@@ -267,9 +305,8 @@ def test_an_empty_narrowing_drops_the_bank_never_the_slot():
     s = V.list_seeds([("camera.angle", [])], single=True)
     assert s.core is None and s.spread is None and s.ideas == ()
     # and the writer still writes for it
-    fake = FakeWriter()
-    b = run(V.write_batch(slot_of("<selfie camera angle>, phone photo", "list", "camera angle"), s, 5, ask=fake))
-    assert len(b.variants) == 5
+    t = turn_of(slot_of("<selfie camera angle>, phone photo", "list", "camera angle"), s, 5, ask=FakeWriter())
+    assert len(t.variants) == 5
 
 
 def test_a_single_list_gives_each_variant_a_core_each_value_once_before_repeats():
@@ -333,22 +370,24 @@ PROMPT = "# phone photo, her own living room\n<dominant young woman> standing in
 def test_the_writer_sees_the_whole_prompt_marked_with_its_notes_and_reasoning_off_json():
     fake = FakeWriter()
     sl = slot_of(PROMPT, "list", "clothing", n=2)
-    b = run(V.write_batch(sl, V.Seeds(), 30, ask=fake))
+    t = turn_of(sl, V.Seeds(), 10, ask=fake)
     req = fake.calls[0]
     assert "⟦clothing slightly open in the front⟧" in req["user"] and "# phone photo" in req["user"]
     assert "<dominant young woman>" in req["user"]
     assert 'Category word: "clothing"' in req["user"] and req["chunks"] == ["slightly open in the front"]
-    assert "Reply with JSON only" in req["system"] and req["max_tokens"] == V.WRITE_TOKENS
-    assert len(b.variants) == 30 and not b.error
+    assert "one JSON object per line" in req["system"] and req["max_tokens"] == V.turn_tokens(10)
+    assert V.FIRST_NOTE in req["user"]
+    assert len(t.variants) == 10 and not t.error and not t.streamed
 
 
-def test_a_person_gets_40_and_its_descent_checked():
+def test_a_person_gets_40_and_its_descent_checked(tmp_path):
     fake = FakeWriter()
     sl = slot_of(PROMPT, "person")
     adults = [v.text for v in vocabulary().get(V.AGE).values if not v.opt_in]   # words that leave age open
-    batches = run(V.write_first(sl, V.person_seeds(ages=adults), ask=fake, key="k" * 32))
-    assert [c["n"] for c in fake.calls] == [V.PICK_CHUNK] * (V.N_PERSON // V.PICK_CHUNK)   # side by side
-    vs = [v for b in batches for v in b.variants]
+    w = written(tmp_path, sl, V.person_seeds(ages=adults), fake)
+    assert [c["n"] for c in fake.calls] == [V.TURN] * (V.N_PERSON // V.TURN)   # one session, turns of 10
+    assert [c["a"] for c in fake.calls] == [1, 11, 21, 31] and [c["more"] for c in fake.calls] == [False] + [True] * 3
+    vs = w.store.variants("a" * 32)
     assert len(vs) == 40
     assert all(V.has_run(v["text"], v["seeds"]["descent"]) and V.has_run(v["text"], "dominant young woman") for v in vs)
     assert all(v["seeds"].get("gender") and v["seeds"]["age"] in adults for v in vs)
@@ -359,60 +398,23 @@ def test_a_person_gets_40_and_its_descent_checked():
 def test_a_slip_degrades_never_raises():
     sl = slot_of(PROMPT, "list", "lighting", n=3)
     for slip in ("raise", "prose", "empty"):
-        b = run(V.write_batch(sl, V.Seeds(), 10, ask=FakeWriter([slip])))
-        assert b.variants == []
-    assert run(V.write_batch(sl, V.Seeds(), 10, ask=FakeWriter(["raise"]))).error
-    person = run(V.write_batch(slot_of(PROMPT, "person"), V.person_seeds(), 10, ask=FakeWriter(["drop_words"])))
+        t = turn_of(sl, V.Seeds(), 10, ask=FakeWriter([slip]))
+        assert t.variants == [] and t.error and not t.passed
+    person = turn_of(slot_of(PROMPT, "person"), V.person_seeds(), 10, ask=FakeWriter(["drop_words"]))
     assert person.variants == [] and sum(person.dropped.values()) == 10
     assert set(person.dropped) <= {"words not kept", "gender missing"}
-
-
-def test_a_write_that_times_out_degrades(monkeypatch):
-    monkeypatch.setattr(V, "WRITE_SECONDS", 0.05)
-
-    async def slow(*a, **k):
-        await asyncio.sleep(1)
-        return "{}"
-    b = run(V.write_batch(slot_of(PROMPT, "person"), V.person_seeds(), 5, ask=slow))
-    assert b.variants == [] and "Timeout" in b.error
-
-
-def test_under_min_pool_asks_once_more_then_stands_as_written():
-    sl = slot_of(PROMPT, "person")
-    chunks = V.N_PERSON // V.PICK_CHUNK
-    fake = FakeWriter(["empty"] * chunks)   # every chunk of the first round comes back empty
-    batches = run(V.write_first(sl, V.person_seeds(), ask=fake))
-    assert len(fake.calls) == 2 * chunks and sum(len(b.variants) for b in batches) == 40
-    fake = FakeWriter(["empty"] * (chunks - 2))   # 10 survive across the chunks: under MIN_POOL, once more
-    batches = run(V.write_first(sl, V.person_seeds(), ask=fake))
-    assert len(fake.calls) == 2 * chunks and sum(len(b.variants) for b in batches) == 10 + 40
-    fake = FakeWriter(["empty"] * (chunks - 3))   # 15 survive: enough
-    batches = run(V.write_first(sl, V.person_seeds(), ask=fake))
-    assert len(fake.calls) == chunks and sum(len(b.variants) for b in batches) == 15
-    fake = FakeWriter(["raise", "prose"] * chunks)
-    batches = run(V.write_first(sl, V.person_seeds(), ask=fake))
-    assert len(batches) == 2 * chunks and not any(b.variants for b in batches)
 
 
 def test_duplicates_and_what_the_pool_has_are_dropped():
     class Same(FakeWriter):
         async def __call__(self, messages, project_id, max_tokens, temperature=0.8):
             req = parse_request(messages)
-            return json.dumps({"variants": [{"n": i, "text": "warm lamplight"} for i in range(1, req["n"] + 1)]})
+            return reply_lines([{"n": i, "text": "warm lamplight"} for i in range(1, req["n"] + 1)])
     sl = slot_of(PROMPT, "list", "lighting", n=3)
-    b = run(V.write_batch(sl, V.Seeds(), 5, ask=Same()))
-    assert b.texts() == ["warm lamplight"] and b.dropped["duplicate"] == 4
-    b = run(V.top_up(sl, V.Seeds(), ["Warm lamplight"], ask=Same(), n=3))
-    assert b.variants == [] and b.dropped["duplicate"] == 3
-
-
-def test_a_top_up_is_told_what_the_pool_holds():
-    fake = FakeWriter()
-    sl = slot_of(PROMPT, "list", "lighting", n=3)
-    have = [f"lamp {i}" for i in range(100)]
-    run(V.top_up(sl, V.Seeds(), have, ask=fake))
-    user = fake.calls[0]["user"]
-    assert fake.calls[0]["n"] == V.TOPUP and "Already written" in user and "- lamp 99" in user and "- lamp 19\n" not in user
+    t = turn_of(sl, V.Seeds(), 5, ask=Same())
+    assert t.texts() == ["warm lamplight"] and t.dropped["duplicate"] == 4
+    t = turn_of(sl, V.Seeds(), 3, ask=Same(), have=["Warm lamplight"])
+    assert t.variants == [] and t.dropped["duplicate"] == 3
 
 
 # --------------------------------------------------------------------------- pools: keys and the store
@@ -480,7 +482,6 @@ def test_a_picked_life_stage_seeds_ages_within_what_the_words_allow():
     assert kid.pinned(V.Pins(age=("child",))).age.texts() == ["8-year-old", "9-year-old"]
     # a list slot has no age to pin
     assert V.list_seeds([("person.makeup", None)]).pinned(V.Pins(age=("elderly",))).age is None
-
 
 
 def test_picked_years_seed_alongside_stages_within_what_the_person_may_be():
@@ -653,29 +654,33 @@ def test_the_first_pool_is_written_in_the_background_and_stored(tmp_path):
         assert w.busy(job.key)
         await w.drain()
         assert w.state(job.key) == "ready" and len(w.store.variants(job.key)) == 40
-        rec = w.store.batches(job.key)[0]
+        rec = tallies(w, job.key)[0]
         assert rec["role"] == "first" and rec["keep"] == ["dominant young woman"] and rec["model"] == "fake"
+        assert rec["asked"] == V.TURN and rec["kept"] == V.TURN and rec["logged"] and not rec["streamed"]
         assert not w.submit(job_for(job.slot, job.seeds))   # written already
+        # the session is stored with the pool: system, first user turn, then a reply and a user turn per turn
+        s = V.Session.of(w.store.session(job.key))
+        assert [m["role"] for m in s.messages] == ["system", "user"] + ["assistant", "user"] * 3 + ["assistant"]
+        assert len(s.texts) == 40 and s.texts == [v["text"] for v in w.store.variants(job.key)]
         return fake
-    assert len(run(go()).calls) == V.N_PERSON // V.PICK_CHUNK
-
-
+    assert len(run(go()).calls) == V.N_PERSON // V.TURN
 def test_a_failed_first_write_is_not_stored_and_asked_again(tmp_path):
     async def go():
-        w = P.PoolWriter(P.VariantStore(tmp_path), ask=FakeWriter(["raise", "prose"] * (V.N_PERSON // V.PICK_CHUNK)))
+        fake = FakeWriter(["raise", "prose"])   # the first turn, and the fresh one it is asked again from
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
         w.attach()
         job = job_for(slot_of(PROMPT, "person"), V.person_seeds())
         w.submit(job)
         await w.drain()
+        assert len(fake.calls) == 2
         assert w.state(job.key) == "as_written" and w.failed(job.key) and not w.store.has(job.key)
+        assert w.store.session(job.key) == {}
         assert P.pick(w.store.variants(job.key), {}, P.Choice(), random.Random(), job.slot.words).text == job.slot.words
         assert not w.submit(job_for(job.slot, job.seeds))   # not again at once (a picker polling)
         assert w.submit(job_for(job.slot, job.seeds), retry=True)   # an explicit retry asks again
         await w.drain()
         assert w.state(job.key) == "ready" and w.failed(job.key) is None
     run(go())
-
-
 def test_jobs_queued_before_a_loop_start_on_attach_and_submit_works_from_a_thread(tmp_path):
     async def go():
         w = P.PoolWriter(P.VariantStore(tmp_path), ask=FakeWriter())
@@ -712,8 +717,12 @@ def test_draws_count_and_top_up_at_80_percent(tmp_path):
         await w.drain()
         assert queued_at == 24   # 80% of 30
         assert len(w.store.variants(job.key)) == 50
-        assert w.store.batches(job.key)[-1]["role"] == "top_up"
-        assert "Already written" in fake.calls[-1]["user"]
+        assert kept(w, job.key)[-1]["role"] == "top_up"
+        # a top-up is more turns of the same session: it sees everything written
+        last = fake.calls[-1]
+        assert last["more"] and last["a"] == 41
+        logged = "\n".join(m["content"] for m in last["log"] if m["role"] == "assistant")
+        assert all(v["text"] in logged for v in w.store.variants(job.key)[:40])
         # the slot's own words count nothing; a held draw (the judge holds what it doesn't reroll) counts
         before = w.store.uses(job.key)
         w.drew(job_for(sl, V.Seeds()), P.Pick(sl.words, "words"))
@@ -722,8 +731,6 @@ def test_draws_count_and_top_up_at_80_percent(tmp_path):
         w.drew(job_for(sl, V.Seeds()), P.Pick(held, "fixed"))
         assert w.store.uses(job.key)[held.lower()] == before.get(held.lower(), 0) + 1
     run(go())
-
-
 def test_picked_seeds_with_nothing_matching_write_a_pinned_batch(tmp_path):
     async def go():
         fake = FakeWriter()
@@ -736,12 +743,11 @@ def test_picked_seeds_with_nothing_matching_write_a_pinned_batch(tmp_path):
         assert p.text == "Welsh dominant young woman"
         assert w.drew(job_for(sl, V.person_seeds(), key="d" * 32), p, choice=choice)
         await asyncio.wait_for(w.drain(), 5)
-        rec = w.store.batches("d" * 32)[-1]
-        assert rec["pinned"] == {"descent": ["Welsh"]} and all(v["seeds"]["descent"] == "Welsh" for v in rec["variants"])
+        assert all(t["pinned"] == {"descent": ["Welsh"]} for t in tallies(w, "d" * 32))
+        new = [v for b in kept(w, "d" * 32, "top_up") for v in b["variants"]]
+        assert len(new) == V.TOPUP and all(v["seeds"]["descent"] == "Welsh" for v in new)
         assert P.pick(w.store.variants("d" * 32), {}, choice, random.Random(), sl.words).source == "variant"
     run(go())
-
-
 def test_a_background_top_up_gives_way_to_reading(tmp_path):
     async def go():
         reading = {"on": True}
@@ -766,16 +772,15 @@ def test_more_like_these_is_the_same_call_awaited(tmp_path):
         sl = slot_of(PROMPT, "list", "lighting", n=3)
         job = job_for(sl, V.Seeds())
         w.submit(job)
-        new = await w.more(job_for(sl, V.Seeds()))   # waits for the first write, then writes 20 more
+        await w.drain()
+        new = await w.more(job_for(sl, V.Seeds()))   # 20 more: two more turns of the pool's session
         assert len(new) == 20 and len(w.store.variants(job.key)) == 50
-        assert w.store.batches(job.key)[-1]["role"] == "more"
-        assert [c["n"] for c in fake.calls[-4:]] == [V.PICK_CHUNK] * 4   # 20, written 5 at a time side by side
+        assert kept(w, job.key)[-1]["role"] == "more"
+        assert [(c["a"], c["n"], c["more"]) for c in fake.calls[-2:]] == [(31, 10, True), (41, 10, True)]
         failing = P.PoolWriter(P.VariantStore(tmp_path / "x"), ask=FakeWriter(["raise"] * 4))
         failing.attach()
         assert await failing.more(job_for(sl, V.Seeds())) == []
     run(go())
-
-
 def test_a_full_pool_stops_topping_up(tmp_path):
     async def go():
         fake = FakeWriter()
@@ -795,12 +800,10 @@ def test_an_idea_that_only_repeats_the_core_is_not_recorded():
             for i in range(1, req["n"] + 1):
                 core = re.search(r'core: "([^"]+)"', req["seeds"][i]).group(1)
                 out.append({"n": i, "text": f"{core}, slightly open in the front no{i}", "idea": core})
-            return json.dumps({"variants": out})
+            return json.dumps({"variants": out})   # the older whole-reply shape still reads
     s = V.list_seeds([("clothing.top", None)], single=True)
-    b = run(V.write_batch(slot_of("<clothing slightly open in the front>, studio photo", "list", "clothing"), s, 5, ask=Echo()))
-    assert len(b.variants) == 5 and all("idea" not in v["seeds"] and v["seeds"]["core"] for v in b.variants)
-
-
+    t = turn_of(slot_of("<clothing slightly open in the front>, studio photo", "list", "clothing"), s, 5, ask=Echo())
+    assert len(t.variants) == 5 and all("idea" not in v["seeds"] and v["seeds"]["core"] for v in t.variants)
 def test_a_pick_nothing_matches_writes_a_pinned_batch_at_once(tmp_path):
     async def go():
         fake = FakeWriter()
@@ -818,12 +821,10 @@ def test_a_pick_nothing_matches_writes_a_pinned_batch_at_once(tmp_path):
         choice = P.Choice(pins=V.Pins(descent=("Welsh",), gender=("trans woman",)))
         assert w.picked(job_for(sl, V.person_seeds(), key=key), choice)
         await asyncio.wait_for(w.drain(), 5)
-        rec = w.store.batches(key)[-1]
-        assert rec["pinned"] == {"descent": ["Welsh"], "gender": ["trans woman"]}
-        assert all(v["seeds"]["descent"] == "Welsh" and v["seeds"]["gender"] == "trans woman" for v in rec["variants"])
+        assert tallies(w, key)[-1]["pinned"] == {"descent": ["Welsh"], "gender": ["trans woman"]}
+        last = [v for b in kept(w, key, "top_up")[-V.TOPUP:] for v in b["variants"]]
+        assert all(v["seeds"]["descent"] == "Welsh" and v["seeds"]["gender"] == "trans woman" for v in last)
     run(go())
-
-
 def test_a_picked_life_stage_nothing_matches_writes_a_batch_with_it(tmp_path):
     async def go():
         w = P.PoolWriter(P.VariantStore(tmp_path), ask=FakeWriter(), paused=lambda: True)
@@ -835,14 +836,12 @@ def test_a_picked_life_stage_nothing_matches_writes_a_batch_with_it(tmp_path):
         choice = P.Choice(pins=V.Pins(age=("young adult",)))
         assert w.picked(job_for(sl, young, key=key), choice)
         await asyncio.wait_for(w.drain(), 5)
-        rec = w.store.batches(key)[-1]
-        assert rec["pinned"] == {"age": ["young adult"]}
-        assert rec["variants"] and all(v["seeds"]["age"] in YOUNG_AGES for v in rec["variants"])
+        assert tallies(w, key)[-1]["pinned"] == {"age": ["young adult"]}
+        new = [v for b in kept(w, key, "top_up") for v in b["variants"]]
+        assert new and all(v["seeds"]["age"] in YOUNG_AGES for v in new)
         assert len(P.drawable(w.store.variants(key), choice)) >= P.MIN_MATCH
         assert not w.picked(job_for(sl, young, key=key), choice)   # enough now
     run(go())
-
-
 def test_the_writer_is_shown_the_words_around_the_slot():
     sl = slot_of("taking a low quality cell phone <type of selfie>, slim to avg", "list", "type of selfie")
     assert sl.around() == ("taking a low quality cell phone", ", slim to avg")
@@ -931,10 +930,9 @@ def test_a_and_an_are_set_right_when_a_variant_is_stored():
     class Off(FakeWriter):
         async def __call__(self, messages, project_id, max_tokens, temperature=0.8):
             req = parse_request(messages)
-            return json.dumps({"variants": [{"n": i, "text": f"a off-center selfie no{i}"} for i in range(1, req["n"] + 1)]})
-    b = run(V.write_batch(slot_of("<selfie camera angle>, phone photo", "list", "camera angle"), V.Seeds(), 3, ask=Off()))
-    assert b.texts() and all(t.startswith("an off-center selfie") for t in b.texts())
-
+            return reply_lines([{"n": i, "text": f"a off-center selfie no{i}"} for i in range(1, req["n"] + 1)])
+    t = turn_of(slot_of("<selfie camera angle>, phone photo", "list", "camera angle"), V.Seeds(), 3, ask=Off())
+    assert t.texts() and all(x.startswith("an off-center selfie") for x in t.texts())
 
 # --------------------------------------------------------------------------- a pick's batch, fast
 
@@ -979,87 +977,6 @@ async def open_all(fake: GatedWriter, w: P.PoolWriter) -> None:
         opener.cancel()
 
 
-def test_a_batch_splits_into_chunks_with_seeds_drawn_once():
-    seeds = V.person_seeds(ideas=[("person.hair_color", None), ("person.build", None)])
-    whole = V.draw_seeds(random.Random(4), seeds, 20, "dominant young woman")
-    parts = V.split(whole)
-    assert [len(p.specs) for p in parts] == [V.PICK_CHUNK] * 4
-    assert [s for p in parts for s in p.specs] == whole.specs            # the one draw, in order
-    assert [i for p in parts for i in p.ideas] == whole.ideas            # every idea once, shared out
-    assert all(p.short == whole.short for p in parts)
-    assert len({s.develop for s in whole.specs}) == 20                   # aspects rotate across chunks
-    assert [len(p.specs) for p in V.split(V.draw_seeds(random.Random(1), V.Seeds(), 7))] == [4, 3]
-    assert V.split(V.draw_seeds(random.Random(1), V.Seeds(), 5))[0].specs.__len__() == 5
-
-
-def test_a_pick_shows_its_first_chunk_while_the_rest_are_written(tmp_path):
-    async def go():
-        fake = GatedWriter()
-        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake, paused=lambda: True)
-        w.attach()
-        sl = slot_of(PROMPT, "person")
-        key = "7" * 32
-        w.store.append(key, {"batch": 0, "variants": POOL})
-        choice = P.Choice(pins=V.Pins(descent=("Korean",)))
-        assert w.picked(job_for(sl, V.person_seeds(), key=key), choice)
-        await until(lambda: len(fake.gates) == 4)                        # four calls side by side, at once
-        assert [c["n"] for c in fake.calls] == [V.PICK_CHUNK] * 4
-        korean = [v["text"] for v in POOL if v["seeds"]["descent"] == "Korean"]
-        for c in fake.calls:   # told only what already matches the pick
-            shown = c["user"].split("Already written")[1].split("\n\n")[0] if "Already written" in c["user"] else ""
-            assert all(t in shown for t in korean) and not any(f"- {v['text']}\n" in shown + "\n"
-                                                                for v in POOL if v["text"] not in korean)
-        fake.gates[2].set()
-        await until(lambda: len(P.drawable(w.store.variants(key), choice)) == len(korean) + V.PICK_CHUNK)
-        assert w.busy(key)                                               # /pools: more stays on
-        for g in fake.gates:
-            g.set()
-        await asyncio.wait_for(w.drain(), 5)
-        got = P.drawable(w.store.variants(key), choice)
-        assert len(got) == len(korean) + V.TOPUP and not w.busy(key)
-        assert all(b["pinned"] == {"descent": ["Korean"]} for b in w.store.batches(key)[1:])
-        assert len(w.store.batches(key)) == 1 + 4                        # one record per chunk
-    run(go())
-
-
-def test_a_pick_never_waits_behind_background_writes(tmp_path):
-    async def go():
-        fake = GatedWriter()
-        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake, workers=1)
-        w.attach()
-        sl = slot_of(PROMPT, "person")
-        key = "6" * 32
-        w.store.append(key, {"batch": 0, "variants": POOL})
-        assert w.submit(job_for(sl, V.person_seeds(), key=key, role="top_up"))   # a background top-up, held
-        assert w.submit(job_for(sl, V.person_seeds(), key="5" * 32))             # and another pool's first write
-        await until(lambda: len(fake.gates) == 1)
-        choice = P.Choice(pins=V.Pins(gender=("trans man",)))
-        assert w.picked(job_for(sl, V.person_seeds(), key=key), choice)          # same pool, its own lane
-        await until(lambda: len(fake.gates) == 1 + 4)
-        for g in fake.gates[1:]:
-            g.set()
-        await until(lambda: len(P.drawable(w.store.variants(key), choice)) >= V.TOPUP)
-        assert w.busy(key)
-        await open_all(fake, w)
-    run(go())
-
-
-def test_a_chunk_that_slips_keeps_the_others(tmp_path):
-    async def go():
-        fake = FakeWriter(["raise", "prose"])
-        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake, paused=lambda: True)
-        w.attach()
-        sl = slot_of(PROMPT, "person")
-        key = "4" * 32
-        w.store.append(key, {"batch": 0, "variants": POOL})
-        choice = P.Choice(pins=V.Pins(descent=("Welsh",)))
-        assert w.picked(job_for(sl, V.person_seeds(), key=key), choice)
-        await asyncio.wait_for(w.drain(), 5)
-        assert len(P.drawable(w.store.variants(key), choice)) == 2 * V.PICK_CHUNK
-        assert P.pick(w.store.variants(key), {}, choice, random.Random(), sl.words).source == "variant"
-    run(go())
-
-
 def test_the_call_gate_caps_calls_and_grants_by_priority():
     async def go():
         gate = P.CallGate(limit=2, extra=1)
@@ -1081,29 +998,6 @@ def test_the_call_gate_caps_calls_and_grants_by_priority():
         await asyncio.wait_for(asyncio.gather(*tasks), 5)
         assert order == ["a0", "b0", "pick", "a1", "b1", "top"]   # later chunks next, top-ups last
         assert gate.running == 0
-    run(go())
-
-
-def test_a_first_write_shows_its_first_chunks_under_the_cap(tmp_path, monkeypatch):
-    async def go():
-        fake = GatedWriter()
-        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
-        w.attach()
-        person, room = "1" * 32, "2" * 32
-        w.submit(job_for(slot_of(PROMPT, "person"), V.person_seeds(), key=person))
-        w.submit(job_for(slot_of(PROMPT, "list", "lighting", n=3), V.Seeds(), key=room))
-        await until(lambda: len(fake.gates) == P.CALLS)                    # 8 + 6 chunks, 8 at a time
-        await asyncio.sleep(0.05)
-        assert len(fake.gates) == P.CALLS
-        words = [c["words"] for c in fake.calls]
-        assert words.count("lighting") >= 3 and words.count("dominant young woman") >= 3   # both pools' first chunks
-        fake.gates[0].set()
-        await until(lambda: w.store.has(fake.calls[0]["words"] == "lighting" and room or person))
-        assert w.state(person if fake.calls[0]["words"] != "lighting" else room) == "ready"
-        assert w.busy(person) and w.busy(room)                             # /pools: ready, more coming
-        await open_all(fake, w)
-        assert len(w.store.variants(person)) == V.N_PERSON and len(w.store.variants(room)) == V.N_OTHER
-        assert len(w.store.batches(person)) == V.N_PERSON // V.PICK_CHUNK  # a record per chunk
     run(go())
 
 
@@ -1131,27 +1025,24 @@ class Skips(FakeWriter):
 def test_a_variant_may_leave_its_descent_out_and_records_it_only_when_written():
     sl = slot_of(PROMPT, "person")
     fake = Skips()
-    b = run(V.write_batch(sl, V.person_seeds(), 10, ask=fake, rng=random.Random(3)))
-    assert len(b.variants) == 10 and not b.dropped                       # never dropped for leaving it out
-    with_d = [v for v in b.variants if "descent" in v["seeds"]]
+    t = turn_of(sl, V.person_seeds(), 10, ask=fake, rng=random.Random(3))
+    assert len(t.variants) == 10 and not t.dropped                       # never dropped for leaving it out
+    with_d = [v for v in t.variants if "descent" in v["seeds"]]
     assert len(with_d) == 5 and all(V.has_run(v["text"], v["seeds"]["descent"]) for v in with_d)
-    assert dict(b.descents) == {"seeded": 10, "written": 5}
+    assert dict(t.descents) == {"seeded": 10, "written": 5}
     # the writer is told to give the look, write the word where it reads naturally, or reject it
     system = fake.calls[0]["system"]
     assert "give the person that heritage's look" in system and 'list it under "rejected"' in system
     assert "(must appear)" not in fake.calls[0]["user"]
-
-
 def test_a_picked_descent_must_still_appear():
     sl = slot_of(PROMPT, "person")
     fake = Skips()
     seeds = V.person_seeds().pinned(V.Pins(descent=("Korean", "Thai")))
     assert seeds.descent_pinned
-    b = run(V.write_batch(sl, seeds, 10, ask=fake, rng=random.Random(3)))
-    assert b.dropped["descent missing"] == 5 and len(b.variants) == 5
-    assert all(v["seeds"]["descent"] in ("Korean", "Thai") for v in b.variants)
+    t = turn_of(sl, seeds, 10, ask=fake, rng=random.Random(3))
+    assert t.dropped["descent missing"] == 5 and len(t.variants) == 5 and t.passed
+    assert all(v["seeds"]["descent"] in ("Korean", "Thai") for v in t.variants)
     assert "(must appear)" in fake.calls[0]["user"]
-
 
 # --------------------------------------------------------------------------- ideas per variant
 
@@ -1180,7 +1071,7 @@ def test_idea_counts_are_kept_per_batch_and_a_rejected_idea_counts():
                             "idea": "; ".join(used)})
             return json.dumps({"rejected": rejected, "variants": out})
     s = V.list_seeds([("person.hairstyle", None), ("person.hair_color", None)])
-    b = run(V.write_batch(slot_of("a woman with <hair>, portrait"), s, 8, ask=Uses(), rng=random.Random(2)))
+    b = turn_of(slot_of("a woman with <hair>, portrait"), s, 8, ask=Uses(), rng=random.Random(2))
     offered, used, rejected = b.ideas["offered"], b.ideas["used"], b.ideas["rejected"]
     assert offered >= 8 and used == 8 and rejected == offered - 8
 
@@ -1385,6 +1276,278 @@ def test_a_variant_that_copies_the_words_up_to_the_next_slot_is_cut_back():
             assert V.repair(t, left, right, words=sl.words)[0] == t   # no markup cut: a variant may end on "with"
             continue
         assert V.repair(t, left, right, words=sl.words)[0] == "short White American grandmother"
+def norm(t: str) -> str:
+    return " ".join(str(t).split()).lower()
+
+def turn_of(sl: V.Slot, seeds: V.Seeds, n: int, *, ask, have=(), rng=None, drawn=None) -> V.Turn:
+    """One session opening turn of `n`, checked (what the pool writer runs first)."""
+    drawn = drawn or V.draw_seeds(rng or random.Random(), seeds, n, sl.words)
+    return run(V.write_turn(sl, drawn, V.first_turn(sl, drawn, seeds, have), ask=ask, seen={norm(h) for h in have}))
+
+def written(tmp_path, sl: V.Slot, seeds: V.Seeds, ask, *, key: str = "a" * 32, role: str = "first",
+            pins: V.Pins = V.Pins()) -> P.PoolWriter:
+    """A pool written by the pool writer, its session and all."""
+    async def go():
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=ask)
+        w.attach()
+        w.submit(P.Job(key=key, slot=sl, seeds=seeds, role=role, pins=pins, model="fake"), retry=True)
+        await w.drain()
+        return w
+    return run(go())
+
+def test_a_whole_reply_that_times_out_degrades(monkeypatch):
+    monkeypatch.setattr(V, "TURN_SECONDS", 0.05)
+
+    async def slow(*a, **k):
+        await asyncio.sleep(1)
+        return "{}"
+    t = turn_of(slot_of(PROMPT, "person"), V.person_seeds(), 5, ask=slow)
+    assert t.variants == [] and t.error == "overall deadline"
+
+def test_a_fresh_first_turn_over_a_pool_is_told_what_it_holds():
+    fake = FakeWriter()
+    sl = slot_of(PROMPT, "list", "lighting", n=3)
+    have = [f"lamp {i}" for i in range(100)]
+    d = V.draw_seeds(random.Random(), V.Seeds(), 10, sl.words)
+    user = V.first_turn(sl, d, V.Seeds(), have[-V.HAVE_SHOWN:])[1]["content"]
+    assert "Already written" in user and "- lamp 99" in user and "- lamp 19\n" not in user
+    assert fake is not None
+
+
+def kept(w: P.PoolWriter, key: str, role: Optional[str] = None) -> List[Dict[str, Any]]:
+    """The stored variant lines of a pool (one per variant), of one role or all."""
+    return [b for b in w.store.batches(key) if b.get("variants") and (role is None or b.get("role") == role)]
+
+def tallies(w: P.PoolWriter, key: str) -> List[Dict[str, Any]]:
+    """Each turn's tally line, in order."""
+    return [b for b in w.store.batches(key) if "asked" in b]
+
+def test_a_write_splits_into_turns_with_seeds_drawn_once():
+    seeds = V.person_seeds(ideas=[("person.hair_color", None), ("person.build", None)])
+    whole = V.draw_seeds(random.Random(4), seeds, 20, "dominant young woman")
+    parts = V.split(whole)
+    assert [len(p.specs) for p in parts] == [V.TURN] * 2
+    assert [s for p in parts for s in p.specs] == whole.specs            # the one draw, in order
+    assert [i for p in parts for i in p.ideas] == whole.ideas            # every idea once, shared out
+    assert all(p.short == whole.short for p in parts)
+    assert len({s.develop for s in whole.specs}) == 20                   # aspects rotate across turns
+    assert [len(p.specs) for p in V.split(V.draw_seeds(random.Random(1), V.Seeds(), 17))] == [8, 9]
+    assert len(V.split(V.draw_seeds(random.Random(1), V.Seeds(), 5))[0].specs) == 5
+
+def test_objects_split_across_pieces_and_lines_parse():
+    r = V.ObjectReader()
+    text = ('```json\n{"rejected": ["a {weird} idea"]}\n{"n": 1,\n  "text": "warm \\"lamp\\" light",\n  "idea": ""\n}\n'
+            '{"n": 2, "text": broken}\n{"n": 3, "text": "cold {blue} glow", "idea": "screen"}\n```')
+    got = []
+    for ch in text:           # one character at a time, as a stream may deliver it
+        got += r.feed(ch)
+    assert got == [{"rejected": ["a {weird} idea"]}, {"n": 1, "text": 'warm "lamp" light', "idea": ""},
+                   {"n": 3, "text": "cold {blue} glow", "idea": "screen"}]   # the broken object costs only itself
+    # through a turn: pretty-printed objects split over pieces land one by one
+    class Pretty(FakeStreamer):
+        def reply(self, messages, max_tokens, temperature):
+            return "\n".join(json.dumps(json.loads(ln), indent=2) for ln in super().reply(messages, max_tokens, temperature).splitlines())
+    fake = Pretty(size=3)
+    t = turn_of(slot_of(PROMPT, "list", "lighting", n=3), V.Seeds(), 10, ask=fake)
+    assert len(t.variants) == 10 and t.streamed and fake.whole == 0 and not t.error
+
+def test_the_first_variant_is_stored_before_the_turn_ends(tmp_path):
+    async def go():
+        fake = FakeStreamer(size=20, delay=0.03)
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
+        w.attach()
+        job = job_for(slot_of(PROMPT, "list", "lighting", n=3), V.Seeds())
+        w.submit(job)
+        await until(lambda: w.store.has(job.key))
+        assert len(w.store.variants(job.key)) < V.TURN and not tallies(w, job.key)   # mid-turn
+        assert w.state(job.key) == "ready" and w.busy(job.key)
+        await w.drain()
+        assert len(w.store.variants(job.key)) == V.N_OTHER
+        assert all(t["streamed"] and t["first"] is not None for t in tallies(w, job.key))
+    run(go())
+
+def test_events_go_out_as_each_variant_lands(tmp_path, monkeypatch):
+    seen: List[str] = []
+    monkeypatch.setattr("prompt_programs.events.pool_changed", lambda key: seen.append(key))
+    t = written(tmp_path, slot_of(PROMPT, "list", "lighting", n=3), V.Seeds(), FakeStreamer(size=50))
+    assert seen.count("a" * 32) >= V.N_OTHER   # one per variant stored (events.py gathers them per prompt)
+    assert t.store.has("a" * 32)
+
+class FirstBad(FakeStreamer):
+    """Its first `bad` turns copy a mistake (the kept words broken), as a session's first slip."""
+
+    def __init__(self, bad: int = 1, **kw: Any):
+        super().__init__(**kw)
+        self.bad = bad
+
+    def reply(self, messages, max_tokens, temperature):
+        text = super().reply(messages, max_tokens, temperature)
+        if len(self.calls) <= self.bad:
+            text = text.replace("dominant young woman", "dominant young Maori woman")
+        return text
+
+def test_a_bad_first_turn_is_not_logged_and_the_session_starts_again_once(tmp_path):
+    fake = FirstBad(bad=1)
+    w = written(tmp_path, slot_of(PROMPT, "person"), V.person_seeds(), fake)
+    key = "a" * 32
+    assert len(w.store.variants(key)) == V.N_PERSON and len(fake.calls) == V.N_PERSON // V.TURN + 1
+    t = tallies(w, key)
+    assert not t[0]["logged"] and t[0]["dropped"] == {"words not kept": 10} and not t[0]["restarted"]
+    assert all(x["logged"] and x["restarted"] for x in t[1:])
+    # asked again from a fresh first turn with fresh seeds, and the failed reply is in no log
+    assert not fake.calls[1]["more"] and fake.calls[1]["seeds"] != fake.calls[0]["seeds"]
+    s = V.Session.of(w.store.session(key))
+    assert "Maori" not in json.dumps(s.messages) and s.restarts == 1
+    assert all("Maori" not in json.dumps(c["log"]) for c in fake.calls[1:])
+    # a second turn that keeps under half ends the write: the slot stands as written, never an error
+    fake = FirstBad(bad=2)
+    w = written(tmp_path / "2", slot_of(PROMPT, "person"), V.person_seeds(), fake)
+    assert len(fake.calls) == 2 and not w.store.has(key) and w.failed(key) and w.store.session(key) == {}
+
+def test_a_later_turn_that_fails_starts_a_fresh_session_told_the_pool(tmp_path):
+    class ThirdBad(FakeStreamer):
+        def reply(self, messages, max_tokens, temperature):
+            text = super().reply(messages, max_tokens, temperature)
+            return re.sub(r'"text": "[^"]*"', '"text": "lighting"', text) if len(self.calls) == 3 else text
+
+    class Half(FakeStreamer):   # the whole slot is its category word: a cut fragment must not pass
+        def reply(self, messages, max_tokens, temperature):
+            text = super().reply(messages, max_tokens, temperature)
+            return re.sub(r'"text": "[^"]*"', '"text": "a <lighting>"', text) if len(self.calls) == 3 else text
+    for fake in (ThirdBad(), Half()):
+        w = written(tmp_path / type(fake).__name__, slot_of("a kitchen at night, lit by <lighting>", "list", "lighting"),
+                    V.Seeds(), fake)
+        key = "a" * 32
+        t = tallies(w, key)
+        assert [x["logged"] for x in t] == [True, True, False, True]
+        assert not fake.calls[3]["more"] and "Already written" in fake.calls[3]["user"]   # fresh, told the pool
+        assert len(w.store.variants(key)) == V.N_OTHER
+        s = V.Session.of(w.store.session(key))
+        assert len(s.texts) == V.TURN and s.restarts == 1   # the fresh session holds only its own turn
+
+def test_only_survivors_are_logged_renumbered(tmp_path):
+    class SomeBad(FakeStreamer):
+        def reply(self, messages, max_tokens, temperature):
+            lines = super().reply(messages, max_tokens, temperature).splitlines()
+            return "\n".join(ln.replace("dominant young woman", "a woman") if i % 3 == 0 else ln for i, ln in enumerate(lines))
+    fake = SomeBad()
+    w = written(tmp_path, slot_of(PROMPT, "person"), V.person_seeds(), fake)
+    s = V.Session.of(w.store.session("a" * 32))
+    replies = [m["content"] for m in s.messages if m["role"] == "assistant"]
+    first = [json.loads(ln) for ln in replies[0].splitlines() if ln.startswith('{"n"')]
+    assert len(first) == 6 and [o["n"] for o in first] == list(range(1, 7))   # 4 of 10 dropped
+    assert all("dominant young woman" in o["text"] for r in replies for o in map(json.loads, r.splitlines()) if "text" in o)
+    assert fake.calls[1]["a"] == 7   # numbered on from the survivors
+
+def test_a_waited_for_turn_goes_ahead_of_background_turns_in_the_same_session(tmp_path):
+    async def go():
+        fake = GatedWriter()
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
+        w.attach()
+        sl = slot_of(PROMPT, "list", "lighting", n=3)
+        key = "6" * 32
+        w.submit(job_for(sl, V.Seeds(), key=key))          # the first write: turn one held
+        await until(lambda: len(fake.gates) == 1)
+        more = asyncio.ensure_future(w.more(job_for(sl, V.Seeds(), key=key)))
+        await asyncio.sleep(0.05)
+        assert len(fake.gates) == 1                        # one stream per pool at a time
+        await open_all(fake, w)
+        assert len(await more) == V.TOPUP
+        roles = [b["role"] for b in tallies(w, key)]
+        assert roles == ["first", "more", "more", "first", "first"]
+        # every turn continued the one log: none opened a second conversation
+        assert [c["more"] for c in fake.calls] == [False, True, True, True, True]
+        assert [c["a"] for c in fake.calls] == [1, 11, 21, 31, 41]
+    run(go())
+
+def test_slots_stream_side_by_side_each_first_turn_first(tmp_path):
+    async def go():
+        fake = GatedWriter()
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake, streams=2)
+        w.attach()
+        keys = ["1" * 32, "2" * 32, "3" * 32]
+        for k, n in zip(keys, (1, 2, 3)):
+            w.submit(job_for(slot_of(PROMPT, "person" if n == 1 else "list", "" if n == 1 else "clothing", n=n), V.Seeds(), key=k))
+        await until(lambda: len(fake.gates) == 2)
+        await asyncio.sleep(0.05)
+        assert len(fake.gates) == 2                         # the cap on streams
+        fake.gates[0].set()
+        await until(lambda: len(fake.gates) == 3)
+        assert not fake.calls[2]["more"]                    # the third slot's first turn before a later turn
+        await open_all(fake, w)
+        assert [len(w.store.variants(k)) for k in keys] == [V.N_PERSON, V.N_OTHER, V.N_OTHER]
+    run(go())
+
+def test_the_log_is_shortened_past_the_threshold_while_the_pool_stays_whole(tmp_path, monkeypatch):
+    monkeypatch.setattr(V, "COMPACT_AT", 25)
+    async def go():
+        fake = FakeStreamer(size=40)
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
+        w.attach()
+        sl = slot_of(PROMPT, "list", "lighting", n=3)
+        key = "5" * 32
+        w.submit(job_for(sl, V.Seeds(), key=key))
+        await w.drain()
+        gone = w.store.variants(key)[15]["text"]
+        w.store.remove(key, [gone])
+        await w.more(job_for(sl, V.Seeds(), key=key))
+        sent = fake.calls[-1]["log"]
+        assert [m["role"] for m in sent] == ["system", "user", "assistant", "user"]   # head, then the compact list
+        assert sent[3]["content"].startswith("Also already written (most recent last):")
+        listed = sent[3]["content"].split("\n\n")[0]
+        assert gone not in listed                                                      # never a removed one
+        firsts = {json.loads(ln)["text"] for ln in sent[2]["content"].splitlines()}
+        assert all(f"- {t}" in listed for t in V.Session.of(w.store.session(key)).texts[:40]
+                   if t != gone and t not in firsts)
+        s = V.Session.of(w.store.session(key))
+        assert len(s.texts) == 50 and len(s.messages) == 2 + 2 * 5 - 1   # the stored log is whole
+        assert len(w.store.variants(key)) == 49                          # and so is the pool, less the removed one
+    run(go())
+
+def test_a_hung_stream_hits_each_deadline_and_keeps_what_landed(monkeypatch):
+    sl = slot_of(PROMPT, "list", "lighting", n=3)
+    monkeypatch.setattr(V, "FIRST_TOKEN_SECONDS", 0.1)
+    t = turn_of(sl, V.Seeds(), 10, ask=FakeStreamer(first_delay=5))
+    assert t.error == "first-token deadline" and not t.variants
+    monkeypatch.setattr(V, "STALL_SECONDS", 0.1)
+    one = len(json.dumps({"n": 1, "text": "x"}))
+    t = turn_of(sl, V.Seeds(), 10, ask=FakeStreamer(size=10, hang=4 * 60))   # sends some, then holds the line open
+    assert t.error == "stall deadline" and 0 < len(t.variants) < 10 and one
+    monkeypatch.setattr(V, "STALL_SECONDS", 5)
+    monkeypatch.setattr(V, "TURN_SECONDS", 0.3)
+    t = turn_of(sl, V.Seeds(), 10, ask=FakeStreamer(size=5, delay=0.02))   # a trickle that never stalls
+    assert t.error == "overall deadline" and 0 < len(t.variants) < 10
+    assert t.seconds < 1
+
+def test_a_stream_that_dies_mid_turn_keeps_what_landed(tmp_path):
+    class Dies(FakeStreamer):
+        async def stream(self, messages, project_id, max_tokens, temperature=0.8):
+            n = 0
+            async for piece in super().stream(messages, project_id, max_tokens, temperature):
+                n += len(piece)
+                if n > 400:
+                    raise RuntimeError("connection reset")
+                yield piece
+    t = turn_of(slot_of(PROMPT, "list", "lighting", n=3), V.Seeds(), 10, ask=Dies(size=20))
+    assert t.error.startswith("RuntimeError") and 0 < len(t.variants) < 10
+
+def test_a_provider_that_cannot_stream_takes_the_whole_turn_path():
+    from llm_http import StreamUnsupported
+
+    class NoStream(FakeStreamer):
+        def stream(self, *a, **k):
+            raise StreamUnsupported("anthropic")
+
+    class Refuses(FakeStreamer):
+        async def stream(self, *a, **k):
+            raise StreamUnsupported("400")
+            yield ""
+    sl = slot_of(PROMPT, "list", "lighting", n=3)
+    for fake in (NoStream(), Refuses()):
+        t = turn_of(sl, V.Seeds(), 10, ask=fake)
+        assert fake.whole == 1 and len(t.variants) == 10 and not t.streamed and not t.error
+    t = turn_of(sl, V.Seeds(), 10, ask=FakeWriter())   # no stream at all
+    assert len(t.variants) == 10 and not t.streamed
 
 def test_a_fragment_cut_at_markup_is_dropped():
     prompt = "a woman in a <place>, at dusk"
@@ -1402,3 +1565,41 @@ def test_a_fragment_cut_at_markup_is_dropped():
     assert V.check("a scarf borrowed from her", "outfit", [], V.Spec(), cut=True) == "fragment"
     # and a cut variant still holds every kept run
     assert V.check("dominant young", "dominant young woman", ["dominant young woman"], V.Spec(), cut=True) == "words not kept"
+
+def test_a_session_is_read_back_only_when_whole():
+    assert not V.Session.of({}).open and not V.Session.of({"v": 1, "messages": [{"role": "system", "content": "s"}]}).open
+    s = V.Session(messages=[{"role": "system", "content": "s"}, {"role": "user", "content": "u"}])
+    s.log({"role": "user", "content": "x"}, '{"n": 1, "text": "t", "idea": ""}', ["t"])
+    back = V.Session.of(json.loads(json.dumps(s.to_dict())))
+    assert back.open and back.texts == ["t"] and back.messages == s.messages
+
+
+def test_a_removed_variant_is_never_stored_again_nor_listed(tmp_path):
+    class Repeats(FakeStreamer):   # writes back the first variant it wrote, in every turn
+        first = ""
+
+        def reply(self, messages, max_tokens, temperature):
+            lines = super().reply(messages, max_tokens, temperature).splitlines()
+            if not Repeats.first:
+                Repeats.first = json.loads(lines[0])["text"]
+            elif len(self.calls) > 3:
+                o = json.loads(lines[0])
+                o["text"] = Repeats.first
+                lines[0] = json.dumps(o)
+            return "\n".join(lines)
+
+    async def go():
+        fake = Repeats()
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
+        w.attach()
+        sl = slot_of(PROMPT, "list", "lighting", n=3)
+        key = "4" * 32
+        w.submit(job_for(sl, V.Seeds(), key=key))
+        await w.drain()
+        w.store.remove(key, [Repeats.first])
+        await w.more(job_for(sl, V.Seeds(), key=key))
+        assert Repeats.first not in [v["text"] for v in w.store.variants(key)]
+        assert all(t["dropped"].get("duplicate") == 1 for t in tallies(w, key)[3:])
+        # the session is told nothing of the removal (no note about it in the turns)
+        assert all("remov" not in c["user"].lower() for c in fake.calls)
+    run(go())

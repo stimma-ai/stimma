@@ -3,12 +3,17 @@
     <dominant young woman> standing in her living room in <clothing slightly open in the front>
 
 A slot is an area of the prompt where the user wants variety. Its value is one variant: a
-specific, concrete take that keeps the slot's words, never a replacement for them. A write, with
-reasoning off and plain JSON, sees the whole prompt with the slot marked and writes about 30
-variants (40 for a person); top-ups write 20 more. A first write, a pick and More like these
-draw their seeds once and are written as chunks of PICK_CHUNK side by side, each stored as it
-lands. The pool is stored and drawn from
-with no model call per image (variant_pools.py).
+specific, concrete take that keeps the slot's words, never a replacement for them. The pool is
+written by one chat session per pool, reasoning off: the system prompt, a first user turn (the
+whole prompt with the slot marked, the kept words, the rules, that turn's per-variant seed
+lines), the model's reply, then "write N more" turns of TURN variants, each with its own seed
+lines, so every turn sees what the pool holds. A first write is about 30 variants (40 for a
+person); top-ups, picks and More like these are 20 more, each one more turn or two of the same
+session. The reply is one JSON object per variant, read from the stream as each object closes
+(ObjectReader) and checked at once, so the first variant shows in under a second. A turn joins
+the log only with its survivors, and only when it kept at least half (a session copies its own
+first mistake into every later turn). The pool is stored and drawn from with no model call per
+image (variant_pools.py).
 
 - Words. A variant keeps every word of the slot exactly, except its category word, which the
   reader names ("clothing" in "clothing slightly open in the front") and which the variant may
@@ -31,12 +36,15 @@ with no model call per image (variant_pools.py).
   writer is told their age.
 
 This module makes calls and checks replies; it stores nothing. `ask` is injected: the app's chat
-model (ask_writer) or a fake in tests.
+model (ask_writer, streamed through stream_writer where the provider can stream, else whole
+replies) or a fake in tests. Every streamed turn has a first-token, a stall and an overall
+deadline, enforced here.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import random
 import re
@@ -48,26 +56,20 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-14"   # variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-12"   # variants-12: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
-PICK_CHUNK = 5         # a pick's batch and More like these are written this many at a time, side by side
-MIN_POOL = 12          # fewer survivors than this from the first call asks once more
+TURN = 10              # variants a session's turn asks for: the first 5 in about 2 s, the next turn under 1 s later
+COMPACT_AT = 100       # past this many variants in its log, a session sends a compact list of the middle
+COMPACT_CHARS = 8000   # at most this much of that list (about 2k tokens)
 MAX_ADDED_WORDS = 30   # words a variant may add to the kept words
 SHORTLIST = 7          # a list this short is shown to the writer whole
-HAVE_SHOWN = 80        # the pool's latest texts a top-up is told it already has
-WRITE_TOKENS = 4500    # a write's reply budget: 40 variants of about 20 words, with no reasoning
-WRITE_SECONDS = 150.0  # one write call, at most
-TOKENS_PER_VARIANT = 150   # a call's budget per variant asked for (a long person variant with its idea: ~80)
-TOKENS_BASE = 300          # and for the reply's frame and rejected list
-
-
-def write_tokens(n: int) -> int:
-    """A write call's reply budget: room for `n` variants about twice over, at most WRITE_TOKENS.
-    A model that keeps talking after its JSON is cut off in seconds rather than running to the
-    whole budget and the call's deadline; the variants that closed before the cut are kept."""
-    return min(WRITE_TOKENS, TOKENS_BASE + TOKENS_PER_VARIANT * max(1, n))
+HAVE_SHOWN = 80        # the pool's latest texts a fresh first turn over a pool is told it already has
+WRITE_TOKENS = 4500    # the reply budget for 40 variants of about 20 words, with no reasoning
+FIRST_TOKEN_SECONDS = 30.0   # a turn's first text, at most (measured: 0.2-0.6 s warm, 4.4 s for a cold 15k-token log)
+STALL_SECONDS = 20.0         # between two texts of a streamed turn, at most
+TURN_SECONDS = 120.0         # one turn, at most (a turn of 10 takes 3-7 s on a local model, a person ~10 s)
 WRITE_TEMPERATURE = 0.8
 
 DESCENT = "person.ethnicity"
@@ -75,7 +77,9 @@ GENDER = "person.gender"
 AGE = "person.age_band"
 STAGE = "life_stage"   # the age list's facet the picker browses it by (baby, child, teen, young adult, ...)
 
-# askable chat model: (messages, project_id, max_tokens, temperature) -> reply text
+# askable chat model: (messages, project_id, max_tokens, temperature) -> reply text. One that can
+# stream also has `.stream(messages, project_id, max_tokens, temperature)`: an async iterator of
+# text deltas that raises llm_http.StreamUnsupported (before any) where it can't.
 Ask = Callable[..., Awaitable[str]]
 
 
@@ -90,6 +94,25 @@ async def ask_writer(messages: List[Dict[str, Any]], project_id: Optional[int], 
     with llm_correlation_context("prompt-program"):
         return await llm_complete_text(config=cfg, messages=messages, max_tokens=max_tokens, temperature=temperature,
                                        enable_thinking=False, retry_reasoning=False)
+
+
+async def stream_writer(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int,
+                        temperature: float = WRITE_TEMPERATURE):
+    """ask_writer streamed: the reply's text deltas, reasoning off, the log marked cacheable (its
+    prefix is the same from turn to turn). Raises llm_http.StreamUnsupported before any delta where
+    the configured provider can't stream here."""
+    from llm import llm_stream_text
+    from llm_correlation import llm_correlation_context
+    from llm_resolver import get_effective_llm_config
+
+    cfg = await get_effective_llm_config("tool_assistant", project_id)
+    with llm_correlation_context("prompt-program"):
+        async for delta in llm_stream_text(cfg, messages, max_tokens=max_tokens, temperature=temperature,
+                                           enable_thinking=False, cacheable=True):
+            yield delta
+
+
+ask_writer.stream = stream_writer   # type: ignore[attr-defined]
 
 
 # --------------------------------------------------------------------------- words, structurally
@@ -596,8 +619,8 @@ Per-variant seeds, one line per variant when given:
 - age: about how old the person looks; work it in before their words ("a 34-year-old chef") or say it another natural way ("a chef in her forties"), never as a number tacked on at the end.
 - core: build this variant on that value, adding a few words that place it in this prompt. If it can't be true in this prompt, use another value of the same kind and list the core under "rejected".
 
-Reply with JSON only, no other text:
-{"rejected": ["..."], "variants": [{"n": 1, "text": "...", "idea": "..."}, ...]}"""
+Reply with one JSON object per line and nothing else: no list around them, no code fence. First, only if some ideas or cores don't fit, one line {"rejected": ["..."]}. Then one line per variant, in order:
+{"n": 1, "text": "...", "idea": "..."}"""
 
 
 CORE_NOTE = ("The cores are random values of a list, and some won't fit this prompt. A core that would add people (a "
@@ -886,128 +909,347 @@ def parse_reply(reply: Optional[str]) -> Optional[Dict[str, Any]]:
     if cut is not None:
         return cut
     return objs[-1] if objs else None
+# --------------------------------------------------------------------------- a session per pool
+
+class ObjectReader:
+    """Streamed text in, each complete top-level JSON object ({...}) out the moment its closing
+    brace arrives: whether the model writes one per line, as asked, or spreads one over several
+    lines (one local model does). Text outside objects (fences, chatter) is ignored; a broken
+    object costs that object only."""
+
+    def __init__(self) -> None:
+        self.buf: List[str] = []
+        self.depth = 0
+        self.in_str = False
+        self.esc = False
+
+    def feed(self, delta: str) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        for ch in delta:
+            if self.depth == 0:
+                if ch == "{":
+                    self.depth, self.buf, self.in_str, self.esc = 1, ["{"], False, False
+                continue
+            self.buf.append(ch)
+            if self.in_str:
+                if self.esc:
+                    self.esc = False
+                elif ch == "\\":
+                    self.esc = True
+                elif ch == '"':
+                    self.in_str = False
+                continue
+            if ch == '"':
+                self.in_str = True
+            elif ch == "{":
+                self.depth += 1
+            elif ch == "}":
+                self.depth -= 1
+                if self.depth == 0:
+                    try:
+                        obj = json.loads("".join(self.buf).replace("\n", " "))
+                    except ValueError:
+                        obj = None
+                    if isinstance(obj, dict):
+                        out.append(obj)
+                    self.buf = []
+        return out
 
 
-# --------------------------------------------------------------------------- one batch
+def turn_tokens(n: int) -> int:
+    """A turn's reply budget: about WRITE_TOKENS per N_PERSON variants, with room to spare."""
+    return max(900, int(WRITE_TOKENS * n / N_PERSON) + 400)
+
+
+FIRST_NOTE = "Number them from 1; I will ask for more in later turns."
+
+
+def first_turn(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -> List[Dict[str, str]]:
+    """A session's opening: the system prompt and the first user turn (the prompt with the slot
+    marked, the kept words, the rules, this turn's seed lines; `have`: what the pool holds already,
+    when a session starts again over a pool)."""
+    msgs = messages(slot, drawn, seeds, have)
+    msgs[1]["content"] += "\n" + FIRST_NOTE
+    return msgs
+
+
+def more_turn(drawn: Drawn, a: int, seeds: Seeds, *, unseeded_start: bool = False) -> str:
+    """A later turn: write n more, numbered on from `a`, with this turn's seed lines. When the
+    session opened unseeded (written while the slot's seeds were narrowed), the lists it shows
+    whole and the minors line come with the first seeded turn."""
+    n = len(drawn.specs)
+    lines = [f"Write {n} more variants of the same marked part, numbered {a} to {a + n - 1}, each clearly different "
+             "from every variant above: not a repeat, not a paraphrase, not the same idea reworded."]
+    if unseeded_start:
+        if seeds.minor:
+            lines += ["", minor_line(seeds.minor)]
+        for b in drawn.short:
+            lines += ["", f"Spread the variants across these {b.label.lower()} choices where they fit: "
+                      + "; ".join(f'"{t}"' for t, _ in b.values) + "."]
+    if any(s.line() for s in drawn.specs):
+        lines += ["", "Seeds, one line per variant:"]
+        lines += [f"{a + i}. {s.line()}" for i, s in enumerate(drawn.specs)]
+    if any(s.core for s in drawn.specs):
+        lines += ["", CORE_NOTE if unseeded_start else 'Cores that don\'t fit go under "rejected" as before.']
+    lines += ["", "Same reply format: one JSON object per line."]
+    return "\n".join(lines)
+
+
+def reply_text(variants: Sequence[Dict[str, Any]], a: int, rejected: Sequence[str] = ()) -> str:
+    """A turn's reply as the log keeps it: only the variants that passed, numbered on from `a`,
+    in the reply format, so a later turn never copies a mistake that was dropped."""
+    lines = [json.dumps({"rejected": list(rejected)}, ensure_ascii=False)] if rejected else []
+    for i, v in enumerate(variants):
+        idea = str((v.get("seeds") or {}).get("idea") or "")
+        lines.append(json.dumps({"n": a + i, "text": v["text"], "idea": idea}, ensure_ascii=False))
+    return "\n".join(lines)
+
 
 @dataclass
-class Batch:
-    """One writer call: the variants that passed, each with its seeds, and what was dropped."""
+class Session:
+    """One pool's chat log: the system prompt, the first user turn, then each logged turn's reply
+    (its survivors only) and the next user turn. Stored with the pool (variant_pools.VariantStore)
+    so every later write continues it. `texts`: the variants the logged replies hold, in order."""
+    messages: List[Dict[str, str]] = field(default_factory=list)
+    texts: List[str] = field(default_factory=list)
+    seeded: bool = True        # the log has shown the slot's seeds (False: opened unseeded while they were narrowed)
+    restarts: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"v": 1, "messages": self.messages, "texts": self.texts, "seeded": self.seeded,
+                "restarts": self.restarts}
+
+    @classmethod
+    def of(cls, obj: Any) -> "Session":
+        o = obj if isinstance(obj, dict) and obj.get("v") == 1 else {}
+        msgs = [m for m in o.get("messages") or [] if isinstance(m, dict) and isinstance(m.get("content"), str)
+                and m.get("role") in ("system", "user", "assistant")]
+        if len(msgs) < 3 or msgs[-1]["role"] != "assistant":
+            return cls()   # nothing logged (or unreadable): the next turn starts it afresh
+        return cls(msgs, [str(t) for t in o.get("texts") or [] if isinstance(t, str)], bool(o.get("seeded", True)),
+                   int(o.get("restarts") or 0))
+
+    @property
+    def open(self) -> bool:
+        return bool(self.messages)
+
+    def sent(self, user: str, removed: Sequence[str] = ()) -> List[Dict[str, str]]:
+        """What a turn sends: the whole log and `user`, or past COMPACT_AT variants the system
+        prompt, the first user turn and its reply, then the other variants already written as a
+        compact list (most recent last, at most COMPACT_CHARS; never a removed one) before `user`.
+        A long log is slow to read uncached and slows one local model's writing by half."""
+        if len(self.texts) <= COMPACT_AT:
+            return [*self.messages, {"role": "user", "content": user}]
+        head = self.messages[:3]
+        gone = {_norm(t).lower() for t in removed}
+        shown = {_norm(json.loads(ln)["text"]).lower() for ln in head[2]["content"].splitlines()
+                 if ln.startswith('{"n"')}
+        rest = [t for t in self.texts if _norm(t).lower() not in gone and _norm(t).lower() not in shown]
+        keep: List[str] = []
+        size = 0
+        for t in reversed(rest[-HAVE_SHOWN * 2:]):
+            size += len(t) + 3
+            if size > COMPACT_CHARS:
+                break
+            keep.append(t)
+        listed = "\n".join(f"- {t}" for t in reversed(keep))
+        return [*head, {"role": "user", "content": "Also already written (most recent last):\n" + listed + "\n\n" + user}]
+
+    def log(self, sent_user: Dict[str, str], reply: str, texts: Sequence[str]) -> None:
+        """Append one turn that passed: its user turn and its survivors' reply."""
+        self.messages += [sent_user, {"role": "assistant", "content": reply}]
+        self.texts += list(texts)
+
+
+@dataclass
+class Turn:
+    """One turn of a session: the variants that passed (each stored as it landed), what was
+    dropped and why, and how the call went."""
+    asked: int
     variants: List[Dict[str, Any]] = field(default_factory=list)   # {"text", "seeds"}
     dropped: Counter = field(default_factory=Counter)
+    rejected: List[str] = field(default_factory=list)
     repairs: int = 0
     ideas: Dict[str, int] = field(default_factory=dict)   # offered, used, rejected
     descents: Counter = field(default_factory=Counter)    # seeded, written (kept variants with a descent seed)
     seconds: float = 0.0
-    error: str = ""                                       # the call failed or its reply was unreadable
+    first: Optional[float] = None                         # seconds to the first text
+    streamed: bool = False
+    error: str = ""                                       # the call failed, hit a deadline or its reply was unreadable
+
+    @property
+    def passed(self) -> bool:
+        """Kept at least half of what it asked for: it may join the log."""
+        return self.asked > 0 and 2 * len(self.variants) >= self.asked
 
     def texts(self) -> List[str]:
         return [v["text"] for v in self.variants]
 
 
-async def write_batch(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id: Optional[int] = None,
-                      have: Sequence[str] = (), rng: Optional[random.Random] = None,
-                      used_cores: Sequence[str] = (), drawn: Optional[Drawn] = None) -> Batch:
-    """One writer call for `n` variants (or for `drawn`, seeds drawn already: a chunk of a
-    split batch), checked. Never raises: a failed call or an unreadable reply is a batch with
-    nothing in it and its `error`."""
+class Deadline(Exception):
+    """A streamed call ran past one of its deadlines."""
+
+
+async def _consume(it: Any, on_text: Callable[[str], None], t0: float) -> Optional[float]:
+    """Read a stream of text deltas into `on_text` under three deadlines enforced here, whatever
+    the client library does (a measured stream once hung with its connection open and its read
+    timeout never fired): FIRST_TOKEN_SECONDS to the first text, STALL_SECONDS between texts, and
+    TURN_SECONDS for the whole. Returns the seconds to the first text; raises Deadline."""
     import time
-    if drawn is None:
-        drawn = draw_seeds(rng or random.Random(), seeds, n, slot.words, used_cores)
-    out = Batch()
-    t0 = time.monotonic()
+    first: Optional[float] = None
     try:
-        reply = await asyncio.wait_for(ask(messages(slot, drawn, seeds, have), project_id, write_tokens(len(drawn.specs)),
-                                           temperature=WRITE_TEMPERATURE), WRITE_SECONDS)
-    except Exception as e:   # a model slip or an unreachable model degrades: the slot stands as written
-        out.error = f"{type(e).__name__}: {e}"[:200] or "call failed"
-        log.warning(f"[variants] writing {slot.words!r} failed: {out.error}")
-        out.seconds = round(time.monotonic() - t0, 2)
-        return out
-    out.seconds = round(time.monotonic() - t0, 2)
-    obj = parse_reply(reply)
-    items = obj.get("variants") if obj else None
-    if not isinstance(items, list):
-        out.error = "unreadable reply"
-        log.info(f"[variants] the writer's reply for {slot.words!r} can't be read: {str(reply)[:200]!r}")
-        return out
-    rejected = {_norm(x).lower() for x in obj.get("rejected") or [] if isinstance(x, str)} \
-        if isinstance(obj.get("rejected"), list) else set()
+        while True:
+            now = time.monotonic()
+            left = TURN_SECONDS - (now - t0)
+            wait = min(left, FIRST_TOKEN_SECONDS - (now - t0) if first is None else STALL_SECONDS)
+            if left <= 0:
+                raise Deadline("overall deadline")
+            try:
+                async with asyncio.timeout(max(0.0, wait)):
+                    delta = await it.__anext__()
+            except StopAsyncIteration:
+                return first
+            except TimeoutError:
+                raise Deadline("overall deadline" if wait >= left else
+                               "first-token deadline" if first is None else "stall deadline") from None
+            if delta:
+                if first is None:
+                    first = round(time.monotonic() - t0, 3)
+                on_text(str(delta))
+    finally:
+        with contextlib.suppress(Exception):
+            await it.aclose()
+
+
+async def write_turn(slot: Slot, drawn: Drawn, sent: List[Dict[str, Any]], *, ask: Ask, a: int = 1,
+                     project_id: Optional[int] = None, seen: Optional[set] = None,
+                     landed: Optional[Callable[[Dict[str, Any]], bool]] = None) -> Turn:
+    """One turn of a session: `sent` is what goes to the model, `drawn` this turn's seeds
+    (numbered from `a`). Streamed where `ask` can stream (`ask.stream`), else the whole reply at
+    once. Each variant is repaired and checked the moment its object completes, and handed to
+    `landed` (which stores it; False: no room, the variant is dropped), so a picker sees the first
+    one in under a second. `seen`: normalized texts the pool holds or removed (updated). Never
+    raises: a failed call, a deadline or an unreadable reply keeps what landed before it."""
+    import time
+    from llm_http import StreamUnsupported
+    from prompt_programs.fill import fix_articles
+    out = Turn(asked=len(drawn.specs))
+    seen = seen if seen is not None else set()
     keep = slot.keep()
     left, right = context_words(slot.prompt, slot.span)
     article = article_before(slot.prompt, slot.span, slot.words)
     before = slot.prompt[slot.prompt.rfind("\n", 0, slot.span[0]) + 1:slot.span[0]]
-    seen = {_norm(h).lower() for h in have}
+    taken: set = set()
     used: List[str] = []
-    for i, spec in enumerate(drawn.specs):
-        it = items[i] if i < len(items) else None
-        if not isinstance(it, dict) or not isinstance(it.get("text"), str):
+    reader = ObjectReader()
+
+    def index(obj: Dict[str, Any]) -> Optional[int]:
+        n = obj.get("n")
+        if isinstance(n, int) and not isinstance(n, bool) and 0 <= n - a < len(drawn.specs) and n - a not in taken:
+            return n - a
+        return next((i for i in range(len(drawn.specs)) if i not in taken), None)
+
+    def take(obj: Dict[str, Any]) -> None:
+        if isinstance(obj.get("variants"), list):   # the whole reply as one object, as an older format had it
+            for it in obj["variants"]:
+                if isinstance(it, dict):
+                    take(it)
+            obj = {"rejected": obj.get("rejected")} if "rejected" in obj else {}
+        if "text" not in obj:
+            if isinstance(obj.get("rejected"), list):
+                out.rejected += [_norm(x) for x in obj["rejected"] if isinstance(x, str) and x.strip()]
+            return
+        i = index(obj)
+        if i is None:
+            out.dropped["extra"] += 1
+            return
+        taken.add(i)
+        spec = drawn.specs[i]
+        if not isinstance(obj.get("text"), str):
             out.dropped["missing"] += 1
-            continue
-        fixed, did = repair(it["text"], left, right, words=slot.words, article=article, before=before)
-        from prompt_programs.fill import fix_articles
+            return
+        fixed, did = repair(obj["text"], left, right, words=slot.words, article=article, before=before)
         fixed = fix_articles(fixed)   # "a off-center selfie" is stored as "an off-center selfie"
         out.repairs += bool(did)
         why = check(fixed, slot.words, keep, spec, cut="markup" in did)
         if why:
             out.dropped[why] += 1
-            continue
-        if fixed.lower() in seen:
+            return
+        if _norm(fixed).lower() in seen:
             out.dropped["duplicate"] += 1
-            continue
-        seen.add(fixed.lower())
+            return
         got = spec.seeds()
         if spec.descent:
-            out.descents["seeded"] += 1
             if has_run(fixed, spec.descent):
                 out.descents["written"] += 1
             else:   # left out where it couldn't be true: the picker's matches stay real
                 got.pop("descent", None)
-        idea = _norm(it.get("idea") or "") if isinstance(it.get("idea"), str) else ""
+        idea = _norm(obj.get("idea") or "") if isinstance(obj.get("idea"), str) else ""
         if idea and idea.lower() != spec.core.lower():
             got["idea"] = idea
-            used += [x.strip().lower() for x in idea.split(";") if x.strip()]
-        out.variants.append({"text": fixed, "seeds": got})
+        v = {"text": fixed, "seeds": got}
+        if landed is not None:
+            try:
+                if landed(v) is False:
+                    out.dropped["no room"] += 1
+                    return
+            except Exception as e:   # storing one failing never loses the others
+                log.warning(f"[variants] keeping a variant of {slot.words!r} failed: {e}")
+                out.dropped["not stored"] += 1
+                return
+        seen.add(_norm(fixed).lower())
+        if spec.descent:
+            out.descents["seeded"] += 1
+        if idea:
+            used.extend(x.strip().lower() for x in idea.split(";") if x.strip())
+        out.variants.append(v)
+
+    def on_text(delta: str) -> None:
+        for obj in reader.feed(delta):
+            take(obj)
+
+    t0 = time.monotonic()
+    stream = getattr(ask, "stream", None)
+    tokens_ = turn_tokens(len(drawn.specs))
+    whole = stream is None
+    try:
+        if stream is not None:
+            try:
+                it = stream(sent, project_id, tokens_, temperature=WRITE_TEMPERATURE).__aiter__()
+                out.first = await _consume(it, on_text, t0)
+                out.streamed = True
+            except StreamUnsupported:
+                whole = True   # this provider answers whole: the same turn, all at once
+        if whole:
+            async with asyncio.timeout(TURN_SECONDS):
+                reply = await ask(sent, project_id, tokens_, temperature=WRITE_TEMPERATURE)
+            out.first = round(time.monotonic() - t0, 3)
+            on_text(str(reply or ""))
+    except Deadline as e:
+        out.error = str(e)
+    except TimeoutError:
+        out.error = "overall deadline"
+    except Exception as e:   # a model slip or an unreachable model degrades: the slot stands as written
+        out.error = f"{type(e).__name__}: {e}"[:200] or "call failed"
+    out.seconds = round(time.monotonic() - t0, 2)
+    if out.error:
+        log.warning(f"[variants] a turn for {slot.words!r} ended early ({out.error}); keeping {len(out.variants)}")
+    if not taken and not out.error:
+        out.error = "unreadable reply"
+    if len(taken) < len(drawn.specs):
+        out.dropped["missing"] += len(drawn.specs) - len(taken)
     offered = [t for t, _ in drawn.ideas]
+    rejected = {x.lower() for x in out.rejected}
     out.ideas = {"offered": len(offered),
                  "used": sum(1 for t in offered if t.lower() in used or any(has_run(v, t) for v in out.texts())),
                  "rejected": sum(1 for t in offered if _norm(t).lower() in rejected)}
     return out
 
 
-async def write_first(slot: Slot, seeds: Seeds, *, ask: Ask, project_id: Optional[int] = None,
-                      key: str = "", landed: Optional[Callable[[Batch], None]] = None,
-                      gate: Optional[Callable[[int], Any]] = None, written: Sequence[str] = ()) -> List[Batch]:
-    """A slot's first pool: Slot.n variants with seeds drawn once, written as chunks of
-    PICK_CHUNK side by side (write_chunks: each handed to `landed` as it lands, so a new slot
-    shows variants in seconds), and once more with fresh seeds when fewer than MIN_POOL distinct
-    ones survive across the chunks. `written`: variants the pool holds already (an unseeded first
-    chunk written while its seeds were narrowed): the writer is told them, they count toward
-    Slot.n, and never toward MIN_POOL. The batches in the order they landed; none kept anything
-    when every one is empty, and the slot then stands as written."""
-    batches: List[Batch] = []
-    have: List[str] = []
-    told = list(written)
-    n = max(PICK_CHUNK, slot.n - len(told))
-    for r in range(2):
-        got = await write_chunks(slot, seeds, n, ask=ask, project_id=project_id, have=[*told, *have],
-                                 rng=random.Random(f"{key}|{r}") if key else None, landed=landed, gate=gate,
-                                 first_index=r * -(-n // PICK_CHUNK))
-        batches += got
-        seen = {_norm(t).lower() for t in [*told, *have]}
-        for t in (t for b in got for t in b.texts()):
-            if _norm(t).lower() not in seen:
-                seen.add(_norm(t).lower())
-                have.append(t)
-        if len(have) >= MIN_POOL:
-            break
-    return batches
-
-
-def split(drawn: Drawn, size: int = PICK_CHUNK) -> List[Drawn]:
-    """A batch's seeds as chunks of at most `size` variants, each variant with its own ideas
-    (short lists go to every chunk). Seeds are drawn once for the whole batch, so the chunks
-    spread across descents, aspects and ideas as one call would."""
+def split(drawn: Drawn, size: int = TURN) -> List[Drawn]:
+    """A write's seeds as turns of at most `size` variants (short lists go with every turn).
+    Seeds are drawn once for the whole write, so the turns spread across descents, aspects, cores
+    and ideas as one call would."""
     n = len(drawn.specs)
     if n <= size:
         return [drawn]
@@ -1016,44 +1258,9 @@ def split(drawn: Drawn, size: int = PICK_CHUNK) -> List[Drawn]:
     return [Drawn(drawn.specs[a:b], drawn.short) for a, b in zip(bounds, bounds[1:])]
 
 
-async def write_chunks(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id: Optional[int] = None,
-                       have: Sequence[str] = (), rng: Optional[random.Random] = None, used_cores: Sequence[str] = (),
-                       size: int = PICK_CHUNK, landed: Optional[Callable[[Batch], None]] = None,
-                       gate: Optional[Callable[[int], Any]] = None, first_index: int = 0) -> List[Batch]:
-    """`n` variants as chunks of `size` written side by side, each handed to `landed` the moment
-    it is checked, so a picker sees the first ones in a few seconds rather than after the whole
-    batch (measured on a local 80 tok/s model: 20 in one call ~11-13 s; 4 x 5 ~4-6 s, the first
-    ~3-5 s). `gate(i)`: an async context manager each chunk's call runs in (the writer's cap on
-    calls in flight), told the chunk's index from `first_index`. The batches in the order they
-    landed. Never raises."""
-    parts = split(draw_seeds(rng or random.Random(), seeds, n, slot.words, used_cores), size)
-    out: List[Batch] = []
-
-    async def one(i: int, d: Drawn) -> None:
-        if gate is not None:
-            async with gate(first_index + i):
-                b = await write_batch(slot, seeds, len(d.specs), ask=ask, project_id=project_id, have=have, drawn=d)
-        else:
-            b = await write_batch(slot, seeds, len(d.specs), ask=ask, project_id=project_id, have=have, drawn=d)
-        out.append(b)
-        if landed is not None:
-            try:
-                landed(b)
-            except Exception as e:   # storing one chunk failing never loses the others
-                log.warning(f"[variants] keeping a chunk for {slot.words!r} failed: {e}")
-    await asyncio.gather(*(one(i, d) for i, d in enumerate(parts)))
-    return out
-
-
-async def top_up(slot: Slot, seeds: Seeds, have: Sequence[str], *, ask: Ask, project_id: Optional[int] = None,
-                 n: int = TOPUP, rng: Optional[random.Random] = None, used_cores: Sequence[str] = ()) -> Batch:
-    """TOPUP more variants, told what the pool already holds, built on the list values it hasn't
-    built on yet first (More like these is the same call)."""
-    return await write_batch(slot, seeds, n, ask=ask, project_id=project_id, have=have, rng=rng, used_cores=used_cores)
-
-
-__all__ = ["AGE", "STAGE", "Ask", "Bank", "Batch", "DESCENT", "Drawn", "MIN_POOL", "N_OTHER", "N_PERSON", "GENDER", "Pins",
-           "PICK_CHUNK", "SHORTLIST", "SYSTEM", "Seeds", "Slot", "Spec", "TOPUP", "VARIANTS_VERSION", "article_before", "ask_writer",
-           "age_stages", "age_years", "allowed_ages", "bank", "year_ages", "check", "stages_of",
-           "context_words", "draw_seeds", "gender_mark", "gender_needs", "has_run", "kept_chunks", "list_seeds", "messages", "minor_line", "minor_words",
-           "parse_reply", "person_seeds", "write_tokens", "repair", "split", "tokens", "top_up", "valid_category", "write_batch", "write_chunks", "write_first"]
+__all__ = ["AGE", "STAGE", "Ask", "Bank", "DESCENT", "Deadline", "Drawn", "N_OTHER", "N_PERSON", "GENDER",
+           "ObjectReader", "Pins", "SHORTLIST", "SYSTEM", "Seeds", "Session", "Slot", "Spec", "TOPUP", "TURN", "Turn",
+           "VARIANTS_VERSION", "age_stages", "age_years", "allowed_ages", "article_before", "ask_writer", "bank",
+           "check", "context_words", "draw_seeds", "first_turn", "gender_mark", "gender_needs", "has_run", "kept_chunks", "list_seeds", "messages",
+           "minor_line", "minor_words", "more_turn", "parse_reply", "person_seeds", "repair", "reply_text", "split", "stages_of",
+           "tokens", "valid_category", "write_turn", "year_ages"]
