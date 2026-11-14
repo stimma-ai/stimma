@@ -47,7 +47,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from core.logging import get_logger
 from prompt_programs.variants import (
     AGE, HAVE_SHOWN, MIN_POOL, MORE_TURNS, STAGE, TOPUP, TURN, VARIANTS_VERSION, Ask, Pins, Seeds, Session, Slot, Turn,
-    age_stages, age_years, ask_writer, draw_seeds, first_turn, more_turn, reply_text, split, stages_of, write_turn,
+    age_stages, age_years, ask_writer, draw_seeds, first_turn, more_turn, reply_text, retry_note, split, stages_of, write_turn,
     year_ages,
 )
 
@@ -814,7 +814,7 @@ class PoolWriter:
         base = len(self.store.batches(job.key))
         parts = split(draw_seeds(random.Random(f"{job.key}|{base}"), seeds, n, job.slot.words, cores), TURN)
         out: List[str] = []
-        restarted = False
+        restarted, again_note = False, ""
         fresh = False
         more = 0
         asked = 0
@@ -844,7 +844,8 @@ class PoolWriter:
                     sent = session.sent(user["content"], removed)
                 else:   # a session's opening, or a fresh one over a pool that has variants already
                     a = 1
-                    sent = first_turn(job.slot, part, seeds, have=[v["text"] for v in pool][-HAVE_SHOWN:])
+                    sent = first_turn(job.slot, part, seeds, have=[v["text"] for v in pool][-HAVE_SHOWN:],
+                                      again=again_note if restarted else "")
                     user = sent[1]
                 batch = base + asked   # one label per turn asked, restarts and extra turns too
                 asked += 1
@@ -876,8 +877,10 @@ class PoolWriter:
                         break
                     log.info(f"[variants] {job.slot.words!r}: a second turn kept under half; it stands as it is")
                     break
-                # Not appended. Once more from a fresh first turn with fresh seeds for what is left.
+                # Not appended. Once more from a fresh first turn with fresh seeds for what is left,
+                # told what went wrong when it is something the writer can mend.
                 restarted, fresh = True, True
+                again_note = retry_note(job.slot, dict(turn.dropped), seeds)
                 left = sum(len(p.specs) for p in parts[i:])
                 again = draw_seeds(random.Random(f"{job.key}|{base}|again"), seeds, left, job.slot.words, cores)
                 parts = parts[:i] + split(again, TURN)

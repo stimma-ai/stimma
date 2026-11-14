@@ -158,3 +158,14 @@ def test_a_variant_that_copies_its_seed_lines_aspects_is_dropped():
     typ = V.Spec(develop=(V.typical_text(), "expression"))
     assert V.check(f"farmer, {V.typical_text()} and expression", "farmer", ["farmer"], typ) == "copies its seed line"
     assert V.check("farmer in a conical hat and mud-caked trousers, squinting at the sun", "farmer", ["farmer"], typ) == ""
+
+
+def test_a_fresh_turn_after_a_failed_one_is_told_what_to_mend():
+    slot = V.Slot("farmer", "an <elf> trading with a <farmer> at a market", (26, 34), "person")
+    note = V.retry_note(slot, {"words not kept": 9, "too long": 1})
+    assert '"farmer"' in note and "left these words out" in note
+    assert "within 45 words" in V.retry_note(slot, {"too long": 6}, V.Seeds(room=45))
+    assert V.retry_note(slot, {"duplicate": 7}) == "" and V.retry_note(slot, {}) == ""
+    seeds = V.Seeds()
+    first = V.first_turn(slot, V.draw_seeds(random.Random(1), seeds, 3), seeds, again=note)[1]["content"]
+    assert note in first and first.endswith(V.FIRST_NOTE)

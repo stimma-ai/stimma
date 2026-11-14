@@ -1169,13 +1169,31 @@ def turn_tokens(n: int) -> int:
 FIRST_NOTE = "Number them from 1; I will ask for more in later turns."
 
 
-def first_turn(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -> List[Dict[str, str]]:
+def first_turn(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = (), again: str = "") -> List[Dict[str, str]]:
     """A session's opening: the system prompt and the first user turn (the prompt with the slot
     marked, the kept words, the rules, this turn's seed lines; `have`: what the pool holds already,
-    when a session starts again over a pool)."""
+    when a session starts again over a pool; `again`: what the turn it starts again after got
+    wrong, retry_note)."""
     msgs = messages(slot, drawn, seeds, have)
-    msgs[1]["content"] += "\n" + FIRST_NOTE
+    msgs[1]["content"] += ("\n" + again if again else "") + "\n" + FIRST_NOTE
     return msgs
+
+
+def retry_note(slot: Slot, dropped: Dict[str, int], seeds: Optional[Seeds] = None) -> str:
+    """A line for the fresh first turn after a turn that kept under half: what most of it was
+    dropped for, when that is something the writer can mend (it left out the kept words, or ran
+    long). From the check's own counts, never the variants' words; "" for anything else."""
+    if not dropped:
+        return ""
+    why = max(dropped, key=lambda k: dropped[k])
+    keep = slot.keep()
+    if why == "words not kept" and keep:
+        return ("The last attempt left these words out of its variants. Every variant contains them, exactly and in "
+                "order: " + ", ".join(f'"{k}"' for k in keep) + ".")
+    if why == "too long":
+        room = (seeds.room if seeds is not None and seeds.room else 0) or MAX_ADDED_WORDS
+        return f"The last attempt's variants ran too long. Keep each within {room} words beyond the kept words."
+    return ""
 
 
 def more_turn(drawn: Drawn, a: int, seeds: Seeds, *, unseeded_start: bool = False) -> str:
@@ -1489,6 +1507,6 @@ def split(drawn: Drawn, size: int = TURN) -> List[Drawn]:
 __all__ = ["AGE", "STAGE", "Ask", "Bank", "Deadline", "Drawn", "N_OTHER", "N_PERSON", "MIN_POOL", "MORE_TURNS",
            "ObjectReader", "Pins", "SHORTLIST", "Seeds", "kind_seeds", "system_text", "typical_text", "Session", "Slot", "Spec", "TOPUP", "TURN", "Turn",
            "VARIANTS_VERSION", "age_stages", "age_years", "allowed_ages", "article_before", "ask_writer", "bank",
-           "check", "context_words", "draw_seeds", "first_turn", "gender_mark", "gender_needs", "has_run", "kept_chunks", "list_seeds", "messages",
+           "check", "context_words", "draw_seeds", "first_turn", "retry_note", "gender_mark", "gender_needs", "has_run", "kept_chunks", "list_seeds", "messages",
            "minor_line", "minor_words", "more_turn", "parse_reply", "person_seeds", "repair", "reply_text", "split", "stages_of",
            "tokens", "valid_category", "write_turn", "year_ages"]
