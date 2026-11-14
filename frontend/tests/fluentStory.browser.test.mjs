@@ -201,18 +201,29 @@ test('the main story, desktop light', async t => { await story(t, { theme: 'ligh
 test('the main story, phone dark', async t => { await story(t, { width: 390, height: 844, mobile: true, tag: 'phone-dark' }) })
 test('the main story, phone light', async t => { await story(t, { width: 390, height: 844, mobile: true, theme: 'light', tag: 'phone-light' }) })
 
-// A look-up never starts reading: it finds a slot just typed `reading`, with nothing reading
-// it. The prompt is read once the user pauses in the box, leaves it, or generates, and only once.
+// Typing is never read mid-phrase: while the user types, nothing is looked up or read and the
+// slot at the caret doesn't show as being written. The prompt is read once they pause in the
+// box, leave it, leave the slot, or generate, and only once.
+const looks = page => page.evaluate(() => [...document.querySelectorAll('[data-slot-look]')].map(el => el.dataset.slotLook))
+// Types like a person (a key every 120 ms), noting how the slots look after each key.
+async function typeSlowly(page, keys) {
+  const seen = []
+  for (const k of keys) {
+    await page.keyboard.type(k)
+    await page.waitForTimeout(120)
+    seen.push(...await looks(page))
+  }
+  return seen
+}
 async function typeSlot(t) {
   const o = await open(t)
   await o.editor.click()
-  await o.page.keyboard.type('a <young man')
-  await o.page.keyboard.type('>')
+  const seen = await typeSlowly(o.page, 'a <young man>')
   await expect.poll(() => text(o.page)).toBe('a <young man>')
-  // The look-up has found it unread: the slot shows as still being written, and nothing asked to read it.
-  await expect(o.mark(1)).toHaveAttribute('data-slot-look', 'writing', { timeout: 2000 })
-  await o.page.waitForTimeout(500)
-  assert.deepEqual(o.calls.prepare.filter(b => !b.cache_only), [])
+  // Nothing was looked up or read while typing, and the slot never looked as if being written.
+  assert.ok(!seen.includes('writing'), `looks while typing: ${seen}`)
+  await expect(o.mark(1)).toHaveAttribute('data-slot-look', 'varying')
+  assert.deepEqual(o.calls.prepare, [])
   return o
 }
 const reads = calls => calls.prepare.filter(b => !b.cache_only).map(b => b.prompt)
@@ -223,7 +234,11 @@ async function filledIn({ mark, calls }) {
 
 test('a slot typed is read once the user pauses in the prompt', async t => {
   const o = await typeSlot(t)
-  await expect.poll(() => reads(o.calls), { timeout: 2500 }).toEqual(['a <young man>'])
+  // Not yet: a breath mid-phrase isn't a pause.
+  await o.page.waitForTimeout(900)
+  assert.deepEqual(o.calls.prepare, [])
+  await expect(o.mark(1)).toHaveAttribute('data-slot-look', 'varying')
+  await expect.poll(() => reads(o.calls), { timeout: 1500 }).toEqual(['a <young man>'])
   assert.ok(await o.page.evaluate(() => document.querySelector('[data-prompt-editor]').contains(document.activeElement)))
   await filledIn(o)
   await o.page.waitForTimeout(1600)
@@ -245,6 +260,44 @@ test('a slot typed is read when the user generates at once', async t => {
   await filledIn(o)
   await o.page.waitForTimeout(1600)
   assert.deepEqual(reads(o.calls), ['a <young man>'])
+})
+
+test('a slot typed is read as soon as the user types on past it', async t => {
+  const o = await typeSlot(t)
+  await typeSlowly(o.page, ',')
+  assert.deepEqual(reads(o.calls), ['a <young man>,'])
+  // It's being read now, so it says so; typing on reads nothing more until a pause.
+  await typeSlowly(o.page, ' in a dorm')
+  assert.deepEqual(reads(o.calls), ['a <young man>,'])
+  await expect.poll(() => reads(o.calls), { timeout: 2500 }).toEqual(['a <young man>,', 'a <young man>, in a dorm'])
+  await expect(o.mark(1)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
+})
+
+test('editing the words of a slot already read waits for a pause, and its row stays put', async t => {
+  const { page, calls, mark, editor } = await open(t, { start: 'a <young man> by a <window>' })
+  await expect(mark(2)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
+  await expect(mark(1)).toHaveAttribute('data-slot-look', 'varying')
+  // Click into the first slot (its row opens) and put the caret after its `<`.
+  await mark(1).click()
+  await expect(page.locator('[data-row-wrap="young_man"][data-open]')).toHaveCount(1)
+  await editor.press('Home')
+  await editor.press('ArrowRight')
+  await editor.press('ArrowRight')
+  await editor.press('ArrowRight')
+  await page.waitForTimeout(600)
+  const before = calls.prepare.length
+  const seen = await typeSlowly(page, 'tall ')
+  assert.equal(await text(page), 'a <tall young man> by a <window>')
+  assert.ok(!seen.includes('writing'), `looks while typing: ${seen}`)
+  assert.deepEqual(calls.prepare.slice(before), [], 'nothing looked up or read per key')
+  // Its open row doesn't read it early either.
+  await page.waitForTimeout(900)
+  assert.deepEqual(calls.prepare.slice(before), [])
+  await expect.poll(() => reads(calls).slice(-1), { timeout: 2500 }).toEqual(['a <tall young man> by a <window>'])
+  await page.waitForTimeout(1600)
+  assert.equal(reads(calls).filter(p => p.includes('tall')).length, 1)
+  // The slot not touched kept its look throughout.
+  await expect(mark(2)).toHaveAttribute('data-slot-look', 'varying')
 })
 
 test('the developer view shows the slot reading and the picks made from it', async t => {

@@ -4,8 +4,9 @@
  * text on Keep my words, a shimmer while its first variants are written.
  *
  * Slots are matched to their looks by place and words, so a slot just typed (not in the
- * prepared program yet) takes the fallback look. With no marks set, slots keep the editor's
- * plain slot look.
+ * prepared program yet) takes the fallback look. While the user is typing, the slot at the
+ * caret never shows as being written: nothing reads it until they pause or leave it. With no
+ * marks set, slots keep the editor's plain slot look.
  *
  * The user's own `{a|b}` lists keep their list color until something is chosen for them, then
  * take the limited fill. Clicking a list is reported to the host, which opens its row.
@@ -34,6 +35,8 @@ export interface SlotMarks {
   lists?: ListLook[]
   /** The look of a slot that has none (just typed). */
   fallback: SlotLookKind
+  /** The user is typing: the slot at the caret (in it or right at its edge) looks plain. */
+  typing?: boolean
 }
 
 export const setSlotMarks = StateEffect.define<SlotMarks | null>()
@@ -54,12 +57,13 @@ export function lookFor(marks: SlotMarks, n: number, words: string): SlotLook {
   return same.length === 1 ? { ...same[0], n } : { n, words, kind: marks.fallback }
 }
 
-function build(text: string, marks: SlotMarks | null): DecorationSet {
+function build(text: string, marks: SlotMarks | null, caret: number): DecorationSet {
   if (!marks) return Decoration.none
   const ranges = []
   for (const [i, [from, to]] of findSlots(text).entries()) {
     const n = i + 1
-    const look = lookFor(marks, n, text.slice(from + 1, to - 1))
+    let look = lookFor(marks, n, text.slice(from + 1, to - 1))
+    if (marks.typing && look.kind === 'writing' && caret >= from && caret <= to) look = { ...look, kind: 'varying' }
     ranges.push(Decoration.mark({ class: `cm-slot-mark cm-slot-${look.kind}`, attributes: { 'data-slot-n': String(n), 'data-slot-look': look.kind } }).range(from, to))
   }
   // Every list is marked, so a click finds it; only one with something chosen looks set.
@@ -119,11 +123,11 @@ export interface SlotMarkHandlers {
 export function slotMarks(h: SlotMarkHandlers): Extension {
   const plugin = ViewPlugin.fromClass(class {
     decorations: DecorationSet
-    constructor(view: EditorView) { this.decorations = build(view.state.doc.toString(), view.state.field(slotMarksField)) }
+    constructor(view: EditorView) { this.decorations = build(view.state.doc.toString(), view.state.field(slotMarksField), view.state.selection.main.head) }
     update(u: ViewUpdate) {
       const was = u.startState.field(slotMarksField)
       const now = u.state.field(slotMarksField)
-      if (u.docChanged || was !== now) this.decorations = build(u.state.doc.toString(), now)
+      if (u.docChanged || was !== now || (now?.typing && u.selectionSet)) this.decorations = build(u.state.doc.toString(), now, u.state.selection.main.head)
     }
   }, {
     decorations: v => v.decorations,

@@ -364,6 +364,8 @@ const emit = defineEmits<{
   /** A list of the user's own was clicked: its 1-based place among the prompt's lists (as
       `findLists` counts them) and where it is. */
   (e: 'open-list', value: { n: number; rect: DOMRect }): void
+  /** The caret left the slot just typed in (typed past it, or moved away): it's done. */
+  (e: 'left-slot'): void
 }>()
 
 // Box height. Desktop rests at ~5 lines and grows to 408px; phones give the
@@ -531,6 +533,8 @@ const slotExtensions = [
     },
     onWrapped: (from) => { offer.value = null; void nextTick(() => openSlotAt(from)) },
     onMoved: hideOffer,
+    // Once the text with the edit has reached the host.
+    onLeftSlot: () => { void nextTick(() => emit('left-slot')) },
   }),
   EditorView.domEventHandlers({
     keydown(e) { if (e.key === 'Escape') offer.value = null; return false },

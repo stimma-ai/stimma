@@ -6,11 +6,13 @@
  *   allows a slot there (`slotWrapRange`). Otherwise `<` types as usual.
  * - Clicking a slot, or an underlined phrase, and settling a selection are reported to
  *   the editor component, which shows "Vary this" or opens the slot.
+ * - The caret leaving the slot just edited (typing past it, or moving away) is reported, so
+ *   Fluent reads that slot without waiting for a pause.
  */
 import { EditorView, Decoration, type DecorationSet, ViewPlugin, type ViewUpdate } from '@codemirror/view'
 import { StateEffect, StateField, RangeSetBuilder, type Extension } from '@codemirror/state'
 import { isolateHistory } from '@codemirror/commands'
-import { slotWrapRange, usableVaryPhrases } from '../utils/promptSyntax'
+import { findSlots, slotWrapRange, usableVaryPhrases } from '../utils/promptSyntax'
 
 export interface VaryPhrase { from: number; to: number; text: string }
 
@@ -49,6 +51,8 @@ export interface SlotEditingHandlers {
   onWrapped: (from: number) => void
   /** The text changed or scrolled: anything floating over it is out of place. */
   onMoved: () => void
+  /** The caret left the slot the last edit was in or right at. */
+  onLeftSlot?: () => void
 }
 
 /** Put the brackets around [from, to) as one undo step. Returns the `<`'s position, or null. */
@@ -103,6 +107,8 @@ export function slotEditing(h: SlotEditingHandlers): Extension {
       h.onSelection({ from: sel.from, to: sel.to })
     }, 120)
   }
+  // The slot the last edit was in or right at, while the caret stays there.
+  let edited: [number, number] | null = null
   return [
     varyField,
     // With words selected, `<` wraps them, as a quote key wraps a selection in a code editor.
@@ -137,6 +143,21 @@ export function slotEditing(h: SlotEditingHandlers): Extension {
       update(u: ViewUpdate) {
         if (u.docChanged || u.geometryChanged) h.onMoved()
         if (u.selectionSet) report(u.view)
+        if (!u.docChanged && !u.selectionSet) return
+        const head = u.state.selection.main.head
+        const was = edited && [u.changes.mapPos(edited[0], 1), u.changes.mapPos(edited[1], -1)]
+        let left = false
+        if (u.docChanged) {
+          // Typed past it: it's still there, whole. Not when an edit broke it (a backspace
+          // over its `>` on the way to retyping its words).
+          const spans = findSlots(u.state.doc.toString())
+          edited = spans.find(([from, to]) => head >= from && head <= to) ?? null
+          left = !!was && !edited && spans.some(([from, to]) => from === was[0] && to === was[1])
+        } else if (was && (head < was[0] || head > was[1])) {
+          edited = null
+          left = true
+        }
+        if (left && h.enabled()) h.onLeftSlot?.()
       }
     }),
   ]

@@ -333,6 +333,7 @@
             @focusout="handlePromptFocusOut"
             @save="preparePromptNow"
             @open-slot="openPromptSlot"
+            @left-slot="promptProgram.leftSlot()"
             @open-list="promptProgram.status.value !== 'off' && promptProgram.openEditorList($event)"
             :rows="drawerMode ? 2 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
             external-chat
@@ -3973,6 +3974,8 @@ const promptProgram = usePromptProgram({
   // device is still typing (it looks again when it's focused).
   prepareWhenFound: () => !isInitialLoading.value && stageViewActive.value && document.hasFocus()
     && !aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
+  // Typing there is read once it pauses, or the caret leaves the slot or the box.
+  inPrompt: () => !!aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
 })
 // The newest image made in Fluent: the prompt it was sent with and its record (the prompt
 // menu's developer view).
@@ -4239,10 +4242,9 @@ const {
 function handlePromptFocusOut(event: FocusEvent) {
   if (aiPromptEditorRef.value?.$el?.contains?.(event.relatedTarget as Node | null)) return
   releaseHeldStateKeys()
-  clearPromptPause()
   // Fluent reads a changed prompt as soon as you're done typing, so the first run
   // usually doesn't wait. Same request as a run's, shared if both happen.
-  if (promptProgram.needsRead()) void promptProgram.prepare()
+  promptProgram.doneTyping()
 }
 
 // Detail Level changes what the program writes, so read the prompt again right away,
@@ -4254,31 +4256,11 @@ function setDetailLevel(level: EnhanceLevel) {
   }
 }
 
-// The prompt is done (Vim :w, Cmd/Ctrl+Enter, a pause): read it now. A prepare in
-// flight for older text queues this one behind it (busy); a prompt that failed waits
-// for an edit.
+// The prompt is done (Vim :w, Cmd/Ctrl+Enter): read it now. A pause in typing does the
+// same (usePromptProgram's TYPING_IDLE_MS).
 function preparePromptNow() {
-  clearPromptPause()
-  if (promptProgram.status.value === 'busy' || promptProgram.needsRead()) void promptProgram.prepare()
+  promptProgram.doneTyping()
 }
-
-// Done typing also means a pause with the cursor still in the field. Long enough to
-// ride over a breath mid-sentence.
-const PROMPT_PAUSE_MS = 1500
-let promptPauseTimer: ReturnType<typeof setTimeout> | null = null
-function clearPromptPause() {
-  if (promptPauseTimer) clearTimeout(promptPauseTimer)
-  promptPauseTimer = null
-}
-watch(() => globalPrefs.value.prompt, () => {
-  clearPromptPause()
-  if (!aiPromptEditorRef.value?.$el?.contains?.(document.activeElement)) return
-  promptPauseTimer = setTimeout(() => {
-    promptPauseTimer = null
-    if (aiPromptEditorRef.value?.$el?.contains?.(document.activeElement)) preparePromptNow()
-  }, PROMPT_PAUSE_MS)
-})
-onBeforeUnmount(clearPromptPause)
 
 // Another client changed this tab's other saved values.
 const stopFollowingToolPrefs = [

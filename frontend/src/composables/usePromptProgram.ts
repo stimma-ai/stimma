@@ -46,7 +46,14 @@ interface Options {
   /** Whether a prompt found unprepared is read right away: not while the user is in the
       prompt box (it's read when they're done), the tool is still loading, or in the background. */
   prepareWhenFound?: () => boolean
+  /** Whether the caret is in the prompt box: an edit there is typing, and nothing is read or
+      looked up until it pauses (`TYPING_IDLE_MS`), the caret leaves the slot, or the box. */
+  inPrompt?: () => boolean
 }
+
+/** How long typing in the prompt pauses before it is read: long enough to ride over a breath
+    mid-phrase, so a slot isn't read (or shown as being written) half typed. */
+export const TYPING_IDLE_MS = 1500
 
 /** How often the editor looks for a program the server prepared in the background after a failure. */
 const ERROR_POLL_MS = 15_000
@@ -163,6 +170,35 @@ export function usePromptProgram(o: Options) {
   /** A /prepare answer that holds a program: one with slots, or the empty one of a prompt
       with nothing that varies. A cache-only miss is `{key: null}` alone. */
   const holdsProgram = (data: PrepareResponse | null | undefined) => !!data && (!!data.key || Array.isArray(data.slots))
+
+  // Typing in the prompt box: nothing is looked up or read while it lasts, and the slot at the
+  // caret doesn't show as being written. A pause, leaving the slot or the box ends it.
+  const typing = ref(false)
+  let typingTimer: ReturnType<typeof setTimeout> | null = null
+  function stopTyping() {
+    if (typingTimer) clearTimeout(typingTimer)
+    typingTimer = null
+    typing.value = false
+  }
+  // Sync, so the look-up below already knows an edit is typing.
+  watch(() => o.prompt.value, () => {
+    if (!o.inPrompt?.()) { stopTyping(); return }
+    if (typingTimer) clearTimeout(typingTimer)
+    typing.value = true
+    typingTimer = setTimeout(doneTyping, TYPING_IDLE_MS)
+  }, { flush: 'sync' })
+  onUnmounted(() => { if (typingTimer) clearTimeout(typingTimer) })
+  /** The prompt is done for now (a pause, leaving the box, Vim :w, Cmd/Ctrl+Enter): read it. A
+      prepare in flight for older text queues this one behind it; a prompt that failed waits
+      for an edit. */
+  function doneTyping() {
+    stopTyping()
+    if (status.value === 'busy' || needsRead()) void prepare()
+  }
+  /** The caret left the slot just typed in, still typing elsewhere: that slot is done, read it. */
+  function leftSlot() {
+    if (status.value === 'busy' || needsRead()) void prepare()
+  }
 
   let lookupId = 0
   /** The server no longer has the program we showed as prepared (its cache was
@@ -437,7 +473,7 @@ export function usePromptProgram(o: Options) {
       if (!c || !isChanged(s)) return
       lists.push({ n: i + 1, items: l.items, kind: lookOf({ state: 'ready' }, s) })
     })
-    return { looks, lists, fallback: 'writing' }
+    return { looks, lists, fallback: 'writing', typing: typing.value }
   })
 
   // The open row ------------------------------------------------------------------------
@@ -482,8 +518,10 @@ export function usePromptProgram(o: Options) {
   function close() { openCard.value = null }
   // A row waiting on a slot that isn't read yet reads the prompt as soon as the prompt with
   // the slot has reached us (the editor may say so before or after the text changes).
-  watch([openCard, status], () => {
+  // Not while typing: the slot may be half typed (done typing reads it).
+  watch([openCard, status, typing], () => {
     const t = openCard.value?.target
+    if (typing.value) return
     if (t && 'slot' in t && needsRead() && slotFor(t.slot)?.state !== 'ready') void nextTick(() => { if (needsRead()) void prepare() })
   })
   // A list's row closes itself when its choice goes (a prepare without it).
@@ -495,8 +533,10 @@ export function usePromptProgram(o: Options) {
   // Look up a prepared program when the tool or prompt settles (cheap, no model).
   let t: ReturnType<typeof setTimeout> | null = null
   // Look again when the inputs change, and when programs turn back on.
+  // Not while typing: done typing reads what's there.
   watch([signature, () => o.enabled.value], () => {
     if (t) clearTimeout(t)
+    if (typing.value) return
     t = setTimeout(lookup, 400)
   }, { immediate: true })
   // Coming back to the window: the server may have changed under us.
@@ -513,7 +553,7 @@ export function usePromptProgram(o: Options) {
   onUnmounted(() => { if (errorPoll) clearInterval(errorPoll) })
 
   return {
-    program, status, error, unsupported, slots, choices, byId, slotById, pools, fresh, states, openCard, openId, marks,
+    program, status, error, unsupported, typing, doneTyping, leftSlot, slots, choices, byId, slotById, pools, fresh, states, openCard, openId, marks,
     lookup, prepare, needsRead, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns,
     poolOf, optionsOf, moreLikeThese, addOwn, setState, setStates, setValues, setKeepWords, reset, resetAll, lookOfSlot,
     slotFor, toggleRow, openEditorList, openEditorSlot, close,

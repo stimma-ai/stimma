@@ -1,4 +1,4 @@
-import { computed, createApp, defineComponent, h, provide, ref, watch } from 'vue'
+import { computed, createApp, defineComponent, h, provide, ref } from 'vue'
 import axios from 'axios'
 import '../../src/style.css'
 import AIPromptEditor from '../../src/components/generation/AIPromptEditor.vue'
@@ -55,24 +55,14 @@ const App = defineComponent({
       promptOptions,
       setPromptOptions: (next: any) => { promptOptions.value = next },
       prepareWhenFound: () => !inEditor(),
+      inPrompt: inEditor,
     })
-    // ToolView's handlePromptFocusOut, preparePromptNow and its typing pause.
-    let pause: ReturnType<typeof setTimeout> | null = null
-    const clearPause = () => { if (pause) clearTimeout(pause); pause = null }
-    function prepareNow() {
-      clearPause()
-      if (program.status.value === 'busy' || program.needsRead()) void program.prepare()
-    }
+    // ToolView's handlePromptFocusOut and preparePromptNow (the typing pause is the composable's).
+    const prepareNow = () => program.doneTyping()
     function onFocusout(e: FocusEvent) {
       if (editorEl()?.contains(e.relatedTarget as Node | null)) return
-      clearPause()
-      if (program.needsRead()) void program.prepare()
+      program.doneTyping()
     }
-    watch(prompt, () => {
-      clearPause()
-      if (!inEditor()) return
-      pause = setTimeout(() => { pause = null; if (inEditor()) prepareNow() }, 1500)
-    })
     const enhance = computed<EnhanceLevel>(() => {
       const ai = promptOptions.value.autoImprove
       return !ai?.enabled ? 'off' : ai.level === 'fill' ? 'fill' : 'expand'
@@ -110,6 +100,7 @@ const App = defineComponent({
         slotMarks: program.marks.value,
         'onOpen-slot': (e: { n: number; words: string; rect: DOMRect }) => { if (program.status.value !== 'off') program.openEditorSlot(e) },
         'onOpen-list': (e: { n: number; rect: DOMRect }) => { if (program.status.value !== 'off') program.openEditorList(e) },
+        'onLeft-slot': () => program.leftSlot(),
       }, {
         mode: ({ openHelp }: any) => h(FluentControl, {
           program, raw: raw.value, direct: direct.value, enhance: enhance.value, llmUnconfigured: false, modelName: 'Krea 2',
