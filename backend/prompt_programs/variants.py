@@ -48,7 +48,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-12"   # variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-13"   # variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -778,6 +778,8 @@ def check(text: str, words: str, keep: Sequence[str], spec: Spec) -> str:
     if any(c in _MARKUP for c in text):
         return "markup in text"
     tt = tokens(text)
+    if all(t in _DETERMINERS for t in tt):
+        return "empty"   # an article or determiner alone ("a": the rest was cut as copied markup)
     if spec.gender_needs and not all(t in tt for t in spec.gender_needs):
         return "gender missing"
     # The words of a gender may stand inside the user's own run ("young trans woman").

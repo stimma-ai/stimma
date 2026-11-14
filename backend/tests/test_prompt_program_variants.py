@@ -1362,3 +1362,10 @@ def test_a_variant_that_copies_the_line_before_it_with_another_slot_is_cut_back_
         return reply
     b = run(V.write_batch(sl, V.Seeds(), 3, ask=ask))
     assert b.texts() == ["her tabby cat curled in her lap", "her pet guinea pig", "her bright orange koi in a glass bowl"]
+
+
+def test_a_variant_that_is_an_article_alone_is_dropped():
+    # Overnight, <place> stored "a" and porch_dog's light drew "a": "on a porch, a, an overhead shot".
+    assert V.check("a", "place", [], V.Spec()) == "empty"
+    assert V.check("her", "her pet", ["her"], V.Spec()) == "empty"
+    assert V.check("a gravel driveway", "place", [], V.Spec()) == ""
