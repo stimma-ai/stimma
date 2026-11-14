@@ -56,7 +56,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-12"   # variants-12: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-12"   # variants-12: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -822,10 +822,17 @@ def check(text: str, words: str, keep: Sequence[str], spec: Spec, *, cut: bool =
         return "fragment"
     if spec.gender_needs and not all(t in tt for t in spec.gender_needs):
         return "gender missing"
-    # The words of a gender may stand inside the user's own run ("young trans woman").
+    # The words of a gender may stand inside the user's own run ("young trans woman"), and so may
+    # the variant's own descent seed ("dominant young Maori woman"): both are its seeds' words,
+    # placed where English puts them. Structure only: the seed's run, taken out once.
     bare = [t for t in tt if t not in spec.gender_needs] if spec.gender_needs else tt
+    runs = [tt, bare]
+    dt = tokens(spec.descent) if spec.descent else []
+    at = _run_at(bare, dt) if dt else -1
+    if at >= 0:
+        runs.append(bare[:at] + bare[at + len(dt):])
     for k in keep:
-        if _run_at(tt, tokens(k)) < 0 and _run_at(bare, tokens(k)) < 0:
+        if all(_run_at(r, tokens(k)) < 0 for r in runs):
             return "words not kept"
     if len(tokens(text)) - sum(len(tokens(k)) for k in keep) > MAX_ADDED_WORDS:
         return "too long"

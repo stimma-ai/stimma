@@ -189,6 +189,12 @@ def test_check():
     w = "dominant young woman"
     assert V.check("Korean dominant young woman with a bob", w, keep, spec) == ""
     assert V.check("Korean young woman with a bob", w, keep, spec) == "words not kept"
+    # its own descent seed may stand inside the run, as English puts it; another word may not
+    assert V.check("dominant young Korean woman with a bob", w, keep, spec) == ""
+    assert V.check("dominant young Thai woman with a bob", w, keep, spec) == "words not kept"
+    assert V.check("dominant young tall woman", w, keep, spec) == "words not kept"
+    assert V.check("dominant young Korean trans woman", w, keep,
+                   V.Spec(descent="Korean", gender="trans woman", gender_needs=("trans",))) == ""
     # a seeded descent may be left out where it can't be true; one the user picked must appear
     assert V.check("dominant young woman with a bob", w, keep, spec) == ""
     assert V.check("dominant young woman with a bob", w, keep, V.Spec(descent="Korean", descent_required=True)) == "descent missing"
