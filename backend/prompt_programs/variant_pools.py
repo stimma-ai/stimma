@@ -18,7 +18,9 @@ with no model call:
   like these, seeds the user picked) is written as chunks of PICK_CHUNK side by side, each stored
   as it lands, in a lane of its own: the picker sees matches in about 4 s, not 11-14 s. A first
   write is chunked the same way, under a cap of CALLS calls in flight per profile (CallGate), so a
-  new slot shows variants in about 4-6 s rather than 15-40 s.
+  new slot shows variants in about 4-6 s rather than 15-40 s. A slot not about a person whose
+  seeds are still narrowed gets one unseeded chunk first (role "early"), which the first write
+  is told and counts toward its pool, never toward MIN_POOL.
 
 A failed write is never stored: the slot stands as written and the next prepare that starts
 work asks again.
@@ -44,7 +46,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from core.logging import get_logger
 from prompt_programs.variants import (
     AGE, DESCENT, GENDER, STAGE, TOPUP, VARIANTS_VERSION, Ask, Batch, Pins, Seeds, Slot, age_stages, age_years,
-    N_OTHER, N_PERSON, PICK_CHUNK, ask_writer, stages_of, top_up, write_chunks, write_first, year_ages,
+    N_OTHER, N_PERSON, PICK_CHUNK, ask_writer, stages_of, top_up, write_batch, write_chunks, write_first, year_ages,
 )
 
 log = get_logger(__name__)
@@ -490,7 +492,7 @@ class Job:
     key: str
     slot: Slot
     seeds: Seeds
-    role: str = "first"                # first, top_up, more
+    role: str = "first"                # early (one unseeded chunk while its seeds are narrowed), first, top_up, more
     pins: Pins = field(default_factory=Pins)
     project_id: Optional[int] = None
     model: str = ""
@@ -512,6 +514,8 @@ class Job:
     def lane(self) -> str:
         """What one write at a time is held to: the pool, or for a pick the pool's pick lane, so a
         pick never waits for (or is refused by) a background write of the same pool."""
+        if self.role == "early":
+            return f"{self.key}|early"
         return f"{self.key}|pick" if self.role == "top_up" and self.pins else self.key
 
 
@@ -530,6 +534,7 @@ class PoolWriter:
         self._inflight: Dict[str, "asyncio.Future[List[str]]"] = {}
         self._queued: List[Job] = []
         self._failed: Dict[str, Tuple[str, float]] = {}   # key -> (why, when)
+        self._early: set = set()   # pools an unseeded first chunk was asked for (once each)
         self._sem: Optional[asyncio.Semaphore] = None
         self._urgent_sem: Optional[asyncio.Semaphore] = None
         self._gate: Optional[CallGate] = None
@@ -539,7 +544,12 @@ class PoolWriter:
     # -- state
     def busy(self, key: str) -> bool:
         with self._lock:
-            return any(k in self._inflight for k in (key, f"{key}|pick")) or any(j.key == key for j in self._queued)
+            return any(k in self._inflight for k in (key, f"{key}|pick", f"{key}|early")) or \
+                any(j.key == key for j in self._queued)
+
+    def first_written(self, key: str) -> bool:
+        """Whether a pool's first write is stored: an unseeded first chunk alone isn't it."""
+        return any(b.get("role") != "early" and b.get("variants") for b in self.store.batches(key))
 
     def failed(self, key: str) -> Optional[str]:
         got = self._failed.get(key)
@@ -573,11 +583,15 @@ class PoolWriter:
         that has variants is skipped, and so is one that failed less than RETRY_AFTER ago unless
         `retry`: a picker polling /pools never asks a failing model again and again). Returns
         whether it was queued."""
-        if job.role == "first" and self.store.has(job.key):
+        if job.role == "first" and self.first_written(job.key):
             return False
+        if job.role == "early" and (self.store.has(job.key) or job.key in self._early):
+            return False   # asked once: a failed one leaves the first write to come as it was
         with self._lock:
             if job.lane in self._inflight or any(j.lane == job.lane for j in self._queued):
                 return False
+            if job.role == "early":
+                self._early.add(job.key)
             if job.role == "first":
                 failed = self._failed.get(job.key)
                 if failed is not None and not retry and time.time() - failed[1] < RETRY_AFTER:
@@ -638,7 +652,7 @@ class PoolWriter:
         if self._gate is None:
             self._gate = CallGate()
         g = self._gate
-        rank = 0 if job.urgent else 1 if job.role == "first" else 2
+        rank = 0 if job.urgent else 1 if job.role in ("first", "early") else 2
         return lambda i: g.slot((rank, i), urgent=job.urgent)
 
     def _room(self, job: Job) -> int:
@@ -651,13 +665,27 @@ class PoolWriter:
     async def run(self, job: Job) -> List[str]:
         """One write for one pool, stored as it lands. Returns the new variants' texts."""
         seeds = job.seeds.pinned(job.pins)
+        if job.role == "early":
+            return await self._early_chunk(job)
+        while job.role == "first":   # an unseeded chunk in flight lands first, so the first write is told it
+            with self._lock:
+                held = f"{job.key}|early" in self._inflight
+                early = self._inflight.get(f"{job.key}|early")
+            if not held:
+                break
+            if early is None:   # queued, not started yet
+                await asyncio.sleep(0)
+                continue
+            with contextlib.suppress(Exception):
+                await asyncio.shield(early)
+            break
         have = self.store.variants(job.key)
         done = len(self.store.batches(job.key))
         if job.role == "first":
-            if have:
+            if self.first_written(job.key):
                 return []
             out: List[str] = []
-            seen: set = set()
+            seen: set = {_norm(v["text"]) for v in have}
 
             def landed_first(b: Batch) -> None:
                 kept = [v for v in b.variants if _norm(v["text"]) not in seen]
@@ -666,7 +694,7 @@ class PoolWriter:
                     self.store.append(job.key, self._record(job, b, len(self.store.batches(job.key)), kept))
                     out.extend(v["text"] for v in kept)
             batches = await write_first(job.slot, seeds, ask=self.ask, project_id=job.project_id, key=job.key,
-                                        landed=landed_first, gate=self.gate(job))
+                                        landed=landed_first, gate=self.gate(job), written=[v["text"] for v in have])
             self.calls += len(batches)
             if not out:
                 why = "; ".join(dict.fromkeys(b.error or ", ".join(b.dropped) or "nothing usable" for b in batches))
@@ -706,6 +734,23 @@ class PoolWriter:
         if kept:
             self.store.append(job.key, self._record(job, b, done, kept))
         return [v["text"] for v in kept]
+
+    async def _early_chunk(self, job: Job) -> List[str]:
+        """One chunk of PICK_CHUNK written from the slot's words and the prompt alone, while its
+        seeds are still narrowed (fluent.early_job says which slots may), so it shows variants at
+        once; the first write fills the rest of its pool seeded, told these. A chunk that keeps
+        nothing stores nothing and marks nothing failed."""
+        if self.store.has(job.key):
+            return []
+        async with self.gate(job)(0):
+            b = await write_batch(job.slot, job.seeds, PICK_CHUNK, ask=self.ask, project_id=job.project_id,
+                                  rng=random.Random(f"{job.key}|early"))
+        self.calls += 1
+        if b.error or not b.variants or self.store.has(job.key):
+            log.info(f"[variants] an early chunk for {job.slot.words!r} kept nothing: {b.error or dict(b.dropped)}")
+            return []
+        self.store.append(job.key, self._record(job, b, 0, b.variants))
+        return [v["text"] for v in b.variants]
 
     async def more(self, job: Job) -> List[str]:
         """More like these: one batch of TOPUP, awaited. A write already in flight for the pool

@@ -132,6 +132,28 @@ def slot_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", pr
     return Job(key=str(slot["pool"]), slot=sl, seeds=seeds_of(record), project_id=project_id, model=model)
 
 
+def early_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", project_id: Optional[int] = None
+              ) -> Optional[Job]:
+    """While a slot's seeds are still narrowed, one unseeded chunk written from its words and the
+    prompt alone, so it shows variants without waiting (variant_pools.PoolWriter._early_chunk);
+    None when it must wait. Only for a slot that can't be about a person's age: never a person
+    (descent, gender, age and the minors rules need the narrowing), never a slot narrowing reads
+    an age for (a list under person. or clothing.: seeding.narrow_seeds' about_ages), never one
+    whose record says it may be under 18 (MINORS_POLICY.md). Structure only."""
+    from prompt_programs.variants import Seeds
+    if not slot.get("pool") or slot["id"] not in (entry.get("seeds_pending") or []) or slot.get("kind") == "person":
+        return None
+    record = (entry.get("seeds") or {}).get(slot["id"])
+    if not isinstance(record, dict) or record.get("kind") == "person" or record.get("minor"):
+        return None
+    if any(str(b.get("list") or "").startswith(("person.", "clothing.")) for b in record.get("banks") or []):
+        return None
+    span = slot.get("span") or [0, 0]
+    sl = Slot(words=slot["words"], prompt=str(entry.get("prompt") or ""), span=(int(span[0]), int(span[1])),
+              kind=str(slot.get("kind") or "free"), category=str(slot.get("category") or ""))
+    return Job(key=str(slot["pool"]), slot=sl, seeds=Seeds(), role="early", project_id=project_id, model=model)
+
+
 def _model(entry: Dict[str, Any]) -> str:
     return str(entry.get("model") or "")
 
@@ -153,6 +175,9 @@ def start_pools(entry: Dict[str, Any], *, profile_id: Optional[str] = None, proj
                 continue
             job = slot_job(entry, s, model=_model(entry), project_id=project_id)
             if job is None:
+                early = early_job(entry, s, model=_model(entry), project_id=project_id)
+                if early is not None and w.submit(early):
+                    out.append(early.key)
                 continue
             if w.submit(job, retry=retry):
                 out.append(job.key)
@@ -288,7 +313,9 @@ def pool_view(entry: Dict[str, Any], chosen: Optional[Dict[str, Choice]] = None,
                    "uses": uses.get(" ".join(v["text"].split()).lower(), 0), "own": False} for v in variants]
         listed += [{"text": t, "seeds": {}, "uses": uses.get(" ".join(t.split()).lower(), 0), "own": True}
                    for t in c.add if " ".join(t.split()).lower() not in have]
-        more = bool(writer is not None and s.get("pool") and writer.busy(str(s["pool"])))
+        # (an unseeded first chunk shown while its seeds are narrowed: the rest is coming)
+        more = bool(writer is not None and s.get("pool") and (writer.busy(str(s["pool"])) or (
+            variants and sid in (entry.get("seeds_pending") or []) and not writer.first_written(str(s["pool"])))))
         if more:
             busy.append(sid)
         from prompt_programs.variants import kept_chunks, valid_category
@@ -308,5 +335,5 @@ def pool_view(entry: Dict[str, Any], chosen: Optional[Dict[str, Choice]] = None,
     return {"choices": out, "more": busy}
 
 
-__all__ = ["ENGINE", "Variants", "attach_filler", "attach_writer", "count_draw", "has_draws", "refused", "more_like_these",
+__all__ = ["ENGINE", "Variants", "attach_filler", "attach_writer", "count_draw", "early_job", "has_draws", "refused", "more_like_these",
            "pool_view", "runtime_for", "slot_job", "slot_state", "start_pools", "uncount"]

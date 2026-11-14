@@ -17,7 +17,8 @@ shared across prompts, cached once), reads what the prompt states of the scene f
 for a setting (a light that places the scene outdoors), and whether the person may be under 18
 (their age, a user list's ages on their line, the age of whoever a list slot is about). The
 answers are kept in the entry (`entry["seeds"][slot id]`); `seeds_of` builds the writer's
-Seeds from them. A narrowing not asked yet holds that slot's first write (`entry["seeds_pending"]`);
+Seeds from them. A narrowing not asked yet holds that slot's first write (`entry["seeds_pending"]`;
+a slot that can't be about a person's age shows one unseeded chunk meanwhile, fluent.early_job);
 one that failed or keeps nothing drops that list's seeds, never the slot.
 """
 

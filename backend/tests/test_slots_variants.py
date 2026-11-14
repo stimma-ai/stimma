@@ -264,6 +264,95 @@ async def test_a_picked_life_stage_steers_a_person_whose_words_state_an_age(monk
     assert slot(again, "dominant_young_woman")["pool"] == person["pool"]
 
 
+class HeldNarrowing(FakeModel):
+    """Narrowing answers only once `go` is set (the reader answers at once)."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.go = asyncio.Event()
+
+    async def __call__(self, messages, project_id, max_tokens):
+        if messages[-1]["content"].startswith("The list"):
+            await self.go.wait()
+        return await super().__call__(messages, project_id, max_tokens)
+
+
+async def _until(test, tries=200):
+    for _ in range(tries):
+        if test():
+            return
+        await asyncio.sleep(0.01)
+    raise AssertionError("never happened")
+
+
+async def test_a_slot_not_about_a_person_shows_an_unseeded_chunk_while_its_narrowing_is_out(monkeypatch, profile):
+    model = HeldNarrowing()
+    _, writer = use(monkeypatch, model)
+    store = P.store_for(profile)
+    await slots.prepare(PROMPT, profile_id=profile)
+    look = {}
+
+    async def pending():
+        look.update(await slots.prepare(PROMPT, profile_id=profile, start=False))
+        return look
+    await _until(lambda: P.writer_for(profile).calls >= 1)
+    await P.writer_for(profile).drain()
+    await pending()
+    assert set(look["seeds_pending"]) == {"dominant_young_woman", "clothing_slightly_open_in_the_front", "lighting"}
+    light, person, top = slot(look, "lighting"), slot(look, "dominant_young_woman"), slot(look, "clothing_slightly_open_in_the_front")
+    # the light (lighting lists only) shows a chunk at once; the person and a clothing list wait
+    assert [b["role"] for b in store.batches(light["pool"])] == ["early"]
+    early = [v["text"] for v in store.variants(light["pool"])]
+    assert len(early) == P.PICK_CHUNK and not writer.calls[0]["seeds"]   # written from the words alone
+    assert not store.has(person["pool"]) and not store.has(top["pool"])
+    view = pool_view(look, profile_id=profile)["choices"]["lighting"]
+    assert view["state"] == "ready" and view["more"] and len(view["variants"]) == P.PICK_CHUNK
+    assert not P.writer_for(profile).first_written(light["pool"])
+    # asked once: polling again writes no second early chunk
+    pool_view(look, profile_id=profile)
+    await P.writer_for(profile).drain()
+    assert len(writer.calls) == 1
+    # narrowing lands: the rest of the first pool is written seeded, told the early chunk
+    model.go.set()
+    entry = await settled(PROMPT, profile)
+    light = slot(entry, "lighting")
+    roles = [b["role"] for b in store.batches(light["pool"])]
+    assert roles[0] == "early" and set(roles[1:]) == {"first"}
+    later = [c for c in writer.calls[1:] if c["words"] == "lighting"]
+    assert later and all(all(t in c["user"] for t in early) for c in later)
+    assert len(store.variants(light["pool"])) == P.N_OTHER   # the early chunk counts toward the first pool
+    assert store.has(slot(entry, "dominant_young_woman")["pool"])
+
+
+async def test_a_failed_early_chunk_leaves_the_first_write_as_it_was(monkeypatch, profile):
+    model = HeldNarrowing()
+    _, writer = use(monkeypatch, model, FakeWriter(slips=["raise"]))
+    store = P.store_for(profile)
+    await slots.prepare(PROMPT, profile_id=profile)
+    await _until(lambda: P.writer_for(profile).calls >= 1)
+    await P.writer_for(profile).drain()
+    look = await slots.prepare(PROMPT, profile_id=profile, start=False)
+    light = slot(look, "lighting")
+    assert not store.has(light["pool"]) and P.writer_for(profile).failed(light["pool"]) is None
+    assert pool_view(look, profile_id=profile)["choices"]["lighting"]["state"] == "writing"
+    model.go.set()
+    entry = await settled(PROMPT, profile)
+    assert {b["role"] for b in store.batches(slot(entry, "lighting")["pool"])} == {"first"}
+
+
+def test_an_early_chunk_is_never_for_a_person_a_clothing_list_or_a_minor():
+    from prompt_programs.fluent import early_job
+    base = {"prompt": "a <thing>", "seeds_pending": ["thing"], "seeds": {"thing": {"kind": "free", "banks": []}}}
+    s = {"id": "thing", "words": "thing", "span": [2, 9], "kind": "free", "pool": "ab" * 16}
+    assert early_job(base, s).role == "early"
+    assert early_job({**base, "seeds_pending": []}, s) is None                      # narrowed: the first write
+    assert early_job(base, {**s, "kind": "person"}) is None
+    for lid in ("person.hairstyle", "clothing.top"):
+        rec = {"kind": "list", "banks": [{"role": "core", "list": lid}]}
+        assert early_job({**base, "seeds": {"thing": rec}}, s) is None
+    assert early_job({**base, "seeds": {"thing": {"kind": "free", "banks": [], "minor": ["10-year-old"]}}}, s) is None
+
+
 async def test_pool_view_shape(monkeypatch, profile):
     use(monkeypatch)
     entry = await settled(PROMPT, profile)

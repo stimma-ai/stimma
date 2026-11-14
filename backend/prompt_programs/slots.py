@@ -791,6 +791,14 @@ def _settle(p: _Prompt) -> None:
             while True:
                 _again.discard(flight)
                 try:
+                    # From the cache first: a slot whose narrowing is still out may show an
+                    # unseeded first chunk meanwhile (fluent.early_job), before narrowing answers.
+                    quick = await _assemble(p, None)
+                    if quick.get("seeds_pending"):
+                        prep.on_prepared(quick, project_id=p.project_id, profile_id=p.profile_id)
+                except Exception as e:
+                    get_logger(__name__).debug(f"[slots] no early look at {p.key}: {e}")
+                try:
                     entry = await _assemble(p, prep.ask_model)
                     p.store.put(p.key, entry)
                     prep.on_prepared(entry, project_id=p.project_id, profile_id=p.profile_id)

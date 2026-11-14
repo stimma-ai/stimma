@@ -833,20 +833,24 @@ async def write_batch(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id:
 
 async def write_first(slot: Slot, seeds: Seeds, *, ask: Ask, project_id: Optional[int] = None,
                       key: str = "", landed: Optional[Callable[[Batch], None]] = None,
-                      gate: Optional[Callable[[int], Any]] = None) -> List[Batch]:
+                      gate: Optional[Callable[[int], Any]] = None, written: Sequence[str] = ()) -> List[Batch]:
     """A slot's first pool: Slot.n variants with seeds drawn once, written as chunks of
     PICK_CHUNK side by side (write_chunks: each handed to `landed` as it lands, so a new slot
     shows variants in seconds), and once more with fresh seeds when fewer than MIN_POOL distinct
-    ones survive across the chunks. The batches in the order they landed; none kept anything
+    ones survive across the chunks. `written`: variants the pool holds already (an unseeded first
+    chunk written while its seeds were narrowed): the writer is told them, they count toward
+    Slot.n, and never toward MIN_POOL. The batches in the order they landed; none kept anything
     when every one is empty, and the slot then stands as written."""
     batches: List[Batch] = []
     have: List[str] = []
+    told = list(written)
+    n = max(PICK_CHUNK, slot.n - len(told))
     for r in range(2):
-        got = await write_chunks(slot, seeds, slot.n, ask=ask, project_id=project_id, have=have,
+        got = await write_chunks(slot, seeds, n, ask=ask, project_id=project_id, have=[*told, *have],
                                  rng=random.Random(f"{key}|{r}") if key else None, landed=landed, gate=gate,
-                                 first_index=r * -(-slot.n // PICK_CHUNK))
+                                 first_index=r * -(-n // PICK_CHUNK))
         batches += got
-        seen = {_norm(t).lower() for t in have}
+        seen = {_norm(t).lower() for t in [*told, *have]}
         for t in (t for b in got for t in b.texts()):
             if _norm(t).lower() not in seen:
                 seen.add(_norm(t).lower())
