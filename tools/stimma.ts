@@ -1628,6 +1628,7 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
       hardenedRuntime: true,
       entitlements: "build/entitlements.mac.plist",
       entitlementsInherit: "build/entitlements.mac.plist",
+      sign: "build/sign-macos.cjs",
       extraResources: [
         // macOS 26+ Liquid Glass icon; older macOS falls back to icon.icns.
         { from: "../packaging/desktop/icons/Assets.car", to: "Assets.car" },
