@@ -534,19 +534,28 @@ def _value(lid: str, v: Dict[str, Any], groups: Dict[str, Any]) -> Value:
                  strength=strength, distinctive=v.get("distinctive") is True)
 
 
-def _shared(lid: str, vals: Tuple[Value, ...], shares: Dict[str, Dict[str, float]]) -> Tuple[Value, ...]:
+def _shared(lid: str, vals: Tuple[Value, ...], shares: Dict[str, Dict[str, float]],
+            local_facets: Optional[Dict[str, Sequence[str]]] = None) -> Tuple[Value, ...]:
     """Values weighted by their branch's share. A leaf may declare, for one local facet, the
     share of draws each of its parts gets when a pick isn't narrowed:
     `"shares": {"intent": {"sharp": 0.2, "soft_background": 0.05}}`. A part's values split its
     share by tier, so how many values a part has doesn't change how often it's drawn. A part
     with share 0 is opt-in: drawn only when a pick asks for it (where=). The share is of what is
     drawn unasked: a part's opt-in values (marked face pieces) don't take from it, and are drawn
-    at their tier's weight in it when picked."""
+    at their tier's weight in it when picked. Shares on a declared local facet name each of its
+    parts once and sum to 1, so they read as the parts' fractions of the draws (descent's world
+    regions, gender's values)."""
     if not shares:
         return vals
     if len(shares) != 1:
         raise ValueError(f"vocabulary: {lid} declares shares on more than one facet")
     (facet, by_part), = shares.items()
+    declared = (local_facets or {}).get(facet)
+    if declared is not None:
+        if set(by_part) != set(declared):
+            raise ValueError(f"vocabulary: {lid}'s shares on {facet} must name each of its parts once")
+        if abs(sum(float(w) for w in by_part.values()) - 1.0) > 1e-6:
+            raise ValueError(f"vocabulary: {lid}'s shares on {facet} must sum to 1")
     parts: Dict[str, float] = {}
     every: Dict[str, float] = {}   # a part with only opt-in values splits its share among them all
     for v in vals:
@@ -643,7 +652,7 @@ def _leaf(lid: str, d: Dict[str, Any]) -> Leaf:
     gives, takes, stated, less, unstated = _leaf_context(lid, d)
     groups = dict(d.get("groups") or {})
     vals = tuple(_value(lid, v, groups) for v in d.get("values") or [] if str(v.get("text") or "").strip())
-    vals = _shared(lid, vals, d.get("shares") or {})
+    vals = _shared(lid, vals, d.get("shares") or {}, d.get("local_facets") or {})
     return Leaf(lid, str(d.get("label") or lid), str(d.get("description") or ""), str(d.get("pos") or ""),
                 str(d.get("frame") or ""), str(d.get("notes") or ""), tuple(d.get("facets") or ()),
                 bool(d.get("closed")), {k: tuple(v) for k, v in (d.get("untagged") or {}).items()}, vals,

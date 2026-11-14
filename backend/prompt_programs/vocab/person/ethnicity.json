@@ -1,10 +1,10 @@
 {
   "id": "person.ethnicity",
   "label": "Descent",
-  "description": "National or ethnic descent adjectives, drawn by where the picture is set (places.json): every world region equal with no place.",
+  "description": "National or ethnic descent adjectives, drawn by where the picture is set (places.json): with no place, each world region drawn by its share.",
   "pos": "adjective",
   "frame": "the ___ person",
-  "notes": "National or ethnic descent adjectives at a named people or country level, never continental categories. A descent word means that heritage's typical look: each value belongs to a named group that declares the coloring families typical of that heritage for drawing (skin_family, eye_family, hair_family, texture) and, where a heritage is mostly one look but often another, the families seen less commonly (less_common). A person's skin tone, eye color, hair color and texture drawn after it are weighted toward the typical families, the less common ones are drawn less often, and anything else stays possible, rarely. Groups are named per people or region, never merged across unrelated regions because their coloring coincides. These are drawing defaults, not claims about any person; nations with wide variation carry every family. Membership categories can overlap and are neither exhaustive nor a claim about citizenship. Bengali and Bangladeshi, Punjabi and Indian, Tamil and Indian or Sri Lankan, and Pashtun and Pakistani or Afghan are retained as distinct ethnic and national descent labels with overlapping membership. Each value sits in one world region (the local facet region), the way the chooser is browsed: a region is where a person looks for a descent, never its coloring, which stays with the value's group. Values also read before woman or man. Tier is by size: typical for a people of about 15 million or more, plausible for a smaller one, so with no place a small people is drawn about a third as often as a large one in its region. White American, White Canadian, White Australian and White New Zealander are the settler majorities of those countries, named as residents name them, in place of their European ancestries. Mixed descent is left to explicit composition rather than enumerating pairs.",
+  "notes": "National or ethnic descent adjectives at a named people or country level, never continental categories. A descent word means that heritage's typical look: each value belongs to a named group that declares the coloring families typical of that heritage for drawing (skin_family, eye_family, hair_family, texture) and, where a heritage is mostly one look but often another, the families seen less commonly (less_common). A person's skin tone, eye color, hair color and texture drawn after it are weighted toward the typical families, the less common ones are drawn less often, and anything else stays possible, rarely. Groups are named per people or region, never merged across unrelated regions because their coloring coincides. These are drawing defaults, not claims about any person; nations with wide variation carry every family. Membership categories can overlap and are neither exhaustive nor a claim about citizenship. Bengali and Bangladeshi, Punjabi and Indian, Tamil and Indian or Sri Lankan, and Pashtun and Pakistani or Afghan are retained as distinct ethnic and national descent labels with overlapping membership. Each value sits in one world region (the local facet region), the way the chooser is browsed: a region is where a person looks for a descent, never its coloring, which stays with the value's group. Values also read before woman or man. Tier is by size: typical for a people of about 15 million or more, plausible for a smaller one, so with no place a small people is drawn about a third as often as a large one in its region. With no place, each world region gets its share of the draws (shares.region: about the square root of its population, damped so large regions don't crowd out the rest), split among its heritages by tier, so how many values a region lists is not its weight. White American, White Canadian, White Australian and White New Zealander are the settler majorities of those countries, named as residents name them, in place of their European ancestries. Mixed descent is left to explicit composition rather than enumerating pairs.",
   "facets": [],
   "closed": true,
   "local_facets": {
@@ -22,6 +22,20 @@
     ]
   },
   "browse": "region",
+  "shares": {
+    "region": {
+      "South Asia": 0.16,
+      "East Asia": 0.15,
+      "Sub-Saharan Africa": 0.13,
+      "Europe": 0.11,
+      "Southeast Asia": 0.10,
+      "Latin America and the Caribbean": 0.10,
+      "Middle East and North Africa": 0.09,
+      "North America": 0.08,
+      "Central Asia": 0.04,
+      "Oceania": 0.04
+    }
+  },
   "groups": {
     "east_asian": {
       "about": "Korean, Japanese, Chinese, Taiwanese.",

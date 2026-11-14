@@ -4,10 +4,13 @@ A person's descent seed (variants.Seeds.descent) is drawn from
 
     P(heritage) = w * local(place) + (1 - w) * global
 
-- `global`: an equal share for each world region of the descent list (its `region` facet),
-  split among the heritages in it by their tier weights (vocab.TIER_WEIGHTS: a small people is
-  `plausible`, drawn about a third as often as a large one beside it), so how many values a
-  region lists is not its weight.
+- `global`: each world region of the descent list (its `region` facet) gets the share the list
+  authors for it (person/ethnicity.json `shares.region`: about the square root of its
+  population, so large regions lead without crowding out the rest), split among the heritages in
+  it by their tier weights (vocab.TIER_WEIGHTS: a small people is `plausible`, drawn about a
+  third as often as a large one beside it), so how many values a region lists is not its weight.
+  The loader applies the shares to the values' weights (vocab._shared), so a value's weight is
+  its global share and the prior is those weights.
 - `local(place)`: the place's own shares (vocab/places.json: the heritages common there), with
   whatever they leave of 1 spread by the global prior.
 - `place` is a country, from the first that applies: the prompt's setting, which the slot's
@@ -19,7 +22,8 @@ A reading's place counts only when it is exactly a name or alias in the table, c
 matches no near names and reads nothing else. A descent the words state narrows the list first,
 and the mix is renormalized within what is left (with no local mass there, that is the global
 prior within it); a descent the user picks restricts it the same way (variants.Seeds.pinned).
-The mix holds the tier weights already, so it replaces a descent bank's own weights (weigh).
+The mix holds the tier weights and region shares already, so it replaces a descent bank's own
+weights (weigh), which hold the same two: multiplying would count both twice.
 """
 
 from __future__ import annotations
@@ -30,26 +34,20 @@ FROM_PROMPT = 0.8      # w when the prompt says where the picture is set
 FROM_DEFAULT = 0.5     # w when only the user's default place applies
 ANYWHERE = "anywhere"  # the default place's value for none: the global prior alone
 DESCENT = "person.ethnicity"
-REGION = "region"
 
 WEIGHTS = {"prompt": FROM_PROMPT, "default": FROM_DEFAULT}
 
 
 def global_prior() -> Dict[str, float]:
-    """Each heritage's share with no place: every region equal, split within it by tier weight."""
+    """Each heritage's share with no place: its region's share, split within it by tier weight.
+    The values' weights hold exactly that (the list's `shares` on its region facet), so this is
+    them, normalized."""
     from prompt_programs.vocab import vocabulary
     leaf = vocabulary().get(DESCENT)
     if leaf is None:
         return {}
-    by: Dict[str, list] = {}
-    for v in leaf.values:
-        region = (v.tags.get(REGION) or ("",))[0]
-        by.setdefault(str(region), []).append((v.text, v.weight))
-    out: Dict[str, float] = {}
-    for vs in by.values():
-        mass = sum(w for _, w in vs) or 1.0
-        out.update({t: w / mass / len(by) for t, w in vs})
-    return out
+    mass = sum(v.weight for v in leaf.values) or 1.0
+    return {v.text: v.weight / mass for v in leaf.values}
 
 
 def local(code: str) -> Dict[str, float]:
@@ -80,8 +78,8 @@ def mix(place: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
 def weigh(pairs: Sequence[Tuple[str, float]], place: Optional[Dict[str, Any]] = None) -> Tuple[Tuple[str, float], ...]:
     """A descent bank's (heritage, weight) pairs weighted by their share of the mix instead, so a
     narrowed or picked subset draws the mix renormalized within it. The bank's own weights are the
-    tier weights, which the mix already holds: multiplying would count the tier twice, so a pair
-    keeps its weight only to say whether it is drawn at all. A heritage the mix gives nothing
+    global prior's weights (tier × region share), which the mix already holds: multiplying would
+    count them twice, so a pair keeps its weight only to say whether it is drawn at all. A heritage the mix gives nothing
     (none should) keeps a trace, so a subset is never emptied."""
     m = mix(place)
     out = tuple((t, m.get(t, 0.0) if w > 0 else 0.0) for t, w in pairs)

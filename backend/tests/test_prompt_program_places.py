@@ -41,22 +41,36 @@ def region_of(text):
 
 # --------------------------------------------------------------------------- the mix
 
-def test_the_global_prior_gives_every_region_an_equal_share_split_by_tier():
+REGION_SHARES = {"South Asia": 0.16, "East Asia": 0.15, "Sub-Saharan Africa": 0.13, "Europe": 0.11, "Southeast Asia": 0.10,
+                 "Latin America and the Caribbean": 0.10, "Middle East and North Africa": 0.09, "North America": 0.08,
+                 "Central Asia": 0.04, "Oceania": 0.04}
+
+
+def test_the_global_prior_gives_each_region_its_share_split_by_tier():
     g = places.global_prior()
     eth = vocabulary().get(V.DESCENT)
     assert len(g) == len(eth.values) == 113 and abs(sum(g.values()) - 1) < 1e-9
+    assert set(REGION_SHARES) == set(eth.local_facets["region"]) and sum(REGION_SHARES.values()) == pytest.approx(1)
     by, mass = Counter(), Counter()
     for v in eth.values:
         by[region_of(v.text)] += g[v.text]
         mass[region_of(v.text)] += TIER_WEIGHTS[v.tier]
-    assert all(abs(p - 0.1) < 1e-9 for p in by.values())
-    # within a region each heritage's share is its tier weight over the region's
+    assert {r: pytest.approx(p) for r, p in by.items()} == REGION_SHARES
+    # within a region each heritage's share is the region's share times its tier weight over the region's
     for v in eth.values:
-        assert g[v.text] == pytest.approx(0.1 * TIER_WEIGHTS[v.tier] / mass[region_of(v.text)]), v.text
+        assert g[v.text] == pytest.approx(REGION_SHARES[region_of(v.text)] * TIER_WEIGHTS[v.tier] / mass[region_of(v.text)]), v.text
     # East Asia: four typical, Mongolian and Tibetan plausible; North America: three of each
-    assert g["Korean"] == pytest.approx(0.1 / 4.6) and g["Mongolian"] == pytest.approx(0.03 / 4.6)
-    assert g["White American"] == pytest.approx(0.1 / 3.9) and g["Navajo"] == pytest.approx(0.03 / 3.9)
+    assert g["Korean"] == pytest.approx(0.15 / 4.6) and g["Mongolian"] == pytest.approx(0.15 * 0.3 / 4.6)
+    assert g["White American"] == pytest.approx(0.08 / 3.9) and g["Navajo"] == pytest.approx(0.08 * 0.3 / 3.9)
     assert g["German"] / g["Swedish"] == pytest.approx(1 / 0.3)
+
+
+def test_small_regions_no_longer_lead_a_default_place():
+    """With the United States as the default place, Central Asia and Oceania's heritages are not
+    in its top ten, as they were when every region had an equal share."""
+    m = places.mix({"code": "US", "from": "default"})
+    top = sorted(m, key=m.get, reverse=True)[:10]
+    assert not {region_of(t) for t in top} & {"Central Asia", "Oceania"}, top
 
 
 def test_the_descent_tiers_are_typical_or_plausible_and_every_region_has_a_typical_one():
@@ -72,11 +86,11 @@ def test_with_no_place_draws_follow_the_global_prior():
     regions = Counter()
     for t, k in got.items():
         regions[region_of(t)] += k
-    assert all(abs(k / N - 0.1) < 0.012 for k in regions.values()), regions
+    assert all(abs(k / N - REGION_SHARES[r]) < 0.012 for r, k in regions.items()), regions
     # the tier applies once: a typical heritage beside a plausible one is drawn about 1 / 0.3 as often
     europe = sum(got[t] for t in got if region_of(t) == "Europe")
     typical = sum(got[v.text] for v in vocabulary().get(V.DESCENT).values if v.tier == "typical" and region_of(v.text) == "Europe")
-    want = sum(g for t, g in places.global_prior().items() if region_of(t) == "Europe" and vocabulary().get(V.DESCENT).value(t).tier == "typical") / 0.1
+    want = sum(g for t, g in places.global_prior().items() if region_of(t) == "Europe" and vocabulary().get(V.DESCENT).value(t).tier == "typical") / REGION_SHARES["Europe"]
     assert abs(typical / europe - want) < 0.03, (typical / europe, want)
 
 

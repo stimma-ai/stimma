@@ -202,19 +202,39 @@ class TestDescentRegions:
         assert eth.value("Ethiopian").tags["region"] == ["Sub-Saharan Africa"]
         assert vocabulary().to_dict()["leaves"][[lf["id"] for lf in vocabulary().to_dict()["leaves"]].index("person.ethnicity")]["browse"] == "region"
 
-    def test_with_no_place_every_region_is_seeded_equally_however_many_values_it_has(self):
-        """Regions organize the chooser, and with no place they are the prior: each region an equal
-        share of the descent seeds, split among its heritages by tier (places.global_prior)."""
+    SHARES = {"East Asia": 0.15, "Southeast Asia": 0.10, "South Asia": 0.16, "Central Asia": 0.04, "Middle East and North Africa": 0.09,
+              "Sub-Saharan Africa": 0.13, "Europe": 0.11, "North America": 0.08, "Latin America and the Caribbean": 0.10, "Oceania": 0.04}
+
+    def test_with_no_place_every_region_is_seeded_by_its_share_however_many_values_it_has(self):
+        """Regions organize the chooser, and with no place they are the prior: each region its
+        authored share of the descent seeds (shares.region), split among its heritages by tier
+        (places.global_prior)."""
         eth = vocabulary().get("person.ethnicity")
         drawn, standby = eth.pool_values()
-        assert not standby and len(drawn) == 113 and {v.weight for v in drawn} == {1.0, 0.3}
+        assert not standby and len(drawn) == 113
+        mass = collections.Counter()
+        for v in drawn:
+            mass[v.tags["region"][0]] += TIER_WEIGHTS[v.tier]
+        for v in drawn:   # a value's weight is its region's share times its tier weight over the region's
+            region = v.tags["region"][0]
+            assert v.weight == pytest.approx(self.SHARES[region] * TIER_WEIGHTS[v.tier] / mass[region]), v.text
         seeds = V.person_seeds()
         assert len(seeds.descent.values) == 113
         n = 6000
         got = collections.Counter(eth.value(s.descent).tags["region"][0]
                                   for s in V.draw_seeds(random.Random(5), seeds, n).specs)
         for region in self.REGIONS:
-            assert abs(got[region] / n - 0.1) < 0.015, (region, got[region] / n)
+            assert abs(got[region] / n - self.SHARES[region]) < 0.015, (region, got[region] / n)
+
+    @pytest.mark.parametrize("shares,error", [
+        ({"x": 0.5}, "name each of its parts once"),
+        ({"x": 0.5, "y": 0.5, "z": 0.0}, "name each of its parts once"),
+        ({"x": 0.5, "y": 0.4}, "must sum to 1"),
+    ])
+    def test_shares_on_a_local_facet_name_each_part_once_and_sum_to_1(self, shares, error):
+        values = [{"text": "a", "tier": "typical", "tags": {"region": ["x"]}}, {"text": "b", "tier": "typical", "tags": {"region": ["y"]}}]
+        with pytest.raises(ValueError, match=error):
+            _leaf("t.list", {"id": "t.list", "local_facets": {"region": ["x", "y"]}, "shares": {"region": shares}, "values": values})
 
     def test_the_picker_browses_descent_by_region_in_the_lists_order(self):
         eth = vocabulary().get("person.ethnicity")
