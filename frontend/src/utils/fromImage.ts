@@ -15,7 +15,7 @@
  */
 
 import type { ChoicePool, ChoiceState, ProgramChoice, ProgramChoices, ProgramSlot } from './programWire.ts'
-import { addValue, pickedHeritages, pickedYears, toggleGender, toggleHeritage, toggleYear, yearOfAge } from './programChoices.ts'
+import { addValue, cleanState, pickedHeritages, pickedYears, toggleGender, toggleHeritage, toggleYear, yearOfAge } from './programChoices.ts'
 
 /** One draw in an image's record (`prompt_program.draws`). */
 export interface RecordedDraw {
@@ -114,4 +114,31 @@ export function usedState(p: ImagePart, states: ProgramChoices, pool: ChoicePool
   const v = String(facet.value)
   if (facet.id === 'gender') return s?.seeds?.gender?.values?.includes(v) ? undefined : toggleGender(s, v, pool)
   return pickedHeritages(s?.seeds, pool?.person?.descent).includes(v) ? undefined : toggleHeritage(s, v, pool)
+}
+
+/** Undo one use: take back only what it added (the value, or the year, gender or descent seed),
+    if it is still there and wasn't picked before the use. Everything else stays, later edits
+    and later uses included. */
+export function undoUse(p: ImagePart, states: ProgramChoices, before: ChoiceState | null | undefined, facet?: Facet): ChoiceState | null {
+  const s = states[p.key]
+  if (!s) return null
+  if (!facet) {
+    if (before?.values?.includes(p.text) || !s.values?.includes(p.text)) return cleanState(s)
+    return cleanState({ ...s, values: s.values.filter(v => v !== p.text) })
+  }
+  const seeds = { ...(s.seeds || {}) }
+  if (facet.id === 'age') {
+    const y = facet.value as number
+    if (before?.seeds?.age?.years?.includes(y) || !seeds.age?.years?.includes(y)) return cleanState(s)
+    seeds.age = { ...seeds.age, years: seeds.age.years.filter(x => x !== y) }
+  } else if (facet.id === 'gender') {
+    const g = String(facet.value)
+    if (before?.seeds?.gender?.values?.includes(g) || !seeds.gender?.values?.includes(g)) return cleanState(s)
+    seeds.gender = { values: seeds.gender.values.filter(x => x !== g) }
+  } else {
+    const h = String(facet.value)
+    if (before?.seeds?.descent?.values?.includes(h) || !seeds.descent?.values?.includes(h)) return cleanState(s)
+    seeds.descent = { ...seeds.descent, values: seeds.descent.values.filter(x => x !== h) }
+  }
+  return cleanState({ ...s, seeds })
 }

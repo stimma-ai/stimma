@@ -61,7 +61,7 @@ import { useAnchoredMenuPosition } from '../../composables/useContextMenuPositio
 import { addToast } from '../../composables/useToasts'
 import { flashSlot } from '../../composables/slotFlash'
 import { cap, keptPieces } from '../../utils/programChoices'
-import { imageParts, usedState, type Facet, type ImagePart } from '../../utils/fromImage'
+import { imageParts, undoUse, usedState, type Facet, type ImagePart } from '../../utils/fromImage'
 import type { PromptProgram } from '../../composables/usePromptProgram'
 
 /** `open`: one image's run record and where the list hangs from. */
@@ -95,7 +95,8 @@ function use(p: ImagePart, facet?: Facet) {
   const name = cap(program.slotById.value[p.key]?.words || p.label)
   addToast(`${name}: added ${facet ? facet.says : p.text}`, 'success', 6000, {
     label: 'Undo',
-    onClick: () => { program.setState(p.key, before); flashSlot(p.key) },
+    // Takes back only what this use added; later edits and uses stay.
+    onClick: () => { program.setState(p.key, undoUse(p, program.states.value, before, facet)); flashSlot(p.key) },
   })
 }
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { imageParts, isSlotRun, usedState, type ImageWorld } from './fromImage.ts'
+import { imageParts, isSlotRun, undoUse, usedState, type ImageWorld } from './fromImage.ts'
 import type { ChoicePool } from './programWire.ts'
 
 const pool: ChoicePool = {
@@ -83,4 +83,24 @@ test('only images made from slots offer it', () => {
   assert.equal(isSlotRun({ ...run, fallback: { rung: 'words' } }), false)
   assert.deepEqual(imageParts({ key: 'k', draws: run.draws }, world()), [])
   assert.deepEqual(imageParts({ ...run, draws: [{ id: 'woman.age', value: '24-year-old' }] }, world()), [])
+})
+
+test('Undo takes back only what that use added: use age, use descent, undo age keeps the descent', () => {
+  const [woman, light] = imageParts(run, world())
+  const [age, , descent] = woman.person!.facets
+  // Before: a gender picked by hand.
+  const start = { seeds: { gender: { values: ['woman'] } } }
+  const afterAge = usedState(woman, { woman: start }, pool, age)!
+  const afterDescent = usedState(woman, { woman: afterAge }, pool, descent)!
+  // A picker edit after both uses.
+  const edited = { ...afterDescent, values: ['a freckled 28-year-old young woman of Irish descent'] }
+  assert.deepEqual(undoUse(woman, { woman: edited }, start, age),
+    { values: ['a freckled 28-year-old young woman of Irish descent'], seeds: { gender: { values: ['woman'] }, descent: { values: ['Irish'] } } })
+  // Undoing the descent too leaves the hand-picked gender and the edit.
+  const both = undoUse(woman, { woman: undoUse(woman, { woman: edited }, start, age)! }, afterAge, descent)
+  assert.deepEqual(both, { values: ['a freckled 28-year-old young woman of Irish descent'], seeds: { gender: { values: ['woman'] } } })
+  // What was already picked before the use stays on Undo; so does a value removed since.
+  assert.deepEqual(undoUse(light, { light: { values: ['soft window light', 'neon'] } }, { values: ['soft window light'] }), { values: ['soft window light', 'neon'] })
+  assert.deepEqual(undoUse(light, { light: { values: ['neon', 'soft window light'] } }, { values: ['neon'] }), { values: ['neon'] })
+  assert.deepEqual(undoUse(light, { light: { values: ['neon'] } }, null), { values: ['neon'] })
 })

@@ -415,9 +415,9 @@ test('Use from an image adds what it drew to the part, once; a person’s stroke
   await expect.poll(state).toEqual({ light: { values: ['soft lamplight'] }, young_man: { seeds: { age: { years: [28] } } } })
   await list.locator('[data-use-facets="young_man"] [data-use-facet="descent"]').click()
   await expect.poll(state).toEqual({ light: { values: ['soft lamplight'] }, young_man: { seeds: { age: { years: [28] }, descent: { values: ['Irish'] } } } })
-  // Undo puts the part back as it was.
-  await page.locator('div.pointer-events-auto').filter({ hasText: 'Young man: added Irish' }).getByRole('button', { name: 'Undo' }).click()
-  await expect.poll(state).toEqual({ light: { values: ['soft lamplight'] }, young_man: { seeds: { age: { years: [28] } } } })
+  // Undo of the age takes back only the age: the descent used after it stays.
+  await page.locator('div.pointer-events-auto').filter({ hasText: 'Young man: added age 28' }).getByRole('button', { name: 'Undo' }).click()
+  await expect.poll(state).toEqual({ light: { values: ['soft lamplight'] }, young_man: { seeds: { descent: { values: ['Irish'] } } } })
   // The menu on the image offers it too, and only for images made from slots.
   assert.deepEqual(await page.evaluate(() => window.menuActions(5)), ['Use in your prompt'])
   assert.deepEqual(await page.evaluate(() => window.menuActions(6)), [])
