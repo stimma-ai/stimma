@@ -36,6 +36,8 @@ Give each choice one of three answers:
 - "rare": nothing is broken, but it is a stretch: an uncommon combination with the other values, or only loosely what the choice asks for. A detail of a person that reads as another age or another descent than the one the prompt gives them (gray or white hair, deep wrinkles or sagging skin on someone under forty; natural blonde or red hair on someone whose descent rarely has it) is "rare" at best, and "no" when the request states that age or descent. So is clothing made for the other sex than the person's, or for another season or another kind of occasion than the scene.
 - "yes": it fits.
 
+A value that sexualizes a child or a teenager in the prompt (sexualized dress, pose or expression) is "no", whatever the request says.
+
 Unusual people and places are welcome. When unsure between "rare" and "yes", say "yes". Keep "no" for what is actually wrong.
 
 Reply with one JSON object per line and nothing else, in the form {"id": 1, "answer": "yes"}."""

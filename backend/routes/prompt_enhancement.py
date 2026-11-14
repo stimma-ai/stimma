@@ -103,9 +103,10 @@ def enhancement_mode(
 
 # The improve requests' own wording, beside the guides (which are hashed whole):
 # part of the per-image improver's cache key, so a change here writes prompts afresh.
+# improve-4: every guide says never to add sexualized dress, pose or expression for a child or a teenager.
 # improve-3: a model that makes no photos is named in the request too.
 # improve-2: a picture is said to be a photo unless something sets another look.
-IMPROVE_VERSION = "improve-3"
+IMPROVE_VERSION = "improve-4"
 
 # Enhancement style -> the prompts.yaml key for its system prompt. ``ideogram``
 # is intentionally absent: that family routes to /to-ideogram-json instead, and
