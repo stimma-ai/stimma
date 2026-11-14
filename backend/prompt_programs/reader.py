@@ -10,10 +10,12 @@ and never reads the slot's words to decide anything. Each part is asked on its o
 prompt shown. A reply that fails the checks gets one retry told what was wrong; then the part
 is read as written, never cached.
 
-Cached on disk per part, by its own words, its line and the prompt's comment lines. A prompt
-edited on one line asks only about the parts on that line, and of those, a part read before the
-edit keeps its reading while one small call for all of them (changed_parts) asks whether the
-edit changes it; only the parts it changes are read again (slots.py).
+Cached on disk per part, by its own words, its line and the prompt's comment lines. A part read
+before an edit keeps its reading while one small call for all the parts the edit touched
+(changed_parts) asks whether the edit changes it: the parts on the edited line, and when the edit
+is elsewhere in the prompt (the scene its variants were written for), the parts on other lines
+too. Only the parts it changes are read again, and a part read again for its scene gets a pool
+of its own (slots.py).
 """
 
 from __future__ import annotations
@@ -662,13 +664,30 @@ def _reading(slots: Dict[int, Any], lists: Dict[int, str]) -> Dict[str, Any]:
 # and what it was read as. The model says which readings the edit changes; the rest are kept
 # with no more calls.
 
+def rest_of(parsed: Parsed, seg: Segment) -> str:
+    """The prompt's other lines, besides the part's own and the notes, each slot on them as its
+    bare words: the scene around the part that its variants were written for. "" for a prompt
+    of one line. Structure only."""
+    from prompt_programs.slots import is_comment
+    text = "".join(x.words if x.kind == "slot" else x.text for x in parsed.segments)
+    return "\n".join(ln.strip() for i, ln in enumerate(text.split("\n"), 1)
+                     if i != seg.line and ln.strip() and not is_comment(ln))
+
+
+def scene_mark(rest: str) -> str:
+    """A short mark of the rest of the prompt, for a pool written again because an edit there
+    changed the scene (variant_pools.pool_key's `scene`): the same rest, the same mark."""
+    return hashlib.sha256(rest.encode("utf-8")).hexdigest()[:12]
+
+
 def seen_in(parsed: Parsed, seg: Segment) -> Dict[str, Any]:
-    """What a part is read in: its line (as typed, and with the part marked), the notes, and the
-    text right before it on its line since the last part (where its lead comes from)."""
+    """What a part is read in: its line (as typed, and with the part marked), the notes, the
+    text right before it on its line since the last part (where its lead comes from), and the
+    rest of the prompt (rest_of: what an edit elsewhere is checked against)."""
     n = sum(x.kind == "slot" for x in parsed.segments[:next(i for i, x in enumerate(parsed.segments) if x is seg) + 1])
     before = leads(parsed).get(n, "") if seg.kind == "slot" else ""
     return {"line": parsed.prompt.split("\n")[seg.line - 1], "marked": _line_with(parsed, seg),
-            "notes": comment_lines(parsed), "before": before}
+            "notes": comment_lines(parsed), "before": before, "rest": rest_of(parsed, seg)}
 
 
 CHECK_SYSTEM = """An image prompt was edited. Its marked parts, shown as ⟨words⟩, change from image to image.
@@ -676,12 +695,16 @@ Each was read before the edit, and you see what it was read as. Lines starting w
 the user's notes about the whole image, as binding as the prompt's own words.
 
 For each numbered part you see its reading, the lines it was read in before the edit, and the
-lines now. Check the reading against the lines now, field by field: what the part is; what its
-words or the notes state about it; the list or outfit chosen to suit the scene (the
-place, the season, the time, the weather, what someone wears); and the details chosen for how
-close the picture is. Answer "changed" when any field would now be chosen differently, else
-"same"; when unsure, "changed". An edit that adds, removes or rewords things the reading doesn't
-depend on, other marked parts among them, leaves it "same".
+lines now, with the rest of the prompt when it has more lines. Check the reading against the
+lines now, field by field: what the part is; what its words or the notes state about it; the
+list or outfit chosen to suit the scene (the place, the season, the time, the weather, what
+someone wears); and the details chosen for how close the picture is. Its options were also
+written for the whole picture, so answer "changed" too when the edit changes what they were
+written for: the place, the time, the medium (photo, painting, render), the framing, or who is
+in the picture. Answer "changed" when any of that would now be chosen or written differently,
+else "same"; when unsure, "changed". Other marked parts are shown as their bare words: an edit
+that only adds, removes or rewords one of them, or anything else the part doesn't depend on,
+leaves it "same".
 
 Reply with JSON only, one answer per part by its number: {"1": "same", "2": "changed"}."""
 
@@ -706,7 +729,11 @@ def check_message(items: Sequence[Dict[str, Any]]) -> str:
     out = ["\n".join(note(x) for x in notes_now)] if same and notes_now else []
 
     def lines(seen: Dict[str, Any]) -> str:
-        return "\n".join([*([] if same else [note(x) for x in seen["notes"]] or ["(no notes)"]), seen["marked"]])
+        # the other parts as their bare words, so adding or removing one isn't an edit to weigh
+        from prompt_programs.slots import unwrap_slots
+        rest = str(seen.get("rest") or "")
+        return "\n".join([*([] if same else [note(x) for x in seen["notes"]] or ["(no notes)"]),
+                          unwrap_slots(str(seen["marked"])), *([f"elsewhere in the prompt:\n{rest}"] if rest else [])])
     for i, it in enumerate(items, 1):
         out.append(f'{i}. ⟨{it["words"]}⟩, read as: {_read_as(it["reading"])}\n'
                    f'before:\n{lines(it["before"])}\nnow:\n{lines(it["now"])}')
@@ -752,4 +779,4 @@ async def changed_parts(items: Sequence[Dict[str, Any]], *, ask: Ask, project_id
 
 __all__ = ["CHECK_SYSTEM", "READER_VERSION", "fit_lead", "ReaderFailed", "SYSTEM", "as_written", "cached", "changed_parts",
            "check_message", "check_parts", "check_reply", "check_slot", "leads", "numbered", "parse_changed", "part_key",
-           "read", "read_part", "seen_in", "system_text", "user_message"]
+           "read", "read_part", "rest_of", "scene_mark", "seen_in", "system_text", "user_message"]

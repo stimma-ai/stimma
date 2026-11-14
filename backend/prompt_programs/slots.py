@@ -272,6 +272,9 @@ _again: set = set()
 _failed: Dict[Tuple[str, str], str] = {}
 # A part the edit check said an edit changed: read again, not checked again.
 _changed: set = set()
+# A part read again because an edit elsewhere in the prompt changed its scene: the mark its
+# new reading's pool is keyed by (reader.scene_mark), until that reading is kept with it.
+_scenes: Dict[Tuple[str, str], str] = {}
 
 
 @dataclass
@@ -522,13 +525,25 @@ async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
     # reading carried from before an edit, or kept through one, has its own already.
     written = str(entry.get("context") or "").strip() or str(entry.get("template") or "")
     keys = {n: key for kind, n, key in p.parts() if kind == "slot"}
+    stale = False   # a reading whose scene, elsewhere in the prompt, was edited: it is checked (_start)
     for n in sorted(from_cache):
         r = readings[n]
-        if isinstance(r.get("seen"), dict) or r.get("degraded"):
+        if r.get("degraded"):
             continue
-        readings[n] = {**r, "seen": {**seen_in(p.parsed, segs[("slot", n)]), "template": written}}
+        now = seen_in(p.parsed, segs[("slot", n)])
+        seen = r.get("seen")
+        if isinstance(seen, dict):
+            if "rest" in seen:
+                stale = stale or seen["rest"] != now["rest"]
+                continue
+            # read before the rest of the prompt was kept with it: what it stands in now is its scene
+            readings[n] = {**r, "seen": {**seen, "rest": now["rest"]}}
+        else:
+            scene = _scenes.get((p.root, keys[n]))
+            readings[n] = {**r, "seen": {**now, "template": written, **({"scene": scene} if scene else {})}}
         try:
             p.cache().put_raw(keys[n], {k: v for k, v in readings[n].items() if k != "n"})
+            _scenes.pop((p.root, keys[n]), None)
         except OSError as e:   # only means its options are keyed by this prompt again next time
             log.warning(f"[slots] keeping where part {n} of {p.key} was read failed: {e}")
     for s in entry["slots"]:
@@ -545,7 +560,7 @@ async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
     await _narrow(entry, p, ask)
     pending = any(s["state"] != "ready" for s in entry["slots"]) or any(l["state"] != "ready" for l in entry["lists"])
     # (a carried reading is ready, but the edit is still to be checked)
-    entry["reading"] = bool(pending or carried or entry.get("seeds_pending"))
+    entry["reading"] = bool(pending or carried or stale or entry.get("seeds_pending"))
     return entry
 
 
@@ -577,7 +592,8 @@ async def _narrow(entry: Dict[str, Any], p: _Prompt, ask: Any) -> None:
             continue
         seen = s.get("seen") if isinstance(s.get("seen"), dict) else seen_in(p.parsed, segs[s["n"]])
         minor = (entry.get("seeds") or {}).get(s["id"], {}).get("minor") or ()
-        s["pool"] = pool_key(p.model, s["words"], str(seen.get("marked") or ""), list(seen.get("notes") or []), minor)
+        s["pool"] = pool_key(p.model, s["words"], str(seen.get("marked") or ""), list(seen.get("notes") or []), minor,
+                             scene=str(seen.get("scene") or ""))
     _stand_ins(entry, p)
 
 
@@ -635,9 +651,22 @@ def _start(p: _Prompt, force: bool = False) -> None:
     started = False
     check: List[Tuple[str, int, str, Dict[str, Any], Dict[str, Any]]] = []
     for kind, n, key in p.parts():
-        if n in (readings if kind == "slot" else labels):
-            continue
         flight = (p.root, key)
+        if n in (readings if kind == "slot" else labels):
+            # Read in this very line and notes, but the rest of the prompt was edited since: the
+            # check says whether its scene changed (its pool is written again) or not.
+            r = readings.get(n) if kind == "slot" else None
+            seen = (r or {}).get("seen")
+            if (r is not None and not r.get("degraded") and isinstance(seen, dict) and "rest" in seen
+                    and flight not in _reads):
+                now = seen_in(p.parsed, segs[(kind, n)])
+                if seen["rest"] != now["rest"]:
+                    if flight in _changed:
+                        _read(p, kind, n, key)
+                    else:
+                        check.append((kind, n, key, {k: v for k, v in r.items() if k != "n"}, now))
+                    started = True
+            continue
         if flight in _reads:
             continue
         _failed.pop(flight, None)
@@ -648,7 +677,9 @@ def _start(p: _Prompt, force: bool = False) -> None:
             was = None if lead is None else {**was, "lead": lead}
         if was is not None and flight not in _changed:
             now = seen_in(p.parsed, segs[(kind, n)])
-            if (was["seen"].get("marked"), list(was["seen"].get("notes") or [])) == (now["marked"], now["notes"]):
+            rest = was["seen"].get("rest", now["rest"])   # (a reading kept before the rest was: as it stands now)
+            if (was["seen"].get("marked"), list(was["seen"].get("notes") or []), rest) == (now["marked"], now["notes"],
+                                                                                           now["rest"]):
                 _carry(p, kind, key, was)   # read in this very line and notes: nothing to ask
             else:
                 check.append((kind, n, key, was, now))
@@ -692,13 +723,19 @@ async def _check_job(p: _Prompt, parts: List[Tuple[str, int, str, Dict[str, Any]
     except Exception as e:   # never stops a run: they are read again
         log.warning(f"[slots] checking an edit of {p.key} failed: {e}")
         changed = None
+    from prompt_programs.reader import scene_mark
     again = set(range(1, len(parts) + 1)) if changed is None else changed
     kept = 0
-    for i, (kind, n, key, was, _) in enumerate(parts, 1):
+    for i, (kind, n, key, was, now) in enumerate(parts, 1):
         if i in again:
+            # Read again for a scene edited elsewhere (or one it was already read again for):
+            # its new pool is keyed by the scene it stands in now, its old one standing in meanwhile.
+            if kind == "slot" and (was["seen"].get("scene") or was["seen"].get("rest", now["rest"]) != now["rest"]):
+                _scenes[(p.root, key)] = scene_mark(now["rest"])
             continue
         try:
-            _carry(p, kind, key, was)
+            # kept as read, its scene now the prompt's as it stands (what the next edit is checked against)
+            _carry(p, kind, key, {**was, "seen": {**was["seen"], "rest": now["rest"]}} if kind == "slot" else was)
             kept += 1
         except Exception as e:
             log.warning(f"[slots] keeping a reading of {p.key} failed: {e}")

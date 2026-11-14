@@ -38,13 +38,19 @@ class FakeModel:
     """The reader answers READING (or `reading`); narrowing answers by list: ages for a young
     person (or `ages`), the subset `descent`, "woman" for gender, and every item otherwise."""
 
-    def __init__(self, reading: Dict[str, Any] = READING, ages: List[str] = YOUNG, descent=None, empty: str = ""):
-        self.reading, self.ages, self.descent, self.empty = reading, ages, descent, empty
+    def __init__(self, reading: Dict[str, Any] = READING, ages: List[str] = YOUNG, descent=None, empty: str = "",
+                 check: str = ""):
+        self.reading, self.ages, self.descent, self.empty, self.check = reading, ages, descent, empty, check
         self.narrowed: List[str] = []
 
     async def __call__(self, messages, project_id, max_tokens):
         if messages[0]["content"].startswith("You read the parts of an image prompt"):
             return json.dumps(self.reading)
+        from prompt_programs.reader import CHECK_SYSTEM
+        if self.check and messages[0]["content"] == CHECK_SYSTEM:   # an edit check, answered `check` for every part
+            import re
+            count = len(re.findall(r"^\d+\. ⟨", messages[-1]["content"], re.M))
+            return json.dumps({str(i): self.check for i in range(1, count + 1)})
         user = messages[-1]["content"]
         label = user.split('"')[1] if user.startswith("The list") else ""
         self.narrowed.append(label)
@@ -160,11 +166,38 @@ async def test_a_narrowing_that_keeps_nothing_drops_its_seeds_never_the_draw(mon
 
 
 async def test_an_edit_elsewhere_keeps_the_pools(monkeypatch, profile):
-    use(monkeypatch)
+    # A line added elsewhere is checked; judged the same scene, every slot keeps its pool and counts.
+    use(monkeypatch, FakeModel(check="same"))
     entry = await settled(PROMPT, profile)
+    person = slot(entry, "dominant_young_woman")
+    count_draw(entry, prep.realize(entry, profile_id=profile, seed=1), profile_id=profile)
+    uses = P.store_for(profile).uses(person["pool"])
     edited = PROMPT.replace("<lighting>", "<lighting>\nshot on a phone")
     again = await settled(edited, profile)
-    assert slot(again, "dominant_young_woman")["pool"] == slot(entry, "dominant_young_woman")["pool"]
+    assert [s["pool"] for s in again["slots"]] == [s["pool"] for s in entry["slots"]]
+    assert P.store_for(profile).uses(person["pool"]) == uses and sum(uses.values()) == 1
+
+
+async def test_a_scene_changed_elsewhere_writes_new_pools_with_the_old_standing_in(monkeypatch, profile):
+    model, _ = use(monkeypatch, FakeModel(check="changed"))
+    entry = await settled(PROMPT, profile)
+    writer = P.ASK
+    gate = asyncio.Event()
+
+    async def held(*a, **k):   # the new pools aren't written yet
+        await gate.wait()
+        return await writer(*a, **k)
+    monkeypatch.setattr(P, "ASK", held)
+    edited = PROMPT.replace("<lighting>", "<lighting>\nshot on a phone")
+    await slots.prepare(edited, profile_id=profile, shown=entry["key"])
+    await slots.idle()
+    look = await slots.prepare(edited, profile_id=profile, start=False, shown=entry["key"])
+    light, was = slot(look, "lighting"), slot(entry, "lighting")
+    assert light["pool"] != was["pool"] and light["stand_in"] == was["pool"]
+    assert pool_view(look, profile_id=profile)["choices"]["lighting"]["state"] == "ready"   # the old pool serves
+    gate.set()
+    again = await settled(edited, profile)
+    assert P.store_for(profile).has(slot(again, "lighting")["pool"]) and slot(again, "lighting")["pool"] != was["pool"]
 
 
 async def test_choices_pins_seeds_off_and_as_written(monkeypatch, profile):

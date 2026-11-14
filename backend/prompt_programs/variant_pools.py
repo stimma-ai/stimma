@@ -6,7 +6,8 @@ with no model call:
 - The store. One append-only JSONL file per pool, one line per writer call that kept anything
   (`{"batch", "role", "variants": [{"text", "seeds"}], ...}`), and the pool's use counts beside
   it. A pool is keyed by the model, the slot's words, the line its reading was made in and the
-  prompt's notes (pool_key): the context the quiet re-read uses, never the whole prompt.
+  prompt's notes (pool_key): the context the quiet re-read uses, never the whole prompt; an edit
+  elsewhere that the check says changes the scene adds a mark of it.
 - Drawing. Per image, per slot: left out, as written, a fixed (replayed) text, the variants the
   user pinned, the variants whose seeds match the seeds the user picked, else any variant; each
   time the least-used one, ties broken by the draw's seeded RNG. A slot with no pool yet goes in
@@ -65,13 +66,17 @@ YIELD_POLL = 0.25   # seconds between looks while a background top-up gives way 
 SEEDS_KEPT = 500    # draws with an explicit draw seed remembered per prompt
 
 
-def pool_key(model: Optional[str], words: str, marked: str, notes: Sequence[str], minor: Sequence[str] = ()) -> str:
+def pool_key(model: Optional[str], words: str, marked: str, notes: Sequence[str], minor: Sequence[str] = (),
+             scene: str = "") -> str:
     """A pool's key: the model, the slot's words, the line its reading was made in (marked) and
-    the prompt's notes; a person who may be under 18 has a pool of their own."""
+    the prompt's notes; a person who may be under 18 has a pool of their own, and so does a slot
+    read again because an edit elsewhere changed the scene (`scene`, reader.scene_mark)."""
     parts: Dict[str, Any] = {"v": POOL_VERSION, "writer": VARIANTS_VERSION, "model": model, "words": words,
                              "marked": marked, "notes": list(notes)}
     if minor:
         parts["minor"] = sorted(minor)
+    if scene:
+        parts["scene"] = scene
     blob = json.dumps(parts, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
 

@@ -120,7 +120,9 @@ async def test_a_slot_added_on_the_line_keeps_the_others_read_with_one_small_che
     assert len(model.checks) == 1 and model.reads[3:] == ["mug"] and model.narrows == narrows
     asked = model.checks[0]["messages"][-1]["content"]
     assert "⟨elderly African man⟩" in asked and "⟨pet⟩" in asked and "⟨{summer|autumn}⟩" in asked
-    assert "before:\nan ⟨elderly African man⟩ reading on a porch with his <pet>, {summer|autumn} evening" in asked
+    # the other parts as their bare words: adding one isn't an edit to weigh
+    assert "before:\nan ⟨elderly African man⟩ reading on a porch with his pet, {summer|autumn} evening" in asked
+    assert "now:\nan ⟨elderly African man⟩ reading on a porch with his pet and a mug, {summer|autumn} evening" in asked
     assert asked.startswith("note: she is his granddaughter, visiting\n\n1. ⟨elderly African man⟩, read as: {")
     # far cheaper than a reading: a short question and room for a word per part
     assert len(reader.CHECK_SYSTEM) + len(asked) < len(reader.system_text()) / 5
@@ -251,14 +253,67 @@ def test_the_check_reply_names_each_part():
     assert reader.parse_changed('["same"]', 1) is None
 
 
-async def test_an_edit_on_another_line_writes_no_pools_and_asks_nothing(model):
+async def test_an_edit_on_another_line_the_check_calls_the_same_writes_no_pools(model):
     before = BEFORE + "\nlate summer light"
     first = await _ready(before)
     written, reads, narrows = len(_written()), len(model.reads), model.narrows
-    entry = await _ready(before.replace("late summer light", "soft late summer light, slight haze"), shown=first["key"])
-    assert entry["template"] != first["template"]
+    after = before.replace("late summer light", "soft late summer light, slight haze")
+    look = await slots.prepare(after, profile_id="p", start=False, shown=first["key"])
+    assert look["reading"] and _pools(look) == _pools(first)   # kept, to be checked
+    entry = await _ready(after, shown=first["key"])
+    assert entry["template"] != first["template"] and not entry["reading"]
     assert _pools(entry) == _pools(first) and len(_written()) == written   # every pool is already written
-    assert (len(model.reads), model.narrows, model.checks) == (reads, narrows, [])
+    assert (len(model.reads), model.narrows, len(model.checks)) == (reads, narrows, 1)
+    asked = model.checks[0]["messages"][-1]["content"]
+    assert "elsewhere in the prompt:\nlate summer light" in asked
+    assert "elsewhere in the prompt:\nsoft late summer light, slight haze" in asked
+    # Kept, and checked against the prompt as it is now: the next prepare asks nothing.
+    await _ready(after, shown=first["key"])
+    assert len(model.checks) == 1 and len(model.reads) == reads
+
+
+async def test_a_scene_edited_on_another_line_writes_the_pool_again_its_old_one_standing_in(model):
+    # "living room" to "beach" on line 1: a <light> on line 2 was written for a living room. The
+    # check says it changed: it is read again, its pool keyed anew, the old pool standing in.
+    before = "a woman in her living room\nlit by <light>"
+    model.check = {1}
+    light = {"kind": "light", "label": "Light", "lead": "lit by", "light": {"list": ""}}
+    READINGS["light"] = light
+    try:
+        first = await _ready(before)
+        old = _pools(first)["light"]
+        assert P.store_for("p").has(old)
+        model.hold = "light"
+        after = before.replace("living room", "beach house on the beach")
+        await slots.prepare(after, profile_id="p", shown=first["key"])
+        for _ in range(100):
+            await asyncio.sleep(0.01)
+            if model.reads.count("light") == 2:
+                break
+        meanwhile = await slots.prepare(after, profile_id="p", start=False, shown=first["key"])
+        assert meanwhile["slots"][0]["state"] == "ready" and meanwhile["reading"]
+        model.go.set()
+        entry = await _ready(after, shown=first["key"])
+        assert len(model.checks) == 1 and model.reads.count("light") == 2
+        new = _pools(entry)["light"]
+        assert new != old and P.store_for("p").has(new) and P.store_for("p").has(old)
+        assert entry["readings"]["slots"][0]["seen"]["scene"] == reader.scene_mark("a woman in her beach house on the beach")
+        # the next prepare asks nothing, and back to the living room the first pool is its own again
+        await _ready(after, shown=entry["key"])
+        assert len(model.checks) == 1
+        back = await _ready(before, shown=entry["key"])
+        assert len(model.checks) == 2 and _pools(back)["light"] != new   # the edit back is checked too
+    finally:
+        READINGS.pop("light", None)
+
+
+async def test_a_one_line_prompt_edited_on_its_line_costs_no_more_calls(model):
+    first = await _ready("a <mug> on a table")
+    reads = len(model.reads)
+    await _ready("a <mug> on a wooden table", shown=first["key"])
+    assert len(model.checks) == 1 and len(model.reads) == reads
+    asked = model.checks[0]["messages"][-1]["content"]
+    assert "elsewhere in the prompt" not in asked
 
 
 async def test_a_lead_the_edit_takes_away_is_read_again_and_one_it_keeps_is_kept(model):
