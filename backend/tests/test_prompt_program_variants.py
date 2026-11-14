@@ -1347,3 +1347,18 @@ def test_a_short_first_write_asked_again_and_short_again_is_left_to_top_ups(tmp_
         assert w.first_written(job.key) and not w.submit(job_for(sl, V.Seeds()))
         assert len(w.store.variants(job.key)) == 1
     run(go())
+
+
+def test_a_variant_that_copies_the_line_before_it_with_another_slot_is_cut_back_not_lost():
+    # Rerun of the grandmother prompt: the writer copied "a <grandmother> with" before each pet,
+    # and the markup cut kept only "a", so every variant failed "words not kept".
+    prompt = GRANDMOTHER
+    sl = slot_of(prompt, "free", "pet", n=2)
+    reply = _fenced([{"n": 1, "text": "a <grandmother> with her tabby cat curled in her lap", "idea": "cat"},
+                     {"n": 2, "text": "a <grandmother> with her pet guinea pig, <light>", "idea": "guinea pig"},
+                     {"n": 3, "text": "her bright orange koi in a glass bowl", "idea": "koi"}])
+
+    async def ask(*a, **k):
+        return reply
+    b = run(V.write_batch(sl, V.Seeds(), 3, ask=ask))
+    assert b.texts() == ["her tabby cat curled in her lap", "her pet guinea pig", "her bright orange koi in a glass bowl"]

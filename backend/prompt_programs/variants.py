@@ -718,12 +718,14 @@ def context_words(prompt: str, span: Tuple[int, int]) -> Tuple[List[str], List[s
 
 
 def repair(text: str, left: Sequence[str], right: Sequence[str], *, words: str = "",
-           article: Optional[bool] = None) -> Tuple[str, List[str]]:
+           article: Optional[bool] = None, before: str = "") -> Tuple[str, List[str]]:
     """A variant cut back to the slot's part: the slot's own words given as a label before a colon
     ("young woman: a tall ..."), another slot's markup and what follows it, a copied run of the
     prompt's words just before the slot (at its start) or just after it (to its end), and its own
     leading article when the prompt has one for it (`article`, article_before; by default when the
-    word right before the slot is one). Structural."""
+    word right before the slot is one). `before`: the prompt's text before the slot on its line; a
+    copy of it that reaches back over another slot's markup ("a <grandmother> with her cat") is cut
+    first, so the markup rule doesn't take the variant with it. Structural."""
     did: List[str] = []
     t = _norm(text)
     if words:
@@ -731,6 +733,13 @@ def repair(text: str, left: Sequence[str], right: Sequence[str], *, words: str =
         if m and tokens(words):
             t = t[m.end():]
             did.append("label")
+    parts = _norm(before).split()
+    for k in range(len(parts), 0, -1):
+        run = " ".join(parts[-k:])
+        if "<" in run and t.lower().startswith(run.lower() + " "):
+            t = t[len(run):].lstrip()
+            did.append("left")
+            break
     if "<" in t:
         t = t[:t.index("<")]
         did.append("markup")
@@ -908,6 +917,7 @@ async def write_batch(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id:
     keep = slot.keep()
     left, right = context_words(slot.prompt, slot.span)
     article = article_before(slot.prompt, slot.span, slot.words)
+    before = slot.prompt[slot.prompt.rfind("\n", 0, slot.span[0]) + 1:slot.span[0]]
     seen = {_norm(h).lower() for h in have}
     used: List[str] = []
     for i, spec in enumerate(drawn.specs):
@@ -915,7 +925,7 @@ async def write_batch(slot: Slot, seeds: Seeds, n: int, *, ask: Ask, project_id:
         if not isinstance(it, dict) or not isinstance(it.get("text"), str):
             out.dropped["missing"] += 1
             continue
-        fixed, did = repair(it["text"], left, right, words=slot.words, article=article)
+        fixed, did = repair(it["text"], left, right, words=slot.words, article=article, before=before)
         from prompt_programs.fill import fix_articles
         fixed = fix_articles(fixed)   # "a off-center selfie" is stored as "an off-center selfie"
         out.repairs += bool(did)
