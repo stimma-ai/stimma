@@ -618,6 +618,13 @@ class PoolWriter:
         rank = 0 if job.urgent else 1 if job.role == "first" else 2
         return lambda i: g.slot((rank, i), urgent=job.urgent)
 
+    def _room(self, job: Job) -> int:
+        """Room left under MAX_POOL as a chunk lands: another lane may have filled it meanwhile.
+        More like these, which the user asked for, may pass the cap by its own batch."""
+        if job.role == "more":
+            return TOPUP
+        return max(0, MAX_POOL - len(self.store.variants(job.key)))
+
     async def run(self, job: Job) -> List[str]:
         """One write for one pool, stored as it lands. Returns the new variants' texts."""
         seeds = job.seeds.pinned(job.pins)
@@ -659,7 +666,7 @@ class PoolWriter:
             out: List[str] = []
 
             def landed(b: Batch) -> None:
-                kept = [v for v in b.variants if _norm(v["text"]) not in seen][:n - len(out)]
+                kept = [v for v in b.variants if _norm(v["text"]) not in seen][:min(n - len(out), self._room(job))]
                 seen.update(_norm(v["text"]) for v in kept)
                 if kept:
                     self.store.append(job.key, self._record(job, b, len(self.store.batches(job.key)), kept))
@@ -672,7 +679,7 @@ class PoolWriter:
             b = await top_up(job.slot, seeds, [v["text"] for v in have], ask=self.ask, project_id=job.project_id,
                              n=n, rng=rng, used_cores=cores)
         self.calls += 1
-        kept = [v for v in b.variants if _norm(v["text"]) not in seen][:n]
+        kept = [v for v in b.variants if _norm(v["text"]) not in seen][:min(n, self._room(job))]
         if kept:
             self.store.append(job.key, self._record(job, b, done, kept))
         return [v["text"] for v in kept]

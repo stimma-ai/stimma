@@ -857,6 +857,27 @@ def test_a_top_up_fills_only_the_room_left_and_more_may_pass_the_cap_by_one_batc
     run(go())
 
 
+def test_a_top_up_rechecks_the_room_when_it_lands(tmp_path):
+    """Another lane (a pick's batch) may fill the pool while a top-up is out: the top-up keeps
+    only what still fits under MAX_POOL."""
+    async def go():
+        fake = FakeWriter()
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
+        w.attach()
+        key = "b" * 32
+        w.store.append(key, {"batch": 0, "variants": [{"text": f"v{i}"} for i in range(P.MAX_POOL - 5)]})
+
+        async def ask(messages, project_id, max_tokens, temperature=0.8):
+            # The other lane lands its 3 while this call is out.
+            w.store.append(key, {"batch": 1, "variants": [{"text": f"other{i}"} for i in range(3)]})
+            return await fake(messages, project_id, max_tokens, temperature)
+        w.ask = ask
+        sl = slot_of(PROMPT, "list", "lighting", n=3)
+        new = await w.run(job_for(sl, V.Seeds(), key=key, role="top_up"))
+        assert len(new) == 2 and len(w.store.variants(key)) == P.MAX_POOL
+    run(go())
+
+
 def test_a_person_states_its_gender_and_develops_rotated_aspects():
     sl = slot_of("a <young woman> in a kitchen", "person")
     seeds = V.person_seeds(gender=["woman", "trans woman"], clothes_owned=True)
