@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  addOwn, asWritten, listChoiceAt, carriedIds, followId, carryChoices, chooseAny, cleanState, clearSeed, isChanged, keptPieces, leaveOut, lineText, lookOf,
-  numberRepeats, optionsOf, pinTo, regionNote, resetState, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleValue, wireState,
+  addOwn, asWritten, listChoiceAt, carriedIds, followId, carryChoices, chooseAny, cleanState, clearSeed, isChanged, keptPieces, lineOf, lookOf,
+  numberRepeats, optionsOf, pickedYears, pinTo, resetState, rowValue, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleStage,
+  toggleValue, toggleYear, wireState,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramSlot } from './programWire.ts'
 
@@ -19,7 +20,14 @@ const pool: ChoicePool = {
     { text: 'young woman of Japanese descent with a silver bob', seeds: { descent: 'Japanese', gender: 'trans woman' } },
     { text: 'young woman with freckles', own: true },
   ],
-  person: { descent, gender: { list: 'person.gender', label: 'Gender', options: ['woman', 'trans woman'] } },
+  person: {
+    descent,
+    gender: { list: 'person.gender', label: 'Gender', options: ['woman', 'trans woman'] },
+    age: {
+      list: 'person.age_band', label: 'Age', options: ['young adult', 'middle-aged'],
+      stages: [{ id: 'young adult', label: 'Young adult', span: [18, 35], years: [18, 19, 20, 24, 35] }, { id: 'middle-aged', label: 'Middle-aged', span: [35, 54], years: [35, 40, 54] }],
+    },
+  },
 }
 const [korean, swedish, japanese] = pool.variants!.map(v => v.text)
 
@@ -34,7 +42,7 @@ test('a state is stored lean: empties dropped, off and as written alone with the
   assert.deepEqual(wireState({ values: ['a'], from: 7 }), { values: ['a'] })
 })
 
-test('pinning adds and removes; any, as written and leave out; the user’s own stay', () => {
+test('pinning adds and removes; any and Keep my words; the user’s own stay', () => {
   let s = toggleValue(null, korean)
   assert.deepEqual(s, { values: [korean] })
   s = toggleValue(s, swedish)
@@ -42,9 +50,8 @@ test('pinning adds and removes; any, as written and leave out; the user’s own 
   assert.deepEqual(toggleValue(s, korean), { values: [swedish] })
   assert.equal(chooseAny(s), null)
   assert.deepEqual(asWritten({ values: [korean], add: ['mine'] }), { as_written: true, add: ['mine'] })
-  assert.deepEqual(leaveOut({ values: [korean] }), { off: true })
-  // Pinning brings a slot left out back.
-  assert.deepEqual(toggleValue({ off: true }, korean), { values: [korean] })
+  // Pinning brings a slot on its words back.
+  assert.deepEqual(toggleValue({ as_written: true }, korean), { values: [korean] })
   assert.deepEqual(addOwn({ values: [korean] }, ' a tall one '), { values: [korean, 'a tall one'], add: ['a tall one'] })
   assert.deepEqual(resetState({ values: [korean], add: ['mine'] }), { add: ['mine'] })
   assert.deepEqual(pinTo({ add: ['mine'] }, korean, 12), { values: [korean], add: ['mine'], from: 12 })
@@ -56,12 +63,25 @@ test('descent: a region picked whole takes over its heritages; un-picking one in
   assert.deepEqual(s, { seeds: { descent: { values: ['Korean'] } } })
   s = toggleRegion(s, 'East Asia', pool)
   assert.deepEqual(s, { seeds: { descent: { groups: { region: ['East Asia'] } } } })
-  assert.equal(regionNote(s, descent.parts[0]), 'all')
   s = toggleHeritage(s, 'Japanese', pool)
   assert.deepEqual(s, { seeds: { descent: { values: ['Korean', 'Chinese'] } } })
-  assert.equal(regionNote(s, descent.parts[0]), '2 of 3')
-  assert.equal(regionNote(s, descent.parts[1]), '2')
   assert.equal(clearSeed(s, 'descent', pool), null)
+})
+
+test('age: a stage picked whole covers its years; a year inside it narrows the stage to that year', () => {
+  let s = toggleYear(null, 24, pool)
+  assert.deepEqual(s, { seeds: { age: { years: [24] } } })
+  s = toggleStage(s, 'young adult', pool)
+  assert.deepEqual(s, { seeds: { age: { values: ['young adult'] } } })
+  s = toggleStage(s, 'middle-aged', pool)
+  assert.deepEqual(pickedYears(s!.seeds, pool.person!.age), [18, 19, 20, 24, 35, 40, 54])
+  // 35 is in both stages: it narrows both to it.
+  s = toggleYear(s, 35, pool)
+  assert.deepEqual(s, { seeds: { age: { years: [35] } } })
+  assert.equal(clearSeed(s, 'age', pool), null)
+  // A pick lists the variants whose recorded age it covers.
+  const aged: ChoicePool = { ...pool, variants: [{ text: 'a', seeds: { age: '24-year-old' } }, { text: 'b', seeds: { age: '40-year-old' } }, { text: 'c' }] }
+  assert.deepEqual(shownVariants(aged, { seeds: { age: { values: ['middle-aged'] } } }).map(v => v.text), ['b'])
 })
 
 test('a seed pick drops pins it rules out, keeps the user’s own, and the picker lists what matches', () => {
@@ -73,29 +93,26 @@ test('a seed pick drops pins it rules out, keeps the user’s own, and the picke
   assert.deepEqual(shownVariants(pool, { values: ['an older variant'] }).map(v => v.text)[0], 'an older variant')
 })
 
-test('how a slot shows: writing, varying, pinned, kept, several, as written, left out', () => {
+test('how a slot shows: writing, varying, restricted, my words', () => {
   assert.equal(lookOf(null, null), 'writing')
   assert.equal(lookOf({ state: 'reading' }, null), 'writing')
   assert.equal(lookOf({ state: 'writing' }, null), 'writing')
   assert.equal(lookOf(ready, null, { options: [], state: 'writing' }), 'writing')
   assert.equal(lookOf(ready, null, pool), 'varying')
-  assert.equal(lookOf(ready, { values: [korean] }), 'pinned')
-  assert.equal(lookOf(ready, { values: [korean], from: 3 }), 'keep')
-  assert.equal(lookOf(ready, { values: [korean, swedish] }), 'several')
-  assert.equal(lookOf(ready, { seeds: { gender: { values: ['woman'] } } }), 'several')
-  assert.equal(lookOf(ready, { as_written: true }), 'written')
-  assert.equal(lookOf({ state: 'as_written' }, null), 'written')
-  assert.equal(lookOf(ready, { off: true }), 'off')
+  assert.equal(lookOf(ready, { values: [korean] }), 'restricted')
+  assert.equal(lookOf(ready, { seeds: { gender: { values: ['woman'] } } }), 'restricted')
+  assert.equal(lookOf(ready, { as_written: true }), 'words')
+  assert.equal(lookOf({ state: 'as_written' }, null), 'words')
 })
 
-test('a line says what is set in a few words', () => {
-  assert.equal(lineText(null), '')
-  assert.equal(lineText({ off: true }), 'left out')
-  assert.equal(lineText({ as_written: true }), 'as written')
-  assert.equal(lineText({ values: ['window light'] }), 'window light')
-  assert.equal(lineText({ values: ['a', 'b', 'c'] }), '3 variants')
-  assert.equal(lineText({ seeds: { descent: { groups: { region: ['East Asia'] } }, gender: { values: ['trans woman'] } } }), 'East Asia · Trans woman')
-  assert.equal(lineText({ seeds: { descent: { values: ['Korean', 'Irish', 'Samoan'] } } }), 'Korean, Irish +1')
+test('a row says the pool size, the picks as one or two then +N, or the words in quotes', () => {
+  const slot = { state: 'ready' as const, words: 'dominant young woman' }
+  assert.deepEqual(rowValue(slot, null, pool), { kind: 'varying', text: '4 options' })
+  assert.deepEqual(rowValue(slot, { as_written: true }, pool), { kind: 'words', text: '“dominant young woman”' })
+  assert.deepEqual(rowValue({ state: 'writing', words: 'x' }, null, null), { kind: 'writing' })
+  const picked = rowValue(slot, { seeds: { age: { values: ['young adult'], years: [40] }, gender: { values: ['trans woman'] }, descent: { values: ['Korean', 'Irish', 'Samoan'] } } }, pool)
+  assert.deepEqual(picked, { kind: 'restricted', lines: [{ shown: 'Young adult, 40', more: 0 }, { shown: 'Trans woman', more: 0 }, { shown: 'Korean, Irish', more: 1 }] })
+  assert.deepEqual(lineOf(['24', '31']), { shown: '24, 31 years old', more: 0 })
 })
 
 test('the slot’s own words in a variant are found for showing quieter', () => {
@@ -138,8 +155,6 @@ test('a list in the text is its list choice: same place and options, else the on
   assert.equal(listChoiceAt([{ items: ['x', 'y'] }, { items: ['a', 'b'] }, { items: ['c', 'd'] }], choices, 3)?.id, 'list2')
   // Just typed, or edited since it was read: none yet.
   assert.equal(listChoiceAt([{ items: ['x', 'y'] }], choices, 1), null)
-  assert.equal(lineText({ values: ['summer', 'autumn'] }, true), 'summer, autumn')
-  assert.equal(lineText({ values: ['a', 'b', 'c', 'd'] }, true), 'a, b, c +1')
 })
 
 

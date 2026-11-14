@@ -121,7 +121,6 @@ test('an add is written into the prompt as a slot, opens, and undoes in one step
   const { page, calls, shot } = await open(t)
   const chip = page.locator('[data-slot-add="light"]')
   await chip.click()
-  await expect(chip.locator('.animate-spin')).toBeVisible()
   await shot('adding')
   await expect.poll(() => text(page)).toBe(`${PROMPT}, lit by <light>`)
   assert.deepEqual(calls.add, [{ project_id: 7, prompt: PROMPT, name: 'light' }])

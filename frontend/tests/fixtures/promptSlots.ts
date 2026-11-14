@@ -17,9 +17,17 @@ setWildcards([{ name: 'hairstyle', values: ['bob', 'pixie'] } as any])
   promptOptions.value = { ...promptOptions.value, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined }
 }
 
+// The host shows the editor's things worth adding on its own line (Tool View's slot list).
+const editorRef = ref<any>(null)
+const adds = () => (editorRef.value?.slotAdds || []).length
+  ? h('div', { 'data-slot-adds': '' }, editorRef.value.slotAdds.map((a: { name: string; label: string }) =>
+    h('button', { type: 'button', 'data-slot-add': a.name, onClick: () => editorRef.value.addSlot(a.name) }, a.label)))
+  : null
+
 createApp({
   render: () => h('div', { class: 'p-6 w-[480px]' }, [
     h(AIPromptEditor, {
+      ref: editorRef,
       modelValue: prompt.value,
       'onUpdate:modelValue': (v: string) => { prompt.value = v },
       promptOptions: promptOptions.value,
@@ -33,5 +41,6 @@ createApp({
         opened.push({ n: e.n, words: e.words, rect: { x: e.rect.x, y: e.rect.y, width: e.rect.width, height: e.rect.height } })
       },
     }, { mode: () => h('span', { 'data-mode': '', class: 'text-ctl text-content' }, 'Fluent') }),
+    adds(),
   ]),
 }).mount('#app')

@@ -110,8 +110,8 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
   await page.locator('.cm-content').waitFor()
   t.after(() => assert.deepEqual(errors, []))
   const shot = async file => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${file}.png` }) }
-  const card = page.locator('[data-picker]')
-  const lines = page.locator('[data-slot-lines]')
+  const card = page.locator('[data-picker-body]')
+  const lines = page.locator('[data-slot-list]')
   const mark = n => page.locator(`[data-slot-n="${n}"]`)
   return { page, calls, shot, card, lines, mark, editor: page.locator('.cm-content') }
 }
@@ -130,25 +130,24 @@ async function story(t, opts = {}) {
   await expect(page.locator('[data-slot-add]')).toHaveText(['light', 'camera'])
   assert.equal(calls.suggest.at(-1).prompt, 'dorm room with a young man')
   assert.equal(calls.suggest.at(-1).project_id, 7)
-  // Nothing varies yet: no slots, no lines.
-  await expect(lines).toHaveCount(0)
+  // Nothing varies yet: no rows.
+  await expect(lines.locator('[data-row]')).toHaveCount(0)
   await expect(page.locator('[data-program-choices]')).toHaveCount(0)
   await shot(`${tag}-1-underlined`)
 
-  // Vary this wraps it and the picker opens while the slot is read, then fills.
+  // Vary this wraps it and its row opens while the slot is read, then fills.
   await page.locator('.cm-could-vary').click()
   await tap(page.locator('[data-vary]'))
   await expect.poll(() => text(page)).toBe('dorm room with a <young man>')
-  await expect(card.locator('[data-writing]')).toContainText('Writing variants')
   await shot(`${tag}-2-writing`)
   await expect(card.locator(`[data-variant="${MEN[0]}"]`)).toBeVisible({ timeout: 4000 })
   await expect(card.locator('[data-any] svg')).toHaveCount(1)
   await shot(`${tag}-3-picker`)
 
-  // Pin a variant: the slot gets its dot, and a line under the prompt says what it is.
+  // Pin a variant: the slot fills, and its row says what it is.
   await tap(card.locator(`[data-variant="${MEN[1]}"]`))
-  await expect(page.locator('[data-line="young_man"]')).toContainText(MEN[1])
-  await expect(mark(1)).toHaveAttribute('data-slot-look', 'pinned')
+  await expect(page.locator('[data-row="young_man"]')).toContainText(MEN[1])
+  await expect(mark(1)).toHaveAttribute('data-slot-look', 'restricted')
   await shot(`${tag}-4-chosen`)
   await page.keyboard.press('Escape')
   await expect(card).toHaveCount(0)
@@ -158,16 +157,15 @@ async function story(t, opts = {}) {
   await expect.poll(() => text(page)).toBe('dorm room with a <young man>, lit by <light>')
   assert.deepEqual(calls.add.at(-1), { project_id: 7, prompt: 'dorm room with a <young man>', name: 'light' })
   await expect(card.locator(`[data-variant="${LIGHTS[0]}"]`)).toBeVisible({ timeout: 4000 })
-  await expect(card.locator('[data-picker-title]')).toHaveText('light')
+  await expect(page.locator('[data-row-wrap="light"][data-open]')).toHaveCount(1)
   await expect(page.locator('[data-slot-add]')).toHaveText(['camera'], { timeout: 4000 })
   await shot(`${tag}-5-light`)
 
-  // Leave it out.
-  await tap(card.locator('[data-leave-out]'))
-  await expect(card).toHaveCount(0)
-  await expect(page.locator('[data-line="light"]')).toContainText('left out')
-  await expect(mark(2)).toHaveAttribute('data-slot-look', 'off')
-  await shot(`${tag}-6-left-out`)
+  // Keep my words.
+  await tap(card.locator('[data-keep-words]'))
+  await expect(page.locator('[data-row="light"]')).toContainText('“light”')
+  await expect(mark(2)).toHaveAttribute('data-slot-look', 'words')
+  await shot(`${tag}-6-keep-words`)
 
   // Detail level High from the Fluent menu.
   await tap(page.locator('[data-fluent-chip]'))
@@ -184,7 +182,7 @@ async function story(t, opts = {}) {
   await expect.poll(() => page.evaluate(() => window.sent.length)).toBe(1)
   const [body] = await page.evaluate(() => window.sent)
   assert.equal(body.parameters.prompt, 'dorm room with a <young man>, lit by <light>')
-  assert.deepEqual(body.promptOptions.program, { enabled: true, choices: { young_man: { values: [MEN[1]] }, light: { off: true } } })
+  assert.deepEqual(body.promptOptions.program, { enabled: true, choices: { young_man: { values: [MEN[1]] }, light: { as_written: true } } })
   assert.equal(body.promptOptions.autoImprove.enabled, true)
   assert.equal(body.promptOptions.autoImprove.level, 'expand')
   return { page, calls }
@@ -275,8 +273,7 @@ test('Keep from this on a result tile and in the menu, only for images made from
   assert.deepEqual(await page.evaluate(() => window.kept), [['tile', 1], ['menu', 1]])
 })
 
-// Touch: on a phone each line's tick, words and ×, and the + ideas, are full-size targets
-// (44px), and no two targets overlap.
+// Touch: on a phone each row and the + ideas are full-size targets (44px), and no two overlap.
 const FOUR = 'dorm room with a <young man> and his <pet>, lit by <light>, at a <late-night diner on the edge of town>'
 const MIN = 44
 
@@ -285,55 +282,37 @@ async function measure(locator) {
 }
 const overlaps = (a, b) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5
 
-async function phoneLines(t, theme) {
-  const { page, card, lines, mark, shot } = await open(t, { width: 390, height: 844, mobile: true, theme, start: FOUR })
-  await expect(mark(2)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
-  // Pin a pet and leave out the light: two lines.
-  await mark(2).tap()
-  await card.locator('[data-variant="an old pet"]').tap()
-  await shot(`phone-${theme}-picker`)
-  await page.keyboard.press('Escape')
-  await expect(card).toHaveCount(0)
-  await mark(3).tap()
-  await card.locator('[data-leave-out]').tap()
-  await expect(card).toHaveCount(0)
-  await expect(lines.locator('[data-line]')).toHaveCount(2)
-  await expect(page.locator('[data-slot-add]')).toHaveText(['camera'], { timeout: 4000 })
-  await shot(`phone-${theme}-lines`)
-  return {
-    page, lines,
-    tick: await measure(lines.locator('[data-line-tick]')),
-    open: await measure(lines.locator('[data-line-open]')),
-    remove: await measure(lines.locator('[data-line-remove]')),
-    adds: await measure(page.locator('[data-slot-add]')),
-    row: (await measure(lines))[0],
-  }
-}
-
 for (const theme of ['dark', 'light']) {
-  test(`on a phone, the lines' tick, words and ×, and the + ideas are touch-sized, ${theme}`, async t => {
-    const m = await phoneLines(t, theme)
-    const targets = { tick: m.tick, open: m.open, remove: m.remove, adds: m.adds }
-    for (const [name, boxes] of Object.entries(targets)) {
-      assert.ok(boxes.length, `${name} present`)
-      for (const b of boxes) assert.ok(b.w >= MIN && b.h >= MIN, `${name} target ${b.w}x${b.h}`)
-    }
-    const all = [...m.tick, ...m.open, ...m.remove]
-    for (const b of all) assert.ok(b.x >= 0 && b.x + b.w <= 390, `on screen: ${JSON.stringify(b)}`)
+  test(`on a phone, the rows and the + ideas are touch-sized, ${theme}`, async t => {
+    const { page, card, lines, mark, shot } = await open(t, { width: 390, height: 844, mobile: true, theme, start: FOUR })
+    await expect(mark(2)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
+    await mark(2).tap()
+    await card.locator('[data-variant="an old pet"]').tap()
+    await shot(`phone-${theme}-picker`)
+    await page.keyboard.press('Escape')
+    await expect(card).toHaveCount(0)
+    await expect(page.locator('[data-slot-add]')).toHaveText(['camera'], { timeout: 4000 })
+    await shot(`phone-${theme}-rows`)
+    const rows = await measure(lines.locator('[data-row]'))
+    const adds = await measure(page.locator('[data-slot-add]'))
+    assert.equal(rows.length, 4)
+    for (const b of [...rows, ...adds]) assert.ok(b.w >= MIN && b.h >= MIN, `target ${b.w}x${b.h}`)
+    for (const b of rows) assert.ok(b.x >= 0 && b.x + b.w <= 390, `on screen: ${JSON.stringify(b)}`)
+    const all = [...rows, ...adds]
     for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
       assert.ok(!overlaps(all[i], all[j]), `targets overlap: ${JSON.stringify(all[i])} ${JSON.stringify(all[j])}`)
     }
   })
 }
 
-test('on a desktop, lines stay compact', async t => {
+test('on a desktop, rows stay compact', async t => {
   const { page, card, lines, mark } = await open(t, { start: FOUR })
   await expect(mark(2)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
   await mark(2).click()
   await card.locator('[data-variant="an old pet"]').click()
   await page.keyboard.press('Escape')
-  await expect(lines.locator('[data-line]')).toHaveCount(1)
-  for (const b of await measure(lines.locator('[data-line]'))) assert.ok(b.h <= 28, `desktop line ${b.h}px`)
+  await expect(card).toHaveCount(0)
+  for (const b of await measure(lines.locator('[data-row="pet"]'))) assert.ok(b.h <= 30, `desktop row ${b.h}px`)
   for (const b of await measure(page.locator('[data-slot-add]'))) assert.ok(b.h <= 28, `desktop add ${b.h}px`)
 })
 
@@ -355,7 +334,7 @@ for (const [label, opts] of [['desktop dark', {}], ['desktop light', { theme: 'l
     const sections = await tips.locator('section h4').allInnerTexts()
     assert.deepEqual(sections, ['Vary any part', 'Choose what it can be', 'Keep from this', 'Detail level', 'Lists', 'Saved wildcards and segments', 'Comment lines', 'Exact text'])
     const text = await tips.innerText()
-    for (const s of ['Vary this', 'press <', '+ light', 'Leave out', 'As written', 'Keep from this', 'Yours', 'Medium', 'High'])
+    for (const s of ['Vary this', 'press <', '+ light', 'Keep my words', 'Keep from this', 'Yours', 'Medium', 'High'])
       assert.ok(text.includes(s), `tips mention ${s}`)
     await expect(tips.locator('[data-tip-example="slot"]')).toContainText('<young man>')
     // No mechanics, no old features, no em dashes.

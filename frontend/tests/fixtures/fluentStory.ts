@@ -3,9 +3,7 @@ import axios from 'axios'
 import '../../src/style.css'
 import AIPromptEditor from '../../src/components/generation/AIPromptEditor.vue'
 import FluentControl from '../../src/components/generation/FluentControl.vue'
-import PromptSlotLines from '../../src/components/generation/PromptSlotLines.vue'
-import FluentPicker from '../../src/components/generation/FluentPicker.vue'
-import PromptSlotHover from '../../src/components/generation/PromptSlotHover.vue'
+import FluentSlotList from '../../src/components/generation/FluentSlotList.vue'
 import { usePromptProgram, type EnhanceLevel } from '../../src/composables/usePromptProgram'
 import { shapePromptOptions } from '../../src/utils/fluentSubmit'
 import { setDevMode } from '../../src/appConfig'
@@ -93,8 +91,10 @@ const App = defineComponent({
     }
     // Generate with the cursor still in the prompt (a shortcut), so leaving it reads nothing.
     ;(window as any).generate = generate
+    const editorRef = ref<any>(null)
     return () => h('div', { class: 'p-4 w-full max-w-[520px] flex flex-col gap-3' }, [
       h(AIPromptEditor, {
+        ref: editorRef,
         'data-prompt-editor': '',
         onFocusout,
         onSave: prepareNow,
@@ -110,7 +110,6 @@ const App = defineComponent({
         slotMarks: program.marks.value,
         'onOpen-slot': (e: { n: number; words: string; rect: DOMRect }) => { if (program.status.value !== 'off') program.openEditorSlot(e) },
         'onOpen-list': (e: { n: number; rect: DOMRect }) => { if (program.status.value !== 'off') program.openEditorList(e) },
-        'onSlot-hover': (e: { n: number; rect: DOMRect } | null) => { program.hover.value = e },
       }, {
         mode: ({ openHelp }: any) => h(FluentControl, {
           program, raw: raw.value, direct: direct.value, enhance: enhance.value, llmUnconfigured: false, modelName: 'Krea 2',
@@ -119,11 +118,14 @@ const App = defineComponent({
           onWay: (w: string) => { promptOptions.value = { ...promptOptions.value, raw: w === 'raw' || undefined, direct: w === 'direct' || undefined } },
           onHelp: (anchor: DOMRect | null) => openHelp(anchor),
         }),
-        'below-editor': () => h(PromptSlotLines, { program }),
+      }),
+      h(FluentSlotList, {
+        program,
+        adds: editorRef.value?.slotAdds || [],
+        adding: editorRef.value?.adding ?? null,
+        onAdd: (name: string) => editorRef.value?.addSlot(name),
       }),
       h('button', { type: 'button', 'data-generate': '', class: 'self-end px-3 py-1.5 rounded-md bg-accent text-white text-xs', onClick: generate }, 'Generate'),
-      h(FluentPicker, { program }),
-      h(PromptSlotHover, { program }),
       h('div', { class: 'grid grid-cols-2 gap-2 w-[440px]', 'data-results': '' }, results.map(job => h(JobTile, { key: job.id, job }))),
     ])
   },

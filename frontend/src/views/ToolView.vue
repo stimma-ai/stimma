@@ -334,7 +334,6 @@
             @save="preparePromptNow"
             @open-slot="openPromptSlot"
             @open-list="promptProgram.status.value !== 'off' && promptProgram.openEditorList($event)"
-            @slot-hover="promptProgram.hover.value = $event"
             :rows="drawerMode ? 2 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
             external-chat
             :promptOptions="globalPrefs.promptOptions"
@@ -367,8 +366,15 @@
               @mode="setDetailLevel"
               @help="(anchor) => openHelp(anchor)"
             /></template>
-            <template #below-editor><PromptSlotLines :program="promptProgram" /></template>
           </AIPromptEditor>
+          <FluentSlotList
+            v-if="fluentOn"
+            class="mt-1"
+            :program="promptProgram"
+            :adds="aiPromptEditorRef?.slotAdds || []"
+            :adding="aiPromptEditorRef?.adding ?? null"
+            @add="(name) => aiPromptEditorRef?.addSlot(name)"
+          />
         </div>
         </Teleport>
 
@@ -1216,8 +1222,6 @@
     />
 
     <!-- Fluent: the open slot's picker, a slot's hover card, and an image's Keep from this -->
-    <FluentPicker :program="promptProgram" />
-    <PromptSlotHover :program="promptProgram" />
     <KeepFromThisCard :open="keepOpen" :program="promptProgram" @close="keepOpen = null" />
 
     <!-- Mask Editor Modal -->
@@ -3437,13 +3441,11 @@ watch(() => videoImages.startImage, (newStart, oldStart) => {
 // LoRA state — ref that syncs bidirectionally with the composable pool
 import { useLoraPool } from '../composables/useLoraPool'
 import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptProgram'
-import PromptSlotLines from '../components/generation/PromptSlotLines.vue'
-import PromptSlotHover from '../components/generation/PromptSlotHover.vue'
+import FluentSlotList from '../components/generation/FluentSlotList.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
 import { DRAWING_LABEL, PREPARING_LABEL, directImproves, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
-import FluentPicker from '../components/generation/FluentPicker.vue'
 import KeepFromThisCard from '../components/generation/KeepFromThisCard.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
 import { disableUnavailableLoras } from '../utils/availableLoras'
@@ -3971,7 +3973,6 @@ const promptProgram = usePromptProgram({
   // device is still typing (it looks again when it's focused).
   prepareWhenFound: () => !isInitialLoading.value && stageViewActive.value && document.hasFocus()
     && !aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
-  thumbOf: (mediaId: number) => getThumbnailUrl(mediaId, 64),
 })
 // The newest image made in Fluent: the prompt it was sent with and its record (the prompt
 // menu's developer view).
@@ -4051,7 +4052,7 @@ function replayProgramRun(run: any) {
   void submitJob({ countOverride: 1, programFixed: fixed })
 }
 
-// The prompt editor's slot was clicked, or just made: its picker opens there.
+// The prompt editor's slot was clicked, or just made: its row opens under the prompt.
 function openPromptSlot(e: { n: number; words: string; rect: DOMRect }) {
   if (promptProgram.status.value !== 'off') promptProgram.openEditorSlot(e)
 }

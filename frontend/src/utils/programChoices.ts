@@ -4,15 +4,17 @@
  * tests without a DOM.
  *
  * A slot is one choice (its id is the slot's). Nothing starts chosen: the slot draws from its
- * whole pool of variants. The user can pin variants (`values`), take the slot's own words
- * (`as_written`), leave it out (`off`), or, for a person, pick seeds from the comprehensive
- * lists (descent, gender), which steer the draw and the next writes. A `{a|b}` list of the
+ * whole pool of variants. The user can pin variants (`values`), keep the slot's own words
+ * (`as_written`), or, for a person, pick seeds from the comprehensive lists (age, gender,
+ * descent), which steer the draw and the next writes. A `{a|b}` list of the
  * user's own is a choice too, with its options as values.
  */
 
 import type {
-  ChoicePool, ChoiceSeeds, ChoiceState, DescentPicker, PreparedProgram, ProgramChoice, ProgramSlot, Variant,
+  AgePicker, ChoicePool, ChoiceSeeds, ChoiceState, DescentPicker, PreparedProgram, ProgramChoice, ProgramSlot, Variant,
 } from './programWire.ts'
+
+type Person = ChoicePool['person']
 
 const uniq = (xs: unknown[] | undefined) => [...new Set((xs || []).filter((x): x is string => typeof x === 'string' && !!x.trim()))]
 
@@ -22,9 +24,12 @@ export function cleanSeeds(seeds: ChoiceSeeds | null | undefined): ChoiceSeeds |
   const values = uniq(seeds.descent?.values)
   const region = uniq(seeds.descent?.groups?.region)
   const gender = uniq(seeds.gender?.values)
+  const stages = uniq(seeds.age?.values)
+  const years = [...new Set((seeds.age?.years || []).filter(y => Number.isInteger(y) && y >= 0))].sort((a, b) => a - b)
   const out: ChoiceSeeds = {}
   if (values.length || region.length) out.descent = { ...(values.length ? { values } : {}), ...(region.length ? { groups: { region } } : {}) }
   if (gender.length) out.gender = { values: gender }
+  if (stages.length || years.length) out.age = { ...(stages.length ? { values: stages } : {}), ...(years.length ? { years } : {}) }
   return Object.keys(out).length ? out : null
 }
 
@@ -89,10 +94,6 @@ export function asWritten(s: ChoiceState | null | undefined): ChoiceState {
   return { as_written: true, ...own(s) }
 }
 
-export function leaveOut(s: ChoiceState | null | undefined): ChoiceState {
-  return { off: true, ...own(s) }
-}
-
 /** Exactly this variant, as Keep from this sets it (with the image it came from). */
 export function pinTo(s: ChoiceState | null | undefined, text: string, from?: number | null): ChoiceState {
   return { values: [text], ...own(s), ...(typeof from === 'number' ? { from } : {}) }
@@ -106,7 +107,7 @@ export function addOwn(s: ChoiceState | null | undefined, text: string): ChoiceS
   return cleanState({ ...base, add: [v, ...(s?.add || []).filter(x => x !== v)], values: [...(base.values || []).filter(x => x !== v), v] })
 }
 
-// Seeds (a person's descent and gender) ------------------------------------------------------
+// Seeds (a person's age, gender and descent) ------------------------------------------------
 
 /** Every heritage the picked seeds allow ([] when no descent is picked). */
 export function pickedHeritages(seeds: ChoiceSeeds | null | undefined, descent: DescentPicker | null | undefined): string[] {
@@ -115,13 +116,34 @@ export function pickedHeritages(seeds: ChoiceSeeds | null | undefined, descent: 
   return [...out]
 }
 
+/** The year of an age list value as recorded in a variant's seeds ("24-year-old": 24, a
+    newborn 0); null when it has none. */
+export function yearOfAge(age: string | number | null | undefined): number | null {
+  if (typeof age === 'number') return age
+  if (!age) return null
+  const m = /^(\d+)-year-old$/.exec(age.trim())
+  if (m) return Number(m[1])
+  return age.trim() === 'newborn' ? 0 : null
+}
+
+/** Every year the picked ages cover: the years of each picked stage, and the single years. */
+export function pickedYears(seeds: ChoiceSeeds | null | undefined, age: AgePicker | null | undefined): number[] {
+  const out = new Set(seeds?.age?.years || [])
+  for (const id of seeds?.age?.values || []) for (const y of age?.stages.find(st => st.id === id)?.years || []) out.add(y)
+  return [...out].sort((a, b) => a - b)
+}
+
 /** Whether a variant is what the picked seeds ask for (as the server draws). A seed facet with
     nothing picked allows anything. */
-export function variantMatches(v: Variant, seeds: ChoiceSeeds | null | undefined, descent: DescentPicker | null | undefined): boolean {
-  const heritages = pickedHeritages(seeds, descent)
+export function variantMatches(v: Variant, seeds: ChoiceSeeds | null | undefined, person: Person | null | undefined): boolean {
+  const heritages = pickedHeritages(seeds, person?.descent)
   if (heritages.length && !heritages.includes(v.seeds?.descent || '')) return false
   const genders = seeds?.gender?.values || []
   if (genders.length && !genders.includes(v.seeds?.gender || '')) return false
+  if (seeds?.age?.values?.length || seeds?.age?.years?.length) {
+    const y = yearOfAge(v.seeds?.age)
+    if (y === null || !pickedYears(seeds, person?.age).includes(y)) return false
+  }
   return true
 }
 
@@ -133,7 +155,7 @@ function dropConflicting(s: ChoiceState, pool: ChoicePool | null | undefined): C
   const byText = new Map((pool?.variants || []).map(v => [v.text, v]))
   const values = s.values.filter((t) => {
     const v = byText.get(t)
-    return !v || v.own || variantMatches(v, s.seeds, pool?.person?.descent)
+    return !v || v.own || variantMatches(v, s.seeds, pool?.person)
   })
   return { ...s, values }
 }
@@ -172,17 +194,33 @@ export function toggleGender(s: ChoiceState | null | undefined, gender: string, 
   return withSeeds(s, { ...(s?.seeds || {}), gender: { values: flip(s?.seeds?.gender?.values, gender) } }, pool)
 }
 
-export function clearSeed(s: ChoiceState | null | undefined, which: 'descent' | 'gender', pool: ChoicePool | null | undefined): ChoiceState | null {
+export function clearSeed(s: ChoiceState | null | undefined, which: 'descent' | 'gender' | 'age', pool: ChoicePool | null | undefined): ChoiceState | null {
   const seeds = { ...(s?.seeds || {}) }
   delete seeds[which]
   return withSeeds(s, seeds, pool)
 }
 
-/** A region's note in the descent list: "all", "2 of 9", or how many heritages it holds. */
-export function regionNote(s: ChoiceState | null | undefined, part: { id: string; values: string[] }): string {
-  if (s?.seeds?.descent?.groups?.region?.includes(part.id)) return 'all'
-  const n = part.values.filter(h => s?.seeds?.descent?.values?.includes(h)).length
-  return n ? `${n} of ${part.values.length}` : String(part.values.length)
+/** Pick a life stage whole, or un-pick it. Picked whole, its single years picked one by one go. */
+export function toggleStage(s: ChoiceState | null | undefined, stage: string, pool: ChoicePool | null | undefined): ChoiceState | null {
+  const stages = s?.seeds?.age?.values || []
+  const on = !stages.includes(stage)
+  const inStage = new Set(pool?.person?.age?.stages.find(st => st.id === stage)?.years || [])
+  const years = (s?.seeds?.age?.years || []).filter(y => !on || !inStage.has(y))
+  return withSeeds(s, { ...(s?.seeds || {}), age: { values: flip(stages, stage), years } }, pool)
+}
+
+/** Pick a single year, or un-pick it. A year inside a stage picked whole narrows that stage
+    to the year. */
+export function toggleYear(s: ChoiceState | null | undefined, year: number, pool: ChoicePool | null | undefined): ChoiceState | null {
+  const age = pool?.person?.age
+  let stages = [...(s?.seeds?.age?.values || [])]
+  let years = [...(s?.seeds?.age?.years || [])]
+  const whole = stages.filter(id => age?.stages.find(st => st.id === id)?.years.includes(year))
+  if (whole.length) {
+    stages = stages.filter(id => !whole.includes(id))
+    if (!years.includes(year)) years.push(year)
+  } else years = years.includes(year) ? years.filter(y => y !== year) : [...years, year]
+  return withSeeds(s, { ...(s?.seeds || {}), age: { values: stages, years } }, pool)
 }
 
 // What the picker lists ------------------------------------------------------------------------
@@ -191,11 +229,11 @@ export function regionNote(s: ChoiceState | null | undefined, part: { id: string
     image) first, then the pool; with seeds picked, only the variants that match them (the
     user's own always). */
 export function shownVariants(pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined): Variant[] {
-  const all = pool?.variants || (pool?.options || []).map(text => ({ text }))
+  const all: Variant[] = pool?.variants || (pool?.options || []).map(text => ({ text }))
   const have = new Set(all.map(v => v.text))
   const extra = (s?.values || []).filter(t => !have.has(t)).map(text => ({ text, own: true }))
   const seeds = hasSeeds(s) ? s!.seeds : null
-  const listed = seeds ? all.filter(v => v.own || (s?.values || []).includes(v.text) || variantMatches(v, seeds, pool?.person?.descent)) : all
+  const listed = seeds ? all.filter(v => v.own || (s?.values || []).includes(v.text) || variantMatches(v, seeds, pool?.person)) : all
   return [...extra, ...listed]
 }
 
@@ -209,7 +247,7 @@ export function optionsOf(c: ProgramChoice, pool: ChoicePool | null | undefined,
     them quieter than what the writer added. The server's `keep` names those runs (`[]`: none,
     the slot is only its category word); without it, the longest run of the slot's words the
     variant holds (display only: it decides nothing). */
-export function keptPieces(text: string, words: string, keep?: string[] | null): Array<{ t: string; kept?: boolean }> {
+export function keptPieces(text: string, words: string, keep?: string[] | null, also: string[] = []): Array<{ t: string; kept?: boolean }> {
   const find = (chunk: string): [number, number] | null => {
     const parts = chunk.trim().split(/[\s-]+/).filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     if (!parts.length) return null
@@ -229,6 +267,7 @@ export function keptPieces(text: string, words: string, keep?: string[] | null):
       }
     }
   }
+  for (const a of also) { const at = find(a); if (at) spans.push(at) }
   spans.sort((a, b) => a[0] - b[0])
   const out: Array<{ t: string; kept?: boolean }> = []
   let at = 0
@@ -244,48 +283,70 @@ export function keptPieces(text: string, words: string, keep?: string[] | null):
 
 // How a slot shows -----------------------------------------------------------------------------
 
-/** One word for how a slot stands: its mark in the text, its line, its picker's header.
-    `keep`: one variant kept from an image; `pinned`: one variant; `several`: more, or seeds;
-    `written`: its own words; `off`: left out; `writing`: its variants aren't written yet;
-    `varying`: drawn from its whole pool. */
-export type SlotLookKind = 'varying' | 'writing' | 'pinned' | 'several' | 'keep' | 'written' | 'off'
+/** One word for how a slot stands, for its mark in the text and its row: `varying` (drawn from
+    its whole pool), `restricted` (limited to some variants or seeds), `words` (Keep my words),
+    `writing` (its first variants are being written). */
+export type SlotLookKind = 'varying' | 'writing' | 'restricted' | 'words'
 
 export function lookOf(slot: Pick<ProgramSlot, 'state'> | null | undefined, s: ChoiceState | null | undefined,
                        pool?: ChoicePool | null): SlotLookKind {
-  if (s?.off) return 'off'
-  if (s?.as_written) return 'written'
-  const n = s?.values?.length || 0
-  if (n === 1 && !hasSeeds(s)) return typeof s?.from === 'number' ? 'keep' : 'pinned'
-  if (n || hasSeeds(s)) return 'several'
+  if (s?.off || s?.as_written) return 'words'
+  if (s?.values?.length || hasSeeds(s)) return 'restricted'
   const state = pool?.state || slot?.state
   if (!slot || slot.state === 'reading' || state === 'writing' || state === 'reading') return 'writing'
-  if (slot.state === 'as_written') return 'written'
+  if (slot.state === 'as_written') return 'words'
   return 'varying'
 }
 
-/** "trans woman" as a row or line says it. */
+/** "trans woman" as a row says it. */
 export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
-/** The seeds picked, in words: "East Asia or Swedish · Trans woman". */
-export function seedsText(s: ChoiceState | null | undefined): string {
-  const regions = s?.seeds?.descent?.groups?.region || []
-  const heritages = s?.seeds?.descent?.values || []
-  const d = [...regions, ...heritages]
-  const descent = d.length > 2 ? `${d.slice(0, 2).join(', ')} +${d.length - 2}` : d.join(' or ')
-  const gender = (s?.seeds?.gender?.values || []).map(cap).join(' or ')
-  return [descent, gender].filter(Boolean).join(' · ')
+/** A person's picks as items for a row: Age (its stages, then single years), Gender, Descent
+    (regions, then heritages). */
+export function ageItems(s: ChoiceState | null | undefined, age: AgePicker | null | undefined): string[] {
+  const stages = (s?.seeds?.age?.values || []).map(id => age?.stages.find(st => st.id === id)?.label || cap(id))
+  return [...stages, ...[...(s?.seeds?.age?.years || [])].sort((a, b) => a - b).map(String)]
 }
+export const genderItems = (s: ChoiceState | null | undefined) => (s?.seeds?.gender?.values || []).map(cap)
+export const descentItems = (s: ChoiceState | null | undefined) => [...(s?.seeds?.descent?.groups?.region || []), ...(s?.seeds?.descent?.values || [])]
 
-/** What a slot is set to, in a few words, for its line under the prompt; '' while it varies.
-    A list of the user's own names its options ("summer, autumn"). */
-export function lineText(s: ChoiceState | null | undefined, list = false): string {
-  if (!s) return ''
-  if (s.off) return 'left out'
-  if (s.as_written) return 'as written'
-  const values = s.values || []
-  const pinned = list ? (values.length > 3 ? `${values.slice(0, 3).join(', ')} +${values.length - 3}` : values.join(', '))
-    : values.length === 1 ? values[0] : values.length > 1 ? `${values.length} variants` : ''
-  return [seedsText(s), pinned].filter(Boolean).join(' · ')
+/** Items read as one line: the first one or two in full, then "+27"; "years old" after single
+    years alone. */
+export function lineOf(items: string[], room = 34): { shown: string; more: number } {
+  let f: { shown: string; more: number }
+  if (items.length <= 2 && items.join(', ').length <= room * 1.6) f = { shown: items.join(', '), more: 0 }
+  else {
+    const k = items.length > 1 && items[0].length + items[1].length <= room ? 2 : 1
+    f = { shown: items.slice(0, k).join(', '), more: items.length - k }
+  }
+  return items.length && items.every(i => /^\d+$/.test(i)) ? { ...f, shown: `${f.shown} years old` } : f
+}
+export const lineString = (items: string[]) => { const f = lineOf(items); return f.shown + (f.more ? ` +${f.more}` : '') }
+
+export type RowValue =
+  | { kind: 'writing' }
+  | { kind: 'varying'; text: string }
+  | { kind: 'words'; text: string }
+  | { kind: 'restricted'; lines: Array<{ shown: string; more: number }> }
+
+/** What a slot's row says: how many options its pool holds while it varies freely, what it's
+    limited to (a person: a line each for age, gender, descent, then variants), its words in
+    quotes on Keep my words, or a shimmer while its first variants are written. A list of the
+    user's own counts its options. */
+export function rowValue(slot: Pick<ProgramSlot, 'state' | 'words'> | null, s: ChoiceState | null | undefined,
+                         pool: ChoicePool | null | undefined, options: string[] = []): RowValue {
+  const kind = slot ? lookOf(slot, s, pool) : (s?.values?.length ? 'restricted' : 'varying')
+  if (kind === 'words') return { kind, text: `\u201c${slot?.words || ''}\u201d` }
+  if (kind === 'writing') return { kind }
+  if (kind === 'restricted') {
+    const person = pool?.person
+    const lines = person
+      ? [ageItems(s, person.age), genderItems(s), descentItems(s), s?.values || []]
+      : [s?.values || []]
+    return { kind, lines: lines.filter(l => l.length).map(l => lineOf(l)) }
+  }
+  const n = pool?.variants?.length ?? (pool?.options?.length || options.length)
+  return { kind: 'varying', text: `${n} option${n === 1 ? '' : 's'}` }
 }
 
 /** The choice of the `n`-th list of the user's own in the text (1-based, as `findLists` counts

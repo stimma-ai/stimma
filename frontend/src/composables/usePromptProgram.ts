@@ -3,12 +3,12 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { prepareBody, prepareErrorCode, prepareSettingsSig, readPending, shownKey, type PrepareInputs } from '../utils/fluentSubmit'
 import {
-  addOwn as addOwnTo, carriedIds, carryChoices, cleanState, followId, isChanged, keptPools, listChoiceAt, lookOf, numberRepeats, optionsOf as optionsIn,
+  addOwn as addOwnTo, asWritten, carriedIds, carryChoices, cleanState, followId, isChanged, keptPools, listChoiceAt, lookOf, numberRepeats, optionsOf as optionsIn,
   resetState, wireState, type SlotLookKind,
 } from '../utils/programChoices'
 import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareResponse, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 import { findLists } from '../utils/promptSyntax'
-import type { ListLook, SlotGlyph, SlotLook, SlotMarks } from './promptSlotMarks'
+import type { ListLook, SlotLook, SlotMarks } from './promptSlotMarks'
 
 export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 
@@ -19,7 +19,7 @@ export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramCh
  * (it is looked up again while `working`). A run never waits for it: a slot not written yet goes
  * in as its words. This holds the prepared slots and choices for the current prompt, each slot's
  * pool of variants (/pools), what the user chose (utils/programChoices.ts), how each slot shows
- * in the text, the lines under the prompt, and which picker is open.
+ * in the text, and which row of the list under the prompt is open.
  *
  * What is chosen lives in promptOptions.programChoices, keyed by choice id, so it persists
  * per tool (the tool's shared workspace state) and rides presets with the rest of the
@@ -31,10 +31,10 @@ export type ProgramStatus = 'off' | 'ready' | 'stale' | 'busy' | 'error'
 /** Detail level, by its wire values: off is Yours, fill is Medium, expand is High. */
 export type EnhanceLevel = 'off' | 'fill' | 'expand'
 
-/** What a picker is open on: a slot (by its place in the prompt and its words, so a slot just
-    typed opens before it is prepared), or one choice (a list of the user's own). */
+/** What row is open: a slot (by its place in the prompt and its words, so a slot just typed
+    opens once it is prepared), or one choice (a list of the user's own). */
 export type CardTarget = { slot: { n: number; words: string } } | { choice: string }
-export interface OpenCard { target: CardTarget; anchor: DOMRect }
+export interface OpenCard { target: CardTarget }
 
 interface Options {
   toolId: Ref<string | null>
@@ -46,8 +46,6 @@ interface Options {
   /** Whether a prompt found unprepared is read right away: not while the user is in the
       prompt box (it's read when they're done), the tool is still loading, or in the background. */
   prepareWhenFound?: () => boolean
-  /** An image's thumbnail, for a slot kept from it (Keep from this). */
-  thumbOf?: (mediaId: number) => string | null
 }
 
 /** How often the editor looks for a program the server prepared in the background after a failure. */
@@ -143,7 +141,7 @@ export function usePromptProgram(o: Options) {
     const same = Object.keys(next).length === Object.keys(states.value).length
       && Object.entries(next).every(([id, s]) => states.value[id] === s)
     if (!same) writeStates(next)
-    released.value = carryChoices(released.value, ids, prev, p)
+    stashed.value = carryChoices(stashed.value, ids, prev, p)
   }
 
   function request(extra: Record<string, any> = {}) {
@@ -402,75 +400,49 @@ export function usePromptProgram(o: Options) {
     setState(id, addOwnTo(states.value[id], text))
   }
 
-  // How each slot shows in the text, and the lines under the prompt ----------------------
+  /** Keep my words: the slot goes in as its words. Turning it off restores what was picked. */
+  const stashed = ref<Record<string, ChoiceState>>({})
+  function setKeepWords(id: string, on: boolean) {
+    const s = states.value[id]
+    if (on) {
+      if (isChanged(s) && !s?.as_written && !s?.off) stashed.value = { ...stashed.value, [id]: s! }
+      setState(id, asWritten(s))
+    } else {
+      const held = stashed.value[id]
+      const rest = { ...stashed.value }
+      delete rest[id]
+      stashed.value = rest
+      setState(id, held ? { ...held, ...(s?.add?.length ? { add: s.add } : {}) } : resetState(s))
+    }
+  }
 
-  /** How the slot stands now: its mark, its line, its picker's header. */
+  // How each slot shows in the text --------------------------------------------------------
+
+  /** How the slot stands now: its mark and its row. */
   function lookOfSlot(id: string): SlotLookKind {
     return lookOf(slotById.value[id], states.value[id], pools.value[id])
   }
-  /** The editor's marks: one look per slot of the prepared program, by its place and words. A
-      slot the editor has that isn't here yet (just typed) shows as still being written. */
-  const glyphOf = (kind: SlotLookKind, from: number | undefined): SlotGlyph | null => kind === 'keep'
-    ? { kind: 'thumb', src: typeof from === 'number' ? o.thumbOf?.(from) ?? null : null }
-    : kind === 'pinned' || kind === 'several' ? { kind: 'dot' } : null
   /** The prompt's own lists as the editor finds them in the text. */
   const listsInText = computed(() => findLists(o.prompt.value || ''))
+  /** The editor's marks: one look per slot of the prepared program, by its place and words. A
+      slot the editor has that isn't here yet (just typed) shows as still being written. */
   const marks = computed<SlotMarks | null>(() => {
     if (status.value === 'off') return null
-    const looks: SlotLook[] = slots.value.map((s) => {
-      const kind = lookOfSlot(s.id)
-      return { n: s.n, words: s.words, kind, glyph: glyphOf(kind, states.value[s.id]?.from) }
-    })
+    const looks: SlotLook[] = slots.value.map(s => ({ n: s.n, words: s.words, kind: lookOfSlot(s.id) }))
     // A list looks set once something is chosen for it; it has no state of being written.
     const lists: ListLook[] = []
     listsInText.value.forEach((l, i) => {
       const c = listChoiceAt(listsInText.value, choices.value, i + 1)
       const s = c ? states.value[c.id] : null
       if (!c || !isChanged(s)) return
-      const kind = lookOf({ state: 'ready' }, s)
-      lists.push({ n: i + 1, items: l.items, kind, glyph: glyphOf(kind, s?.from) })
+      lists.push({ n: i + 1, items: l.items, kind: lookOf({ state: 'ready' }, s) })
     })
     return { looks, lists, fallback: 'writing' }
   })
 
-  /** Lines the user unticked: what they held, so ticking again puts it back. By choice id. */
-  const released = ref<Record<string, ChoiceState>>({})
-  /** Untick a line: the slot varies again, and its line stays so a tick restores it. */
-  function release(id: string) {
-    const s = states.value[id]
-    if (!isChanged(s)) return
-    released.value = { ...released.value, [id]: s }
-    setState(id, resetState(s))
-  }
-  /** Tick a released line again. */
-  function restore(id: string) {
-    const held = released.value[id]
-    if (!held) return
-    forgetLine(id)
-    setState(id, { ...held, ...(states.value[id]?.add?.length ? { add: states.value[id].add } : {}) })
-  }
-  function forgetLine(id: string) {
-    if (!(id in released.value)) return
-    const next = { ...released.value }
-    delete next[id]
-    released.value = next
-  }
-  /** × on a line: the slot varies again and the line goes. */
-  function removeLine(id: string) {
-    forgetLine(id)
-    if (isChanged(states.value[id])) setState(id, resetState(states.value[id]))
-  }
-  // A slot set again (in its picker, from an image) drops its released line.
-  watch(states, (now) => {
-    const back = Object.keys(released.value).filter(id => isChanged(now[id]))
-    if (back.length) released.value = Object.fromEntries(Object.entries(released.value).filter(([id]) => !back.includes(id)))
-  })
-
-  // The open picker ---------------------------------------------------------------------
+  // The open row ------------------------------------------------------------------------
 
   const openCard = ref<OpenCard | null>(null)
-  /** The slot under the pointer in the text (desktop), for its hover card. */
-  const hover = ref<{ n: number; rect: DOMRect } | null>(null)
 
   /** The slot a card target names, in the program prepared now: by its place and words,
       else by its words when only one slot has them. Null while it is still being read. */
@@ -480,49 +452,41 @@ export function usePromptProgram(o: Options) {
     const same = slots.value.filter(s => s.words === t.words)
     return same.length === 1 ? same[0] : null
   }
-
-  function anchorOf(at: Element | DOMRect | null | undefined): DOMRect | null {
-    if (!at) return null
-    return at instanceof Element ? at.getBoundingClientRect() : at
+  /** The choice id of the open row (null while none is, or its slot isn't prepared yet). */
+  const openId = computed<string | null>(() => {
+    const t = openCard.value?.target
+    if (!t) return null
+    return 'choice' in t ? (byId.value[t.choice] ? t.choice : null) : slotFor(t.slot)?.id ?? null
+  })
+  /** Open a row (a slot's, or a list of the user's own) by its choice id; the open one again
+      closes it. */
+  function toggleRow(id: string) {
+    if (openId.value === id) { close(); return }
+    const s = slotById.value[id]
+    openCard.value = s ? { target: { slot: { n: s.n, words: s.words } } } : byId.value[id] ? { target: { choice: id } } : null
   }
-  /** Open a slot's picker. */
-  function openSlot(slotId: string, at: Element | DOMRect | null | undefined) {
-    const s = slotById.value[slotId]
-    const anchor = anchorOf(at)
-    if (!s || !anchor) return
-    hover.value = null
-    openCard.value = { target: { slot: { n: s.n, words: s.words } }, anchor }
+  /** A slot in the text was clicked, or just made: open its row (the same one again closes it).
+      `toggle` false always opens: a slot just added or made. */
+  function openEditorSlot(e: { n: number; words: string }, toggle = true) {
+    const s = slotFor(e)
+    if (toggle && s && openId.value === s.id) { close(); return }
+    openCard.value = { target: { slot: { n: e.n, words: e.words } } }
   }
-  /** Open one choice's picker (a slot's, or a list of the user's own). */
-  function openChoice(id: string | null | undefined, at: Element | DOMRect | null | undefined) {
-    const anchor = anchorOf(at)
-    const c = id ? byId.value[id] : null
-    if (!c || !anchor) return
-    if (c.slot && slotById.value[c.slot]) return openSlot(c.slot, anchor)
-    hover.value = null
-    openCard.value = { target: { choice: c.id }, anchor }
-  }
-  /** The editor's slot was clicked, or just made: open its picker. A slot not prepared yet
-      opens on "Writing variants…" and fills in when the prompt is read. */
-  function openEditorSlot(e: { n: number; words: string; rect: DOMRect }) {
-    hover.value = null
-    openCard.value = { target: { slot: { n: e.n, words: e.words } }, anchor: e.rect }
-  }
-  /** A list of the user's own was clicked in the text: open its picker. One the program doesn't
+  /** A list of the user's own was clicked in the text: open its row. One the program doesn't
       have yet (just typed) opens once the prompt is read. */
-  function openEditorList(e: { n: number; rect: DOMRect }) {
+  function openEditorList(e: { n: number }) {
     const c = listChoiceAt(listsInText.value, choices.value, e.n)
-    if (c) openChoice(c.id, e.rect)
+    if (c) toggleRow(c.id)
     else if (needsRead()) void prepare()
   }
   function close() { openCard.value = null }
-  // A picker waiting on a slot that isn't read yet reads the prompt as soon as the prompt with
+  // A row waiting on a slot that isn't read yet reads the prompt as soon as the prompt with
   // the slot has reached us (the editor may say so before or after the text changes).
   watch([openCard, status], () => {
     const t = openCard.value?.target
     if (t && 'slot' in t && needsRead() && slotFor(t.slot)?.state !== 'ready') void nextTick(() => { if (needsRead()) void prepare() })
   })
-  // A choice's picker closes itself when its choice goes (a prepare without it).
+  // A list's row closes itself when its choice goes (a prepare without it).
   watch(() => {
     const t = openCard.value?.target
     return !!t && 'choice' in t && status.value === 'ready' && !byId.value[t.choice]
@@ -549,10 +513,10 @@ export function usePromptProgram(o: Options) {
   onUnmounted(() => { if (errorPoll) clearInterval(errorPoll) })
 
   return {
-    program, status, error, unsupported, slots, choices, byId, slotById, pools, fresh, states, openCard, hover, marks, released,
+    program, status, error, unsupported, slots, choices, byId, slotById, pools, fresh, states, openCard, openId, marks,
     lookup, prepare, needsRead, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns,
-    poolOf, optionsOf, moreLikeThese, addOwn, setState, setStates, setValues, reset, resetAll, lookOfSlot,
-    release, restore, removeLine, slotFor, openEditorList, thumbOf: (media: number) => o.thumbOf?.(media) ?? null, openSlot, openChoice, openEditorSlot, close,
+    poolOf, optionsOf, moreLikeThese, addOwn, setState, setStates, setValues, setKeepWords, reset, resetAll, lookOfSlot,
+    slotFor, toggleRow, openEditorList, openEditorSlot, close,
   }
 }
 

@@ -119,6 +119,19 @@ export interface GenderPicker {
   in_pool?: Record<string, number>
 }
 
+/** Age: browsed by life stage; each stage's › opens its single years. */
+export interface AgePicker {
+  list: string
+  label: string
+  /** The stage ids this person may be. */
+  options: string[]
+  stages: Array<{ id: string; label: string; span: [number, number]; years: number[] }>
+  fits?: string[]
+  picked?: { values: string[]; years?: number[] }
+  in_pool?: Record<string, number>
+  in_pool_years?: Record<string, number>
+}
+
 /** One choice's pool in /prompt-programs/pools. A slot's is its variants; a list's, its options. */
 export interface ChoicePool {
   kind?: 'variants'
@@ -134,7 +147,7 @@ export interface ChoicePool {
   /** The runs of the slot's words every variant keeps, when the server says. */
   keep?: string[]
   /** A person's comprehensive lists. */
-  person?: { descent?: DescentPicker; gender?: GenderPicker }
+  person?: { descent?: DescentPicker; gender?: GenderPicker; age?: AgePicker }
 }
 
 /** POST /prompt-programs/pools. `more`: the slots with a write in flight. */
@@ -144,6 +157,8 @@ export interface PoolsResponse { choices: Record<string, ChoicePool>; more?: str
 export interface ChoiceSeeds {
   descent?: { values?: string[]; groups?: { region?: string[] } }
   gender?: { values?: string[] }
+  /** Life stage ids, and single years. */
+  age?: { values?: string[]; years?: number[] }
 }
 
 /** What the user chose for one choice. Nothing chosen is no entry at all. */
@@ -152,7 +167,7 @@ export interface ChoiceState {
   values?: string[]
   /** The slot's own words, as they are. */
   as_written?: boolean
-  /** Left out of the prompt. */
+  /** Left out of the prompt (older choices; the picker no longer sets it). */
   off?: boolean
   seeds?: ChoiceSeeds
   /** The user's own variants (a list's own options). */

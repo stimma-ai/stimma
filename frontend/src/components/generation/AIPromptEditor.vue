@@ -5,8 +5,6 @@
       <div ref="editorMount"></div>
       <!-- Host-supplied extras: a row under the text. -->
       <slot name="below-editor" />
-      <!-- Fluent: things the prompt doesn't mention that could vary. -->
-      <PromptSlotAdds v-if="slotAdds.length" :adds="slotAdds" :adding="adding" @add="addSlot" />
 
       <!-- Words that could become a slot: a phrase Fluent underlined, or a selection. -->
       <Teleport to="body">
@@ -286,7 +284,6 @@ import { slotEditing, wrapSlot, replaceDocument, rangeRect, setVaryEffect } from
 import { setSlotMarks, slotMarks as slotMarksExtension, type SlotMarks } from '../../composables/promptSlotMarks'
 import { shownAdds, usePromptSuggestions, type ReadSlots } from '../../composables/usePromptSuggestions'
 import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
-import PromptSlotAdds from './PromptSlotAdds.vue'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
 import { useViewport } from '../../composables/useViewport'
 import { PROMPT_LANGUAGES, promptLanguageByCode, DEFAULT_TRANSLATE_LANGUAGE } from './promptLanguages'
@@ -367,8 +364,6 @@ const emit = defineEmits<{
   /** A list of the user's own was clicked: its 1-based place among the prompt's lists (as
       `findLists` counts them) and where it is. */
   (e: 'open-list', value: { n: number; rect: DOMRect }): void
-  /** The pointer is over a slot (its place and where it is), or over none (null). */
-  (e: 'slot-hover', value: { n: number; rect: DOMRect } | null): void
 }>()
 
 // Box height. Desktop rests at ~5 lines and grows to 408px; phones give the
@@ -541,13 +536,6 @@ const slotExtensions = [
     keydown(e) { if (e.key === 'Escape') offer.value = null; return false },
   }),
   slotMarksExtension({
-    onHover: (n, rect) => emit('slot-hover', n && rect && fluentSlots.value ? { n, rect } : null),
-    // A slot's dot or thumbnail opens it, as its words do.
-    onGlyph: (n) => {
-      const view = getView()
-      const at = view ? findSlots(view.state.doc.toString())[n - 1] : null
-      if (at && fluentSlots.value) { offer.value = null; openSlotAt(at[0] + 1) }
-    },
     onList: (n, rect) => { if (fluentSlots.value) { offer.value = null; emit('open-list', { n, rect }) } },
   }),
 ]
@@ -793,6 +781,10 @@ onUnmounted(() => {
 
 defineExpose({
   getText: () => props.modelValue,
+  // Fluent's things worth adding: the host shows them on its own line under the prompt.
+  slotAdds,
+  adding,
+  addSlot,
   setPromptText,
   animateDiff,
   selectLine,
