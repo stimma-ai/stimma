@@ -65,6 +65,9 @@ class Model:
             n = int(re.search(r"\{L(\d+)\}", asked).group(1))
             self.reads.append(f"L{n}")
             return json.dumps({"slots": [], "lists": [{"n": n, "label": "Season"}]})
+        from prompt_programs.ages import READING_SYSTEM
+        if system == READING_SYSTEM:   # how old the people read: asked again for each wording of the prompt
+            return '{"age": "adult"}'
         self.narrows += 1
         if user.startswith('The list "Age"'):
             return json.dumps(ELDERLY)

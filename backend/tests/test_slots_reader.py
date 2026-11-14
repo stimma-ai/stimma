@@ -460,9 +460,10 @@ async def test_a_stated_age_under_18_gives_the_person_a_pool_of_their_own(profil
             if _asked(messages).startswith('The list "Age"'):
                 assert '"10-year-old' in messages[-1]["content"]
                 return json.dumps(young)
-            if messages[0]["content"].startswith("You read an image prompt and say whether"):
-                assert '"10-year-old boy"' in messages[-1]["content"]
-                return '{"under_18": "yes"}'   # the model's explicit yes: only then do ages under 18 count
+            from prompt_programs.ages import READING_SYSTEM
+            if messages[0]["content"] == READING_SYSTEM:
+                assert "a 10-year-old boy flying a kite" in messages[-1]["content"]   # the whole prompt
+                return '{"age": "child"}'   # the natural reading pins him a child
             return await super().__call__(messages, project_id, max_tokens)
     _use(monkeypatch, Young(json.dumps(reading)))
     first = await slots.prepare("a <10-year-old boy> flying a kite", profile_id=profile)

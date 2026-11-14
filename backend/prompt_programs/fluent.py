@@ -137,23 +137,25 @@ def early_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", p
     """While a slot's seeds are still narrowed, one unseeded turn written from its words and the
     prompt alone, so it shows variants without waiting: it opens the pool's session, and the
     seeded first write continues it (variant_pools.PoolWriter.run);
-    None when it must wait. Only for a slot that can't be about a person's age: never a person
-    (descent, gender, age and the minors rules need the narrowing), never a slot narrowing reads
-    an age for (a list under person. or clothing.: seeding.narrow_seeds' about_ages), never one
-    whose record says it may be under 18 (MINORS_POLICY.md). Structure only."""
+    None when it must wait. Only once the prompt's ages are in (entry["ages"], seeding.narrow_seeds:
+    whether a child is in it, which its writer is told, MINORS_POLICY.md), and never for a person
+    (descent, gender, age and the minors rules need the narrowing) or a list of what a person
+    wears or looks like (person., clothing.). Structure only."""
     from prompt_programs.seeding import _people_like
     from prompt_programs.variants import Seeds
     if not slot.get("pool") or slot["id"] not in (entry.get("seeds_pending") or []) or _people_like(slot.get("kind")):
         return None
     record = (entry.get("seeds") or {}).get(slot["id"])
-    if not isinstance(record, dict) or _people_like(record.get("kind")) or record.get("minor"):
+    if not isinstance(entry.get("ages"), dict) or not isinstance(record, dict) or _people_like(record.get("kind")) \
+            or record.get("minor"):
         return None
     if any(str(b.get("list") or "").startswith(("person.", "clothing.")) for b in record.get("banks") or []):
-        return None
+        return None   # what a person wears or looks like waits for their seeds
     span = slot.get("span") or [0, 0]
     sl = Slot(words=slot["words"], prompt=str(entry.get("prompt") or ""), span=(int(span[0]), int(span[1])),
               kind=str(slot.get("kind") or "free"), category=str(slot.get("category") or ""))
-    return Job(key=str(slot["pool"]), slot=sl, seeds=Seeds(), role="early", project_id=project_id, model=model)
+    return Job(key=str(slot["pool"]), slot=sl, seeds=Seeds(young=str(record.get("young") or "")),
+               role="early", project_id=project_id, model=model)
 
 
 def _model(entry: Dict[str, Any]) -> str:

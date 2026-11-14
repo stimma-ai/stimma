@@ -274,9 +274,11 @@ def test_a_person_who_may_be_a_minor_gets_no_adult_only_seed_and_the_writer_is_t
     seeds = V.person_seeds(ages=["8-year-old", "9-year-old", "10-year-old"], ideas=[("person.makeup", None)])
     assert seeds.minor == ("8-year-old", "9-year-old", "10-year-old")
     assert not set(seeds.ideas[0].texts()) & adult
-    assert seeds.age is None   # their words state their age ("little girl"): no number beside them
-    msg = V.messages(slot_of("a <little girl> at the beach", "person"), V.draw_seeds(random.Random(1), seeds, 5), seeds)
-    assert "under 18 (8, 9 or 10 years old)" in msg[1]["content"]
+    # the age is on the seed line the writer follows, so a child is never written as a grown-up
+    drawn = V.draw_seeds(random.Random(1), seeds, 5)
+    assert seeds.age is not None and all(s.age in seeds.minor and f"age: {s.age}" in s.line() for s in drawn.specs)
+    msg = V.messages(slot_of("a <little girl> at the beach", "person"), drawn, seeds)
+    assert "under 18 (8, 9 or 10 years old)" in msg[1]["content"] and "never a woman or a man" in msg[1]["content"]
     # an adult keeps every value; the rule about who is an adult is always said
     adult_seeds = V.person_seeds(ideas=[("person.makeup", None)])
     assert adult <= set(adult_seeds.ideas[0].texts())

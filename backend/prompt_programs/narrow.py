@@ -9,15 +9,12 @@ copies the items that fit back (numbers alone made models unreliable with reason
 ["ALL"]; a long list is asked in chunks of WORDS_CHUNK side by side, each cached on its own.
 A list with declared groups (descent) is shown by group and answered by group.
 
-Ages. A person is an adult unless asked: the age list's bands under 18 are opt-in (vocab.py),
-kept only when the words call for them, and an age is read in its line and the prompt's notes,
-where "a girl" alone is a young adult (MINORS_POLICY.md). Which words make someone a child is
-the model's reading, never matched here: beside every age narrowing the model is asked, yes or
-no, whether the prompt's own words make this person a child or a teenager (`under_18`), and the
-ages under 18 a narrowing keeps count only after a yes (seeding.narrow_seeds). Anything but a
-clear yes, a failed call or an unreadable reply included, means an adult. A failed or unreadable
-answer is never cached: the question is worth asking again, and meanwhile the slot's seeds go
-without that list.
+Ages. The age list's bands under 18 are opt-in (vocab.py), kept only when the words call for
+them, and an age is read in its line and the prompt's notes. Whether a person is a child, a
+teenager or an adult is not decided here: it is the natural reading of the whole prompt
+(ages.py), and seeding.narrow_seeds keeps of a narrowing only the ages of that stage. A failed or
+unreadable answer is never cached: the question is worth asking again, and meanwhile the slot's
+seeds go without that list.
 """
 
 from __future__ import annotations
@@ -36,9 +33,8 @@ from prompt_programs.vocab import AGE_LIST, Leaf
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-15"   # narrow-15: words naming a kind of being (an elf) leave gender open. narrow-14: a list may be read in its scene (what a person wears, the light). narrow-13: the gender list, whose description says words for a woman fit a trans woman too. narrow-12: "elderly" is 70 and over. narrow-11: an age is read in its own line and the notes; "young" is 18 to 29. narrow-10: a grouped list is answered as {"groups", "items"}; an empty answer stands. narrow-9: a list with declared groups (descent) is shown by group. narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
+NARROW_VERSION = "narrow-16"   # narrow-16: (asked afresh with the minors rules rebuilt; the question is unchanged). narrow-15: words naming a kind of being (an elf) leave gender open. narrow-14: a list may be read in its scene (what a person wears, the light). narrow-13: the gender list, whose description says words for a woman fit a trans woman too. narrow-12: "elderly" is 70 and over. narrow-11: an age is read in its own line and the notes; "young" is 18 to 29. narrow-10: a grouped list is answered as {"groups", "items"}; an empty answer stands. narrow-9: a list with declared groups (descent) is shown by group. narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
 NARROW_SECONDS = 180.0   # all of a prompt's narrowing calls together; past it what hasn't answered seeds nothing
-UNDER_18_VERSION = "under18-1"   # a yes asked twice; the yes/no question: whether the prompt's own words make a person a child or a teenager
 WORDS_CHUNK = 80         # a list longer than this is asked in chunks of about this many, side by side
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
@@ -203,52 +199,6 @@ def parse_subset(reply: str, values: Sequence[str]) -> Optional[List[str]]:
     return None
 
 
-UNDER_18_SYSTEM = """You read an image prompt and say whether its own words make a person in it a child or a
-teenager: someone under 18.
-
-A person is an adult unless the words themselves say they are under 18. Answer "yes" only when a
-reader of the prompt would say its words plainly describe a child or a teenager: "a child", "a
-baby", "a toddler", "kids", "a little girl", "a schoolboy", "a schoolgirl", "a teenager", "a
-teenage boy", "a 10-year-old". Answer "no" when the words describe an adult, and when they say
-nothing about age or fit adults as well: a job, a role, a pastime or a word for anyone (a doctor,
-a fisherman, a student, a singer, a cyclist) is an adult, wherever the picture is set.
-
-"A girl" or "a boy" alone is a young adult: "no". They are a child only when other words in the
-prompt make them one ("a little girl", "a schoolgirl", "a boy holding his mother's hand", "a girl
-at her fifth birthday party"). Being young, small or in a family does not by itself make someone
-a child, and nor does doing what people of every age do (skating, a sport, dancing, studying,
-playing music, a day at the beach): "a girl on a bicycle" is a young woman.
-
-Reply with only a JSON object: {"under_18": "yes"} or {"under_18": "no"}."""
-
-
-def under_18_messages(phrase: str, about: str = "", prompt: str = "") -> List[Dict[str, str]]:
-    said = f", said of {about.strip()}" if about.strip() else ""
-    user = f'The words: "{phrase.strip()}"{said}.'
-    if prompt.strip():
-        user += f"\n\nThe prompt they are in:\n{prompt.strip()}"
-    user += "\n\nDo the prompt's own words make this person a child or a teenager?"
-    return [{"role": "system", "content": UNDER_18_SYSTEM}, {"role": "user", "content": user}]
-
-
-def parse_under_18(reply: str) -> Optional[bool]:
-    """The model's yes or no: True for a yes, False for a no, None for anything else (which the
-    caller reads as an adult, and doesn't cache)."""
-    text = re.sub(r"<think>.*?</think>", "", reply or "", flags=re.S)
-    for m in re.finditer(r"\{[^{}]*\}", text, re.S):
-        try:
-            got = json.loads(m.group(0))
-        except ValueError:
-            continue
-        if isinstance(got, dict) and isinstance(got.get("under_18"), (str, bool)):
-            v = got["under_18"]
-            v = ("yes" if v else "no") if isinstance(v, bool) else v.strip().lower()
-            if v in ("yes", "no"):
-                return v == "yes"
-    bare = re.sub(r"[^a-z]", "", text.lower())   # a bare answer: "yes", "No."
-    return {"yes": True, "no": False}.get(bare)
-
-
 class NarrowCache:
     """(list, words) → subset, one small JSON file each, keyed by the list's values too."""
 
@@ -350,64 +300,6 @@ async def subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Opt
 _asking: Dict[Tuple[str, str], "asyncio.Future[Optional[List[str]]]"] = {}
 
 
-async def under_18(phrase: str, cache: Optional[NarrowCache], ask: Optional[Ask], project_id: Optional[int] = None,
-                   about: str = "", prompt: str = "") -> Optional[bool]:
-    """Whether the prompt's own words make the person these words are said of a child or a
-    teenager: the model's explicit answer, from the cache or calls. A yes counts only when a second
-    asking says yes too, so one stray yes never makes an adult a minor; a no is a no. None when
-    there is no clear answer (a failed call or an unreadable reply, each asked once more): the
-    caller treats them as an adult, and it isn't cached. `ask=None` reads the cache only. Never
-    raises."""
-    blob = json.dumps([UNDER_18_VERSION, _norm(phrase), _norm(about), _norm(prompt)], ensure_ascii=False)
-    key = "u" + hashlib.sha256(blob.encode("utf-8")).hexdigest()[:31]
-    if cache is not None:
-        hit = cache.get_raw(key)
-        if isinstance(hit, bool):
-            return hit
-    if ask is None:
-        return None
-    first = under_18_messages(phrase, about, prompt)
-
-    async def answer() -> Optional[bool]:
-        messages = first
-        for attempt in range(2):
-            if attempt:   # the retry starts differently, as a narrowing's does (_ask_subset)
-                messages = [first[0], {"role": "user", "content": RETRY_LEAD + first[1]["content"]}]
-            try:
-                reply = await ask(messages, project_id, 40)
-            except Exception as e:
-                log.warning(f"[prompt-program] under-18 reading of {phrase!r} failed (try {attempt + 1}): {e}")
-                continue
-            got = parse_under_18(reply)
-            if got is not None:
-                return got
-            log.info(f"[prompt-program] under-18 reading of {phrase!r}: no yes or no in the reply (try {attempt + 1}): "
-                     f"{str(reply)[:120]!r}")
-        return None
-    got = await answer()
-    if got is True:
-        got = await answer()   # a yes, asked again: both must say so
-    if got is not None and cache is not None:
-        cache.put_raw(key, got)
-    return got
-    messages = under_18_messages(phrase, about, prompt)
-    for attempt in range(2):
-        if attempt:   # the retry starts differently, as a narrowing's does (_ask_subset)
-            messages = [messages[0], {"role": "user", "content": RETRY_LEAD + messages[1]["content"]}]
-        try:
-            reply = await ask(messages, project_id, 40)
-        except Exception as e:
-            log.warning(f"[prompt-program] under-18 reading of {phrase!r} failed (try {attempt + 1}): {e}")
-            continue
-        got = parse_under_18(reply)
-        if got is not None:
-            if cache is not None:
-                cache.put_raw(key, got)
-            return got
-        log.info(f"[prompt-program] under-18 reading of {phrase!r}: no yes or no in the reply (try {attempt + 1}): {str(reply)[:120]!r}")
-    return None
-
-
 async def _ask_subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask: Ask, project_id: Optional[int],
                       about: str, prompt: str, key: str, values: Sequence[str]) -> Optional[List[str]]:
     shown = [_shown(v) for v in values]
@@ -439,5 +331,5 @@ async def _ask_subset(leaf: Leaf, phrase: str, cache: Optional[NarrowCache], ask
     return got
 
 
-__all__ = ["ALL", "NarrowCache", "UNDER_18_VERSION", "WORDS_CHUNK", "chunks", "grouped", "messages_for", "parse_grouped",
-           "parse_subset", "parse_under_18", "subset", "under_18", "under_18_messages"]
+__all__ = ["ALL", "NarrowCache", "WORDS_CHUNK", "chunks", "grouped", "messages_for", "parse_grouped", "parse_subset",
+           "subset"]

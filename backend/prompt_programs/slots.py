@@ -587,20 +587,37 @@ async def _narrow(entry: Dict[str, Any], p: _Prompt, ask: Any) -> None:
     another place (places.py: the prompt's setting or the default place). A slot whose
     pool isn't written yet draws from the pool it had before an edit (`stand_in`) meanwhile."""
     from prompt_programs.narrow import NARROW_SECONDS, NarrowCache
+    from prompt_programs.seeding import narrow_seeds
+
+    def early(seeds: Dict[str, Any], pending: List[str], ages: Any) -> None:
+        # The ages are in while narrowing still runs: the slots that aren't people may show an
+        # unseeded opening turn meanwhile (fluent.early_job), written for what the ages say.
+        import copy
+        from prompt_programs import program as prep
+        look = copy.deepcopy(entry)
+        look.update({"seeds": seeds, "seeds_pending": pending, "ages": ages})
+        _pools(look, p)
+        prep.on_prepared(look, project_id=p.project_id, profile_id=p.profile_id)
+    await narrow_seeds(entry, NarrowCache(p.store.root / "narrow"), ask, p.project_id, seconds=NARROW_SECONDS,
+                       early=early if ask is not None else None)
+    _pools(entry, p)
+    _stand_ins(entry, p)
+
+
+def _pools(entry: Dict[str, Any], p: _Prompt) -> None:
+    """Key each read slot's pool (variant_pools.pool_key) by its minors marks too (seeding.young_marks)."""
     from prompt_programs.places import mark
     from prompt_programs.reader import seen_in
-    from prompt_programs.seeding import narrow_seeds
+    from prompt_programs.seeding import young_marks
     from prompt_programs.variant_pools import pool_key
-    await narrow_seeds(entry, NarrowCache(p.store.root / "narrow"), ask, p.project_id, seconds=NARROW_SECONDS)
     segs = {n: seg for kind, n, seg in _marked(p.parsed) if kind == "slot"}
     for s in entry["slots"]:
         if s["state"] != "ready" or s.get("degraded"):
             continue
-        seen = s.get("seen") if isinstance(s.get("seen"), dict) else seen_in(p.parsed, segs[s["n"]])
         record = (entry.get("seeds") or {}).get(s["id"], {})
+        seen = s.get("seen") if isinstance(s.get("seen"), dict) else seen_in(p.parsed, segs[s["n"]])
         s["pool"] = pool_key(p.model, s["words"], str(seen.get("marked") or ""), list(seen.get("notes") or []),
-                             record.get("minor") or (), scene=str(seen.get("scene") or ""), place=mark(record.get("place")))
-    _stand_ins(entry, p)
+                             young_marks(record), scene=str(seen.get("scene") or ""), place=mark(record.get("place")))
 
 
 def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
@@ -624,7 +641,8 @@ def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
                 continue
             old = parse(str(prev["prompt"]))
             ids_old, ids_new = _part_ids(old), _part_ids(p.parsed)
-            minors = {sid: tuple(sorted(r.get("minor") or ())) for sid, r in (prev.get("seeds") or {}).items()}
+            from prompt_programs.seeding import young_marks
+            minors = {sid: young_marks(r) for sid, r in (prev.get("seeds") or {}).items()}
             pools = {s["id"]: [(str(x), minors.get(s["id"], ())) for x in (s.get("pool"), s.get("stand_in")) if x]
                      for s in prev.get("slots") or [] if s["id"] not in (prev.get("seeds_pending") or [])}
             for i, j in match_marks(old, p.parsed).items():
@@ -635,7 +653,8 @@ def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
     for s in entry["slots"]:
         if not s.get("pool") or store.has(s["pool"]) or s["id"] in pending:
             continue
-        minor = tuple(sorted(((entry.get("seeds") or {}).get(s["id"]) or {}).get("minor") or ()))
+        from prompt_programs.seeding import young_marks
+        minor = young_marks((entry.get("seeds") or {}).get(s["id"]))
         # the pool it had (or stood in with) before, when this prompt's own entry already has the new key
         was = next((k for k, m in earlier.get(s["id"], []) if k != s["pool"] and m == minor and store.has(k)), None)
         if was:

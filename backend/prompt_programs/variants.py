@@ -30,10 +30,11 @@ image (variant_pools.py).
   the prompt already has is repaired; then it must keep the words, add something and stay
   short, and carry a descent the user picked. A variant failing a check is dropped and counted,
   never an error. A variant records its descent seed only when its text carries the word.
-- Minors (stimma-plans MINORS_POLICY.md). A person is an adult unless the prompt's own words make
-  them a child or teenager. Age seeds come from the age list's pool, which holds no band under 18
-  unless narrowing asked for one. A person who may be under 18 gets no adult-only seed and the
-  writer is told their age.
+- Minors (stimma-plans MINORS_POLICY.md). A person is pinned a child, a teenager or an adult by
+  the natural reading of the whole prompt (ages.py, seeding.narrow_seeds), an adult when vague.
+  When anyone in the prompt reads child or teenager, every slot of it draws no adult-only seed and
+  its writer is told; a child or a teenager is seeded with their stage's ages (on the seed line)
+  and child words for who they are, never an adult's.
 
 This module makes calls and checks replies; it stores nothing. `ask` is injected: the app's chat
 model (ask_writer, streamed through stream_writer where the provider can stream, else whole
@@ -56,7 +57,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-17"   # variants-17: the writer is told each kind's rules from its vocabulary data, in the kinds' order; a heritage may come with its look. variants-16: a couple, a family and a group are written as such (who a couple is drawn by its list, one shared heritage); a third of a person's variants wear what is typical for who and where they are; light is described as light; a camera part is how the picture is taken. variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-18"   # variants-18: a young prompt's every slot drops adult-only seeds and is told a child is in the picture; a child is seeded with their age and child words. variants-17: the writer is told each kind's rules from its vocabulary data, in the kinds' order; a heritage may come with its look. variants-16: a couple, a family and a group are written as such (who a couple is drawn by its list, one shared heritage); a third of a person's variants wear what is typical for who and where they are; light is described as light; a camera part is how the picture is taken. variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -326,7 +327,8 @@ class Seeds:
     spread: Optional[Bank] = None         # a core list too short for cores: shown whole
     ideas: Tuple[Bank, ...] = ()          # lists ideas are drawn from (the writer may reject them)
     each: Tuple[Tuple[str, Bank, str, str], ...] = ()   # the each role: (label, bank, say, show), one value per variant
-    minor: Tuple[str, ...] = ()           # the ages under 18 the person may be
+    minor: Tuple[str, ...] = ()           # the ages under 18 the person is (a child or a teenager)
+    young: str = ""                       # the youngest stage in a young prompt ("child", "teenager"): no adult-only seed, and the writer is told
     aspects: Optional[Any] = None         # kinds.Aspects: what each variant develops (a person's)
     dropped: Tuple[str, ...] = ()         # aspects this slot leaves out (what they wear, when the prompt says it)
     drop_if_none: Tuple[Tuple[str, str], ...] = ()   # (aspect, role): left out when that role seeds nothing
@@ -345,6 +347,11 @@ class Seeds:
         """A slot whose variants develop aspects of who they are (a person)."""
         return self.aspects is not None
 
+    @property
+    def filtered(self) -> bool:
+        """Adult-only values leave every list this slot draws (a child or teenager, or a young prompt)."""
+        return bool(self.minor) or bool(self.young)
+
     def pinned(self, pins: Optional[Pins]) -> "Seeds":
         """The seeds with the user's picks: heritage and who drawn only from what was picked
         (what the words allow of it, else what was picked)."""
@@ -355,7 +362,7 @@ class Seeds:
         if picked is not None and (self.descent is not None or self.heritage_list):
             fits = self.descent.only(picked) if self.descent is not None else None
             if fits is None and self.heritage_list:
-                fits = bank(self.heritage_list, picked, minor=bool(self.minor))
+                fits = bank(self.heritage_list, picked, minor=self.filtered)
                 if fits is not None:
                     from prompt_programs.places import weigh
                     fits = replace(fits, values=weigh(fits.values, dict(self.place or ()), self.heritage_list))
@@ -367,7 +374,7 @@ class Seeds:
             # Within what their words allow and the minors rules (age_stages), even where the words
             # state an age and no age is seeded unpinned: a picked age always shows in the variants.
             ages = pins.ages(self.age_fits, self.minor)
-            picked = bank(AGE, ages, minor=bool(self.minor)) if ages else None
+            picked = bank(AGE, ages, minor=self.filtered) if ages else None
             if picked is not None:
                 out = replace(out, age=picked)
         return out
@@ -379,7 +386,8 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
                cores: Sequence[Tuple[str, Optional[Sequence[str]]]] = (),
                each: Sequence[Tuple[Dict[str, Any], Optional[Sequence[str]]]] = (),
                stated: Optional[Dict[str, Sequence[str]]] = None, minor: Sequence[str] = (),
-               answers: Optional[Dict[str, Any]] = None, place: Optional[Dict[str, str]] = None) -> Seeds:
+               answers: Optional[Dict[str, Any]] = None, place: Optional[Dict[str, str]] = None,
+               young: str = "") -> Seeds:
     """A slot's seeds by its kind (kinds.Kind) from its narrowed lists, role by role:
     `heritage`: (list, the values its words allow, None for the whole list), one per variant drawn
     by its context mix (places.py, `place`); `stated_descent`: the words state it, so a single
@@ -394,6 +402,7 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
     k: Kind = kind
     answers = dict(answers or {})
     minor = tuple(dict.fromkeys([*(minor_ages(list(ages)) if ages else ()), *minor]))
+    filt = bool(minor) or bool(young)   # `young`: the youngest stage of a young prompt
     # What their age gives the lists of their look (graying, life stage: vocab tags), so a young
     # woman's ideas hold no salt-and-pepper or thinning hair.
     look = dict(stated or {})
@@ -404,7 +413,7 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
             if fams:
                 look[facet] = fams
     from prompt_programs.places import weigh
-    d = bank(heritage[0], heritage[1], minor=bool(minor)) if heritage else None
+    d = bank(heritage[0], heritage[1], minor=filt) if heritage else None
     if d is not None and stated_descent and len(d.values) == 1:
         d = None   # their words name it already
     if d is not None:
@@ -419,8 +428,8 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
     who_rule = next((r for r in k.draws if r.role == "who" and isinstance(r.list, str)
                      and (who is None or r.list == who[0])), None)
     core = spread = None
-    idea_banks = [b for b in (bank(lid, n, minor=bool(minor), stated=look) for lid, n in ideas) if b is not None]
-    core_banks = [b for b in (bank(lid, n, minor=bool(minor), stated=stated) for lid, n in cores) if b is not None]
+    idea_banks = [b for b in (bank(lid, n, minor=filt, stated=look) for lid, n in ideas) if b is not None]
+    core_banks = [b for b in (bank(lid, n, minor=filt, stated=stated) for lid, n in cores) if b is not None]
     if len(cores) == 1 and core_banks:
         if len(core_banks[0].values) >= k.first_write:
             core = core_banks[0]
@@ -429,7 +438,7 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
     else:
         idea_banks += core_banks
     each_banks = tuple((str(r.get("label") or ""), b, str(r.get("say") or "value"), str(r.get("show") or ""))
-                       for r, n in each for b in [bank(str(r["list"]), n, minor=bool(minor), stated=stated)] if b is not None)
+                       for r, n in each for b in [bank(str(r["list"]), n, minor=filt, stated=stated)] if b is not None)
     asp = k.aspects
     dropped: List[str] = []
     drop_if_none: List[Tuple[str, str]] = []
@@ -447,8 +456,10 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
                  gender=bank(who[0], who[1]) if who else None, who_list=who[0] if who else "",
                  who_label=who_rule.label if who_rule else "gender", who_say=who_rule.say if who_rule else "short",
                  gender_fits=tuple(who[1]) if who and who[1] is not None else None,
-                 age=bank(AGE, ages, minor=bool(minor)) if age_role and ages is not None and _open_age(ages) else None,
-                 age_fits=tuple(ages) if ages is not None else None, minor=minor,
+                 # A child's or a teenager's age is always on their seed line, beside who they are, so a
+                 # 10-year-old is never written as a man.
+                 age=bank(AGE, ages, minor=filt) if age_role and ages is not None and (_open_age(ages) or minor) else None,
+                 age_fits=tuple(ages) if ages is not None else None, minor=minor, young=young,
                  core=core, spread=spread, ideas=tuple(idea_banks), each=each_banks,
                  aspects=asp, dropped=tuple(dropped), drop_if_none=tuple(drop_if_none), typical=typical,
                  notes=tuple(notes), room=room, second=second)
@@ -466,7 +477,7 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
                  ages: Optional[Sequence[str]] = None, ideas: Sequence[Tuple[str, Optional[Sequence[str]]]] = (),
                  stated: Optional[Dict[str, Sequence[str]]] = None, minor: Sequence[str] = (),
                  clothes_owned: bool = False, place: Optional[Dict[str, str]] = None,
-                 people: str = "", gender_list: str = "", heritage: bool = True) -> Seeds:
+                 people: str = "", gender_list: str = "", heritage: bool = True, young: str = "") -> Seeds:
     """The person kind's seeds (vocab/kinds/person.json) from explicit lists, as one person is
     seeded: the heritage from the human heritage list, the gender from the kind's first who list
     (`gender_list` for another: a couple's), an age. A shorthand over kind_seeds for scripts and
@@ -479,7 +490,7 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
     who = gender_list or next((r.list for r in k.draws if r.role == "who" and isinstance(r.list, str)), "")
     return kind_seeds(k, heritage=(human.heritage, descent) if heritage and human and human.heritage else None,
                       stated_descent=stated_descent, who=(who, gender) if who else None, ages=ages, age_role=True,
-                      ideas=ideas, stated=stated, minor=minor, place=place,
+                      ideas=ideas, stated=stated, minor=minor, place=place, young=young,
                       answers={**({"clothes": "as stated"} if clothes_owned else {}), **({"people": people} if people else {})})
 
 
@@ -495,7 +506,7 @@ def _open_age(ages: Sequence[str]) -> bool:
 
 def list_seeds(lists: Sequence[Tuple[str, Optional[Sequence[str]]]], *, single: bool = False,
                minor: Sequence[str] = (), stated: Optional[Dict[str, Sequence[str]]] = None,
-               n: int = N_OTHER) -> Seeds:
+               n: int = N_OTHER, young: str = "") -> Seeds:
     """The seeds of a slot that isn't a person: (list, narrowed or None) per list it draws on.
     `single`: the slot is bound to that one list, which gives each variant its core when it holds
     at least `n` values (the pool's first write); a list with fewer is shown whole instead, with
@@ -503,12 +514,12 @@ def list_seeds(lists: Sequence[Tuple[str, Optional[Sequence[str]]]], *, single: 
     core: 8 selfie angles for 30 variants). `minor`: the ages under 18 of the person it is about,
     if any. `stated`: what the prompt states of the scene (bank)."""
     m = tuple(minor)
-    banks = [b for b in (bank(lid, nar, minor=bool(m), stated=stated) for lid, nar in lists) if b is not None]
+    banks = [b for b in (bank(lid, nar, minor=bool(m) or bool(young), stated=stated) for lid, nar in lists) if b is not None]
     if single and len(lists) == 1 and banks:
         if len(banks[0].values) >= n:
-            return Seeds(core=banks[0], minor=m)
-        return Seeds(spread=banks[0], minor=m)
-    return Seeds(ideas=tuple(banks), minor=m)
+            return Seeds(core=banks[0], minor=m, young=young)
+        return Seeds(spread=banks[0], minor=m, young=young)
+    return Seeds(ideas=tuple(banks), minor=m, young=young)
 
 
 @dataclass
@@ -813,9 +824,25 @@ def minor_words(ages: Sequence[str]) -> str:
 
 
 def minor_line(ages: Sequence[str]) -> str:
-    """The writer's line for a person who may be under 18 (MINORS_POLICY.md)."""
-    return (f"This person is under 18 ({minor_words(ages)}), as the prompt asks: every variant must be what someone "
-            "that age would ordinarily wear, do or look like.")
+    """The writer's line for a child or a teenager (MINORS_POLICY.md)."""
+    who = "a teenager" if ages and all(age_years(a) >= 13 for a in ages) else "a child"
+    return (f"This person is under 18 ({minor_words(ages)}), as the prompt asks: write them as {who} that age, a "
+            "girl or a boy and never a woman or a man, and every variant must be what someone that age would "
+            "ordinarily wear, do or look like.")
+
+
+def young_line(stage: str) -> str:
+    """The writer's line for every other part of a prompt with a child or a teenager in it."""
+    who = "a teenager" if stage == "teenager" else "a child"
+    return (f"There is {who} in this picture, under 18: nothing in any variant may sexualize anyone in it, and a "
+            "child or teenager is dressed and posed as people their age ordinarily are.")
+
+
+def minors_lines(seeds: Seeds) -> List[str]:
+    """The minors rules' lines for a writer's request (stimma-plans MINORS_POLICY.md)."""
+    if seeds.minor:
+        return [minor_line(seeds.minor)]
+    return [young_line(seeds.young)] if seeds.young else []
 
 
 @dataclass(frozen=True)
@@ -867,8 +894,7 @@ def messages(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -
                      + ", ".join(f'"{k}"' for k in keep) + ".")
     else:
         lines.append(f'The whole part is the category "{cat}": every variant is a specific kind of it.')
-    if seeds.minor:
-        lines.append(minor_line(seeds.minor))
+    lines += minors_lines(seeds)
     lines += list(seeds.notes)   # the chosen options' notes (several people)
     from prompt_programs.vocab import vocabulary
     kind = vocabulary().kind(slot.kind)
@@ -1204,8 +1230,8 @@ def more_turn(drawn: Drawn, a: int, seeds: Seeds, *, unseeded_start: bool = Fals
     lines = [f"Write {n} more variants of the same marked part, numbered {a} to {a + n - 1}, each clearly different "
              "from every variant above: not a repeat, not a paraphrase, not the same idea reworded."]
     if unseeded_start:
-        if seeds.minor:
-            lines += ["", minor_line(seeds.minor)]
+        if minors_lines(seeds):
+            lines += ["", *minors_lines(seeds)]
         for b in drawn.short:
             lines += ["", f"Spread the variants across these {b.label.lower()} choices where they fit: "
                       + "; ".join(f'"{t}"' for t, _ in b.values) + "."]
@@ -1508,5 +1534,5 @@ __all__ = ["AGE", "STAGE", "Ask", "Bank", "Deadline", "Drawn", "N_OTHER", "N_PER
            "ObjectReader", "Pins", "SHORTLIST", "Seeds", "kind_seeds", "system_text", "typical_text", "Session", "Slot", "Spec", "TOPUP", "TURN", "Turn",
            "VARIANTS_VERSION", "age_stages", "age_years", "allowed_ages", "article_before", "ask_writer", "bank",
            "check", "context_words", "draw_seeds", "first_turn", "retry_note", "gender_mark", "gender_needs", "has_run", "kept_chunks", "list_seeds", "messages",
-           "minor_line", "minor_words", "more_turn", "parse_reply", "person_seeds", "repair", "reply_text", "split", "stages_of",
+           "minor_line", "minor_words", "minors_lines", "young_line", "more_turn", "parse_reply", "person_seeds", "repair", "reply_text", "split", "stages_of",
            "tokens", "valid_category", "write_turn", "year_ages"]

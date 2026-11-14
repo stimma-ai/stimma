@@ -52,10 +52,14 @@ class FakeModel:
             import re
             count = len(re.findall(r"^\d+\. ⟨", messages[-1]["content"], re.M))
             return json.dumps({str(i): self.check for i in range(1, count + 1)})
-        from prompt_programs.narrow import UNDER_18_SYSTEM
-        if messages[0]["content"] == UNDER_18_SYSTEM:
-            # asked only once a narrowing kept an age under 18; these fakes narrow children's words
-            return '{"under_18": "yes"}'
+        from prompt_programs.ages import READING_SYSTEM
+        if messages[0]["content"] == READING_SYSTEM:
+            # these fakes narrow a child's words to children's ages: the reading says so too
+            # (or the prompt states a child's age: the fake's stand-in for a natural reading)
+            from prompt_programs.vocab import minor_ages
+            import re
+            said = any(re.search(rf"\b{a}-year-old", messages[-1]["content"]) for a in range(1, 13))
+            return '{"age": "child"}' if minor_ages(self.ages) or said else '{"age": "adult"}'
         user = messages[-1]["content"]
         label = user.split('"')[1] if user.startswith("The list") else ""
         self.narrowed.append(label)
@@ -349,7 +353,10 @@ async def test_a_failed_early_chunk_leaves_the_first_write_as_it_was(monkeypatch
 
 def test_an_early_chunk_is_never_for_a_person_a_clothing_list_or_a_minor():
     from prompt_programs.fluent import early_job
-    base = {"prompt": "a <thing>", "seeds_pending": ["thing"], "seeds": {"thing": {"kind": "free", "banks": []}}}
+    base = {"prompt": "a <thing>", "seeds_pending": ["thing"], "seeds": {"thing": {"kind": "free", "banks": []}},
+            "ages": {"young": False}}
+    assert early_job({**base, "ages": None}, {"id": "thing", "words": "thing", "span": [2, 9], "kind": "free",
+                                              "pool": "ab" * 16}) is None   # the reading isn't in: it waits
     s = {"id": "thing", "words": "thing", "span": [2, 9], "kind": "free", "pool": "ab" * 16}
     assert early_job(base, s).role == "early"
     assert early_job({**base, "seeds_pending": []}, s) is None                      # narrowed: the first write
@@ -505,7 +512,7 @@ async def test_a_user_list_of_ages_on_the_persons_line_may_make_them_a_minor(mon
             return await super().__call__(messages, project_id, max_tokens)
     use(monkeypatch, Ages(reading, ages=[f"{a}-year-old" for a in range(18, 60)]))
     entry = await settled(prompt, profile)
-    assert entry["seeds"]["woman"]["minor"] == ["9-year-old"]
+    assert entry["seeds"]["woman"]["young"] == "child"   # the prompt is young
     r = prep.realize(entry, profile_id=profile, seed=1)
     assert r.prompt.endswith(("9-year-old", "30-year-old"))   # the user's list is never filtered
 
@@ -564,7 +571,7 @@ async def test_an_adult_pool_never_stands_in_for_a_child_after_an_edit(monkeypat
     use(monkeypatch, Ages(reading))
     adult = await settled("a 30-year-old in <clothing>", profile)
     old = slot(adult, "clothing")
-    assert P.store_for(profile).has(old["pool"]) and "minor" not in adult["seeds"]["clothing"]
+    assert P.store_for(profile).has(old["pool"]) and "young" not in adult["seeds"]["clothing"]
 
     async def hang(*a, **k):   # the new pool isn't written yet
         await asyncio.sleep(3600)
@@ -574,7 +581,7 @@ async def test_an_adult_pool_never_stands_in_for_a_child_after_an_edit(monkeypat
     await slots.idle()
     child = await slots.prepare(child_prompt, profile_id=profile, start=False, shown=adult["key"])
     s = slot(child, "clothing")
-    assert child["seeds"]["clothing"]["minor"] == ["10-year-old"] and s["pool"] != old["pool"]
+    assert child["seeds"]["clothing"]["young"] == "child" and s["pool"] != old["pool"]
     assert "stand_in" not in s
     r = prep.realize(child, seed=1, profile_id=profile)
     assert r.prompt.lower() == "a 10-year-old in clothing"
@@ -847,7 +854,8 @@ async def test_minors_and_adults_never_share_a_session(monkeypatch, profile):
     assert a != c
     sa, sc = V.Session.of(store.session(a)), V.Session.of(store.session(c))
     assert sa.open and sc.open
-    assert "This person is under 18" not in json.dumps(sa.messages) and "This person is under 18" in sc.messages[1]["content"]
+    line = V.young_line("child")
+    assert line not in json.dumps(sa.messages) and line in sc.messages[1]["content"]
     assert not set(sa.texts) & set(sc.texts)
     child_calls = [x for x in writer.calls if "a 10-year-old" in x["first"]]
     assert child_calls and all("a 30-year-old" not in json.dumps(x["log"]) for x in child_calls)

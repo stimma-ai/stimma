@@ -53,7 +53,7 @@ from prompt_programs.variants import (
 
 log = get_logger(__name__)
 
-POOL_VERSION = "pool-1"
+POOL_VERSION = "pool-2"   # pool-2: keyed by the minors rules' marks for the whole prompt (seeding.young_marks)
 TOPUP_AT = 0.8      # share of what a slot draws from drawn this round that starts a top-up
 MAX_POOL = 300      # a pool this big stops topping up and cycles least-used
 RETRY_AFTER = 120.0 # seconds a failed first write stands as written before a prepare or poll asks again
@@ -71,7 +71,8 @@ SEEDS_KEPT = 500    # draws with an explicit draw seed remembered per prompt
 def pool_key(model: Optional[str], words: str, marked: str, notes: Sequence[str], minor: Sequence[str] = (),
              scene: str = "", place: str = "") -> str:
     """A pool's key: the model, the slot's words, the line its reading was made in (marked) and
-    the prompt's notes; a person who may be under 18 has a pool of their own, and so does a slot
+    the prompt's notes; a slot's minors marks (`minor`: seeding.young_marks, a child's ages and
+    the youngest stage of a young prompt) key a pool of their own, and so does a slot
     read again because an edit elsewhere changed the scene (`scene`, reader.scene_mark), and a
     person whose place context differs (`place`, places.mark: "JP@prompt", "FR@default")."""
     parts: Dict[str, Any] = {"v": POOL_VERSION, "writer": VARIANTS_VERSION, "model": model, "words": words,
@@ -805,7 +806,8 @@ class PoolWriter:
                 return []
             if any(b.get("role") == "first" and b.get("variants") for b in self.store.batches(job.key)):
                 self._thin.add(job.key)   # a short first write, asked again once: its session goes on
-        seeds = Seeds() if job.role == "early" else job.seeds.pinned(job.pins)
+        # An unseeded opening has no vocabulary seeds, only what the minors rules tell its writer.
+        seeds = Seeds(young=job.seeds.young) if job.role == "early" else job.seeds.pinned(job.pins)
         have = self.store.variants(job.key)
         n = self._quota(job, have)
         if n <= 0:
