@@ -169,6 +169,27 @@ def age_years(text: str) -> int:
     return int(m.group(1)) if m else 0
 
 
+def allowed_ages(fits: Optional[Sequence[str]] = None, minor: Sequence[str] = ()) -> List[str]:
+    """The ages a person may be seeded with, in list order: what narrowing kept of the age list
+    (`fits`; None while it isn't there or when it failed: every adult age) and the ages under 18
+    the minors rules allow them (`minor`: Seeds.minor, seeding's record["minor"])."""
+    from prompt_programs.vocab import vocabulary
+    leaf = vocabulary().get(AGE)
+    if leaf is None:
+        return []
+    allowed = set(fits) if fits is not None else {v.text for v in leaf.values if not v.opt_in}
+    allowed |= set(minor)
+    return [v.text for v in leaf.values if v.text in allowed]
+
+
+def year_ages(years: Sequence[int]) -> List[str]:
+    """The age list's values for single years (24: "24-year-old", 0: "newborn"), in list order."""
+    from prompt_programs.vocab import vocabulary
+    leaf = vocabulary().get(AGE)
+    want = set(years)
+    return [v.text for v in leaf.values if age_years(v.text) in want] if leaf is not None else []
+
+
 def age_stages(fits: Optional[Sequence[str]] = None, minor: Sequence[str] = ()) -> Dict[str, List[str]]:
     """A person's ages by life stage: {stage: the ages in it they may be seeded with}, in the age
     list's stage order, only stages with any. Their ages are what narrowing kept of the age list
@@ -180,8 +201,7 @@ def age_stages(fits: Optional[Sequence[str]] = None, minor: Sequence[str] = ()) 
     leaf = vocabulary().get(AGE)
     if leaf is None:
         return {}
-    allowed = set(fits) if fits is not None else {v.text for v in leaf.values if not v.opt_in}
-    allowed |= set(minor)
+    allowed = set(allowed_ages(fits, minor))
     may_minor = bool(minor_ages(sorted(allowed)))
     by: Dict[str, List[Any]] = {str(st): [] for st in leaf.local_facets.get(STAGE, ())}
     for v in leaf.values:
@@ -208,15 +228,26 @@ def stages_of(age: Any) -> Tuple[str, ...]:
 @dataclass(frozen=True)
 class Pins:
     """Seeds the user picked for a person: descent values, world regions (any descent in them),
-    genders, life stages (age_stages). They restrict the banks of the next writes and filter
-    what is drawn."""
+    genders, ages as life stages (age_stages) and single years: any of the picked stages or
+    years. They restrict the banks of the next writes and filter what is drawn."""
     descent: Tuple[str, ...] = ()
     regions: Tuple[str, ...] = ()
     gender: Tuple[str, ...] = ()
     age: Tuple[str, ...] = ()       # life stages
+    years: Tuple[int, ...] = ()     # single years of age (0: a newborn)
 
     def __bool__(self) -> bool:
-        return bool(self.descent or self.regions or self.gender or self.age)
+        return bool(self.descent or self.regions or self.gender or self.age or self.years)
+
+    def ages(self, fits: Optional[Sequence[str]] = None, minor: Sequence[str] = ()) -> List[str]:
+        """The age values picked that a person may be (allowed_ages, age_stages): the picked
+        stages' ages and the picked years, in list order; [] when none is picked or none fits."""
+        if not (self.age or self.years):
+            return []
+        stages = age_stages(fits, minor)
+        allowed = set(allowed_ages(fits, minor))
+        want = {a for st in self.age for a in stages.get(st, ())} | {a for a in year_ages(self.years) if a in allowed}
+        return [a for a in allowed_ages(fits, minor) if a in want]
 
     def descents(self) -> Optional[List[str]]:
         """The descent values picked (a region as every value in it), or None when none are."""
@@ -232,7 +263,7 @@ class Pins:
 
     def to_dict(self) -> Dict[str, List[str]]:
         return {k: list(v) for k, v in (("descent", self.descent), ("regions", self.regions),
-                                        ("gender", self.gender), ("age", self.age)) if v}
+                                        ("gender", self.gender), ("age", self.age), ("age_years", self.years)) if v}
 
 
 @dataclass(frozen=True)
@@ -261,11 +292,10 @@ class Seeds:
         if pins.gender:
             fits = self.gender.only(pins.gender) if self.gender is not None else None
             out = replace(out, gender=fits or bank(GENDER, pins.gender))
-        if pins.age and self.person:
+        if (pins.age or pins.years) and self.person:
             # Within what their words allow and the minors rules (age_stages), even where the words
-            # state an age and no age is seeded unpinned: a picked stage always shows in the variants.
-            stages = age_stages(self.age_fits, self.minor)
-            ages = list(dict.fromkeys(a for st in pins.age for a in stages.get(st, ())))
+            # state an age and no age is seeded unpinned: a picked age always shows in the variants.
+            ages = pins.ages(self.age_fits, self.minor)
             picked = bank(AGE, ages, minor=bool(self.minor)) if ages else None
             if picked is not None:
                 out = replace(out, age=picked)
@@ -823,6 +853,6 @@ async def top_up(slot: Slot, seeds: Seeds, have: Sequence[str], *, ask: Ask, pro
 
 __all__ = ["AGE", "STAGE", "Ask", "Bank", "Batch", "DESCENT", "Drawn", "MIN_POOL", "N_OTHER", "N_PERSON", "GENDER", "Pins",
            "SHORTLIST", "SYSTEM", "Seeds", "Slot", "Spec", "TOPUP", "VARIANTS_VERSION", "article_before", "ask_writer",
-           "age_stages", "age_years", "bank", "check", "stages_of",
+           "age_stages", "age_years", "allowed_ages", "bank", "year_ages", "check", "stages_of",
            "context_words", "draw_seeds", "has_run", "kept_chunks", "list_seeds", "messages", "minor_line", "minor_words",
            "parse_reply", "person_seeds", "repair", "tokens", "top_up", "valid_category", "write_batch", "write_first"]

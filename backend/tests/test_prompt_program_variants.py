@@ -465,6 +465,22 @@ def test_a_picked_life_stage_seeds_ages_within_what_the_words_allow():
 
 
 
+def test_picked_years_seed_alongside_stages_within_what_the_person_may_be():
+    chef = V.person_seeds(ages=ADULTS)
+    pins = V.Pins(age=("elderly",), years=(24, 31))
+    assert pins.ages(ADULTS) == ["24-year-old", "31-year-old", *V.age_stages(ADULTS)["elderly"]]
+    assert set(chef.pinned(pins).age.texts()) == set(pins.ages(ADULTS))
+    # years alone, where the words state an age: only those years the narrowing kept
+    young = V.person_seeds(ages=YOUNG_AGES)
+    assert young.pinned(V.Pins(years=(24, 50))).age.texts() == ["24-year-old"]
+    assert young.pinned(V.Pins(years=(50,))).age is None
+    # a year under 18 only where the minors rules allow it
+    assert chef.pinned(V.Pins(years=(15,))).age == chef.age
+    kid = V.person_seeds(ages=["8-year-old", "9-year-old"])
+    assert kid.pinned(V.Pins(years=(9, 12))).age.texts() == ["9-year-old"]
+    assert V.year_ages([0, 24]) == ["newborn", "24-year-old"]
+
+
 # --------------------------------------------------------------------------- drawing
 
 POOL = [{"text": f"variant {i}", "seeds": {"descent": d, "gender": g}}
@@ -536,6 +552,11 @@ def test_a_picked_life_stage_filters_the_pool_by_each_variants_recorded_age():
     c = P.Choice(pins=V.Pins(age=("older",)))
     assert P.pick(pool, {}, c, rng, "w").text == "w" and P.due(pool, {}, c)
     assert P.in_pool(pool, "age") == {"young adult": 2, "middle-aged": 1, "elderly": 1}
+    # any of the picked stages or years
+    c = P.Choice(pins=V.Pins(age=("elderly",), years=(24,)))
+    assert {P.pick(pool, {}, c, rng, "w").text for _ in range(30)} == {"a", "c"}
+    assert {P.pick(pool, {}, P.Choice(pins=V.Pins(years=(37,))), rng, "w").text for _ in range(10)} == {"b"}
+    assert P.in_pool_years(pool) == {"24": 1, "37": 1, "72": 1}
 
 
 def test_choice_wire_form():
@@ -549,6 +570,10 @@ def test_choice_wire_form():
     assert c.pins == V.Pins(gender=("man",), age=("young adult", "elderly"))
     assert c.to_dict() == {"seeds": {"gender": {"values": ["man"]}, "age": {"values": ["young adult", "elderly"]}}}
     assert c.pins.to_dict() == {"gender": ["man"], "age": ["young adult", "elderly"]}
+    c = P.Choice.of({"seeds": {"age": {"values": ["middle-aged"], "years": [24, "31", "x", True, 24]}}})
+    assert c.pins == V.Pins(age=("middle-aged",), years=(24, 31))
+    assert c.to_dict() == {"seeds": {"age": {"values": ["middle-aged"], "years": [24, 31]}}}
+    assert P.Choice.of({"seeds": {"age": {"years": [40]}}}).pins.to_dict() == {"age_years": [40]}
     assert P.Choice.of({"off": True}).to_dict() == {"off": True}
     assert P.Choice.of({"as_written": True}).as_written
     assert P.Choice.of({}).to_dict() is None and P.Choice.of({"any": True}).to_dict() is None
@@ -582,13 +607,15 @@ def test_person_pickers():
     assert g["in_pool"] == {"woman": 2, "man": 2, "non-binary person": 1} and g["fits"] == g["options"]
     assert P.person_pickers(POOL, P.Choice(), gender_fits=["woman", "trans woman"])["gender"]["fits"] == ["woman", "trans woman"]
     a = got["age"]
-    assert a["label"] == "Age" and a["browse"] == "life_stage" and a["picked"] == {"values": []}
+    assert a["label"] == "Age" and a["browse"] == "life_stage"
     assert a["options"] == a["fits"] == ["young adult", "middle-aged", "older", "elderly"]   # an adult: no child or teen
-    assert a["stages"][0] == {"id": "young adult", "label": "Young adult", "span": [18, 39]}
-    assert a["stages"][-1] == {"id": "elderly", "label": "Elderly", "span": [70, 110]}
+    assert a["stages"][0] == {"id": "young adult", "label": "Young adult", "span": [18, 39],
+                              "years": list(range(18, 40))}
+    assert a["stages"][-1]["span"] == [70, 110] and a["stages"][-1]["label"] == "Elderly"
+    assert a["picked"] == {"values": [], "years": []} and a["in_pool_years"] == {}
     young = P.person_pickers(POOL, P.Choice(pins=V.Pins(age=("young adult",))), ages=V.age_stages(YOUNG_AGES))["age"]
     assert young["options"] == ["young adult"] and young["stages"][0]["span"] == [18, 29]
-    assert young["picked"] == {"values": ["young adult"]} and young["in_pool"] == {}
+    assert young["picked"] == {"values": ["young adult"], "years": []} and young["in_pool"] == {}
 
 
 # --------------------------------------------------------------------------- writing in the background

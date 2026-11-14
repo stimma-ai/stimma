@@ -207,12 +207,19 @@ async def test_a_picked_life_stage_steers_a_person_whose_words_state_an_age(monk
     _, _, none = expand(entry, {"dominant_young_woman": {"seeds": {"age": {"values": ["child"]}}},
                                 "lighting": {"seeds": {"age": {"values": ["elderly"]}}}})
     assert none == {}
+    # single years: any of them, only those her words allow (YOUNG is 18-29) and never under 18
+    _, _, yr = expand(entry, {"dominant_young_woman": {"seeds": {"age": {"values": ["young adult"],
+                                                                         "years": [24, 15, 60]}}}})
+    assert yr["dominant_young_woman"].pins.years == (24,)
+    _, _, yr = expand(entry, {"dominant_young_woman": {"seeds": {"age": {"years": [16, 70]}}}})
+    assert yr == {}
     r = prep.realize(entry, profile_id=profile, seed=1, chosen=chosen)
     assert "dominant young woman" in r.prompt.lower()   # nothing matches yet: her words
     view = pool_view(entry, chosen, profile_id=profile)
     age = view["choices"]["dominant_young_woman"]["person"]["age"]
     assert age["options"] == ["young adult"] and age["stages"][0]["span"] == [18, 29]
-    assert age["picked"] == {"values": ["young adult"]}
+    assert age["picked"] == {"values": ["young adult"], "years": []}
+    assert age["stages"][0]["years"] == list(range(18, 30))
     await P.writer_for(profile).drain()
     got = P.drawable(store.variants(person["pool"]), c)
     assert len(got) >= P.MIN_MATCH and all(v["seeds"]["age"] in YOUNG for v in got)

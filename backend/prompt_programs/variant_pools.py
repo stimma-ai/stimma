@@ -36,7 +36,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from core.logging import get_logger
 from prompt_programs.variants import (
     AGE, DESCENT, GENDER, STAGE, TOPUP, VARIANTS_VERSION, Ask, Batch, Pins, Seeds, Slot, age_stages, age_years,
-    ask_writer, stages_of, top_up, write_first,
+    ask_writer, stages_of, top_up, write_first, year_ages,
 )
 
 log = get_logger(__name__)
@@ -207,6 +207,10 @@ class Choice:
         def strings(v: Any) -> Tuple[str, ...]:
             items = v if isinstance(v, (list, tuple)) else [v] if v is not None else []
             return tuple(dict.fromkeys(str(x) for x in items if x is not None and str(x).strip()))
+        def years(v: Any) -> Tuple[int, ...]:
+            items = v if isinstance(v, (list, tuple)) else [v] if v is not None else []
+            return tuple(dict.fromkeys(int(x) for x in items if not isinstance(x, bool) and
+                                       (isinstance(x, int) or (isinstance(x, str) and x.strip().isdigit()))))
         o = obj if isinstance(obj, dict) else {}
         seeds = o.get("seeds") if isinstance(o.get("seeds"), dict) else {}
         d = seeds.get("descent") if isinstance(seeds.get("descent"), dict) else {}
@@ -214,7 +218,7 @@ class Choice:
         a = seeds.get("age") if isinstance(seeds.get("age"), dict) else {}
         groups = d.get("groups") if isinstance(d.get("groups"), dict) else {}
         pins = Pins(descent=strings(d.get("values")), regions=strings(groups.get("region")),
-                    gender=strings(g.get("values")), age=strings(a.get("values")))
+                    gender=strings(g.get("values")), age=strings(a.get("values")), years=years(a.get("years")))
         return cls(values=strings(o.get("values")), add=tuple(dict.fromkeys([*strings(o.get("add")), *strings(add)])),
                    as_written=o.get("as_written") is True, off=o.get("off") is True, pins=pins)
 
@@ -232,8 +236,8 @@ class Choice:
             seeds["descent"] = {"values": list(self.pins.descent), "groups": {"region": list(self.pins.regions)}}
         if self.pins.gender:
             seeds["gender"] = {"values": list(self.pins.gender)}
-        if self.pins.age:
-            seeds["age"] = {"values": list(self.pins.age)}
+        if self.pins.age or self.pins.years:
+            seeds["age"] = {"values": list(self.pins.age), **({"years": list(self.pins.years)} if self.pins.years else {})}
         if seeds:
             out["seeds"] = seeds
         return out or None
@@ -246,8 +250,10 @@ def matches(seeds: Dict[str, Any], pins: Pins) -> bool:
         return False
     if pins.gender and str(seeds.get("gender") or "") not in set(pins.gender):
         return False
-    if pins.age and not set(stages_of(seeds.get("age"))) & set(pins.age):
-        return False   # its recorded age is in none of the picked life stages (or it has none)
+    if pins.age or pins.years:
+        age = seeds.get("age")
+        if not (set(stages_of(age)) & set(pins.age) or (pins.years and age in year_ages(pins.years))):
+            return False   # its recorded age is in none of the picked stages or years (or it has none)
     return True
 
 
@@ -334,6 +340,17 @@ def in_pool(variants: Sequence[Dict[str, Any]], seed: str) -> Dict[str, int]:
     return out
 
 
+def in_pool_years(variants: Sequence[Dict[str, Any]]) -> Dict[str, int]:
+    """How many of a pool's variants carry each recorded age, by year ("24": 3; JSON keys are text)."""
+    out: Dict[str, int] = {}
+    for v in variants:
+        s = (v.get("seeds") or {}).get("age")
+        if isinstance(s, str) and stages_of(s):
+            k = str(age_years(s))
+            out[k] = out.get(k, 0) + 1
+    return out
+
+
 def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: Optional[Sequence[str]] = None,
                    gender_fits: Optional[Sequence[str]] = None,
                    ages: Optional[Dict[str, List[str]]] = None) -> Dict[str, Any]:
@@ -368,9 +385,11 @@ def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: 
         stages = ages if ages is not None else age_stages()
         out["age"] = {"list": a.id, "label": a.label, "browse": STAGE, "options": list(stages),
                       "stages": [{"id": st, "label": st[:1].upper() + st[1:],
-                                  "span": [min(age_years(t) for t in ts), max(age_years(t) for t in ts)]}
+                                  "span": [min(age_years(t) for t in ts), max(age_years(t) for t in ts)],
+                                  "years": [age_years(t) for t in ts]}
                                  for st, ts in stages.items()],
-                      "fits": list(stages), "picked": {"values": list(choice.pins.age)}, "in_pool": in_pool(variants, "age")}
+                      "fits": list(stages), "picked": {"values": list(choice.pins.age), "years": list(choice.pins.years)},
+                      "in_pool": in_pool(variants, "age"), "in_pool_years": in_pool_years(variants)}
     return out
 
 
@@ -644,4 +663,4 @@ def writer_for(profile_id: Optional[str]) -> PoolWriter:
 
 
 __all__ = ["Choice", "Job", "MAX_POOL", "MIN_MATCH", "RETRY_AFTER", "POOL_VERSION", "Pick", "PoolWriter", "TOPUP_AT", "VariantStore", "drawable",
-           "due", "in_pool", "matches", "person_pickers", "pick", "pool_key", "store_for", "writer_for"]
+           "due", "in_pool", "in_pool_years", "matches", "person_pickers", "pick", "pool_key", "store_for", "writer_for"]

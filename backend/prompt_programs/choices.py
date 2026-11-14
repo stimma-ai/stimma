@@ -9,14 +9,14 @@ The editor sends one object per choice (`promptOptions.program.choices`, and /po
      "camera": {"off": true},
      "person": {"seeds": {"descent": {"values": ["Korean"], "groups": {"region": ["East Asia"]}},
                           "gender": {"values": ["trans woman"]},
-                          "age": {"values": ["young adult", "middle-aged"]}}},
+                          "age": {"values": ["young adult"], "years": [47]}}},
      "list1": {"values": ["autumn"]}}
 
 `expand` turns it into what realize() and the pools read: for a slot, a variant_pools.Choice
 (pinned variants, the user's own, as written, left out, picked seeds); for a user list, pins
 (its ticked items) and edits (`off`, `add`). `{"any": true}` and `{}` are no choice. Choices the
 prompt doesn't have (one from before an edit, an old detail id like `young_man.age`) are passed by.
-Picked life stages a person can't be (not a person, outside the ages their words allow, a child
+Picked life stages or years a person can't be (not a person, outside the ages their words allow, a child
 or teen stage the minors rules don't allow them) are passed by too.
 """
 
@@ -34,13 +34,21 @@ class UnknownChoiceError(ValueError):
 
 
 def _offered_ages(entry: Dict[str, Any], slot: Dict[str, Any], c: Choice) -> Choice:
-    """The choice with only the life stages the slot's person may be picked as (seeding.age_choices):
-    a stage they can't be would match no variant and seed nothing, so it would only churn top-ups."""
-    if not c.pins.age:
+    """The choice with only the life stages and years the slot's person may be picked as
+    (seeding.age_basis): one they can't be (outside the ages their words allow, under 18 where the
+    minors rules don't allow it) would match no variant and seed nothing, so it would only churn
+    top-ups."""
+    if not (c.pins.age or c.pins.years):
         return c
-    from prompt_programs.seeding import age_choices
-    offered = age_choices((entry.get("seeds") or {}).get(str(slot.get("id")))) if slot.get("kind") == "person" else {}
-    return replace(c, pins=replace(c.pins, age=tuple(st for st in c.pins.age if st in offered)))
+    from prompt_programs.seeding import age_basis
+    from prompt_programs.variants import age_stages, age_years, allowed_ages
+    if slot.get("kind") != "person":
+        return replace(c, pins=replace(c.pins, age=(), years=()))
+    basis = age_basis((entry.get("seeds") or {}).get(str(slot.get("id"))))
+    offered = age_stages(*basis)
+    years = {age_years(a) for a in allowed_ages(*basis)}
+    return replace(c, pins=replace(c.pins, age=tuple(st for st in c.pins.age if st in offered),
+                                   years=tuple(y for y in c.pins.years if y in years)))
 
 
 def _strings(v: Any) -> List[str]:
