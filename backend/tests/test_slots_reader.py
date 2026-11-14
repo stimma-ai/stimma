@@ -765,6 +765,28 @@ async def test_a_person_with_no_outfit_is_asked_once_why_then_stands():
     assert len(model.asked) == 1
 
 
+async def test_a_person_keeps_the_words_that_say_what_they_wear_and_draws_no_outfit(tmp_path):
+    # "in a red raincoat": the reading keeps the prompt's words, so the seeds plan no outfit and
+    # the person's seeds say their clothes are the prompt's (seeding.plan's clothes_owned).
+    from prompt_programs.seeding import plan
+    dressed = {"n": 1, "kind": "person", "label": "Young man", "lead": "",
+               "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "young"}, "vary": ["age"],
+                          "clothes": "in a red raincoat", "outfit": ""}}
+    got = await reader.read(parse("a <young man> in a red raincoat"), ask=FakeModel(json.dumps({"slots": [dressed]})),
+                            project_id=None, model="m")
+    person = got["slots"][0]["person"]
+    assert person["clothes"] == "in a red raincoat"
+    p = plan(got["slots"][0], "young man")
+    assert p["clothes_owned"] and not any(b["list"].startswith("person.outfit") for b in p["banks"])
+    # Words that aren't the prompt's are dropped, and then the outfit list stands.
+    made_up = {**dressed, "person": {**dressed["person"], "clothes": "in a tuxedo", "outfit": "person.outfit.casual"}}
+    got = await reader.read(parse("a <young man> in a red raincoat"), ask=FakeModel(json.dumps({"slots": [made_up]})),
+                            project_id=None, model="m")
+    assert "clothes" not in got["slots"][0]["person"] and not plan(got["slots"][0], "young man")["clothes_owned"]
+    # The edit check is shown the clothes as part of what was read.
+    assert '"clothes": "in a red raincoat"' in reader._read_as({"kind": "person", "person": person})
+
+
 async def test_a_camera_that_varies_one_detail_is_that_details_list():
     # "<selfie camera angle>": a camera with only its angle varying would open on one row to
     # click through. It is read as the angle list itself, its words narrowing it.

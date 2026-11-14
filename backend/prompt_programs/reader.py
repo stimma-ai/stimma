@@ -29,7 +29,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-19"   # reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-20"   # reader-20: a person keeps the words saying what they wear (clothes), so their variants draw no outfit. reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -432,7 +432,10 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
             raise _Bad(f'part {n}: a person\'s noun is one of their own words, and "{noun}" is not among the '
                        f'words "{seg.words}". Words that name only something about a person, or about someone '
                        'the prompt already has, are a "list" when a list covers them, else "free"')
-        clothes = got.get("clothes") if isinstance(got.get("clothes"), str) else ""
+        clothes = got.get("clothes").strip() if isinstance(got.get("clothes"), str) else ""
+        # The prompt's own words for what they wear, copied exactly (seeding.plan: no outfit
+        # then); words that aren't the prompt's are dropped, as stated words are.
+        clothes = clothes if clothes and _copied(clothes, [seg.words, before, *notes, prompt]) else ""
         if not any(d in CORE for d in vary):
             # Every person varies some of their fixed details (age, descent, build, hair). A reading
             # with none of them, only a face or nothing at all, has taken words about someone (an
@@ -442,8 +445,7 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
                        'pose, face, body or clothes) are not a person: they are a "list" when a list covers them, '
                        'else "free"')
         # Asked once (`strict`): a reading that still gives no outfit on the retry stands as it is.
-        if (strict and not outfit and worn_words is None
-                and not (clothes.strip() and _copied(clothes, [seg.words, before, *notes, prompt]))):
+        if strict and not outfit and worn_words is None and not clothes:
             raise _Bad(f'part {n}: a person\'s clothes change unless the prompt says what they wear: when another '
                        'part is what they wear, give its number as "clothes_part"; when the prompt\'s own words say, '
                        'copy them into "clothes"; else give an outfit list\'s id, or "written" when none suits')
@@ -451,7 +453,7 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
             "noun": noun,
             "presentation": got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else "",
             "stated": kept, "vary": vary,
-            "outfit": outfit,
+            "outfit": outfit, **({"clothes": clothes} if clothes else {}),
             **({"clothes_part": {"n": worn, "words": worn_words}} if worn_words is not None else {}),
         }
     elif kind == "camera":
