@@ -93,6 +93,16 @@
       <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
         <div class="text-xs text-white line-clamp-2">{{ getJobPrompt(job) }}</div>
       </div>
+      <!-- Fluent (Tool View only): use parts of what this image drew in the prompt. The list
+           hangs from the image's lower edge. -->
+      <button
+        v-if="use?.can(job)"
+        type="button"
+        class="absolute left-1.5 top-1.5 z-chrome px-2 py-0.5 coarse:py-1.5 rounded-md text-xs text-white bg-black/60 hover:bg-black/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 coarse:opacity-100 transition-opacity outline-none focus-visible:ring-1 focus-visible:ring-white/70"
+        aria-haspopup="menu"
+        data-use-button
+        @click.stop="openUse"
+      >Use</button>
     </div>
     <!-- Control strip below the artwork: markers left; facts + actions right.
          Ghost buttons on the rail surface — nothing occludes the image. -->
@@ -133,17 +143,6 @@
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
         </svg>
       </button>
-      <!-- Fluent: keep parts of what this image drew for the next ones (Tool View only). -->
-      <button
-        v-if="keep?.can(job)"
-        type="button"
-        class="h-6 flex items-center px-1.5 rounded-md text-[11px] text-content-tertiary hover:text-accent-hi hover:bg-overlay-subtle transition-colors"
-        title="Keep from this"
-        aria-label="Keep from this"
-        aria-haspopup="dialog"
-        data-keep-button
-        @click.stop="keep?.open(job, $event.currentTarget as Element)"
-      >Keep</button>
       <button
         @click.stop="$emit('remix-media', job.result_media_id)"
         class="w-6 h-6 rounded-md flex items-center justify-center text-content-muted/60 hover:text-content hover:bg-overlay-subtle transition-colors"
@@ -168,7 +167,7 @@
 
 <script setup lang="ts">
 import { ref, computed, inject, nextTick, onBeforeUnmount, onDeactivated } from 'vue'
-import { RESULT_KEEP } from '../../composables/resultKeep'
+import { RESULT_USE } from '../../composables/resultUse'
 import { useExpirationClock } from '../../composables/useExpirationClock'
 import { MediaImage, AppImage } from '../media'
 import { useManagedMediaElement } from '../../composables/useMediaPlayback'
@@ -268,8 +267,14 @@ const emit = defineEmits<{
 const { getMediaFileUrl, getThumbnailUrl, getMseLoopUrls } = useMediaApi()
 const { formatRemainingTime } = useExpirationClock()
 const contextMenu = useMediaContextMenu()
-// Tool View's Keep from this, for images made from slots.
-const keep = inject(RESULT_KEEP, null)
+// Tool View's Use, for images made from slots: the list hangs from the image's lower edge.
+const use = inject(RESULT_USE, null)
+function openUse(e: MouseEvent) {
+  const tile = (e.currentTarget as Element).closest('.jobs-tile')
+  if (!tile) return
+  const r = tile.getBoundingClientRect()
+  use?.open(props.job, new DOMRect(r.left, r.bottom - 34, r.width, 34))
+}
 
 function getMediaHash(mediaId?: number): string { return (mediaId && props.mediaHashes[mediaId]) || '' }
 

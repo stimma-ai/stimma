@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  addOwn, asWritten, listChoiceAt, carriedIds, followId, carryChoices, chooseAny, cleanState, clearSeed, isChanged, keptPieces, lineOf, lookOf,
-  numberRepeats, optionsOf, pickedYears, pinTo, resetState, rowValue, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleStage,
+  addOwn, addValue, inPlayCount, listChoiceAt, readChoices, setPicked, carriedIds, followId, carryChoices, chooseAny, cleanState, clearSeed, isChanged, keptPieces, lineOf, lookOf,
+  numberRepeats, optionsOf, pickedYears, resetState, rowValue, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleStage,
   toggleValue, toggleYear, wireState,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramSlot } from './programWire.ts'
@@ -31,10 +31,9 @@ const pool: ChoicePool = {
 }
 const [korean, swedish, japanese] = pool.variants!.map(v => v.text)
 
-test('a state is stored lean: empties dropped, off and as written alone with the user’s own', () => {
+test('a state is stored lean: empties dropped, off alone with the user’s own', () => {
   assert.equal(cleanState({ values: [], seeds: { descent: { values: [], groups: { region: [] } } } }), null)
   assert.deepEqual(cleanState({ off: true, values: ['x'], add: ['mine'] }), { off: true, add: ['mine'] })
-  assert.deepEqual(cleanState({ as_written: true, seeds: { gender: { values: ['woman'] } } }), { as_written: true })
   assert.deepEqual(cleanState({ values: ['a', 'a', ' '], seeds: { gender: { values: ['woman'] } } }), { values: ['a'], seeds: { gender: { values: ['woman'] } } })
   // Where a pin came from holds only for a single pin.
   assert.deepEqual(cleanState({ values: ['a'], from: 7 }), { values: ['a'], from: 7 })
@@ -42,20 +41,42 @@ test('a state is stored lean: empties dropped, off and as written alone with the
   assert.deepEqual(wireState({ values: ['a'], from: 7 }), { values: ['a'] })
 })
 
-test('pinning adds and removes; any and Keep my words; the user’s own stay', () => {
+test('a choice saved as the slot’s own words is read as no choice', () => {
+  const old = { light: { as_written: true }, woman: { as_written: true, add: ['mine'] }, cup: { values: ['a mug'] } } as any
+  assert.deepEqual(readChoices(old), { woman: { add: ['mine'] }, cup: { values: ['a mug'] } })
+  assert.equal(cleanState({ as_written: true } as any), null)
+  const fine = { cup: { values: ['a mug'] } }
+  assert.equal(readChoices(fine), fine)
+  assert.deepEqual(readChoices(null), {})
+})
+
+test('pinning adds and removes; any; the user’s own stay', () => {
   let s = toggleValue(null, korean)
   assert.deepEqual(s, { values: [korean] })
   s = toggleValue(s, swedish)
   assert.deepEqual(s, { values: [korean, swedish] })
   assert.deepEqual(toggleValue(s, korean), { values: [swedish] })
   assert.equal(chooseAny(s), null)
-  assert.deepEqual(asWritten({ values: [korean], add: ['mine'] }), { as_written: true, add: ['mine'] })
-  // Pinning brings a slot on its words back.
-  assert.deepEqual(toggleValue({ as_written: true }, korean), { values: [korean] })
+  // Pinning brings a slot left out back.
+  assert.deepEqual(toggleValue({ off: true }, korean), { values: [korean] })
   assert.deepEqual(addOwn({ values: [korean] }, ' a tall one '), { values: [korean, 'a tall one'], add: ['a tall one'] })
   assert.deepEqual(resetState({ values: [korean], add: ['mine'] }), { add: ['mine'] })
-  assert.deepEqual(pinTo({ add: ['mine'] }, korean, 12), { values: [korean], add: ['mine'], from: 12 })
-  assert.ok(!isChanged({ add: ['mine'] }) && isChanged({ as_written: true }) && isChanged({ seeds: { gender: { values: ['woman'] } } }))
+  assert.ok(!isChanged({ add: ['mine'] }) && isChanged({ values: [korean] }) && isChanged({ seeds: { gender: { values: ['woman'] } } }))
+})
+
+test('a range or the matches set together, the way the first was left; Use adds once', () => {
+  const s = { values: [korean], seeds: { gender: { values: ['woman'] } }, add: ['mine'] }
+  assert.deepEqual(setPicked(s, [korean, swedish, japanese], true), { values: [korean, swedish, japanese], seeds: s.seeds, add: ['mine'] })
+  assert.deepEqual(setPicked({ values: [korean, swedish, japanese] }, [swedish, japanese], false), { values: [korean] })
+  assert.equal(setPicked({ values: [korean] }, [korean], false), null)
+  assert.deepEqual(addValue({ values: [korean] }, swedish), { values: [korean, swedish] })
+  assert.deepEqual(addValue({ values: [korean] }, korean), { values: [korean] })
+})
+
+test('how many are in play: the picks, or the variants the seeds match, of the pool', () => {
+  assert.equal(inPlayCount(pool, null, 4), null)
+  assert.deepEqual(inPlayCount(pool, { values: [korean, swedish] }, 4), { of: 2, total: 4 })
+  assert.deepEqual(inPlayCount(pool, { seeds: { gender: { values: ['trans woman'] } } }, 4), { of: 2, total: 4 })
 })
 
 test('descent: a region picked whole takes over its heritages; un-picking one in it keeps the rest', () => {
@@ -93,7 +114,7 @@ test('a seed pick drops pins it rules out, keeps the user’s own, and the picke
   assert.deepEqual(shownVariants(pool, { values: ['an older variant'] }).map(v => v.text)[0], 'an older variant')
 })
 
-test('how a slot shows: writing, varying, restricted, my words', () => {
+test('how a slot shows: writing, varying, restricted, its words when it can’t vary', () => {
   assert.equal(lookOf(null, null), 'writing')
   assert.equal(lookOf({ state: 'reading' }, null), 'writing')
   assert.equal(lookOf({ state: 'writing' }, null), 'writing')
@@ -101,14 +122,13 @@ test('how a slot shows: writing, varying, restricted, my words', () => {
   assert.equal(lookOf(ready, null, pool), 'varying')
   assert.equal(lookOf(ready, { values: [korean] }), 'restricted')
   assert.equal(lookOf(ready, { seeds: { gender: { values: ['woman'] } } }), 'restricted')
-  assert.equal(lookOf(ready, { as_written: true }), 'words')
   assert.equal(lookOf({ state: 'as_written' }, null), 'words')
 })
 
 test('a row says the pool size, the picks as one or two then +N, or the words in quotes', () => {
   const slot = { state: 'ready' as const, words: 'dominant young woman' }
   assert.deepEqual(rowValue(slot, null, pool), { kind: 'varying', text: '4 options' })
-  assert.deepEqual(rowValue(slot, { as_written: true }, pool), { kind: 'words', text: '“dominant young woman”' })
+  assert.deepEqual(rowValue({ state: 'as_written', words: 'dominant young woman' }, null, pool), { kind: 'words', text: '“dominant young woman”' })
   assert.deepEqual(rowValue({ state: 'writing', words: 'x' }, null, null), { kind: 'writing' })
   const picked = rowValue(slot, { seeds: { age: { values: ['young adult'], years: [40] }, gender: { values: ['trans woman'] }, descent: { values: ['Korean', 'Irish', 'Samoan'] } } }, pool)
   assert.deepEqual(picked, { kind: 'restricted', lines: [{ shown: 'Young adult, 40', more: 0 }, { shown: 'Trans woman', more: 0 }, { shown: 'Korean, Irish', more: 1 }] })

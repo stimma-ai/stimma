@@ -973,16 +973,16 @@
               @toggle="toggleStageAudition"
               @click.stop
             />
-            <!-- Fluent: keep parts of what this image drew for the next ones. -->
+            <!-- Fluent: use parts of what this image drew in the prompt. -->
             <button
-              v-if="stageKeep"
+              v-if="stageUse"
               type="button"
               class="inline-flex h-9 flex-none items-center rounded-md px-2 text-xs text-content-tertiary transition-colors duration-150 hover:bg-overlay-subtle hover:text-accent-hi focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:h-11"
-              :class="keepOpen?.stage ? 'bg-overlay-subtle text-content' : ''"
-              aria-haspopup="dialog"
-              data-keep-button
-              @click.stop="openKeep(stageRun, $event.currentTarget as Element, true, stageCurrentMediaId)"
-            >Keep from this</button>
+              :class="useOpen?.stage ? 'bg-overlay-subtle text-content' : ''"
+              aria-haspopup="menu"
+              data-use-button
+              @click.stop="openUse(stageRun, $event.currentTarget as Element, true)"
+            >Use</button>
             <button
               @click.stop="handleRemixMedia(stageCurrentMediaId)"
               :class="[RESULT_ACTION, 'hover:bg-overlay-subtle hover:text-accent-hi']"
@@ -1219,11 +1219,11 @@
       :program-actions="fluentOn ? programRunActionsFor : null"
       @close="closeInfoModal"
       @program-replay="replayProgramRun"
-      @program-keep="(run: any, at: Element) => openKeep(run, at, false, infoModalJob?.result_media_id)"
+      @program-use="(run: any, at: Element) => openUse(run, at)"
     />
 
-    <!-- Fluent: the open slot's picker, a slot's hover card, and an image's Keep from this -->
-    <KeepFromThisCard :open="keepOpen" :program="promptProgram" @close="keepOpen = null" />
+    <!-- Fluent: an image's Use in your prompt -->
+    <UseFromImage :open="useOpen" :program="promptProgram" @close="useOpen = null" />
 
     <!-- Mask Editor Modal -->
     <MaskEditorModal
@@ -1385,7 +1385,7 @@ import { MediaContextMenu, MediaImage } from '../components/media'
 import { AudioPlayer, VideoAuditionControl } from '../components/viewers'
 import { useScopedVideoPlayback, useManagedMediaElement } from '../composables/useMediaPlayback'
 import { useMediaContextMenu, useMediaMenuAction } from '../composables/useMediaContextMenu'
-import { RESULT_KEEP } from '../composables/resultKeep'
+import { RESULT_USE } from '../composables/resultUse'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { shouldPlayStageVideo } from '../utils/stageVideoPlayback'
 import { mobileAutoplayAllowed } from '../composables/useMobilePlaybackLifecycle'
@@ -3447,7 +3447,7 @@ import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
 import { DRAWING_LABEL, PREPARING_LABEL, directImproves, fallbackNotice, foreverSlot, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
-import KeepFromThisCard from '../components/generation/KeepFromThisCard.vue'
+import UseFromImage from '../components/generation/UseFromImage.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
 import { disableUnavailableLoras } from '../utils/availableLoras'
 const _loraPool = useLoraPool()
@@ -4020,32 +4020,32 @@ function programRunActionsFor(run: any) {
     },
   })
 }
-// Keep from this: the image on stage, Generation details, or wherever an image offers it.
-// `media`: the image's, for the thumbnail a slot kept from it shows.
-const keepOpen = ref<{ run: any; anchor: DOMRect; stage?: boolean; media?: number | null } | null>(null)
-function openKeep(run: any, at: Element | DOMRect, stage = false, media?: number | null) {
+// Use in your prompt: the image on stage, a result tile, Generation details, or wherever an
+// image offers it. The list hangs from what opened it.
+const useOpen = ref<{ run: any; anchor: DOMRect; stage?: boolean } | null>(null)
+function openUse(run: any, at: Element | DOMRect, stage = false) {
   if (!run) return
-  keepOpen.value = { run, anchor: at instanceof Element ? at.getBoundingClientRect() : at, stage, media: media ?? null }
+  useOpen.value = { run, anchor: at instanceof Element ? at.getBoundingClientRect() : at, stage }
 }
 const stageRun = computed<any | null>(() => generationJobParams(stageCurrentJob.value)?.prompt_program ?? null)
-const stageKeep = computed(() => fluentOn.value && !!stageRun.value && programRunActionsFor(stageRun.value).keep)
-// Another image on stage: the card opened from the one before closes.
-watch(() => stageCurrentJob.value?.id, () => { if (keepOpen.value?.stage) keepOpen.value = null })
-/** An image's run, when it can offer Keep from this here. */
-function keepableRun(job: any): any | null {
+const stageUse = computed(() => fluentOn.value && !!stageRun.value && programRunActionsFor(stageRun.value).use)
+// Another image on stage: the list opened from the one before closes.
+watch(() => stageCurrentJob.value?.id, () => { if (useOpen.value?.stage) useOpen.value = null })
+/** An image's run, when it can offer Use here. */
+function usableRun(job: any): any | null {
   const run = generationJobParams(job)?.prompt_program ?? null
-  return fluentOn.value && run && programRunActionsFor(run).keep ? run : null
+  return fluentOn.value && run && programRunActionsFor(run).use ? run : null
 }
 // The result tiles' own action strip, and the menu on any of this view's images (a tile,
 // the stage, the slideshow).
-provide(RESULT_KEEP, {
-  can: job => !!keepableRun(job),
-  open: (job, at) => openKeep(keepableRun(job), at, false, (job as any).result_media_id),
+provide(RESULT_USE, {
+  can: job => !!usableRun(job),
+  open: (job, at) => openUse(usableRun(job), at),
 })
 useMediaMenuAction((mediaId) => {
   const job = allJobs.value.find((j: any) => j.result_media_id === mediaId)
-  const run = job ? keepableRun(job) : null
-  return run ? { label: 'Keep from this', run: at => openKeep(run, at, false, mediaId) } : null
+  const run = job ? usableRun(job) : null
+  return run ? { label: 'Use in your prompt', run: at => openUse(run, at) } : null
 })
 
 function replayProgramRun(run: any) {

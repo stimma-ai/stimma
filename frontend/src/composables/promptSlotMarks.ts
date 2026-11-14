@@ -1,7 +1,7 @@
 /**
  * How each slot in the prompt editor shows what is chosen for it (CodeMirror side), matching
  * its row under the prompt: the slot tint while it varies, a stronger fill once limited, plain
- * text on Keep my words, a shimmer while its first variants are written.
+ * text when it can't vary, a shimmer while its first variants are written.
  *
  * Slots are matched to their looks by place and words, so a slot just typed (not in the
  * prepared program yet) takes the fallback look. While the user is typing, the slot at the
@@ -106,7 +106,7 @@ const theme = EditorView.baseTheme({
     boxShadow: '0 0 0 1px rgb(var(--color-selection-rgb) / 0.55)',
   },
   '.cm-slot-restricted:hover': { backgroundColor: 'rgb(var(--color-selection-rgb) / 0.4)' },
-  // Keep my words: plain text, still a slot to click.
+  // Can't vary (it goes in as its words): plain text, still a slot to click.
   '.cm-slot-words': { color: 'rgb(var(--color-text-primary-rgb))' },
   '.cm-slot-words:hover': { backgroundColor: 'rgb(var(--color-text-muted-rgb) / 0.12)' },
   '.cm-list-mark': { cursor: 'pointer' },

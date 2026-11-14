@@ -4,14 +4,13 @@
  * tests without a DOM.
  *
  * A slot is one choice (its id is the slot's). Nothing starts chosen: the slot draws from its
- * whole pool of variants. The user can pin variants (`values`), keep the slot's own words
- * (`as_written`), or, for a person, pick seeds from the comprehensive lists (age, gender,
- * descent), which steer the draw and the next writes. A `{a|b}` list of the
- * user's own is a choice too, with its options as values.
+ * whole pool of variants. The user can pin variants (`values`), or, for a person, pick seeds
+ * from the comprehensive lists (age, gender, descent), which steer the draw and the next
+ * writes. A `{a|b}` list of the user's own is a choice too, with its options as values.
  */
 
 import type {
-  AgePicker, ChoicePool, ChoiceSeeds, ChoiceState, DescentPicker, PreparedProgram, ProgramChoice, ProgramSlot, Variant,
+  AgePicker, ChoicePool, ChoiceSeeds, ChoiceState, DescentPicker, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot, Variant,
 } from './programWire.ts'
 
 type Person = ChoicePool['person']
@@ -33,14 +32,15 @@ export function cleanSeeds(seeds: ChoiceSeeds | null | undefined): ChoiceSeeds |
   return Object.keys(out).length ? out : null
 }
 
-/** A state as stored: empty parts dropped; `off` and `as_written` alone with the user's own
-    variants; `from` only on a single pin. Null when nothing is left. */
-export function cleanState(s: ChoiceState | null | undefined): ChoiceState | null {
-  if (!s) return null
+/** A state as stored: empty parts dropped; `off` alone with the user's own variants; `from`
+    only on a single pin. Null when nothing is left. A choice of the slot's own words saved
+    before (`as_written`) is no choice: it is dropped, so the slot varies again. */
+export function cleanState(raw: ChoiceState | null | undefined): ChoiceState | null {
+  if (!raw) return null
+  const { as_written: _old, ...s } = raw as ChoiceState & { as_written?: unknown }
   const add = uniq(s.add)
   const own = add.length ? { add } : {}
   if (s.off) return { off: true, ...own }
-  if (s.as_written) return { as_written: true, ...own }
   const values = uniq(s.values)
   const seeds = cleanSeeds(s.seeds)
   const from = values.length === 1 && typeof s.from === 'number' && !seeds ? { from: s.from } : {}
@@ -51,6 +51,22 @@ export function cleanState(s: ChoiceState | null | undefined): ChoiceState | nul
     ...from,
   }
   return Object.keys(out).length ? out : null
+}
+
+/** Choices as saved (or carried from an earlier prompt), as they are read: a choice saved as
+    the slot's own words (`as_written`, before that choice went) becomes no choice. The same
+    object back when there is none. */
+export function readChoices(saved: ProgramChoices | null | undefined): ProgramChoices {
+  if (!saved) return {}
+  const old = Object.entries(saved).filter(([, s]) => s && 'as_written' in (s as object))
+  if (!old.length) return saved
+  const out: ProgramChoices = { ...saved }
+  for (const [id, s] of old) {
+    const clean = cleanState(s)
+    if (clean) out[id] = clean
+    else delete out[id]
+  }
+  return out
 }
 
 /** What is sent for a state: as stored, without what only the editor uses (`from`). */
@@ -65,7 +81,7 @@ export function hasSeeds(s: ChoiceState | null | undefined): boolean {
 
 /** The user changed what the choice draws (their own variants alone change nothing). */
 export function isChanged(s: ChoiceState | null | undefined): boolean {
-  return !!s && (!!s.off || !!s.as_written || !!s.values?.length || hasSeeds(s))
+  return !!s && (!!s.off || !!s.values?.length || hasSeeds(s))
 }
 
 /** Back to how the choice starts; the user's own variants stay. */
@@ -74,11 +90,11 @@ export function resetState(s: ChoiceState | null | undefined): ChoiceState | nul
 }
 
 const own = (s: ChoiceState | null | undefined) => (s?.add?.length ? { add: s.add } : {})
-const seedsOf = (s: ChoiceState | null | undefined) => (s?.seeds && !s.off && !s.as_written ? { seeds: s.seeds } : {})
+const seedsOf = (s: ChoiceState | null | undefined) => (s?.seeds && !s.off ? { seeds: s.seeds } : {})
 
-/** Pin a variant, or un-pin it. Choosing brings a slot left out or as written back. */
+/** Pin a variant, or un-pin it. Choosing brings a slot left out back. */
 export function toggleValue(s: ChoiceState | null | undefined, text: string): ChoiceState | null {
-  const values = s?.off || s?.as_written ? [] : [...(s?.values || [])]
+  const values = s?.off ? [] : [...(s?.values || [])]
   const i = values.indexOf(text)
   if (i >= 0) values.splice(i, 1)
   else values.push(text)
@@ -90,20 +106,24 @@ export function chooseAny(s: ChoiceState | null | undefined): ChoiceState | null
   return cleanState({ ...seedsOf(s), ...own(s) })
 }
 
-export function asWritten(s: ChoiceState | null | undefined): ChoiceState {
-  return { as_written: true, ...own(s) }
+/** Set these variants picked or not, together (a shift-click range, Select all): the rest of
+    the picks, the seeds and the user's own stay. */
+export function setPicked(s: ChoiceState | null | undefined, texts: string[], on: boolean): ChoiceState | null {
+  const values = (s?.off ? [] : s?.values || []).filter(v => !texts.includes(v))
+  return cleanState({ ...seedsOf(s), ...own(s), values: on ? [...values, ...texts] : values })
 }
 
-/** Exactly this variant, as Keep from this sets it (with the image it came from). */
-export function pinTo(s: ChoiceState | null | undefined, text: string, from?: number | null): ChoiceState {
-  return { values: [text], ...own(s), ...(typeof from === 'number' ? { from } : {}) }
+/** Add this variant to the picks (Use from an image); already picked, nothing changes. */
+export function addValue(s: ChoiceState | null | undefined, text: string): ChoiceState | null {
+  if (!s?.off && s?.values?.includes(text)) return cleanState(s)
+  return setPicked(s, [text], true)
 }
 
 /** Add the user's own variant and pin it. */
 export function addOwn(s: ChoiceState | null | undefined, text: string): ChoiceState | null {
   const v = text.trim()
   if (!v) return cleanState(s)
-  const base = s?.off || s?.as_written ? {} : s || {}
+  const base = s?.off ? {} : s || {}
   return cleanState({ ...base, add: [v, ...(s?.add || []).filter(x => x !== v)], values: [...(base.values || []).filter(x => x !== v), v] })
 }
 
@@ -161,7 +181,7 @@ function dropConflicting(s: ChoiceState, pool: ChoicePool | null | undefined): C
 }
 
 function withSeeds(s: ChoiceState | null | undefined, seeds: ChoiceSeeds, pool: ChoicePool | null | undefined): ChoiceState | null {
-  const base: ChoiceState = s?.off || s?.as_written ? { ...own(s) } : { ...(s || {}) }
+  const base: ChoiceState = s?.off ? { ...own(s) } : { ...(s || {}) }
   delete base.from
   return cleanState(dropConflicting({ ...base, seeds }, pool))
 }
@@ -284,13 +304,13 @@ export function keptPieces(text: string, words: string, keep?: string[] | null, 
 // How a slot shows -----------------------------------------------------------------------------
 
 /** One word for how a slot stands, for its mark in the text and its row: `varying` (drawn from
-    its whole pool), `restricted` (limited to some variants or seeds), `words` (Keep my words),
-    `writing` (its first variants are being written). */
+    its whole pool), `restricted` (limited to some variants or seeds), `words` (it goes in as its
+    words: the server couldn't vary it), `writing` (its first variants are being written). */
 export type SlotLookKind = 'varying' | 'writing' | 'restricted' | 'words'
 
 export function lookOf(slot: Pick<ProgramSlot, 'state'> | null | undefined, s: ChoiceState | null | undefined,
                        pool?: ChoicePool | null): SlotLookKind {
-  if (s?.off || s?.as_written) return 'words'
+  if (s?.off) return 'words'
   if (s?.values?.length || hasSeeds(s)) return 'restricted'
   const state = pool?.state || slot?.state
   if (!slot || slot.state === 'reading' || state === 'writing' || state === 'reading') return 'writing'
@@ -329,10 +349,10 @@ export type RowValue =
   | { kind: 'words'; text: string }
   | { kind: 'restricted'; lines: Array<{ shown: string; more: number }> }
 
-/** What a slot's row says: how many options its pool holds while it varies freely, what it's
-    limited to (a person: a line each for age, gender, descent, then variants), its words in
-    quotes on Keep my words, or a shimmer while its first variants are written. A list of the
-    user's own counts its options. */
+/** What a slot's row says: how many options its pool holds while it varies freely (the row
+    reads "Varied" until it opens), what it's limited to (a person: a line each for age, gender,
+    descent, then variants), its words in quotes when it can't vary, or a shimmer while its
+    first variants are written. A list of the user's own counts its options. */
 export function rowValue(slot: Pick<ProgramSlot, 'state' | 'words'> | null, s: ChoiceState | null | undefined,
                          pool: ChoicePool | null | undefined, options: string[] = []): RowValue {
   const kind = slot ? lookOf(slot, s, pool) : (s?.values?.length ? 'restricted' : 'varying')
@@ -347,6 +367,16 @@ export function rowValue(slot: Pick<ProgramSlot, 'state' | 'words'> | null, s: C
   }
   const n = pool?.variants?.length ?? (pool?.options?.length || options.length)
   return { kind: 'varying', text: `${n} option${n === 1 ? '' : 's'}` }
+}
+
+/** How many of a choice's options are in play: `of` the pool's `total` when it's limited to
+    some (the picks, or the variants a person's seeds match), null while it draws from all. */
+export function inPlayCount(pool: ChoicePool | null | undefined, s: ChoiceState | null | undefined,
+                            total: number): { of: number; total: number } | null {
+  if (s?.values?.length) return { of: s.values.length, total }
+  if (!hasSeeds(s)) return null
+  const of = (pool?.variants || []).filter(v => !v.own && variantMatches(v, s?.seeds, pool?.person)).length
+  return { of, total }
 }
 
 /** The choice of the `n`-th list of the user's own in the text (1-based, as `findLists` counts

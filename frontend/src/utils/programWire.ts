@@ -165,14 +165,12 @@ export interface ChoiceSeeds {
 export interface ChoiceState {
   /** Pinned variants (a list's options): the least-used of them is drawn. */
   values?: string[]
-  /** The slot's own words, as they are. */
-  as_written?: boolean
   /** Left out of the prompt (older choices; the picker no longer sets it). */
   off?: boolean
   seeds?: ChoiceSeeds
   /** The user's own variants (a list's own options). */
   add?: string[]
-  /** Kept from an image (Keep from this): its media id, for its thumbnail. Never sent. */
+  /** The image a single pin came from: its media id. Never sent. */
   from?: number
 }
 

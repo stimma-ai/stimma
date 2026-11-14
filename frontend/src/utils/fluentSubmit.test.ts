@@ -135,16 +135,16 @@ const world = {
   states: {}, pools: {},
 }
 const run = { key: 'k1', version: 'slots-1', draws: [
-  { id: 'man', value: 'tall man with a bob' }, { id: 'gone', value: 'x' },
+  { id: 'man', value: 'tall man with a bob', about: 'man' }, { id: 'gone', value: 'x', about: 'gone' },
 ] }
 
 test('an image made while the prompt couldn’t be read offers no Same draws and nothing to keep', () => {
   const words = programRunActions({ key: null, draws: [], fallback: { rung: 'words', code: 'prepare_timeout' } },
     { key: 'k1', status: 'ready', world })
-  assert.deepEqual(words, { replay: false, reason: 'Made from your words as written.', keep: false })
+  assert.deepEqual(words, { replay: false, reason: 'Made from your words as written.', use: false })
   const earlier = programRunActions({ ...run, key: 'k0', fallback: { rung: 'previous' } }, { key: 'k1', status: 'ready', world })
   assert.equal(earlier.replay, false)
-  assert.equal(earlier.keep, true)  // Keep from this still offers what applies
+  assert.equal(earlier.use, true)  // Use still offers what applies
 })
 
 test('Same draws, new seed only against the program the image used', () => {
@@ -157,12 +157,14 @@ test('Same draws, new seed only against the program the image used', () => {
   assert.equal(programRunActions({ draws: run.draws }, { key: 'k1', status: 'ready', world }).replay, false)
 })
 
-test('Keep from this only for images made from slots, and only while the prompt is read', () => {
-  assert.equal(programRunActions(run, { key: 'k2', status: 'ready', world }).keep, true)
-  assert.equal(programRunActions(run, { key: 'k1', status: 'stale', world }).keep, false)
+test('Use only for images made from slots, and only while the prompt is read and has a part', () => {
+  assert.equal(programRunActions(run, { key: 'k2', status: 'ready', world }).use, true)
+  assert.equal(programRunActions(run, { key: 'k1', status: 'stale', world }).use, false)
   // The old writer's images carry no slot version.
-  assert.equal(programRunActions({ ...run, version: undefined }, { key: 'k1', status: 'ready', world }).keep, false)
-  assert.equal(programRunActions(run, { key: 'k1', status: 'ready', world: { ...world, choices: [] } }).keep, false)
+  assert.equal(programRunActions({ ...run, version: undefined }, { key: 'k1', status: 'ready', world }).use, false)
+  assert.equal(programRunActions(run, { key: 'k1', status: 'ready', world: { ...world, choices: [] } }).use, false)
+  // The slot's words changed since: nothing of it is in the prompt now.
+  assert.equal(programRunActions(run, { key: 'k2', status: 'ready', world: { ...world, slots: [{ ...world.slots[0], words: 'old man' }] } }).use, false)
 })
 
 test('a program depends on the prompt and the tool only', () => {

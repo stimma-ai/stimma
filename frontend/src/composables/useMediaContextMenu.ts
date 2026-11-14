@@ -170,7 +170,7 @@ export function broadcastMediaContextMenuEvent(name: HostEventName, ...args: unk
 // --- Actions a view adds ------------------------------------------------------
 //
 // A view can offer an action of its own on one media item it knows about (Tool View's
-// "Keep from this" on an image it generated). The menu shows the action whenever it opens
+// "Use in your prompt" on an image it generated). The menu shows the action whenever it opens
 // on that single item, from any place: a result tile, the stage, the slideshow. Like the
 // hosts above, a kept-alive view's action applies only while that view is active.
 

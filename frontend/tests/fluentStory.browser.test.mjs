@@ -45,7 +45,7 @@ function readSlots(prompt) {
 }
 const variantsOf = (id, words) => (VARIANTS[id] || [`a ${words}`, `an old ${words}`, `a small ${words}`]).map(text => ({ text, seeds: {} }))
 
-async function open(t, { theme = 'dark', width = 900, height = 760, mobile = false, start = '', dev = false } = {}) {
+async function open(t, { theme = 'dark', width = 900, height = 760, mobile = false, start = '', dev = false, run = null } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2, hasTouch: mobile, isMobile: mobile, colorScheme: theme })
@@ -102,7 +102,7 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
     if (url.endsWith('/prompt-programs/preview')) return json({ prompt: 'A dorm room with a 21-year-old Irish man with a buzz cut', draws: [{ id: 'young_man', value: MEN[1] }] })
     if (url.endsWith('/api/generate')) return json(body)
     if (url.includes('/api/')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
-    return route.fulfill({ contentType: 'text/html', body: `<html data-theme="${theme}" class="${theme}"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body class="bg-app"><script>window.START = ${JSON.stringify(start)}; window.DEV = ${dev}</script><div id="app"></div></body></html>` })
+    return route.fulfill({ contentType: 'text/html', body: `<html data-theme="${theme}" class="${theme}"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body class="bg-app"><script>window.START = ${JSON.stringify(start)}; window.DEV = ${dev}; window.RUN = ${JSON.stringify(run)}</script><div id="app"></div></body></html>` })
   })
   await page.goto('http://fluent-story.test/')
   if (css) await page.addStyleTag({ content: String(css.source) })
@@ -141,12 +141,18 @@ async function story(t, opts = {}) {
   await expect.poll(() => text(page)).toBe('dorm room with a <young man>')
   await shot(`${tag}-2-writing`)
   await expect(card.locator(`[data-variant="${MEN[0]}"]`)).toBeVisible({ timeout: 4000 })
-  await expect(card.locator('[data-any] svg')).toHaveCount(1)
+  // Open and varying, its header says how many options; nothing is ticked, and there is no
+  // "Any" row or count line in the picker.
+  await expect(page.locator('[data-row="young_man"] [data-value]')).toHaveText('3 options')
+  await expect(card.locator('[aria-pressed="true"]')).toHaveCount(0)
+  await expect(card.locator('[data-any], [data-count], [data-keep-words]')).toHaveCount(0)
+  await expect(card.locator('[data-more]')).toHaveText('More')
   await shot(`${tag}-3-picker`)
 
-  // Pin a variant: the slot fills, and its row says what it is.
+  // Pin a variant: the slot fills, and its row says what it is, and how many of the pool.
   await tap(card.locator(`[data-variant="${MEN[1]}"]`))
   await expect(page.locator('[data-row="young_man"]')).toContainText(MEN[1])
+  await expect(page.locator('[data-row="young_man"] [data-of]')).toContainText('1 of 3')
   await expect(mark(1)).toHaveAttribute('data-slot-look', 'restricted')
   await shot(`${tag}-4-chosen`)
   await page.keyboard.press('Escape')
@@ -161,11 +167,25 @@ async function story(t, opts = {}) {
   await expect(page.locator('[data-slot-add]')).toHaveText(['camera'], { timeout: 4000 })
   await shot(`${tag}-5-light`)
 
-  // Keep my words.
-  await tap(card.locator('[data-keep-words]'))
-  await expect(page.locator('[data-row="light"]')).toContainText('“light”')
-  await expect(mark(2)).toHaveAttribute('data-slot-look', 'words')
-  await shot(`${tag}-6-keep-words`)
+  // A click ticks one and is where a range starts; shift-click sets every one from there the
+  // way that one was left; ctrl- or cmd-click ticks or unticks one too (desktop).
+  const light = t => card.locator(`[data-variant="${t}"]`)
+  const lightState = () => page.evaluate(() => window.options().programChoices?.light ?? null)
+  await tap(light(LIGHTS[0]))
+  if (!opts.mobile) {
+    await light(LIGHTS[2]).click({ modifiers: ['Shift'] })
+    await expect.poll(lightState).toEqual({ values: LIGHTS })
+    await expect(page.locator('[data-row="light"] [data-of]')).toContainText('3 of 3')
+    await light(LIGHTS[1]).click({ modifiers: ['ControlOrMeta'] })
+    await expect.poll(lightState).toEqual({ values: [LIGHTS[0], LIGHTS[2]] })
+    await light(LIGHTS[2]).click({ modifiers: ['Shift'] })
+    await expect.poll(lightState).toEqual({ values: [LIGHTS[0]] })
+    // A shift-click selects no text.
+    assert.equal(await page.evaluate(() => String(window.getSelection())), '')
+  }
+  await expect.poll(lightState).toEqual({ values: [LIGHTS[0]] })
+  await expect(mark(2)).toHaveAttribute('data-slot-look', 'restricted')
+  await shot(`${tag}-6-range`)
 
   // A row opened from the slot in the text closes on Esc, though focus stays in the prompt.
   await page.keyboard.press('Escape')
@@ -190,7 +210,7 @@ async function story(t, opts = {}) {
   await expect.poll(() => page.evaluate(() => window.sent.length)).toBe(1)
   const [body] = await page.evaluate(() => window.sent)
   assert.equal(body.parameters.prompt, 'dorm room with a <young man>, lit by <light>')
-  assert.deepEqual(body.promptOptions.program, { enabled: true, choices: { young_man: { values: [MEN[1]] }, light: { as_written: true } } })
+  assert.deepEqual(body.promptOptions.program, { enabled: true, choices: { young_man: { values: [MEN[1]] }, light: { values: [LIGHTS[0]] } } })
   assert.equal(body.promptOptions.autoImprove.enabled, true)
   assert.equal(body.promptOptions.autoImprove.level, 'expand')
   return { page, calls }
@@ -321,17 +341,98 @@ test('the developer view of a prompt with nothing that varies says so', async t 
   await expect(page.locator('[data-program-debug]')).toContainText('Nothing in this prompt varies')
 })
 
-test('Keep from this on a result tile and in the menu, only for images made from slots', async t => {
-  const { page } = await open(t)
+test('search opens in the foot: Select all the matches, then Deselect all; Clear goes back to any', async t => {
+  const { page, card, mark, shot } = await open(t, { start: 'dorm room, lit by <light>' })
+  await expect(mark(1)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
+  const row = page.locator('[data-row="light"]')
+  // Closed with nothing picked, it reads Varied.
+  await expect(row.locator('[data-value]')).toHaveText('Varied')
+  await row.click()
+  await expect(row.locator('[data-value]')).toHaveText('3 options')
+  const state = () => page.evaluate(() => window.options().programChoices?.light ?? null)
+  await card.locator('[data-search-open]').click()
+  await expect(card.locator('[data-search] input')).toBeFocused()
+  await page.keyboard.type('light')
+  await expect(card.locator('[data-variant]')).toHaveText([LIGHTS[1], LIGHTS[2]])
+  await expect(card.locator('[data-select-matches]')).toHaveText('Select all 2')
+  await card.locator('[data-select-matches]').click()
+  await expect.poll(state).toEqual({ values: [LIGHTS[1], LIGHTS[2]] })
+  await expect(card.locator('[data-select-matches]')).toHaveText('Deselect all 2')
+  await shot('search-select-all')
+  await card.locator('[data-select-matches]').click()
+  await expect.poll(state).toBe(null)
+  // Clear in the open header goes back to any.
+  await card.locator(`[data-variant="${LIGHTS[1]}"]`).click()
+  await expect(row.locator('[data-of]')).toContainText('1 of 3')
+  await row.locator('[data-clear]').click()
+  await expect.poll(state).toBe(null)
+  await expect(row.locator('[data-value]')).toHaveText('3 options')
+  // Esc leaves the search, then closes the row.
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await expect(card).toHaveCount(0)
+  await expect(row.locator('[data-value]')).toHaveText('Varied')
+})
+
+const RUN = { key: 'k0', version: 'slots-1', draws: [
+  { id: 'young_man', value: 'a 28-year-old young man of Irish descent with a side part', about: 'young man', seeds: { age: '28-year-old', gender: 'man', descent: 'Irish' } },
+  { id: 'light', value: 'soft lamplight', about: 'light' },
+  { id: 'scarf', value: 'a red scarf', about: 'scarf', label: 'Scarf' },
+] }
+
+test('Use from an image adds what it drew to the part, once; a person’s strokes each; Undo', async t => {
+  const { page, mark, shot } = await open(t, { start: 'dorm room with a <young man>, lit by <light>', run: RUN })
+  await expect(mark(2)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
   const tiles = page.locator('[data-results] .job-tile')
   await expect(tiles).toHaveCount(2)
-  await expect(tiles.nth(0).locator('[data-keep-button]')).toHaveAttribute('title', 'Keep from this')
-  await expect(tiles.nth(1).locator('[data-keep-button]')).toHaveCount(0)
-  await tiles.nth(0).locator('[data-keep-button]').click()
-  assert.deepEqual(await page.evaluate(() => window.menuActions(5)), ['Keep from this'])
+  await expect(tiles.nth(1).locator('[data-use-button]')).toHaveCount(0)
+  const use = tiles.nth(0).locator('[data-use-button]')
+  await expect(use).toHaveCSS('opacity', '0')
+  await tiles.nth(0).hover()
+  await expect(use).toHaveText('Use')
+  await expect(use).toHaveCSS('opacity', '1')
+  await use.click()
+  const list = page.locator('[data-use-list]')
+  await expect(list).toContainText('Use in your prompt')
+  await expect(list.locator('[data-use-part]')).toHaveCount(2)
+  await expect(list.locator('[data-use-gone="scarf"]')).toHaveText(/Not in your prompt now/)
+  await expect(list.locator('[data-use-facets="young_man"]')).toHaveText(/or use him:\s*age 28\s*·\s*man\s*·\s*Irish/)
+  const state = () => page.evaluate(() => window.options().programChoices ?? {})
+  // Light: added soft lamplight. The row flashes and reads it; the toast offers Undo.
+  await list.locator('[data-use-part="light"]').click()
+  await expect.poll(state).toEqual({ light: { values: ['soft lamplight'] } })
+  await expect(page.locator('[data-row-wrap="light"][data-flash]')).toHaveCount(1)
+  await expect(page.locator('[data-row="light"]')).toContainText('soft lamplight')
+  const toast = page.getByText('Light: added soft lamplight')
+  await expect(toast).toBeVisible()
+  await shot('use-from-image')
+  // The same again changes nothing.
+  await list.locator('[data-use-part="light"]').click()
+  await expect.poll(state).toEqual({ light: { values: ['soft lamplight'] } })
+  // A person's age, as a year, adds to what is there.
+  await list.locator('[data-use-facets="young_man"] [data-use-facet="age"]').click()
+  await expect.poll(state).toEqual({ light: { values: ['soft lamplight'] }, young_man: { seeds: { age: { years: [28] } } } })
+  await list.locator('[data-use-facets="young_man"] [data-use-facet="descent"]').click()
+  await expect.poll(state).toEqual({ light: { values: ['soft lamplight'] }, young_man: { seeds: { age: { years: [28] }, descent: { values: ['Irish'] } } } })
+  // Undo puts the part back as it was.
+  await page.locator('div.pointer-events-auto').filter({ hasText: 'Young man: added Irish' }).getByRole('button', { name: 'Undo' }).click()
+  await expect.poll(state).toEqual({ light: { values: ['soft lamplight'] }, young_man: { seeds: { age: { years: [28] } } } })
+  // The menu on the image offers it too, and only for images made from slots.
+  assert.deepEqual(await page.evaluate(() => window.menuActions(5)), ['Use in your prompt'])
   assert.deepEqual(await page.evaluate(() => window.menuActions(6)), [])
-  await page.evaluate(() => window.runMenuAction(5))
-  assert.deepEqual(await page.evaluate(() => window.kept), [['tile', 1], ['menu', 1]])
+  await page.keyboard.press('Escape')
+  await expect(list).toHaveCount(0)
+})
+
+test('Use from an image after the prompt changed: the parts it lost are not in it now', async t => {
+  const { page, mark } = await open(t, { start: 'dorm room with a <young man>, lit by <warm light>', run: RUN })
+  await expect(mark(2)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
+  await page.locator('[data-results] .job-tile').nth(0).hover()
+  await page.locator('[data-results] .job-tile').nth(0).locator('[data-use-button]').click()
+  const list = page.locator('[data-use-list]')
+  await expect(list.locator('[data-use-part]')).toHaveCount(1)
+  await expect(list.locator('[data-use-gone]')).toHaveCount(2)
 })
 
 // Touch: on a phone each row and the + ideas are full-size targets (44px), and no two overlap.
@@ -393,9 +494,9 @@ for (const [label, opts] of [['desktop dark', {}], ['desktop light', { theme: 'l
     const { page, shot } = await open(t, opts)
     const tips = await openTips(page)
     const sections = await tips.locator('section h4').allInnerTexts()
-    assert.deepEqual(sections, ['Vary any part', 'Choose what it can be', 'Keep from this', 'Detail level', 'Lists', 'Saved wildcards and segments', 'Comment lines', 'Exact text'])
+    assert.deepEqual(sections, ['Vary any part', 'Choose what it can be', 'Use from an image', 'Detail level', 'Lists', 'Saved wildcards and segments', 'Comment lines', 'Exact text'])
     const text = await tips.innerText()
-    for (const s of ['Vary this', 'press <', '+ light', 'Keep my words', 'Keep from this', 'Yours', 'Medium', 'High'])
+    for (const s of ['Vary this', 'press <', '+ light', 'Choose Use', 'Yours', 'Medium', 'High'])
       assert.ok(text.includes(s), `tips mention ${s}`)
     await expect(tips.locator('[data-tip-example="slot"]')).toContainText('<young man>')
     // No mechanics, no old features, no em dashes.

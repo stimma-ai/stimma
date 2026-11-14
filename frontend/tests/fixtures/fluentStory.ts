@@ -8,7 +8,9 @@ import { usePromptProgram, type EnhanceLevel } from '../../src/composables/usePr
 import { shapePromptOptions } from '../../src/utils/fluentSubmit'
 import { setDevMode } from '../../src/appConfig'
 import JobTile from '../../src/components/generation/JobTile.vue'
-import { RESULT_KEEP } from '../../src/composables/resultKeep'
+import { RESULT_USE } from '../../src/composables/resultUse'
+import UseFromImage from '../../src/components/generation/UseFromImage.vue'
+import ToastContainer from '../../src/components/ToastContainer.vue'
 import { mediaMenuActions, useMediaMenuAction } from '../../src/composables/useMediaContextMenu'
 
 // Tool View's prompt card in Fluent, wired as ToolView.vue wires it: the real editor with
@@ -25,11 +27,13 @@ const sent: any[] = ((window as any).sent = [])
 ;(window as any).options = () => promptOptions.value
 if ((window as any).DEV) setDevMode(true)
 
-// Two results in Tool View's strip: one made from slots, one not. Tool View offers Keep from
-// this on the first, on its tile and in the menu of any of its images.
-const kept: any[] = ((window as any).kept = [])
+// Two results in Tool View's strip: one made from slots, one not. Tool View offers Use on the
+// first, on its tile and in the menu of any of its images; it opens the list of what it drew.
+// `window.RUN` (set before the page loads) is the first image's record.
+const used: any[] = ((window as any).used = [])
+const run = (window as any).RUN || { key: 'k', version: 'slots-1', draws: [] }
 const results = [
-  { id: 1, status: 'completed', result_media_id: 5, parameters: JSON.stringify({ prompt: 'a', prompt_program: { key: 'k', draws: [] } }) },
+  { id: 1, status: 'completed', result_media_id: 5, parameters: JSON.stringify({ prompt: 'a', prompt_program: run }) },
   { id: 2, status: 'completed', result_media_id: 6, parameters: JSON.stringify({ prompt: 'b' }) },
 ]
 const fromSlots = (job: any) => !!JSON.parse(job.parameters || '{}').prompt_program
@@ -38,10 +42,14 @@ const fromSlots = (job: any) => !!JSON.parse(job.parameters || '{}').prompt_prog
 
 const App = defineComponent({
   setup() {
-    provide(RESULT_KEEP, { can: fromSlots, open: job => { kept.push(['tile', (job as any).id]) } })
+    const useOpen = ref<{ run: any; anchor: DOMRect } | null>(null)
+    provide(RESULT_USE, { can: fromSlots, open: (job, at) => {
+      used.push(['tile', (job as any).id])
+      useOpen.value = { run: JSON.parse((job as any).parameters).prompt_program, anchor: at instanceof Element ? at.getBoundingClientRect() : at }
+    } })
     useMediaMenuAction((mediaId) => {
       const job = results.find(j => j.result_media_id === mediaId)
-      return job && fromSlots(job) ? { label: 'Keep from this', run: () => { kept.push(['menu', job.id]) } } : null
+      return job && fromSlots(job) ? { label: 'Use in your prompt', run: () => { used.push(['menu', job.id]) } } : null
     })
     const raw = computed(() => !!promptOptions.value.raw)
     const direct = computed(() => !!promptOptions.value.direct)
@@ -118,6 +126,8 @@ const App = defineComponent({
       }),
       h('button', { type: 'button', 'data-generate': '', class: 'self-end px-3 py-1.5 rounded-md bg-accent text-white text-xs', onClick: generate }, 'Generate'),
       h('div', { class: 'grid grid-cols-2 gap-2 w-[440px]', 'data-results': '' }, results.map(job => h(JobTile, { key: job.id, job }))),
+      h(UseFromImage, { open: useOpen.value, program, onClose: () => { useOpen.value = null } }),
+      h(ToastContainer),
     ])
   },
 })

@@ -343,7 +343,7 @@
           <span>Save {{ isSet ? 'members' : 'cells' }} as assets…</span>
         </button>
 
-        <!-- What the view this item came from offers on it (Tool View: Keep from this) -->
+        <!-- What the view this item came from offers on it (Tool View: Use in your prompt) -->
         <button
           v-for="a in viewActions"
           :key="a.label"

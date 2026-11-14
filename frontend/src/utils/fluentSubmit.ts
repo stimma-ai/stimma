@@ -3,7 +3,7 @@
 
 import type { ProgramStatus } from '../composables/usePromptProgram'
 import { isInsufficientBalanceCode, isLlmSetupCode } from './llmErrorCodes.ts'
-import { keepRows, type KeepWorld } from './keepFromThis.ts'
+import { imageParts, type ImageWorld } from './fromImage.ts'
 
 /** How the prompt is read for this run. With no chat model, everything but Raw is Direct:
     lists, saved wildcards and segments fill, brackets unwrap, # lines drop, no model.
@@ -184,23 +184,23 @@ export interface RunActions {
   replay: boolean
   /** Why replay isn't offered, when it isn't. */
   reason?: string
-  /** "Keep from this": the image was made from slots, and some of what it drew is still a
-      choice in the prompt. */
-  keep: boolean
+  /** "Use" (from an image): the image was made from slots, and some of what it drew is still
+      a part of the prompt. */
+  use: boolean
 }
 
 export function programRunActions(
   run: any,
-  current: { key: string | null; status: ProgramStatus; world: KeepWorld | null },
+  current: { key: string | null; status: ProgramStatus; world: ImageWorld | null },
 ): RunActions {
-  const keep = current.status === 'ready' && !!current.world && keepRows(run, current.world).length > 0
-  if (current.status === 'off') return { replay: false, reason: 'Not available with your current prompt settings.', keep }
+  const use = current.status === 'ready' && !!current.world && imageParts(run, current.world).some(p => p.here)
+  if (current.status === 'off') return { replay: false, reason: 'Not available with your current prompt settings.', use }
   // Made while the prompt couldn't be read: from the words as written there are no draws to
   // repeat; from the same words' earlier settings, only its picks that still apply.
-  if (run?.fallback?.rung === 'words') return { replay: false, reason: 'Made from your words as written.', keep }
-  if (run?.fallback?.rung === 'previous') return { replay: false, reason: 'Made with this prompt’s earlier settings.', keep }
+  if (run?.fallback?.rung === 'words') return { replay: false, reason: 'Made from your words as written.', use }
+  if (run?.fallback?.rung === 'previous') return { replay: false, reason: 'Made with this prompt’s earlier settings.', use }
   if (!run?.key || current.status !== 'ready' || run.key !== current.key) {
-    return { replay: false, reason: 'Your prompt has changed since this image was made.', keep }
+    return { replay: false, reason: 'Your prompt has changed since this image was made.', use }
   }
-  return { replay: true, keep }
+  return { replay: true, use }
 }

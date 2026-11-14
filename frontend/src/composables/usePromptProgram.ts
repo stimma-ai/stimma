@@ -3,8 +3,8 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { prepareBody, prepareErrorCode, prepareSettingsSig, readPending, shownKey, type PrepareInputs } from '../utils/fluentSubmit'
 import {
-  addOwn as addOwnTo, asWritten, carriedIds, carryChoices, cleanState, followId, isChanged, keptPools, listChoiceAt, lookOf, numberRepeats, optionsOf as optionsIn,
-  resetState, wireState, type SlotLookKind,
+  addOwn as addOwnTo, carriedIds, carryChoices, cleanState, followId, isChanged, keptPools, listChoiceAt, lookOf, numberRepeats, optionsOf as optionsIn,
+  readChoices, resetState, wireState, type SlotLookKind,
 } from '../utils/programChoices'
 import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareResponse, ProgramChoice, ProgramChoices, ProgramSlot } from '../utils/programWire'
 import { findLists } from '../utils/promptSyntax'
@@ -105,7 +105,8 @@ export function usePromptProgram(o: Options) {
 
   // What is chosen ---------------------------------------------------------------------
 
-  const states = computed<ProgramChoices>(() => o.promptOptions.value?.programChoices || {})
+  // A choice saved before Keep my words went (`as_written`) is read as no choice.
+  const states = computed<ProgramChoices>(() => readChoices(o.promptOptions.value?.programChoices))
 
   function writeStates(next: ProgramChoices) {
     o.setPromptOptions({ ...(o.promptOptions.value || {}), programChoices: next })
@@ -148,7 +149,6 @@ export function usePromptProgram(o: Options) {
     const same = Object.keys(next).length === Object.keys(states.value).length
       && Object.entries(next).every(([id, s]) => states.value[id] === s)
     if (!same) writeStates(next)
-    stashed.value = carryChoices(stashed.value, ids, prev, p)
   }
 
   function request(extra: Record<string, any> = {}) {
@@ -436,22 +436,6 @@ export function usePromptProgram(o: Options) {
     setState(id, addOwnTo(states.value[id], text))
   }
 
-  /** Keep my words: the slot goes in as its words. Turning it off restores what was picked. */
-  const stashed = ref<Record<string, ChoiceState>>({})
-  function setKeepWords(id: string, on: boolean) {
-    const s = states.value[id]
-    if (on) {
-      if (isChanged(s) && !s?.as_written && !s?.off) stashed.value = { ...stashed.value, [id]: s! }
-      setState(id, asWritten(s))
-    } else {
-      const held = stashed.value[id]
-      const rest = { ...stashed.value }
-      delete rest[id]
-      stashed.value = rest
-      setState(id, held ? { ...held, ...(s?.add?.length ? { add: s.add } : {}) } : resetState(s))
-    }
-  }
-
   // How each slot shows in the text --------------------------------------------------------
 
   /** How the slot stands now: its mark and its row. */
@@ -555,7 +539,7 @@ export function usePromptProgram(o: Options) {
   return {
     program, status, error, unsupported, typing, doneTyping, leftSlot, slots, choices, byId, slotById, pools, fresh, states, openCard, openId, marks,
     lookup, prepare, needsRead, ensureReady, needsPrepare, readyPrompt, payload, fetchProgramText, previewRuns,
-    poolOf, optionsOf, moreLikeThese, addOwn, setState, setStates, setValues, setKeepWords, reset, resetAll, lookOfSlot,
+    poolOf, optionsOf, moreLikeThese, addOwn, setState, setStates, setValues, reset, resetAll, lookOfSlot,
     slotFor, toggleRow, openEditorList, openEditorSlot, close,
   }
 }
