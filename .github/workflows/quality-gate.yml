@@ -274,7 +274,7 @@ jobs:
 
       - name: Run full acceptance tests
         if: ${{ matrix.lane == 'desktop' && inputs.acceptance_suite == 'full' }}
-        run: tools/stimma test acceptance
+        run: tools/stimma test acceptance --max-failures=1 --retries=0
 
       - name: Run phone lane (route audit)
         if: matrix.lane != 'desktop'

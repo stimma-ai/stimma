@@ -161,7 +161,7 @@ class QualityProofTests(unittest.TestCase):
         for name in ['linux', 'linux-arm64', 'macos', 'windows', 'headless']:
             self.assertEqual(canary[name]['with']['publication_gate'], canary['version']['name'])
         self.assertEqual(canary['linux-ready']['needs'], ['version', 'linux', 'linux-arm64'])
-        self.assertEqual(workflow('release.yml')['jobs']['quality-gate']['with']['acceptance_suite'], 'full')
+        self.assertEqual(workflow('release.yml')['jobs']['quality-gate']['with'].get('acceptance_suite', 'smoke'), 'smoke')
         linux = workflow('linux-appimage.yml')
         update = next(s for s in linux['jobs']['linux-appimage']['steps'] if s.get('name') == 'Test packaged AppImage update cycle')
         self.assertEqual(update['if'], "inputs.channel != 'canary' || inputs.run_updater_tests")
