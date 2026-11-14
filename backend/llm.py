@@ -209,7 +209,7 @@ def _acceptance_program(messages: List[Dict[str, Any]]) -> Optional[str]:
         return None
     user = next((_stringify_message_content(m.get("content")) for m in messages if m.get("role") == "user"), "")
     slots = [{"n": int(n), "kind": "free", "label": words.strip()[:40] or "Slot", "lead": "",
-              "free": {"about": words.strip(), "kinds": [words.strip()], "instead": []}}
+              "free": {"about": words.strip(), "lists": []}}
              for n, words in re.findall(r"⟨(\d+): ([^⟩]*)⟩", user)]
     lists = [{"n": int(n), "label": f"List {n}"} for n in dict.fromkeys(re.findall(r"\{L(\d+): ", user))]
     return json.dumps({"slots": slots, "lists": lists})

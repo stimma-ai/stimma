@@ -431,7 +431,7 @@ async def test_prepare_reads_narrows_seeds_and_stores(profile, monkeypatch):
     outfit = next(b for b in entry["seeds"][man]["banks"] if b["list"] == "person.outfit.casual")
     assert outfit["role"] == "idea" and outfit["where"] == {"presentation": "masculine"}
     assert entry["seeds_pending"] == [] and not entry["reading"]
-    assert entry["readings"]["slots"][1]["free"]["kinds"][0] == "ginger tabby cat"
+    assert entry["readings"]["slots"][1]["free"] == {"about": "his pet, with him on the porch", "lists": []}
     assert all(P.store_for(profile).has(s["pool"]) for s in entry["slots"])
     stored = prep.store_for(profile).get(entry["key"])
     assert stored["seeds"] == entry["seeds"] and [s["pool"] for s in stored["slots"]] == [s["pool"] for s in entry["slots"]]
@@ -785,6 +785,20 @@ async def test_a_person_keeps_the_words_that_say_what_they_wear_and_draws_no_out
     assert "clothes" not in got["slots"][0]["person"] and not plan(got["slots"][0], "young man")["clothes_owned"]
     # The edit check is shown the clothes as part of what was read.
     assert '"clothes": "in a red raincoat"' in reader._read_as({"kind": "person", "person": person})
+
+
+def test_the_reader_no_longer_asks_for_kinds_instead_or_light_examples():
+    text = reader.system_text()
+    assert '"kinds"' not in text and '"instead"' not in text and '"examples"' not in text
+    assert "kinds (three" not in text and "instead:" not in text and "examples, three" not in text
+    # a free part and a light with no list are good readings without them
+    seg = parse("a <bench> lit by <light>").slots()
+    free = reader.check_slot({"n": 1, "kind": "free", "label": "Bench", "lead": "", "free": {"about": "a bench"}},
+                             seg[0], "a ", [])
+    assert free["free"] == {"about": "a bench", "lists": []}
+    light = reader.check_slot({"n": 2, "kind": "light", "label": "Light", "lead": "", "light": {"list": ""}},
+                              seg[1], " lit by ", [])
+    assert light["light"] == {"list": ""}
 
 
 async def test_a_camera_that_varies_one_detail_is_that_details_list():
