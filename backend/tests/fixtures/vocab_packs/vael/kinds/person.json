@@ -1,0 +1,40 @@
+{
+ "id": "person",
+ "extend": true,
+ "reader": {
+  "questions": [
+   {
+    "key": "being",
+    "options": [
+     {
+      "answer": "elf",
+      "heritage": "vael.clan",
+      "text": "an elf of the Vael's world: \"elf\", \"elven archer\", \"elf maiden\"",
+      "note": "The marked words name an elf of the Vael's world. The quoted heritage is their clan: give them that clan's look as the line gives it, and write the clan's name in where it reads naturally (\"an Ashveil elf\", \"a Corriveth elf\")."
+     }
+    ]
+   }
+  ]
+ },
+ "draws": [
+  {
+   "role": "idea",
+   "list": "vael.dress",
+   "phrase": "words",
+   "about": "what the {noun} wears",
+   "scene": true,
+   "when": {
+    "being": [
+     "elf"
+    ]
+   },
+   "unless": {
+    "people": [
+     "group"
+    ],
+    "clothes_part": "answered",
+    "clothes": "answered"
+   }
+  }
+ ]
+}

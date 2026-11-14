@@ -1,0 +1,115 @@
+{
+ "id": "creature",
+ "order": 50,
+ "first_write": 12,
+ "reader": {
+  "recognize": [
+   "a beast of the Vael's world the prompt doesn't already have, named by the part's own words: \"creature\", \"beast\", \"mount\", \"wyrm\". A real-world animal is an \"animal\", not a creature."
+  ],
+  "heading": "For a creature:",
+  "questions": [
+   {
+    "key": "noun",
+    "type": "words",
+    "store": "always",
+    "ask": "what it is, in one word from its words (\"creature\", \"beast\", \"mount\").",
+    "required": "part {n}: a creature's noun is one of its own words, and \"{value}\" is not among the words \"{words}\""
+   },
+   {
+    "key": "size",
+    "type": "choice",
+    "default": "any",
+    "store": "always",
+    "ask": "how big its words or the prompt make it",
+    "options": [
+     {
+      "answer": "small",
+      "text": "small enough to hold or carry: \"familiar\", \"pocket beast\""
+     },
+     {
+      "answer": "great",
+      "text": "big enough to ride or to tower: \"mount\", \"wyrm\""
+     },
+     {
+      "answer": "any",
+      "text": "the prompt doesn't say"
+     }
+    ]
+   }
+  ],
+  "example": {
+   "noun": "mount",
+   "size": "great"
+  }
+ },
+ "draws": [
+  {
+   "role": "core",
+   "list": "vael.beast.small",
+   "phrase": "words",
+   "about": "what kind of beast the {noun} is",
+   "when": {
+    "size": [
+     "small"
+    ]
+   }
+  },
+  {
+   "role": "core",
+   "list": "vael.beast.great",
+   "phrase": "words",
+   "about": "what kind of beast the {noun} is",
+   "when": {
+    "size": [
+     "great"
+    ]
+   }
+  },
+  {
+   "role": "idea",
+   "list": "vael.beast.small",
+   "phrase": "words",
+   "about": "what kind of beast the {noun} is",
+   "when": {
+    "size": [
+     "any"
+    ]
+   }
+  },
+  {
+   "role": "idea",
+   "list": "vael.beast.great",
+   "phrase": "words",
+   "about": "what kind of beast the {noun} is",
+   "when": {
+    "size": [
+     "any"
+    ]
+   }
+  },
+  {
+   "role": "each",
+   "list": "vael.hide",
+   "label": "hide",
+   "say": "value",
+   "show": "must"
+  },
+  {
+   "role": "idea",
+   "list": "vael.temper",
+   "about": "how the {noun} behaves"
+  }
+ ],
+ "writer": {
+  "rules": [
+   "A creature of the Vael's world: say what beast it is, its hide and how it moves or holds itself in this scene, as an animal of that world; never a rider, keeper or person with it that the prompt doesn't have."
+  ],
+  "seed_rules": [
+   "hide: the creature's hide, coat or scales: write it into the variant in those exact words."
+  ],
+  "note": "This part is a creature of the Vael's world. Each variant says what beast it is, its hide, and how it holds itself here; it is never a person."
+ },
+ "improve": [
+  "A value that names a creature of the Vael's world keeps it that creature: add no rider or keeper for it that the request doesn't name."
+ ]
+}

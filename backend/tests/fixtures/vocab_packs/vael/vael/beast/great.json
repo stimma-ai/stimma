@@ -1,0 +1,66 @@
+{
+ "id": "vael.beast.great",
+ "label": "Great beasts",
+ "description": "Beasts of the Vael's world big enough to ride or to tower.",
+ "pos": "noun phrase",
+ "frame": "a ___",
+ "catalog": false,
+ "values": [
+  {
+   "text": "moorstag with a crown of antlers",
+   "tier": "typical"
+  },
+  {
+   "text": "saltfang wyrm",
+   "tier": "typical"
+  },
+  {
+   "text": "thunder elk",
+   "tier": "typical"
+  },
+  {
+   "text": "longnecked marsh strider",
+   "tier": "typical"
+  },
+  {
+   "text": "barrow bear",
+   "tier": "typical"
+  },
+  {
+   "text": "grove tortoise with a garden on its shell",
+   "tier": "typical"
+  },
+  {
+   "text": "cliff gryphon",
+   "tier": "typical"
+  },
+  {
+   "text": "ashwing drake",
+   "tier": "typical"
+  },
+  {
+   "text": "river behemoth",
+   "tier": "typical"
+  },
+  {
+   "text": "dune lion",
+   "tier": "typical"
+  },
+  {
+   "text": "mammoth hound",
+   "tier": "typical"
+  },
+  {
+   "text": "sky ray",
+   "tier": "typical"
+  },
+  {
+   "text": "stonehorn ox",
+   "tier": "typical"
+  },
+  {
+   "text": "reed-maned charger",
+   "tier": "typical"
+  }
+ ]
+}

@@ -1,0 +1,45 @@
+{
+ "id": "realms",
+ "weights": "vael.clan",
+ "weight": {
+  "prompt": 0.9
+ },
+ "about": "The realms of the Vael's world and the clans common in each.",
+ "ask": "Or, for a picture set in the Vael's world, the realm it is set in, by its name: \"a glade in Thornmere\": \"Thornmere\"; the realms are Thornmere, Vellumdeep, the Saltfang Isles and Orrin Vale.",
+ "entries": {
+  "thornmere": {
+   "name": "Thornmere",
+   "shares": {
+    "Corriveth": 0.7,
+    "Sedrawen": 0.2
+   }
+  },
+  "vellumdeep": {
+   "name": "Vellumdeep",
+   "shares": {
+    "Ashveil": 0.6,
+    "Ithrael": 0.3
+   }
+  },
+  "saltfang": {
+   "name": "the Saltfang Isles",
+   "aliases": [
+    "Saltfang Isles",
+    "Saltfang"
+   ],
+   "shares": {
+    "Lunmar": 0.8
+   }
+  },
+  "orrin": {
+   "name": "Orrin Vale",
+   "aliases": [
+    "Orrin"
+   ],
+   "shares": {
+    "Tamsorrow": 0.5,
+    "Sedrawen": 0.3
+   }
+  }
+ }
+}

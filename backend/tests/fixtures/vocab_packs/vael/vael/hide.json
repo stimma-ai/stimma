@@ -1,0 +1,50 @@
+{
+ "id": "vael.hide",
+ "label": "Hide",
+ "description": "The hide, coat or scales of a beast of the Vael's world.",
+ "pos": "noun phrase",
+ "frame": "a beast with ___",
+ "catalog": false,
+ "values": [
+  {
+   "text": "moss-green scales",
+   "tier": "typical"
+  },
+  {
+   "text": "a shaggy slate-blue coat",
+   "tier": "typical"
+  },
+  {
+   "text": "bark-brown plated hide",
+   "tier": "typical"
+  },
+  {
+   "text": "silver-banded fur",
+   "tier": "typical"
+  },
+  {
+   "text": "glassy black scales",
+   "tier": "typical"
+  },
+  {
+   "text": "a dappled fawn coat",
+   "tier": "typical"
+  },
+  {
+   "text": "rust-red quills",
+   "tier": "typical"
+  },
+  {
+   "text": "smoke-gray feathered hide",
+   "tier": "typical"
+  },
+  {
+   "text": "pale ridged hide like birch bark",
+   "tier": "typical"
+  },
+  {
+   "text": "a mottled ochre pelt",
+   "tier": "typical"
+  }
+ ]
+}

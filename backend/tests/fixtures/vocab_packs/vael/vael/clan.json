@@ -1,0 +1,78 @@
+{
+ "id": "vael.clan",
+ "label": "Clan",
+ "description": "The clans of the Vael's elves; each has its own look.",
+ "pos": "proper noun",
+ "frame": "an elf of the ___ clan",
+ "closed": true,
+ "catalog": false,
+ "local_facets": {
+  "line": [
+   "high",
+   "wild"
+  ]
+ },
+ "browse": "line",
+ "values": [
+  {
+   "text": "Ashveil",
+   "tier": "typical",
+   "tags": {
+    "line": [
+     "high"
+    ]
+   },
+   "look": "ash-pale skin, silver-white hair worn long, storm-gray eyes, tall and narrow-shouldered"
+  },
+  {
+   "text": "Lunmar",
+   "tier": "typical",
+   "tags": {
+    "line": [
+     "high"
+    ]
+   },
+   "look": "deep blue-black skin with a faint pearly sheen, hair like spun copper, amber eyes"
+  },
+  {
+   "text": "Corriveth",
+   "tier": "typical",
+   "tags": {
+    "line": [
+     "wild"
+    ]
+   },
+   "look": "moss-brown freckled skin, coarse dark-green hair braided with cord, wide-set gold eyes"
+  },
+  {
+   "text": "Sedrawen",
+   "tier": "typical",
+   "tags": {
+    "line": [
+     "wild"
+    ]
+   },
+   "look": "sun-browned skin, short sand-colored hair, pale green eyes, compact and broad-handed"
+  },
+  {
+   "text": "Ithrael",
+   "tier": "plausible",
+   "tags": {
+    "line": [
+     "high"
+    ]
+   },
+   "look": "milk-white skin traced with faint violet veins, black hair to the waist, violet eyes"
+  },
+  {
+   "text": "Tamsorrow",
+   "tier": "plausible",
+   "tags": {
+    "line": [
+     "wild"
+    ]
+   },
+   "look": "bark-dark skin, ember-red hair cropped close, eyes black from lid to lid"
+  }
+ ]
+}

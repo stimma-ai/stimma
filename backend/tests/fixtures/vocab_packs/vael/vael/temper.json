@@ -1,0 +1,46 @@
+{
+ "id": "vael.temper",
+ "label": "Temper",
+ "description": "How a beast of the Vael's world behaves.",
+ "pos": "adjective phrase",
+ "frame": "a ___ beast",
+ "catalog": false,
+ "values": [
+  {
+   "text": "skittish",
+   "tier": "typical"
+  },
+  {
+   "text": "watchful",
+   "tier": "typical"
+  },
+  {
+   "text": "lazy and sun-drowsy",
+   "tier": "typical"
+  },
+  {
+   "text": "curious, nosing at everything",
+   "tier": "typical"
+  },
+  {
+   "text": "proud and still",
+   "tier": "typical"
+  },
+  {
+   "text": "restless, pacing",
+   "tier": "typical"
+  },
+  {
+   "text": "playful",
+   "tier": "typical"
+  },
+  {
+   "text": "wary of strangers",
+   "tier": "typical"
+  },
+  {
+   "text": "fiercely territorial",
+   "tier": "typical"
+  }
+ ]
+}

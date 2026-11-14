@@ -1,0 +1,57 @@
+{
+ "id": "vael.dress",
+ "label": "Elven dress",
+ "description": "What the Vael's elves wear.",
+ "pos": "noun phrase",
+ "frame": "an elf in ___",
+ "values": [
+  {
+   "text": "a long coat of layered leaf-green silk",
+   "tier": "typical"
+  },
+  {
+   "text": "a high-collared mantle of gray felt pinned with a bone clasp",
+   "tier": "typical"
+  },
+  {
+   "text": "a sleeveless tunic of woven bark fiber over leggings",
+   "tier": "typical"
+  },
+  {
+   "text": "a hooded cloak dyed the blue of dusk",
+   "tier": "typical"
+  },
+  {
+   "text": "a fitted jerkin of stitched river-reed",
+   "tier": "typical"
+  },
+  {
+   "text": "a draped robe of undyed wool belted with braided cord",
+   "tier": "typical"
+  },
+  {
+   "text": "a shoulder cape of overlapping copper scales",
+   "tier": "typical"
+  },
+  {
+   "text": "a wrap of moth-gray linen tied at the hip",
+   "tier": "typical"
+  },
+  {
+   "text": "a stiff-collared vest of pressed lichen-cloth",
+   "tier": "typical"
+  },
+  {
+   "text": "a quilted riding coat with antler toggles",
+   "tier": "typical"
+  },
+  {
+   "text": "a gown of pale silk embroidered with vines",
+   "tier": "typical"
+  },
+  {
+   "text": "a short cloak of patched fox fur",
+   "tier": "typical"
+  }
+ ]
+}

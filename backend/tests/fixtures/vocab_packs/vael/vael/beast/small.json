@@ -1,0 +1,62 @@
+{
+ "id": "vael.beast.small",
+ "label": "Small beasts",
+ "description": "Beasts of the Vael's world small enough to hold or carry.",
+ "pos": "noun phrase",
+ "frame": "a ___",
+ "catalog": false,
+ "values": [
+  {
+   "text": "glimmerhare",
+   "tier": "typical"
+  },
+  {
+   "text": "thornmouse",
+   "tier": "typical"
+  },
+  {
+   "text": "puddle drake",
+   "tier": "typical"
+  },
+  {
+   "text": "lantern moth the size of a hand",
+   "tier": "typical"
+  },
+  {
+   "text": "burrfox kit",
+   "tier": "typical"
+  },
+  {
+   "text": "inkshrew",
+   "tier": "typical"
+  },
+  {
+   "text": "pocket wyrmling",
+   "tier": "typical"
+  },
+  {
+   "text": "needle-tailed sprite hound",
+   "tier": "typical"
+  },
+  {
+   "text": "salt newt",
+   "tier": "typical"
+  },
+  {
+   "text": "dusk owlet with four eyes",
+   "tier": "typical"
+  },
+  {
+   "text": "bramble hedgeling",
+   "tier": "typical"
+  },
+  {
+   "text": "copper beetle hound",
+   "tier": "typical"
+  },
+  {
+   "text": "whistling marten",
+   "tier": "typical"
+  }
+ ]
+}
