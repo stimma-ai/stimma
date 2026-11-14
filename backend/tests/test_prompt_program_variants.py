@@ -1369,3 +1369,15 @@ def test_a_variant_that_is_an_article_alone_is_dropped():
     assert V.check("a", "place", [], V.Spec()) == "empty"
     assert V.check("her", "her pet", ["her"], V.Spec()) == "empty"
     assert V.check("a gravel driveway", "place", [], V.Spec()) == ""
+
+
+def test_a_variant_that_copies_the_words_up_to_the_next_slot_is_cut_back():
+    # Rerun: "short White American grandmother with <her pet>" was stored as "... grandmother with",
+    # and the filled prompt read "grandmother with with her cat".
+    sl = slot_of(GRANDMOTHER, "person")
+    left, right = V.context_words(sl.prompt, sl.span)
+    for t in ("short White American grandmother with <her pet>, <light>", "short White American grandmother with"):
+        if "<" not in t:
+            assert V.repair(t, left, right, words=sl.words)[0] == t   # no markup cut: a variant may end on "with"
+            continue
+        assert V.repair(t, left, right, words=sl.words)[0] == "short White American grandmother"

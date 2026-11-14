@@ -48,7 +48,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-13"   # variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-14"   # variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -743,6 +743,13 @@ def repair(text: str, left: Sequence[str], right: Sequence[str], *, words: str =
     if "<" in t:
         t = t[:t.index("<")]
         did.append("markup")
+        # Cut at the next slot's markup, it copied the words between this slot and that one:
+        # "grandmother with <her pet>" leaves "grandmother with", and "with" is already in the prompt.
+        if right:
+            m = re.search(r"(?<![\w'-])" + r"\W+".join(re.escape(w) for w in right) + r"\W*$", t, re.I)
+            if m and m.start() > 0:
+                t = t[:m.start()]
+                did.append("right")
     for k in (len(left), 4, 3, 2, 1):
         lw = list(left[-k:]) if k <= len(left) else []
         if lw and (len(lw) >= 2 or lw[-1].lower() not in _ARTICLES):   # one word too: "two <women>" -> no "two two"
