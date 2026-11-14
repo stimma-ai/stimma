@@ -63,7 +63,14 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           REUSE_CI: ${{ inputs.reuse_ci }}
           ACCEPTANCE_SUITE: ${{ inputs.acceptance_suite || 'smoke' }}
-        run: python3 scripts/ci-quality-proof.py lookup
+        run: |
+          if [ -f scripts/ci-quality-proof.py ]; then
+            python3 scripts/ci-quality-proof.py lookup
+          else
+            # Older refs predate quality receipts; test them without reuse.
+            echo "reused=false" >> "$GITHUB_OUTPUT"
+            echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          fi
 
   release-cleanup-tests:
     needs: evidence
@@ -320,10 +327,16 @@ jobs:
         with:
           ref: ${{ needs.evidence.outputs.ref }}
       - name: Record tested source tree
+        id: receipt
         env:
           ACCEPTANCE_SUITE: ${{ inputs.acceptance_suite || 'smoke' }}
-        run: python3 scripts/ci-quality-proof.py record
+        run: |
+          if [ -f scripts/ci-quality-proof.py ]; then
+            python3 scripts/ci-quality-proof.py record
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: steps.receipt.outputs.created == 'true'
         with:
           name: quality-proof-${{ inputs.acceptance_suite || 'smoke' }}
           path: ${{ runner.temp }}/quality-proof.json

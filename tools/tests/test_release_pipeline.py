@@ -124,6 +124,26 @@ class QualityProofTests(unittest.TestCase):
             artifact['expired'] = True
             self.assertFalse(proof.lookup('tree-a', 'smoke', get))
 
+    def test_refs_without_proof_helper_pin_source_and_run_checks(self):
+        jobs = workflow('quality-gate.yml')['jobs']
+        lookup = jobs['evidence']['steps'][-1]['run']
+        record = next(s for s in jobs['passed']['steps'] if s.get('id') == 'receipt')['run']
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            subprocess.run(['git', 'init'], cwd=root, check=True, capture_output=True)
+            subprocess.run(['git', '-c', 'user.name=stimmant', '-c', 'user.email=stimmant@stimma.ai',
+                            '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'Old source fixture'],
+                           cwd=root, check=True, capture_output=True)
+            output = root / 'output'
+            env = dict(os.environ, GITHUB_OUTPUT=str(output))
+            subprocess.run(['bash', '-e', '-c', lookup], cwd=root, env=env, check=True)
+            result = dict(line.split('=', 1) for line in output.read_text().splitlines())
+            self.assertEqual(result['reused'], 'false')
+            self.assertEqual(result['ref'], subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip())
+            output.write_text('')
+            subprocess.run(['bash', '-e', '-c', record], cwd=root, env=env, check=True)
+            self.assertEqual(output.read_text(), '')
+
     def test_gate_allows_reuse_or_all_success_but_never_partial_checks(self):
         step = workflow('quality-gate.yml')['jobs']['passed']['steps'][0]
         base = dict(os.environ, EVIDENCE='success', REUSED='false', BACKEND='success', FRONTEND='success',
