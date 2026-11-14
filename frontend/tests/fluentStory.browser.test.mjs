@@ -167,6 +167,14 @@ async function story(t, opts = {}) {
   await expect(mark(2)).toHaveAttribute('data-slot-look', 'words')
   await shot(`${tag}-6-keep-words`)
 
+  // A row opened from the slot in the text closes on Esc, though focus stays in the prompt.
+  await page.keyboard.press('Escape')
+  await expect(card).toHaveCount(0)
+  await mark(1).click()
+  await expect(page.locator('[data-row-wrap="young_man"][data-open]')).toHaveCount(1)
+  await page.keyboard.press('Escape')
+  await expect(card).toHaveCount(0)
+
   // Detail level High from the Fluent menu.
   await tap(page.locator('[data-fluent-chip]'))
   const menu = page.locator('[data-fluent-menu]')

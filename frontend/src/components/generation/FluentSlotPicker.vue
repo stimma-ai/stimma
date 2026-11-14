@@ -364,7 +364,10 @@ function stageNote(a: Stage) {
 // Esc steps back out: the search, then a drill-in, then the picker.
 function onKey(e: KeyboardEvent) {
   if (e.key !== 'Escape') return
-  if ((e.target as Element | null)?.closest?.('.cm-editor')) return
+  // From the prompt (a slot clicked in the text keeps focus there), Esc still closes the row,
+  // unless the editor has a popup of its own open: that Esc is the popup's.
+  const editor = (e.target as Element | null)?.closest?.('.cm-editor')
+  if (editor && editor.querySelector('.cm-tooltip')) return
   e.preventDefault()
   e.stopPropagation()
   if (query.value) query.value = ''
