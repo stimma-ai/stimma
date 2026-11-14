@@ -174,7 +174,8 @@ def seeds_of(record: Dict[str, Any]) -> V.Seeds:
             ages=narrowed(age) if age is not None and age.get("narrowed") is not None else None,
             ideas=[(b["list"], narrowed(b)) for b in banks if b["role"] == "idea"],
             stated=stated, minor=minor, clothes_owned=bool(record.get("clothes_owned")),
-            people=str(record.get("people") or ""), gender_list=by["gender"]["list"] if "gender" in by else V.GENDER,
+            people=str(record.get("people") or ""), gender_list=by["gender"]["list"] if "gender" in by else "",
+            heritage="descent" in by,
             place=record.get("place") if isinstance(record.get("place"), dict) else None)
     cores = [b for b in banks if b["role"] == "core"]
     lists = [(b["list"], narrowed(b)) for b in (cores or banks)]

@@ -108,3 +108,14 @@ def test_the_pickers_show_what_several_people_were_seeded_with():
     group = P.person_pickers([], P.Choice(), gender_list=None, descent=False, age=False)
     assert group == {}
     assert set(P.person_pickers([], P.Choice())) == {"descent", "gender", "age"}
+
+
+def test_seeds_without_a_descent_or_gender_bank_draw_none():
+    elf = plan(_reading(noun="elf", heritage=False), "elf")
+    seeds = seeds_of({"kind": "person", "banks": [{**b, "narrowed": None} for b in elf["banks"]]})
+    assert seeds.descent is None and seeds.gender is not None
+    grp = _seeds("group", "three friends")
+    assert grp.descent is None and grp.gender is None and grp.age is None
+    fam = _seeds("family", "family")
+    assert fam.descent is not None and fam.gender is None
+    assert not any(s.descent or s.gender for s in V.draw_seeds(random.Random(1), grp, 10, "three friends").specs)

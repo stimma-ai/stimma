@@ -358,7 +358,7 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
                  ages: Optional[Sequence[str]] = None, ideas: Sequence[Tuple[str, Optional[Sequence[str]]]] = (),
                  stated: Optional[Dict[str, Sequence[str]]] = None, minor: Sequence[str] = (),
                  clothes_owned: bool = False, place: Optional[Dict[str, str]] = None,
-                 people: str = "", gender_list: str = GENDER) -> Seeds:
+                 people: str = "", gender_list: str = GENDER, heritage: bool = True) -> Seeds:
     """A person's seeds. `descent`: the descent values their words allow (narrowed; None when the
     words state none: the whole list). `stated_descent`: their words state it, so a single value
     left needs no seed. `gender`: the genders their words allow (narrowed: "woman" keeps woman and
@@ -372,7 +372,9 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
     of ages on their line). `clothes_owned`: the prompt or another part says what they wear, so no
     variant develops their clothes. `place`: where they are from ({"code", "from"}, places.py),
     which weighs their descent; None: the global prior. `people`: they are several ("couple",
-    "family", "group"), and `gender_list` the list `gender` is of (a couple's: who the two are)."""
+    "family", "group"), and `gender_list` the list `gender` is of (a couple's: who the two are; "":
+    none, a family or a group). `heritage`: False seeds no descent (a figure a real heritage doesn't
+    fit, an unrelated group)."""
     from prompt_programs.vocab import minor_ages, vocabulary
     minor = tuple(dict.fromkeys([*(minor_ages(list(ages)) if ages else ()), *minor]))
     # What their age gives the lists of their look (graying, life stage: vocab tags), so a young
@@ -385,7 +387,7 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
             if fams:
                 look[facet] = fams
     from prompt_programs.places import weigh
-    d = bank(DESCENT, descent, minor=bool(minor))
+    d = bank(DESCENT, descent, minor=bool(minor)) if heritage else None
     if d is not None and stated_descent and len(d.values) == 1:
         d = None   # their words name it already
     if d is not None:
@@ -668,7 +670,7 @@ Per-variant seeds, one line per variant when given:
 - a quoted descent: give the person that heritage's look, and write that exact word or words into the variant where it reads naturally. If the marked words name several people, it is the heritage they share, unless the line gives one for each. When it can't be true in this prompt (a creature or a stylized character who isn't human, or a setting or the user's words that settle who they are), leave it out and list it under "rejected", copied exactly. A descent marked (must appear) is always written in.
 - ideas: random ideas from vocabulary lists for this variant, for breadth and uncommon picks. Use each where it could be true here, adjusting its wording a little if needed, and name the ones used in the variant's "idea" field, separated by "; " ("" for none). Reject one that can't be true in this prompt or doesn't suit this variant, listing it under "rejected", copied exactly.
 - gender: write the person as that, with those exact words in the variant ("a trans woman", "a young trans woman"), woven in naturally; the marked words still stay.
-- who: who the couple are; state both, with those exact words ("a man and a woman", "two women").
+- who: who the couple are. Say it through the two of them, in the variant's own words ("the man in a linen shirt, the woman with her hair pinned up"; "two women in their thirties"), never as a label repeated at the end.
 - develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must. "What someone like them would typically wear or carry here": the clothes, headwear or things such a person ordinarily has in this place and time, as most of them would look.
 - age: about how old the person looks; work it in before their words ("a 34-year-old chef") or say it another natural way ("a chef in her forties"), never as a number tacked on at the end.
 - core: build this variant on that value, adding a few words that place it in this prompt. If it can't be true in this prompt, use another value of the same kind and list the core under "rejected".
@@ -689,7 +691,8 @@ PEOPLE_NOTES = {
     "couple": ("The marked words name a couple. Each variant describes both partners briefly, as two people who "
                "belong together, in one phrase that keeps the marked words where they read naturally (\"young Ugandan "
                "couple, the man in a crisp white shirt, the woman with her braids pinned up\"), never tacked on at the "
-               "end (\"..., couple\"). State who they are as the seed line says. Their ages are about the age given "
+               "end (\"..., couple\"). Each variant contains the marked words. Say who they are as the seed line says, "
+               "through the two of them. Their ages are about the age given "
                "and close to each other, unless the prompt says otherwise. A look idea may suit one of them or both. "
                "12 to 30 words beyond the marked words."),
     "family": ("The marked words name a family or other related people. Each variant names who they are, with an "
