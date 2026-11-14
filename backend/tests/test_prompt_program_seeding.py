@@ -47,10 +47,10 @@ def test_a_list_slot_is_one_list_with_a_core_and_a_light_its_ideas():
     p = plan({"kind": "list", "list": {"list": "camera.angle", "about": "the angle"}}, "selfie camera angle")
     assert roles(p) == [("core", "camera.angle", "selfie camera angle")]
     p = plan({"kind": "light", "light": {"list": "lighting.natural", "examples": []}}, "light")
-    assert roles(p) == [("idea", "lighting.natural", "light")]   # ideas the writer may reject, not cores
+    assert roles(p) == [("core", "lighting.natural", "light")]   # each variant builds on one look of light
     assert p["banks"][0]["scene"] is True   # narrowed in the scene, not by the word "light" alone
     # a light naming no list is the scene list: light described as light, no fixtures
-    assert roles(plan({"kind": "light", "light": {"list": ""}}, "light")) == [("idea", "lighting.scene", "light")]
+    assert roles(plan({"kind": "light", "light": {"list": ""}}, "light")) == [("core", "lighting.scene", "light")]
 
 
 def test_a_camera_an_animal_and_a_free_slot_seed_ideas():
@@ -112,8 +112,7 @@ def test_a_family_shares_a_heritage_and_a_group_draws_no_one_look():
     fam = roles(plan(person(noun="family", people="family"), "family"))
     assert [r for r, *_ in fam if r != "idea"] == ["descent"]   # no single gender or age forced on them
     grp = plan(person(noun="friends", people="group"), "three friends")
-    assert [b["role"] for b in grp["banks"]] == ["idea"]        # no descent, gender or age
-    assert [b["list"] for b in grp["banks"]] == ["person.outfit.casual"]
+    assert grp["banks"] == []   # no descent, gender, age or one look for all of them: the writer varies them
 
 
 def test_a_figure_a_heritage_doesnt_apply_to_draws_no_descent():

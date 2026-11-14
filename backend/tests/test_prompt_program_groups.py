@@ -119,3 +119,25 @@ def test_seeds_without_a_descent_or_gender_bank_draw_none():
     fam = _seeds("family", "family")
     assert fam.descent is not None and fam.gender is None
     assert not any(s.descent or s.gender for s in V.draw_seeds(random.Random(1), grp, 10, "three friends").specs)
+
+
+def test_a_place_the_table_lacks_is_asked_again_then_left_out():
+    import pytest
+    seg = _seg("a <farmer> in rural Vietnam")
+    ok = reader.check_slot(_reading(noun="farmer", place="Vietnam"), seg, "a ", [])
+    assert ok["person"]["place"] == "Vietnam"
+    with pytest.raises(reader._Bad, match="plain common name"):
+        reader.check_slot(_reading(noun="farmer", place="rural Vietnam"), seg, "a ", [])
+    loose = reader.check_slot(_reading(noun="farmer", place="rural Vietnam"), seg, "a ", [], strict=False)
+    assert "place" not in loose["person"]
+    assert reader.check_slot(_reading(noun="farmer", place="Scotland"), seg, "a ", [])["person"]["place"] == "Scotland"
+
+
+def test_several_people_get_more_words_and_a_light_part_its_note():
+    long_ = "three friends, " + ", ".join(["a tall man in a gray raincoat with a newspaper"] * 4)
+    one = V.Spec()
+    assert V.check(long_, "three friends", ["three friends"], one) == "too long"
+    assert V.check(long_, "three friends", ["three friends"], V.Spec(several=True)) == ""
+    assert all(s.several for s in V.draw_seeds(random.Random(1), _seeds("group", "three friends"), 4, "three friends").specs)
+    light = V.Slot("light", "a porch, <light>", (9, 16), "light")
+    assert V.LIGHT_NOTE in V.messages(light, V.draw_seeds(random.Random(1), V.Seeds(), 3), V.Seeds())[1]["content"]

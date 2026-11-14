@@ -107,7 +107,9 @@ def plan(reading: Dict[str, Any], words: str = "") -> Dict[str, Any]:
                     {"presentation": presentation} if presentation and detail == "build" else None,
                     scene=detail == "hairstyle")
         outfit = str(got.get("outfit") or "")
-        if outfit and outfit != "written" and not got.get("clothes_part") and not str(got.get("clothes") or "").strip():
+        # (an unrelated group takes no list ideas: one outfit idea was written onto all of them)
+        if outfit and outfit != "written" and people != "group" and not got.get("clothes_part") \
+                and not str(got.get("clothes") or "").strip():
             # What they wear is narrowed by who they are and the scene ("farmer" in rural Vietnam
             # keeps work clothes, not a neon jersey top), like any list a slot's words narrow.
             add("idea", outfit, words, f"what the {noun} wears", {"presentation": presentation} if presentation else None,
@@ -136,8 +138,10 @@ def plan(reading: Dict[str, Any], words: str = "") -> Dict[str, Any]:
         # Ideas, not cores: one random look per variant pushed sources the place doesn't have
         # (stage footlights, a vending machine in a living room); the writer rejects ideas that don't fit.
         # The scene list by default: light described as light, narrowed by the whole scene, so a
-        # restaurant keeps evening and candle light, not track lights or a TV's glow.
-        add("idea", str(got.get("list") or SCENE_LIGHT), words, "the light in this picture", scene=True)
+        # restaurant keeps evening and candle light, not track lights or a TV's glow. Each variant
+        # builds on one of its values (or the list shown whole, when the scene leaves few): left to
+        # ideas, the writer named fixtures of its own (a streetlamp, a spotlight, wall sconces).
+        add("core", str(got.get("list") or SCENE_LIGHT), words, "the light in this picture", scene=True)
         return {"kind": kind, "banks": banks}
     if kind == "list":
         p = got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else ""

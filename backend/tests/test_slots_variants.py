@@ -122,7 +122,7 @@ async def test_each_slot_draws_a_variant_of_its_words(monkeypatch, profile):
     assert not any(b["list"].startswith(("person.outfit", "clothing.")) for b in banks)
     # the light is seeded by its indoor list, the clothing by its list, one value per variant
     light = entry["seeds"]["lighting"]["banks"]
-    assert [b["role"] for b in light] == ["idea"]   # light: rejectable ideas, held to the place
+    assert [b["role"] for b in light] == ["core"]   # light: each variant builds on one look of light
     req = next(c for c in writer.calls if "⟦lighting⟧" in c["user"])
     assert 'The whole part is the category "lighting"' in req["user"]
     r = prep.realize(entry, profile_id=profile, seed=3)

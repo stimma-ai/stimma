@@ -66,6 +66,7 @@ TURN = 10              # variants a session's turn asks for: the first 5 in abou
 COMPACT_AT = 100       # past this many variants in its log, a session sends a compact list of the middle
 COMPACT_CHARS = 8000   # at most this much of that list (about 2k tokens)
 MAX_ADDED_WORDS = 30   # words a variant may add to the kept words
+MAX_ADDED_PEOPLE = 45  # the same for a part that names several people (Seeds.people): a few words each
 SHORTLIST = 7          # a list this short is shown to the writer whole
 HAVE_SHOWN = 80        # the pool's latest texts a fresh first turn over a pool is told it already has
 WRITE_TOKENS = 4500    # the reply budget for 40 variants of about 20 words, with no reasoning
@@ -442,6 +443,7 @@ class Spec:
     ideas: Tuple[Tuple[str, str], ...] = ()   # this variant's own look ideas: (text, list id)
     descent2: str = ""              # a couple's second partner's own heritage (DESCENT2 of them)
     pair: bool = False              # `gender` is who a couple is (person.couple)
+    several: bool = False           # the part names several people: more room (MAX_ADDED_PEOPLE)
 
     def line(self) -> str:
         heritage = f'"{self.descent}"' + (f' for one, "{self.descent2}" for the other' if self.descent2 else "")
@@ -606,6 +608,7 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_c
             s.gender = _weighted(rng, seeds.gender.values)
             s.gender_needs = gender_needs(s.gender, words, seeds.gender_fits)
             s.pair = seeds.gender.list_id == COUPLE
+        s.several = bool(seeds.people)
         if seeds.person and pairs:
             s.develop = pairs[i % len(pairs)]
             if not seeds.clothes_owned and i % TYPICAL_EVERY == TYPICAL_EVERY - 1:   # no look ideas: see TYPICAL
@@ -658,7 +661,7 @@ Rules:
 - Fit the whole prompt: its place, time, medium, framing, number of people, and the notes (lines starting with #). Never move the scene somewhere else.
 - Other parts in <angle brackets> vary on their own: don't fill them in, and don't repeat what the rest of the prompt already says.
 - Never add a person or an animal the prompt doesn't have, including through framing: no group selfie, group portrait, two-shot or crowd unless the prompt has that many people.
-- A light describes the light itself: its quality, direction, color and strength, the time of day, the weather. Name a source only when the prompt's own words already have it, or when nearly every such scene has it (the sun or sky outdoors, a window indoors, a candle on a dinner table); never a lamp, screen, sign or fixture the prompt doesn't have, since naming one puts it in the picture. The light must suit this exact place and time: no golden-hour sun on a beach indoors, no shade from a tree in a living room. Reject a light idea that this place wouldn't have.
+- A light describes the light itself: its quality, direction, color and strength, the time of day, the weather. Name a source only when the prompt's own words already have it, or when nearly every such scene has it (the sun or sky outdoors, a window indoors, a candle on a dinner table); never a lamp, screen, sign or fixture the prompt doesn't have, since naming one puts it in the picture: not "light from a streetlamp", "an overhead spotlight", "wall sconces", "a passing car's headlights" or "a TV in the corner", but how the light looks ("cool, even light", "warm light low from one side"). A light core stays light: build on it with where it falls and how it looks on this scene, never with a source for it. The light must suit this exact place and time: no golden-hour sun on a beach indoors, no shade from a tree in a living room. Reject a light idea that this place wouldn't have.
 - Visual and concrete: what it looks like, not mood or story.
 - Make the variants clearly different from each other, across the whole range the words allow, including uncommon but real choices. At most 20 words each beyond the kept words.
 - A person: 12 to 25 words beyond the marked words. Write each variant as an authored take on who this is, leaning into the marked words themselves: for "dominant young woman", how her dominance shows in her bearing, expression, styling and attitude, and in what she wears or carries when the prompt leaves that open. Each variant develops the aspects its seed line names, so the set differs in far more than hair. No shared template: vary how each variant is phrased and where things fall in it (the marked words first in some, after a detail in others: "broad-shouldered Peruvian dominant young woman in a fitted blazer"; the descent before the words, after them, or as "of Tunisian heritage"), and weave its seeds in where they read naturally, never as a list or a prefix. Never describe what another part of the prompt owns (a clothing part elsewhere owns the clothes).
@@ -671,7 +674,7 @@ Per-variant seeds, one line per variant when given:
 - ideas: random ideas from vocabulary lists for this variant, for breadth and uncommon picks. Use each where it could be true here, adjusting its wording a little if needed, and name the ones used in the variant's "idea" field, separated by "; " ("" for none). Reject one that can't be true in this prompt or doesn't suit this variant, listing it under "rejected", copied exactly.
 - gender: write the person as that, with those exact words in the variant ("a trans woman", "a young trans woman"), woven in naturally; the marked words still stay.
 - who: who the couple are. Say it through the two of them, in the variant's own words ("the man in a linen shirt, the woman with her hair pinned up"; "two women in their thirties"), never as a label repeated at the end.
-- develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must. "What someone like them would typically wear or carry here": the clothes, headwear or things such a person ordinarily has in this place and time, as most of them would look.
+- develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must. "What someone like them would typically wear or carry here": the clothes, headwear and things most people like them have at work or in this place and time, as a photograph of a real one would show them (a fisherman's oilskins and boots, a nurse's scrubs and lanyard).
 - age: about how old the person looks; work it in before their words ("a 34-year-old chef") or say it another natural way ("a chef in her forties"), never as a number tacked on at the end.
 - core: build this variant on that value, adding a few words that place it in this prompt. If it can't be true in this prompt, use another value of the same kind and list the core under "rejected".
 
@@ -686,6 +689,12 @@ CORE_NOTE = ("The cores are random values of a list, and some won't fit this pro
              "variant with another value of the same kind that fits.")
 
 
+# What the writer is told of a light part, beside the rule in SYSTEM: left to itself, a writer
+# names a lamp, a screen or a sign for the light, and Improve then puts it in the picture.
+LIGHT_NOTE = ("This part is the light. Each variant says how the light looks: its quality, direction, color and "
+              "strength, the time of day or the weather. Name no lamp, fixture, screen, sign, spotlight, sconce, "
+              "headlight or other source the prompt doesn't already have.")
+
 # What the writer is told of a person part that names several people (Seeds.people).
 PEOPLE_NOTES = {
     "couple": ("The marked words name a couple. Each variant describes both partners briefly, as two people who "
@@ -694,13 +703,14 @@ PEOPLE_NOTES = {
                "end (\"..., couple\"). Each variant contains the marked words. Say who they are as the seed line says, "
                "through the two of them. Their ages are about the age given "
                "and close to each other, unless the prompt says otherwise. A look idea may suit one of them or both. "
-               "12 to 30 words beyond the marked words."),
-    "family": ("The marked words name a family or other related people. Each variant names who they are, with an "
-               "age for each that suits their role, and gives them the heritage they share and a family "
-               "likeness; a look idea may suit one of them or several. 12 to 30 words beyond the marked words."),
+               "12 to 35 words beyond the marked words."),
+    "family": ("The marked words name a family or other related people. Each variant names its members, two or more "
+               "(\"a father in his fifties with his grown daughter and her husband\"), each with an age that suits their "
+               "role, adults unless the prompt's words make one a child, and gives them the heritage they share and "
+               "a family likeness; a look idea may suit one of them or several. 12 to 35 words beyond the marked words."),
     "group": ("The marked words name several people who aren't related. Each variant gives each of them a few "
               "words of their own, so they read as different people (heritage, gender, age and look as the prompt "
-              "allows), with as many people as the words say. 12 to 30 words beyond the marked words."),
+              "allows), adults unless the prompt's words make one a child, with as many people as the words say. 12 to 35 words beyond the marked words."),
 }
 
 
@@ -766,6 +776,8 @@ def messages(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -
         lines.append(minor_line(seeds.minor))
     if seeds.people in PEOPLE_NOTES:
         lines.append(PEOPLE_NOTES[seeds.people])
+    if slot.kind == "light":
+        lines.append(LIGHT_NOTE)
     lines.append("")
     for b in drawn.short:
         lines.append(f"Spread the variants across these {b.label.lower()} choices where they fit: "
@@ -910,7 +922,7 @@ def check(text: str, words: str, keep: Sequence[str], spec: Spec, *, cut: bool =
     for k in keep:
         if all(_run_at(r, tokens(k)) < 0 for r in runs):
             return "words not kept"
-    if len(tokens(text)) - sum(len(tokens(k)) for k in keep) > MAX_ADDED_WORDS:
+    if len(tokens(text)) - sum(len(tokens(k)) for k in keep) > (MAX_ADDED_PEOPLE if spec.several else MAX_ADDED_WORDS):
         return "too long"
     if tokens(text) == tokens(words):
         return "adds nothing"
