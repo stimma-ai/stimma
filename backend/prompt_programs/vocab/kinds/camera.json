@@ -6,7 +6,7 @@
    "how the picture is taken: shot size, lens, angle, film look. Words that name only one of those (\"camera angle\", \"selfie angle\", \"lens\") are a \"list\" of it, not a camera."
   ],
   "heading": "For a camera:",
-  "text": "vary, the parts of it that change, from: shot_size, lens, angle, film_look; all four unless the prompt or a note settles some.",
+  "text": "vary, the parts of it that change, from: shot_size, lens, angle, film_look. When the part's words name one of them, only that one changes: \"camera angle\" and \"selfie angle\" vary angle alone, \"lens\" lens alone, \"shot size\" or \"framing\" shot_size alone, \"film look\" or \"film stock\" film_look alone. Only words for the whole camera (\"camera\", \"camera work\", \"shot\") vary all four, unless the prompt or a note settles some.",
   "example": {
    "vary": [
     "shot_size",

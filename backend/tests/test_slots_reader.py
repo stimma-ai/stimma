@@ -43,6 +43,12 @@ ELDERLY = ["71-year-old", "74-year-old", "79-year-old"]
 AFRICAN = ["Kenyan", "Ghanaian"]
 
 
+def _asked(messages) -> str:
+    """The last user turn, without the line a narrowing's retry starts with (narrow.RETRY_LEAD)."""
+    from prompt_programs.narrow import RETRY_LEAD
+    return messages[-1]["content"].removeprefix(RETRY_LEAD)
+
+
 class FakeModel:
     """Answers the reader with queued replies (a reply may be a function of the messages; the
     last one answers every later call) and narrowing with fixed subsets; records what the
@@ -53,7 +59,7 @@ class FakeModel:
         self.asked: List[List[Dict[str, Any]]] = []
 
     async def __call__(self, messages, project_id, max_tokens):
-        user = messages[-1]["content"]
+        user = _asked(messages)
         if messages[0]["content"].startswith("You read the parts of an image prompt"):
             self.asked.append(messages)
             got = self.replies.pop(0) if len(self.replies) > 1 else self.replies[0]
@@ -451,9 +457,12 @@ async def test_a_stated_age_under_18_gives_the_person_a_pool_of_their_own(profil
 
     class Young(FakeModel):
         async def __call__(self, messages, project_id, max_tokens):
-            if messages[-1]["content"].startswith('The list "Age"'):
+            if _asked(messages).startswith('The list "Age"'):
                 assert '"10-year-old' in messages[-1]["content"]
                 return json.dumps(young)
+            if messages[0]["content"].startswith("You read an image prompt and say whether"):
+                assert '"10-year-old boy"' in messages[-1]["content"]
+                return '{"under_18": "yes"}'   # the model's explicit yes: only then do ages under 18 count
             return await super().__call__(messages, project_id, max_tokens)
     _use(monkeypatch, Young(json.dumps(reading)))
     first = await slots.prepare("a <10-year-old boy> flying a kite", profile_id=profile)
@@ -478,7 +487,7 @@ async def test_a_slot_whose_seeds_arent_narrowed_yet_waits_and_stands_as_its_wor
 
     class NarrowHangs(FakeModel):
         async def __call__(self, messages, project_id, max_tokens):
-            if messages[-1]["content"].startswith('The list'):
+            if _asked(messages).startswith('The list'):
                 await asyncio.Event().wait()
             return await super().__call__(messages, project_id, max_tokens)
     _use(monkeypatch, NarrowHangs(json.dumps(reading)))
@@ -564,7 +573,7 @@ class SlowDescent(FakeModel):
 
     async def __call__(self, messages, project_id, max_tokens):
         import asyncio
-        if messages[-1]["content"].startswith('The list "Descent"'):
+        if _asked(messages).startswith('The list "Descent"'):
             self.descent_asks += 1
             await asyncio.sleep(self.delay)
             if self.fails:
@@ -683,7 +692,7 @@ async def test_a_long_list_is_asked_in_chunks_each_cached_on_its_own(tmp_path):
     fail_second = [True]
 
     async def first_of_each(messages, project_id, max_tokens):
-        shown = json.loads(messages[-1]["content"].split("\n")[1])
+        shown = json.loads(_asked(messages).split("\n")[1])
         asked.append(shown)
         if fail_second[0] and shown[0] != values[0]:
             raise RuntimeError("the endpoint went away")
@@ -938,3 +947,14 @@ async def test_one_parts_reading_given_bare_is_taken_as_it_stands():
     model = FakeModel(json.dumps(WETSUIT))
     got = await reader.read_part(parse(WETSUIT_PROMPT), "slot", 2, ask=model, project_id=None, model="m")
     assert len(model.asked) == 1 and got["kind"] == "free" and not got.get("degraded")
+
+
+async def test_a_made_up_outfit_list_twice_is_written_not_a_failed_reading():
+    girl = {"n": 1, "kind": "person", "label": "Little girl", "lead": "a",
+            "person": {"noun": "girl", "presentation": "feminine", "stated": {"age": "little"},
+                       "vary": ["age", "descent", "hair"], "outfit": "person.outfit.party"}}
+    model = FakeModel(json.dumps({"slots": [girl]}), json.dumps({"slots": [girl]}))
+    got = await reader.read(parse("a <little girl> at a birthday party"), ask=model, project_id=None, model="m")
+    assert "is not one of the lists" in model.asked[1][-1]["content"]
+    slot = got["slots"][0]
+    assert "degraded" not in slot and slot["kind"] == "person" and slot["person"]["outfit"] == "written"

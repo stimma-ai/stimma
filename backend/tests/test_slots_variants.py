@@ -52,6 +52,10 @@ class FakeModel:
             import re
             count = len(re.findall(r"^\d+\. ⟨", messages[-1]["content"], re.M))
             return json.dumps({str(i): self.check for i in range(1, count + 1)})
+        from prompt_programs.narrow import UNDER_18_SYSTEM
+        if messages[0]["content"] == UNDER_18_SYSTEM:
+            # asked only once a narrowing kept an age under 18; these fakes narrow children's words
+            return '{"under_18": "yes"}'
         user = messages[-1]["content"]
         label = user.split('"')[1] if user.startswith("The list") else ""
         self.narrowed.append(label)

@@ -15,7 +15,11 @@ two kinds stay here:
 shared across prompts, cached once), reads what the prompt states of the scene for lists held
 for a setting (a light that places the scene outdoors), the heritage's place context (the
 context table that weights its list, places.py), and whether the person may be under 18 (their
-age, a user list's ages on their line, the age of whoever a list slot is about). The answers are
+age, a user list's ages on their line, the age of whoever a list slot is about). Each of those age
+readings comes with the model's explicit yes or no to whether the prompt's own words make this
+person a child or a teenager (narrow.under_18); the ages under 18 a narrowing keeps count only
+after a yes, and are dropped from the person's ages otherwise, so a narrowing that merely leaves
+young ages in for an unqualified word ("farmer") never makes anyone a minor. The answers are
 kept in the entry (`entry["seeds"][slot id]`); `seeds_of` builds the writer's Seeds from them. A
 narrowing not asked yet holds that slot's first write (`entry["seeds_pending"]`; a slot that
 can't be about a person's age shows one unseeded turn meanwhile, fluent.early_job); one that
@@ -32,7 +36,7 @@ from prompt_programs import variants as V
 
 log = get_logger(__name__)
 
-SEEDS_VERSION = "seeds-3"   # seeds-3: kinds and their draw rules are vocabulary data; a heritage's place is its table's. seeds-2: groups, heritage, scene-narrowed clothes, hairstyle and light
+SEEDS_VERSION = "seeds-4"   # seeds-4: ages under 18 count only after the model says yes, the prompt's own words make this person a child or a teenager. seeds-3: kinds and their draw rules are vocabulary data; a heritage's place is its table's. seeds-2: groups, heritage, scene-narrowed clothes, hairstyle and light
 
 # A draw rule's role as the bank records it (the roles' older names, which stored records and the picker use).
 BANK_ROLE = {"heritage": "descent", "who": "gender", "age": "age", "core": "core", "each": "each", "idea": "idea"}
@@ -282,7 +286,7 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
     narrowing isn't all in yet in entry["seeds_pending"]. `ask=None` reads the cache only. A
     question asked and failed, or past `seconds`, drops that list's seeds (an age: no age seeds,
     adults), never the slot. Never raises."""
-    from prompt_programs.narrow import subset
+    from prompt_programs.narrow import subset, under_18
     from prompt_programs.places import default_place, place_for
     from prompt_programs.vocab import AGE_LIST, minor_ages, tags_match, vocabulary
     vocab = vocabulary()
@@ -301,11 +305,30 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
                                                    scene=bool(prompt) and lid != AGE_LIST))
         return jobs[k]
 
+    young: Dict[Tuple[str, str, str], "asyncio.Future[Optional[bool]]"] = {}
+
+    def young_job(ages: "asyncio.Future", phrase: str, about: str, prompt: str) -> "asyncio.Future[Optional[bool]]":
+        """The yes or no that lets an age reading's ages under 18 count (narrow.under_18), asked
+        only once that reading (`ages`) has kept one: False when it kept none, None with no answer."""
+        k = (phrase.strip().lower(), about, prompt)
+        if k not in young:
+            async def asked() -> Optional[bool]:
+                try:
+                    got = await asyncio.shield(ages)
+                except Exception:
+                    return None
+                if not got or not minor_ages(got):
+                    return False
+                return await under_18(phrase, cache, ask, project_id, about, prompt)
+            young[k] = asyncio.ensure_future(asked())
+        return young[k]
+
     plans: Dict[str, Dict[str, Any]] = {}
     asks: Dict[str, List[Tuple[Dict[str, Any], "asyncio.Future"]]] = {}
     scene: Dict[str, List[Tuple[Any, "asyncio.Future"]]] = {}
-    list_ages: Dict[str, List["asyncio.Future"]] = {}
-    about_ages: Dict[str, "asyncio.Future"] = {}
+    list_ages: Dict[str, List[Tuple["asyncio.Future", "asyncio.Future"]]] = {}
+    about_ages: Dict[str, Tuple["asyncio.Future", "asyncio.Future"]] = {}
+    age_young: Dict[str, "asyncio.Future"] = {}
     for s in entry.get("slots") or []:
         r = readings.get(s.get("n"))
         if s.get("state") != "ready" or s.get("degraded") or r is None:
@@ -319,6 +342,9 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
         ctx = contexts.get(s["id"], s["words"])
         asks[s["id"]] = [(b, job(b["list"], b["phrase"], b["about"], ctx if b.get("age") or b.get("scene") else ""))
                          for b in p["banks"] if b["phrase"]]
+        for b, f in asks[s["id"]]:
+            if b["role"] == "age":
+                age_young[s["id"]] = young_job(f, b["phrase"], b["about"], ctx)
         givers = _scene_givers([vocab.leaves[b["list"]] for b in p["banks"]])
         scene[s["id"]] = [(g, job(g.id, ctx, f"the {g.label.lower()} of the scene")) for g in givers]
         if _people_like(p["kind"]):
@@ -327,20 +353,24 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
             for lst in entry.get("lists") or []:
                 if lst.get("line") == s.get("line"):
                     list_ages.setdefault(s["id"], []).extend(
-                        job(AGE_LIST, str(v), "the age of the person", ctx) for v in lst.get("items") or [] if str(v).strip())
+                        (job(AGE_LIST, str(v), "the age of the person", ctx),
+                         young_job(job(AGE_LIST, str(v), "the age of the person", ctx), str(v), "the age of the person", ctx))
+                        for v in lst.get("items") or [] if str(v).strip())
         elif any(b["list"].startswith(("person.", "clothing.")) for b in p["banks"]):
             # A list slot about someone ("a little girl in <outfit>"): read whoever it is about's age.
-            about_ages[s["id"]] = job(AGE_LIST, ctx, "the age of the person this part is about", ctx)
+            f = job(AGE_LIST, ctx, "the age of the person this part is about", ctx)
+            about_ages[s["id"]] = (f, young_job(f, ctx, "the person this part is about", ctx))
     if not plans:
         entry["seeds"], entry["seeds_pending"] = {}, []
         return
-    if jobs:
-        done, _ = await asyncio.wait(list(jobs.values()), timeout=seconds)
-        for f in jobs.values():
+    if jobs or young:
+        every = [*jobs.values(), *young.values()]
+        done, _ = await asyncio.wait(every, timeout=seconds)
+        for f in every:
             if f not in done:
                 f.cancel()
 
-    def answer(f: "asyncio.Future") -> Tuple[bool, Optional[List[str]]]:
+    def answer(f: "asyncio.Future") -> Tuple[bool, Any]:
         """(answered, subset): a cache-only miss isn't answered; a failure is, with nothing."""
         if not f.done() or f.cancelled():
             return ask is not None, None
@@ -381,15 +411,31 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
                     fam = {x for t in got for x in (g.context_tags(t, facet) or ())}
                     if fam:
                         stated[facet] = sorted(fam)
+        # Who may be under 18 (MINORS_POLICY.md): only someone the model said yes for. A no, a
+        # failure or no answer is an adult, and the ages under 18 a narrowing kept leave their ages.
         minor: List[str] = []
-        age = next((b for b in banks if b["role"] == "age"), None)
-        if age is not None and age.get("narrowed"):
-            minor += minor_ages(age["narrowed"])
-        for f in [*list_ages.get(sid, []), *([about_ages[sid]] if sid in about_ages else [])]:
+
+        def child(f: Optional["asyncio.Future"]) -> bool:
+            nonlocal waiting
+            if f is None:
+                return False
+            answered, yes = answer(f)
+            if not answered:
+                waiting = True
+            return yes is True
+        i = next((i for i, b in enumerate(banks) if b["role"] == "age"), None)
+        if i is not None and banks[i].get("narrowed"):
+            young_ages = minor_ages(banks[i]["narrowed"])
+            if young_ages and child(age_young.get(sid)):
+                minor += young_ages
+            elif young_ages:
+                adults = [t for t in banks[i]["narrowed"] if t not in set(young_ages)]
+                banks[i] = {**banks[i], "narrowed": adults or None, "adult": True}
+        for f, y in [*list_ages.get(sid, []), *([about_ages[sid]] if sid in about_ages else [])]:
             answered, got = answer(f)
             if not answered:
                 waiting = True
-            elif got:
+            elif got and minor_ages(got) and child(y):
                 minor += minor_ages(got)
         heritage = next((b["list"] for b in banks if b["role"] == "descent"), "")
         said = next(iter((p.get("said") or {}).values()), "")
