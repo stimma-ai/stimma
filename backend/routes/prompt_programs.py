@@ -304,6 +304,44 @@ async def put_fix_judge(req: FixJudgeRequest) -> Dict[str, Any]:
     return await asyncio.to_thread(_fix_judge_status, model, cfg.fluent.fix_threads)
 
 
+class PeopleFromRequest(BaseModel):
+    # A country code of the places table, or "anywhere"
+    value: str = Field(max_length=16)
+
+
+def _people_from() -> Dict[str, Any]:
+    from config import get_settings
+    from prompt_programs.places import choices
+    return {"value": get_settings().fluent.people_from, "places": choices()}
+
+
+@router.get("/people-from")
+async def get_people_from() -> Dict[str, Any]:
+    """Where people in a picture are from when the prompt doesn't say: the setting (None while
+    unset, before the app first sets it from the browser's region) and the places to pick from."""
+    return _people_from()
+
+
+@router.put("/people-from")
+async def put_people_from(req: PeopleFromRequest) -> Dict[str, Any]:
+    """Set where people are from by default: a place's code, or "anywhere". App-wide, so the
+    agent and MCP draws follow it too."""
+    import config_writer
+    from config import get_settings
+    from prompt_programs.places import ANYWHERE
+    from prompt_programs.vocab import vocabulary
+    value = req.value.strip()
+    value = ANYWHERE if value.lower() == ANYWHERE else value.upper()
+    if value != ANYWHERE and value not in vocabulary().places:
+        raise HTTPException(status_code=400, detail=f"{req.value!r} is not a place")
+    cfg = get_settings()
+    section = cfg.fluent.model_dump()
+    section["people_from"] = value
+    config_writer.patch_global_section("fluent", section)
+    cfg.fluent.people_from = value
+    return _people_from()
+
+
 # --------------------------------------------------------------------------- suggest and add
 
 class SuggestRequest(BaseModel):

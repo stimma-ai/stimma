@@ -95,6 +95,23 @@
               />
             </div>
             <div v-if="showsDetail" :class="['px-3 -mt-1 pb-2 text-[11px] leading-snug text-content-tertiary', llmUnconfigured ? 'opacity-40' : '']" data-detail-line>{{ LEVEL_LINES[enhance] }}</div>
+            <!-- Where people are from when the prompt doesn't say: one setting for the whole app. -->
+            <div
+              v-if="showsPeopleFrom"
+              :inert="llmUnconfigured || undefined"
+              :aria-disabled="llmUnconfigured || undefined"
+              :class="['flex items-center gap-3 px-3 py-2 coarse:py-3', llmUnconfigured ? 'opacity-40' : '']"
+              data-people-from
+            >
+              <span class="flex-1 text-[12px] coarse:text-[13px] text-content">People are from</span>
+              <SettingsDropdown
+                quiet
+                :model-value="peopleFrom.value.value ?? ANYWHERE"
+                :options="peopleFromOptions"
+                :menu-width="240"
+                @update:model-value="(v) => peopleFrom.set(v)"
+              />
+            </div>
             <template v-if="hasLoras">
               <label class="flex items-center gap-3 px-3 py-2 coarse:py-3 hover:bg-overlay-subtle cursor-pointer">
                 <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA trigger words</span>
@@ -231,6 +248,9 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon, LanguageIcon } from '@heroicons/vue/24/solid'
 import { Bars3BottomLeftIcon, BookOpenIcon, CodeBracketIcon, CodeBracketSquareIcon, QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
 import SegmentedControl from '../ui/SegmentedControl.vue'
+import SettingsDropdown from '../ui/SettingsDropdown.vue'
+import { usePeopleFrom } from '../../composables/usePeopleFrom'
+import { ANYWHERE, placeOptions } from '../../utils/peopleFrom'
 import Toggle from '../ui/Toggle.vue'
 import type { EnhanceLevel, PromptProgram } from '../../composables/usePromptProgram'
 import { devModeRef } from '../../appConfig'
@@ -356,6 +376,10 @@ const detail = computed(() => props.enhance === 'expand' || props.program.unsupp
 // Detail level is one setting for Fluent and Direct. Fluent hides it where it always writes
 // the prompt fuller; Direct, where it sends the prompt as filled.
 const showsDetail = computed(() => tab.value === 'direct' ? !!props.directImproves : !props.program.unsupported.value)
+// Fluent draws the people in its slots; Direct and Raw have none.
+const peopleFrom = usePeopleFrom()
+const peopleFromOptions = computed(() => placeOptions(peopleFrom.places.value))
+const showsPeopleFrom = computed(() => tab.value === 'fluent' && !props.program.unsupported.value && peopleFrom.places.value.length > 0)
 // Direct writes each image's prompt (at Medium or High, with a chat model).
 const directWrites = computed(() => !!props.directImproves && props.enhance !== 'off' && !props.llmUnconfigured)
 // A model writes each image's prompt in this tab, so the LoRA notes reach it.
@@ -459,6 +483,8 @@ function trapTab(e: KeyboardEvent) {
 
 // Escape closes the dialog, then the menu. Both are teleported, so listen on the window.
 function onKey(e: KeyboardEvent) {
+  // A list opened from the menu (People are from) takes its own keys first.
+  if (menuOpen.value && document.querySelector('[role="listbox"][data-escape-layer]')) return
   if (e.key === 'Tab' && menuOpen.value && programText.value === null && !languagesOpen.value) { trapTab(e); return }
   if (e.key !== 'Escape') return
   if (programText.value !== null) programText.value = null

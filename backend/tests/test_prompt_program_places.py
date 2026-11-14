@@ -186,3 +186,28 @@ def test_pool_key_includes_the_place_only_when_there_is_one():
     assert k == P.pool_key("m", "woman", "a ⟨woman⟩", [], place="")
     assert k != P.pool_key("m", "woman", "a ⟨woman⟩", [], place="JP@prompt")
     assert P.pool_key("m", "woman", "a ⟨woman⟩", [], place="JP@prompt") != P.pool_key("m", "woman", "a ⟨woman⟩", [], place="JP@default")
+
+
+# --------------------------------------------------------------------------- the setting's route
+
+async def test_the_people_from_route_reads_and_sets_the_app_wide_place(monkeypatch):
+    from fastapi import HTTPException
+    import config
+    import config_writer
+    import routes.prompt_programs as rp
+    from prompt_programs import judge
+    written = {}
+    cfg = config.FluentConfig()
+    monkeypatch.setattr(config, "get_settings", lambda: type("S", (), {"fluent": cfg})())
+    monkeypatch.setattr(config_writer, "patch_global_section", lambda section, value: written.update({section: value}))
+    monkeypatch.delenv("STIMMA_FLUENT_PEOPLE_FROM", raising=False)
+    got = await rp.get_people_from()
+    assert got["value"] is None and {"code": "JP", "name": "Japan"} in got["places"]
+    assert [p["name"] for p in got["places"]] == sorted(p["name"] for p in got["places"])
+    got = await rp.put_people_from(rp.PeopleFromRequest(value="jp"))
+    assert got["value"] == "JP" and written["fluent"]["people_from"] == "JP" and judge.settings().people_from == "JP"
+    assert places.default_place() == "JP"
+    got = await rp.put_people_from(rp.PeopleFromRequest(value="Anywhere"))
+    assert got["value"] == "anywhere" and places.default_place() is None
+    with pytest.raises(HTTPException):
+        await rp.put_people_from(rp.PeopleFromRequest(value="Narnia"))
