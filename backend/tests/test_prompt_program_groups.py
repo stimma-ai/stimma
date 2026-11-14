@@ -147,3 +147,14 @@ def test_several_people_get_more_words_and_a_light_part_its_note():
     assert note and note in V.messages(light, V.draw_seeds(random.Random(1), seeds, 3), seeds)[1]["content"]
     # the unseeded first turn, written while its lists are narrowed, is told too (fluent.early_job)
     assert note in V.first_turn(light, V.draw_seeds(random.Random(1), V.Seeds(), 3), V.Seeds())[1]["content"]
+
+
+def test_a_variant_that_copies_its_seed_lines_aspects_is_dropped():
+    s = V.Spec(descent="Dominican", develop=("bearing and posture", "styling and grooming"), room=45)
+    bad = "Dominican family, bearing and posture and styling and grooming, a deep teal sleeveless jersey dress"
+    assert V.check(bad, "family", ["family"], s) == "copies its seed line"
+    good = "Dominican family, the father upright and proud, the daughter's braids pinned high, a deep teal jersey dress"
+    assert V.check(good, "family", ["family"], s) == ""
+    typ = V.Spec(develop=(V.typical_text(), "expression"))
+    assert V.check(f"farmer, {V.typical_text()} and expression", "farmer", ["farmer"], typ) == "copies its seed line"
+    assert V.check("farmer in a conical hat and mud-caked trousers, squinting at the sun", "farmer", ["farmer"], typ) == ""

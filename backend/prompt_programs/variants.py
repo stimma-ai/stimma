@@ -1022,6 +1022,13 @@ def check(text: str, words: str, keep: Sequence[str], spec: Spec, *, cut: bool =
         return "too long"
     if tokens(text) == tokens(words):
         return "adds nothing"
+    # Its seed line's own words copied in ("Dominican family, bearing and posture and styling and
+    # grooming, ..."): the aspects it was told to develop, as the line joins them, or the typical
+    # aspect's wording. One such reply opens a session that copies it into every later turn.
+    # Structure only: a verbatim run of the variant's own seed line.
+    if spec.develop and (has_run(text, " and ".join(spec.develop))
+                         or any(len(tokens(a)) >= 5 and has_run(text, a) for a in spec.develop)):
+        return "copies its seed line"
     if spec.descent and spec.descent_required and not has_run(text, spec.descent):
         return "descent missing"   # a descent the user picked must appear; a seeded one may be left out
     for label, value, must in spec.each:
