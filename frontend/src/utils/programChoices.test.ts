@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  addOwn, addValue, inPlayCount, listChoiceAt, readChoices, setPicked, carriedIds, followId, carryChoices, chooseAny, cleanState, clearSeed, isChanged, keptPieces, lineOf, lookOf,
+  addOwn, addValue, inPlayCount, listChoiceAt, readChoices, setPicked, carriedIds, followId, carryChoices, cleanState, clearSeed, isChanged, keptPieces, lineOf, lookOf,
   numberRepeats, optionsOf, pickedYears, resetState, rowValue, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleStage,
   toggleValue, toggleYear, wireState,
 } from './programChoices.ts'
@@ -56,7 +56,6 @@ test('pinning adds and removes; any; the user’s own stay', () => {
   s = toggleValue(s, swedish)
   assert.deepEqual(s, { values: [korean, swedish] })
   assert.deepEqual(toggleValue(s, korean), { values: [swedish] })
-  assert.equal(chooseAny(s), null)
   // Pinning brings a slot left out back.
   assert.deepEqual(toggleValue({ off: true }, korean), { values: [korean] })
   assert.deepEqual(addOwn({ values: [korean] }, ' a tall one '), { values: [korean, 'a tall one'], add: ['a tall one'] })

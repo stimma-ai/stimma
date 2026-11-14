@@ -101,11 +101,6 @@ export function toggleValue(s: ChoiceState | null | undefined, text: string): Ch
   return cleanState({ values, ...seedsOf(s), ...own(s) })
 }
 
-/** "Any of these": no variant pinned; picked seeds stay. */
-export function chooseAny(s: ChoiceState | null | undefined): ChoiceState | null {
-  return cleanState({ ...seedsOf(s), ...own(s) })
-}
-
 /** Set these variants picked or not, together (a shift-click range, Select all): the rest of
     the picks, the seeds and the user's own stay. */
 export function setPicked(s: ChoiceState | null | undefined, texts: string[], on: boolean): ChoiceState | null {
