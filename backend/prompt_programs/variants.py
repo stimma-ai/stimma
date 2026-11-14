@@ -490,6 +490,29 @@ def _weighted(rng: random.Random, pairs: Sequence[Tuple[str, float]]) -> str:
     return pairs[-1][0]
 
 
+def _in_proportion(rng: random.Random, pairs: Sequence[Tuple[str, float]], n: int) -> List[str]:
+    """`n` values whose counts follow the weights as closely as whole numbers can (systematic
+    sampling: each value about n x its share, never a whole count off), in random order. A pool's
+    40 descents drawn one by one can land far from the mix (22 of 40 Vietnamese where the mix
+    gives 29); drawn this way they can't."""
+    total = sum(w for _, w in pairs)
+    if n <= 0 or total <= 0:
+        return [_weighted(rng, pairs) for _ in range(max(0, n))]
+    step = total / n
+    x = rng.random() * step
+    out: List[str] = []
+    acc = 0.0
+    for t, w in pairs:
+        acc += w
+        while x < acc and len(out) < n:
+            out.append(t)
+            x += step
+    while len(out) < n:   # rounding at the top end
+        out.append(pairs[-1][0])
+    rng.shuffle(out)
+    return out
+
+
 def _spread(rng: random.Random, b: Bank, n: int, used: Sequence[str] = ()) -> List[str]:
     """n values of a list by its weights, each once before any repeats; values in `used` (the
     pool built on them already) come after the rest."""
@@ -538,7 +561,8 @@ class Drawn:
 
 
 def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_cores: Sequence[str] = ()) -> Drawn:
-    """Per variant its descent, gender and age (each by its list's weights), core (each value once
+    """Per variant its descent (the write's descents in proportion to the mix), gender and age
+    (each by its list's weights), core (each value once
     before any repeats, the ones the pool hasn't built on first) and, for a person, two aspects to
     develop (rotated, so the set doesn't share one template); its own 1-2 ideas from the long
     idea lists, on its seed line, no repeats in a batch; short idea lists shown whole. `words`:
@@ -550,10 +574,11 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_c
     pairs = [(a, b) for i, a in enumerate(aspects) for b in aspects[i + 1:]]   # every pair, in a shuffled cycle
     rng.shuffle(pairs)
     specs: List[Spec] = []
+    descents = _in_proportion(rng, seeds.descent.values, n) if seeds.descent is not None else []
     for i in range(n):
         s = Spec()
         if seeds.descent is not None:
-            s.descent = _weighted(rng, seeds.descent.values)
+            s.descent = descents[i]
             s.descent_required = seeds.descent_pinned
         if seeds.gender is not None:
             s.gender = _weighted(rng, seeds.gender.values)

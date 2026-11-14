@@ -30,8 +30,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Sequence, Tuple
 
-FROM_PROMPT = 0.8      # w when the prompt says where the picture is set
-FROM_DEFAULT = 0.5     # w when only the user's default place applies
+FROM_PROMPT = 0.9      # w when the prompt says where the picture is set (never below FROM_DEFAULT)
+FROM_DEFAULT = 0.8     # w when only the user's default place applies
 ANYWHERE = "anywhere"  # the default place's value for none: the global prior alone
 DESCENT = "person.ethnicity"
 

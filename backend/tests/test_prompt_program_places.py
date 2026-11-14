@@ -96,7 +96,7 @@ def test_with_no_place_draws_follow_the_global_prior():
 
 @pytest.mark.parametrize("source,w", [("default", places.FROM_DEFAULT), ("prompt", places.FROM_PROMPT)])
 def test_a_place_mixes_its_shares_with_the_global_prior(source, w):
-    assert (places.FROM_PROMPT, places.FROM_DEFAULT) == (0.8, 0.5)
+    assert (places.FROM_PROMPT, places.FROM_DEFAULT) == (0.9, 0.8)
     place = {"code": "JP", "from": source}
     want = places.mix(place)
     assert abs(sum(want.values()) - 1) < 1e-9
@@ -134,8 +134,8 @@ def test_a_settler_majority_country_draws_its_own_majority_heritage(code, majori
     place = {"code": code, "from": "prompt"}
     m = places.mix(place)
     assert max(m, key=m.get) == majority
-    assert m[majority] == pytest.approx(0.8 * (share + (1 - sum(dict(vocabulary().places[code].shares).values())) * places.global_prior()[majority])
-                                        + 0.2 * places.global_prior()[majority])
+    assert m[majority] == pytest.approx(places.FROM_PROMPT * (share + (1 - sum(dict(vocabulary().places[code].shares).values())) * places.global_prior()[majority])
+                                        + (1 - places.FROM_PROMPT) * places.global_prior()[majority])
     european = {v.text for v in vocabulary().get(V.DESCENT).values if region_of(v.text) == "Europe"}
     assert not european & set(dict(vocabulary().places[code].shares)) - {"Ashkenazi Jewish"}
     got = drawn(V.person_seeds(place=place))
@@ -278,3 +278,14 @@ async def test_the_people_from_route_reads_and_sets_the_app_wide_place(monkeypat
     assert got["value"] == "anywhere" and places.default_place() is None
     with pytest.raises(HTTPException):
         await rp.put_people_from(rp.PeopleFromRequest(value="Narnia"))
+
+
+def test_a_pools_descents_follow_the_mix_in_proportion_not_by_luck():
+    # Overnight, one 40-variant pool for "a farmer in rural Vietnam" drew 22 Vietnamese where the
+    # mix gives about 29 (the seeds were drawn one by one). Drawn in proportion, every pool is close.
+    place = {"code": "VN", "from": "prompt"}
+    want = places.mix(place)["Vietnamese"] * 40
+    seeds = V.person_seeds(place=place)
+    for r in range(200):
+        specs = V.draw_seeds(random.Random(r), seeds, 40, "farmer").specs
+        assert abs(sum(s.descent == "Vietnamese" for s in specs) - want) <= 1
