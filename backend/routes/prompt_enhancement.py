@@ -14,7 +14,7 @@ from prompts import get_prompt
 from llm import llm_complete_text, EntitlementError
 from llm_http import LLMProviderHTTPError
 from llm_correlation import llm_correlation_context
-from model_family import model_family
+from model_family import is_non_photo_model, model_family
 
 router = APIRouter(prefix="/api/prompt", tags=["prompt"])
 log = get_logger(__name__)
@@ -100,6 +100,12 @@ def enhancement_mode(
         return "edit"
     return "prose"
 
+
+# The improve requests' own wording, beside the guides (which are hashed whole):
+# part of the per-image improver's cache key, so a change here writes prompts afresh.
+# improve-3: a model that makes no photos is named in the request too.
+# improve-2: a picture is said to be a photo unless something sets another look.
+IMPROVE_VERSION = "improve-3"
 
 # Enhancement style -> the prompts.yaml key for its system prompt. ``ideogram``
 # is intentionally absent: that family routes to /to-ideogram-json instead, and
@@ -610,6 +616,27 @@ def _protected_text_guidance(
     return "PRESERVING PROTECTED TEXT\nThe prompt contains protected spans. " + lead + "\n" + "\n".join(bullets)
 
 
+# The image guides make a picture a photo unless something sets another look;
+# a model made only for anime-style pictures is such a thing.
+_NON_PHOTO_MODES = frozenset({"prose", "krea-2", "keyword", "qwen-image-2.1", "flux3-klein"})
+
+
+def _non_photo_model_guidance(model: Optional[str], mode: str) -> str:
+    if mode not in _NON_PHOTO_MODES or not is_non_photo_model(model):
+        return ""
+    return ("\n\nThis image model draws anime-style illustrations, not photos: never call the picture a photo "
+            "or add photo words the request does not give.")
+
+
+def _medium_line(model: Optional[str], *, tags: bool) -> str:
+    """The improve request's reminder of the photo default, or of a model that makes no photos."""
+    if is_non_photo_model(model):
+        return "This image model draws anime-style illustrations, so never call it a photo."
+    if tags:
+        return 'End with "photo" unless something in it implies another look or it is of a made thing (a logo, a poster).'
+    return "Say that it is a photo unless something in it implies another look or it is of a made thing (a logo, a poster)."
+
+
 def _lora_guidance(lora_context: List[Dict[str, Any]], *, keyword_mode: bool = False) -> str:
     """The trigger words and notes of the LoRAs that are on for this image.
     keyword_mode: a tag list, where a trigger word is its own tag, not part of a sentence."""
@@ -1091,7 +1118,8 @@ async def style_guide(request: "ImprovePromptRequest", session,
     )
     # Per-request parts close the guide, so the text before them stays the same
     # across requests and can be cached; empty slots leave only blank lines.
-    system_prompt = system_prompt.rstrip() + _lora_guidance(request.lora_context, keyword_mode=(mode == "keyword"))
+    system_prompt = (system_prompt.rstrip() + _non_photo_model_guidance(request.model, mode)
+                     + _lora_guidance(request.lora_context, keyword_mode=(mode == "keyword")))
     system_prompt = re.sub(r"\n{3,}", "\n\n", system_prompt)
     return system_prompt, source_images_b64, mode
 
@@ -1212,7 +1240,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             "Rewrite this image request as a concrete visual description. Add only concrete "
             "things the picture is missing, and keep the original intent. Keep its people exactly as they "
             "are: add no one, and never write that someone is absent. Write about light only if the request "
-            "names where it comes from. "
+            "names where it comes from. " + _medium_line(request.model, tags=False) + " "
             "Return only the rewritten prompt:\n\n"
             f"{request.prompt}{instr}"
         )
@@ -1222,7 +1250,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         user_content = (
             "Rewrite this image request as a tag list for a tag-based image model. Keep every stated detail "
             "and every marked value, and add the concrete tags the picture is missing. Keep its people exactly "
-            "as they are and add no one. "
+            "as they are and add no one. " + _medium_line(request.model, tags=True) + " "
             f"Return only the tag list:\n\n{request.prompt}{instr}"
         )
     elif request.instructions and request.instructions.strip():

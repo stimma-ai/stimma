@@ -968,7 +968,8 @@ async def improve_signature(pipeline: Dict[str, Any], mode: str) -> str:
     from model_family import model_family
     from prompt_pipeline import _profile_wildcards_and_segments, prompt_sources_signature
     from prompt_programs.program import model_fingerprint
-    from routes.prompt_enhancement import guide_template, length_target
+    from prompt_programs.vocab import vocabulary
+    from routes.prompt_enhancement import IMPROVE_VERSION, guide_template, length_target
 
     options = {k: v for k, v in (pipeline.get("prompt_options") or {}).items() if k != "program"}
     level = pipeline.get("level")
@@ -984,7 +985,10 @@ async def improve_signature(pipeline: Dict[str, Any], mode: str) -> str:
         "model_vendor": pipeline.get("model_vendor"),
         "family": family,
         "mode": mode,
+        "version": IMPROVE_VERSION,
         "guide": hashlib.sha256("\n\0".join(guides).encode()).hexdigest(),
+        # what Improve is told of each kind of marked value (vocab/kinds/*.json)
+        "kinds": [list(k.improve) for k in vocabulary().ordered_kinds()],
         "target": length_target(mode, level, family),
         "context": {k: v for k, v in pipeline.items()
                     if k not in ("prompt_options", "lora_context", "model", "model_vendor", "level")},

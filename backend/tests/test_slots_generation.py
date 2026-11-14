@@ -418,6 +418,22 @@ async def test_the_improve_signature_covers_what_the_improved_text_depends_on(mo
     monkeypatch.setattr(pe, "guide_template", lambda mode, fill=False: real_guide(mode, fill) + " (edited)")
     assert await sig() != first
     monkeypatch.setattr(pe, "guide_template", real_guide)
+    monkeypatch.setattr(pe, "IMPROVE_VERSION", "improve-test")
+    assert await sig() != first
+    monkeypatch.undo()
+    monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
+    monkeypatch.setattr("prompt_programs.program.model_fingerprint", writer)
+    assert await sig() == first
+    # what Improve is told of a kind's marked values (the camera kind's note) is part of it too
+    from prompt_programs.vocab import vocabulary
+    import dataclasses
+    vocab = vocabulary()
+    kinds = vocab.ordered_kinds()
+    edited = [dataclasses.replace(k, improve=(*k.improve, "(edited)")) if k.id == "camera" else k for k in kinds]
+    monkeypatch.setattr(type(vocab), "ordered_kinds", lambda self: edited)
+    assert await sig() != first
+    monkeypatch.undo()
+    monkeypatch.setattr("prompt_pipeline._profile_wildcards_and_segments", lambda profile_id: ([], []))
 
     async def other_writer(project_id):
         return "writer-b"

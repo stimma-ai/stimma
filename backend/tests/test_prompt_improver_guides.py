@@ -126,3 +126,54 @@ def test_trigger_words_sit_in_a_grammatical_sentence_or_their_own_tag():
     tags = _lora_guidance(lora, keyword_mode=True)
     assert '"ohwx"' in prose and "grammatical sentence" in prose and "own tag" not in prose
     assert '"ohwx"' in tags and "a tag of its own" in tags and "grammatical sentence" not in tags
+
+
+async def test_image_guides_make_a_picture_a_photo_unless_something_sets_another_look():
+    """One rule in every still-image guide: unstyled is a photo; a medium, a made
+    thing, anime tags, a note or the model itself sets another look instead."""
+    for model in ("flux1-dev", "seedream-4", "krea-2-turbo"):
+        text, _images, mode = await style_guide(ImprovePromptRequest(prompt="a dog on a porch", model=model), None)
+        assert "A picture is a photo unless something says otherwise" in text, mode
+        assert "A fantasy subject" in text and "never anime or an illustration" in text, mode
+        assert '"A photo of" in front of another medium or a made thing' in text, mode
+        assert "does not make a picture a photo" in text, mode  # a drawn camera angle or light
+        assert "neither do you" not in text, mode
+    tags, _images, _mode = await style_guide(ImprovePromptRequest(prompt="a dog", model="sdxl"), None)
+    assert 'the last tag is "photo"' in tags
+    qwen, _images, _mode = await style_guide(ImprovePromptRequest(prompt="a dog", model="qwen-image-2.1"), None)
+    assert "is a photograph, a fantasy subject included" in qwen
+    klein, _images, _mode = await style_guide(ImprovePromptRequest(prompt="a dog", model="flux-3-klein"), None)
+    assert "it is a photograph, a fantasy subject included" in klein
+
+
+async def test_a_model_made_for_anime_pictures_is_never_called_a_photo():
+    from model_family import is_non_photo_model
+    assert is_non_photo_model("anima-preview3-base.safetensors") and is_non_photo_model("waiIllustriousSDXL_v150")
+    assert not is_non_photo_model("animal-xl") and not is_non_photo_model("krea2_turbo") and not is_non_photo_model(None)
+    anime, _images, _mode = await style_guide(ImprovePromptRequest(prompt="a dog on a porch", model="Anima"), None)
+    photo, _images, _mode = await style_guide(ImprovePromptRequest(prompt="a dog on a porch", model="flux1-dev"), None)
+    assert "This image model draws anime-style illustrations, not photos" in anime
+    assert "This image model draws" not in photo
+    edit, _images, _mode = await style_guide(ImprovePromptRequest(prompt="make it blue", model="Anima",
+                                                                  input_image_count=1), None)
+    assert "This image model draws" not in edit
+
+
+async def test_the_improve_request_says_a_picture_is_a_photo_unless_told_otherwise(monkeypatch):
+    import routes.prompt_enhancement as pe
+    sent = []
+
+    async def complete(config=None, messages=None, **kw):
+        sent.append(messages[-1]["content"])
+        return "A photo of a dog on a porch."
+
+    async def cfg(*a, **k):
+        return None
+    monkeypatch.setattr(pe, "llm_complete_text", complete)
+    monkeypatch.setattr("llm_resolver.get_effective_llm_config", cfg)
+    for model in ("flux1-dev", "sdxl"):
+        await pe.improve_prompt(ImprovePromptRequest(prompt="a dog on a porch", model=model, level="fill"), None)
+    assert "Say that it is a photo unless something in it implies another look" in sent[0]
+    assert 'End with "photo" unless something in it implies another look' in sent[1]
+    await pe.improve_prompt(ImprovePromptRequest(prompt="a dog on a porch", model="Anima", level="fill"), None)
+    assert "draws anime-style illustrations, so never call it a photo" in sent[2] and "Say that it is a photo" not in sent[2]

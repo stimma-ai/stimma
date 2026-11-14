@@ -249,3 +249,18 @@ def model_family(model: Optional[str]) -> str:
         if pattern.search(normalized):
             return family
     return FAMILY_OTHER
+
+
+# Image model lines made only for anime-style and illustrated pictures. Improve
+# is told so, and then never calls the picture a photo (style_guide).
+_NON_PHOTO_RULES = re.compile(
+    r"(^|[^a-z])anima([^a-z]|$)|illustrious|noob[ ._-]?ai|pony[ ._-]?(diffusion|xl|v\d)|animagine",
+    re.IGNORECASE,
+)
+
+
+def is_non_photo_model(model: Optional[str]) -> bool:
+    """Whether the model string names an image model line that makes no photos."""
+    if not model or not str(model).strip():
+        return False
+    return bool(_NON_PHOTO_RULES.search(normalize_model_string(str(model))))
