@@ -53,6 +53,12 @@ weight 0 for the picker. A value tagged "any" or not at all places nothing and i
 All of the knowledge is data; the engine only matches tag sets.
 The user's own lists, wildcards, pins and additions are never weighted (draws.py).
 
+`places.json` at the root is not a list: it is the table of where pictures are set (Place),
+keyed by ISO 3166-1 alpha-2 code (ISO 3166-2 for a part kept apart, "GB-SCT"), each with its
+English name, other names, and `shares` of the descent list's heritages common there. The
+loader checks every heritage is a value of person.ethnicity and no name stands for two places.
+places.py draws a person's descent from it.
+
 A list whose values share settings can declare them once as "groups" ({name: {about,
 tags, less_common}}); a value's "group" names one, and its own tags add to the group's.
 The descent list uses them, so every heritage's coloring is declared and reviewed by name.
@@ -383,6 +389,16 @@ class Node:
     description: str
 
 
+@dataclass(frozen=True)
+class Place:
+    """A country or territory a picture may be set in (places.json)."""
+    code: str
+    name: str
+    aliases: Tuple[str, ...]
+    shares: Tuple[Tuple[str, float], ...]   # (heritage of person.ethnicity, share of its people)
+    notes: str = ""
+
+
 @dataclass
 class Vocabulary:
     nodes: Dict[str, Node]
@@ -390,6 +406,17 @@ class Vocabulary:
     facets: Dict[str, Dict[str, Any]]
     version: str
     context: Dict[str, Dict[str, Any]] = field(default_factory=dict)   # context facet -> {scope, values, neutral, about}
+    places: Dict[str, Place] = field(default_factory=dict)             # code -> Place (places.json)
+
+    def place_named(self, name: Any) -> Optional[Place]:
+        """The place a name or alias names exactly, case and surrounding space aside; None for
+        anything else (structure only: no near matches)."""
+        key = str(name or "").strip().casefold()
+        return self._place_names.get(key) if key else None
+
+    @cached_property
+    def _place_names(self) -> Dict[str, Place]:
+        return {n.strip().casefold(): p for p in self.places.values() for n in (p.name, *p.aliases)}
 
     @property
     def context_neutral(self) -> Dict[str, Tuple[str, ...]]:
@@ -636,12 +663,45 @@ def _browse(lid: str, leaf: Leaf, facet: str) -> str:
     return facet
 
 
+PLACES_FILE = "places.json"
+_PLACE_CODE = re.compile(r"^[A-Z]{2}(-[A-Z0-9]{1,3})?$")
+
+
+def _places(raw: Dict[str, Any], leaves: Dict[str, Leaf]) -> Dict[str, Place]:
+    """places.json's places, checked: codes, heritages of the descent list, shares in (0, 1]
+    summing to at most 1, and no name or alias standing for two places."""
+    descent = leaves.get("person.ethnicity")
+    heritages = {v.text for v in descent.values} if descent is not None else set()
+    out: Dict[str, Place] = {}
+    names: Dict[str, str] = {}
+    for code, d in (raw.get("places") or {}).items():
+        if not _PLACE_CODE.match(code):
+            raise ValueError(f"vocabulary: place code {code!r} is not ISO 3166")
+        shares = tuple((str(h), float(w)) for h, w in (d.get("shares") or {}).items())
+        for h, w in shares:
+            if h not in heritages:
+                raise ValueError(f"vocabulary: place {code} names {h!r}, which is not a person.ethnicity value")
+            if not 0 < w <= 1:
+                raise ValueError(f"vocabulary: place {code} gives {h!r} a share of {w}")
+        if sum(w for _, w in shares) > 1.0001:
+            raise ValueError(f"vocabulary: place {code}'s shares sum past 1")
+        place = Place(code, str(d["name"]), tuple(str(a) for a in d.get("aliases") or ()), shares, str(d.get("notes") or ""))
+        for n in (place.name, *place.aliases):
+            k = n.strip().casefold()
+            if k in names:
+                raise ValueError(f"vocabulary: the place name {n!r} stands for both {names[k]} and {code}")
+            names[k] = code
+        out[code] = place
+    return out
+
+
 def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
     nodes: Dict[str, Node] = {}
     leaves: Dict[str, Leaf] = {}
     facets: Dict[str, Dict[str, Any]] = {}
     context: Dict[str, Dict[str, Any]] = {}
     composed: Dict[str, Dict[str, Any]] = {}
+    places_raw: Dict[str, Any] = {}
     h = hashlib.sha256()
     for root in roots:
         if not root.is_dir():
@@ -658,6 +718,12 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
         for p in sorted(root.rglob("*.json")):
             rel = p.relative_to(root)
             if rel.name == "facets.json":
+                continue
+            if rel == Path(PLACES_FILE):
+                raw = p.read_bytes()
+                h.update(str(rel).encode() + raw)
+                got = json.loads(raw)
+                places_raw = {"places": {**(places_raw.get("places") or {}), **(got.get("places") or {})}}
                 continue
             raw = p.read_bytes()
             h.update(str(rel).encode() + raw)
@@ -685,7 +751,7 @@ def load(roots: Sequence[Path] = (ROOT,)) -> Vocabulary:
     for lid, spec in composed.items():
         leaves[lid] = replace(leaves[lid], values=_composed(lid, spec, leaves),
                               parts=tuple(spec["parts"]) if spec.get("each") else ())
-    return Vocabulary(nodes, leaves, facets, "vocab-" + h.hexdigest()[:12], context)
+    return Vocabulary(nodes, leaves, facets, "vocab-" + h.hexdigest()[:12], context, _places(places_raw, leaves))
 
 
 @lru_cache(maxsize=1)
@@ -718,5 +784,5 @@ def minor_ages(values: Sequence[str]) -> Tuple[str, ...]:
     return tuple(v.text for v in leaf.values if v.text in want and v.minor)
 
 
-__all__ = ["AGE_LIST", "LESS", "Leaf", "Node", "Value", "Vocabulary", "given_families", "load", "minor_ages", "vocabulary",
+__all__ = ["AGE_LIST", "LESS", "Leaf", "Node", "PLACES_FILE", "Place", "Value", "Vocabulary", "given_families", "load", "minor_ages", "vocabulary",
            "TIER_WEIGHTS", "OPEN_SHARE"]

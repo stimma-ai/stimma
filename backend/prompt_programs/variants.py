@@ -284,6 +284,7 @@ class Seeds:
     ideas: Tuple[Bank, ...] = ()          # lists ideas are drawn from (the writer may reject them)
     minor: Tuple[str, ...] = ()           # the ages under 18 the person may be
     person: bool = False                  # a person: each variant develops its own aspects (ASPECTS)
+    place: Optional[Tuple[Tuple[str, str], ...]] = None   # a person's place context (places.py), as items
     clothes_owned: bool = False           # the prompt or another part says what they wear
 
     def pinned(self, pins: Optional[Pins]) -> "Seeds":
@@ -295,7 +296,12 @@ class Seeds:
         picked = pins.descents()
         if picked is not None:
             fits = self.descent.only(picked) if self.descent is not None else None
-            out = replace(out, descent=fits or bank(DESCENT, picked, minor=bool(self.minor)), descent_pinned=True)
+            if fits is None:
+                fits = bank(DESCENT, picked, minor=bool(self.minor))
+                if fits is not None and self.person:
+                    from prompt_programs.places import weigh
+                    fits = replace(fits, values=weigh(fits.values, dict(self.place or ())))
+            out = replace(out, descent=fits, descent_pinned=True)
         if pins.gender:
             fits = self.gender.only(pins.gender) if self.gender is not None else None
             out = replace(out, gender=fits or bank(GENDER, pins.gender))
@@ -313,7 +319,7 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
                  gender: Optional[Sequence[str]] = None,
                  ages: Optional[Sequence[str]] = None, ideas: Sequence[Tuple[str, Optional[Sequence[str]]]] = (),
                  stated: Optional[Dict[str, Sequence[str]]] = None, minor: Sequence[str] = (),
-                 clothes_owned: bool = False) -> Seeds:
+                 clothes_owned: bool = False, place: Optional[Dict[str, str]] = None) -> Seeds:
     """A person's seeds. `descent`: the descent values their words allow (narrowed; None when the
     words state none: the whole list). `stated_descent`: their words state it, so a single value
     left needs no seed. `gender`: the genders their words allow (narrowed: "woman" keeps woman and
@@ -325,7 +331,8 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
     (list, narrowed or None) per list whose values may seed their look. `stated`: what the prompt
     states of the scene (bank). `minor`: ages under 18 they may be besides their own (a user list
     of ages on their line). `clothes_owned`: the prompt or another part says what they wear, so no
-    variant develops their clothes."""
+    variant develops their clothes. `place`: where they are from ({"code", "from"}, places.py),
+    which weighs their descent; None: the global prior."""
     from prompt_programs.vocab import minor_ages, vocabulary
     minor = tuple(dict.fromkeys([*(minor_ages(list(ages)) if ages else ()), *minor]))
     # What their age gives the lists of their look (graying, life stage: vocab tags), so a young
@@ -337,10 +344,13 @@ def person_seeds(*, descent: Optional[Sequence[str]] = None, stated_descent: boo
             fams = sorted({f for a in ages for f in (age_leaf.context_tags(a, facet) or ())})
             if fams:
                 look[facet] = fams
+    from prompt_programs.places import weigh
     d = bank(DESCENT, descent, minor=bool(minor))
     if d is not None and stated_descent and len(d.values) == 1:
         d = None   # their words name it already
-    return Seeds(descent=d, gender=bank(GENDER, gender), person=True, clothes_owned=clothes_owned,
+    if d is not None:
+        d = replace(d, values=weigh(d.values, place))   # the place mix, within what their words allow
+    return Seeds(descent=d, place=tuple(sorted(place.items())) if place else None, gender=bank(GENDER, gender), person=True, clothes_owned=clothes_owned,
                  age=bank(AGE, ages, minor=bool(minor)) if ages is not None and _open_age(ages) else None, minor=minor,
                  age_fits=tuple(ages) if ages is not None else None,
                  ideas=tuple(b for b in (bank(lid, n, minor=bool(minor), stated=look) for lid, n in ideas)

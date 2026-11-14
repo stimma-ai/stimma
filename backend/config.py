@@ -495,6 +495,10 @@ class FluentConfig(BaseModel):
     fix_cut: float = 0.0     # 0: the cut the model directory names
     fix_rounds: int = 4
     fix_threads: int = 0
+    # Where people in a picture are from when the prompt doesn't say (prompt_programs.places):
+    # a country code of the places table, or "anywhere". None until the app sets it from the
+    # browser's region the first time Fluent loads.
+    people_from: Optional[str] = None
 
 
 class TelemetryConfig(BaseModel):

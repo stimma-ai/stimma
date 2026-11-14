@@ -6,6 +6,7 @@ emitted text."""
 import collections
 import json
 import random
+import re
 
 import pytest
 
@@ -201,19 +202,19 @@ class TestDescentRegions:
         assert eth.value("Ethiopian").tags["region"] == ["Sub-Saharan Africa"]
         assert vocabulary().to_dict()["leaves"][[lf["id"] for lf in vocabulary().to_dict()["leaves"]].index("person.ethnicity")]["browse"] == "region"
 
-    def test_with_nothing_chosen_a_region_is_seeded_as_often_as_it_has_values(self):
-        """Regions organize the chooser; they don't weigh the seeds. Every descent is typical and
-        unscaled, so a region's share of the descent seeds is its count of values."""
+    def test_with_no_place_every_region_is_seeded_equally_however_many_values_it_has(self):
+        """Regions organize the chooser, and with no place they are the prior: each region an equal
+        share of the descent seeds, split evenly among its heritages (places.global_prior)."""
         eth = vocabulary().get("person.ethnicity")
         drawn, standby = eth.pool_values()
         assert not standby and len(drawn) == 105 and {v.weight for v in drawn} == {1.0}
         seeds = V.person_seeds()
-        assert {w for _, w in seeds.descent.values} == {1.0} and len(seeds.descent.values) == 105
-        n = 2400
+        assert len(seeds.descent.values) == 105
+        n = 6000
         got = collections.Counter(eth.value(s.descent).tags["region"][0]
                                   for s in V.draw_seeds(random.Random(5), seeds, n).specs)
-        for region, k in self.REGIONS.items():
-            assert abs(got[region] / n - k / 105) < 0.025, (region, got[region] / n, k / 105)
+        for region in self.REGIONS:
+            assert abs(got[region] / n - 0.1) < 0.015, (region, got[region] / n)
 
     def test_the_picker_browses_descent_by_region_in_the_lists_order(self):
         eth = vocabulary().get("person.ethnicity")
@@ -596,3 +597,57 @@ class TestCameraLists:
         drawn, held = selfies.pool_values()
         assert {x.text for x in held} == {"a couple selfie", "a two-person mirror selfie", "a group selfie"}
         assert "a selfie-stick selfie" in {x.text for x in drawn}
+
+
+# --------------------------------------------------------------------------- where pictures are set (places.json)
+
+class TestPlaces:
+    """The places table: every heritage it names is a descent value, and no name means two places."""
+
+    def test_every_heritage_named_is_a_descent_value_and_shares_fit(self):
+        heritages = {v.text for v in vocabulary().get("person.ethnicity").values}
+        places = vocabulary().places
+        assert len(places) >= 193
+        for code, p in places.items():
+            assert re.match(r"^[A-Z]{2}(-[A-Z0-9]{1,3})?$", code) and p.name and p.shares, code
+            assert all(h in heritages and 0 < w <= 1 for h, w in p.shares), code
+            assert sum(w for _, w in p.shares) <= 1.0001, code
+
+    def test_names_and_aliases_never_collide(self):
+        seen = {}
+        for code, p in vocabulary().places.items():
+            for name in (p.name, *p.aliases):
+                key = name.strip().casefold()
+                assert key not in seen, (name, code, seen.get(key))
+                seen[key] = code
+
+    def test_the_un_member_states_are_all_there(self):
+        un = ("AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR BN BG BF BI CV KH CM CA CF TD CL CN "
+              "CO KM CG CR CI HR CU CY CZ KP CD DK DJ DM DO EC EG SV GQ ER EE SZ ET FJ FI FR GA GM GE DE GH GR GD GT GN GW GY "
+              "HT HN HU IS IN ID IR IQ IE IL IT JM JP JO KZ KE KI KW KG LA LV LB LS LR LY LI LT LU MG MW MY MV ML MT MH MR MU "
+              "MX FM MD MC MN ME MA MZ MM NA NR NP NL NZ NI NE NG MK NO OM PK PW PA PG PY PE PH PL PT QA KR RO RU RW KN LC VC "
+              "WS SM ST SA SN RS SC SL SG SK SI SB SO ZA SS ES LK SD SR SE CH SY TJ TZ TH TL TG TO TT TN TR TM TV UG UA AE GB "
+              "US UY UZ VU VE VN YE ZM ZW").split()
+        assert len(un) == 193 and not [c for c in un if c not in vocabulary().places]
+
+    def test_a_name_matches_exactly_case_aside(self):
+        v = vocabulary()
+        assert v.place_named("Japan").code == "JP" and v.place_named("  JAPAN ").code == "JP"
+        assert v.place_named("Burma").code == "MM" and v.place_named("Ivory Coast").code == "CI"
+        assert v.place_named("Japn") is None and v.place_named("Tokyo") is None and v.place_named("") is None
+
+    @pytest.mark.parametrize("places,error", [
+        ({"XX": {"name": "Nowhere", "shares": {"Martian": 0.5}}}, "not a person.ethnicity value"),
+        ({"XX": {"name": "Nowhere", "shares": {"Korean": 0.7, "Thai": 0.7}}}, "sum past 1"),
+        ({"XX": {"name": "Nowhere", "shares": {"Korean": 0.5}}, "XY": {"name": "Elsewhere", "aliases": ["nowhere"],
+                                                                       "shares": {"Thai": 0.5}}}, "stands for both"),
+        ({"xx": {"name": "Nowhere", "shares": {"Korean": 0.5}}}, "not ISO 3166"),
+    ])
+    def test_the_loader_refuses_a_bad_table(self, tmp_path, places, error):
+        from prompt_programs.vocab import ROOT, load
+        import shutil
+        root = tmp_path / "vocab"
+        shutil.copytree(ROOT, root)
+        (root / "places.json").write_text(json.dumps({"places": places}))
+        with pytest.raises(ValueError, match=error):
+            load((root,))

@@ -8,6 +8,10 @@
     fix_cut: 0 (the model's own)       STIMMA_FLUENT_FIX_CUT     (P(wrong) above this rerolls a pick)
     fix_rounds: 4                      STIMMA_FLUENT_FIX_ROUNDS  (rerolls per draw at most)
     fix_threads: 0 (up to 8)           STIMMA_FLUENT_FIX_THREADS
+    people_from: unset                 STIMMA_FLUENT_PEOPLE_FROM (where people are from by default: a
+                                                                  places.json code, or "anywhere"; unset
+                                                                  until the app first sets it from the
+                                                                  browser's region; prompt_programs.places)
 
 The judge itself is prompt_programs.fix. The environment overrides are for test rigs.
 """
@@ -25,10 +29,12 @@ class FluentSettings:
     fix_cut: float = 0.0     # 0: the cut the model directory names
     fix_rounds: int = 4
     fix_threads: int = 0
+    people_from: str = ""    # a place code, "anywhere", or "" (unset: the global prior)
 
 
 _ENV = {"fix_model": "STIMMA_FLUENT_FIX_MODEL", "fix_cut": "STIMMA_FLUENT_FIX_CUT",
-        "fix_rounds": "STIMMA_FLUENT_FIX_ROUNDS", "fix_threads": "STIMMA_FLUENT_FIX_THREADS"}
+        "fix_rounds": "STIMMA_FLUENT_FIX_ROUNDS", "fix_threads": "STIMMA_FLUENT_FIX_THREADS",
+        "people_from": "STIMMA_FLUENT_PEOPLE_FROM"}
 
 
 def settings() -> FluentSettings:
@@ -47,7 +53,8 @@ def settings() -> FluentSettings:
             fields[f] = os.environ[var]
     out = FluentSettings(**fields)
     return FluentSettings(str(out.fix_model or "").strip(), float(out.fix_cut or 0.0),
-                          max(0, int(out.fix_rounds if out.fix_rounds is not None else 4)), int(out.fix_threads or 0))
+                          max(0, int(out.fix_rounds if out.fix_rounds is not None else 4)), int(out.fix_threads or 0),
+                          str(out.people_from or "").strip())
 
 
 __all__ = ["FluentSettings", "settings"]

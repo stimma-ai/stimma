@@ -31,7 +31,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-20"   # reader-20: a person keeps the words saying what they wear (clothes), so their variants draw no outfit; a free part no longer gives kinds or things instead, nor a light examples (nothing used them). reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-21"   # reader-21: a person names the country the picture is set in (place), when the prompt says. reader-20: a person keeps the words saying what they wear (clothes), so their variants draw no outfit; a free part no longer gives kinds or things instead, nor a light examples (nothing used them). reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -105,6 +105,9 @@ For a person:
 - outfit: their clothes change too, unless clothes has words or clothes_part names a part.
   Give the id of the outfit list below that suits the scene, or "written" if none does; ""
   only when clothes has words or clothes_part is not 0.
+- place: the country the picture is set in, in English, when the prompt or a note states or
+  clearly implies where it is ("a market in Lagos": "Nigeria", "feudal Japan": "Japan", "a
+  Tokyo subway": "Japan"); "" when it doesn't say, which is most prompts.
 
 For an animal:
 - noun: what it is, in one word from its words ("pet", "dog", "cat").
@@ -180,7 +183,7 @@ SHAPE = {
         {"n": 1, "kind": "person", "label": "Elderly African man", "lead": "an", "category": "",
          "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "elderly", "descent": "African"},
                     "vary": ["age", "descent", "build", "hair", "hair_texture", "hair_color", "facial_hair"],
-                    "clothes_part": 0, "clothes": "", "outfit": "person.outfit.casual"}},
+                    "clothes_part": 0, "clothes": "", "outfit": "person.outfit.casual", "place": ""}},
         {"n": 2, "kind": "animal", "label": "Pet", "lead": " with his", "category": "pet",
          "animal": {"noun": "pet", "vary": ["species", "life_stage"], "type": "pet", "breed": "", "stated": {}}},
     ],
@@ -203,7 +206,7 @@ WORN = {
         {"n": 1, "kind": "person", "label": "Dancer", "lead": "a", "category": "",
          "person": {"noun": "dancer", "presentation": "", "stated": {},
                     "vary": ["age", "descent", "build", "hair", "hair_texture", "hair_color"],
-                    "clothes_part": 2, "clothes": "", "outfit": ""}},
+                    "clothes_part": 2, "clothes": "", "outfit": "", "place": ""}},
         {"n": 2, "kind": "free", "label": "Costume", "lead": " in a", "category": "costume",
          "free": {"about": "the dancer's costume", "lists": []}},
         {"n": 3, "kind": "list", "label": "Expression", "lead": " with a", "category": "look",
@@ -446,6 +449,8 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
             "presentation": got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else "",
             "stated": kept, "vary": vary,
             "outfit": outfit, **({"clothes": clothes} if clothes else {}),
+            # the country it is set in, as the model says it; places.py matches it to the table exactly
+            **({"place": got["place"].strip()[:80]} if isinstance(got.get("place"), str) and got["place"].strip() else {}),
             **({"clothes_part": {"n": worn, "words": worn_words}} if worn_words is not None else {}),
         }
     elif kind == "camera":

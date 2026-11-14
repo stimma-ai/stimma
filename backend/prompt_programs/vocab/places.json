@@ -1,0 +1,2663 @@
+{
+ "about": "Where pictures are set: per country or territory (ISO 3166-1 alpha-2, or ISO 3166-2 for a part kept apart), its English name, other names a reader may give, and the heritages (person.ethnicity values) common there with their shares of its people. Shares need not sum to 1: the rest is spread by the global prior. A person's descent is drawn from w * this mix + (1 - w) * the global prior (places.py).",
+ "places": {
+  "AD": {
+   "name": "Andorra",
+   "shares": {
+    "Spanish": 0.7,
+    "Portuguese": 0.1,
+    "French": 0.1
+   }
+  },
+  "AE": {
+   "name": "United Arab Emirates",
+   "aliases": [
+    "UAE",
+    "Emirates",
+    "the Emirates"
+   ],
+   "shares": {
+    "Indian": 0.38,
+    "Pakistani": 0.12,
+    "Saudi": 0.1,
+    "Bangladeshi": 0.07,
+    "Filipino": 0.06,
+    "Egyptian": 0.04,
+    "Iranian": 0.03,
+    "Nepali": 0.03,
+    "Sri Lankan": 0.03,
+    "Chinese": 0.02,
+    "English": 0.02,
+    "Lebanese": 0.02,
+    "Syrian": 0.01
+   },
+   "notes": "Emiratis, about a tenth of residents, are drawn as Saudi; the share follows residents, so most people drawn are South Asian."
+  },
+  "AF": {
+   "name": "Afghanistan",
+   "shares": {
+    "Pashtun": 0.42,
+    "Tajik": 0.27,
+    "Afghan": 0.12,
+    "Uzbek": 0.09,
+    "Turkmen": 0.03
+   },
+   "notes": "Hazaras have no listed heritage: drawn as Afghan."
+  },
+  "AG": {
+   "name": "Antigua and Barbuda",
+   "aliases": [
+    "Antigua"
+   ],
+   "shares": {
+    "Jamaican": 0.9
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "AL": {
+   "name": "Albania",
+   "aliases": [
+    "Shqipëria"
+   ],
+   "shares": {
+    "Greek": 0.9,
+    "Romanian": 0.03
+   },
+   "notes": "Albanians have no listed heritage: drawn as Greek."
+  },
+  "AM": {
+   "name": "Armenia",
+   "shares": {
+    "Armenian": 0.97,
+    "Kurdish": 0.01,
+    "Russian": 0.005
+   }
+  },
+  "AO": {
+   "name": "Angola",
+   "shares": {
+    "Angolan": 0.96,
+    "Congolese": 0.02,
+    "Portuguese": 0.01
+   }
+  },
+  "AR": {
+   "name": "Argentina",
+   "shares": {
+    "Argentinian": 0.9,
+    "Italian": 0.02,
+    "Bolivian": 0.015,
+    "Spanish": 0.01,
+    "Peruvian": 0.005,
+    "Venezuelan": 0.005
+   }
+  },
+  "AS": {
+   "name": "American Samoa",
+   "shares": {
+    "Samoan": 0.88,
+    "Tongan": 0.03,
+    "Filipino": 0.01
+   }
+  },
+  "AT": {
+   "name": "Austria",
+   "shares": {
+    "German": 0.8,
+    "Turkish": 0.03,
+    "Romanian": 0.015,
+    "Polish": 0.01,
+    "Syrian": 0.01,
+    "Afghan": 0.008,
+    "Ukrainian": 0.008,
+    "Russian": 0.005
+   },
+   "notes": "Austrians are drawn as German."
+  },
+  "AU": {
+   "name": "Australia",
+   "shares": {
+    "English": 0.45,
+    "Irish": 0.08,
+    "Scottish": 0.07,
+    "Chinese": 0.05,
+    "Indian": 0.03,
+    "Italian": 0.03,
+    "Aboriginal Australian": 0.03,
+    "German": 0.02,
+    "Greek": 0.015,
+    "Vietnamese": 0.012,
+    "Filipino": 0.012,
+    "Lebanese": 0.01,
+    "Māori": 0.007,
+    "Korean": 0.005,
+    "Dutch": 0.005,
+    "Nepali": 0.005,
+    "Sri Lankan": 0.005,
+    "South African": 0.005
+   },
+   "notes": "Anglo-Australians are drawn as English, Irish and Scottish."
+  },
+  "AW": {
+   "name": "Aruba",
+   "shares": {
+    "Venezuelan": 0.35,
+    "Colombian": 0.15,
+    "Dutch": 0.08,
+    "Dominican": 0.05,
+    "Jamaican": 0.05
+   },
+   "notes": "Arubans are drawn as Venezuelan, the nearest mixed look."
+  },
+  "AZ": {
+   "name": "Azerbaijan",
+   "shares": {
+    "Iranian": 0.5,
+    "Turkish": 0.4,
+    "Georgian": 0.02,
+    "Russian": 0.01
+   },
+   "notes": "Azerbaijanis have no listed heritage: drawn as Iranian and Turkish."
+  },
+  "BA": {
+   "name": "Bosnia and Herzegovina",
+   "aliases": [
+    "Bosnia"
+   ],
+   "shares": {
+    "Romanian": 0.4,
+    "Greek": 0.15,
+    "Ukrainian": 0.15,
+    "Polish": 0.1,
+    "Turkish": 0.05
+   },
+   "notes": "No South Slavic heritage is listed: Serbs, Croats, Bosniaks, Slovenes and Montenegrins are drawn as the nearest Romanian, Greek, Ukrainian and Polish looks."
+  },
+  "BB": {
+   "name": "Barbados",
+   "shares": {
+    "Jamaican": 0.9,
+    "English": 0.03,
+    "Indian": 0.01
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "BD": {
+   "name": "Bangladesh",
+   "shares": {
+    "Bangladeshi": 0.7,
+    "Bengali": 0.28
+   }
+  },
+  "BE": {
+   "name": "Belgium",
+   "shares": {
+    "Dutch": 0.45,
+    "French": 0.3,
+    "Moroccan": 0.04,
+    "Italian": 0.025,
+    "Turkish": 0.02,
+    "Congolese": 0.01,
+    "Polish": 0.01,
+    "Romanian": 0.01,
+    "Spanish": 0.005,
+    "Portuguese": 0.005
+   },
+   "notes": "Flemish are drawn as Dutch and Walloons as French."
+  },
+  "BF": {
+   "name": "Burkina Faso",
+   "shares": {
+    "Ghanaian": 0.6,
+    "Senegalese": 0.3
+   },
+   "notes": "West Africans have only Nigerian, Ghanaian and Senegalese listed: the Sahel and the Atlantic coast are drawn as Senegalese, the Gulf of Guinea as Ghanaian and Nigerian."
+  },
+  "BG": {
+   "name": "Bulgaria",
+   "shares": {
+    "Romanian": 0.5,
+    "Greek": 0.25,
+    "Turkish": 0.09,
+    "Russian": 0.05,
+    "Ukrainian": 0.02
+   },
+   "notes": "Bulgarians have no listed heritage: drawn as Romanian and Greek. Roma are a visible minority here and have no listed heritage; left to the global remainder."
+  },
+  "BH": {
+   "name": "Bahrain",
+   "shares": {
+    "Saudi": 0.4,
+    "Indian": 0.2,
+    "Bangladeshi": 0.08,
+    "Pakistani": 0.07,
+    "Filipino": 0.03,
+    "Iranian": 0.03,
+    "Nepali": 0.02
+   },
+   "notes": "Bahrainis are drawn as Saudi."
+  },
+  "BI": {
+   "name": "Burundi",
+   "shares": {
+    "Ugandan": 0.5,
+    "Congolese": 0.3,
+    "Tanzanian": 0.1
+   },
+   "notes": "Burundians are drawn as Ugandan and Congolese."
+  },
+  "BJ": {
+   "name": "Benin",
+   "aliases": [
+    "Dahomey"
+   ],
+   "shares": {
+    "Nigerian": 0.7,
+    "Ghanaian": 0.25
+   },
+   "notes": "West Africans have only Nigerian, Ghanaian and Senegalese listed: the Sahel and the Atlantic coast are drawn as Senegalese, the Gulf of Guinea as Ghanaian and Nigerian."
+  },
+  "BM": {
+   "name": "Bermuda",
+   "shares": {
+    "Jamaican": 0.5,
+    "English": 0.3,
+    "Portuguese": 0.05
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "BN": {
+   "name": "Brunei",
+   "aliases": [
+    "Brunei Darussalam"
+   ],
+   "shares": {
+    "Malay": 0.66,
+    "Chinese": 0.1,
+    "Indonesian": 0.03,
+    "Filipino": 0.02,
+    "Indian": 0.01
+   }
+  },
+  "BO": {
+   "name": "Bolivia",
+   "shares": {
+    "Bolivian": 0.96,
+    "Peruvian": 0.01
+   }
+  },
+  "BR": {
+   "name": "Brazil",
+   "aliases": [
+    "Brasil"
+   ],
+   "shares": {
+    "Brazilian": 0.96,
+    "Japanese": 0.007,
+    "Portuguese": 0.005,
+    "Lebanese": 0.005,
+    "Bolivian": 0.003,
+    "Venezuelan": 0.003,
+    "Haitian": 0.002
+   }
+  },
+  "BS": {
+   "name": "Bahamas",
+   "aliases": [
+    "The Bahamas"
+   ],
+   "shares": {
+    "Jamaican": 0.8,
+    "Haitian": 0.07,
+    "English": 0.04,
+    "African American": 0.03
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "BT": {
+   "name": "Bhutan",
+   "aliases": [
+    "Druk Yul"
+   ],
+   "shares": {
+    "Tibetan": 0.7,
+    "Nepali": 0.25
+   },
+   "notes": "Ngalop Bhutanese are drawn as Tibetan, Lhotshampa as Nepali."
+  },
+  "BW": {
+   "name": "Botswana",
+   "shares": {
+    "South African": 0.9
+   },
+   "notes": "Batswana are drawn as South African."
+  },
+  "BY": {
+   "name": "Belarus",
+   "aliases": [
+    "Byelorussia"
+   ],
+   "shares": {
+    "Russian": 0.45,
+    "Polish": 0.3,
+    "Ukrainian": 0.2
+   },
+   "notes": "Belarusians are drawn as Russian, Polish and Ukrainian."
+  },
+  "BZ": {
+   "name": "Belize",
+   "shares": {
+    "Mexican": 0.3,
+    "Jamaican": 0.25,
+    "Guatemalan": 0.2,
+    "Salvadoran": 0.05,
+    "German": 0.03,
+    "Chinese": 0.01
+   },
+   "notes": "Mestizo Belizeans are drawn as Mexican, Kriol as Jamaican, Maya as Guatemalan, Mennonites as German."
+  },
+  "CA": {
+   "name": "Canada",
+   "shares": {
+    "English": 0.25,
+    "French": 0.2,
+    "Scottish": 0.1,
+    "Irish": 0.09,
+    "German": 0.05,
+    "Chinese": 0.045,
+    "Indian": 0.04,
+    "Italian": 0.025,
+    "Filipino": 0.025,
+    "Punjabi": 0.02,
+    "Ukrainian": 0.02,
+    "Polish": 0.015,
+    "Jamaican": 0.01,
+    "Haitian": 0.005,
+    "Lebanese": 0.005,
+    "Pakistani": 0.005,
+    "Inuit": 0.002
+   },
+   "notes": "Québécois are drawn as French. First Nations have no listed heritage besides Navajo, Cherokee and Inuit; left to the global remainder rather than naming the wrong nation."
+  },
+  "CD": {
+   "name": "Democratic Republic of the Congo",
+   "aliases": [
+    "DRC",
+    "DR Congo",
+    "Democratic Republic of Congo",
+    "Congo-Kinshasa",
+    "Congo",
+    "Zaire"
+   ],
+   "shares": {
+    "Congolese": 0.96,
+    "Ugandan": 0.02
+   },
+   "notes": "A bare \"Congo\" is read as the larger country, the DRC; the heritage is the same for both."
+  },
+  "CF": {
+   "name": "Central African Republic",
+   "aliases": [
+    "CAR"
+   ],
+   "shares": {
+    "Congolese": 0.7,
+    "Sudanese": 0.15,
+    "Nigerian": 0.05
+   },
+   "notes": "Central and southern Bantu peoples are drawn as the nearest listed neighbors."
+  },
+  "CG": {
+   "name": "Republic of the Congo",
+   "aliases": [
+    "Congo-Brazzaville",
+    "Congo Republic"
+   ],
+   "shares": {
+    "Congolese": 0.97
+   }
+  },
+  "CH": {
+   "name": "Switzerland",
+   "aliases": [
+    "Swiss Confederation"
+   ],
+   "shares": {
+    "German": 0.55,
+    "French": 0.2,
+    "Italian": 0.1,
+    "Portuguese": 0.03,
+    "Spanish": 0.01,
+    "Turkish": 0.01
+   },
+   "notes": "Swiss are drawn as German, French and Italian by language region; Kosovars and other Balkan residents left to the remainder."
+  },
+  "CI": {
+   "name": "Côte d'Ivoire",
+   "aliases": [
+    "Ivory Coast",
+    "Cote d'Ivoire"
+   ],
+   "shares": {
+    "Ghanaian": 0.65,
+    "Senegalese": 0.2,
+    "Nigerian": 0.03
+   },
+   "notes": "West Africans have only Nigerian, Ghanaian and Senegalese listed: the Sahel and the Atlantic coast are drawn as Senegalese, the Gulf of Guinea as Ghanaian and Nigerian."
+  },
+  "CK": {
+   "name": "Cook Islands",
+   "shares": {
+    "Māori": 0.85
+   },
+   "notes": "Cook Islands Māori are drawn as Māori."
+  },
+  "CL": {
+   "name": "Chile",
+   "shares": {
+    "Chilean": 0.93,
+    "Venezuelan": 0.02,
+    "Peruvian": 0.015,
+    "Haitian": 0.01,
+    "Colombian": 0.01
+   },
+   "notes": "Mapuche are drawn as Chilean."
+  },
+  "CM": {
+   "name": "Cameroon",
+   "aliases": [
+    "Cameroun"
+   ],
+   "shares": {
+    "Nigerian": 0.5,
+    "Congolese": 0.45
+   },
+   "notes": "Cameroonians are drawn as Nigerian (west and north) and Congolese (south)."
+  },
+  "CN": {
+   "name": "China",
+   "aliases": [
+    "PRC",
+    "People's Republic of China",
+    "Mainland China"
+   ],
+   "shares": {
+    "Chinese": 0.93,
+    "Uzbek": 0.007,
+    "Tibetan": 0.006,
+    "Mongolian": 0.005,
+    "Korean": 0.002
+   },
+   "notes": "Uyghurs are drawn as Uzbek; Zhuang, Hui and other minorities as Chinese."
+  },
+  "CO": {
+   "name": "Colombia",
+   "shares": {
+    "Colombian": 0.95,
+    "Venezuelan": 0.03
+   }
+  },
+  "CR": {
+   "name": "Costa Rica",
+   "shares": {
+    "Colombian": 0.4,
+    "Mexican": 0.2,
+    "Salvadoran": 0.07,
+    "Spanish": 0.05,
+    "Jamaican": 0.02,
+    "Chinese": 0.005
+   },
+   "notes": "Costa Ricans are drawn as Colombian and Mexican; Afro-Costa Ricans as Jamaican."
+  },
+  "CU": {
+   "name": "Cuba",
+   "shares": {
+    "Cuban": 0.97
+   }
+  },
+  "CV": {
+   "name": "Cabo Verde",
+   "aliases": [
+    "Cape Verde"
+   ],
+   "shares": {
+    "Brazilian": 0.5,
+    "Senegalese": 0.3,
+    "Portuguese": 0.1
+   },
+   "notes": "Cape Verdeans are drawn as Brazilian, the nearest mixed African and Portuguese look."
+  },
+  "CW": {
+   "name": "Curaçao",
+   "aliases": [
+    "Curacao"
+   ],
+   "shares": {
+    "Jamaican": 0.5,
+    "Dominican": 0.1,
+    "Venezuelan": 0.1,
+    "Dutch": 0.08,
+    "Colombian": 0.05
+   },
+   "notes": "Afro-Curaçaoans are drawn as Jamaican."
+  },
+  "CY": {
+   "name": "Cyprus",
+   "shares": {
+    "Greek": 0.75,
+    "Turkish": 0.12,
+    "Russian": 0.015,
+    "English": 0.01,
+    "Armenian": 0.005,
+    "Lebanese": 0.005,
+    "Romanian": 0.005,
+    "Filipino": 0.005,
+    "Indian": 0.005
+   },
+   "notes": "Greek Cypriots are drawn as Greek, Turkish Cypriots as Turkish."
+  },
+  "CZ": {
+   "name": "Czechia",
+   "aliases": [
+    "Czech Republic",
+    "Bohemia"
+   ],
+   "shares": {
+    "Polish": 0.65,
+    "German": 0.2,
+    "Ukrainian": 0.04,
+    "Russian": 0.01,
+    "Vietnamese": 0.005
+   },
+   "notes": "Czechs are drawn as Polish and German. Roma are a visible minority here and have no listed heritage; left to the global remainder."
+  },
+  "DE": {
+   "name": "Germany",
+   "aliases": [
+    "Deutschland",
+    "Prussia"
+   ],
+   "shares": {
+    "German": 0.8,
+    "Turkish": 0.04,
+    "Polish": 0.025,
+    "Russian": 0.02,
+    "Syrian": 0.012,
+    "Italian": 0.01,
+    "Romanian": 0.01,
+    "Ukrainian": 0.01,
+    "Kurdish": 0.008,
+    "Greek": 0.005,
+    "Afghan": 0.004,
+    "Iraqi": 0.004
+   }
+  },
+  "DJ": {
+   "name": "Djibouti",
+   "shares": {
+    "Somali": 0.6,
+    "Ethiopian": 0.2,
+    "Eritrean": 0.1,
+    "Yemeni": 0.03
+   },
+   "notes": "The Afar are drawn as Ethiopian and Eritrean."
+  },
+  "DK": {
+   "name": "Denmark",
+   "aliases": [
+    "Danmark"
+   ],
+   "shares": {
+    "Danish": 0.87,
+    "Turkish": 0.012,
+    "Polish": 0.01,
+    "Syrian": 0.007,
+    "Iraqi": 0.006,
+    "German": 0.006,
+    "Romanian": 0.005,
+    "Swedish": 0.004,
+    "Somali": 0.004,
+    "Iranian": 0.004,
+    "Pakistani": 0.004,
+    "Norwegian": 0.003
+   }
+  },
+  "DM": {
+   "name": "Dominica",
+   "shares": {
+    "Jamaican": 0.87
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "DO": {
+   "name": "Dominican Republic",
+   "shares": {
+    "Dominican": 0.93,
+    "Haitian": 0.05
+   }
+  },
+  "DZ": {
+   "name": "Algeria",
+   "shares": {
+    "Algerian": 0.97
+   },
+   "notes": "Kabyle and other Amazigh Algerians are drawn as Algerian."
+  },
+  "EC": {
+   "name": "Ecuador",
+   "shares": {
+    "Ecuadorian": 0.95,
+    "Colombian": 0.015,
+    "Venezuelan": 0.015
+   }
+  },
+  "EE": {
+   "name": "Estonia",
+   "shares": {
+    "Finnish": 0.65,
+    "Russian": 0.25,
+    "Ukrainian": 0.02
+   },
+   "notes": "Estonians are drawn as Finnish (both Finnic)."
+  },
+  "EG": {
+   "name": "Egypt",
+   "shares": {
+    "Egyptian": 0.95,
+    "Sudanese": 0.02,
+    "Syrian": 0.005
+   }
+  },
+  "EH": {
+   "name": "Western Sahara",
+   "shares": {
+    "Moroccan": 0.9
+   },
+   "notes": "Sahrawis are drawn as Moroccan."
+  },
+  "ER": {
+   "name": "Eritrea",
+   "shares": {
+    "Eritrean": 0.95,
+    "Sudanese": 0.02
+   }
+  },
+  "ES": {
+   "name": "Spain",
+   "aliases": [
+    "España"
+   ],
+   "shares": {
+    "Spanish": 0.87,
+    "Moroccan": 0.02,
+    "Romanian": 0.012,
+    "Colombian": 0.01,
+    "Venezuelan": 0.008,
+    "Ecuadorian": 0.006,
+    "Argentinian": 0.005,
+    "Peruvian": 0.004,
+    "English": 0.005,
+    "Italian": 0.005,
+    "Chinese": 0.004
+   },
+   "notes": "Catalans, Basques and Galicians are drawn as Spanish."
+  },
+  "ET": {
+   "name": "Ethiopia",
+   "aliases": [
+    "Abyssinia"
+   ],
+   "shares": {
+    "Ethiopian": 0.9,
+    "Somali": 0.06,
+    "Eritrean": 0.01,
+    "Sudanese": 0.01
+   }
+  },
+  "FI": {
+   "name": "Finland",
+   "aliases": [
+    "Suomi"
+   ],
+   "shares": {
+    "Finnish": 0.9,
+    "Swedish": 0.05,
+    "Russian": 0.015,
+    "Somali": 0.004,
+    "Iraqi": 0.003,
+    "Chinese": 0.002
+   },
+   "notes": "Swedish-speaking Finns are drawn as Swedish; the Sámi have no listed heritage."
+  },
+  "FJ": {
+   "name": "Fiji",
+   "shares": {
+    "Fijian": 0.6,
+    "Indian": 0.35,
+    "Chinese": 0.005
+   }
+  },
+  "FK": {
+   "name": "Falkland Islands",
+   "aliases": [
+    "Falklands",
+    "Malvinas"
+   ],
+   "shares": {
+    "English": 0.7,
+    "Scottish": 0.1,
+    "Chilean": 0.05,
+    "Welsh": 0.02
+   }
+  },
+  "FM": {
+   "name": "Micronesia",
+   "aliases": [
+    "Federated States of Micronesia"
+   ],
+   "shares": {
+    "Filipino": 0.3,
+    "Samoan": 0.3,
+    "Tongan": 0.1,
+    "Papua New Guinean": 0.1
+   },
+   "notes": "Micronesians have no listed heritage: drawn as the nearest Polynesian and Filipino looks."
+  },
+  "FO": {
+   "name": "Faroe Islands",
+   "aliases": [
+    "Faroes"
+   ],
+   "shares": {
+    "Norwegian": 0.6,
+    "Danish": 0.3
+   },
+   "notes": "Faroese are drawn as Norwegian."
+  },
+  "FR": {
+   "name": "France",
+   "shares": {
+    "French": 0.78,
+    "Algerian": 0.04,
+    "Moroccan": 0.035,
+    "Tunisian": 0.015,
+    "Portuguese": 0.02,
+    "Italian": 0.015,
+    "Spanish": 0.01,
+    "Senegalese": 0.01,
+    "Congolese": 0.008,
+    "Haitian": 0.01,
+    "Turkish": 0.008,
+    "Vietnamese": 0.005,
+    "Chinese": 0.005
+   },
+   "notes": "French Antilleans have no listed heritage: drawn as Haitian."
+  },
+  "GA": {
+   "name": "Gabon",
+   "shares": {
+    "Congolese": 0.85,
+    "Nigerian": 0.03,
+    "French": 0.01
+   },
+   "notes": "Central and southern Bantu peoples are drawn as the nearest listed neighbors."
+  },
+  "GB": {
+   "name": "United Kingdom",
+   "aliases": [
+    "UK",
+    "Britain",
+    "Great Britain",
+    "United Kingdom of Great Britain and Northern Ireland"
+   ],
+   "shares": {
+    "English": 0.7,
+    "Scottish": 0.08,
+    "Welsh": 0.04,
+    "Irish": 0.03,
+    "Indian": 0.03,
+    "Pakistani": 0.025,
+    "Bangladeshi": 0.01,
+    "Nigerian": 0.01,
+    "Jamaican": 0.012,
+    "Polish": 0.015,
+    "Chinese": 0.008,
+    "Romanian": 0.007,
+    "Ghanaian": 0.005,
+    "Italian": 0.005,
+    "Somali": 0.003
+   },
+   "notes": "Black British of Caribbean heritage are drawn as Jamaican."
+  },
+  "GB-ENG": {
+   "name": "England",
+   "shares": {
+    "English": 0.8,
+    "Irish": 0.02,
+    "Scottish": 0.02,
+    "Welsh": 0.01,
+    "Indian": 0.03,
+    "Pakistani": 0.025,
+    "Bangladeshi": 0.01,
+    "Nigerian": 0.012,
+    "Jamaican": 0.012,
+    "Polish": 0.015,
+    "Chinese": 0.008,
+    "Romanian": 0.007,
+    "Ghanaian": 0.005
+   }
+  },
+  "GB-NIR": {
+   "name": "Northern Ireland",
+   "aliases": [
+    "Ulster"
+   ],
+   "shares": {
+    "Irish": 0.9,
+    "Scottish": 0.05,
+    "English": 0.03,
+    "Polish": 0.01
+   },
+   "notes": "Ulster Protestants of Scottish descent are mostly drawn as Irish; the look is the same family."
+  },
+  "GB-SCT": {
+   "name": "Scotland",
+   "shares": {
+    "Scottish": 0.88,
+    "English": 0.05,
+    "Irish": 0.02,
+    "Polish": 0.015,
+    "Pakistani": 0.015,
+    "Indian": 0.005,
+    "Chinese": 0.005
+   }
+  },
+  "GB-WLS": {
+   "name": "Wales",
+   "aliases": [
+    "Cymru"
+   ],
+   "shares": {
+    "Welsh": 0.75,
+    "English": 0.18,
+    "Irish": 0.01,
+    "Polish": 0.01,
+    "Indian": 0.005,
+    "Pakistani": 0.005,
+    "Bangladeshi": 0.003
+   }
+  },
+  "GD": {
+   "name": "Grenada",
+   "shares": {
+    "Jamaican": 0.9,
+    "Indian": 0.02
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "GE": {
+   "name": "Georgia",
+   "aliases": [
+    "Sakartvelo"
+   ],
+   "shares": {
+    "Georgian": 0.86,
+    "Armenian": 0.045,
+    "Turkish": 0.03,
+    "Iranian": 0.03,
+    "Russian": 0.01
+   },
+   "notes": "Azerbaijanis in Georgia are drawn as Turkish and Iranian. The name is shared with a US state; the reader names countries, so it means the country."
+  },
+  "GF": {
+   "name": "French Guiana",
+   "aliases": [
+    "Guyane"
+   ],
+   "shares": {
+    "Haitian": 0.3,
+    "Brazilian": 0.15,
+    "Jamaican": 0.1,
+    "French": 0.1,
+    "Chinese": 0.03
+   },
+   "notes": "Guianese Creoles are drawn as Jamaican and Haitian."
+  },
+  "GH": {
+   "name": "Ghana",
+   "shares": {
+    "Ghanaian": 0.97,
+    "Nigerian": 0.01
+   }
+  },
+  "GI": {
+   "name": "Gibraltar",
+   "shares": {
+    "Spanish": 0.5,
+    "English": 0.35,
+    "Italian": 0.05,
+    "Moroccan": 0.04,
+    "Indian": 0.02
+   }
+  },
+  "GL": {
+   "name": "Greenland",
+   "aliases": [
+    "Kalaallit Nunaat"
+   ],
+   "shares": {
+    "Inuit": 0.88,
+    "Danish": 0.1
+   }
+  },
+  "GM": {
+   "name": "Gambia",
+   "aliases": [
+    "The Gambia"
+   ],
+   "shares": {
+    "Senegalese": 0.9
+   },
+   "notes": "West Africans have only Nigerian, Ghanaian and Senegalese listed: the Sahel and the Atlantic coast are drawn as Senegalese, the Gulf of Guinea as Ghanaian and Nigerian."
+  },
+  "GN": {
+   "name": "Guinea",
+   "aliases": [
+    "Guinea-Conakry"
+   ],
+   "shares": {
+    "Senegalese": 0.65,
+    "Ghanaian": 0.1,
+    "Nigerian": 0.05
+   },
+   "notes": "West Africans have only Nigerian, Ghanaian and Senegalese listed: the Sahel and the Atlantic coast are drawn as Senegalese, the Gulf of Guinea as Ghanaian and Nigerian."
+  },
+  "GP": {
+   "name": "Guadeloupe",
+   "shares": {
+    "Haitian": 0.4,
+    "Jamaican": 0.4,
+    "French": 0.05,
+    "Indian": 0.05
+   },
+   "notes": "French Antilleans have no listed heritage: drawn as Haitian and Jamaican."
+  },
+  "GQ": {
+   "name": "Equatorial Guinea",
+   "shares": {
+    "Congolese": 0.8,
+    "Nigerian": 0.1,
+    "Spanish": 0.005
+   },
+   "notes": "The Fang are drawn as Congolese."
+  },
+  "GR": {
+   "name": "Greece",
+   "aliases": [
+    "Hellas"
+   ],
+   "shares": {
+    "Greek": 0.93,
+    "Georgian": 0.005,
+    "Pakistani": 0.004,
+    "Syrian": 0.004,
+    "Afghan": 0.003,
+    "Ukrainian": 0.003
+   },
+   "notes": "Albanians in Greece are drawn as Greek."
+  },
+  "GT": {
+   "name": "Guatemala",
+   "shares": {
+    "Guatemalan": 0.97,
+    "Mexican": 0.01,
+    "Salvadoran": 0.005
+   }
+  },
+  "GU": {
+   "name": "Guam",
+   "shares": {
+    "Filipino": 0.55,
+    "Samoan": 0.1,
+    "English": 0.05,
+    "Korean": 0.02,
+    "Chinese": 0.02
+   },
+   "notes": "Chamorros are drawn as Filipino. Micronesians have no listed heritage: drawn as the nearest Polynesian and Filipino looks."
+  },
+  "GW": {
+   "name": "Guinea-Bissau",
+   "shares": {
+    "Senegalese": 0.8
+   },
+   "notes": "West Africans have only Nigerian, Ghanaian and Senegalese listed: the Sahel and the Atlantic coast are drawn as Senegalese, the Gulf of Guinea as Ghanaian and Nigerian."
+  },
+  "GY": {
+   "name": "Guyana",
+   "shares": {
+    "Indian": 0.4,
+    "Jamaican": 0.3,
+    "Brazilian": 0.01,
+    "Chinese": 0.005
+   },
+   "notes": "Afro-Guyanese are drawn as Jamaican; Indigenous Guyanese have no listed heritage."
+  },
+  "HK": {
+   "name": "Hong Kong",
+   "shares": {
+    "Chinese": 0.92,
+    "Filipino": 0.03,
+    "Indonesian": 0.02,
+    "Indian": 0.005,
+    "English": 0.005,
+    "Nepali": 0.003,
+    "Pakistani": 0.002
+   }
+  },
+  "HN": {
+   "name": "Honduras",
+   "shares": {
+    "Salvadoran": 0.6,
+    "Guatemalan": 0.25,
+    "Jamaican": 0.02
+   },
+   "notes": "Hondurans have no listed heritage: drawn as Salvadoran and Guatemalan; Garifuna as Jamaican."
+  },
+  "HR": {
+   "name": "Croatia",
+   "aliases": [
+    "Hrvatska"
+   ],
+   "shares": {
+    "Romanian": 0.3,
+    "Italian": 0.2,
+    "Polish": 0.2,
+    "Ukrainian": 0.1,
+    "Greek": 0.1
+   },
+   "notes": "No South Slavic heritage is listed: Serbs, Croats, Bosniaks, Slovenes and Montenegrins are drawn as the nearest Romanian, Greek, Ukrainian and Polish looks."
+  },
+  "HT": {
+   "name": "Haiti",
+   "aliases": [
+    "Ayiti"
+   ],
+   "shares": {
+    "Haitian": 0.97
+   }
+  },
+  "HU": {
+   "name": "Hungary",
+   "aliases": [
+    "Magyarország"
+   ],
+   "shares": {
+    "Polish": 0.35,
+    "German": 0.25,
+    "Romanian": 0.3,
+    "Ukrainian": 0.02
+   },
+   "notes": "Hungarians have no listed heritage: drawn as Polish, German and Romanian. Roma are a visible minority here and have no listed heritage; left to the global remainder."
+  },
+  "ID": {
+   "name": "Indonesia",
+   "shares": {
+    "Indonesian": 0.93,
+    "Malay": 0.02,
+    "Chinese": 0.012,
+    "Papua New Guinean": 0.01
+   },
+   "notes": "Papuans are drawn as Papua New Guinean."
+  },
+  "IE": {
+   "name": "Ireland",
+   "aliases": [
+    "Eire",
+    "Éire",
+    "Republic of Ireland"
+   ],
+   "shares": {
+    "Irish": 0.86,
+    "English": 0.02,
+    "Polish": 0.03,
+    "Nigerian": 0.01,
+    "Romanian": 0.01,
+    "Indian": 0.01,
+    "Chinese": 0.005,
+    "Brazilian": 0.005
+   }
+  },
+  "IL": {
+   "name": "Israel",
+   "shares": {
+    "Palestinian": 0.21,
+    "Moroccan": 0.1,
+    "Russian": 0.1,
+    "Polish": 0.07,
+    "Iraqi": 0.07,
+    "Ukrainian": 0.05,
+    "Lebanese": 0.05,
+    "Iranian": 0.04,
+    "Yemeni": 0.03,
+    "Romanian": 0.03,
+    "German": 0.02,
+    "Tunisian": 0.02,
+    "Ethiopian": 0.015,
+    "Georgian": 0.01
+   },
+   "notes": "The heritage list has no Jewish heritage: Ashkenazi Jews are drawn as Russian, Polish, Ukrainian, Romanian and German; Mizrahi and Sephardi Jews as Moroccan, Iraqi, Iranian, Yemeni, Tunisian and Lebanese; Beta Israel as Ethiopian. Arab citizens are drawn as Palestinian."
+  },
+  "IN": {
+   "name": "India",
+   "aliases": [
+    "Bharat",
+    "Hindustan"
+   ],
+   "shares": {
+    "Indian": 0.75,
+    "Bengali": 0.07,
+    "Tamil": 0.06,
+    "Punjabi": 0.03,
+    "Nepali": 0.01,
+    "Tibetan": 0.002
+   },
+   "notes": "Northeast Indians (Naga, Mizo, Assamese) have no listed heritage: a few drawn as Nepali."
+  },
+  "IQ": {
+   "name": "Iraq",
+   "aliases": [
+    "Mesopotamia"
+   ],
+   "shares": {
+    "Iraqi": 0.75,
+    "Kurdish": 0.17,
+    "Turkish": 0.02,
+    "Syrian": 0.01,
+    "Armenian": 0.002
+   },
+   "notes": "Iraqi Turkmen are drawn as Turkish."
+  },
+  "IR": {
+   "name": "Iran",
+   "aliases": [
+    "Persia",
+    "Islamic Republic of Iran"
+   ],
+   "shares": {
+    "Iranian": 0.7,
+    "Kurdish": 0.1,
+    "Turkish": 0.08,
+    "Afghan": 0.03,
+    "Iraqi": 0.02,
+    "Pashtun": 0.005,
+    "Armenian": 0.003
+   },
+   "notes": "Azerbaijanis, about a sixth of Iran, are drawn as Turkish; Baloch and Lurs as Iranian."
+  },
+  "IS": {
+   "name": "Iceland",
+   "shares": {
+    "Norwegian": 0.8,
+    "Polish": 0.06,
+    "Danish": 0.03,
+    "Swedish": 0.02,
+    "Filipino": 0.005
+   },
+   "notes": "Icelanders are drawn as Norwegian, the nearest listed look."
+  },
+  "IT": {
+   "name": "Italy",
+   "aliases": [
+    "Italia"
+   ],
+   "shares": {
+    "Italian": 0.9,
+    "Romanian": 0.02,
+    "Moroccan": 0.008,
+    "Chinese": 0.005,
+    "Ukrainian": 0.004,
+    "Filipino": 0.003,
+    "Indian": 0.003,
+    "Senegalese": 0.002,
+    "Egyptian": 0.002,
+    "Peruvian": 0.002
+   },
+   "notes": "Albanians in Italy have no listed heritage."
+  },
+  "JM": {
+   "name": "Jamaica",
+   "shares": {
+    "Jamaican": 0.95,
+    "Indian": 0.01,
+    "Chinese": 0.005,
+    "English": 0.005
+   }
+  },
+  "JO": {
+   "name": "Jordan",
+   "shares": {
+    "Palestinian": 0.55,
+    "Syrian": 0.15,
+    "Saudi": 0.1,
+    "Egyptian": 0.05,
+    "Iraqi": 0.03
+   },
+   "notes": "East Bank Jordanians are drawn as Palestinian and Saudi (Bedouin)."
+  },
+  "JP": {
+   "name": "Japan",
+   "aliases": [
+    "Nippon",
+    "Nihon"
+   ],
+   "shares": {
+    "Japanese": 0.97,
+    "Chinese": 0.007,
+    "Korean": 0.005,
+    "Vietnamese": 0.004,
+    "Filipino": 0.003,
+    "Brazilian": 0.002
+   },
+   "notes": "The Ainu and Ryukyuans are drawn as Japanese."
+  },
+  "KE": {
+   "name": "Kenya",
+   "shares": {
+    "Kenyan": 0.95,
+    "Somali": 0.02,
+    "Indian": 0.005,
+    "Ethiopian": 0.005
+   }
+  },
+  "KG": {
+   "name": "Kyrgyzstan",
+   "aliases": [
+    "Kyrgyz Republic",
+    "Kirghizia"
+   ],
+   "shares": {
+    "Kyrgyz": 0.77,
+    "Uzbek": 0.15,
+    "Russian": 0.04,
+    "Tajik": 0.009,
+    "Kazakh": 0.005
+   }
+  },
+  "KH": {
+   "name": "Cambodia",
+   "aliases": [
+    "Kampuchea"
+   ],
+   "shares": {
+    "Cambodian": 0.93,
+    "Vietnamese": 0.02,
+    "Chinese": 0.01,
+    "Malay": 0.01
+   },
+   "notes": "The Cham are drawn as Malay."
+  },
+  "KI": {
+   "name": "Kiribati",
+   "shares": {
+    "Samoan": 0.5,
+    "Tongan": 0.4
+   },
+   "notes": "Micronesians have no listed heritage: drawn as the nearest Polynesian and Filipino looks."
+  },
+  "KM": {
+   "name": "Comoros",
+   "shares": {
+    "Tanzanian": 0.7,
+    "Yemeni": 0.05
+   },
+   "notes": "Comorians are drawn as Tanzanian."
+  },
+  "KN": {
+   "name": "Saint Kitts and Nevis",
+   "aliases": [
+    "St Kitts and Nevis",
+    "St. Kitts and Nevis"
+   ],
+   "shares": {
+    "Jamaican": 0.92
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "KP": {
+   "name": "North Korea",
+   "aliases": [
+    "DPRK",
+    "Democratic People's Republic of Korea"
+   ],
+   "shares": {
+    "Korean": 0.99
+   }
+  },
+  "KR": {
+   "name": "South Korea",
+   "aliases": [
+    "Korea",
+    "Republic of Korea"
+   ],
+   "shares": {
+    "Korean": 0.96,
+    "Chinese": 0.015,
+    "Vietnamese": 0.005,
+    "Thai": 0.003,
+    "Filipino": 0.002,
+    "Uzbek": 0.002
+   }
+  },
+  "KW": {
+   "name": "Kuwait",
+   "shares": {
+    "Saudi": 0.3,
+    "Indian": 0.2,
+    "Egyptian": 0.14,
+    "Bangladeshi": 0.05,
+    "Filipino": 0.05,
+    "Pakistani": 0.04,
+    "Syrian": 0.03,
+    "Iranian": 0.03,
+    "Sri Lankan": 0.03,
+    "Nepali": 0.02
+   },
+   "notes": "Kuwaitis are drawn as Saudi."
+  },
+  "KY": {
+   "name": "Cayman Islands",
+   "aliases": [
+    "Caymans"
+   ],
+   "shares": {
+    "Jamaican": 0.4,
+    "English": 0.2,
+    "Filipino": 0.05
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "KZ": {
+   "name": "Kazakhstan",
+   "shares": {
+    "Kazakh": 0.7,
+    "Russian": 0.15,
+    "Uzbek": 0.04,
+    "Ukrainian": 0.02,
+    "German": 0.01,
+    "Korean": 0.006
+   },
+   "notes": "Uyghurs are drawn as Uzbek."
+  },
+  "LA": {
+   "name": "Laos",
+   "aliases": [
+    "Lao PDR"
+   ],
+   "shares": {
+    "Lao": 0.7,
+    "Thai": 0.05,
+    "Vietnamese": 0.02,
+    "Cambodian": 0.02,
+    "Chinese": 0.01
+   },
+   "notes": "Khmu and Hmong have no listed heritage."
+  },
+  "LB": {
+   "name": "Lebanon",
+   "shares": {
+    "Lebanese": 0.8,
+    "Syrian": 0.1,
+    "Palestinian": 0.05,
+    "Armenian": 0.04
+   }
+  },
+  "LC": {
+   "name": "Saint Lucia",
+   "aliases": [
+    "St Lucia",
+    "St. Lucia"
+   ],
+   "shares": {
+    "Jamaican": 0.88,
+    "Indian": 0.02
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "LI": {
+   "name": "Liechtenstein",
+   "shares": {
+    "German": 0.9,
+    "Italian": 0.02,
+    "Turkish": 0.02
+   }
+  },
+  "LK": {
+   "name": "Sri Lanka",
+   "aliases": [
+    "Ceylon"
+   ],
+   "shares": {
+    "Sri Lankan": 0.75,
+    "Tamil": 0.15,
+    "Malay": 0.005
+   }
+  },
+  "LR": {
+   "name": "Liberia",
+   "shares": {
+    "Ghanaian": 0.7,
+    "Senegalese": 0.15,
+    "Nigerian": 0.05
+   },
+   "notes": "West Africans have only Nigerian, Ghanaian and Senegalese listed: the Sahel and the Atlantic coast are drawn as Senegalese, the Gulf of Guinea as Ghanaian and Nigerian."
+  },
+  "LS": {
+   "name": "Lesotho",
+   "shares": {
+    "South African": 0.97
+   }
+  },
+  "LT": {
+   "name": "Lithuania",
+   "shares": {
+    "Polish": 0.85,
+    "Russian": 0.05,
+    "Ukrainian": 0.01
+   },
+   "notes": "Lithuanians are drawn as Polish, the nearest listed Baltic look."
+  },
+  "LU": {
+   "name": "Luxembourg",
+   "shares": {
+    "German": 0.35,
+    "French": 0.25,
+    "Portuguese": 0.15,
+    "Italian": 0.03,
+    "Dutch": 0.01
+   },
+   "notes": "Luxembourgers are drawn as German and French."
+  },
+  "LV": {
+   "name": "Latvia",
+   "shares": {
+    "Polish": 0.6,
+    "Russian": 0.25,
+    "Ukrainian": 0.03,
+    "Finnish": 0.05
+   },
+   "notes": "Latvians are drawn as Polish, the nearest listed Baltic look."
+  },
+  "LY": {
+   "name": "Libya",
+   "shares": {
+    "Libyan": 0.9,
+    "Egyptian": 0.03,
+    "Sudanese": 0.02,
+    "Tunisian": 0.01,
+    "Nigerian": 0.01
+   }
+  },
+  "MA": {
+   "name": "Morocco",
+   "shares": {
+    "Moroccan": 0.96,
+    "Senegalese": 0.005,
+    "French": 0.005
+   }
+  },
+  "MC": {
+   "name": "Monaco",
+   "shares": {
+    "French": 0.6,
+    "Italian": 0.2,
+    "English": 0.05
+   }
+  },
+  "MD": {
+   "name": "Moldova",
+   "aliases": [
+    "Republic of Moldova"
+   ],
+   "shares": {
+    "Romanian": 0.78,
+    "Ukrainian": 0.07,
+    "Russian": 0.05,
+    "Turkish": 0.04
+   },
+   "notes": "The Gagauz are drawn as Turkish."
+  },
+  "ME": {
+   "name": "Montenegro",
+   "shares": {
+    "Romanian": 0.4,
+    "Greek": 0.3,
+    "Ukrainian": 0.1,
+    "Polish": 0.1
+   },
+   "notes": "No South Slavic heritage is listed: Serbs, Croats, Bosniaks, Slovenes and Montenegrins are drawn as the nearest Romanian, Greek, Ukrainian and Polish looks."
+  },
+  "MG": {
+   "name": "Madagascar",
+   "shares": {
+    "Indonesian": 0.3,
+    "Tanzanian": 0.3,
+    "Kenyan": 0.1,
+    "French": 0.005,
+    "Indian": 0.005,
+    "Chinese": 0.005
+   },
+   "notes": "The Malagasy have no listed heritage: drawn as Indonesian (highland Merina) and Tanzanian and Kenyan (coastal peoples)."
+  },
+  "MH": {
+   "name": "Marshall Islands",
+   "shares": {
+    "Samoan": 0.5,
+    "Filipino": 0.2,
+    "Tongan": 0.2
+   },
+   "notes": "Micronesians have no listed heritage: drawn as the nearest Polynesian and Filipino looks."
+  },
+  "MK": {
+   "name": "North Macedonia",
+   "aliases": [
+    "Macedonia",
+    "Republic of North Macedonia"
+   ],
+   "shares": {
+    "Greek": 0.55,
+    "Romanian": 0.25,
+    "Turkish": 0.05,
+    "Ukrainian": 0.05
+   },
+   "notes": "Macedonians and Albanians are drawn as Greek and Romanian."
+  },
+  "ML": {
+   "name": "Mali",
+   "shares": {
+    "Senegalese": 0.7,
+    "Moroccan": 0.03,
+    "Algerian": 0.02
+   },
+   "notes": "West Africans have only Nigerian, Ghanaian and Senegalese listed: the Sahel and the Atlantic coast are drawn as Senegalese, the Gulf of Guinea as Ghanaian and Nigerian. Tuareg and Moors are drawn as Moroccan and Algerian."
+  },
+  "MM": {
+   "name": "Myanmar",
+   "aliases": [
+    "Burma"
+   ],
+   "shares": {
+    "Burmese": 0.82,
+    "Thai": 0.05,
+    "Chinese": 0.03,
+    "Indian": 0.02,
+    "Bangladeshi": 0.02
+   },
+   "notes": "Shan are drawn as Thai, Rohingya as Bangladeshi; Karen, Kachin and Chin as Burmese."
+  },
+  "MN": {
+   "name": "Mongolia",
+   "shares": {
+    "Mongolian": 0.9,
+    "Kazakh": 0.04,
+    "Chinese": 0.01
+   }
+  },
+  "MO": {
+   "name": "Macau",
+   "aliases": [
+    "Macao"
+   ],
+   "shares": {
+    "Chinese": 0.89,
+    "Filipino": 0.05,
+    "Portuguese": 0.01,
+    "Vietnamese": 0.01
+   }
+  },
+  "MP": {
+   "name": "Northern Mariana Islands",
+   "aliases": [
+    "Saipan"
+   ],
+   "shares": {
+    "Filipino": 0.6,
+    "Samoan": 0.1,
+    "Chinese": 0.07,
+    "Korean": 0.02
+   },
+   "notes": "Chamorros and Carolinians are drawn as Filipino and Samoan."
+  },
+  "MQ": {
+   "name": "Martinique",
+   "shares": {
+    "Haitian": 0.4,
+    "Jamaican": 0.4,
+    "French": 0.05,
+    "Indian": 0.05
+   },
+   "notes": "French Antilleans have no listed heritage: drawn as Haitian and Jamaican."
+  },
+  "MR": {
+   "name": "Mauritania",
+   "shares": {
+    "Senegalese": 0.5,
+    "Moroccan": 0.35
+   },
+   "notes": "Moors are drawn as Moroccan; Haratin and Black Mauritanians as Senegalese."
+  },
+  "MT": {
+   "name": "Malta",
+   "shares": {
+    "Italian": 0.8,
+    "English": 0.03,
+    "Filipino": 0.01,
+    "Indian": 0.01,
+    "Libyan": 0.005
+   },
+   "notes": "Maltese are drawn as Italian, the nearest listed look."
+  },
+  "MU": {
+   "name": "Mauritius",
+   "shares": {
+    "Indian": 0.52,
+    "Tamil": 0.07,
+    "Tanzanian": 0.15,
+    "South African": 0.1,
+    "Chinese": 0.03,
+    "French": 0.02
+   },
+   "notes": "Creole Mauritians are drawn as Tanzanian and South African."
+  },
+  "MV": {
+   "name": "Maldives",
+   "shares": {
+    "Sri Lankan": 0.5,
+    "Indian": 0.2,
+    "Bangladeshi": 0.1
+   },
+   "notes": "Maldivians are drawn as Sri Lankan."
+  },
+  "MW": {
+   "name": "Malawi",
+   "shares": {
+    "Tanzanian": 0.45,
+    "Zimbabwean": 0.4
+   },
+   "notes": "Central and southern Bantu peoples are drawn as the nearest listed neighbors."
+  },
+  "MX": {
+   "name": "Mexico",
+   "aliases": [
+    "México"
+   ],
+   "shares": {
+    "Mexican": 0.98
+   },
+   "notes": "Maya, Zapotec and other Indigenous Mexicans are drawn as Mexican."
+  },
+  "MY": {
+   "name": "Malaysia",
+   "shares": {
+    "Malay": 0.58,
+    "Chinese": 0.23,
+    "Tamil": 0.04,
+    "Indian": 0.03,
+    "Indonesian": 0.02,
+    "Filipino": 0.02
+   },
+   "notes": "The indigenous peoples of Borneo are drawn as Indonesian and Filipino."
+  },
+  "MZ": {
+   "name": "Mozambique",
+   "shares": {
+    "Zimbabwean": 0.3,
+    "Tanzanian": 0.3,
+    "Angolan": 0.3,
+    "Portuguese": 0.005,
+    "Indian": 0.002
+   },
+   "notes": "Central and southern Bantu peoples are drawn as the nearest listed neighbors."
+  },
+  "NA": {
+   "name": "Namibia",
+   "shares": {
+    "Angolan": 0.55,
+    "South African": 0.25,
+    "German": 0.01
+   },
+   "notes": "Ovambo are drawn as Angolan; Herero, Nama, Coloured and Afrikaner Namibians as South African."
+  },
+  "NC": {
+   "name": "New Caledonia",
+   "shares": {
+    "French": 0.27,
+    "Fijian": 0.25,
+    "Papua New Guinean": 0.15,
+    "Samoan": 0.08,
+    "Indonesian": 0.015,
+    "Vietnamese": 0.01
+   },
+   "notes": "Kanak are drawn as Fijian and Papua New Guinean, Wallisians as Samoan."
+  },
+  "NE": {
+   "name": "Niger",
+   "shares": {
+    "Nigerian": 0.55,
+    "Senegalese": 0.2,
+    "Algerian": 0.05
+   },
+   "notes": "Hausa are drawn as Nigerian, Zarma and Fula as Senegalese, Tuareg as Algerian."
+  },
+  "NG": {
+   "name": "Nigeria",
+   "shares": {
+    "Nigerian": 0.99
+   }
+  },
+  "NI": {
+   "name": "Nicaragua",
+   "shares": {
+    "Salvadoran": 0.55,
+    "Guatemalan": 0.15,
+    "Mexican": 0.1,
+    "Jamaican": 0.03,
+    "Spanish": 0.03
+   },
+   "notes": "Nicaraguans are drawn as Salvadoran, Guatemalan and Mexican; Creoles as Jamaican."
+  },
+  "NL": {
+   "name": "Netherlands",
+   "aliases": [
+    "Holland",
+    "The Netherlands"
+   ],
+   "shares": {
+    "Dutch": 0.76,
+    "Turkish": 0.025,
+    "Moroccan": 0.025,
+    "Indonesian": 0.02,
+    "German": 0.02,
+    "Polish": 0.01,
+    "Indian": 0.01,
+    "Jamaican": 0.01
+   },
+   "notes": "Surinamese Dutch are drawn as Indian (Hindustani) and Jamaican (Afro-Surinamese); Indo Dutch as Indonesian."
+  },
+  "NO": {
+   "name": "Norway",
+   "aliases": [
+    "Norge"
+   ],
+   "shares": {
+    "Norwegian": 0.84,
+    "Polish": 0.02,
+    "Swedish": 0.01,
+    "Somali": 0.008,
+    "Pakistani": 0.007,
+    "Syrian": 0.007,
+    "Iraqi": 0.005,
+    "Eritrean": 0.005,
+    "Filipino": 0.004,
+    "Thai": 0.004,
+    "Danish": 0.003,
+    "Russian": 0.003
+   },
+   "notes": "The Sámi have no listed heritage."
+  },
+  "NP": {
+   "name": "Nepal",
+   "shares": {
+    "Nepali": 0.9,
+    "Indian": 0.04,
+    "Tibetan": 0.02
+   }
+  },
+  "NR": {
+   "name": "Nauru",
+   "shares": {
+    "Samoan": 0.4,
+    "Tongan": 0.2,
+    "Fijian": 0.2,
+    "Chinese": 0.05
+   },
+   "notes": "Micronesians have no listed heritage: drawn as the nearest Polynesian and Filipino looks."
+  },
+  "NU": {
+   "name": "Niue",
+   "shares": {
+    "Samoan": 0.5,
+    "Tongan": 0.4
+   },
+   "notes": "Niueans are drawn as Samoan and Tongan."
+  },
+  "NZ": {
+   "name": "New Zealand",
+   "aliases": [
+    "Aotearoa"
+   ],
+   "shares": {
+    "English": 0.5,
+    "Māori": 0.17,
+    "Scottish": 0.1,
+    "Irish": 0.05,
+    "Chinese": 0.05,
+    "Samoan": 0.04,
+    "Indian": 0.04,
+    "Tongan": 0.015,
+    "Filipino": 0.01,
+    "Dutch": 0.01,
+    "Fijian": 0.006,
+    "Korean": 0.006
+   },
+   "notes": "Pākehā are drawn as English, Scottish and Irish."
+  },
+  "OM": {
+   "name": "Oman",
+   "shares": {
+    "Saudi": 0.45,
+    "Indian": 0.15,
+    "Bangladeshi": 0.1,
+    "Pakistani": 0.07,
+    "Yemeni": 0.03,
+    "Filipino": 0.02,
+    "Somali": 0.01
+   },
+   "notes": "Omanis are drawn as Saudi; Baloch Omanis as Pakistani."
+  },
+  "PA": {
+   "name": "Panama",
+   "shares": {
+    "Colombian": 0.5,
+    "Salvadoran": 0.1,
+    "Jamaican": 0.07,
+    "Guatemalan": 0.05,
+    "Dominican": 0.05,
+    "Chinese": 0.01
+   },
+   "notes": "Panamanians are drawn as Colombian; Afro-Panamanians as Jamaican and Dominican; Ngäbe and Guna as Guatemalan."
+  },
+  "PE": {
+   "name": "Peru",
+   "aliases": [
+    "Perú"
+   ],
+   "shares": {
+    "Peruvian": 0.95,
+    "Venezuelan": 0.02,
+    "Chinese": 0.005,
+    "Japanese": 0.003
+   }
+  },
+  "PF": {
+   "name": "French Polynesia",
+   "aliases": [
+    "Tahiti"
+   ],
+   "shares": {
+    "Native Hawaiian": 0.35,
+    "Māori": 0.3,
+    "Samoan": 0.1,
+    "French": 0.1,
+    "Chinese": 0.05
+   },
+   "notes": "Tahitians have no listed heritage: drawn as the nearest Polynesian looks."
+  },
+  "PG": {
+   "name": "Papua New Guinea",
+   "aliases": [
+    "PNG"
+   ],
+   "shares": {
+    "Papua New Guinean": 0.97
+   }
+  },
+  "PH": {
+   "name": "Philippines",
+   "shares": {
+    "Filipino": 0.97,
+    "Chinese": 0.015
+   }
+  },
+  "PK": {
+   "name": "Pakistan",
+   "shares": {
+    "Pakistani": 0.45,
+    "Punjabi": 0.35,
+    "Pashtun": 0.17,
+    "Afghan": 0.01
+   },
+   "notes": "Sindhis and Baloch are drawn as Pakistani."
+  },
+  "PL": {
+   "name": "Poland",
+   "aliases": [
+    "Polska"
+   ],
+   "shares": {
+    "Polish": 0.96,
+    "Ukrainian": 0.025
+   }
+  },
+  "PR": {
+   "name": "Puerto Rico",
+   "aliases": [
+    "Borinquen"
+   ],
+   "shares": {
+    "Puerto Rican": 0.95,
+    "Dominican": 0.02
+   }
+  },
+  "PS": {
+   "name": "Palestine",
+   "aliases": [
+    "State of Palestine",
+    "Palestinian territories",
+    "Gaza",
+    "West Bank"
+   ],
+   "shares": {
+    "Palestinian": 0.95
+   }
+  },
+  "PT": {
+   "name": "Portugal",
+   "shares": {
+    "Portuguese": 0.9,
+    "Brazilian": 0.03,
+    "Angolan": 0.005,
+    "Ukrainian": 0.005,
+    "Indian": 0.003,
+    "Nepali": 0.003,
+    "Romanian": 0.003,
+    "Chinese": 0.002,
+    "English": 0.002
+   },
+   "notes": "Cape Verdeans in Portugal have no listed heritage."
+  },
+  "PW": {
+   "name": "Palau",
+   "shares": {
+    "Filipino": 0.4,
+    "Samoan": 0.3,
+    "Chinese": 0.03
+   },
+   "notes": "Micronesians have no listed heritage: drawn as the nearest Polynesian and Filipino looks."
+  },
+  "PY": {
+   "name": "Paraguay",
+   "shares": {
+    "Argentinian": 0.35,
+    "Bolivian": 0.35,
+    "Brazilian": 0.1,
+    "German": 0.01
+   },
+   "notes": "Paraguayans are drawn as Argentinian and Bolivian; Mennonites as German."
+  },
+  "QA": {
+   "name": "Qatar",
+   "shares": {
+    "Indian": 0.25,
+    "Nepali": 0.13,
+    "Saudi": 0.1,
+    "Bangladeshi": 0.1,
+    "Filipino": 0.08,
+    "Egyptian": 0.07,
+    "Pakistani": 0.05,
+    "Sri Lankan": 0.05
+   },
+   "notes": "Qataris are drawn as Saudi."
+  },
+  "RE": {
+   "name": "Réunion",
+   "aliases": [
+    "Reunion"
+   ],
+   "shares": {
+    "French": 0.25,
+    "Indian": 0.25,
+    "South African": 0.2,
+    "Tamil": 0.05,
+    "Chinese": 0.03
+   },
+   "notes": "Réunionese Creoles are drawn as South African."
+  },
+  "RO": {
+   "name": "Romania",
+   "shares": {
+    "Romanian": 0.92,
+    "Ukrainian": 0.01,
+    "Turkish": 0.002
+   },
+   "notes": "Hungarians in Romania are drawn as Romanian. Roma are a visible minority here and have no listed heritage; left to the global remainder."
+  },
+  "RS": {
+   "name": "Serbia",
+   "shares": {
+    "Romanian": 0.45,
+    "Greek": 0.2,
+    "Ukrainian": 0.15,
+    "Polish": 0.1
+   },
+   "notes": "No South Slavic heritage is listed: Serbs, Croats, Bosniaks, Slovenes and Montenegrins are drawn as the nearest Romanian, Greek, Ukrainian and Polish looks. Roma are a visible minority here and have no listed heritage; left to the global remainder."
+  },
+  "RU": {
+   "name": "Russia",
+   "aliases": [
+    "Russian Federation",
+    "Soviet Union",
+    "USSR"
+   ],
+   "shares": {
+    "Russian": 0.82,
+    "Ukrainian": 0.02,
+    "Kazakh": 0.02,
+    "Uzbek": 0.01,
+    "Tajik": 0.008,
+    "Armenian": 0.008,
+    "Kyrgyz": 0.005,
+    "Mongolian": 0.004,
+    "Georgian": 0.002
+   },
+   "notes": "Tatars, Bashkirs and the peoples of the Caucasus and Siberia have no listed heritage; Buryats are drawn as Mongolian."
+  },
+  "RW": {
+   "name": "Rwanda",
+   "shares": {
+    "Ugandan": 0.6,
+    "Congolese": 0.2,
+    "Kenyan": 0.1
+   },
+   "notes": "Rwandans have no listed heritage: drawn as Ugandan and Congolese."
+  },
+  "SA": {
+   "name": "Saudi Arabia",
+   "aliases": [
+    "Saudi",
+    "KSA",
+    "Kingdom of Saudi Arabia"
+   ],
+   "shares": {
+    "Saudi": 0.6,
+    "Indian": 0.07,
+    "Pakistani": 0.07,
+    "Egyptian": 0.05,
+    "Bangladeshi": 0.04,
+    "Yemeni": 0.04,
+    "Filipino": 0.03,
+    "Sudanese": 0.015,
+    "Indonesian": 0.015,
+    "Syrian": 0.01,
+    "Nepali": 0.01,
+    "Sri Lankan": 0.01
+   }
+  },
+  "SB": {
+   "name": "Solomon Islands",
+   "aliases": [
+    "Solomons"
+   ],
+   "shares": {
+    "Papua New Guinean": 0.5,
+    "Fijian": 0.4
+   },
+   "notes": "Melanesians other than Fijian and Papua New Guinean are drawn as those two."
+  },
+  "SC": {
+   "name": "Seychelles",
+   "shares": {
+    "South African": 0.3,
+    "Tanzanian": 0.3,
+    "Indian": 0.1,
+    "French": 0.05,
+    "Chinese": 0.01
+   },
+   "notes": "Seychellois Creoles are drawn as South African and Tanzanian."
+  },
+  "SD": {
+   "name": "Sudan",
+   "shares": {
+    "Sudanese": 0.9,
+    "Ethiopian": 0.02,
+    "Eritrean": 0.01,
+    "Egyptian": 0.01
+   }
+  },
+  "SE": {
+   "name": "Sweden",
+   "aliases": [
+    "Sverige"
+   ],
+   "shares": {
+    "Swedish": 0.78,
+    "Syrian": 0.02,
+    "Finnish": 0.015,
+    "Iraqi": 0.015,
+    "Polish": 0.01,
+    "Iranian": 0.008,
+    "Somali": 0.007,
+    "Kurdish": 0.006,
+    "Turkish": 0.005,
+    "Afghan": 0.005,
+    "Eritrean": 0.004,
+    "Danish": 0.003,
+    "Norwegian": 0.003,
+    "Chinese": 0.002
+   }
+  },
+  "SG": {
+   "name": "Singapore",
+   "shares": {
+    "Chinese": 0.74,
+    "Malay": 0.135,
+    "Tamil": 0.05,
+    "Indian": 0.04,
+    "Filipino": 0.01,
+    "Indonesian": 0.005,
+    "English": 0.005
+   }
+  },
+  "SI": {
+   "name": "Slovenia",
+   "shares": {
+    "Polish": 0.4,
+    "German": 0.2,
+    "Italian": 0.2,
+    "Ukrainian": 0.05
+   },
+   "notes": "No South Slavic heritage is listed: Serbs, Croats, Bosniaks, Slovenes and Montenegrins are drawn as the nearest Romanian, Greek, Ukrainian and Polish looks."
+  },
+  "SK": {
+   "name": "Slovakia",
+   "aliases": [
+    "Slovak Republic"
+   ],
+   "shares": {
+    "Polish": 0.8,
+    "German": 0.05,
+    "Ukrainian": 0.02
+   },
+   "notes": "Slovaks are drawn as Polish; Hungarians in Slovakia left to the remainder. Roma are a visible minority here and have no listed heritage; left to the global remainder."
+  },
+  "SL": {
+   "name": "Sierra Leone",
+   "shares": {
+    "Ghanaian": 0.5,
+    "Senegalese": 0.4
+   },
+   "notes": "West Africans have only Nigerian, Ghanaian and Senegalese listed: the Sahel and the Atlantic coast are drawn as Senegalese, the Gulf of Guinea as Ghanaian and Nigerian."
+  },
+  "SM": {
+   "name": "San Marino",
+   "shares": {
+    "Italian": 0.95
+   }
+  },
+  "SN": {
+   "name": "Senegal",
+   "shares": {
+    "Senegalese": 0.96
+   }
+  },
+  "SO": {
+   "name": "Somalia",
+   "aliases": [
+    "Somaliland"
+   ],
+   "shares": {
+    "Somali": 0.97
+   }
+  },
+  "SR": {
+   "name": "Suriname",
+   "aliases": [
+    "Surinam"
+   ],
+   "shares": {
+    "Jamaican": 0.37,
+    "Indian": 0.27,
+    "Indonesian": 0.14,
+    "Brazilian": 0.02,
+    "Chinese": 0.015,
+    "Dutch": 0.01
+   },
+   "notes": "Creoles and Maroons are drawn as Jamaican, Hindustani as Indian, Javanese as Indonesian."
+  },
+  "SS": {
+   "name": "South Sudan",
+   "shares": {
+    "Sudanese": 0.85,
+    "Ugandan": 0.03,
+    "Kenyan": 0.02,
+    "Ethiopian": 0.02
+   },
+   "notes": "Dinka, Nuer and other South Sudanese are drawn as Sudanese."
+  },
+  "ST": {
+   "name": "São Tomé and Príncipe",
+   "aliases": [
+    "Sao Tome and Principe",
+    "São Tomé"
+   ],
+   "shares": {
+    "Angolan": 0.8,
+    "Brazilian": 0.1,
+    "Portuguese": 0.02
+   }
+  },
+  "SV": {
+   "name": "El Salvador",
+   "shares": {
+    "Salvadoran": 0.97,
+    "Guatemalan": 0.01
+   }
+  },
+  "SY": {
+   "name": "Syria",
+   "aliases": [
+    "Syrian Arab Republic"
+   ],
+   "shares": {
+    "Syrian": 0.85,
+    "Kurdish": 0.09,
+    "Palestinian": 0.02,
+    "Turkish": 0.01,
+    "Armenian": 0.005
+   }
+  },
+  "SZ": {
+   "name": "Eswatini",
+   "aliases": [
+    "Swaziland"
+   ],
+   "shares": {
+    "South African": 0.97
+   }
+  },
+  "TC": {
+   "name": "Turks and Caicos Islands",
+   "aliases": [
+    "Turks and Caicos"
+   ],
+   "shares": {
+    "Jamaican": 0.6,
+    "Haitian": 0.25
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "TD": {
+   "name": "Chad",
+   "aliases": [
+    "Tchad"
+   ],
+   "shares": {
+    "Sudanese": 0.45,
+    "Congolese": 0.25,
+    "Nigerian": 0.15
+   },
+   "notes": "Chadian Arabs are drawn as Sudanese, Sara as Congolese, Kanembu as Nigerian."
+  },
+  "TG": {
+   "name": "Togo",
+   "shares": {
+    "Ghanaian": 0.8,
+    "Nigerian": 0.15
+   },
+   "notes": "West Africans have only Nigerian, Ghanaian and Senegalese listed: the Sahel and the Atlantic coast are drawn as Senegalese, the Gulf of Guinea as Ghanaian and Nigerian."
+  },
+  "TH": {
+   "name": "Thailand",
+   "aliases": [
+    "Siam"
+   ],
+   "shares": {
+    "Thai": 0.85,
+    "Chinese": 0.07,
+    "Malay": 0.03,
+    "Lao": 0.02,
+    "Burmese": 0.02,
+    "Cambodian": 0.01
+   }
+  },
+  "TJ": {
+   "name": "Tajikistan",
+   "shares": {
+    "Tajik": 0.84,
+    "Uzbek": 0.13,
+    "Kyrgyz": 0.01,
+    "Russian": 0.005
+   }
+  },
+  "TL": {
+   "name": "Timor-Leste",
+   "aliases": [
+    "East Timor"
+   ],
+   "shares": {
+    "Indonesian": 0.6,
+    "Papua New Guinean": 0.2,
+    "Portuguese": 0.005
+   },
+   "notes": "Timorese are drawn as Indonesian and Papua New Guinean."
+  },
+  "TM": {
+   "name": "Turkmenistan",
+   "shares": {
+    "Turkmen": 0.85,
+    "Uzbek": 0.06,
+    "Russian": 0.04,
+    "Kazakh": 0.01
+   }
+  },
+  "TN": {
+   "name": "Tunisia",
+   "shares": {
+    "Tunisian": 0.97
+   }
+  },
+  "TO": {
+   "name": "Tonga",
+   "shares": {
+    "Tongan": 0.97
+   }
+  },
+  "TR": {
+   "name": "Turkey",
+   "aliases": [
+    "Türkiye",
+    "Turkiye",
+    "Ottoman Empire",
+    "Anatolia"
+   ],
+   "shares": {
+    "Turkish": 0.76,
+    "Kurdish": 0.17,
+    "Syrian": 0.03,
+    "Georgian": 0.003,
+    "Afghan": 0.003,
+    "Armenian": 0.002
+   }
+  },
+  "TT": {
+   "name": "Trinidad and Tobago",
+   "aliases": [
+    "Trinidad"
+   ],
+   "shares": {
+    "Indian": 0.37,
+    "Jamaican": 0.35,
+    "Venezuelan": 0.02,
+    "Chinese": 0.01,
+    "Lebanese": 0.005
+   },
+   "notes": "Afro-Trinidadians are drawn as Jamaican; mixed Trinidadians left to the remainder."
+  },
+  "TV": {
+   "name": "Tuvalu",
+   "shares": {
+    "Samoan": 0.7,
+    "Tongan": 0.2
+   },
+   "notes": "Tuvaluans are drawn as Samoan and Tongan."
+  },
+  "TW": {
+   "name": "Taiwan",
+   "aliases": [
+    "Republic of China",
+    "Formosa",
+    "Chinese Taipei"
+   ],
+   "shares": {
+    "Taiwanese": 0.9,
+    "Chinese": 0.07,
+    "Filipino": 0.01,
+    "Vietnamese": 0.005,
+    "Indonesian": 0.005
+   },
+   "notes": "Indigenous Formosans are drawn as Filipino, the nearest Austronesian look."
+  },
+  "TZ": {
+   "name": "Tanzania",
+   "aliases": [
+    "Zanzibar"
+   ],
+   "shares": {
+    "Tanzanian": 0.96,
+    "Kenyan": 0.01,
+    "Yemeni": 0.005,
+    "Indian": 0.003
+   }
+  },
+  "UA": {
+   "name": "Ukraine",
+   "shares": {
+    "Ukrainian": 0.78,
+    "Russian": 0.17,
+    "Polish": 0.005,
+    "Romanian": 0.005
+   },
+   "notes": "Crimean Tatars have no listed heritage."
+  },
+  "UG": {
+   "name": "Uganda",
+   "shares": {
+    "Ugandan": 0.95,
+    "Congolese": 0.02,
+    "Sudanese": 0.015
+   }
+  },
+  "US": {
+   "name": "United States",
+   "aliases": [
+    "United States of America",
+    "USA",
+    "US",
+    "U.S.",
+    "U.S.A.",
+    "America"
+   ],
+   "shares": {
+    "German": 0.14,
+    "Irish": 0.11,
+    "English": 0.11,
+    "African American": 0.13,
+    "Mexican": 0.11,
+    "Italian": 0.05,
+    "Polish": 0.03,
+    "Scottish": 0.03,
+    "French": 0.02,
+    "Puerto Rican": 0.02,
+    "Chinese": 0.015,
+    "Indian": 0.015,
+    "Filipino": 0.012,
+    "Dutch": 0.01,
+    "Swedish": 0.01,
+    "Norwegian": 0.01,
+    "Vietnamese": 0.007,
+    "Cuban": 0.007,
+    "Salvadoran": 0.007,
+    "Korean": 0.006,
+    "Dominican": 0.006,
+    "Guatemalan": 0.005,
+    "Colombian": 0.004,
+    "Japanese": 0.003,
+    "Cherokee": 0.003,
+    "Navajo": 0.002
+   },
+   "notes": "White Americans have no heritage of their own: drawn as their largest ancestries (German, Irish, English, Italian and others). First Nations have no listed heritage besides Navajo, Cherokee and Inuit; left to the global remainder rather than naming the wrong nation."
+  },
+  "US-HI": {
+   "name": "Hawaii",
+   "aliases": [
+    "Hawaiʻi"
+   ],
+   "shares": {
+    "Native Hawaiian": 0.2,
+    "Japanese": 0.16,
+    "Filipino": 0.16,
+    "English": 0.1,
+    "Chinese": 0.05,
+    "Portuguese": 0.03,
+    "German": 0.03,
+    "Irish": 0.03,
+    "Samoan": 0.03,
+    "Korean": 0.02,
+    "African American": 0.02,
+    "Mexican": 0.02,
+    "Puerto Rican": 0.01,
+    "Tongan": 0.005
+   },
+   "notes": "A US state kept apart because it looks nothing like the mainland; the reader only names it when the prompt is set there."
+  },
+  "UY": {
+   "name": "Uruguay",
+   "shares": {
+    "Argentinian": 0.85,
+    "Italian": 0.03,
+    "Spanish": 0.03,
+    "Brazilian": 0.02
+   },
+   "notes": "Uruguayans are drawn as Argentinian."
+  },
+  "UZ": {
+   "name": "Uzbekistan",
+   "shares": {
+    "Uzbek": 0.84,
+    "Tajik": 0.05,
+    "Kazakh": 0.025,
+    "Russian": 0.02,
+    "Kyrgyz": 0.01,
+    "Turkmen": 0.005,
+    "Korean": 0.005
+   }
+  },
+  "VA": {
+   "name": "Vatican City",
+   "aliases": [
+    "Holy See",
+    "Vatican"
+   ],
+   "shares": {
+    "Italian": 0.8,
+    "Spanish": 0.03,
+    "Polish": 0.02,
+    "German": 0.02
+   }
+  },
+  "VC": {
+   "name": "Saint Vincent and the Grenadines",
+   "aliases": [
+    "St Vincent and the Grenadines",
+    "St. Vincent"
+   ],
+   "shares": {
+    "Jamaican": 0.85,
+    "Indian": 0.05
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "VE": {
+   "name": "Venezuela",
+   "shares": {
+    "Venezuelan": 0.95,
+    "Colombian": 0.03
+   }
+  },
+  "VI": {
+   "name": "U.S. Virgin Islands",
+   "aliases": [
+    "US Virgin Islands",
+    "United States Virgin Islands"
+   ],
+   "shares": {
+    "Jamaican": 0.7,
+    "Puerto Rican": 0.1,
+    "Dominican": 0.05,
+    "English": 0.05
+   },
+   "notes": "Afro-Caribbean people of the smaller islands are drawn as Jamaican, the nearest listed look."
+  },
+  "VN": {
+   "name": "Vietnam",
+   "aliases": [
+    "Viet Nam"
+   ],
+   "shares": {
+    "Vietnamese": 0.88,
+    "Thai": 0.03,
+    "Cambodian": 0.015,
+    "Chinese": 0.01,
+    "Lao": 0.01
+   },
+   "notes": "Tay, Thai and other upland peoples are drawn as Thai and Lao; the Hmong have no listed heritage."
+  },
+  "VU": {
+   "name": "Vanuatu",
+   "shares": {
+    "Fijian": 0.5,
+    "Papua New Guinean": 0.45
+   },
+   "notes": "Melanesians other than Fijian and Papua New Guinean are drawn as those two."
+  },
+  "WS": {
+   "name": "Samoa",
+   "shares": {
+    "Samoan": 0.96
+   }
+  },
+  "XK": {
+   "name": "Kosovo",
+   "shares": {
+    "Greek": 0.85,
+    "Romanian": 0.08,
+    "Turkish": 0.02
+   },
+   "notes": "Albanians are drawn as Greek, Serbs as Romanian."
+  },
+  "YE": {
+   "name": "Yemen",
+   "shares": {
+    "Yemeni": 0.95,
+    "Somali": 0.02
+   }
+  },
+  "YT": {
+   "name": "Mayotte",
+   "shares": {
+    "Tanzanian": 0.75,
+    "French": 0.03
+   },
+   "notes": "Mahorais are drawn as Tanzanian."
+  },
+  "ZA": {
+   "name": "South Africa",
+   "shares": {
+    "South African": 0.93,
+    "Zimbabwean": 0.02,
+    "Indian": 0.02,
+    "English": 0.01
+   },
+   "notes": "The South African value is itself a wide mix."
+  },
+  "ZM": {
+   "name": "Zambia",
+   "shares": {
+    "Zimbabwean": 0.5,
+    "Congolese": 0.3,
+    "Angolan": 0.05,
+    "Tanzanian": 0.05
+   },
+   "notes": "Central and southern Bantu peoples are drawn as the nearest listed neighbors."
+  },
+  "ZW": {
+   "name": "Zimbabwe",
+   "aliases": [
+    "Rhodesia"
+   ],
+   "shares": {
+    "Zimbabwean": 0.97,
+    "English": 0.005
+   }
+  }
+ }
+}

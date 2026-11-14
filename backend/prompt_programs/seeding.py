@@ -93,7 +93,8 @@ def plan(reading: Dict[str, Any], words: str = "") -> Dict[str, Any]:
         if outfit and outfit != "written" and not got.get("clothes_part") and not str(got.get("clothes") or "").strip():
             add("idea", outfit, "", f"the {noun}'s outfit", {"presentation": presentation} if presentation else None)
         owned = bool(got.get("clothes_part")) or bool(str(got.get("clothes") or "").strip())
-        return {"kind": kind, "banks": banks, "stated_descent": bool(stated.get("descent")), "clothes_owned": owned}
+        return {"kind": kind, "banks": banks, "stated_descent": bool(stated.get("descent")), "clothes_owned": owned,
+                "said_place": str(got.get("place") or "").strip()}
     if kind == "animal":
         noun = str(got.get("noun") or words)
         stated = {str(k): str(v) for k, v in (got.get("stated") or {}).items() if str(v).strip()}
@@ -147,7 +148,8 @@ def seeds_of(record: Dict[str, Any]) -> V.Seeds:
             gender=narrowed(by["gender"]) if "gender" in by else None,
             ages=narrowed(age) if age is not None and age.get("narrowed") is not None else None,
             ideas=[(b["list"], narrowed(b)) for b in banks if b["role"] == "idea"],
-            stated=stated, minor=minor, clothes_owned=bool(record.get("clothes_owned")))
+            stated=stated, minor=minor, clothes_owned=bool(record.get("clothes_owned")),
+            place=record.get("place") if isinstance(record.get("place"), dict) else None)
     cores = [b for b in banks if b["role"] == "core"]
     lists = [(b["list"], narrowed(b)) for b in (cores or banks)]
     return V.list_seeds(lists, single=bool(cores) and len(lists) == 1, minor=minor, stated=stated)
@@ -202,8 +204,13 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
     question asked and failed, or past `seconds`, drops that list's seeds (an age: no age seeds,
     adults), never the slot. Never raises."""
     from prompt_programs.narrow import subset
+    from prompt_programs.places import default_place, place_for
     from prompt_programs.vocab import AGE_LIST, minor_ages, tags_match, vocabulary
     vocab = vocabulary()
+    try:
+        home = default_place()
+    except Exception:   # no settings (scripts): no default place
+        home = None
     readings = {r.get("n"): r for r in (entry.get("readings") or {}).get("slots") or [] if isinstance(r, dict)}
     contexts = _contexts(entry)
     jobs: Dict[Tuple[str, str, str, str], "asyncio.Future[Optional[List[str]]]"] = {}
@@ -304,7 +311,9 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
                 waiting = True
             elif got:
                 minor += minor_ages(got)
+        place = place_for(p.get("said_place"), home) if p["kind"] == "person" else None
         out[sid] = {"v": SEEDS_VERSION, "kind": p["kind"], "banks": banks, "stated_descent": p.get("stated_descent", False),
+                    **({"place": place} if place else {}),
                     "clothes_owned": p.get("clothes_owned", False),
                     **({"stated": stated} if stated else {}), **({"minor": list(dict.fromkeys(minor))} if minor else {})}
         if waiting:

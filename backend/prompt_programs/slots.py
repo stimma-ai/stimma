@@ -579,9 +579,11 @@ def _marked(parsed: Parsed) -> List[Tuple[str, int, Segment]]:
 async def _narrow(entry: Dict[str, Any], p: _Prompt, ask: Any) -> None:
     """Narrow each read slot's seed lists by its words (seeding.narrow_seeds; `ask=None`: from the
     cache only) and key its pool: by the model, its words, the line its reading was made in and
-    the notes (variant_pools.pool_key), its own when the person may be under 18. A slot whose
+    the notes (variant_pools.pool_key), its own when the person may be under 18 or is from
+    another place (places.py: the prompt's setting or the default place). A slot whose
     pool isn't written yet draws from the pool it had before an edit (`stand_in`) meanwhile."""
     from prompt_programs.narrow import NARROW_SECONDS, NarrowCache
+    from prompt_programs.places import mark
     from prompt_programs.reader import seen_in
     from prompt_programs.seeding import narrow_seeds
     from prompt_programs.variant_pools import pool_key
@@ -591,9 +593,9 @@ async def _narrow(entry: Dict[str, Any], p: _Prompt, ask: Any) -> None:
         if s["state"] != "ready" or s.get("degraded"):
             continue
         seen = s.get("seen") if isinstance(s.get("seen"), dict) else seen_in(p.parsed, segs[s["n"]])
-        minor = (entry.get("seeds") or {}).get(s["id"], {}).get("minor") or ()
-        s["pool"] = pool_key(p.model, s["words"], str(seen.get("marked") or ""), list(seen.get("notes") or []), minor,
-                             scene=str(seen.get("scene") or ""))
+        record = (entry.get("seeds") or {}).get(s["id"], {})
+        s["pool"] = pool_key(p.model, s["words"], str(seen.get("marked") or ""), list(seen.get("notes") or []),
+                             record.get("minor") or (), scene=str(seen.get("scene") or ""), place=mark(record.get("place")))
     _stand_ins(entry, p)
 
 
@@ -603,7 +605,8 @@ def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
     match_marks, in the prompt shown (p.shown) or last prepared as this one. Only a pool written
     for the same minors context stands in (MINORS_POLICY.md): one written for a possible adult never
     serves a person who may now be under 18, nor the other way, and a slot whose seeds (who may be
-    under 18) aren't narrowed yet has none; the slot's words stand meanwhile."""
+    under 18) aren't narrowed yet has none; the slot's words stand meanwhile. A pool written under
+    another place context (places.py) does stand in while the new place's pool is written."""
     from prompt_programs.variant_pools import store_for
     try:
         store = store_for(p.profile_id)
