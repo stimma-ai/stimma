@@ -61,7 +61,8 @@
   "examples": [
    "\"a street, ⟦camera⟧\" (keep nothing; category \"camera\") -> \"a wide shot at eye level on a 35mm lens\", \"a low-angle close-up on Kodak Portra 400 film\", never \"a 35mm film camera\" or \"a vintage camera\": a camera part is how the picture is taken, never a camera in it",
    "\"⟦selfie camera angle⟧\" (keep \"selfie\"; category \"camera angle\") -> \"a high-angle selfie, phone held above her head\", \"a low selfie angle from chest height\""
-  ]
+  ],
+  "whole": "The whole part is \"{cat}\", how the picture is taken: every variant is a specific way of taking it (a shot size, an angle, a lens, a film look), never a device in the picture and never \"by\" or \"with\" one."
  },
  "improve": [
   "A value that says how the picture is taken (a shot, a lens, an angle, a film stock) is never a thing in it, and alone it does not make the picture a photo: no one holds, uses or is framed by a camera because of it."

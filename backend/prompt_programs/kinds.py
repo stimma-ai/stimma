@@ -145,10 +145,19 @@ class Aspects:
     drop: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     typical: Optional[Dict[str, Any]] = None
 
-    def typical_at(self, i: int) -> bool:
+    def typical_share(self, answers: Optional[Dict[str, Any]] = None) -> float:
+        """The typical share for a reading: the declared share, or the larger one its `implied`
+        rule gives when the reading answers so (a person whose role and place say what they wear)."""
+        typ = self.typical or {}
+        imp = typ.get("implied") or {}
+        if imp and str((answers or {}).get(str(imp.get("answer") or "")) or "") == str(imp.get("is") or ""):
+            return float(imp.get("share") or 0.0)
+        return float(typ.get("share") or 0.0)
+
+    def typical_at(self, i: int, share: Optional[float] = None) -> bool:
         """Whether variant i (from 0) is one of the typical share, spread evenly: with share 1/3,
         the third, sixth, ninth. A share written as 0.333333 counts as a third."""
-        share = float((self.typical or {}).get("share") or 0.0)
+        share = float((self.typical or {}).get("share") or 0.0) if share is None else share
         if share <= 0:
             return False
         return math.floor((i + 1) * share + 1e-3) > math.floor(i * share + 1e-3)
@@ -179,6 +188,7 @@ class Kind:
     seed_rules: Tuple[str, ...] = ()
     note: str = ""
     improve: Tuple[str, ...] = ()
+    whole: str = ""                # the writer's line when the whole part is its category ("{cat}")
 
     @property
     def no_category(self) -> bool:
@@ -314,6 +324,15 @@ def _aspects(d: Any, where: str) -> Optional[Aspects]:
             raise Bad(f"{where}: typical's share must be between 0 and 1")
         if typ.get("replaces") and typ["replaces"] not in items:
             raise Bad(f"{where}: typical replaces an aspect not in the list")
+        if not isinstance(typ.get("alone", False), bool):
+            raise Bad(f"{where}: typical's alone is true or false")
+        if any(x not in items for x in _strs(typ, "without", f"{where} typical")):
+            raise Bad(f"{where}: typical's without names an aspect not in the list")
+        imp = typ.get("implied")
+        if imp is not None and not (isinstance(imp, dict) and isinstance(imp.get("answer"), str) and isinstance(imp.get("is"), str)
+                                    and isinstance(imp.get("share"), (int, float)) and not isinstance(imp.get("share"), bool)
+                                    and 0 <= imp["share"] <= 1):
+            raise Bad(f"{where}: typical's implied needs an answer, the answer it is, and a share between 0 and 1")
     return Aspects(items, n, {k: dict(v or {}) for k, v in drop.items()}, dict(typ) if typ else None)
 
 
@@ -366,7 +385,7 @@ def parse_kind(d: Any, where: str) -> Kind:
                 req, qs, details, _str(d, "noun_default", w), int(first), int(d.get("room") or 0),
                 tuple(_rule(x, w) for x in (d.get("draws") or [])), _aspects(d.get("aspects"), w),
                 _strs(wr, "examples", w), _strs(wr, "rules", w), _strs(wr, "seed_rules", w), _str(wr, "note", w),
-                _strs(d, "improve", w))
+                _strs(d, "improve", w), _str(wr, "whole", w))
 
 
 def check_kind_lists(k: Kind, vocab_get: Any) -> None:

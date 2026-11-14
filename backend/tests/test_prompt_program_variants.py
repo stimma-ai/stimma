@@ -14,6 +14,7 @@ from collections import Counter
 from typing import Any, Dict, List, Optional
 
 import pytest
+from dataclasses import replace
 
 from prompt_programs import variant_pools as P
 from prompt_programs import variants as V
@@ -354,6 +355,66 @@ def test_short_lists_are_shown_whole_long_ones_as_ideas():
     for i, spec in enumerate(d.specs, 1):
         for t, _ in spec.ideas:
             assert re.search(rf'^{i}\. .*ideas: .*"{re.escape(t)}"', lines, re.M)
+
+
+def _outfits(n: int = 4) -> V.Bank:
+    b = V.bank("person.outfit.casual")
+    vals = tuple(x for x in b.values if "{" in x[0])[:n]
+    assert len(vals) == n
+    return V.Bank(b.list_id, b.label, vals)
+
+
+def test_the_typical_share_is_shown_no_list_and_no_grooming():
+    outfits = _outfits()
+    seeds = replace(V.person_seeds(), ideas=(outfits, *V.person_seeds().ideas))
+    d = V.draw_seeds(random.Random(4), seeds, 12, "farmer")
+    typ = [s for s in d.specs if s.typical]
+    assert len(typ) == 4 and not d.short   # a short list is dealt out, never shown whole
+    assert all(not s.ideas and "styling and grooming" not in s.develop and s.develop[0] == V.typical_text() for s in typ)
+    others = [s for s in d.specs if not s.typical]
+    assert all(sum(lid == outfits.list_id for _, lid in s.ideas) == 1 for s in others)
+    msg = V.messages(slot_of("a <farmer> in rural Vietnam"), d, seeds)[1]["content"]
+    assert "Spread the variants across" not in msg
+    for i, s in enumerate(d.specs, 1):
+        line = next(x for x in msg.split("\n") if x.startswith(f"{i}. "))
+        assert ("ideas:" in line) == (not s.typical)
+
+
+def test_a_short_list_is_still_shown_whole_without_a_typical_share():
+    outfits = _outfits()
+    d = V.draw_seeds(random.Random(4), V.Seeds(ideas=(outfits,)), 6)
+    assert [b.list_id for b in d.short] == [outfits.list_id] and not d.ideas
+
+
+def test_a_person_whose_dress_is_implied_is_two_thirds_typical():
+    from prompt_programs.vocab import vocabulary
+    k = vocabulary().kind("person")
+    assert k.aspects.typical_share({}) == pytest.approx(1 / 3, abs=1e-3)
+    assert k.aspects.typical_share({"dress": "implied"}) == pytest.approx(2 / 3, abs=1e-3)
+    for answers, want in (({}, 10), ({"dress": "implied"}, 20), ({"dress": "implied", "clothes": "in a red raincoat"}, 0)):
+        seeds = V.kind_seeds(k, answers=answers)
+        d = V.draw_seeds(random.Random(1), seeds, 30, "chef")
+        assert sum(s.typical for s in d.specs) == want, answers
+
+
+def test_no_color_placeholder_reaches_a_writer_request_or_a_variant():
+    outfits = _outfits()
+    for seeds in (V.Seeds(ideas=(outfits,)), V.list_seeds([(outfits.list_id, outfits.texts())]),
+                  replace(V.person_seeds(), ideas=(outfits,)), V.list_seeds([("person.outfit.casual", None)])):
+        for r in range(5):
+            d = V.draw_seeds(random.Random(r), seeds, 12, "person")
+            sl = slot_of("a <person> at a cafe", kind="person" if seeds.person else "free")
+            req = V.messages(sl, d, seeds)[1]["content"]
+            more = V.more_turn(d, 13, seeds, unseeded_start=True)
+            assert not re.search(r"\{\w+\}", req + more), req
+            assert not any("{" in v for s in d.specs for v in s.seeds().values())
+
+
+def test_a_whole_camera_part_is_how_the_picture_is_taken_never_a_device():
+    seeds = V.list_seeds([("camera.angle", None), ("camera.lens", None)])
+    d = V.draw_seeds(random.Random(2), seeds, 6)
+    msg = V.messages(slot_of("a street, <camera>", kind="camera", category="camera"), d, seeds)[1]["content"]
+    assert "a specific kind of it" not in msg and "how the picture is taken" in msg
 
 
 def test_pins_restrict_descent_within_what_the_words_allow():

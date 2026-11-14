@@ -365,10 +365,10 @@
    }
   },
   {
-   "text": "an early-2000s digital compact camera",
+   "text": "early-2000s compact digital",
    "short": "2000s digital compact",
    "tier": "plausible",
-   "look": "Small-sensor color, hard flash, clipped highlights, and crunchy detail in a compact-camera snapshot.",
+   "look": "Small-sensor color, hard flash, clipped highlights, and crunchy detail in a compact snapshot.",
    "tags": {
     "kind": [
      "vintage_digital"
@@ -379,8 +379,8 @@
    }
   },
   {
-   "text": "a first-generation digital camera",
-   "short": "1990s digital camera",
+   "text": "first-generation digital",
+   "short": "1990s digital",
    "tier": "unusual",
    "look": "A tiny low-resolution image with blocky pixels, limited color, and jagged diagonal edges.",
    "tags": {
@@ -393,8 +393,8 @@
    }
   },
   {
-   "text": "an early camera phone",
-   "short": "early camera phone",
+   "text": "an early phone",
+   "short": "early phone",
    "tier": "plausible",
    "look": "Muddy colors, smeared detail, blown highlights, and heavy compression in a small phone image.",
    "tags": {
@@ -422,7 +422,7 @@
    }
   },
   {
-   "text": "a CCTV camera",
+   "text": "CCTV",
    "short": "CCTV still",
    "tier": "unusual",
    "look": "A high-corner surveillance view with washed-out color, coarse noise, and a timestamp overlay.",
@@ -451,7 +451,7 @@
    }
   },
   {
-   "text": "a mirrorless digital camera",
+   "text": "mirrorless digital",
    "short": "mirrorless digital",
    "tier": "typical",
    "look": "A clean high-resolution color image with crisp edges, smooth gradients, and little visible grain.",
@@ -465,8 +465,8 @@
    }
   },
   {
-   "text": "a phone camera with computational HDR",
-   "short": "phone camera HDR",
+   "text": "a phone with computational HDR",
+   "short": "phone HDR",
    "tier": "typical",
    "look": "Brightened shadows, retained sky detail, strong local contrast, and heavily sharpened fine edges.",
    "tags": {
@@ -479,8 +479,8 @@
    }
   },
   {
-   "text": "a 360 camera",
-   "short": "360 camera",
+   "text": "360-degree capture",
+   "short": "360 capture",
    "tier": "plausible",
    "look": "An all-around equirectangular panorama with severe stretching near the top and bottom.",
    "tags": {
@@ -494,7 +494,7 @@
    }
   },
   {
-   "text": "a monochrome digital camera",
+   "text": "monochrome digital",
    "short": "monochrome digital",
    "tier": "plausible",
    "look": "A crisp black-and-white image with clean shadow detail, smooth grays, and no film grain.",
@@ -508,8 +508,8 @@
    }
   },
   {
-   "text": "an action camera",
-   "short": "action camera",
+   "text": "action-sports footage",
+   "short": "action footage",
    "tier": "plausible",
    "look": "A very wide view with bowed edges, deep focus, and strongly sharpened digital detail.",
    "tags": {
@@ -884,8 +884,8 @@
    }
   },
   {
-   "text": "a large-format view camera",
-   "short": "large-format view camera",
+   "text": "large-format sheet film",
+   "short": "large-format sheet film",
    "tier": "plausible",
    "look": "An exceptionally detailed sheet-film image with precise textures and smooth, finely separated tones.",
    "tags": {
@@ -898,8 +898,8 @@
    }
   },
   {
-   "text": "a disposable camera with flash",
-   "short": "disposable flash camera",
+   "text": "a disposable with flash",
+   "short": "disposable with flash",
    "tier": "typical",
    "look": "Grainy color, hard frontal flash, dark backgrounds, and slightly soft corners in a casual snapshot.",
    "tags": {
@@ -912,8 +912,8 @@
    }
   },
   {
-   "text": "a Lomography toy camera",
-   "short": "Lomography toy camera",
+   "text": "Lomography film",
+   "short": "Lomography",
    "tier": "plausible",
    "look": "A punchy rectangular snapshot with saturated colors, dark corners, and uneven exposure.",
    "tags": {
@@ -926,7 +926,7 @@
    }
   },
   {
-   "text": "a Holga toy camera",
+   "text": "a Holga",
    "short": "Holga",
    "tier": "plausible",
    "look": "A soft square film image with heavy vignetting, uneven sharpness, and stray edge light leaks.",
@@ -954,8 +954,8 @@
    }
   },
   {
-   "text": "a thermal camera",
-   "short": "thermal camera",
+   "text": "thermal imaging",
+   "short": "thermal imaging",
    "tier": "unusual",
    "look": "Heat becomes false color, with hot areas glowing yellow or white against cooler purple and blue shapes.",
    "tags": {
@@ -998,7 +998,7 @@
    }
   },
   {
-   "text": "a night-vision camera",
+   "text": "night vision",
    "short": "night vision",
    "tier": "unusual",
    "look": "A grainy green monochrome view with bright eyes, blooming lights, and dark, noisy surroundings.",
@@ -1086,8 +1086,8 @@
    }
   },
   {
-   "text": "a panoramic camera",
-   "short": "panoramic camera",
+   "text": "a panoramic format",
+   "short": "panoramic format",
    "tier": "plausible",
    "look": "An extra-wide frame stretches across the scene, taking in far more from side to side than top to bottom.",
    "tags": {

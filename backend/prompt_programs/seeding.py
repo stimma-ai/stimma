@@ -34,7 +34,7 @@ from prompt_programs import variants as V
 
 log = get_logger(__name__)
 
-SEEDS_VERSION = "seeds-5"   # seeds-5: a person is pinned child, teenager or adult by the natural reading of the whole prompt (ages.py), and one young flag holds for every slot of the prompt; a child or teenager draws their stage's ages, child words and no build. seeds-4: ages under 18 count only after the model says yes, the prompt's own words make this person a child or a teenager. seeds-3: kinds and their draw rules are vocabulary data; a heritage's place is its table's. seeds-2: groups, heritage, scene-narrowed clothes, hairstyle and light
+SEEDS_VERSION = "seeds-6"   # seeds-6: a person carries whether their role and place imply their dress (the typical share). seeds-5: a person is pinned child, teenager or adult by the natural reading of the whole prompt (ages.py), and one young flag holds for every slot of the prompt; a child or teenager draws their stage's ages, child words and no build. seeds-4: ages under 18 count only after the model says yes, the prompt's own words make this person a child or a teenager. seeds-3: kinds and their draw rules are vocabulary data; a heritage's place is its table's. seeds-2: groups, heritage, scene-narrowed clothes, hairstyle and light
 
 # A draw rule's role as the bank records it (the roles' older names, which stored records and the picker use).
 BANK_ROLE = {"heritage": "descent", "who": "gender", "age": "age", "core": "core", "each": "each", "idea": "idea"}

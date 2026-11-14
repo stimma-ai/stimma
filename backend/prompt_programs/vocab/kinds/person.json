@@ -79,6 +79,17 @@
     "ask": "the words of the prompt or a note that say what they wear, or that no clothes show, copied exactly (\"in a red raincoat\", \"headshot\"); \"\" when nothing says so, which is most prompts."
    },
    {
+    "key": "dress",
+    "type": "choice",
+    "store": "always",
+    "options": [
+     {
+      "answer": "implied"
+     }
+    ],
+    "ask": "\"implied\" when who they are and where they are say what they wear, as working dress, a uniform or religious dress does (a nurse, a chef, a firefighter, a welder, a monk, a nun, a cowboy, a soldier, a farmer at work); \"\" when it doesn't (\"a woman\", \"a man at a cafe\", \"a student\"), which is most prompts."
+   },
+   {
     "key": "outfit",
     "type": "list",
     "store": "always",
@@ -87,7 +98,7 @@
     ],
     "cleared_by": "clothes_part",
     "invalid": "part {n}: outfit \"{value}\" is not one of the lists",
-    "ask": "their clothes change too, unless clothes has words or clothes_part names a part. Give the id of the outfit list below that suits the scene, or \"written\" if none does; \"\" only when clothes has words or clothes_part is not 0."
+    "ask": "their clothes change too, unless clothes has words or clothes_part names a part. Give the id of the outfit list below that suits the scene, or \"written\" if none does, as for most dress that is implied (no list holds a firefighter's turnout gear or a nun's habit); \"\" only when clothes has words or clothes_part is not 0."
    },
    {
     "key": "place",
@@ -183,6 +194,7 @@
         ],
         "clothes_part": 0,
         "clothes": "",
+        "dress": "",
         "outfit": "person.outfit.casual",
         "place": "",
         "people": "one",
@@ -271,6 +283,7 @@
         ],
         "clothes_part": 2,
         "clothes": "",
+        "dress": "",
         "outfit": "",
         "place": "",
         "people": "one",
@@ -571,7 +584,7 @@
    }
   },
   "typical": {
-   "text": "what someone like them would typically wear or carry here",
+   "text": "how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
    "share": 0.333333,
    "replaces": "what they wear",
    "unless": {
@@ -579,7 +592,16 @@
      "clothes_part",
      "clothes"
     ]
-   }
+   },
+   "without": [
+    "styling and grooming"
+   ],
+   "implied": {
+    "answer": "dress",
+    "is": "implied",
+    "share": 0.666667
+   },
+   "alone": true
   }
  },
  "writer": {
@@ -594,7 +616,7 @@
    "a quoted descent: give the person that heritage's look (the look given with it in brackets, when there is one), and write that exact word or words into the variant where it reads naturally. If the marked words name several people, it is the heritage they share, unless the line gives one for each. When it can't be true in this prompt (a figure who isn't of that people, such as a creature or a stylized character, or a setting or the user's words that settle who they are), leave it out and list it under \"rejected\", copied exactly. A descent marked (must appear) is always written in.",
    "gender: write the person as that, with those exact words in the variant (\"a trans woman\", \"a young trans woman\"), woven in naturally; the marked words still stay.",
    "who: who the couple are. Say it through the two of them, in the variant's own words (\"the man in a linen shirt, the woman with her hair pinned up\"; \"two women in their thirties\"), never as a label repeated at the end.",
-   "develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must. \"What someone like them would typically wear or carry here\": the clothes, headwear and things most people like them have at work or in this place and time, as a photograph of a real one would show them (a fisherman's oilskins and boots, a nurse's scrubs and lanyard).",
+   "develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must. \"How someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet\": beside who they are (their heritage, gender and age as the line gives them), what most people like them wear and have on them at work or in this place and time, from what is on their head down to their feet, working dress and gear included, as a photograph of a real one would show them (a fisherman's sou'wester, oilskins and boots; a nurse's scrubs and lanyard). When people like them typically cover their head here, with a hat, helmet, cap, veil or scarf, put it on their head and leave their hair unsaid.",
    "age: about how old the person looks; work it in before their words (\"a 34-year-old chef\") or say it another natural way (\"a chef in her forties\"), never as a number tacked on at the end. When the prompt already says their age, write it no second time."
   ]
  }
