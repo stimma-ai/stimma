@@ -151,7 +151,9 @@ def test_check():
     w = "dominant young woman"
     assert V.check("Korean dominant young woman with a bob", w, keep, spec) == ""
     assert V.check("Korean young woman with a bob", w, keep, spec) == "words not kept"
-    assert V.check("dominant young woman with a bob", w, keep, spec) == "descent missing"
+    # a seeded descent may be left out where it can't be true; one the user picked must appear
+    assert V.check("dominant young woman with a bob", w, keep, spec) == ""
+    assert V.check("dominant young woman with a bob", w, keep, V.Spec(descent="Korean", descent_required=True)) == "descent missing"
     assert V.check("Korean dominant young woman " + "very " * 31, w, keep, spec) == "too long"
     assert V.check("Dominant young woman", w, keep, V.Spec()) == "adds nothing"
     assert V.check("dominant young woman {red}", w, keep, V.Spec()) == "markup in text"
@@ -295,7 +297,12 @@ def test_short_lists_are_shown_whole_long_ones_as_ideas():
     assert [b.list_id for b in d.short] == ["person.gender"]
     assert d.ideas and all(lid == "person.hairstyle" for _, lid in d.ideas)
     msg = V.messages(slot_of("a <hairdo>, portrait"), d, s)[1]["content"]
-    assert '"woman"; "man"; "trans woman"; "trans man"; "non-binary person"' in msg and "Ideas (random" in msg
+    assert '"woman"; "man"; "trans woman"; "trans man"; "non-binary person"' in msg and "Ideas (random" not in msg
+    # each variant's own ideas are on its seed line
+    lines = msg.split("Seeds, one line per variant:")[1]
+    for i, spec in enumerate(d.specs, 1):
+        for t, _ in spec.ideas:
+            assert re.search(rf'^{i}\. .*ideas: .*"{re.escape(t)}"', lines, re.M)
 
 
 def test_pins_restrict_descent_within_what_the_words_allow():
@@ -1094,3 +1101,81 @@ def test_a_first_write_shows_its_first_chunks_under_the_cap(tmp_path, monkeypatc
         assert len(w.store.variants(person)) == V.N_PERSON and len(w.store.variants(room)) == V.N_OTHER
         assert len(w.store.batches(person)) == V.N_PERSON // V.PICK_CHUNK  # a record per chunk
     run(go())
+
+
+# --------------------------------------------------------------------------- descent left out where it can't be true
+
+class Skips(FakeWriter):
+    """Writes the descent into even-numbered variants only, as a model leaving it out where it
+    can't be true would, listing the others under "rejected"."""
+
+    async def __call__(self, messages, project_id, max_tokens, temperature=0.8):
+        req = parse_request(messages)
+        self.calls.append(req)
+        out, rejected = [], []
+        for i in range(1, req["n"] + 1):
+            d = re.match(r'"([^"]+)"', req["seeds"].get(i, ""))
+            g = re.search(r'gender: "([^"]+)"', req["seeds"].get(i, ""))
+            said = d and i % 2 == 0
+            if d and not said:
+                rejected.append(d.group(1))
+            out.append({"n": i, "text": f"{ADJ[i]} {d.group(1) + ' ' if said else ''}{g.group(1) + ' ' if g else ''}"
+                                        f"{' '.join(req['chunks']) or req['words']} no{i}", "idea": ""})
+        return json.dumps({"rejected": rejected, "variants": out})
+
+
+def test_a_variant_may_leave_its_descent_out_and_records_it_only_when_written():
+    sl = slot_of(PROMPT, "person")
+    fake = Skips()
+    b = run(V.write_batch(sl, V.person_seeds(), 10, ask=fake, rng=random.Random(3)))
+    assert len(b.variants) == 10 and not b.dropped                       # never dropped for leaving it out
+    with_d = [v for v in b.variants if "descent" in v["seeds"]]
+    assert len(with_d) == 5 and all(V.has_run(v["text"], v["seeds"]["descent"]) for v in with_d)
+    assert dict(b.descents) == {"seeded": 10, "written": 5}
+    # the writer is told to give the look, write the word where it reads naturally, or reject it
+    system = fake.calls[0]["system"]
+    assert "give the person that heritage's look" in system and 'list it under "rejected"' in system
+    assert "(must appear)" not in fake.calls[0]["user"]
+
+
+def test_a_picked_descent_must_still_appear():
+    sl = slot_of(PROMPT, "person")
+    fake = Skips()
+    seeds = V.person_seeds().pinned(V.Pins(descent=("Korean", "Thai")))
+    assert seeds.descent_pinned
+    b = run(V.write_batch(sl, seeds, 10, ask=fake, rng=random.Random(3)))
+    assert b.dropped["descent missing"] == 5 and len(b.variants) == 5
+    assert all(v["seeds"]["descent"] in ("Korean", "Thai") for v in b.variants)
+    assert "(must appear)" in fake.calls[0]["user"]
+
+
+# --------------------------------------------------------------------------- ideas per variant
+
+def test_each_variant_has_its_own_ideas_no_repeats_in_a_batch_and_chunks_carry_them():
+    seeds = V.person_seeds(ideas=[("person.hair_color", None), ("person.build", None), ("person.hairstyle", None)])
+    d = V.draw_seeds(random.Random(11), seeds, 20, "dominant young woman")
+    assert all(1 <= len(s.ideas) <= 2 for s in d.specs)
+    texts = [t for t, _ in d.ideas]
+    assert len(texts) == len(set(texts))                                   # no repeats in a batch
+    assert not any("{" in t for t in texts)                                # palette slots filled
+    for part in V.split(d):                                                # each variant keeps its own
+        for s in part.specs:
+            assert s in d.specs and part.ideas == [x for sp in part.specs for x in sp.ideas]
+
+
+def test_idea_counts_are_kept_per_batch_and_a_rejected_idea_counts():
+    class Uses(FakeWriter):
+        async def __call__(self, messages, project_id, max_tokens, temperature=0.8):
+            req = parse_request(messages)
+            out, rejected = [], []
+            for i in range(1, req["n"] + 1):
+                ideas = re.findall(r'"([^"]+)"', req["seeds"][i].split("ideas:")[1]) if "ideas:" in req["seeds"][i] else []
+                used = ideas[:1]
+                rejected += ideas[1:]
+                out.append({"n": i, "text": f"{' '.join(req['chunks']) or req['words']} with {used[0] if used else 'a hat'} no{i}",
+                            "idea": "; ".join(used)})
+            return json.dumps({"rejected": rejected, "variants": out})
+    s = V.list_seeds([("person.hairstyle", None), ("person.hair_color", None)])
+    b = run(V.write_batch(slot_of("a woman with <hair>, portrait"), s, 8, ask=Uses(), rng=random.Random(2)))
+    offered, used, rejected = b.ideas["offered"], b.ideas["used"], b.ideas["rejected"]
+    assert offered >= 8 and used == 8 and rejected == offered - 8

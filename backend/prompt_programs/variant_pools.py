@@ -668,7 +668,8 @@ class PoolWriter:
         return {"batch": n, "role": job.role, "version": VARIANTS_VERSION, "at": time.time(), "model": job.model,
                 "seconds": batch.seconds, "words": job.slot.words, "category": job.slot.category,
                 "keep": job.slot.keep(), "pinned": job.pins.to_dict(), "variants": kept,
-                "dropped": dict(batch.dropped), "repairs": batch.repairs, "ideas": batch.ideas}
+                "dropped": dict(batch.dropped), "repairs": batch.repairs, "ideas": batch.ideas,
+                **({"descents": dict(batch.descents)} if batch.descents else {})}
 
     def gate(self, job: Job) -> Callable[[int], Any]:
         """The call cap a job's chunks run in: urgent ones first, then every pool's first chunks
