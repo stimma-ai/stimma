@@ -101,6 +101,23 @@ test('selected words: Vary this under them, and < wraps them; with nothing selec
   await expect.poll(() => text(page)).toBe('a cat on a porch <')
 })
 
+test('on touch, Vary this floats by the words and is not turned into a bottom sheet', async t => {
+  const { page, editor } = await open(t, { start: 'a cat on a porch' })
+  // Touch converts every fixed menu-tier box into a sheet with a full-screen backdrop,
+  // which would cover the text and take the taps and drags that adjust the selection.
+  await page.evaluate(() => document.documentElement.setAttribute('data-pointer', 'coarse'))
+  await editor.click()
+  await page.keyboard.press('End')
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowLeft')
+  const chip = page.locator('[data-slot-offer]')
+  await expect(chip).toBeVisible()
+  const words = await editor.boundingBox()
+  const box = await chip.boundingBox()
+  assert.ok(box.width < 200, `chip width ${box.width}: not a full-width sheet`)
+  assert.ok(box.y < words.y + words.height + 60, `chip at ${box.y}: beside the words, not at the bottom`)
+  assert.equal(await page.locator('[data-sheet-backdrop]').count(), 0)
+})
+
 test('no wrapping in a comment line or inside a list', async t => {
   const { page, editor } = await open(t, { start: '# a young man\na {red|blue} coat' })
   await editor.click()

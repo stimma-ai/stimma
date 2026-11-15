@@ -6,9 +6,12 @@
       <!-- Host-supplied extras: a row under the text. -->
       <slot name="below-editor" />
 
-      <!-- Words that could become a slot: a phrase Fluent underlined, or a selection. -->
+      <!-- Words that could become a slot: a phrase Fluent underlined, or a selection.
+           Floating chrome beside the words, not a menu: on touch every fixed z-menu box
+           becomes a bottom sheet with a full-screen backdrop, which would cover the text
+           and take the very taps and drags that make and adjust the selection. -->
       <Teleport to="body">
-        <div v-if="offer" class="fixed z-menu" :style="offerStyle" data-slot-offer>
+        <div v-if="offer" class="fixed z-chrome" :style="offerStyle" data-slot-offer>
           <button
             type="button"
             class="flex items-center gap-1.5 px-2.5 py-1.5 coarse:px-3 coarse:py-2 text-xs coarse:text-[13px] rounded-lg bg-surface border border-edge-subtle shadow-lg text-content hover:bg-surface-hover transition-colors"
@@ -376,7 +379,9 @@ const sizeVars = computed(() => {
   const lines = Math.min(props.rows, isRoomy.value ? 4 : 3)
   return {
     '--prompt-min-h': `${lines * 21 + 8}px`,
-    '--prompt-max-h': isRoomy.value ? '260px' : '160px',
+    // A phone with the keyboard up is short: the box scrolls inside before the drawer
+    // has to push the hero and the queue strip away.
+    '--prompt-max-h': isRoomy.value ? '260px' : 'min(160px, 30dvh)',
   }
 })
 
@@ -512,6 +517,8 @@ function varyOffer() {
   if (at != null) void nextTick(() => openSlotAt(at))
 }
 function hideOffer() { offer.value = null }
+// The phone keyboard opening (or closing) moves the words: follow them.
+function placeOffer() { const o = offer.value; if (o) showOffer(o.from, o.to, o.phrase) }
 const slotExtensions = [
   slotEditing({
     enabled: () => fluentSlots.value,
@@ -780,11 +787,13 @@ onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   // "Vary this" floats over the text: anything scrolling moves the words out from under it.
   window.addEventListener('scroll', hideOffer, true)
+  window.addEventListener('resize', placeOffer)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   window.removeEventListener('scroll', hideOffer, true)
+  window.removeEventListener('resize', placeOffer)
 })
 
 defineExpose({
