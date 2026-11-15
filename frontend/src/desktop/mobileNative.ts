@@ -53,7 +53,7 @@ export async function mobileNative<T>(method: string, args: Record<string, unkno
     const timer = setTimeout(() => {
       pending.delete(id)
       reject(new Error('The mobile request timed out. Please try again.'))
-    }, method === 'signIn' ? 310000 : method === 'share' ? 610000 : 120000)
+    }, method === 'signIn' ? 310000 : method === 'share' || method === 'print' || method === 'saveFile' || method === 'voiceStart' ? 610000 : 120000)
     pending.set(id, { resolve: (value) => resolve(value as T), reject, timer })
     try { port.postMessage(JSON.stringify({ id, method, args })) }
     catch (error) { clearTimeout(timer); pending.delete(id); reject(error) }

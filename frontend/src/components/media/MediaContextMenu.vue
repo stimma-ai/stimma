@@ -908,7 +908,7 @@
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <ArrowDownTrayIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-          <span>{{ isMultiple ? `Export ${targetCount}` : 'Export' }}</span>
+          <span>{{ exportLabel }}</span>
         </button>
 
         </div>
@@ -1000,6 +1000,7 @@ import { ChevronDownIcon, ArchiveBoxIcon, CheckCircleIcon, ArrowDownOnSquareStac
 import { useShareDialog } from '../../composables/useShareDialog'
 import { desktop } from '../../desktop'
 import { supportsNativeShare } from '../../utils/nativeShare'
+import { phoneSavesFiles } from '../../desktop/mobileBridge'
 import ConfirmDialog from '../ui/ConfirmDialog.vue'
 import TaskTypeToolList from '../TaskTypeToolList.vue'
 import ToolIcon from '../tools/ToolIcon.vue'
@@ -2432,6 +2433,12 @@ async function sendToFlowInput(flow: Flow, field: FlowMediaInputField) {
 }
 
 const nativeShareSupported = supportsNativeShare(desktop.kind)
+// A phone that saves into its own Photos and Downloads names the command by where it goes.
+const savesToPhone = phoneSavesFiles()
+const exportLabel = computed(() => {
+  if (savesToPhone) return isMultiple.value ? `Save ${targetCount.value} to phone` : 'Save to phone'
+  return isMultiple.value ? `Export ${targetCount.value}` : 'Export'
+})
 const nativeShareMediaId = ref<number | null>(null)
 
 function handleNativeShare() {

@@ -271,3 +271,90 @@ test('mobile loading cover waits for a rendered frame before revealing the app',
   await ready
   assert.deepEqual(calls, ['interfaceReady'])
 })
+
+function fakeAndroid(features: string[] | undefined, answer: (request: any) => unknown) {
+  const previous = globalThis.window
+  const requests: any[] = []
+  const listeners = new EventTarget()
+  let printed = 0
+  const port = {
+    onmessage: null as ((event: { data: string }) => void) | null,
+    postMessage(message: string) {
+      const request = JSON.parse(message)
+      requests.push(request)
+      queueMicrotask(() => port.onmessage!({ data: JSON.stringify({ id: request.id, result: answer(request) }) }))
+    },
+  }
+  globalThis.window = Object.assign(listeners, {
+    stimmaAndroid: port, stimmaNativeFeatures: features, print: () => { printed++ },
+  }) as any
+  return { requests, window: listeners, get printed() { return printed }, restore: () => { globalThis.window = previous } }
+}
+
+test('a current Android shell saves exports to the phone as base64 and confirms where', async () => {
+  const { clearToasts, useToasts } = await import('../composables/useToasts.ts')
+  clearToasts()
+  const android = fakeAndroid(['print', 'saveFile', 'shareBase64', 'voice'], () => ({ location: 'photos' }))
+  try {
+    assert.equal(await mobileBridge.saveToDownloads('art.png', new Uint8Array([1, 2, 250])), true)
+    assert.deepEqual(android.requests[0], { id: android.requests[0].id, method: 'saveFile', args: { filename: 'art.png', base64: 'AQL6' } })
+    assert.equal(useToasts().toasts.value.at(-1)?.message, 'Saved to Photos')
+  } finally { android.restore(); clearToasts() }
+})
+
+test('older phone shells keep sharing exports and print through the page', async () => {
+  const android = fakeAndroid(undefined, () => true)
+  try {
+    assert.equal(await mobileBridge.saveToDownloads('art.png', new Uint8Array([1, 2])), true)
+    assert.equal(android.requests[0].method, 'share')
+    assert.deepEqual(android.requests[0].args.bytes, [1, 2])
+    await mobileBridge.print()
+    assert.equal(android.printed, 1)
+    assert.equal(await mobileBridge.voiceModelStatus(), false)
+    assert.equal(android.requests.length, 1)
+  } finally { android.restore() }
+})
+
+test('a current Android shell prints natively and shares as base64', async () => {
+  const { shareOnPhone } = await import('./mobileBridge.ts')
+  const android = fakeAndroid(['print', 'shareBase64'], () => true)
+  try {
+    ;(globalThis as any).document = { title: 'Stimma' }
+    await mobileBridge.print()
+    assert.equal(android.printed, 0)
+    assert.equal(android.requests[0].method, 'print')
+    assert.equal(await shareOnPhone('a.png', new Uint8Array([255])), true)
+    assert.deepEqual(android.requests[1].args, { filename: 'a.png', base64: '/w==' })
+  } finally { android.restore(); delete (globalThis as any).document }
+})
+
+test('Android dictation streams only its own session and returns the final words', async () => {
+  const android = fakeAndroid(['voice'], request => {
+    if (request.method === 'voiceStatus') return { available: true, permission: 'prompt' }
+    if (request.method === 'voiceStart') return { started: true, session: 7 }
+    if (request.method === 'voiceStop') return 'hello world'
+    return null
+  })
+  const voice = (detail: unknown) => android.window.dispatchEvent(Object.assign(new Event('stimma:voice'), { detail }))
+  try {
+    assert.equal(await mobileBridge.voiceModelStatus(), true)
+    const events: unknown[] = []
+    const started = mobileBridge.voiceStart(event => events.push(event))
+    voice({ session: 7, type: 'partial', text: 'hel' })
+    voice({ session: 6, type: 'partial', text: 'stale' })
+    await started
+    voice({ session: 7, type: 'partial', text: 'hello' })
+    voice({ session: 8, type: 'partial', text: 'other' })
+    assert.deepEqual(events, [{ type: 'partial', text: 'hel' }, { type: 'partial', text: 'hello' }])
+    assert.equal(await mobileBridge.voiceStop(), 'hello world')
+    voice({ session: 7, type: 'partial', text: 'late' })
+    assert.equal(events.length, 2)
+  } finally { android.restore() }
+})
+
+test('a denied microphone rejects voiceStart with its message', async () => {
+  const android = fakeAndroid(['voice'], () => ({ started: false, reason: 'denied', message: 'Allow microphone access.' }))
+  try {
+    await assert.rejects(mobileBridge.voiceStart(() => {}), /Allow microphone access/)
+  } finally { android.restore() }
+})

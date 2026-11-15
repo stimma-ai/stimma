@@ -12,6 +12,7 @@ async function fixture(t, bridgeOverrides = {}) {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] })
   let starts = 0
   let stops = 0
+  const toasts = []
   const window = new EventTarget()
   const document = new EventTarget()
   const create = new Function('ref', 'computed', 'onMounted', 'onUnmounted', 'checkIsDesktop', 'initApiConfig', 'desktop', 'useTelemetry', 'isPrivacyLockdownActive', 'addToast', 'localStorage', 'window', 'document', `${source}; return useVoiceInput`)
@@ -22,7 +23,7 @@ async function fixture(t, bridgeOverrides = {}) {
     voiceCancel: async () => {},
     voiceKeepalive: async () => {},
     ...bridgeOverrides,
-  }, () => ({ track() {} }), () => false, () => {}, { removeItem() {} }, window, document)
+  }, () => ({ track() {} }), () => false, (...args) => toasts.push(args), { removeItem() {} }, window, document)
   let text = ''
   const api = useVoiceInput({ getText: () => text, setText: value => { text = value } })
   const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve() }
@@ -36,7 +37,7 @@ async function fixture(t, bridgeOverrides = {}) {
   }
   return { api, down, up: () => api.handleInputKeyup({ key: ' ', code: 'Space' }), flush,
     tick: ms => t.mock.timers.tick(ms), window,
-    get text() { return text }, get starts() { return starts }, get stops() { return stops } }
+    get text() { return text }, get starts() { return starts }, get stops() { return stops }, toasts }
 }
 
 test('releasing just before the hold threshold never starts dictation', async t => {
@@ -208,4 +209,58 @@ test('buffered space taps are inserted before the next character', async t => {
   assert.equal(f.text, 'a  b')
   f.tick(300); await f.flush()
   assert.equal(f.starts, 0)
+})
+
+test('a phone without native dictation hides voice input and never downloads a model', async t => {
+  let downloads = 0
+  const f = await fixture(t, {
+    kind: 'android',
+    voiceModelStatus: async () => false,
+    voiceDownloadModel: async () => { downloads++ },
+  })
+  assert.equal(f.api.supported.value, false)
+  assert.equal(await f.api.start(), false)
+  assert.equal(downloads, 0)
+  assert.equal(f.api.state.value, 'error')
+  assert.equal(f.starts, 0)
+})
+
+test('a phone that can listen records without any model download', async t => {
+  let downloads = 0
+  const f = await fixture(t, { kind: 'android', voiceDownloadModel: async () => { downloads++ } })
+  assert.equal(f.api.supported.value, true)
+  assert.equal(await f.api.start(), true)
+  assert.equal(f.api.state.value, 'recording')
+  assert.equal(downloads, 0)
+  await f.api.stop()
+  assert.equal(f.api.state.value, 'idle')
+})
+
+test('a denied microphone on a phone says why and leaves the button ready', async t => {
+  const f = await fixture(t, {
+    kind: 'android',
+    voiceStart: async () => { throw new Error('Allow microphone access for Stimma in Settings to use voice input.') },
+  })
+  assert.equal(await f.api.start(), false)
+  assert.equal(f.api.state.value, 'idle')
+  assert.match(f.toasts[0][0], /Allow microphone access/)
+})
+
+test('phone dictation errors stop recording and show a message', async t => {
+  let emit
+  const f = await fixture(t, { kind: 'android', voiceStart: async onEvent => { emit = onEvent } })
+  assert.equal(await f.api.start(), true)
+  emit({ type: 'partial', text: 'hello there' })
+  assert.equal(f.text, 'hello there')
+  emit({ type: 'error', message: 'Voice input stopped. Try again.' })
+  assert.equal(f.api.state.value, 'error')
+  assert.equal(f.toasts.at(-1)[0], 'Voice input stopped. Try again.')
+})
+
+test('the microphone prompt taking focus does not cancel a phone dictation', async t => {
+  const f = await fixture(t, { kind: 'android' })
+  assert.equal(await f.api.start(), true)
+  f.window.dispatchEvent(new Event('blur'))
+  await f.flush()
+  assert.equal(f.api.state.value, 'recording')
 })

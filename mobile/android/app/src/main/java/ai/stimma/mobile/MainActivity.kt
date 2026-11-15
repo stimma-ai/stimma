@@ -1,6 +1,17 @@
 package ai.stimma.mobile
 
+import android.Manifest
 import android.app.PendingIntent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.CancellationSignal
+import android.os.ParcelFileDescriptor
+import android.print.PageRange
+import android.print.PrintAttributes
+import android.print.PrintDocumentAdapter
+import android.print.PrintManager
+import android.util.Base64
+import android.webkit.MimeTypeMap
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
@@ -92,6 +103,17 @@ class MainActivity : ComponentActivity() {
         val result = shareResult
         // Selection arrives via IntentSender; RESULT_OK is not a delivery receipt.
         lifecycleScope.launch { delay(300); result?.complete(false) }
+    }
+    private val dictation by lazy { VoiceDictation(this) { detail ->
+        mainView?.evaluateJavascript("window.dispatchEvent(new CustomEvent('stimma:voice',{detail:$detail}))", null)
+    } }
+    private var microphoneAnswer: CompletableDeferred<Boolean>? = null
+    private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        microphoneAnswer?.complete(granted); microphoneAnswer = null
+    }
+    private var documentAnswer: CompletableDeferred<Uri?>? = null
+    private val documentPicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        documentAnswer?.complete(result.data?.data.takeIf { result.resultCode == RESULT_OK }); documentAnswer = null
     }
     private var picker: ValueCallback<Array<Uri>>? = null
     private val filePicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -255,6 +277,7 @@ class MainActivity : ComponentActivity() {
             mediaPlaybackRequiresUserGesture = true
         }
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, false)
+        WebViewCompat.addDocumentStartJavaScript(view, "window.stimmaNativeFeatures=Object.freeze(${JSONArray(NATIVE_FEATURES)})", setOf(allowedOrigin))
         WebViewCompat.addWebMessageListener(view, "stimmaAndroid", setOf(allowedOrigin)) { source, message, origin, mainFrame, reply ->
             if (!mainFrame || !matchesOrigin(origin) || source !== view || !isAppDocument(source.url) || source.url?.let { matchesOrigin(Uri.parse(it)) } != true) return@addWebMessageListener
             val request = runCatching { JSONObject(message.data ?: "") }.getOrNull() ?: return@addWebMessageListener
@@ -363,15 +386,18 @@ class MainActivity : ComponentActivity() {
         "openExternal" -> { openExternal(args.getString("url")); null }
         "share" -> {
             check(shareResult == null) { "A share sheet is already open." }
-            val bytes = args.getJSONArray("bytes")
-            require(bytes.length() <= 64 * 1024 * 1024)
             val name = args.getString("filename")
-            require(name.isNotBlank() && name.length <= 255 && name !in setOf(".", "..") && name.none { it == '/' || it == '\\' || it.code < 32 })
+            require(validExportName(name))
             val file = withContext(Dispatchers.IO) {
                 val root = File(cacheDir, "exports").apply { mkdirs() }
                 root.listFiles().orEmpty().filter { it.lastModified() < System.currentTimeMillis() - 86400000 }.forEach { it.deleteRecursively() }
                 val file = File(File(root, UUID.randomUUID().toString()).apply { mkdirs() }, name)
-                file.outputStream().buffered().use { output -> for (index in 0 until bytes.length()) { val value = bytes.getInt(index); require(value in 0..255); output.write(value) } }
+                if (args.has("base64")) file.writeBytes(exportBytes(args))
+                else {
+                    val bytes = args.getJSONArray("bytes")
+                    require(bytes.length() <= EXPORT_LIMIT)
+                    file.outputStream().buffered().use { output -> for (index in 0 until bytes.length()) { val value = bytes.getInt(index); require(value in 0..255); output.write(value) } }
+                }
                 file
             }
             val uri = FileProvider.getUriForFile(this, "$packageName.exports", file)
@@ -391,7 +417,82 @@ class MainActivity : ComponentActivity() {
                 if (!handedOff) withContext(Dispatchers.IO) { file.parentFile?.deleteRecursively() }
             }
         }
+        "saveFile" -> {
+            require(view === mainView && !model.showConnections)
+            val name = args.getString("filename")
+            require(validExportName(name))
+            val data = withContext(Dispatchers.Default) { exportBytes(args) }
+            val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
+                ?: "application/octet-stream"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                JSONObject().put("location", withContext(Dispatchers.IO) { saveToMediaStore(contentResolver, name, mimeType, data) }.location)
+            } else {
+                // Android 9 has no shared collections without storage permission: let the person pick the place.
+                check(documentAnswer == null) { "A save is already open." }
+                val answer = CompletableDeferred<Uri?>()
+                documentAnswer = answer
+                documentPicker.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType(mimeType).putExtra(Intent.EXTRA_TITLE, name))
+                val uri = answer.await()
+                if (uri == null) false
+                else {
+                    withContext(Dispatchers.IO) { contentResolver.openOutputStream(uri)?.use { it.write(data) } ?: error("No output stream") }
+                    JSONObject().put("location", "chosen")
+                }
+            }
+        }
+        "print" -> {
+            require(view === mainView && !model.showConnections)
+            val title = args.optString("title").trim().take(80).ifEmpty { "Stimma" }
+            val finished = CompletableDeferred<Unit>()
+            val pages = view.createPrintDocumentAdapter(title)
+            // Resolves when the print dialog closes, so the page keeps its print content until then.
+            (getSystemService(PRINT_SERVICE) as PrintManager).print(title, object : PrintDocumentAdapter() {
+                override fun onStart() = pages.onStart()
+                override fun onLayout(old: PrintAttributes?, new: PrintAttributes, cancel: CancellationSignal?, callback: LayoutResultCallback, extras: Bundle?) =
+                    pages.onLayout(old, new, cancel, callback, extras)
+                override fun onWrite(range: Array<out PageRange>, destination: ParcelFileDescriptor, cancel: CancellationSignal?, callback: WriteResultCallback) =
+                    pages.onWrite(range, destination, cancel, callback)
+                override fun onFinish() { pages.onFinish(); finished.complete(Unit) }
+            }, null)
+            withTimeoutOrNull(600000) { finished.await() }
+            null
+        }
+        "voiceStatus" -> JSONObject().put("available", dictation.available)
+            .put("permission", if (microphoneGranted()) "granted" else "prompt")
+        "voiceStart" -> {
+            require(view === mainView && !model.showConnections)
+            if (!dictation.available) JSONObject().put("started", false).put("reason", "unavailable")
+            else {
+                val asked = dictation.session
+                val granted = microphoneGranted() || run {
+                    check(microphoneAnswer == null) { "The microphone prompt is already open." }
+                    val answer = CompletableDeferred<Boolean>()
+                    microphoneAnswer = answer
+                    microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                    answer.await()
+                }
+                when {
+                    !granted -> JSONObject().put("started", false).put("reason", "denied").put("message", VoiceDictation.PERMISSION_MESSAGE)
+                    // Cancelled while the prompt was open.
+                    asked != dictation.session -> JSONObject().put("started", false).put("reason", "cancelled")
+                    else -> JSONObject().put("started", true).put("session", dictation.start())
+                }
+            }
+        }
+        "voiceStop" -> dictation.stop()
+        "voiceCancel" -> { dictation.invalidate(); null }
         else -> error("Unsupported native command.")
+    }
+
+    private fun microphoneGranted() =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
+    /** Bytes sent as base64, refused before decoding when over the export limit. */
+    private fun exportBytes(args: JSONObject): ByteArray {
+        val encoded = args.getString("base64")
+        require(encoded.length <= base64Length(EXPORT_LIMIT.toLong()))
+        return Base64.decode(encoded, Base64.DEFAULT)
     }
 
     private fun applyPresentationPolicy() {
@@ -440,13 +541,23 @@ class MainActivity : ComponentActivity() {
         model.foreground(false)
         super.onPause()
     }
+    override fun onStop() {
+        // Never keep listening once the app is out of sight.
+        dictation.invalidate()
+        super.onStop()
+    }
     override fun onDestroy() {
         shareResult?.complete(false)
+        microphoneAnswer?.complete(false)
+        documentAnswer?.complete(null)
         if (eventsRegistered) unregisterReceiver(events)
         picker?.onReceiveValue(null); picker = null
         if (::setupView.isInitialized) setupView.destroy()
         mainView?.destroy()
         super.onDestroy()
     }
-    companion object { private val BACKGROUND = Color.rgb(11, 14, 20) }
+    companion object {
+        private val BACKGROUND = Color.rgb(11, 14, 20)
+        private const val EXPORT_LIMIT = 64 * 1024 * 1024
+    }
 }

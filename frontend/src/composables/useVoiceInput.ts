@@ -6,7 +6,9 @@
  * so the user watches their words appear as they speak. On stop, the Rust side
  * runs a final clean pass and returns the committed transcript.
  *
- * Parakeet TDT 0.6B v3 is downloaded on first use.
+ * Parakeet TDT 0.6B v3 is downloaded on first use. Phones use their own
+ * speech recognizer instead: nothing downloads, and the button only shows
+ * when the phone app can listen.
  */
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
@@ -31,7 +33,7 @@ async function initTauri(): Promise<void> {
   initPromise = (async () => {
     try {
       await initApiConfig()
-      supported.value = checkIsDesktop()
+      supported.value = isPhone() ? await desktop.voiceModelStatus() : checkIsDesktop()
     } catch (e) {
       console.warn('[useVoiceInput] Desktop init failed:', e)
       supported.value = false
@@ -42,10 +44,15 @@ async function initTauri(): Promise<void> {
 
 initTauri()
 
+function isPhone(): boolean {
+  return desktop.kind === 'ios' || desktop.kind === 'android'
+}
+
 /** Whether Parakeet v3 is already downloaded. */
 async function isModelReady(): Promise<boolean> {
   await initTauri()
   if (!supported.value) return false
+  if (isPhone()) return true
   return await desktop.voiceModelStatus()
 }
 
@@ -197,12 +204,16 @@ export function useVoiceInput(opts: VoiceInputOptions) {
       interim = ''
 
       const onEvent = (ev: any) => {
+        if (attempt !== startAttempt) return
         if (ev.type === 'partial') {
           interim = ev.text
           applyText()
         } else if (ev.type === 'error') {
+          stopKeepalive()
           error.value = ev.message
           state.value = 'error'
+          // Phones have no hover title to read the reason from.
+          if (isPhone()) addToast(ev.message, 'error')
         }
       }
 
@@ -215,6 +226,12 @@ export function useVoiceInput(opts: VoiceInputOptions) {
       return true
     } catch (e) {
       if (attempt !== startAttempt) return false
+      if (isPhone()) {
+        // Denied or unavailable: say so briefly and leave the button ready, not red.
+        addToast(e instanceof Error ? e.message : String(e), 'info')
+        state.value = 'idle'
+        return false
+      }
       error.value = String(e)
       state.value = 'error'
       return false
@@ -434,6 +451,8 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   // these don't fire, the Rust lease still catches it; this just makes it
   // immediate.)
   function onWindowBlur() {
+    // The phone's microphone prompt takes focus; backgrounding is caught below and natively.
+    if (isPhone()) return
     if (state.value === 'starting' || state.value === 'recording' || spacePending || spaceDictating) void cancel('window-blur')
   }
   function onVisibilityChange() {

@@ -4,7 +4,8 @@
  * Desktop shells write through native pickers: a Save panel for one file, a
  * folder picker for several files or a multi-file format. The panel opens in
  * the folder the profile last exported to. "Save to Downloads" skips the
- * picker. Phones and browsers hand the file to the share sheet or download.
+ * picker. Phones save into their own Photos or Downloads (older phone apps
+ * hand the file to the share sheet); browsers download.
  */
 
 import { unzipSync } from 'fflate'

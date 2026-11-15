@@ -21,13 +21,13 @@ export function supportsNativeShare(kind: string, nav: Pick<Navigator, 'share' |
 
 export function shareFile(
   file: File,
-  bridge: { kind: string; saveToDownloads: (name: string, bytes: Uint8Array) => Promise<boolean> },
+  bridge: { kind: string; shareBytes: (name: string, bytes: Uint8Array) => Promise<boolean> },
   nav: Pick<Navigator, 'share' | 'canShare'> = navigator,
 ): Promise<unknown> {
   if (isPhoneShell(bridge.kind)) {
     if (phoneShareTooLarge(bridge.kind, file.size)) return Promise.reject(new Error(PHONE_SHARE_TOO_LARGE))
     return file.arrayBuffer().then(async bytes => {
-      const completed = await bridge.saveToDownloads(file.name, new Uint8Array(bytes))
+      const completed = await bridge.shareBytes(file.name, new Uint8Array(bytes))
       if (!completed) throw new DOMException('Sharing was cancelled.', 'AbortError')
       return true
     })

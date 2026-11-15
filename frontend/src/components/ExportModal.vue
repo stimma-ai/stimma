@@ -302,6 +302,7 @@ import {
   isZipExport,
 } from '../composables/useExportDestination'
 import { desktop } from '../desktop'
+import { phoneSavesFiles } from '../desktop/mobileBridge'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 
@@ -716,6 +717,7 @@ const primaryLabel = computed(() => {
   if (exportingTo.value === 'choose') return 'Exporting…'
   const count = itemCount.value
   if (canChooseLocation) return count > 1 ? `Export ${count}…` : 'Export…'
+  if (phoneSavesFiles()) return 'Save to phone'
   if (desktop.kind === 'ios' || desktop.kind === 'android') return 'Share…'
   return count > 1 ? `Download ${count}` : 'Download'
 })

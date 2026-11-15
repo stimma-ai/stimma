@@ -10,6 +10,7 @@ import Modal from './ui/Modal.vue'
 import Button from './ui/Button.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { desktop } from '../desktop'
+import { shareOnPhone } from '../desktop/mobileBridge'
 import { PHONE_SHARE_TOO_LARGE, phoneShareTooLarge, shareFile } from '../utils/nativeShare'
 
 const props = defineProps<{ mediaId: number }>()
@@ -48,7 +49,7 @@ async function share() {
   sharing.value = true
   error.value = ''
   try {
-    await shareFile(file.value, desktop)
+    await shareFile(file.value, { kind: desktop.kind, shareBytes: shareOnPhone })
     emit('close')
   } catch (err) {
     if ((err as Error)?.name !== 'AbortError') {

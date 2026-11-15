@@ -45,7 +45,17 @@ cookie. Host, Origin, request framing, frame destinations, and cookie checks
 guard the HTTP/upload/media/WebSocket proxy. CSP and WebView request blocking
 prevent cross-port cookie leakage. Native commands require the trusted main
 document's exact origin. Generated layouts cannot run scripts. External links
-open Custom Tabs; file uploads use the system picker, and exports use the share sheet.
+open Custom Tabs; file uploads use the system picker. Exports save to the phone:
+images to Pictures/Stimma and videos to Movies/Stimma (both shown in the
+gallery), other files to Downloads, with no storage permission on Android 10+;
+Android 9 asks where to save instead. Share file still opens the share sheet.
+Print opens the system print dialog for the page's print layout (one image or a
+contact sheet) and keeps that layout until the dialog closes. Voice input uses
+the phone's speech recognizer (on-device when offered), asks for the microphone
+on first use, and keeps listening across pauses until stopped; without a
+recognizer the button is hidden. The shell lists these newer commands in
+`window.stimmaNativeFeatures`, so a newer UI package on an older shell (or on
+iOS, which has none of them yet) keeps sharing exports and hides voice input.
 
 Transient recovery retains the page and package. Android Back
 dismisses the top sheet or slideshow first, then navigates page history. At the root it backgrounds the app. Rotation retains the WebView. Activity recreation
@@ -102,7 +112,7 @@ same-origin proxy and cannot directly call the native bridge. Android uses the
 same server UI package for safe areas, expandable drawers, gallery swipes, and
 unified collection/chat/flow headers as iOS.
 
-Android share cancellation returns false. Choosing a receiving app reports a
+Android share cancellation returns false. Saving and sharing send base64 bytes. Choosing a receiving app reports a
 successful handoff; Android does not report whether that app ultimately saves
 or sends the file. Exports have the same 64 MiB limit as iOS, checked before
 allocating bridge bytes. Generated assets, Gradle output, APKs, and local signing
@@ -391,10 +401,9 @@ in both cases.
   Failures expose the connection screen and their error.
 - Server builds must include a mobile UI package. Older installed servers need
   an update before this shell can connect; UI packages cannot add native APIs.
-- Uploads require Content-Length and are limited to 1 GiB. Share-sheet exports
-  currently pass bytes through the bridge and are limited to 64 MiB. Native
-  dictation, background transfers, and push notifications are not
-  implemented.
+- Uploads require Content-Length and are limited to 1 GiB. Exports pass bytes
+  through the bridge and are limited to 64 MiB. iOS native dictation,
+  background transfers, and push notifications are not implemented.
 - Bootstrap uses URLSession with pinned TLS and local-network ATS permission.
   Literal LAN/Tailscale IP routes are the current target; fully qualified host
   routes need additional trust/ATS verification before being advertised as
