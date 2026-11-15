@@ -134,28 +134,35 @@ def slot_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", pr
 
 def early_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", project_id: Optional[int] = None
               ) -> Optional[Job]:
-    """While a slot's seeds are still narrowed, one unseeded turn written from its words and the
-    prompt alone, so it shows variants without waiting: it opens the pool's session, and the
-    seeded first write continues it (variant_pools.PoolWriter.run);
-    None when it must wait. Only once the prompt's ages are in (entry["ages"], seeding.narrow_seeds:
-    whether a child is in it, which its writer is told, MINORS_POLICY.md), and never for a person
-    (descent, gender, age and the minors rules need the narrowing) or a list of what a person
-    wears or looks like (person., clothing.). Structure only."""
-    from prompt_programs.seeding import _people_like
+    """While a slot's seeds are still narrowed, one opening turn, so it shows variants without
+    waiting: it opens the pool's session, and the seeded first write continues it
+    (variant_pools.PoolWriter.run); None when it must wait. Only once the prompt's ages are in
+    (entry["ages"], seeding.narrow_seeds: whether a child is in it, which its writer is told,
+    MINORS_POLICY.md). A slot that isn't a person, nor a list of what one wears or looks like
+    (person., clothing.), opens unseeded, from its words and the prompt alone. A person opens only
+    once their heritage, who and age are narrowed (seeding: the record's `opening`), seeded with
+    those and with their other lists whole while those are narrowed, and only an adult in a
+    prompt with no one young. Structure only."""
+    from prompt_programs.seeding import _people_like, seeds_of
     from prompt_programs.variants import Seeds
-    if not slot.get("pool") or slot["id"] not in (entry.get("seeds_pending") or []) or _people_like(slot.get("kind")):
+    if not slot.get("pool") or slot["id"] not in (entry.get("seeds_pending") or []):
         return None
     record = (entry.get("seeds") or {}).get(slot["id"])
-    if not isinstance(entry.get("ages"), dict) or not isinstance(record, dict) or _people_like(record.get("kind")) \
-            or record.get("minor"):
+    if not isinstance(entry.get("ages"), dict) or not isinstance(record, dict) or record.get("minor"):
         return None
-    if any(str(b.get("list") or "").startswith(("person.", "clothing.")) for b in record.get("banks") or []):
-        return None   # what a person wears or looks like waits for their seeds
+    person = _people_like(slot.get("kind")) or _people_like(record.get("kind"))
+    if person:
+        if not record.get("opening") or record.get("young") or entry["ages"].get("young"):
+            return None
+        seeds = seeds_of(record)
+    else:
+        if any(str(b.get("list") or "").startswith(("person.", "clothing.")) for b in record.get("banks") or []):
+            return None   # what a person wears or looks like waits for their seeds
+        seeds = Seeds(young=str(record.get("young") or ""))
     span = slot.get("span") or [0, 0]
     sl = Slot(words=slot["words"], prompt=str(entry.get("prompt") or ""), span=(int(span[0]), int(span[1])),
               kind=str(slot.get("kind") or "free"), category=str(slot.get("category") or ""))
-    return Job(key=str(slot["pool"]), slot=sl, seeds=Seeds(young=str(record.get("young") or "")),
-               role="early", project_id=project_id, model=model)
+    return Job(key=str(slot["pool"]), slot=sl, seeds=seeds, role="early", project_id=project_id, model=model)
 
 
 def _model(entry: Dict[str, Any]) -> str:

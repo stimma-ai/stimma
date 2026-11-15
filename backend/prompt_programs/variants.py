@@ -1378,11 +1378,40 @@ class Deadline(Exception):
     """A streamed call ran past one of its deadlines."""
 
 
-async def _consume(it: Any, on_text: Callable[[str], None], t0: float) -> Optional[float]:
+CUT = "cut for More like these"   # a background turn's error when More like these took its pool
+
+
+async def _next(it: Any, wait: float, cut: Optional[asyncio.Event]) -> Any:
+    """The stream's next text within `wait` seconds (TimeoutError), or Deadline(CUT) the moment
+    `cut` is set."""
+    if cut is None:
+        async with asyncio.timeout(wait):
+            return await it.__anext__()
+    if cut.is_set():
+        raise Deadline(CUT)
+    nxt = asyncio.ensure_future(it.__anext__())
+    stop = asyncio.ensure_future(cut.wait())
+    try:
+        done, _ = await asyncio.wait({nxt, stop}, timeout=wait, return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        stop.cancel()
+    if nxt in done:
+        return nxt.result()
+    nxt.cancel()
+    with contextlib.suppress(BaseException):
+        await nxt
+    if stop in done:
+        raise Deadline(CUT)
+    raise TimeoutError
+
+
+async def _consume(it: Any, on_text: Callable[[str], None], t0: float,
+                   cut: Optional[asyncio.Event] = None) -> Optional[float]:
     """Read a stream of text deltas into `on_text` under three deadlines enforced here, whatever
     the client library does (a measured stream once hung with its connection open and its read
     timeout never fired): FIRST_TOKEN_SECONDS to the first text, STALL_SECONDS between texts, and
-    TURN_SECONDS for the whole. Returns the seconds to the first text; raises Deadline."""
+    TURN_SECONDS for the whole. Returns the seconds to the first text; raises Deadline, and
+    Deadline(CUT) as soon as `cut` is set."""
     import time
     first: Optional[float] = None
     try:
@@ -1393,8 +1422,7 @@ async def _consume(it: Any, on_text: Callable[[str], None], t0: float) -> Option
             if left <= 0:
                 raise Deadline("overall deadline")
             try:
-                async with asyncio.timeout(max(0.0, wait)):
-                    delta = await it.__anext__()
+                delta = await _next(it, max(0.0, wait), cut)
             except StopAsyncIteration:
                 return first
             except TimeoutError:
@@ -1411,13 +1439,16 @@ async def _consume(it: Any, on_text: Callable[[str], None], t0: float) -> Option
 
 async def write_turn(slot: Slot, drawn: Drawn, sent: List[Dict[str, Any]], *, ask: Ask, a: int = 1,
                      project_id: Optional[int] = None, seen: Optional[set] = None,
-                     landed: Optional[Callable[[Dict[str, Any]], bool]] = None) -> Turn:
+                     landed: Optional[Callable[[Dict[str, Any]], bool]] = None,
+                     cut: Optional[asyncio.Event] = None) -> Turn:
     """One turn of a session: `sent` is what goes to the model, `drawn` this turn's seeds
     (numbered from `a`). Streamed where `ask` can stream (`ask.stream`), else the whole reply at
     once. Each variant is repaired and checked the moment its object completes, and handed to
     `landed` (which stores it; False: no room, the variant is dropped), so a picker sees the first
-    one in under a second. `seen`: normalized texts the pool holds or removed (updated). Never
-    raises: a failed call, a deadline or an unreadable reply keeps what landed before it."""
+    one in under a second. `seen`: normalized texts the pool holds or removed (updated). `cut`:
+    set, the turn ends at once with error CUT, keeping what landed (a background top-up giving
+    its pool to More like these). Never raises: a failed call, a deadline or an unreadable reply
+    keeps what landed before it."""
     import time
     from llm_http import StreamUnsupported
     from prompt_programs.fill import fix_articles
@@ -1525,13 +1556,17 @@ async def write_turn(slot: Slot, drawn: Drawn, sent: List[Dict[str, Any]], *, as
         if stream is not None:
             try:
                 it = stream(sent, project_id, tokens_, temperature=WRITE_TEMPERATURE).__aiter__()
-                out.first = await _consume(it, on_text, t0)
+                out.first = await _consume(it, on_text, t0, cut)
                 out.streamed = True
             except StreamUnsupported:
                 whole = True   # this provider answers whole: the same turn, all at once
         if whole:
-            async with asyncio.timeout(TURN_SECONDS):
-                reply = await ask(sent, project_id, tokens_, temperature=WRITE_TEMPERATURE)
+            call = ask(sent, project_id, tokens_, temperature=WRITE_TEMPERATURE)
+            if cut is None:
+                async with asyncio.timeout(TURN_SECONDS):
+                    reply = await call
+            else:   # a whole reply has nothing to keep once cut: it ends with nothing
+                reply = await _whole_or_cut(call, cut)
             out.first = round(time.monotonic() - t0, 3)
             on_whole(str(reply or ""))
     except Deadline as e:
@@ -1557,6 +1592,24 @@ async def write_turn(slot: Slot, drawn: Drawn, sent: List[Dict[str, Any]], *, as
     return out
 
 
+async def _whole_or_cut(call: Any, cut: asyncio.Event) -> Any:
+    """A whole reply within TURN_SECONDS (TimeoutError), or Deadline(CUT) the moment `cut` is set."""
+    task = asyncio.ensure_future(call)
+    stop = asyncio.ensure_future(cut.wait())
+    try:
+        done, _ = await asyncio.wait({task, stop}, timeout=TURN_SECONDS, return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        stop.cancel()
+    if task in done:
+        return task.result()
+    task.cancel()
+    with contextlib.suppress(BaseException):
+        await task
+    if stop in done:
+        raise Deadline(CUT)
+    raise TimeoutError
+
+
 def split(drawn: Drawn, size: int = TURN) -> List[Drawn]:
     """A write's seeds as turns of at most `size` variants (short lists go with every turn).
     Seeds are drawn once for the whole write, so the turns spread across descents, aspects, cores
@@ -1569,7 +1622,7 @@ def split(drawn: Drawn, size: int = TURN) -> List[Drawn]:
     return [Drawn(drawn.specs[a:b], drawn.short) for a, b in zip(bounds, bounds[1:])]
 
 
-__all__ = ["AGE", "STAGE", "Ask", "Bank", "Deadline", "Drawn", "N_OTHER", "N_PERSON", "MIN_POOL", "MORE_TURNS",
+__all__ = ["AGE", "CUT", "STAGE", "Ask", "Bank", "Deadline", "Drawn", "N_OTHER", "N_PERSON", "MIN_POOL", "MORE_TURNS",
            "ObjectReader", "Pins", "SHORTLIST", "Seeds", "kind_seeds", "system_text", "typical_text", "Session", "Slot", "Spec", "TOPUP", "TURN", "Turn",
            "VARIANTS_VERSION", "age_stages", "age_years", "allowed_ages", "article_before", "ask_writer", "bank",
            "check", "context_words", "draw_seeds", "first_turn", "retry_note", "gender_mark", "gender_needs", "has_run", "kept_chunks", "list_seeds", "messages",

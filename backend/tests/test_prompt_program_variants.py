@@ -1554,7 +1554,7 @@ def test_a_waited_for_turn_goes_ahead_of_background_turns_in_the_same_session(tm
         assert [c["a"] for c in fake.calls] == [1, 11, 21, 31, 41]
     run(go())
 
-def test_more_goes_ahead_of_a_background_top_up_which_then_stops(tmp_path):
+def test_more_cuts_a_background_top_up_which_then_stops(tmp_path):
     async def go():
         fake = GatedWriter()
         w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
@@ -1567,16 +1567,45 @@ def test_more_goes_ahead_of_a_background_top_up_which_then_stops(tmp_path):
         w.submit(job_for(sl, V.Seeds(), key=key, role="top_up"))   # its first turn held
         await until(lambda: len(fake.gates) == n0 + 1)
         more = asyncio.ensure_future(w.more(job_for(sl, V.Seeds(), key=key)))
-        await asyncio.sleep(0.05)
-        assert len(fake.gates) == n0 + 1                  # one stream per pool at a time
+        # the held top-up turn is cut at once and More's first turn goes out, the top-up's gate still shut
+        await until(lambda: len(fake.gates) == n0 + 2)
+        assert not fake.gates[n0].is_set()
         await open_all(fake, w)
         assert len(await more) == V.TOPUP
-        roles = [b["role"] for b in tallies(w, key)][3:]
-        # the top-up's held turn lands, More's turns go next, and the top-up asks no more: More
-        # wrote what it still had to
-        assert roles == ["top_up", "more", "more"]
-        assert [c["a"] for c in fake.calls[n0:]] == [31, 41, 51]
-        assert len(w.store.variants(key)) == V.N_OTHER + V.TURN + V.TOPUP
+        tl = tallies(w, key)[3:]
+        assert [b["role"] for b in tl] == ["top_up", "more", "more"]
+        assert tl[0]["error"] == V.CUT and tl[0]["kept"] == 0 and not tl[0]["logged"]
+        # the cut turn never joined the log: More's turns number on from the first write
+        assert [c["a"] for c in fake.calls[n0:]] == [31, 31, 41]
+        assert len(w.store.variants(key)) == V.N_OTHER + V.TOPUP
+    run(go())
+
+
+def test_more_keeps_what_a_cut_top_up_streamed_and_starts_at_once(tmp_path):
+    async def go():
+        fake = FakeStreamer(size=40, delay=0.05)
+        w = P.PoolWriter(P.VariantStore(tmp_path), ask=fake)
+        w.attach()
+        sl = slot_of(PROMPT, "list", "lighting", n=3)
+        key = "8" * 32
+        fake.delay = 0
+        w.submit(job_for(sl, V.Seeds(), key=key))
+        await w.drain()
+        have = len(w.store.variants(key))
+        fake.delay = 0.05
+        w.submit(job_for(sl, V.Seeds(), key=key, role="top_up"))
+        await until(lambda: len(w.store.variants(key)) >= have + 3)   # part of a turn streamed
+        t0 = asyncio.get_running_loop().time()
+        fake.delay = 0
+        got = await w.more(job_for(sl, V.Seeds(), key=key))
+        assert asyncio.get_running_loop().time() - t0 < 1.0             # not the top-up's whole stream
+        assert len(got) == V.TOPUP
+        cut = [b for b in tallies(w, key) if b["role"] == "top_up"]
+        assert len(cut) == 1 and cut[0]["error"] == V.CUT and 3 <= cut[0]["kept"] < V.TURN
+        top = [v for b in w.store.batches(key) if b.get("role") == "top_up" for v in b.get("variants") or []]
+        assert len(top) == cut[0]["kept"]                               # what closed is kept
+        await w.drain()
+        assert [b["role"] for b in tallies(w, key)][-3:] == ["top_up", "more", "more"]   # the top-up asks no more
     run(go())
 
 

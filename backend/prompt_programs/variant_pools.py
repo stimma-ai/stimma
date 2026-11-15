@@ -46,7 +46,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
 from prompt_programs.variants import (
-    AGE, HAVE_SHOWN, MIN_POOL, MORE_TURNS, STAGE, TOPUP, TURN, VARIANTS_VERSION, Ask, Pins, Seeds, Session, Slot, Turn,
+    AGE, CUT, HAVE_SHOWN, MIN_POOL, MORE_TURNS, STAGE, TOPUP, TURN, VARIANTS_VERSION, Ask, Pins, Seeds, Session, Slot, Turn,
     age_stages, age_years, ask_writer, draw_seeds, first_turn, more_turn, reply_text, retry_note, split, stages_of, write_turn,
     year_ages,
 )
@@ -618,6 +618,7 @@ class PoolWriter:
         self._thin: set = set()    # pools whose short first write was asked again (once each)
         self._gate: Optional[CallGate] = None
         self._turns: Dict[str, CallGate] = {}   # per pool: one turn at a time, by priority
+        self._cuts: Dict[str, asyncio.Event] = {}   # per pool: set to cut its background top-up's turn now
         self._streams = streams
         self.calls = 0   # turns asked
 
@@ -806,8 +807,10 @@ class PoolWriter:
                 return []
             if any(b.get("role") == "first" and b.get("variants") for b in self.store.batches(job.key)):
                 self._thin.add(job.key)   # a short first write, asked again once: its session goes on
-        # An unseeded opening has no vocabulary seeds, only what the minors rules tell its writer.
-        seeds = Seeds(young=job.seeds.young) if job.role == "early" else job.seeds.pinned(job.pins)
+        # An opening turn has the seeds its job carries: none but what the minors rules tell its
+        # writer (fluent.early_job), or a person's narrowed so far.
+        seeds = job.seeds.pinned(job.pins)
+        opened_seeded = job.role != "early" or seeds != Seeds(young=seeds.young)
         have = self.store.variants(job.key)
         n = self._quota(job, have)
         if n <= 0:
@@ -858,20 +861,33 @@ class PoolWriter:
                     self.store.append(job.key, self._record(job, batch, turn=i, variants=[v]))
                     out.append(v["text"])
                     return True
-                turn = await write_turn(job.slot, part, sent, ask=self.ask, a=a, project_id=job.project_id,
-                                        seen=seen, landed=landed)
+                # A background top-up's turn gives its pool to More like these the moment it comes
+                # (more()): what closed is kept, and More's turn starts at once.
+                cut = asyncio.Event() if job.role == "top_up" and not job.pins else None
+                if cut is not None:
+                    self._cuts[job.key] = cut
+                try:
+                    turn = await write_turn(job.slot, part, sent, ask=self.ask, a=a, project_id=job.project_id,
+                                            seen=seen, landed=landed, cut=cut)
+                finally:
+                    if cut is not None and self._cuts.get(job.key) is cut:
+                        del self._cuts[job.key]
                 self.calls += 1
                 logged = turn.passed
                 if logged:
                     if not session.open:
-                        session = Session(messages=[dict(sent[0])], seeded=job.role != "early",
+                        session = Session(messages=[dict(sent[0])], seeded=opened_seeded,
                                           restarts=session.restarts + int(restarted))
                     session.log(dict(user), reply_text(turn.variants, a, turn.rejected), turn.texts())
-                    if job.role != "early":
+                    if opened_seeded:
                         session.seeded = True   # what an unseeded opening lacked has been shown now
                     self.store.save_session(job.key, session.to_dict())
                     fresh = False
                 self.store.append(job.key, self._tally(job, batch, turn, logged=logged, restarted=restarted))
+            if turn.error == CUT:
+                log.info(f"[variants] a top-up of {job.slot.words!r} gave way to More like these, "
+                         f"keeping {len(turn.variants)}")
+                break   # More writes now; a later draw tops up again when one is due
             if not logged:
                 if restarted or job.role == "early":   # an unseeded opening is asked once; the first write follows
                     if job.role == "early":
@@ -907,7 +923,9 @@ class PoolWriter:
 
     async def more(self, job: Job) -> List[str]:
         """More like these: TOPUP more, awaited. Its turns go next in the pool's session, ahead of
-        any background turn, so it is told everything the session wrote."""
+        any background turn, so it is told everything the session wrote. A background top-up's
+        turn streaming then is cut (its closed variants kept, the turn tallied with error CUT,
+        as a stalled one is) and that top-up ends, so More never waits for it to finish."""
         job.role = "more"
         while True:
             with self._lock:
@@ -920,6 +938,9 @@ class PoolWriter:
                 continue
             with contextlib.suppress(Exception):
                 return await asyncio.shield(running)   # the same More, asked twice: one batch
+        cut = self._cuts.get(job.key)
+        if cut is not None:   # a background top-up is streaming in this pool: it stops at once
+            cut.set()
         fut = asyncio.ensure_future(self.run(job))
         with self._lock:
             self._inflight[job.lane] = fut

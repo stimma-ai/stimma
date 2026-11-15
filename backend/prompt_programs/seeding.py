@@ -414,12 +414,25 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
     until = loop.time() + seconds
     if early is not None and jobs:
         await asyncio.wait(age_fs, timeout=seconds)
-        if all(f.done() for f in age_fs) and not all(f.done() for f in jobs.values()):
-            snap = _records(entry, plans, asks, scene, stage_f, anyone_f, ask, home, final=False)
-            try:
-                early(*snap)
-            except Exception as e:   # only means no early look
-                log.debug(f"[seeds] no early look: {e}")
+        # Once the ages are in, a look each time what can start changes as the narrowings land: a
+        # slot whose answers are all in starts its first write, and a person whose heritage, who
+        # and age are in opens with one seeded turn while their other lists are narrowed.
+        shown: Any = None
+        while all(f.done() for f in age_fs):
+            left = [f for f in jobs.values() if not f.done()]
+            if not left:
+                break
+            snap = _records(entry, plans, asks, scene, stage_f, anyone_f, ask, home, final=False, opening=True)
+            look = (tuple(snap[1]), tuple(sorted(sid for sid, r in snap[0].items() if r.get("opening"))))
+            if look != shown:
+                shown = look
+                try:
+                    early(*snap)
+                except Exception as e:   # only means no early look
+                    log.debug(f"[seeds] no early look: {e}")
+            if until - loop.time() <= 0:
+                break
+            await asyncio.wait(left, timeout=max(0.0, until - loop.time()), return_when=asyncio.FIRST_COMPLETED)
     done, _ = await asyncio.wait(every, timeout=max(0.0, until - loop.time()))
     for f in every:
         if f not in done:
@@ -429,9 +442,13 @@ async def narrow_seeds(entry: Dict[str, Any], cache: Any, ask: Any, project_id: 
 
 
 def _records(entry: Dict[str, Any], plans: Dict[str, Dict[str, Any]], asks: Dict[str, Any], scene: Dict[str, Any],
-             stage_f: Dict[str, "asyncio.Future"], anyone_f: "asyncio.Future", ask: Any, home: Any, final: bool) -> Tuple[Dict[str, Any], List[str], Optional[Dict[str, Any]]]:
+             stage_f: Dict[str, "asyncio.Future"], anyone_f: "asyncio.Future", ask: Any, home: Any, final: bool,
+             opening: bool = False) -> Tuple[Dict[str, Any], List[str], Optional[Dict[str, Any]]]:
     """(seeds, pending, ages) from the answers in so far: `final`, an answer not in is a failure
-    (or, cache-only, not known yet); else not in yet."""
+    (or, cache-only, not known yet); else not in yet. `opening` (before the end): a person whose
+    ages, heritage, who and age answers are in but not some idea or each list, or what the prompt
+    states of the scene, still pending, is marked `opening` with those lists whole: what their
+    one seeded opening turn draws from (fluent.early_job) while the rest is narrowed."""
     from prompt_programs import ages as A
     from prompt_programs.places import place_for
     from prompt_programs.vocab import minor_ages, tags_match, vocabulary
@@ -466,6 +483,7 @@ def _records(entry: Dict[str, Any], plans: Dict[str, Dict[str, Any]], asks: Dict
     pending: List[str] = []
     for sid, p in plans.items():
         waiting = state is None
+        held = False   # an answer not in yet that an opening turn can't do without
         banks = []
         for b in p["banks"]:
             leaf = vocab.leaves[b["list"]]
@@ -475,6 +493,7 @@ def _records(entry: Dict[str, Any], plans: Dict[str, Dict[str, Any]], asks: Dict
                 answered, n = answer(f)
                 if not answered:
                     waiting = True
+                    held = held or b["role"] not in ("idea", "each")
                 elif n is None:
                     n = None if b["role"] == "age" else []   # failed: an age seeds nothing, a list drops
                     if b["role"] == "age":
@@ -524,6 +543,8 @@ def _records(entry: Dict[str, Any], plans: Dict[str, Dict[str, Any]], asks: Dict
                     **({"stated": stated} if stated else {}), **record}
         if waiting:
             pending.append(sid)
+            if opening and not final and state is not None and not held and sid in stage_f:
+                out[sid]["opening"] = True
     return out, pending, state
 
 

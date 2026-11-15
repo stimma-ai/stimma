@@ -335,6 +335,71 @@ async def test_a_slot_not_about_a_person_shows_an_unseeded_chunk_while_its_narro
     assert store.has(slot(entry, "dominant_young_woman")["pool"])
 
 
+CAFE = "a <young woman> in a cafe"
+CAFE_READING = {"slots": [
+    {"n": 1, "kind": "person", "label": "Young woman", "lead": "a", "category": "",
+     "person": {"noun": "woman", "presentation": "feminine", "stated": {"age": "young"},
+                "vary": ["age", "descent", "build", "hair"], "outfit": "person.outfit.casual",
+                "people": "one", "being": "human"}}], "lists": []}
+
+
+class HeldLists(FakeModel):
+    """Narrowing of the lists named in `held` answers only once `go` is set; the rest at once."""
+
+    def __init__(self, held, **kw):
+        super().__init__(**kw)
+        self.held, self.go = set(held), asyncio.Event()
+
+    async def __call__(self, messages, project_id, max_tokens):
+        user = messages[-1]["content"]
+        if user.startswith("The list") and user.split('"')[1] in self.held:
+            await self.go.wait()
+        return await super().__call__(messages, project_id, max_tokens)
+
+
+async def test_a_person_opens_seeded_while_their_outfits_are_narrowed_in_the_scene(monkeypatch, profile):
+    model = HeldLists({"Casual outfits", "Weather"}, reading=CAFE_READING)
+    _, writer = use(monkeypatch, model)
+    store = P.store_for(profile)
+    await slots.prepare(CAFE, profile_id=profile)
+    await _until(lambda: P.writer_for(profile).calls >= 1)
+    await P.writer_for(profile).drain()
+    look = await slots.prepare(CAFE, profile_id=profile, start=False)
+    person = slot(look, "young_woman")
+    assert look["seeds_pending"] == ["young_woman"]
+    assert {b["role"] for b in store.batches(person["pool"])} == {"early"}
+    assert len(store.variants(person["pool"])) == V.TURN
+    # seeded with what is narrowed: who they are and their ages, never an age the words rule out
+    lines = list(writer.calls[0]["seeds"].values())
+    assert len(lines) == V.TURN and not any('gender: "man"' in ln for ln in lines)
+    assert any('gender: "' in ln for ln in lines)
+    assert not any(f"{a}-year-old" in ln for ln in lines for a in range(30, 100))
+    model.go.set()
+    entry = await settled(CAFE, profile)
+    person = slot(entry, "young_woman")
+    roles = [b["role"] for b in store.batches(person["pool"]) if b.get("variants")]
+    assert roles[:V.TURN] == ["early"] * V.TURN and set(roles[V.TURN:]) == {"first"}
+    later = [c for c in writer.calls[1:] if c["words"] == "young woman"]
+    assert later and all(c["more"] for c in later)          # the session the opening turn started
+    assert len(store.variants(person["pool"])) == V.N_PERSON
+
+
+async def test_a_person_never_opens_before_who_they_are_is_narrowed_nor_in_a_young_prompt(monkeypatch, profile):
+    for held, prompt, ages in (({"Gender", "Casual outfits"}, CAFE, YOUNG),
+                               ({"Casual outfits"}, "a <young woman> in a cafe with a 10-year-old", YOUNG)):
+        model = HeldLists(held, reading=CAFE_READING, ages=ages)
+        _, writer = use(monkeypatch, model)
+        P._writers.clear(); P._stores.clear()
+        await slots.prepare(prompt, profile_id=profile)
+        for _ in range(30):
+            await asyncio.sleep(0.01)
+        await P.writer_for(profile).drain()
+        assert writer.calls == []
+        model.go.set()
+        await settled(prompt, profile)
+        assert writer.calls
+
+
 async def test_a_failed_early_chunk_leaves_the_first_write_as_it_was(monkeypatch, profile):
     model = HeldNarrowing()
     _, writer = use(monkeypatch, model, FakeWriter(slips=["raise"]))
