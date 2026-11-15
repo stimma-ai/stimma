@@ -56,6 +56,17 @@ Object.assign(window, { editorTouch: {
     ]) }).mount('#app')
     return async (name: string) => { family.value = name; await nextTick() }
   },
+  /** A phone column the keyboard has shortened: hero over a drawer with a tall pinned prompt. */
+  mountShortDrawer() {
+    createApp({ render: () => h('div', { id: 'column', style: 'height:700px;display:flex;flex-direction:column' }, [
+      h('div', { id: 'hero', style: 'flex:1 1 0;min-height:0' }),
+      h(ToolDrawer, { idPrefix: 'short-drawer', initial: 'half', heroReserve: 200 }, {
+        pin: () => h('textarea', { id: 'pinned-prompt', style: 'display:block;height:180px;width:100%' }),
+        default: () => h('div', { style: 'height:600px' }, 'Properties'),
+      }),
+    ]) }).mount('#app')
+    return () => { document.getElementById('column')!.style.height = '330px' }
+  },
   mountColor(initial = { r: 255, g: 0, b: 0 }) {
     const color = ref(initial)
     createApp({ render: () => h(ColorPicker, {

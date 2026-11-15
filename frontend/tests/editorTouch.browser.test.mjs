@@ -63,6 +63,18 @@ test('dragging the drawer body moves the drawer, not just its content', async t 
   await swipeTouch(page, 200, full.y + 20, full.y + 600)
   assert.equal(await drawer.getAttribute('data-level'), 'collapsed')
 })
+test('the drawer keeps its pinned prompt whole when the keyboard shortens the column', async t => {
+  const page = await fixture(t)
+  await page.evaluate(() => { window.shorten = window.editorTouch.mountShortDrawer() })
+  await page.evaluate(() => window.shorten())
+  await page.waitForTimeout(300)
+  const drawer = await page.locator('.tool-drawer').boundingBox()
+  const prompt = await page.locator('#pinned-prompt').boundingBox()
+  // The hero gives up its reserve; the prompt is never cut off by the drawer's own box,
+  // so nothing (the editor keeping its caret in view) has a reason to scroll it.
+  assert.ok(prompt.y >= drawer.y && prompt.y + prompt.height <= drawer.y + drawer.height + 1,
+    `prompt ${prompt.y}+${prompt.height} inside drawer ${drawer.y}+${drawer.height}`)
+})
 test('annotation rectangle follows a finger and finishes once', async t => {
   const page = await fixture(t)
   await page.evaluate(() => { window.annotationTest = window.editorTouch.mountAnnotation() })

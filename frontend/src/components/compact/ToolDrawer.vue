@@ -285,10 +285,15 @@ defineExpose({
 </script>
 
 <template>
+  <!-- The pinned handle and prompt always fit (minHeight): when the keyboard shortens
+       the column, the hero gives up its reserve before the prompt is cut off, and the
+       drawer sits over whatever of the hero no longer fits. Clipped, not hidden: code
+       can still scroll an overflow-hidden box, and the editor keeping its caret in view
+       (and the browser, on focus) nudged the whole drawer up with each typed line. -->
   <div
     ref="rootEl"
-    class="tool-drawer flex-none flex flex-col min-h-0 overflow-hidden bg-surface border-t border-edge rounded-t-xl shadow-[0_-10px_30px] shadow-black/25 transition-[height] duration-200 ease-out"
-    :style="[style, { maxHeight: `calc(100% - ${heroReserve}px)` }]"
+    class="tool-drawer relative z-chrome flex-none flex flex-col min-h-0 overflow-clip bg-surface border-t border-edge rounded-t-xl shadow-[0_-10px_30px] shadow-black/25 transition-[height] duration-200 ease-out"
+    :style="[style, { maxHeight: `calc(100% - ${heroReserve}px)`, minHeight: `min(${collapsedPx ?? COLLAPSED_MIN}px, 100%)` }]"
     :data-level="level"
     @touchstart.passive="onTouchStart"
     @touchend="onTouchEnd"
