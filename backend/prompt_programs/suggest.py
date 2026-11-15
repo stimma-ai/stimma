@@ -114,6 +114,14 @@ Reply with JSON only, in this shape:
 {"after": "reading on a porch at dusk", "insert": ", lit by <light>"}"""
 
 
+def hidden(prompt: str) -> str:
+    """The prompt as a model may read it: [exact text] is the user's and never sent; each
+    becomes a token like [EXACT_1]. Replies are checked against the prompt as typed, so a
+    phrase or join that names a token simply isn't found there and is dropped."""
+    from prompt_programs.program import mask_exact
+    return mask_exact(prompt)[0]
+
+
 async def ask_model(messages: List[Dict[str, Any]], project_id: Optional[int], max_tokens: int) -> str:
     """One plain completion from the chat model the editor's helpers use."""
     from llm import llm_complete_text
@@ -347,7 +355,7 @@ async def suggest(prompt: str, ask: Optional[Ask] = None, cache: Optional[Narrow
         if isinstance(hit, dict) and isinstance(hit.get("vary"), list) and isinstance(hit.get("adds"), list):
             return {"vary": hit["vary"], "adds": offered_adds(prompt, hit)}
     messages: List[Dict[str, Any]] = [{"role": "system", "content": SUGGEST_SYSTEM},
-                                      {"role": "user", "content": f"The prompt:\n{prompt}"}]
+                                      {"role": "user", "content": f"The prompt:\n{hidden(prompt)}"}]
     for attempt in range(2):
         reply = await ask(messages, project_id, 800)
         got = _json_object(reply)
@@ -491,7 +499,7 @@ async def add(prompt: str, name: str, ask: Optional[Ask] = None, project_id: Opt
         return plain_add(prompt, name)
     ask = ask or ask_model
     messages: List[Dict[str, Any]] = [{"role": "system", "content": ADD_SYSTEM},
-                                      {"role": "user", "content": f"The prompt:\n{prompt}\n\nAdd: <{name}>"}]
+                                      {"role": "user", "content": f"The prompt:\n{hidden(prompt)}\n\nAdd: <{name}>"}]
     for attempt in range(2):
         reply = await ask(messages, project_id, ADD_TOKENS)
         got = _json_object(reply)

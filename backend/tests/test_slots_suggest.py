@@ -465,3 +465,26 @@ class TestRoutes:
             r = await c.post("/api/prompt-programs/add", json={"prompt": edited, "name": "weather", "after": "on a porch",
                                                               "insert": " in <weather>", "suggested_for": prompt})
             assert r.json()["prompt"] == "an old man in <weather> reading on a porch at dusk, lit by candlelight"
+
+
+# --------------------------------------------------------------------------- exact text stays private
+
+class TestExactTextIsNeverSent:
+    SECRET = "Jane Q. Example, 12 Elm St"
+
+    def sent(self, ask):
+        return json.dumps(ask.calls, ensure_ascii=False)
+
+    async def test_suggest_sends_a_token_not_the_text(self):
+        prompt = f"a woman holding a sign that reads [{self.SECRET}] in a park"
+        ask = Fake(vary("woman", "park"))
+        got = await sg.suggest(prompt, ask)
+        assert self.SECRET not in self.sent(ask) and "[EXACT_1]" in self.sent(ask)
+        for v in got["vary"]:   # offsets still index the prompt as typed
+            assert prompt[v["from"]:v["to"]] == v["text"]
+
+    async def test_add_sends_a_token_not_the_text(self):
+        prompt = f"a woman holding a sign that reads [{self.SECRET}] in a park"
+        ask = Fake({"after": "in a park", "insert": ", lit by <light>"})
+        await sg.add(prompt, "light", ask)
+        assert self.SECRET not in self.sent(ask) and "[EXACT_1]" in self.sent(ask)
