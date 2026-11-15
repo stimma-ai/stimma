@@ -122,7 +122,29 @@ if (hasWindow) {
   const refreshWidth = () => { liveWidth.value = readWidth() }
   narrowQuery?.addEventListener('change', refreshWidth)
   mediumWidthQuery?.addEventListener('change', refreshWidth)
-  shortQuery?.addEventListener('change', (e) => { liveShort.value = e.matches })
+  shortQuery?.addEventListener('change', refreshShort)
+  // A window that grew back (the keyboard closed) re-reads it once nothing is being typed.
+  window.addEventListener?.('resize', refreshShort)
+}
+
+/**
+ * The software keyboard shortens the window while a text field has focus. That is
+ * not a short screen: re-laying out for one moves the field being typed in (the
+ * docked agent leaves for the drawer), which drops focus and closes the keyboard
+ * again. So the window only becomes short while nothing is being typed.
+ */
+function refreshShort() {
+  const short = !!shortQuery?.matches
+  if (short && !liveShort.value && editingText()) return
+  liveShort.value = short
+}
+
+const NON_TEXT_INPUTS = new Set(['button', 'checkbox', 'color', 'file', 'image', 'radio', 'range', 'reset', 'submit'])
+function editingText(): boolean {
+  const el = typeof document !== 'undefined' ? document.activeElement as HTMLElement | null : null
+  if (!el) return false
+  if (el.isContentEditable || el.tagName === 'TEXTAREA') return true
+  return el.tagName === 'INPUT' && !NON_TEXT_INPUTS.has((el as HTMLInputElement).type)
 }
 
 const tier = computed<ViewportTier>(() => override.value.tier ?? liveTier.value)
@@ -134,7 +156,8 @@ const isWide = computed(() => tier.value === 'wide')
 /** Compact chrome with room to spare: an unfolded foldable, a tablet in the phone shell. */
 const isRoomy = computed(() => tier.value === 'compact' && width.value !== 'narrow')
 const isCoarsePointer = computed(() => pointer.value === 'coarse')
-/** Under 500px tall (a landscape phone): keep docked extras behind a button. */
+/** Under 500px tall (a landscape phone): keep docked extras behind a button. The keyboard
+    opening over a text field doesn't count (see refreshShort). */
 const isShort = computed(() => liveShort.value)
 /** Browsing a touch surface should never summon the software keyboard. */
 const allowsAutofocus = computed(() => !isCompact.value && !isCoarsePointer.value)
