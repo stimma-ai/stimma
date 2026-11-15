@@ -36,7 +36,7 @@ async function fixture(t, bridgeOverrides = {}) {
     return event
   }
   return { api, down, up: () => api.handleInputKeyup({ key: ' ', code: 'Space' }), flush,
-    tick: ms => t.mock.timers.tick(ms), window,
+    tick: ms => t.mock.timers.tick(ms), window, document,
     get text() { return text }, get starts() { return starts }, get stops() { return stops }, toasts }
 }
 
@@ -239,7 +239,7 @@ test('a phone that can listen records without any model download', async t => {
 test('a denied microphone on a phone says why and leaves the button ready', async t => {
   const f = await fixture(t, {
     kind: 'android',
-    voiceStart: async () => { throw new Error('Allow microphone access for Stimma in Settings to use voice input.') },
+    voiceStart: async () => { throw new Error('Allow microphone access in Settings') },
   })
   assert.equal(await f.api.start(), false)
   assert.equal(f.api.state.value, 'idle')
@@ -263,4 +263,22 @@ test('the microphone prompt taking focus does not cancel a phone dictation', asy
   f.window.dispatchEvent(new Event('blur'))
   await f.flush()
   assert.equal(f.api.state.value, 'recording')
+})
+
+test('the microphone prompt hiding the page does not cancel a phone dictation that is starting', async t => {
+  let answer
+  const f = await fixture(t, { kind: 'android', voiceStart: () => new Promise(resolve => { answer = resolve }) })
+  const started = f.api.start()
+  await f.flush()
+  f.document.hidden = true
+  f.document.dispatchEvent(new Event('visibilitychange'))
+  f.document.hidden = false
+  answer()
+  assert.equal(await started, true)
+  assert.equal(f.api.state.value, 'recording')
+  // Once listening, leaving the app still cancels.
+  f.document.hidden = true
+  f.document.dispatchEvent(new Event('visibilitychange'))
+  await f.flush()
+  assert.equal(f.api.state.value, 'idle')
 })

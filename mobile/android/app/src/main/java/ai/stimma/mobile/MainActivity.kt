@@ -445,6 +445,8 @@ class MainActivity : ComponentActivity() {
             require(view === mainView && !model.showConnections)
             val title = args.optString("title").trim().take(80).ifEmpty { "Stimma" }
             val finished = CompletableDeferred<Unit>()
+            // The WebView's own background fills the page margins; paper is white.
+            view.setBackgroundColor(Color.WHITE)
             val pages = view.createPrintDocumentAdapter(title)
             // Resolves when the print dialog closes, so the page keeps its print content until then.
             (getSystemService(PRINT_SERVICE) as PrintManager).print(title, object : PrintDocumentAdapter() {
@@ -455,7 +457,7 @@ class MainActivity : ComponentActivity() {
                     pages.onWrite(range, destination, cancel, callback)
                 override fun onFinish() { pages.onFinish(); finished.complete(Unit) }
             }, null)
-            withTimeoutOrNull(600000) { finished.await() }
+            try { withTimeoutOrNull(600000) { finished.await() } } finally { view.setBackgroundColor(BACKGROUND) }
             null
         }
         "voiceStatus" -> JSONObject().put("available", dictation.available)

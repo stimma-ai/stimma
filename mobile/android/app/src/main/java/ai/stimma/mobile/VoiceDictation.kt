@@ -166,7 +166,7 @@ class VoiceDictation(private val context: Context, private val emit: (JSONObject
     }
 
     companion object {
-        const val PERMISSION_MESSAGE = "Allow microphone access for Stimma in Settings to use voice input."
+        const val PERMISSION_MESSAGE = "Allow microphone access in Settings"
         /** Silence after which a forgotten dictation stops listening (each try lasts several seconds). */
         private const val MAX_QUIET_RESTARTS = 12
         private const val QUIET_MESSAGE = "Stopped listening. Tap the microphone to talk again."

@@ -4,7 +4,6 @@ import android.content.ContentResolver
 import android.content.ContentValues
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 
@@ -12,10 +11,11 @@ import androidx.annotation.RequiresApi
 val NATIVE_FEATURES = listOf("print", "saveFile", "shareBase64", "voice")
 
 /** Where a saved file lands on the phone, and what the person is told. */
+/** Folders are the platform's standard Pictures, Movies and Download directories. */
 enum class SaveTarget(val folder: String, val location: String) {
-    PHOTO("${Environment.DIRECTORY_PICTURES}/Stimma", "photos"),
-    VIDEO("${Environment.DIRECTORY_MOVIES}/Stimma", "photos"),
-    DOWNLOAD(Environment.DIRECTORY_DOWNLOADS, "downloads"),
+    PHOTO("Pictures/Stimma", "photos"),
+    VIDEO("Movies/Stimma", "photos"),
+    DOWNLOAD("Download", "downloads"),
 }
 
 /** Formats the phone's gallery shows; everything else goes to Downloads. */

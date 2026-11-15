@@ -173,6 +173,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
    * Returns true if recording actually started.
    */
   let startAttempt = 0
+  let awaitingPhoneStart = false
 
   async function start(): Promise<boolean> {
     if (state.value === 'starting' || state.value === 'recording' || state.value === 'finalizing' || state.value === 'downloading') {
@@ -220,7 +221,13 @@ export function useVoiceInput(opts: VoiceInputOptions) {
       state.value = 'recording'
       recordingStartedAt = Date.now()
       console.debug('[voice] start: beginning capture')
-      await desktop.voiceStart(onEvent)
+      // The phone's microphone prompt hides the page while it is open; that is not leaving.
+      awaitingPhoneStart = isPhone()
+      try {
+        await desktop.voiceStart(onEvent)
+      } finally {
+        awaitingPhoneStart = false
+      }
       if (attempt !== startAttempt || state.value !== 'recording') return false
       startKeepalive()
       return true
@@ -451,11 +458,12 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   // these don't fire, the Rust lease still catches it; this just makes it
   // immediate.)
   function onWindowBlur() {
-    // The phone's microphone prompt takes focus; backgrounding is caught below and natively.
+    // The phone's microphone prompt takes focus; leaving the app is caught below and natively.
     if (isPhone()) return
     if (state.value === 'starting' || state.value === 'recording' || spacePending || spaceDictating) void cancel('window-blur')
   }
   function onVisibilityChange() {
+    if (awaitingPhoneStart) return
     if (document.hidden && (state.value === 'starting' || state.value === 'recording' || spacePending || spaceDictating)) void cancel('visibility-hidden')
   }
   function onPageHide() {

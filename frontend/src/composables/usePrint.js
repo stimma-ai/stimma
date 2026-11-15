@@ -2,7 +2,8 @@ import { escapeHtml, printSheetHtml } from '../utils/printSheet'
 
 /**
  * Create a print-only overlay that covers the entire page with just the printable content,
- * invoke the native print dialog via Tauri's webview.print(), then remove the overlay.
+ * invoke the native print dialog (the shell's print, or window.print()), then remove the overlay.
+ * The Android shell resolves print() only when its dialog closes, so the overlay stays for it.
  *
  * The overlay uses @media print styles to hide the app and show only print content.
  * WKWebView ignores @page { size } so we don't try to control orientation — the user
@@ -20,6 +21,7 @@ async function printWithOverlay(contentHtml) {
       html, body {
         margin: 0 !important;
         padding: 0 !important;
+        background: white !important;
         height: auto !important;
         overflow: visible !important;
       }
