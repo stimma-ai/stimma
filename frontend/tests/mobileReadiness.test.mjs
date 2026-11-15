@@ -8,8 +8,8 @@ import { shareFile } from '../src/utils/nativeShare.ts'
 
 for (const phoneKind of ['ios', 'android']) test(`${phoneKind}: native share cancellation leaves the dialog open like Web Share cancellation`, async () => {
   const file = new File(['image'], 'image.png', { type: 'image/png' })
-  await assert.rejects(shareFile(file, { kind: phoneKind, saveToDownloads: async () => false }, {}), { name: 'AbortError' })
-  assert.equal(await shareFile(file, { kind: phoneKind, saveToDownloads: async () => true }, {}), true)
+  await assert.rejects(shareFile(file, { kind: phoneKind, shareBytes: async () => false }, {}), { name: 'AbortError' })
+  assert.equal(await shareFile(file, { kind: phoneKind, shareBytes: async () => true }, {}), true)
 })
 
 function swipeFixture() {
