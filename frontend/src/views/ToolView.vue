@@ -1356,6 +1356,7 @@ import { copyToClipboard } from '../utils/clipboard'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
 import { validateTaskType } from '../utils/taskTypeValidation'
+import { isMiniMaxH3VideoModel } from '../utils/promptModel'
 import { addToast } from '../composables/useToasts'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import CompareMode from '../components/CompareMode.vue'
@@ -4125,7 +4126,7 @@ const enhanceUsesImage = computed(() => {
   const source: any = videoImages.startImage
   return !!(source?.path || source?.file_path || source?.filePath)
 })
-const enhanceIsMiniMaxH3 = computed(() => /(?:minimax[\s._-]*h3|hailuo[\s._-]*(?:h3|0?3|3(?:\.0)?))/i.test(toolModelString.value || ''))
+const enhanceIsMiniMaxH3 = computed(() => isMiniMaxH3VideoModel(toolModelString.value))
 // Direct improves at the Detail level only a prompt that describes a picture or a clip.
 const directImprovesHere = computed(() => directImproves({
   ideogram: enhanceMode.value === 'ideogram-json', h3: enhanceIsMiniMaxH3.value,

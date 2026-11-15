@@ -45,6 +45,11 @@ FIXTURES = [
     ("Qwen/Qwen3-235B-A22B", "qwen-3"),
     ("qwen2.5-vl-72b-instruct", "qwen-2.5-vl"),
     ("Qwen3-30B-A3B-Q4_K_M.gguf", "qwen-3"),
+    # H3 Image must not inherit the H3 video prompt format.
+    ("minimax-h3-image", "minimax-h3-image"),
+    ("MiniMax H3 Image Inpaint", "minimax-h3-image"),
+    ("minimax-h3-image-outpaint", "minimax-h3-image"),
+    ("minimax_h3_image_pruned_int8_convrot.safetensors", "minimax-h3-image"),
     # --- Video ---
     ("wan2.2_t2v_high_noise_14B_fp8.safetensors", "wan-2.2"),
     ("wan2.1-i2v-14b-720p", "wan-2.1"),

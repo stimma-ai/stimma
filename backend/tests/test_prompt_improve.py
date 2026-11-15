@@ -689,3 +689,27 @@ async def test_krea_2_gets_the_prose_request(prompt_variant_probe):
     await pe.improve_prompt(ImprovePromptRequest(prompt="a fox in snow", model="krea-2-turbo"), session=None)
     assert prompt_variant_probe["prompt_keys"] == ["improve_krea2_system_prompt"]
     assert prompt_variant_probe["messages"][1]["content"].startswith("Rewrite this image request as a concrete")
+
+
+@pytest.mark.parametrize("edit,expected", [(False, "prose"), (True, "edit")])
+def test_h3_image_uses_image_enhancement_not_video_context_ir(edit, expected):
+    family = model_family("minimax-h3-image")
+    assert enhancement_mode(family, is_image_edit=edit) == expected
+
+
+@pytest.mark.parametrize("task,parameters,expected", [
+    ("text-to-image", {"prompt": "a teapot"}, "prose"),
+    ("image-to-image", {"prompt": "make it blue", "input_images": ["source.png"]}, "edit"),
+    ("inpaint-image", {"prompt": "a star", "input_images": ["source.png"], "mask": "mask.png"}, "edit"),
+    ("outpaint-image", {"input_images": ["source.png"], "expand_right_pct": 20}, "edit"),
+])
+def test_h3_image_generation_context_has_no_video_format(monkeypatch, task, parameters, expected):
+    import routes.generation as gen
+    schema = {"input_images": {"type": "array", "x-control": "image_picker"}}
+    monkeypatch.setattr(gen, "_prompt_pipeline_context", lambda *a: ("minimax-h3-image", "minimax", task, schema))
+    context = gen.prompt_enhance_context(parameters, "comfyui:minimax-h3-image", task, None)
+    assert context["mode"] == expected
+    assert context["enhance"]["h3_task"] is None
+    assert context["enhance"]["h3_duration"] is None
+    assert context["enhance"]["is_video"] is False
+    assert gen.native_prompt_format("comfyui:minimax-h3-image", task) is None

@@ -100,6 +100,8 @@ SEED_RULES: List[Tuple[str, str]] = [
     (r"hunyuan[ ._-]?video", "hunyuan-video"),
     (r"hunyuan[ ._-]?image", "hunyuan-image"),
     (r"hunyuan", "hunyuan-other"),
+    # Image is a separate prompt family; match it before the H3 video line.
+    (r"(?:minimax[ ._-]*h3|hailuo[ ._-]*(?:h3|0?3|3(?:\.0)?))[ ._-]*image", "minimax-h3-image"),
     (r"minimax[ ._-]?h3|hailuo[ ._-]?(h3|0?3|3(?:\.0)?)", "minimax-h3"),
     (r"ltx[ ._@-]*(?:video[ ._@-]*)?2[ ._-]?5(?!\d)", "ltx-2.5"),
     (r"\bltx\b|ltx[ ._-]?v(ideo)?|ltx[ ._-]?\d", "ltx-video"),
