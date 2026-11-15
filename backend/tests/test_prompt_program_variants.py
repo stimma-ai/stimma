@@ -598,11 +598,12 @@ def test_least_used_draws_use_the_pool_before_repeating():
     uses: Dict[str, int] = {}
     rng = random.Random(1)
     got = []
-    for _ in range(10):
+    drawn = [v for v in POOL if v["seeds"]["gender"] != "non-binary person"]   # opt-in: drawn only when picked
+    for _ in range(8):
         p = P.pick(POOL, uses, P.Choice(), rng, "young woman")
         uses[p.text.lower()] = uses.get(p.text.lower(), 0) + 1
         got.append(p.text)
-    assert len(set(got[:5])) == 5 and Counter(got) == Counter({v["text"]: 2 for v in POOL})
+    assert len(set(got[:4])) == 4 and Counter(got) == Counter({v["text"]: 2 for v in drawn})
     # the same seed and counts draw the same
     assert P.pick(POOL, {}, P.Choice(), random.Random(9), "w").text == P.pick(POOL, {}, P.Choice(), random.Random(9), "w").text
 
@@ -701,6 +702,26 @@ def test_a_top_up_is_due_at_80_percent_of_a_round():
     assert not P.due(big, {f"v{i}": 1 for i in range(P.MAX_POOL - 1)}, P.Choice())
 
 
+def test_unpinned_draws_leave_out_variants_written_for_an_opt_in_gender():
+    # a trans woman pinned for <chef>, then unpinned: her variants stay in the pool, drawn only when picked
+    pool = [{"text": "chef a", "seeds": {"gender": "woman"}}, {"text": "chef b", "seeds": {"gender": "man"}},
+            {"text": "chef c", "seeds": {"gender": "trans woman"}}, {"text": "kid", "seeds": {"gender": "non-binary child"}}]
+    assert [v["text"] for v in P.drawable(pool, P.Choice())] == ["chef a", "chef b"]
+    assert [v["text"] for v in P.drawable(pool, P.Choice(pins=V.Pins(gender=("trans woman",))))] == ["chef c"]
+    rng = random.Random(1)
+    assert {P.pick(pool, {}, P.Choice(), rng, "chef").text for _ in range(50)} == {"chef a", "chef b"}
+    # a pool the words asked for ("a trans woman") draws as before
+    asked = [{"text": f"tw {i}", "seeds": {"gender": "trans woman"}} for i in range(3)] + [{"text": "x", "seeds": {}}]
+    assert len(P.drawable(asked, P.Choice())) == 4
+
+
+def test_a_pick_of_several_genders_draws_each_opt_in_ones_too():
+    s = V.person_seeds(gender=["woman", "man"]).pinned(V.Pins(gender=("woman", "non-binary person")))
+    assert set(s.gender.texts()) == {"woman", "non-binary person"}
+    got = Counter(x.gender for x in V.draw_seeds(random.Random(3), s, 200).specs)
+    assert set(got) == {"woman", "non-binary person"}
+
+
 def test_person_pickers():
     got = P.person_pickers(POOL, P.Choice(pins=V.Pins(regions=("East Asia",))), fits=["Korean", "Japanese"])
     d = got["descent"]
@@ -712,6 +733,12 @@ def test_person_pickers():
     assert g["label"] == "Gender" and g["options"] == ["woman", "man", "trans woman", "trans man", "non-binary person"]
     assert g["in_pool"] == {"woman": 2, "man": 2, "non-binary person": 1} and g["fits"] == g["options"]
     assert P.person_pickers(POOL, P.Choice(), gender_fits=["woman", "trans woman"])["gender"]["fits"] == ["woman", "trans woman"]
+    # opt-in genders are never drawn unasked but always pickable: every one where the words leave
+    # gender open, those of its presentation where they say it
+    assert P.person_pickers(POOL, P.Choice(), gender_fits=["woman", "man"])["gender"]["fits"] == g["options"]
+    assert P.person_pickers(POOL, P.Choice(), gender_fits=["woman"])["gender"]["fits"] == ["woman", "trans woman"]
+    assert P.person_pickers(POOL, P.Choice(), gender_fits=["man"])["gender"]["fits"] == ["man", "trans man"]
+    assert P.person_pickers(POOL, P.Choice(), gender_fits=["trans woman"])["gender"]["fits"] == ["trans woman"]
     a = got["age"]
     assert a["label"] == "Age" and a["browse"] == "life_stage"
     assert a["options"] == a["fits"] == ["young adult", "middle-aged", "older", "elderly"]   # an adult: no child or teen

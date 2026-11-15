@@ -372,7 +372,19 @@ def drawable(variants: Sequence[Dict[str, Any]], choice: Choice) -> List[Dict[st
     if choice.pins:
         hit = [v for v in variants if matches(v.get("seeds") or {}, choice.pins)]
         return hit + own if hit else []
-    return list(variants) + own
+    return unasked(variants) + own
+
+
+def unasked(variants: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """What a slot draws from with nothing picked: a variant written for an opt-in gender (a
+    trans woman pinned for <chef> and unpinned since) only where no variant was written for a
+    gender drawn unasked (the words asked for it: "a trans woman")."""
+    from prompt_programs.variants import opt_in_who
+    opt = opt_in_who()
+    said = [str((v.get("seeds") or {}).get("gender") or "") for v in variants]
+    if not any(g and g not in opt for g in said):
+        return list(variants)
+    return [v for v, g in zip(variants, said) if g not in opt]
 
 
 def pick(variants: Sequence[Dict[str, Any]], uses: Dict[str, int], choice: Choice, rng: random.Random, words: str,
@@ -436,6 +448,22 @@ def in_pool_years(variants: Sequence[Dict[str, Any]]) -> Dict[str, int]:
     return out
 
 
+def _gender_fits(g: Any, fits: Optional[Sequence[str]]) -> List[str]:
+    """The genders a person's picker offers: what their words allow, and the opt-in ones (drawn
+    only when asked, but always pickable) that agree with it: all of them where the words leave
+    gender open ("chef"), those of its presentation where they don't ("woman": trans woman)."""
+    every = [v.text for v in g.values]
+    if not fits:
+        return every
+    allowed = set(fits)
+    common = [v for v in g.values if not v.opt_in]
+    if {v.text for v in common} <= allowed:
+        return every
+    shown = {p for v in g.values if v.text in allowed for p in (v.tags.get("presentation") or ())}
+    return [v.text for v in g.values if v.text in allowed
+            or (v.opt_in and set(v.tags.get("presentation") or ()) & shown)]
+
+
 def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: Optional[Sequence[str]] = None,
                    gender_fits: Optional[Sequence[str]] = None,
                    ages: Optional[Dict[str, List[str]]] = None, gender_list: Optional[str] = "",
@@ -473,7 +501,7 @@ def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: 
     g = vocab.get(gender_list) if gender_list else None
     if g is not None:
         out["gender"] = {"list": g.id, "label": g.label, "options": [v.text for v in g.values],
-                         "fits": list(gender_fits) if gender_fits else [v.text for v in g.values],
+                         "fits": _gender_fits(g, gender_fits),
                          "picked": {"values": list(choice.pins.gender)}, "in_pool": in_pool(variants, "gender")}
     a = vocab.get(AGE) if age else None
     if a is not None:

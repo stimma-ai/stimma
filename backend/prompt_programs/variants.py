@@ -51,7 +51,7 @@ import random
 import re
 from collections import Counter
 from dataclasses import dataclass, field, replace
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 from core.logging import get_logger
 
@@ -211,6 +211,16 @@ def bank(list_id: str, narrowed: Optional[Sequence[str]] = None, *, minor: bool 
         context = [(f, tuple((stated or {}).get(f, ()))) for f in sorted(leaf.takes)]
         pairs = [(t, w) for t, w in leaf.weigh(pairs, context) if w > 0]
     return Bank(leaf.id, leaf.label, tuple(pairs)) if pairs else None
+
+
+def opt_in_who() -> Set[str]:
+    """Every opt-in value of the kinds' who lists and their stage lists (trans woman, trans girl,
+    non-binary teenager): who a person is drawn as only when asked."""
+    from prompt_programs.vocab import vocabulary
+    vocab = vocabulary()
+    ids = {lid for k in vocab.ordered_kinds() for r in k.draws if r.role == "who"
+           for lid in ([r.list] if isinstance(r.list, str) else []) + list((r.stages or {}).values())}
+    return {v.text for lid in ids for leaf in [vocab.get(lid)] if leaf is not None for v in leaf.values if v.opt_in}
 
 
 def asked_who(list_id: str, narrowed: Optional[Sequence[str]]) -> Optional[List[str]]:
@@ -390,8 +400,10 @@ class Seeds:
                     fits = replace(fits, values=weigh(fits.values, dict(self.place or ()), self.heritage_list))
             out = replace(out, descent=fits, descent_pinned=True)
         if pins.gender and (self.gender is not None or self.who_list):
+            # A pick is an ask: every value picked is drawn, opt-in ones too ("woman" and "non-binary
+            # person" both, though the words' bank holds woman alone).
             fits = self.gender.only(pins.gender) if self.gender is not None else None
-            out = replace(out, gender=fits or bank(self.who_list or self.gender.list_id, pins.gender))
+            out = replace(out, gender=bank(self.who_list or self.gender.list_id, pins.gender) or fits)
         if (pins.age or pins.years) and self.person:
             # Within what their words allow and the minors rules (age_stages), even where the words
             # state an age and no age is seeded unpinned: a picked age always shows in the variants.
@@ -1638,7 +1650,7 @@ def split(drawn: Drawn, size: int = TURN) -> List[Drawn]:
 
 __all__ = ["AGE", "CUT", "STAGE", "Ask", "Bank", "Deadline", "Drawn", "N_OTHER", "N_PERSON", "MIN_POOL", "MORE_TURNS",
            "ObjectReader", "Pins", "SHORTLIST", "Seeds", "kind_seeds", "system_text", "typical_text", "Session", "Slot", "Spec", "TOPUP", "TURN", "Turn",
-           "VARIANTS_VERSION", "age_stages", "asked_who", "age_years", "allowed_ages", "article_before", "ask_writer", "bank",
+           "VARIANTS_VERSION", "age_stages", "asked_who", "opt_in_who", "age_years", "allowed_ages", "article_before", "ask_writer", "bank",
            "check", "context_words", "draw_seeds", "first_turn", "retry_note", "gender_mark", "gender_needs", "has_run", "kept_chunks", "list_seeds", "messages",
            "minor_line", "minor_words", "minors_lines", "young_line", "more_turn", "parse_reply", "person_seeds", "repair", "reply_text", "split", "stages_of",
            "tokens", "valid_category", "write_turn", "year_ages"]
