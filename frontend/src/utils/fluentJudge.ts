@@ -1,5 +1,6 @@
 // Tool View's prompt feature (PROMPT_BRAND) has each image's choices checked to fit
-// together by the chat model, on the server, as the image is drawn.
+// together on the server as the image is drawn: by a small judge model the app downloads,
+// and by the chat model until that judge is loaded.
 
 /** Generation details: one quiet line when this image's choices weren't checked because the
     checker wasn't there. A draw with only one choice has nothing to check (skipped "one part"). */

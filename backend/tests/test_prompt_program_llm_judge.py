@@ -95,15 +95,15 @@ def test_the_reply_is_read_line_by_line():
     assert {int(m.group(1)): m.group(2) for m in llm_judge._ANSWER.finditer(text)} == {1: "no", 2: "rare", 3: "yes"}
 
 
-def test_default_means_the_tool_view_model_and_without_it_a_draw_ships_unjudged():
+def test_without_the_pinned_judge_or_the_tool_view_model_a_draw_ships_unjudged():
     llm_judge.reset()
     cfg = FluentSettings()
-    assert fix_mode(cfg.fix_model) == "default" and judge_identity(cfg) == "llm"
+    assert fix_mode(cfg.fix_model) == "default" and judge_identity(cfg).endswith("|llm")
     entry = entry_for("A field of <crop> under <sky>.", (CROP, {**SKY, "n": 2}),
                       {"sky": ["a clear sky", "a stormy sky"], "crop": ["wheat", "rye"]}, key="k")
     r, rec = realize_and_fix(entry, seed=3, cfg=cfg, profile_id=PROFILE)
     assert r.prompt.startswith("A field of ")
-    assert rec == {"judge": "llm", "skipped": "unavailable"}
+    assert rec["skipped"] == "unavailable" and rec["judge"].startswith("pick-judge/")
 
 
 def test_a_draw_with_one_judged_part_asks_no_judge(monkeypatch, loop):

@@ -9,11 +9,12 @@ A release dir holds exactly the files its manifest lists plus manifest.json. `pa
 builds one from an ALLOWLIST (the ONNX model, the tokenizer files, a trimmed io.json,
 LICENSE): nothing else in the source directory is ever read or copied. `publish`
 uploads a verified release dir to `<prefix>/<version>/` on the models bucket over
-R2's S3 API (multipart for large files), refuses to overwrite an existing version,
-checks the public URL serves every file intact, then writes the app's pin
-(backend/model_manifests/<name>.json). Credentials come from the environment only:
-R2_S3_ENDPOINT, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and STIMMA_MODELS_R2_BUCKET
-(or --bucket).
+R2's S3 API (multipart for large files), or with `--wrangler` through a logged-in
+Wrangler (one put per file, so each must be under WRANGLER_MAX_BYTES), refuses to
+overwrite an existing version, checks the public URL serves every file intact, then
+writes the app's pin (backend/model_manifests/<name>.json). S3 credentials come from
+the environment only: R2_S3_ENDPOINT, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and
+STIMMA_MODELS_R2_BUCKET (or --bucket).
 
 Only the pick judge (name "pick-judge", JUDGE_IO contract 1) is packed today; verify
 and publish work for any bundle manifest.
@@ -235,6 +236,9 @@ def publish(a: argparse.Namespace) -> None:
     if a.dry_run:
         print(json.dumps({"bucket": bucket or "(STIMMA_MODELS_R2_BUCKET)", "prefix": prefix, "upload": keys}, indent=1))
         return
+    if getattr(a, "wrangler", False):
+        publish_wrangler(a, release, m, prefix, bucket, keys)
+        return
     env = {k: "".join(os.environ.get(k, "").split()) for k in ("R2_S3_ENDPOINT", "AWS_ACCESS_KEY_ID",
                                                                "AWS_SECRET_ACCESS_KEY")}
     if not bucket or not all(env.values()):
@@ -266,6 +270,48 @@ def publish(a: argparse.Namespace) -> None:
     write_pin(release)
 
 
+WRANGLER_MAX_BYTES = 300 * 1024 * 1024   # Wrangler's single-put limit for `r2 object put`
+
+
+def _served(url: str) -> bool:
+    """Whether the public mirror serves `url` (a HEAD that answers 200)."""
+    import urllib.error
+    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "Stimma/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.status == 200
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return False
+        raise
+
+
+def publish_wrangler(a: argparse.Namespace, release: Path, m: dict, prefix: str, bucket: str,
+                     keys: list) -> None:
+    """Upload with `npx wrangler r2 object put` (run in --wrangler-dir, a project with
+    Wrangler logged in). The version must not be served yet; the manifest goes up last."""
+    import subprocess
+    if not bucket:
+        die("set STIMMA_MODELS_R2_BUCKET (or --bucket)")
+    base = a.base_url or DEFAULT_BASE_URL
+    root = f"{base.rstrip('/')}/{prefix}"
+    if any(_served(f"{root}/{k}") for k in keys):
+        die(f"{prefix}/ is already served from {base}: versions are immutable, pack a new one (.N+1)")
+    big = [k for k in keys if (release / k).stat().st_size > WRANGLER_MAX_BYTES]
+    if big:
+        die(f"{', '.join(big)} is over Wrangler's single-put limit: publish over S3 instead")
+    types = {".json": "application/json", ".onnx": "application/octet-stream"}
+    cwd = getattr(a, "wrangler_dir", None) or os.environ.get("STIMMA_CALLER_CWD") or None
+    for k in keys:
+        p = (release / k).resolve()
+        print(f"uploading {prefix}/{k} ({p.stat().st_size} bytes)")
+        subprocess.run(["npx", "wrangler", "r2", "object", "put", f"{bucket}/{prefix}/{k}", "--remote",
+                        "--file", str(p), "--content-type", types.get(p.suffix, "text/plain; charset=utf-8"),
+                        "--cache-control", "public, max-age=31536000, immutable"], cwd=cwd, check=True)
+    check_remote(m, base)
+    write_pin(release)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(prog="stimma models", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -291,6 +337,8 @@ def main() -> None:
     p.add_argument("--bucket", help="the models bucket (default STIMMA_MODELS_R2_BUCKET)")
     p.add_argument("--base-url", help=f"public URL to verify against (default {DEFAULT_BASE_URL})")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--wrangler", action="store_true", help="upload with a logged-in Wrangler instead of S3 keys")
+    p.add_argument("--wrangler-dir", help="where to run npx wrangler (default: the current directory)")
     p.set_defaults(fn=publish)
     p = sub.add_parser("pin", help="write backend/model_manifests/<name>.json from a release dir")
     p.add_argument("release")

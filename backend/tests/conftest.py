@@ -62,7 +62,7 @@ def no_fluent_background_generation():
     tests resolve to whatever profile and config the machine has, and a queued write or a
     configured judge server must never be reached from there, and the pinned fix judge never
     starts its download. Tests of writing and judging pass their own writer, judge and settings."""
-    from prompt_programs import variant_pools
+    from prompt_programs import pick_judge, variant_pools
 
     async def no_model(*args, **kwargs):
         raise RuntimeError("no chat model in tests")
@@ -72,7 +72,9 @@ def no_fluent_background_generation():
               "STIMMA_FLUENT_FIX_MODEL": "off"}
     old = {k: os.environ.get(k) for k in pinned}
     os.environ.update(pinned)
+    was_enabled, pick_judge.ENABLED = pick_judge.ENABLED, False   # tests of the pick judge turn it on
     yield
+    pick_judge.ENABLED = was_enabled
     variant_pools.ASK = was_ask
     for k, v in old.items():
         if v is None:

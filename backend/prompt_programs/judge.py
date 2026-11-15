@@ -1,8 +1,9 @@
 """Fluent settings: config.yaml's `fluent:` section, read the way the draw code uses it.
 
     fix_model: default                 STIMMA_FLUENT_FIX_MODEL   (the judge that checks each finished draw and
-                                                                  rerolls what it refuses: "default" is the Tool
-                                                                  View model (prompt_programs.llm_judge); "" or
+                                                                  rerolls what it refuses: "default" is the pinned
+                                                                  pick judge (prompt_programs.pick_judge), the Tool
+                                                                  View model standing in until it's loaded; "" or
                                                                   "off": off; anything else: a local classifier's
                                                                   directory)
     fix_cut: 0 (the model's own)       STIMMA_FLUENT_FIX_CUT     (P(wrong) above this rerolls a pick)

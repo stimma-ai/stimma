@@ -259,20 +259,21 @@ async def preview(req: PreviewRequest) -> Dict[str, Any]:
 # --------------------------------------------------------------------------- the fix judge
 
 class FixJudgeRequest(BaseModel):
-    # "default" (the Tool View model), a model directory on this machine, or empty /
+    # "default" (the pinned pick judge), a model directory on this machine, or empty /
     # "off" to turn the fix pass off
     model: str = ""
 
 
 def _fix_judge_status(model: str, threads: int) -> Dict[str, Any]:
-    """The judge's state: the Tool View model is always ready to be asked; a model
-    directory is loaded (once) to say whether it works."""
+    """The judge's state: the pinned judge's download and load (never starts it), or,
+    for a model directory, a load (once) to say whether it works."""
     from prompt_programs.fix import FixJudgeUnavailable, fix_judge, fix_mode
     mode = fix_mode(model)
     if mode == "off":
         return {"model": model, "status": "off"}
     if mode == "default":
-        return {"model": model, "status": "ready", "waiting": False}
+        from prompt_programs import pick_judge
+        return {"model": model, **pick_judge.status()}
     try:
         j = fix_judge(model, threads)
     except FixJudgeUnavailable as e:
@@ -282,11 +283,16 @@ def _fix_judge_status(model: str, threads: int) -> Dict[str, Any]:
 
 @router.get("/fix-judge")
 async def get_fix_judge(start: bool = False, retry: bool = False) -> Dict[str, Any]:
-    """The configured judge's state. `start` and `retry` are accepted for the client's
-    wait loop and change nothing: the Tool View model needs no download."""
+    """The configured judge's state. `start`: also start the pinned judge's download or
+    load if it isn't under way; `retry`: and end a pause between retries now. Neither
+    ever waits."""
     import asyncio
+    from prompt_programs.fix import fix_mode
     from prompt_programs.judge import settings
     s = settings()
+    if (start or retry) and fix_mode(s.fix_model) == "default":
+        from prompt_programs import pick_judge
+        pick_judge.kick(s.fix_threads, retry=retry)
     return await asyncio.to_thread(_fix_judge_status, s.fix_model, s.fix_threads)
 
 

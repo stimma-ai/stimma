@@ -1,6 +1,7 @@
-"""The judge: the Tool View model reads each choice of a finished draw and says whether it fits.
+"""The stand-in judge: the Tool View model reads each choice of a finished draw and says whether it fits.
 
-A prototype's judge. Every varying choice of a draw is shown in full context (the user's prompt,
+It judges draws only while the pinned pick judge (prompt_programs.pick_judge) isn't loaded:
+during its first download, or when it can't be had (offline, lockdown, a failed load). Every varying choice of a draw is shown in full context (the user's prompt,
 the finished prompt with only that choice masked as [Label], what the choice is, and the value
 drawn) and answered "no" (it breaks the picture), "rare" (nothing is broken, but it is a stretch)
 or "yes". The fix pass (prompt_programs.fix) rerolls only a "no"; a "rare" is kept and recorded

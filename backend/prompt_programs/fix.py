@@ -254,7 +254,11 @@ class OnnxJudge:
         self.cut = float(cfg["cut"])
         self.reads_user_prompt = bool(cfg["user_prompt"])
         name = str(cfg.get("name") or d.name)
-        self.version = f"onnx:{name}@{_file_digest(model)}"
+        if manifest and manifest.get("name") and manifest.get("version"):
+            from prompt_programs.pick_judge import version_of
+            self.version = version_of(manifest)
+        else:
+            self.version = f"onnx:{name}@{_file_digest(model)}"
         self.load_seconds = round(time.monotonic() - started, 2)
         self._cache: "OrderedDict[Tuple[str, str], float]" = OrderedDict()
         self._cache_items = cache_items
@@ -430,21 +434,65 @@ def fix_judge(model_dir: str, threads: int = 0) -> OnnxJudge:
 
 # --------------------------------------------------------------------------- which judge
 
-DEFAULT_JUDGE = "default"          # fix_model naming the Tool View model as the judge (prompt_programs.llm_judge)
+DEFAULT_JUDGE = "default"          # fix_model naming the pinned pick judge (prompt_programs.pick_judge)
 OFF = ("", "off", "none")
+# Release branches whose Tool View offers Fluent: frontend promptBrand.ts `fluentEnabled`
+# (widen both together).
+FLUENT_BRANCHES = ("dev", "canary")
 
 
 def fix_mode(model: Optional[str]) -> str:
-    """fix_model's meaning: "off" ("", off, none), "default" (the Tool View model reads each
-    draw, the default), or "dir" (a local classifier's directory: evals)."""
+    """fix_model's meaning: "off" ("", off, none), "default" (the pinned pick judge, with the
+    Tool View model standing in until it's loaded: the default), or "dir" (a local
+    classifier's directory: evals)."""
     m = (model or "").strip().lower()
     if m in OFF:
         return "off"
     return "default" if m == DEFAULT_JUDGE else "dir"
 
 
+def kick_judge(cfg: Any = None) -> None:
+    """Start the pinned judge's download (or its load from disk) in the background, if
+    that's the configured judge. Never blocks."""
+    try:
+        if cfg is None:
+            from prompt_programs.judge import settings
+            cfg = settings()
+        if fix_mode(cfg.fix_model) == "default":
+            from prompt_programs import pick_judge
+            pick_judge.kick(cfg.fix_threads)  # a cached copy loads on that thread too
+    except Exception as e:
+        log.debug(f"[fluent-fix] couldn't start the pick judge: {e}")
+
+
+def preload_judge() -> None:
+    """At launch: start getting the pinned judge in any build that offers Fluent, so it's
+    ready, or on its way, by the first image. Privacy Lockdown applies as to every model
+    download. Never blocks."""
+    try:
+        from user_agent import get_app_branch
+        if get_app_branch() not in FLUENT_BRANCHES:
+            return
+    except Exception as e:
+        log.debug(f"[fluent-fix] no app branch, not preloading the pick judge: {e}")
+        return
+    kick_judge()
+
+
+def default_judge(cfg: Any, project_id: Optional[int] = None) -> Any:
+    """The judge `fix_model: default` gives a draw now: the pinned pick judge once it's
+    loaded, else the Tool View model standing in (readied by await_judge), else None.
+    Never waits on the network; a verified copy on disk loads here (about a second)."""
+    from prompt_programs import llm_judge, pick_judge
+    j = pick_judge.ready(cfg.fix_threads)
+    if j is not None:
+        return j
+    pick_judge.note_stand_in()
+    return llm_judge.current(project_id)
+
+
 def needs_judge(entry: Dict[str, Any], cfg: Any = None) -> bool:
-    """Whether drawing `entry` is read by the Tool View model: a program with draws, and
+    """Whether drawing `entry` is judged by the default judge: a program with draws, and
     that judge configured (off and a model directory never are)."""
     from prompt_programs.fluent import has_draws
     if not has_draws(entry):
@@ -456,14 +504,22 @@ def needs_judge(entry: Dict[str, Any], cfg: Any = None) -> bool:
 
 
 async def await_judge(entry: Dict[str, Any], cfg: Any = None, project_id: Optional[int] = None) -> None:
-    """Before drawing `entry` in a worker thread: make the judge for the Tool View model
-    on this event loop, so the worker's fix pass can hand its calls back here. Never
-    raises: without a judge the draw ships unjudged and its record says so."""
+    """Before drawing `entry` in a worker thread: start the pinned judge's download if it
+    isn't under way, and, while it isn't loaded, make the stand-in judge for the Tool View
+    model on this event loop, so the worker's fix pass can hand its calls back here. Never
+    waits on the download, never raises: without a judge the draw ships unjudged and its
+    record says so."""
     import asyncio
     try:
+        if cfg is None:
+            from prompt_programs.judge import settings
+            cfg = settings()
         if not needs_judge(entry, cfg):
             return
-        from prompt_programs import llm_judge
+        from prompt_programs import llm_judge, pick_judge
+        pick_judge.kick(cfg.fix_threads)
+        if pick_judge.loaded(cfg.fix_threads):
+            return
         await llm_judge.ready(project_id)
     except asyncio.CancelledError:
         raise
@@ -472,13 +528,17 @@ async def await_judge(entry: Dict[str, Any], cfg: Any = None, project_id: Option
 
 
 def judge_identity(cfg: Any, project_id: Optional[int] = None) -> str:
-    """The configured judge as a draw depends on it: off, the Tool View model, or a model
-    directory. Part of the hot-draw signature."""
+    """The configured judge as a draw depends on it: off, the pinned judge's version and
+    readiness (or the Tool View model standing in), or a model directory. Part of the
+    hot-draw signature."""
     mode = fix_mode(cfg.fix_model)
     if mode == "default":
-        from prompt_programs import llm_judge
+        from prompt_programs import llm_judge, pick_judge
+        pinned = pick_judge.identity()
+        if pinned.endswith(":ready"):
+            return pinned
         j = llm_judge.current(project_id)
-        return j.version if j is not None else "llm"
+        return f"{pinned}|{j.version if j is not None else 'llm'}"
     return "off" if mode == "off" else f"dir:{cfg.fix_model}"
 
 
@@ -732,22 +792,25 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
     mode = fix_mode(cfg.fix_model)
     if judge is None and mode == "off":
         return [shipped(r) for r in out]
+    if judge is None and mode == "default":  # the pinned judge, or the Tool View model standing in (await_judge)
+        judge = default_judge(cfg, project_id)
+        if judge is None:
+            from prompt_programs import pick_judge
+            unjudged = {"judge": pick_judge.label(), "skipped": "unavailable"}
     # Nothing can conflict in a draw with fewer than two judged parts (slots and the user's own
     # lists together): it ships unjudged, with no model call, and its record says why.
     alone = [i for i in drawn if len(judged_picks(out[i], list(fixed or {}))) < MIN_JUDGED]
     if alone:
-        name = getattr(judge, "version", "") if judge is not None else judge_identity(cfg, project_id)
+        name = (getattr(judge, "version", "") if judge is not None
+                else unjudged["judge"] if mode == "default" else judge_identity(cfg, project_id))
         for i in alone:
             out[i] = (out[i], {"judge": name, "skipped": SKIPPED_ALONE})
         drawn = [i for i in drawn if i not in set(alone)]
         if not drawn:
             return [shipped(r) for r in out]
     if judge is None:
-        if mode == "default":  # the Tool View model, readied on the event loop (await_judge)
-            from prompt_programs import llm_judge
-            judge = llm_judge.current(project_id)
-            if judge is None:
-                return [shipped((r, {"judge": "llm", "skipped": "unavailable"}) if i in drawn else r) for i, r in enumerate(out)]
+        if mode == "default":
+            return [shipped((r, dict(unjudged)) if i in drawn else r) for i, r in enumerate(out)]
         else:
             try:
                 judge = fix_judge(cfg.fix_model, cfg.fix_threads)
@@ -768,4 +831,4 @@ def realize_and_fix_many(entry: Dict[str, Any], *, seeds: Sequence[int], pins: O
 
 
 __all__ = ["DEFAULT_JUDGE", "FixJudgeUnavailable", "MIN_JUDGED", "SKIPPED_ALONE", "Item", "OnnxJudge", "default_threads", "fix_draw", "fix_judge",
-           "fix_mode", "await_judge", "judge_identity", "judged_picks", "needs_judge", "locate", "mask", "prompt_view", "realize_and_fix", "realize_and_fix_many", "score_draw", "shown_picks"]
+           "fix_mode", "await_judge", "default_judge", "judge_identity", "judged_picks", "kick_judge", "needs_judge", "preload_judge", "locate", "mask", "prompt_view", "realize_and_fix", "realize_and_fix_many", "score_draw", "shown_picks"]

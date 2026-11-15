@@ -667,7 +667,7 @@ Commands:
                       Build a versioned model release dir (allowlisted files + manifest)
   models verify DIR|VERSION|pinned [--base-url URL] [--selftest]
                       Check a release dir, or that the bucket serves the pinned version
-  models publish DIR [--bucket B] [--dry-run]
+  models publish DIR [--bucket B] [--dry-run] [--wrangler [--wrangler-dir D]]
                       Upload a release to the models bucket, verify it, write the pin
   models pin DIR      Write backend/model_manifests/<name>.json from a release dir
   dir               Print data directory path

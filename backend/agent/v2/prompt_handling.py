@@ -64,8 +64,8 @@ ENHANCE_DOC = (
 )
 
 UNCHECKED_NOTE = (
-    "These choices weren't checked to fit together: the chat model that checks them "
-    "wasn't available. Later calls are checked once it is."
+    "These choices weren't checked to fit together: the check wasn't available. "
+    "Later calls are checked once it is."
 )
 
 NO_CHOICES_NOTE = (
@@ -375,7 +375,7 @@ async def _vary(job_params: Dict[str, Any], prompt: str, *, ctx: Dict[str, Any],
 
 def unchecked_note(record: Optional[Dict[str, Any]]) -> Optional[str]:
     """A line for the result when the run's choices shipped without the fit check
-    (the chat model that checks them wasn't available); None when they were checked, or needed no
+    (neither the judge nor the chat model standing in for it was available); None when they were checked, or needed no
     check (a draw with one choice has nothing to fit together: skipped "one part")."""
     from prompt_programs.fix import SKIPPED_ALONE
     fix = record.get("fix") if isinstance(record, dict) else None

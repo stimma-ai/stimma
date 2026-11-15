@@ -73,17 +73,9 @@
         </SettingRow>
         <SettingRow v-if="fluentEnabled && devModeRef" :label="`${PROMPT_BRAND} judge`" :divider="true">
           <div class="flex items-center gap-2" data-fluent-judge>
+            <span v-if="judge.status === 'downloading' && judge.percent != null" class="text-xs text-content-tertiary tabular-nums">{{ judge.percent }}%</span>
             <StatusDot v-if="judge.status !== 'off'" :bucket="judgeBucket(judge.status)" :title="judge.error || judge.version" />
-            <input
-              v-model="judgeModel"
-              type="text"
-              aria-label="Judge model folder"
-              placeholder="default, off, or a model folder"
-              spellcheck="false"
-              class="w-[280px] max-w-full rounded-md border border-edge bg-surface-raised px-3 py-1.5 text-xs text-content focus:border-accent focus:outline-none"
-              @keydown.enter="saveJudge"
-              @blur="saveJudge"
-            />
+            <Toggle :model-value="judge.status !== 'off'" :label="`${PROMPT_BRAND} judge`" @update:model-value="saveJudge" />
           </div>
         </SettingRow>
       </div>
@@ -105,9 +97,8 @@ import { getApiBase } from '../../../apiConfig'
 import { PROMPT_BRAND, fluentEnabled } from '../../generation/promptBrand'
 import { setGenerationPreviews, imagePreviewsRef as imagePreviews, videoPreviewsRef as videoPreviews, devModeRef } from '../../../appConfig'
 
-// Fluent judge (dev mode only): "default" is the pinned judge the app downloads on first
-// use; a local model folder overrides it, and empty or "off" turns it off. Reading a folder
-// loads the model on the server, so only dev mode asks.
+// Fluent judge (dev mode only): on is the pinned judge the app downloads on demand (the chat
+// model stands in until it's loaded); off turns the check off. Only dev mode asks.
 const judge = ref({ status: 'off', model: '' })
 function judgeBucket(status) {
   if (status === 'ready') return 'done'
@@ -115,22 +106,18 @@ function judgeBucket(status) {
   if (status === 'idle') return 'queued'
   return 'failed'
 }
-const judgeModel = ref('')
 async function loadJudge() {
   if (!fluentEnabled.value || !devModeRef.value) return
   try {
     const { data } = await axios.get(`${getApiBase()}/prompt-programs/fix-judge`)
     judge.value = data
-    judgeModel.value = data.model || ''
   } catch { /* older backend: no row state */ }
 }
-async function saveJudge() {
-  const model = judgeModel.value.trim()
-  if (model === (judge.value.model || '')) return
+async function saveJudge(on) {
   try {
-    const { data } = await axios.put(`${getApiBase()}/prompt-programs/fix-judge`, { model })
+    const { data } = await axios.put(`${getApiBase()}/prompt-programs/fix-judge`, { model: on ? 'default' : 'off' })
     judge.value = data
-  } catch (err) { reportActionError("Couldn't save the judge model folder.", err) }
+  } catch (err) { reportActionError(`Couldn't save the ${PROMPT_BRAND} judge setting.`, err) }
 }
 onMounted(loadJudge)
 

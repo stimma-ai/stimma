@@ -1,0 +1,102 @@
+{
+ "name": "pick-judge",
+ "version": "2026-11-15.1",
+ "contract": 1,
+ "kind": "enc",
+ "maxlen": 512,
+ "output": "probs",
+ "labels": [
+  "fine",
+  "odd",
+  "wrong"
+ ],
+ "wrong": "wrong",
+ "cut": 0.074089,
+ "model": "model.int8.onnx",
+ "files": [
+  {
+   "path": "model.int8.onnx",
+   "size": 248464788,
+   "sha256": "41ac309c66f0e49cedde89dbf2d63ee319d956d27d56fb3d2c192660cbc3173f"
+  },
+  {
+   "path": "tokenizer.json",
+   "size": 8340125,
+   "sha256": "d5c2c9631756d5e0fb1e04e8e1b8cfb658f62ff69f4232ddfe522127b1ab2e39"
+  },
+  {
+   "path": "tokenizer_config.json",
+   "size": 691,
+   "sha256": "487bcdd7ab992b12b5ad430634c3b2bfa0f3354cf6431f7df402860ff95cecb6"
+  },
+  {
+   "path": "io.json",
+   "size": 163,
+   "sha256": "400aa85aeaabe9980ec1d52d323bff6ee51899c223456765b4e835a02aa183f0"
+  },
+  {
+   "path": "LICENSE",
+   "size": 1455,
+   "sha256": "b6ddea99947af2266586a78bd75d4c7ba7f201b0106910f46692d5525e7ad52a"
+  }
+ ],
+ "base_model": "microsoft/deberta-v3-base",
+ "license": "MIT",
+ "metrics": {
+  "dev_auroc": 0.912
+ },
+ "selftest": {
+  "items": [
+   {
+    "state": "A watercolour of a lighthouse at [Time of day], gulls over the rocks.",
+    "label": "Time of day",
+    "about": "",
+    "value": "dusk",
+    "user_prompt": "a lighthouse, watercolour"
+   },
+   {
+    "state": "A watercolour of a lighthouse at [Time of day], gulls over the rocks.",
+    "label": "Time of day",
+    "about": "",
+    "value": "a frozen tuesday",
+    "user_prompt": "a lighthouse, watercolour"
+   },
+   {
+    "state": "A portrait of an elderly fisherman with [Hair], weathered hands on a net.",
+    "label": "Hair",
+    "about": "",
+    "value": "thin white hair",
+    "user_prompt": "an old fisherman"
+   },
+   {
+    "state": "A portrait of an elderly fisherman with [Hair], weathered hands on a net.",
+    "label": "Hair",
+    "about": "",
+    "value": "a toddler's pigtails",
+    "user_prompt": "an old fisherman"
+   },
+   {
+    "state": "A small child in [Outfit] building a sandcastle at the beach.",
+    "label": "Outfit",
+    "about": "what the child wears",
+    "value": "a striped swimsuit",
+    "user_prompt": ""
+   },
+   {
+    "state": "A small child in [Outfit] building a sandcastle at the beach.",
+    "label": "Outfit",
+    "about": "what the child wears",
+    "value": "a three-piece business suit",
+    "user_prompt": ""
+   }
+  ],
+  "p_wrong": [
+   0.0002,
+   0.0085,
+   0.0004,
+   0.0827,
+   0.0008,
+   0.0057
+  ]
+ }
+}
