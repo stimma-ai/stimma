@@ -57,7 +57,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-20"   # variants-20: a typical-dress variant develops its dress alone, from any headwear down, shown no list and no grooming aspect (a short list is dealt out across the other variants instead of shown whole), and is two thirds of a person whose role and place imply their dress; a session started again after a turn that left out gender is told so; a list shown whole has its colors filled in; a camera part whole is how the picture is taken, never a device. variants-19: a typical-dress variant puts on the headwear people like them typically wear and leaves their hair unsaid. variants-18: a young prompt's every slot drops adult-only seeds and is told a child is in the picture; a child is seeded with their age and child words. variants-17: the writer is told each kind's rules from its vocabulary data, in the kinds' order; a heritage may come with its look. variants-16: a couple, a family and a group are written as such (who a couple is drawn by its list, one shared heritage); a third of a person's variants wear what is typical for who and where they are; light is described as light; a camera part is how the picture is taken. variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-21"   # variants-21: trans and non-binary genders are drawn only when the words ask for them (gender shares 0); the writer's worked example seeds no gender. variants-20: a typical-dress variant develops its dress alone, from any headwear down, shown no list and no grooming aspect (a short list is dealt out across the other variants instead of shown whole), and is two thirds of a person whose role and place imply their dress; a session started again after a turn that left out gender is told so; a list shown whole has its colors filled in; a camera part whole is how the picture is taken, never a device. variants-19: a typical-dress variant puts on the headwear people like them typically wear and leaves their hair unsaid. variants-18: a young prompt's every slot drops adult-only seeds and is told a child is in the picture; a child is seeded with their age and child words. variants-17: the writer is told each kind's rules from its vocabulary data, in the kinds' order; a heritage may come with its look. variants-16: a couple, a family and a group are written as such (who a couple is drawn by its list, one shared heritage); a third of a person's variants wear what is typical for who and where they are; light is described as light; a camera part is how the picture is taken. variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -211,6 +211,20 @@ def bank(list_id: str, narrowed: Optional[Sequence[str]] = None, *, minor: bool 
         context = [(f, tuple((stated or {}).get(f, ()))) for f in sorted(leaf.takes)]
         pairs = [(t, w) for t, w in leaf.weigh(pairs, context) if w > 0]
     return Bank(leaf.id, leaf.label, tuple(pairs)) if pairs else None
+
+
+def asked_who(list_id: str, narrowed: Optional[Sequence[str]]) -> Optional[List[str]]:
+    """Who a person may be drawn as from their words' narrowing of the who list (a gender): an
+    opt-in value (trans woman, non-binary person: share 0) only when the words picked out opt-in
+    values alone ("a trans woman"), never beside a value drawn unasked ("woman" kept with "trans
+    woman"), where it would outdraw it. None stays None (the whole list, opt-in values aside)."""
+    from prompt_programs.vocab import vocabulary
+    leaf = vocabulary().get(list_id)
+    if narrowed is None or leaf is None:
+        return None if narrowed is None else list(narrowed)
+    opt_in = {v.text for v in leaf.values if v.opt_in}
+    common = [t for t in narrowed if t not in opt_in]
+    return common or list(narrowed)
 
 
 def age_years(text: str) -> int:
@@ -463,7 +477,7 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
             share = asp.typical_share(answers)
     return Seeds(descent=d, place=tuple(sorted(place.items())) if place else None,
                  heritage_list=heritage[0] if heritage else "",
-                 gender=bank(who[0], who[1]) if who else None, who_list=who[0] if who else "",
+                 gender=bank(who[0], asked_who(who[0], who[1])) if who else None, who_list=who[0] if who else "",
                  who_label=who_rule.label if who_rule else "gender", who_say=who_rule.say if who_rule else "short",
                  gender_fits=tuple(who[1]) if who and who[1] is not None else None,
                  # A child's or a teenager's age is always on their seed line, beside who they are, so a
@@ -1624,7 +1638,7 @@ def split(drawn: Drawn, size: int = TURN) -> List[Drawn]:
 
 __all__ = ["AGE", "CUT", "STAGE", "Ask", "Bank", "Deadline", "Drawn", "N_OTHER", "N_PERSON", "MIN_POOL", "MORE_TURNS",
            "ObjectReader", "Pins", "SHORTLIST", "Seeds", "kind_seeds", "system_text", "typical_text", "Session", "Slot", "Spec", "TOPUP", "TURN", "Turn",
-           "VARIANTS_VERSION", "age_stages", "age_years", "allowed_ages", "article_before", "ask_writer", "bank",
+           "VARIANTS_VERSION", "age_stages", "asked_who", "age_years", "allowed_ages", "article_before", "ask_writer", "bank",
            "check", "context_words", "draw_seeds", "first_turn", "retry_note", "gender_mark", "gender_needs", "has_run", "kept_chunks", "list_seeds", "messages",
            "minor_line", "minor_words", "minors_lines", "young_line", "more_turn", "parse_reply", "person_seeds", "repair", "reply_text", "split", "stages_of",
            "tokens", "valid_category", "write_turn", "year_ages"]

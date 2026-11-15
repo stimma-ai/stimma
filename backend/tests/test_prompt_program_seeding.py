@@ -80,7 +80,7 @@ def test_seeds_from_a_narrowed_plan():
                         {"role": "age", "list": V.AGE, "narrowed": None, "failed": True},
                         {"role": "idea", "list": "person.makeup", "narrowed": None}]}
     s = seeds_of(record)
-    assert s.descent.texts() == ["Nigerian", "Ghanaian"] and s.gender.texts() == ["woman", "trans woman"]
+    assert s.descent.texts() == ["Nigerian", "Ghanaian"] and s.gender.texts() == ["woman"]   # opt-in beside woman: not asked
     assert s.age is None and s.minor == ("9-year-old",)   # a failed age seeds nothing; the list's age still counts
     adult = {v.text for v in vocabulary().get("person.makeup").values if v.adult_only}
     assert not set(s.ideas[0].texts()) & adult

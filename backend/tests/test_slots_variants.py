@@ -371,8 +371,8 @@ async def test_a_person_opens_seeded_while_their_outfits_are_narrowed_in_the_sce
     assert len(store.variants(person["pool"])) == V.TURN
     # seeded with what is narrowed: who they are and their ages, never an age the words rule out
     lines = list(writer.calls[0]["seeds"].values())
-    assert len(lines) == V.TURN and not any('gender: "man"' in ln for ln in lines)
-    assert any('gender: "' in ln for ln in lines)
+    # "young woman" keeps woman (and trans woman, opt-in, not asked for): no line needs a gender
+    assert len(lines) == V.TURN and not any('gender: "' in ln for ln in lines)
     assert not any(f"{a}-year-old" in ln for ln in lines for a in range(30, 100))
     model.go.set()
     entry = await settled(CAFE, profile)

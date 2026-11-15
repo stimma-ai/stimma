@@ -4,7 +4,7 @@
  "description": "A child's gender: girl, boy, trans girl, trans boy or non-binary child. Each value stands for the adult gender it is tagged with (the gender facet), so a child's words narrowed on the adult gender list keep the same values here.",
  "pos": "noun phrase",
  "frame": "a ___",
- "notes": "Seeds a child's variants in place of person.gender, one value per variant by the same shares, when the person reads as a child (the who rule's stages). Its values are the gender list's, said of a child: a child is written as a girl or a boy, never a woman or a man. Not a slot's list; the chooser offers person.gender, and a pick maps here by its gender tag.",
+ "notes": "Seeds a child's variants in place of person.gender, one value per variant by the same shares (trans and non-binary values only when asked for), when the person reads as a child (the who rule's stages). Its values are the gender list's, said of a child: a child is written as a girl or a boy, never a woman or a man. Not a slot's list; the chooser offers person.gender, and a pick maps here by its gender tag.",
  "facets": [
   "presentation"
  ],
@@ -21,11 +21,11 @@
  },
  "shares": {
   "gender": {
-   "woman": 0.46,
-   "man": 0.46,
-   "trans woman": 0.027,
-   "trans man": 0.027,
-   "non-binary person": 0.026
+   "woman": 0.5,
+   "man": 0.5,
+   "trans woman": 0,
+   "trans man": 0,
+   "non-binary person": 0
   }
  },
  "values": [

@@ -270,8 +270,10 @@ class TestGender:
         g = v.get("person.gender")
         assert [x.text for x in g.values] == ["woman", "man", "trans woman", "trans man", "non-binary person"]
         assert not g.listed and "person.gender" not in v.catalog() and g.closed
-        assert [x.weight for x in g.values] == pytest.approx([0.46, 0.46, 0.027, 0.027, 0.026])
-        assert all(x.tier in TIER_WEIGHTS and not x.opt_in and not x.adult_only for x in g.values)
+        # woman and man split the draws; trans and non-binary genders are opt-in (drawn only when asked)
+        assert [x.weight for x in g.values][:2] == pytest.approx([0.5, 0.5])
+        assert [x.opt_in for x in g.values] == [False, False, True, True, True]
+        assert all(x.tier in TIER_WEIGHTS and not x.adult_only for x in g.values)
         assert {x.text: x.tags.get("presentation") for x in g.values} == {
             "woman": ["feminine"], "man": ["masculine"], "trans woman": ["feminine"], "trans man": ["masculine"],
             "non-binary person": None}
@@ -279,7 +281,8 @@ class TestGender:
 
     def test_every_value_is_pickable(self):
         texts = [x.text for x in vocabulary().get("person.gender").values]
-        assert V.bank("person.gender").texts() == texts
+        assert V.bank("person.gender").texts() == ["woman", "man"]   # unasked: the opt-in genders stand by
+        assert V.bank("person.gender", ["trans man"]).texts() == ["trans man"]
         view = person_pickers([], Choice(pins=V.Pins(gender=("non-binary person",))))["gender"]
         assert view["options"] == texts and view["fits"] == texts and view["picked"] == {"values": ["non-binary person"]}
         for t in texts:

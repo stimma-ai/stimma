@@ -242,13 +242,23 @@ def test_gender_is_drawn_by_its_shares_and_narrowed_by_the_words():
     assert not leaf.listed   # never a slot's list
     n = 20000
     got = Counter(s.gender for s in V.draw_seeds(random.Random(3), V.person_seeds(), n).specs)
-    assert set(got) == set(v.text for v in leaf.values)
-    assert abs(got["woman"] / n - 0.46) < 0.015 and abs(got["man"] / n - 0.46) < 0.015
+    # unasked, only woman and man, half each: trans and non-binary genders are opt-in
+    assert set(got) == {"woman", "man"}
+    assert abs(got["woman"] / n - 0.5) < 0.015 and abs(got["man"] / n - 0.5) < 0.015
+    # an opt-in gender narrowed in beside woman or man ("woman" kept with "trans woman") is not asked for
+    got = Counter(s.gender for s in V.draw_seeds(random.Random(3), V.person_seeds(gender=["woman", "trans woman"]), 200).specs)
+    assert set(got) == {"woman"}
+    got = Counter(s.gender for s in V.draw_seeds(random.Random(3), V.person_seeds(gender=[v.text for v in leaf.values]), 200).specs)
+    assert set(got) == {"woman", "man"}
+    # so for a child or a teenager
+    for lid in ("person.gender_child", "person.gender_teen"):
+        every = [v.text for v in vocabulary().get(lid).values]
+        got = Counter(s.gender for s in V.draw_seeds(random.Random(3), V.person_seeds(gender=every, gender_list=lid), 200).specs)
+        assert len(got) == 2
+    # words that ask for one draw it
     for t in ("trans woman", "trans man", "non-binary person"):
-        assert 0.015 < got[t] / n < 0.04
-    # "woman" narrowed to woman and trans woman: drawn by their relative shares
-    got = Counter(s.gender for s in V.draw_seeds(random.Random(3), V.person_seeds(gender=["woman", "trans woman"]), n).specs)
-    assert set(got) == {"woman", "trans woman"} and abs(got["trans woman"] / n - 0.027 / 0.487) < 0.01
+        got = Counter(s.gender for s in V.draw_seeds(random.Random(3), V.person_seeds(gender=[t]), 50).specs)
+        assert set(got) == {t}
     # the writer is told it per variant
     s = V.person_seeds().pinned(V.Pins(gender=("non-binary person",)))
     msg = V.messages(slot_of("a <person> in a kitchen", "person"), V.draw_seeds(random.Random(1), s, 3), s)[1]["content"]
@@ -354,7 +364,8 @@ def test_short_lists_are_shown_whole_long_ones_as_ideas():
     assert [b.list_id for b in d.short] == ["person.gender"]
     assert d.ideas and all(lid == "person.hairstyle" for _, lid in d.ideas)
     msg = V.messages(slot_of("a <hairdo>, portrait"), d, s)[1]["content"]
-    assert '"woman"; "man"; "trans woman"; "trans man"; "non-binary person"' in msg and "Ideas (random" not in msg
+    assert '"woman"; "man"' in msg and "Ideas (random" not in msg
+    assert "trans" not in msg and "non-binary" not in msg   # opt-in genders are shown only when asked for
     # each variant's own ideas are on its seed line
     lines = msg.split("Seeds, one line per variant:")[1]
     for i, spec in enumerate(d.specs, 1):
@@ -1241,10 +1252,13 @@ def test_a_grandmother_is_written_with_no_gender_word_and_a_trans_one_says_so():
     sl = slot_of(GRANDMOTHER, "person")
     seeds = V.person_seeds(gender=["woman", "trans woman"])
     drawn = V.draw_seeds(random.Random(2), seeds, 200, sl.words)
-    assert {s.gender_needs for s in drawn.specs} == {(), ("trans",)}
+    # trans woman is opt-in: beside woman it isn't drawn, so a grandmother is always a woman and needs no word
+    assert {s.gender for s in drawn.specs} == {"woman"} and {s.gender_needs for s in drawn.specs} == {()}
     lines = [s.line() for s in drawn.specs]
-    assert not any("gender" in ln for s, ln in zip(drawn.specs, lines) if s.gender == "woman")
-    assert all('gender: "trans woman"' in ln for s, ln in zip(drawn.specs, lines) if s.gender == "trans woman")
+    assert not any("gender" in ln for ln in lines)
+    # a trans grandmother's seed line says so
+    pinned = V.Spec(gender="trans woman", gender_needs=V.gender_needs("trans woman", sl.words, ["woman", "trans woman"]))
+    assert pinned.gender_needs == ("trans",) and 'gender: "trans woman"' in pinned.line()
     reply = _fenced([{"n": 1, "text": "a Bangladeshi grandmother wearing a turquoise cotton T-shirt and straight blue jeans", "idea": ""},
                      {"n": 2, "text": "a stocky Peruvian grandmother with ear-length hair and a gentle, weathered expression", "idea": ""},
                      {"n": 3, "text": "a White American grandmother with wavy hair and a kind, smiling face", "idea": ""}])
