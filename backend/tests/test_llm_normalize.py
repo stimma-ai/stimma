@@ -1,6 +1,6 @@
 """Tests for llm._normalize_response provider-quirk handling."""
 
-from llm import FinishReason, LLMResponse, _normalize_response
+from llm import FinishReason, LLMResponse, _acceptance_response, _normalize_response
 from llm_http import _Obj
 import pytest
 
@@ -31,6 +31,17 @@ def test_normalize_tool_call_response_without_content_key():
     assert resp.finish_reason == FinishReason.TOOL_CALLS
     assert len(resp.tool_calls) == 1
     assert resp.tool_calls[0].name == "run_code"
+
+
+def test_acceptance_response_ignores_runtime_context_when_echoing_user_turn():
+    from config import LLMEndpointConfig
+
+    response = _acceptance_response(LLMEndpointConfig(model="acceptance-agent"), [
+        {"role": "user", "content": "acceptance chat hello 123"},
+        {"role": "user", "name": "_stimma_context", "content": "<system-reminder>Current memory files</system-reminder>"},
+    ])
+
+    assert response.content == "Acceptance dummy reply: acceptance chat hello 123"
 
 
 def test_normalize_reasoning_only_response_without_content_key():

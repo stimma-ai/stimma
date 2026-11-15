@@ -220,7 +220,11 @@ def _acceptance_response(config: LLMConfig, messages: List[Dict[str, Any]],
     program = _acceptance_program(messages)
     last_user = ""
     for message in reversed(messages):
-        if message.get("role") == "user":
+        # Runtime context is deliberately represented as a user message so
+        # providers with a single system prompt can receive it. It is not
+        # the user's request, though: echo the last authored user turn in
+        # the deterministic acceptance response.
+        if message.get("role") == "user" and message.get("name") != "_stimma_context":
             last_user = _stringify_message_content(message.get("content")).strip()
             break
     acceptance_matches = re.findall(r"acceptance[^\n]{0,180}", last_user, flags=re.IGNORECASE)
