@@ -6,7 +6,7 @@ import { chromium, expect } from '@playwright/test'
 import config from '../vite.config.js'
 
 // Making and opening slots in the prompt editor (Fluent): underlined phrases and "Vary
-// this", `<` around a selection, the adds under the text, and the open-slot event.
+// this", `<` around a selection, the suggestions under the text, and the open-slot event.
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
   root: fileURLToPath(new URL('..', import.meta.url)),
@@ -18,30 +18,25 @@ const css = output.find(item => item.type === 'asset' && item.fileName.endsWith(
 const SHOTS = process.env.PROMPT_SHOTS_DIR
 
 const PROMPT = 'dorm room with a young man'
+const LOOKS = [{ text: 'candid phone snapshot, slightly off-center, harsh desk lamp light', label: 'phone snapshot' },
+  { text: 'editorial portrait, 85mm lens, soft window light from the left', label: 'editorial portrait' }]
+const ADDS = [{ text: 'a stack of books on the desk', label: 'books' }, { text: 'rain streaking the window', label: 'rain' }]
 
-async function open(t, { start = PROMPT, theme = 'dark', add = 'ok' } = {}) {
+async function open(t, { start = PROMPT, theme = 'dark' } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 900, height: 700 }, deviceScaleFactor: 2 })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  const calls = { suggest: [], add: [] }
+  const calls = { suggest: [] }
   await page.route('**/*', async route => {
     const url = route.request().url()
     if (url.endsWith('/prompt-programs/suggest')) {
       const body = route.request().postDataJSON()
       calls.suggest.push(body)
       const i = body.prompt.indexOf('young man')
-      const vary = i < 0 ? [] : [{ from: i, to: i + 9, text: 'young man' }]
-      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ vary, adds: [{ name: 'light', label: 'light' }, { name: 'camera', label: 'camera' }] }) })
-    }
-    if (url.endsWith('/prompt-programs/add')) {
-      const body = route.request().postDataJSON()
-      calls.add.push(body)
-      await new Promise(r => setTimeout(r, 400))
-      if (add !== 'ok') return route.fulfill({ status: 500, contentType: 'application/json', body: '{"detail":"no"}' })
-      const next = `${body.prompt}, lit by <${body.name}>`
-      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ prompt: next, slot: { from: next.length - body.name.length - 2, to: next.length } }) })
+      const vary = i < 0 || body.prompt[i - 1] === '<' ? [] : [{ from: i, to: i + 9, text: 'young man', label: 'different young men' }]
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ vary, looks: LOOKS, adds: ADDS }) })
     }
     if (url.includes('/api/')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
     return route.fulfill({ contentType: 'text/html', body: `<html data-theme="${theme}"><body><script>window.START = ${JSON.stringify(start)}</script><div id="app"></div></body></html>` })
@@ -63,7 +58,9 @@ test('a phrase Fluent underlines becomes a slot with Vary this, and opens', asyn
   const { page, editor, calls, shot } = await open(t)
   await expect(page.locator('.cm-could-vary')).toHaveText('young man', { timeout: 3000 })
   assert.deepEqual(calls.suggest, [{ project_id: 7, prompt: PROMPT }])
-  await expect(page.locator('[data-slot-add]')).toHaveText(['light', 'camera'])
+  await expect(page.locator('[data-slot-vary]')).toHaveText(['different young men'])
+  await expect(page.locator('[data-slot-look-chip]')).toHaveText(['phone snapshot', 'editorial portrait'])
+  await expect(page.locator('[data-slot-add]')).toHaveText(['books', 'rain'])
   await shot('underlined')
 
   await page.locator('.cm-could-vary').click()
@@ -117,31 +114,35 @@ test('no wrapping in a comment line or inside a list', async t => {
   assert.deepEqual(await opened(page), [])
 })
 
-test('an add is written into the prompt as a slot, opens, and undoes in one step', async t => {
-  const { page, calls, shot } = await open(t)
-  const chip = page.locator('[data-slot-add="light"]')
-  await chip.click()
-  await shot('adding')
-  await expect.poll(() => text(page)).toBe(`${PROMPT}, lit by <light>`)
-  assert.deepEqual(calls.add, [{ project_id: 7, prompt: PROMPT, name: 'light' }])
-  await expect.poll(async () => (await opened(page)).map(o => [o.n, o.words])).toEqual([[1, 'light']])
-  // Light is in the prompt now: its chip goes once Suggest has seen it.
-  await expect(page.locator('[data-slot-add]')).toHaveText(['camera'], { timeout: 3000 })
-  await shot('added')
+test('a vary chip wraps its words and opens the slot, as Vary this does', async t => {
+  const { page } = await open(t)
+  await page.locator('[data-slot-vary="young man"]').click()
+  await expect.poll(() => text(page)).toBe('dorm room with a <young man>')
+  await expect.poll(async () => (await opened(page)).map(o => [o.n, o.words])).toEqual([[1, 'young man']])
+  await expect(page.locator('[data-slot-vary]')).toHaveCount(0)
+})
 
+test('an add writes its words as they are, opens nothing, and undoes in one step', async t => {
+  const { page, shot } = await open(t)
+  await page.locator('[data-slot-add="books"]').click()
+  await expect.poll(() => text(page)).toBe(`${PROMPT}, a stack of books on the desk`)
+  assert.deepEqual(await opened(page), [])
+  // It is in the prompt now: its chip goes; the other stays.
+  await expect(page.locator('[data-slot-add]')).toHaveText(['rain'])
+  await shot('added')
   await page.locator('.cm-content').click()
   await page.keyboard.press('Control+z')
   await expect.poll(() => text(page)).toBe(PROMPT)
 })
 
-test('an add that fails changes nothing', async t => {
-  const { page } = await open(t, { add: 'fail' })
-  await page.locator('[data-slot-add="light"]').click()
-  await page.waitForTimeout(700)
-  assert.equal(await text(page), PROMPT)
-  assert.deepEqual(await opened(page), [])
-  await expect(page.locator('[data-slot-add]')).toHaveText(['light', 'camera'])
+test('a look writes its words, and the other looks go', async t => {
+  const { page } = await open(t)
+  await page.locator('[data-slot-look-chip="editorial portrait"]').click()
+  await expect.poll(() => text(page)).toBe(`${PROMPT}, ${LOOKS[1].text}`)
+  await expect(page.locator('[data-slot-look-chip]')).toHaveCount(0)
+  await expect(page.locator('[data-slot-add]')).toHaveText(['books', 'rain'])
 })
+
 
 test('Raw and Direct: no suggestions, slots don\'t open; names are marked in every mode', async t => {
   const { page, editor, calls } = await open(t, { start: '' })

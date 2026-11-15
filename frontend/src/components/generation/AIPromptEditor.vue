@@ -282,8 +282,8 @@ import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
 import { slotEditing, wrapSlot, replaceDocument, rangeRect, setVaryEffect } from '../../composables/promptSlotEditing'
 import { setSlotMarks, slotMarks as slotMarksExtension, type SlotMarks } from '../../composables/promptSlotMarks'
-import { shownAdds, usePromptSuggestions, type ReadSlots } from '../../composables/usePromptSuggestions'
-import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
+import { appendWords, shownWords, usePromptSuggestions, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
+import { slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
 import { useViewport } from '../../composables/useViewport'
 import { PROMPT_LANGUAGES, promptLanguageByCode, DEFAULT_TRANSLATE_LANGUAGE } from './promptLanguages'
@@ -321,11 +321,8 @@ interface Props {
   /** The prompt runs as a prepared program (Tool View's Fluent with a chat model): its
       <slots> vary, and # lines are read whether Enhance is on or off. */
   programs?: boolean
-  /** Extra fields for Fluent's Suggest and Add requests (the project, whose chat model answers). */
+  /** Extra fields for Fluent's Suggest requests (the project, whose chat model answers). */
   suggestContext?: Record<string, unknown>
-  /** What the prompt's slots were read as, once read: a photography add a slot already is
-      isn't offered. */
-  readSlots?: ReadSlots | null
   /** The host fills the `mode` slot with its own prompt control (Tool View's Fluent),
       replacing Enhance, Raw and the … help entry. A prop, not a slot check: slots
       aren't reactive, and the host can switch this at runtime. */
@@ -577,8 +574,9 @@ function showMarks() {
 }
 watch([() => props.slotMarks, fluentSlots], showMarks, { flush: 'post' })
 
-// Suggest: phrases that could vary (underlined) and things worth adding (chips under the text).
-const { answer, adding, suggestNow, add } = usePromptSuggestions({
+// Suggest: phrases that could vary (underlined, and chips under the text), ways it could be
+// shot and things it could add (chips that write fixed words).
+const { answer, suggestNow } = usePromptSuggestions({
   prompt: () => props.modelValue,
   active: () => fluentSlots.value,
   context: () => props.suggestContext,
@@ -591,21 +589,27 @@ watch([answer, fluentSlots, () => props.modelValue], () => {
   // A fresh answer for the text as it stands; between answers the marks follow the edits.
   else if (answer.value?.text === text) view.dispatch({ effects: setVaryEffect.of(usableVaryPhrases(text, answer.value.suggestions.vary)) })
 }, { flush: 'post' })
-const slotAdds = computed(() => {
+const suggestions = computed<Suggestions>(() => {
   const text = props.modelValue
-  if (!fluentSlots.value || !text.trim() || !answer.value) return []
-  // Not something the prompt already has as a slot: by its words, or read as what it is; then capped.
-  const have = new Set(findSlots(text).map(([from, to]) => text.slice(from + 1, to - 1).trim().toLowerCase()))
-  return shownAdds(answer.value.suggestions.adds, props.readSlots, have)
+  if (!fluentSlots.value || !text.trim() || !answer.value) return { vary: [], looks: [], adds: [] }
+  // A phrase only for the exact text it was found in, and while it can still become a slot.
+  const vary = answer.value.text === text ? usableVaryPhrases(text, answer.value.suggestions.vary) : []
+  return { vary, ...shownWords(answer.value.suggestions, text) }
 })
-/** Have Fluent write `name` into the prompt as a slot (one undo step), then open it. */
-async function addSlot(name: string) {
-  const r = await add(name)
+/** Wrap a suggested phrase in brackets, as "Vary this" does, then open it. */
+function varyPhrase(p: SuggestedPhrase) {
   const view = getView()
-  if (!r || !view || !slotAt(r.prompt, r.slot.from)) return
+  if (!view || view.state.doc.sliceString(p.from, p.to) !== p.text) return
   offer.value = null
-  replaceDocument(view, r.prompt)
-  void nextTick(() => openSlotAt(r.slot.from))
+  const at = wrapSlot(view, p.from, p.to)
+  if (at != null) void nextTick(() => openSlotAt(at))
+}
+/** Write suggested words at the end of the prompt, as they are (one undo step). */
+function addWords(words: string) {
+  const view = getView()
+  if (!view) return
+  offer.value = null
+  replaceDocument(view, appendWords(view.state.doc.toString(), words))
 }
 // The tips panel in Tool View: what you can type, slots first, in the user's words. Each kind
 // of mark wears its color in the editor (useCodeMirrorPrompt's theme).
@@ -785,10 +789,10 @@ onUnmounted(() => {
 
 defineExpose({
   getText: () => props.modelValue,
-  // Fluent's things worth adding: the host shows them on its own line under the prompt.
-  slotAdds,
-  adding,
-  addSlot,
+  // Fluent's suggestions: the host shows them on their own line under the prompt.
+  suggestions,
+  varyPhrase,
+  addWords,
   setPromptText,
   animateDiff,
   selectLine,

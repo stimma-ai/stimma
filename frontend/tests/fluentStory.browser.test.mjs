@@ -7,9 +7,9 @@ import config from '../vite.config.js'
 
 // The main Fluent story through Tool View's prompt card as ToolView wires it: the editor,
 // its Fluent menu, its marks, the lines under it and the slot's picker together, against routes
-// that answer in the backend's shapes (routes/prompt_programs.py `public`, /pools, /suggest,
-// /add). Type a plain prompt, make a slot from an underline, pin a variant in its picker, add
-// light from the row under the text, leave it out, set the detail level, and generate.
+// that answer in the backend's shapes (routes/prompt_programs.py `public`, /pools, /suggest).
+// Type a plain prompt, make a slot from an underline, pin a variant in its picker, add words
+// from the row under the text, make the light a slot, set the detail level, and generate.
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
   root: fileURLToPath(new URL('..', import.meta.url)),
@@ -20,6 +20,7 @@ const output = (Array.isArray(built) ? built : [built]).flatMap(result => result
 const css = output.find(item => item.type === 'asset' && item.fileName.endsWith('.css'))
 const SHOTS = process.env.PROMPT_SHOTS_DIR
 
+const LAMP = 'dorm room with a <young man>, a desk lamp on the desk'
 const MEN = ['young man of Korean descent with a buzz cut', 'lanky young man of Irish descent with a side part', 'young man of Nigerian descent with shoulder-length curls']
 const LIGHTS = ['warm desk lamp glow', 'soft afternoon window light', 'cool overhead fluorescent light']
 const VARIANTS = { young_man: MEN, light: LIGHTS }
@@ -51,7 +52,7 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2, hasTouch: mobile, isMobile: mobile, colorScheme: theme })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  const calls = { prepare: [], suggest: [], add: [], pools: [], remove: [] }
+  const calls = { prepare: [], suggest: [], pools: [], remove: [] }
   // Slots whose variants failed (as_written) until a prepare asks again (retry), and variants
   // removed for good.
   const failed = new Set(failing)
@@ -65,14 +66,9 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
     if (url.endsWith('/prompt-programs/suggest')) {
       calls.suggest.push(body)
       const i = body.prompt.indexOf('young man')
-      const vary = i < 0 || body.prompt[i - 1] === '<' ? [] : [{ from: i, to: i + 9, text: 'young man' }]
-      return json({ vary, adds: [{ name: 'light', label: 'light' }, { name: 'camera', label: 'camera' }] })
-    }
-    if (url.endsWith('/prompt-programs/add')) {
-      calls.add.push(body)
-      await new Promise(r => setTimeout(r, 300))
-      const next = `${body.prompt}, lit by <${body.name}>`
-      return json({ prompt: next, slot: { from: next.length - body.name.length - 2, to: next.length } })
+      const vary = i < 0 || body.prompt[i - 1] === '<' ? [] : [{ from: i, to: i + 9, text: 'young man', label: 'different young men' }]
+      return json({ vary, looks: [{ text: 'candid phone snapshot, slightly off-center, harsh desk lamp light', label: 'phone snapshot' }],
+        adds: [{ text: 'a desk lamp on the desk', label: 'desk lamp' }, { text: 'posters on the wall', label: 'posters' }] })
     }
     if (url.endsWith('/prompt-programs/remove-variant')) {
       calls.remove.push(body)
@@ -137,7 +133,8 @@ async function story(t, opts = {}) {
   await editor.click()
   await page.keyboard.type('dorm room with a young man')
   await expect(page.locator('.cm-could-vary')).toHaveText('young man', { timeout: 4000 })
-  await expect(page.locator('[data-slot-add]')).toHaveText(['light', 'camera'])
+  await expect(page.locator('[data-slot-add]')).toHaveText(['desk lamp', 'posters'])
+  await expect(page.locator('[data-slot-vary]')).toHaveText(['different young men'])
   assert.equal(calls.suggest.at(-1).prompt, 'dorm room with a young man')
   assert.equal(calls.suggest.at(-1).project_id, 7)
   // Nothing varies yet: no rows.
@@ -168,13 +165,20 @@ async function story(t, opts = {}) {
   await page.keyboard.press('Escape')
   await expect(card).toHaveCount(0)
 
-  // + light writes it into the prompt as a slot and opens it.
-  await tap(page.locator('[data-slot-add="light"]'))
-  await expect.poll(() => text(page)).toBe('dorm room with a <young man>, lit by <light>')
-  assert.deepEqual(calls.add.at(-1), { project_id: 7, prompt: 'dorm room with a <young man>', name: 'light' })
+  // + desk lamp writes its words as they are; its chip goes, and nothing opens.
+  await tap(page.locator('[data-slot-add="desk lamp"]'))
+  await expect.poll(() => text(page)).toBe('dorm room with a <young man>, a desk lamp on the desk')
+  await expect(page.locator('[data-slot-add]')).toHaveText(['posters'])
+  await expect(card).toHaveCount(0)
+
+  // The light typed as a slot opens from its mark.
+  await editor.click()
+  await page.keyboard.press('ControlOrMeta+End')
+  await page.keyboard.type(', lit by <light>')
+  await expect.poll(() => text(page)).toBe(`${LAMP}, lit by <light>`)
+  await tap(mark(2))
   await expect(card.locator(`[data-variant="${LIGHTS[0]}"]`)).toBeVisible({ timeout: 4000 })
   await expect(page.locator('[data-row-wrap="light"][data-open]')).toHaveCount(1)
-  await expect(page.locator('[data-slot-add]')).toHaveText(['camera'], { timeout: 4000 })
   await shot(`${tag}-5-light`)
 
   // A click ticks one and is where a range starts; shift-click sets every one from there the
@@ -219,7 +223,7 @@ async function story(t, opts = {}) {
   await tap(page.locator('[data-generate]'))
   await expect.poll(() => page.evaluate(() => window.sent.length)).toBe(1)
   const [body] = await page.evaluate(() => window.sent)
-  assert.equal(body.parameters.prompt, 'dorm room with a <young man>, lit by <light>')
+  assert.equal(body.parameters.prompt, `${LAMP}, lit by <light>`)
   assert.deepEqual(body.promptOptions.program, { enabled: true, choices: { young_man: { values: [MEN[1]] }, light: { values: [LIGHTS[0]] } } })
   assert.equal(body.promptOptions.autoImprove.enabled, true)
   assert.equal(body.promptOptions.autoImprove.level, 'expand')
@@ -494,10 +498,10 @@ for (const theme of ['dark', 'light']) {
     await shot(`phone-${theme}-picker`)
     await page.keyboard.press('Escape')
     await expect(card).toHaveCount(0)
-    await expect(page.locator('[data-slot-add]')).toHaveText(['camera'], { timeout: 4000 })
+    await expect(page.locator('[data-slot-add]')).toHaveText(['desk lamp', 'posters'], { timeout: 4000 })
     await shot(`phone-${theme}-rows`)
     const rows = await measure(lines.locator('[data-row]'))
-    const adds = await measure(page.locator('[data-slot-add]'))
+    const adds = await measure(page.locator('[data-slot-adds] button'))
     assert.equal(rows.length, 4)
     for (const b of [...rows, ...adds]) assert.ok(b.w >= MIN && b.h >= MIN, `target ${b.w}x${b.h}`)
     for (const b of rows) assert.ok(b.x >= 0 && b.x + b.w <= 390, `on screen: ${JSON.stringify(b)}`)
@@ -516,7 +520,7 @@ test('on a desktop, rows stay compact', async t => {
   await page.keyboard.press('Escape')
   await expect(card).toHaveCount(0)
   for (const b of await measure(lines.locator('[data-row="pet"]'))) assert.ok(b.h <= 30, `desktop row ${b.h}px`)
-  for (const b of await measure(page.locator('[data-slot-add]'))) assert.ok(b.h <= 28, `desktop add ${b.h}px`)
+  for (const b of await measure(page.locator('[data-slot-adds] button'))) assert.ok(b.h <= 28, `desktop chip ${b.h}px`)
 })
 
 // The prompt tips, opened from the Fluent menu: what you can type, slots first, in each way of sending.

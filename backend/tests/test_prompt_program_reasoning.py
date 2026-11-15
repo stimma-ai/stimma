@@ -111,15 +111,12 @@ async def test_narrowing_asks_for_no_reasoning(wire):
     _asked_for_no_reasoning(sent[-1])
 
 
-async def test_suggest_and_add_ask_for_no_reasoning(wire):
+async def test_suggest_asks_for_no_reasoning(wire):
     from prompt_programs import suggest as sg
 
     sent, state = wire
-    state["answer"] = json.dumps({"vary": [], "add": []})
+    state["answer"] = json.dumps({"vary": [], "looks": [], "adds": []})
     await sg.suggest("dorm room with a young man")
-    _asked_for_no_reasoning(sent[-1])
-    state["answer"] = json.dumps({"prompt": "dorm room with a young man, lit by <light>"})
-    await sg.add("dorm room with a young man", "light")
     _asked_for_no_reasoning(sent[-1])
 
 

@@ -120,9 +120,9 @@ const App = defineComponent({
       }),
       h(FluentSlotList, {
         program,
-        adds: editorRef.value?.slotAdds || [],
-        adding: editorRef.value?.adding ?? null,
-        onAdd: (name: string) => editorRef.value?.addSlot(name),
+        suggestions: editorRef.value?.suggestions,
+        onVary: (p: any) => editorRef.value?.varyPhrase(p),
+        onWords: (w: string) => editorRef.value?.addWords(w),
       }),
       h('button', { type: 'button', 'data-generate': '', class: 'self-end px-3 py-1.5 rounded-md bg-accent text-white text-xs', onClick: generate }, 'Generate'),
       h('div', { class: 'grid grid-cols-2 gap-2 w-[440px]', 'data-results': '' }, results.map(job => h(JobTile, { key: job.id, job }))),

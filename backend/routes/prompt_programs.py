@@ -342,7 +342,7 @@ async def put_people_from(req: PeopleFromRequest) -> Dict[str, Any]:
     return _people_from()
 
 
-# --------------------------------------------------------------------------- suggest and add
+# --------------------------------------------------------------------------- suggest
 
 class SuggestRequest(BaseModel):
     prompt: str = Field(max_length=20000)
@@ -351,21 +351,9 @@ class SuggestRequest(BaseModel):
     raw: bool = False
 
 
-class AddRequest(BaseModel):
-    prompt: str = Field(max_length=20000)
-    # The words the new slot carries (an add's `name` from /suggest).
-    name: str = Field(max_length=200)
-    # Where /suggest said it goes, and the prompt it said so for: written in with no model call
-    # only when that is exactly `prompt`.
-    after: Optional[str] = Field(default=None, max_length=2000)
-    insert: Optional[str] = Field(default=None, max_length=400)
-    suggested_for: Optional[str] = Field(default=None, max_length=20000)
-    project_id: Optional[int] = None
-
-
 @router.post("/suggest")
 async def suggest_slots(req: SuggestRequest) -> Dict[str, Any]:
-    """Phrases in the prompt that could vary, and things it doesn't mention worth varying."""
+    """Phrases in the prompt that could vary, ways it could be shot, and things it could add."""
     from prompt_programs.suggest import cache_for, model_name, suggest
     try:
         model = await model_name(req.project_id) if req.prompt.strip() and not req.raw else ""
@@ -373,25 +361,6 @@ async def suggest_slots(req: SuggestRequest) -> Dict[str, Any]:
                              model=model, raw=req.raw)
     except Exception as e:
         http = program_http_error(e, failed="suggest_failed")
-        if http is None:
-            raise
-        raise http from None
-
-
-@router.post("/add")
-async def add_slot(req: AddRequest) -> Dict[str, Any]:
-    """The prompt with a new slot for `name` written in, and where it is: spliced in where
-    /suggest said when that still fits, else placed by a short model call."""
-    from prompt_programs.slots import SLOT_RE
-    from prompt_programs.suggest import add
-    name = req.name.strip()
-    if not SLOT_RE.fullmatch(f"<{name}>"):
-        raise HTTPException(status_code=422, detail={"code": "bad_slot", "message": "Those words can't be a slot."})
-    try:
-        return await add(req.prompt, name, project_id=req.project_id, after=req.after, insert=req.insert,
-                         suggested_for=req.suggested_for)
-    except Exception as e:
-        http = program_http_error(e, failed="add_failed")
         if http is None:
             raise
         raise http from None

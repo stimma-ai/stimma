@@ -5,8 +5,8 @@
        30" with Clear), or “its words” when it can't vary; a shimmer while its first variants are
        written. Clicking a row (or the part in the prompt) opens its picker right under the row.
        A row flashes when something is used in it from an image. Then, quietly, what's worth
-       adding. -->
-  <div v-if="program.status.value !== 'off' && (rows.length || adds.length)" ref="rootRef" class="px-1 py-1 flex flex-col" data-slot-list>
+       trying. -->
+  <div v-if="program.status.value !== 'off' && (rows.length || chips)" ref="rootRef" class="px-1 py-1 flex flex-col" data-slot-list>
     <div
       v-for="r in rows"
       :key="r.id"
@@ -59,35 +59,55 @@
       </Transition>
     </div>
 
-    <!-- Worth adding: one quiet line, gone when there's nothing to offer. -->
-    <div v-if="adds.length" class="mt-1 px-1 flex flex-nowrap items-center gap-0.5 overflow-hidden" data-slot-adds>
-      <button
-        v-for="a in adds"
-        :key="a.name"
-        type="button"
-        :disabled="!!adding"
-        :aria-busy="adding === a.name || undefined"
-        class="shrink-0 inline-flex items-center gap-1 pl-1.5 pr-2 py-1 coarse:py-1.5 coarse:min-h-11 rounded-full text-[11px] coarse:text-xs text-content-muted hover:text-content hover:bg-overlay-subtle disabled:pointer-events-none outline-none focus-visible:ring-1 focus-visible:ring-selection/60 transition-colors"
-        :data-slot-add="a.name"
-        @mousedown.prevent
-        @click="emit('add', a.name)"
-      ><Spinner v-if="adding === a.name" size="sm" /><PlusIcon v-else class="w-3 h-3" />{{ a.label }}</button>
+    <!-- Suggestions: one quiet row in three groups, gone when there's nothing to offer. A ↔ chip
+         makes the words vary (as "Vary this" does); a + chip writes fixed words, the look of
+         the shot first, then something to add. -->
+    <div v-if="chips" class="mt-1 px-1 flex flex-wrap items-center gap-x-3 gap-y-0.5" data-slot-adds>
+      <div v-if="s.vary.length" class="flex flex-wrap items-center gap-0.5" data-suggest-group="vary">
+        <button
+          v-for="p in s.vary"
+          :key="`v${p.from}`"
+          type="button"
+          class="shrink-0 inline-flex items-center gap-1 pl-1.5 pr-2 py-1 coarse:py-1.5 coarse:min-h-11 rounded-full text-[11px] coarse:text-xs text-content-muted hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60 transition-colors"
+          :data-slot-vary="p.text"
+          @mousedown.prevent
+          @click="emit('vary', p)"
+        ><ArrowsRightLeftIcon class="w-3 h-3 text-selection" />{{ p.label }}</button>
+      </div>
+      <div v-for="g in fixedGroups" :key="g.key" class="flex flex-wrap items-center gap-0.5" :data-suggest-group="g.key">
+        <button
+          v-for="w in g.items"
+          :key="w.text"
+          type="button"
+          :title="w.text"
+          class="shrink-0 inline-flex items-center gap-1 pl-1.5 pr-2 py-1 coarse:py-1.5 coarse:min-h-11 rounded-full text-[11px] coarse:text-xs text-content-muted hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60 transition-colors"
+          :[g.attr]="w.label"
+          @mousedown.prevent
+          @click="emit('words', w.text)"
+        ><PlusIcon class="w-3 h-3" />{{ w.label }}</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ChevronRightIcon, PlusIcon } from '@heroicons/vue/24/outline'
-import Spinner from '../ui/Spinner.vue'
+import { ArrowsRightLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import FluentSlotPicker from './FluentSlotPicker.vue'
 import { inPlayCount, optionsOf, resetState, rowValue, type RowValue } from '../../utils/programChoices'
 import { slotFlash } from '../../composables/slotFlash'
 import type { PromptProgram } from '../../composables/usePromptProgram'
-import type { SuggestedAdd } from '../../composables/usePromptSuggestions'
+import type { SuggestedPhrase, Suggestions } from '../../composables/usePromptSuggestions'
 
-const props = withDefaults(defineProps<{ program: PromptProgram; adds?: SuggestedAdd[]; adding?: string | null }>(), { adds: () => [], adding: null })
-const emit = defineEmits<{ (e: 'add', name: string): void }>()
+const props = defineProps<{ program: PromptProgram; suggestions?: Suggestions | null }>()
+const emit = defineEmits<{ (e: 'vary', phrase: SuggestedPhrase): void; (e: 'words', text: string): void }>()
+
+const s = computed<Suggestions>(() => props.suggestions ?? { vary: [], looks: [], adds: [] })
+const fixedGroups = computed(() => [
+  { key: 'looks', attr: 'data-slot-look-chip', items: s.value.looks },
+  { key: 'adds', attr: 'data-slot-add', items: s.value.adds },
+].filter(g => g.items.length))
+const chips = computed(() => s.value.vary.length + s.value.looks.length + s.value.adds.length > 0)
 
 const rootRef = ref<HTMLElement | null>(null)
 const openId = computed(() => props.program.openId.value)

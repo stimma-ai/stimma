@@ -1,73 +1,51 @@
 /**
  * The shapes of Fluent's Suggest answer, and the pure checks on them (the composable that
  * asks is composables/usePromptSuggestions.ts).
+ *
+ * vary   phrases the user wrote that could change from picture to picture: underlined in the
+ *        text, and a chip; a click wraps the words in brackets.
+ * looks  complete descriptions of how the picture is shot or made; a click adds the words.
+ * adds   concrete things the picture lacks; a click adds the words.
  */
 
-export interface SuggestedPhrase { from: number; to: number; text: string }
-export interface SuggestedAdd {
-  name: string
-  label: string
-  /** A photo's photography add (its light, or one part of its camera: angle, lens, film look,
-      framing): the kind its slot is read as (`light`, or `list` for a camera part)… */
-  kind?: string
-  /** …and the vocabulary lists it draws from (a camera part: its one list, e.g. `camera.lens`).
-      The server says; the editor doesn't use it. */
-  lists?: string[]
-  /** Where it goes: words of the prompt it was suggested for, written in right after them… */
-  after?: string
-  /** …as these words, which hold its slot. Sent with Add, which splices them in with no model call. */
-  insert?: string
-}
-/** What the prompt's slots were read as: their kinds. */
-export interface ReadSlots { kinds: string[] }
-export interface Suggestions { vary: SuggestedPhrase[]; adds: SuggestedAdd[] }
+export interface SuggestedPhrase { from: number; to: number; text: string; label: string }
+/** Fixed words a click writes into the prompt as they are, and the chip's label. */
+export interface SuggestedWords { text: string; label: string }
+export interface Suggestions { vary: SuggestedPhrase[]; looks: SuggestedWords[]; adds: SuggestedWords[] }
+
+const words = (list: any): SuggestedWords[] => Array.isArray(list)
+  ? list.filter((w: any) => typeof w?.text === 'string' && w.text.trim())
+    .map((w: any) => ({ text: w.text, label: typeof w.label === 'string' && w.label.trim() ? w.label : w.text }))
+  : []
 
 /** A /suggest answer, keeping only well-formed parts. */
 export function cleanSuggestions(data: any): Suggestions {
-  const vary = Array.isArray(data?.vary) ? data.vary.filter((p: any) =>
-    Number.isInteger(p?.from) && Number.isInteger(p?.to) && typeof p?.text === 'string') : []
-  const adds = Array.isArray(data?.adds) ? data.adds.filter((a: any) => typeof a?.name === 'string' && a.name.trim())
-    .map((a: any): SuggestedAdd => ({
-      name: a.name,
-      label: typeof a.label === 'string' && a.label.trim() ? a.label : a.name,
-      ...(typeof a.kind === 'string' && a.kind ? { kind: a.kind } : {}),
-      ...(Array.isArray(a.lists) ? { lists: a.lists.filter((l: unknown) => typeof l === 'string') } : {}),
-      ...(typeof a.after === 'string' && typeof a.insert === 'string' ? { after: a.after, insert: a.insert } : {}),
-    })) : []
-  return { vary, adds }
+  const vary = Array.isArray(data?.vary) ? data.vary
+    .filter((p: any) => Number.isInteger(p?.from) && Number.isInteger(p?.to) && typeof p?.text === 'string')
+    .map((p: any): SuggestedPhrase => ({ from: p.from, to: p.to, text: p.text,
+      label: typeof p.label === 'string' && p.label.trim() ? p.label : p.text })) : []
+  return { vary, looks: words(data?.looks), adds: words(data?.adds) }
 }
 
-/** What Add is sent for the add named `name`: where Suggest said it goes, with the prompt it
-    said so for, only when that is exactly `text`. After an edit the words it goes after may
-    still be there, yet the join would land beside what the edit added: Add places it afresh. */
-export function joinFor(answer: { text: string; suggestions: Suggestions } | null | undefined, name: string, text: string):
-  { after: string; insert: string; suggested_for: string } | null {
-  if (!answer || answer.text !== text) return null
-  const add = answer.suggestions.adds.find(a => a.name === name)
-  return add?.after != null && add.insert != null ? { after: add.after, insert: add.insert, suggested_for: answer.text } : null
+const isNote = (line: string) => /^\s*#/.test(line)
+
+/** The prompt with `words` added after a comma at the end of its last picture line (not a
+    # note line); just the words when there is none. */
+export function appendWords(prompt: string, words: string): string {
+  const lines = prompt.split('\n')
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (!lines[i].trim() || isNote(lines[i])) continue
+    const end = lines[i].trimEnd().length
+    const head = lines[i].slice(0, end)
+    lines[i] = `${head}${/[,;]$/.test(head) ? ' ' : ', '}${words}${lines[i].slice(end)}`
+    return lines.join('\n')
+  }
+  return prompt.trim() ? `${prompt.replace(/\n+$/, '')}\n${words}` : words
 }
 
-/** Whether a slot of the prompt already is this photography add: read as its kind (a light).
-    A camera part is a `list`, which says nothing about which part, so it is never covered this
-    way (a slot of the same words still hides it: `shownAdds`). Unknown until the slots are
-    read: false. Structure only, never the slot's words. */
-export function slotCovers(add: SuggestedAdd, read: ReadSlots | null | undefined): boolean {
-  if (!read || !add.kind || add.kind === 'list') return false
-  return read.kinds.includes(add.kind)
-}
-
-/** At most this many photography chips (a photo's light and camera parts)… */
-export const MAX_PHOTO_CHIPS = 3
-/** …and this many chips in all. */
-export const MAX_CHIPS = 5
-
-/** The adds to show as chips: not one the prompt already has as a slot, by its words (`have`,
-    lowercased) or read as what it is (`slotCovers`), and only then capped. Photography arrives
-    best first with every part the prompt lacks, so when a slot covers one, the next moves up. */
-export function shownAdds(adds: SuggestedAdd[], read: ReadSlots | null | undefined, have: Set<string>): SuggestedAdd[] {
-  let photo = 0
-  return adds
-    .filter(a => !have.has(a.name.trim().toLowerCase()) && !slotCovers(a, read))
-    .filter(a => !a.kind || ++photo <= MAX_PHOTO_CHIPS)
-    .slice(0, MAX_CHIPS)
+/** The fixed words worth showing for the prompt as it stands: none of the looks once one is
+    in it, and no add that is already there. */
+export function shownWords(s: Suggestions, prompt: string): { looks: SuggestedWords[]; adds: SuggestedWords[] } {
+  const looks = s.looks.some(l => prompt.includes(l.text)) ? [] : s.looks
+  return { looks, adds: s.adds.filter(a => !prompt.includes(a.text)) }
 }
