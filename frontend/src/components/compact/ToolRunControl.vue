@@ -1,18 +1,16 @@
 <script setup lang="ts">
 /**
- * The tool view's Run on a phone: one 44px header control.
- *
- * Tap runs with the current batch size. Long-press opens the run sheet
- * (batch stepper, Forever mode toggle button, its two settings). Forever
- * armed: magenta ∞, tap stops. While jobs run the button stays a plain Run,
- * as on desktop: progress lives in the filmstrip, and a tap queues another
- * run. The badge shows the batch size, so ×4 is never a surprise. The sheet
- * has no Run button of its own: it is settings, and Run is the control you
- * long-pressed. In the phone drawer it also carries the output settings
- * (auto-markers, auto-delete), which have no room beside the controls; a small
- * settings glyph inside Run's fill says one of them is on, and the controls area shows
- * the state on the New outputs row, whose delete button opens this sheet. Easter egg: a double tap starts Forever
- * mode (the first tap has already run, so that batch still goes).
+ * The tool view's Run on a phone, laid out like desktop: a Run split button
+ * (tap runs with the current batch size; the caret opens the run sheet) and a
+ * separate Forever button beside it. Forever armed: the ∞ button turns solid
+ * magenta and a tap stops it; Run stays a plain Run, as on desktop, so a tap
+ * queues another run. Long-pressing Run also opens the sheet. The badge shows
+ * the batch size, so ×4 is never a surprise. The sheet (batch stepper, Forever
+ * mode and its two settings) has no Run button of its own: it is settings. In
+ * the phone drawer it also carries the output settings (auto-markers,
+ * auto-delete), which have no room beside the controls; a small settings glyph
+ * inside Run's fill says one of them is on, and the controls area shows the
+ * state on the New outputs row, whose delete button opens this sheet.
  */
 import { computed, ref } from 'vue'
 import Sheet from '../ui/Sheet.vue'
@@ -61,25 +59,12 @@ function onPointerDown() {
 function cancelPress() {
   if (pressTimer !== null) { window.clearTimeout(pressTimer); pressTimer = null }
 }
-const DOUBLE_TAP_MS = 300
-let lastRunTap = 0
-
 function onClick() {
   cancelPress()
   if (longPressed) { longPressed = false; return }
-  if (props.foreverActive) { lastRunTap = 0; emit('stopForever'); return }
   if (!props.canSubmit) return
-  const now = performance.now()
-  if (now - lastRunTap < DOUBLE_TAP_MS) {
-    lastRunTap = 0
-    emit('startForever', props.concurrency)
-    return
-  }
-  lastRunTap = now
   emit('run')
 }
-
-const state = computed<'idle' | 'forever'>(() => (props.foreverActive ? 'forever' : 'idle'))
 
 function step(delta: number) {
   const next = Math.min(50, Math.max(1, props.batchSize + delta))
@@ -88,7 +73,7 @@ function step(delta: number) {
 
 function toggleForever() {
   if (props.foreverActive) emit('stopForever')
-  else emit('startForever', props.concurrency)
+  else if (props.canSubmit) emit('startForever', props.concurrency)
 }
 
 const CONCURRENCY = [{ label: 'Unlimited', value: 0 }, ...Array.from({ length: 10 }, (_, i) => ({ label: String(i + 1), value: i + 1 }))]
@@ -96,38 +81,74 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
 </script>
 
 <template>
-  <!-- A 44px target around a 36px fill; the fill's right edge is the page margin. -->
-  <button
-    type="button"
-    data-testid="tool-run-button"
-    class="h-11 min-w-11 flex-none flex items-center justify-center border-none bg-transparent pl-0 pr-1 select-none touch-manipulation focus-visible:outline-none"
-    :aria-label="state === 'forever' ? 'Stop forever mode' : `Run ×${batchSize}`"
-    @pointerdown="onPointerDown"
-    @pointerup="cancelPress"
-    @pointerleave="cancelPress"
-    @pointercancel="cancelPress"
-    @contextmenu.prevent
-    @click="onClick"
-  >
-    <span
-      class="flex h-9 min-w-14 items-center justify-center gap-1.5 rounded-md px-3.5 text-[15px] font-semibold transition-colors"
-      :class="[
-        state === 'forever' ? 'bg-live text-accent-on' : 'bg-accent text-accent-on',
-        !canSubmit && state === 'idle' ? 'opacity-45' : '',
-      ]"
+  <!-- Run split button + Forever, each a 44px target around a 36px fill; the
+       Forever fill's right edge is the page margin. -->
+  <div class="flex flex-none items-center">
+    <!-- The fills are spans inside full-height buttons, so each half keeps a
+         44px touch target while the pair reads as one 36px split button. -->
+    <button
+      type="button"
+      data-testid="tool-run-button"
+      class="group h-11 flex-none flex items-center border-none bg-transparent p-0 select-none touch-manipulation focus-visible:outline-none"
+      :aria-label="`Run ×${batchSize}`"
+      @pointerdown="onPointerDown"
+      @pointerup="cancelPress"
+      @pointerleave="cancelPress"
+      @pointercancel="cancelPress"
+      @contextmenu.prevent
+      @click="onClick"
     >
-      <svg v-if="state === 'forever'" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
-      <span>{{ state === 'forever' ? 'Stop' : 'Run' }}</span>
-      <!-- Trailing marks live inside the fill so Run keeps one clean outline. -->
-      <span v-if="batchSize > 1" class="font-mono text-[12.5px] font-medium opacity-70">×{{ batchSize }}</span>
-      <svg
-        v-if="outputSettingOn"
-        class="h-4 w-4 opacity-70"
-        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-        aria-hidden="true"
-      ><title>Output settings on</title><path d="M4 8h9M17 8h3M4 16h3M11 16h9" /><circle cx="15" cy="8" r="2" /><circle cx="9" cy="16" r="2" /></svg>
-    </span>
-  </button>
+      <span
+        class="flex h-9 items-center justify-center gap-1.5 rounded-l-md max-[389px]:rounded-md bg-accent pl-3.5 pr-2.5 max-[389px]:pr-3.5 text-[15px] font-semibold text-accent-on group-focus-visible:ring-2 group-focus-visible:ring-accent/60"
+        :class="!canSubmit ? 'opacity-45' : ''"
+      >
+        <span>Run</span>
+        <!-- Trailing marks live inside the fill so Run keeps one clean outline. -->
+        <span v-if="batchSize > 1" class="font-mono text-[12.5px] font-medium opacity-70">×{{ batchSize }}</span>
+        <svg
+          v-if="outputSettingOn"
+          class="h-4 w-4 opacity-70"
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          aria-hidden="true"
+        ><title>Output settings on</title><path d="M4 8h9M17 8h3M4 16h3M11 16h9" /><circle cx="15" cy="8" r="2" /><circle cx="9" cy="16" r="2" /></svg>
+      </span>
+    </button>
+    <!-- Under 390px the header has no room for the caret; long-press opens the sheet. -->
+    <button
+      type="button"
+      data-testid="tool-run-options"
+      class="group h-11 flex-none flex items-center border-none bg-transparent p-0 select-none touch-manipulation focus-visible:outline-none max-[389px]:hidden"
+      aria-label="Run options"
+      :aria-expanded="sheetOpen"
+      @click="sheetOpen = true"
+    >
+      <span
+        class="relative flex h-9 w-8 items-center justify-center rounded-r-md bg-accent text-accent-on group-focus-visible:ring-2 group-focus-visible:ring-accent/60"
+        :class="!canSubmit ? 'opacity-45' : ''"
+      >
+        <span class="absolute left-0 inset-y-2 w-px bg-accent-on/25" aria-hidden="true"></span>
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+      </span>
+    </button>
+    <button
+      type="button"
+      data-testid="tool-forever-button"
+      class="group h-11 w-11 max-[389px]:w-10 flex-none flex items-center justify-end border-none bg-transparent pl-1 pr-0 select-none touch-manipulation focus-visible:outline-none"
+      :aria-label="foreverActive ? 'Stop forever mode' : 'Start forever mode'"
+      :aria-pressed="foreverActive"
+      @click="toggleForever"
+    >
+      <span
+        class="flex h-9 w-10 max-[389px]:w-9 items-center justify-center rounded-md transition-colors group-focus-visible:ring-2 group-focus-visible:ring-accent/60"
+        :class="[
+          foreverActive ? 'bg-live text-accent-on' : 'bg-surface-raised text-content',
+          !canSubmit && !foreverActive ? 'opacity-45' : '',
+        ]"
+      >
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
+      </span>
+    </button>
+  </div>
 
   <Sheet :show="sheetOpen" title="Run" @close="sheetOpen = false">
     <p v-if="outputDestination" class="px-4 py-3 text-sm text-content-muted">Output: {{ outputDestination }}</p>
