@@ -48,10 +48,10 @@ CHUNK = 1 << 20
 # Neutral, made-up picks the pack step scores through the app's own OnnxJudge. Their
 # P(wrong) goes in the manifest, so any machine can check it runs the judge the same.
 SELFTEST = [
-    {"state": "A watercolour of a lighthouse at [Time of day], gulls over the rocks.",
-     "label": "Time of day", "about": "", "value": "dusk", "user_prompt": "a lighthouse, watercolour"},
-    {"state": "A watercolour of a lighthouse at [Time of day], gulls over the rocks.",
-     "label": "Time of day", "about": "", "value": "a frozen tuesday", "user_prompt": "a lighthouse, watercolour"},
+    {"state": "A watercolor of a lighthouse at [Time of day], gulls over the rocks.",
+     "label": "Time of day", "about": "", "value": "dusk", "user_prompt": "a lighthouse, watercolor"},
+    {"state": "A watercolor of a lighthouse at [Time of day], gulls over the rocks.",
+     "label": "Time of day", "about": "", "value": "a frozen tuesday", "user_prompt": "a lighthouse, watercolor"},
     {"state": "A portrait of an elderly fisherman with [Hair], weathered hands on a net.",
      "label": "Hair", "about": "", "value": "thin white hair", "user_prompt": "an old fisherman"},
     {"state": "A portrait of an elderly fisherman with [Hair], weathered hands on a net.",

@@ -33,17 +33,17 @@ You are given the user's request, the finished prompt, and the choices in it: wh
 
 Give each choice one of three answers:
 
-- "no": the value breaks the picture. It contradicts the user's request or undoes what the request says is happening; or the picture as requested would not show it at all; or it is not the kind of thing the choice asks for; or it cannot be true together with the other values in the prompt. That includes a plain clash with the world the other values set: clothing, objects or technology from another era than the stated one; clothing no one would wear in the stated weather; light that cannot occur at the stated time of day; an animal or plant far from anywhere it lives, or at a life stage it cannot be in there.
-- "rare": nothing is broken, but it is a stretch: an uncommon combination with the other values, or only loosely what the choice asks for. A detail of a person that reads as another age or another descent than the one the prompt gives them (gray or white hair, deep wrinkles or sagging skin on someone under forty; natural blonde or red hair on someone whose descent rarely has it) is "rare" at best, and "no" when the request states that age or descent. So is clothing made for the other sex than the person's, for a warmer or cooler day than the scene, or for another kind of occasion.
+- "no": the value breaks the picture. It contradicts the user's request or undoes what the request says is happening; or the picture as requested would not show it at all; or it is not the kind of thing the choice asks for; or it drops, generalizes or replaces the thing the user named in that part (a named brand or place becomes a generic one, or the subject becomes someone or something else); or it cannot be true together with the other values in the prompt. That includes anything physically impossible in the scene (a size, weight, strength, place or action that cannot happen) and a plain clash with the world the other values set: clothing, objects or technology from another era than the stated one; clothing no one would wear in the stated weather; light that cannot occur at the stated time of day; an animal or plant far from anywhere it lives, or at a life stage it cannot be in there.
+- "rare": nothing is broken, but it is a real stretch: a combination that does happen, but seldom, with the other values; or only loosely what the choice asks for. A detail of a person that reads as another age or another descent than the one the prompt gives them (gray or white hair, deep wrinkles or sagging skin on someone under forty; natural blonde or red hair on someone whose descent rarely has it) is "rare" at best, and "no" when the request states that age or descent. So is clothing made for the other sex than the person's, for a warmer or cooler day than the scene, or for another kind of occasion.
 - "yes": it fits.
 
 A value that sexualizes a child or a teenager in the prompt (sexualized dress, pose or expression) is "no", whatever the request says.
 
-Unusual people and places are welcome. When unsure between "rare" and "yes", say "yes". Keep "no" for what is actually wrong.
+To choose between "no" and "rare", ask whether a careful viewer would see the picture as a mistake. If they would, answer "no", even when the clash is small or the value is appealing on its own: "rare" is not a gentler "no". If they would see something unusual but possible, answer "rare". A fact only a specialist would know, which would not read as a mistake in the picture, is "yes", or "rare" at most. Unusual people and places are welcome, and a request's own fantasy or style sets what is possible. When unsure between "rare" and "yes", say "yes".
 
 Reply with one JSON object per line and nothing else, in the form {"id": 1, "answer": "yes"}."""
 
-RULES_VERSION = "r2"     # bumped when RULES change, so fix records tell the rules apart
+RULES_VERSION = "r4"     # bumped when RULES change, so fix records tell the rules apart
 CUT = 0.5                # above this a choice is rerolled: only a "no"
 RARE = 0.25              # a "rare" answer's score: below the cut, so kept, and told apart from "yes" in the record
 BATCH = 24               # choices per call: a draw's choices go together

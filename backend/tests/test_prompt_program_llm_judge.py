@@ -56,7 +56,7 @@ def test_no_is_rerolled_yes_is_kept_and_an_unanswered_choice_stands(loop):
     lp = loop(lambda k: {"hazel": "no", "brown": "yes"}.get(k[4]))
     got = lp.judge.p_wrong(items("hazel", "brown", "gray"))
     assert got[0] > lp.judge.cut and got[1] == 0.0 and got[2] == 0.0
-    assert lp.judge.version == "llm:m/r2" and lp.judge.reroll_all
+    assert lp.judge.version == "llm:m/r4" and lp.judge.reroll_all
 
 
 def test_rare_is_never_rerolled_but_scores_apart_from_yes(loop):
@@ -95,7 +95,13 @@ def test_the_reply_is_read_line_by_line():
     assert {int(m.group(1)): m.group(2) for m in llm_judge._ANSWER.finditer(text)} == {1: "no", 2: "rare", 3: "yes"}
 
 
-def test_without_the_pinned_judge_or_the_tool_view_model_a_draw_ships_unjudged():
+def test_without_the_pinned_judge_or_the_tool_view_model_a_draw_ships_unjudged(tmp_path, monkeypatch):
+    # An empty model cache and data dir: a judge downloaded on this machine must not count.
+    import app_dirs
+    from prompt_programs import pick_judge
+    monkeypatch.setattr(app_dirs, "get_cache_dir", lambda *a, **k: tmp_path / "cache")
+    monkeypatch.setattr(app_dirs, "get_data_dir", lambda *a, **k: tmp_path / "data")
+    pick_judge.reset()
     llm_judge.reset()
     cfg = FluentSettings()
     assert fix_mode(cfg.fix_model) == "default" and judge_identity(cfg).endswith("|llm")

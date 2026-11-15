@@ -125,10 +125,10 @@ def test_the_judge_is_on_by_default(monkeypatch):
 def test_the_committed_pin_is_the_trained_judge():
     pick_judge.reset()
     m = pick_judge.manifest()
-    assert m["name"] == "pick-judge" and m["contract"] in pick_judge.CONTRACTS and m["version"] == "2026-11-15.1"
+    assert m["name"] == "pick-judge" and m["contract"] in pick_judge.CONTRACTS and m["version"] == "2026-11-15.2"
     assert {f["path"] for f in m["files"]} == set(mr.ALLOWED) and m["model"] == "model.int8.onnx"
     assert m["kind"] == "enc" and m["maxlen"] == 512 and m["labels"] == ["fine", "odd", "wrong"]
-    assert m["cut"] == 0.074089 and m["base_model"] == "microsoft/deberta-v3-base"
+    assert m["cut"] == 0.789877 and m["base_model"] == "microsoft/deberta-v3-base"
     assert pick_judge.version_of(m) == f"pick-judge/{m['version']}@{pick_judge.model_file(m)['sha256'][:12]}"
     assert len(m["selftest"]["p_wrong"]) == len(m["selftest"]["items"])
 
