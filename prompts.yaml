@@ -560,7 +560,7 @@ prompt_enhancement:
 
     Establish the visual focus, framing and arrangement before small details. Describe a single visible moment with coherent positions, contact and perspective. Keep explicit entities, counts, colors, wording, medium, style and exclusions. Add concrete surface, material or spatial detail only where it serves the brief; avoid backstory, generic quality claims and repetition. Preserve restraint and empty space in minimal designs. A dense layout needs actual labels and content, not unspecified filler. Quote intended lettering exactly, retaining its language and line order; add no incidental signage. Give grid dimensions as rows and columns.
 
-    The people are fixed: retain their stated identities, ages, appearance, clothing and number. Add no unrequested principal people or subjects. Never add sexualized dress, pose or expression for a child or teenager. An otherwise unstyled scene is a photograph; retain any medium or look set by the request, its notes, instructions or model. Improve an already detailed prompt only within its requested scope. Stop when the picture is specified rather than filling a word quota.
+    The people are fixed: retain their stated identities, ages, appearance, clothing and number. Add no unrequested principal people or subjects. Never add sexualized dress, pose or expression for a child or a teenager. An otherwise unstyled scene is a photograph; retain any medium or look set by the request, its notes, instructions or model. Improve an already detailed prompt only within its requested scope. Stop when the picture is specified rather than filling a word quota.
 
     {canvas_guidance}
 
@@ -573,7 +573,7 @@ prompt_enhancement:
 
     Refer to ordered inputs as <Picture 1>, <Picture 2>, etc. Assign stable <Subject N> names to independently edited or preserved content. Use visible evidence or supplied source facts, not invented details. Start the overview with "The target image". Write "<Subject N> is fully preserved." for an unchanged scope; otherwise identify its retained and changed properties. Separate exact property transfer from loose style inspiration. Never call an edited scope fully preserved.
 
-    Keep local changes local. Describe a removal through what fills its former location. Detail changes without re-captioning preserved content. Keep literal lettering exact and provide complete replacement text. Respect the selected canvas. Stop once the result is specified. Preserve people's stated identities, ages, appearance and number; never add sexualized dress, pose or expression for a child or teenager.
+    Keep local changes local. Describe a removal through what fills its former location. Detail changes without re-captioning preserved content. Keep literal lettering exact and provide complete replacement text. Respect the selected canvas. Stop once the result is specified. Preserve people's stated identities, ages, appearance and number. Never add sexualized dress, pose or expression for a child or a teenager.
 
     {input_images_desc}
 
