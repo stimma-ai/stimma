@@ -1,6 +1,6 @@
 {
  "name": "pick-judge",
- "version": "2026-11-15.2",
+ "version": "2026-11-15.3",
  "contract": 1,
  "kind": "enc",
  "maxlen": 512,
@@ -11,13 +11,13 @@
   "wrong"
  ],
  "wrong": "wrong",
- "cut": 0.789877,
+ "cut": 0.81613,
  "model": "model.int8.onnx",
  "files": [
   {
    "path": "model.int8.onnx",
    "size": 248464788,
-   "sha256": "19f940f31ca2955d80ce45203435ee9b6cfcb87567b6b215cd669d1898c70b58"
+   "sha256": "e8f27fc20db791085ab70f39297e82bab508092ed909018f9fec78abbe2a0edc"
   },
   {
    "path": "tokenizer.json",
@@ -31,8 +31,8 @@
   },
   {
    "path": "io.json",
-   "size": 163,
-   "sha256": "d029431601c9b3c2425dc4c39d17a470e4502e3dc0da8bca3b08dfb9bc7ce758"
+   "size": 162,
+   "sha256": "f7af9cd882f6ce2d9534a3506de7900863fc49f3d29323fb790ff8a37ec9c2f1"
   },
   {
    "path": "LICENSE",
@@ -43,8 +43,8 @@
  "base_model": "microsoft/deberta-v3-base",
  "license": "MIT",
  "metrics": {
-  "gold_auroc": 0.858,
-  "test_auroc": 0.832
+  "gold_auroc": 0.853,
+  "test_auroc": 0.846
  },
  "selftest": {
   "items": [
@@ -92,12 +92,12 @@
    }
   ],
   "p_wrong": [
-   0.0026,
-   0.2246,
-   0.0139,
-   0.7008,
-   0.0176,
-   0.101
+   0.0021,
+   0.2825,
+   0.011,
+   0.8671,
+   0.1403,
+   0.5756
   ]
  }
 }
