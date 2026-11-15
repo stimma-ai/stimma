@@ -32,8 +32,8 @@ You are given the user's request, the finished prompt, and the choices in it: wh
 
 Give each choice one of three answers:
 
-- "no": the value breaks the picture. It contradicts the user's request or undoes what the request says is happening; or the picture as requested would not show it at all; or it is not the kind of thing the choice asks for; or it cannot be true together with the other values in the prompt.
-- "rare": nothing is broken, but it is a stretch: an uncommon combination with the other values, or only loosely what the choice asks for. A detail of a person that reads as another age or another descent than the one the prompt gives them (gray or white hair, deep wrinkles or sagging skin on someone under forty; natural blonde or red hair on someone whose descent rarely has it) is "rare" at best, and "no" when the request states that age or descent. So is clothing made for the other sex than the person's, or for another season or another kind of occasion than the scene.
+- "no": the value breaks the picture. It contradicts the user's request or undoes what the request says is happening; or the picture as requested would not show it at all; or it is not the kind of thing the choice asks for; or it cannot be true together with the other values in the prompt. That includes a plain clash with the world the other values set: clothing, objects or technology from another era than the stated one; clothing no one would wear in the stated weather; light that cannot occur at the stated time of day; an animal or plant far from anywhere it lives, or at a life stage it cannot be in there.
+- "rare": nothing is broken, but it is a stretch: an uncommon combination with the other values, or only loosely what the choice asks for. A detail of a person that reads as another age or another descent than the one the prompt gives them (gray or white hair, deep wrinkles or sagging skin on someone under forty; natural blonde or red hair on someone whose descent rarely has it) is "rare" at best, and "no" when the request states that age or descent. So is clothing made for the other sex than the person's, for a warmer or cooler day than the scene, or for another kind of occasion.
 - "yes": it fits.
 
 A value that sexualizes a child or a teenager in the prompt (sexualized dress, pose or expression) is "no", whatever the request says.
@@ -42,6 +42,7 @@ Unusual people and places are welcome. When unsure between "rare" and "yes", say
 
 Reply with one JSON object per line and nothing else, in the form {"id": 1, "answer": "yes"}."""
 
+RULES_VERSION = "r2"     # bumped when RULES change, so fix records tell the rules apart
 CUT = 0.5                # above this a choice is rerolled: only a "no"
 RARE = 0.25              # a "rare" answer's score: below the cut, so kept, and told apart from "yes" in the record
 BATCH = 24               # choices per call: a draw's choices go together
@@ -72,7 +73,8 @@ class LlmJudge:
         self.cfg = cfg
         self.key = key   # the model and endpoint it asks: another one is another judge
         where = hashlib.sha256(key.encode("utf-8")).hexdigest()[:6] if key else ""
-        self.version = f"llm:{getattr(cfg, 'model', '') or 'tool-assistant'}" + (f"@{where}" if where else "")
+        self.version = (f"llm:{getattr(cfg, 'model', '') or 'tool-assistant'}" + (f"@{where}" if where else "")
+                        + f"/{RULES_VERSION}")
         self._answers: Dict[Tuple[str, str, str, str, str], str] = {}
         self._lock = threading.Lock()
         self.calls = 0

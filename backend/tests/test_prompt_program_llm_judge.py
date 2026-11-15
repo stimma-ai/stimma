@@ -56,7 +56,7 @@ def test_no_is_rerolled_yes_is_kept_and_an_unanswered_choice_stands(loop):
     lp = loop(lambda k: {"hazel": "no", "brown": "yes"}.get(k[4]))
     got = lp.judge.p_wrong(items("hazel", "brown", "gray"))
     assert got[0] > lp.judge.cut and got[1] == 0.0 and got[2] == 0.0
-    assert lp.judge.version == "llm:m" and lp.judge.reroll_all
+    assert lp.judge.version == "llm:m/r2" and lp.judge.reroll_all
 
 
 def test_rare_is_never_rerolled_but_scores_apart_from_yes(loop):
