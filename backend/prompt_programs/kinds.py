@@ -144,6 +144,7 @@ class Aspects:
     per_variant: int = 2
     drop: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     typical: Optional[Dict[str, Any]] = None
+    one_drop: Tuple[str, ...] = ()   # aspects a part naming one specific someone leaves out (their build, how their age shows)
 
     def typical_share(self, answers: Optional[Dict[str, Any]] = None) -> float:
         """The typical share for a reading: the declared share, or the larger one its `implied`
@@ -189,6 +190,8 @@ class Kind:
     note: str = ""
     improve: Tuple[str, ...] = ()
     whole: str = ""                # the writer's line when the whole part is its category ("{cat}")
+    one: str = ""                  # the reader's words on when a part of this kind names one specific thing
+    writer_one: str = ""           # the writer's line for a part of this kind that names one specific thing
 
     @property
     def no_category(self) -> bool:
@@ -333,7 +336,10 @@ def _aspects(d: Any, where: str) -> Optional[Aspects]:
                                     and isinstance(imp.get("share"), (int, float)) and not isinstance(imp.get("share"), bool)
                                     and 0 <= imp["share"] <= 1):
             raise Bad(f"{where}: typical's implied needs an answer, the answer it is, and a share between 0 and 1")
-    return Aspects(items, n, {k: dict(v or {}) for k, v in drop.items()}, dict(typ) if typ else None)
+    one_drop = _strs(d, "one_drop", f"{where} aspects")
+    if any(x not in items for x in one_drop):
+        raise Bad(f"{where}: aspects one_drop names an aspect not in the list")
+    return Aspects(items, n, {k: dict(v or {}) for k, v in drop.items()}, dict(typ) if typ else None, tuple(one_drop))
 
 
 def parse_kind(d: Any, where: str) -> Kind:
@@ -352,8 +358,8 @@ def parse_kind(d: Any, where: str) -> Kind:
     qs = tuple(_question(q, w) for q in (r.get("questions") or []))
     if len({q.key for q in qs}) != len(qs):
         raise Bad(f"{w}: two questions have the same key")
-    if {"kind", "label", "lead", "category", "n"} & {q.key for q in qs}:
-        raise Bad(f"{w}: a question's key may not be kind, label, lead, category or n")
+    if {"kind", "label", "lead", "category", "names", "n"} & {q.key for q in qs}:
+        raise Bad(f"{w}: a question's key may not be kind, label, lead, category, names or n")
     details: Dict[str, Detail] = {}
     for name, x in _dict(d, "details", w).items():
         if not _NAME.match(str(name)) or not isinstance(x, dict) or not isinstance(x.get("list"), str):
@@ -387,7 +393,7 @@ def parse_kind(d: Any, where: str) -> Kind:
                 req, qs, details, _str(d, "noun_default", w), int(first), int(d.get("room") or 0),
                 tuple(_rule(x, w) for x in (d.get("draws") or [])), _aspects(d.get("aspects"), w),
                 _strs(wr, "examples", w), _strs(wr, "rules", w), _strs(wr, "seed_rules", w), _str(wr, "note", w),
-                _strs(d, "improve", w), _str(wr, "whole", w))
+                _strs(d, "improve", w), _str(wr, "whole", w), _str(r, "one", w), _str(wr, "one", w))
 
 
 def check_kind_lists(k: Kind, vocab_get: Any) -> None:

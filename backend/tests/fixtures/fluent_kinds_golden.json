@@ -621,11 +621,11 @@
     "role": "gender",
     "list": "person.gender",
     "phrase": "young woman",
+    "where": {
+     "presentation": "feminine"
+    },
     "narrowed": [
-     "woman",
-     "man",
-     "trans man",
-     "non-binary person"
+     "woman"
     ]
    },
    {
@@ -786,8 +786,8 @@
    ],
    "gender": [
     "person.gender",
-    2,
-    "f51f01db760a338b"
+    1,
+    "ea4ed0c6e53d28e1"
    ],
    "age": null,
    "core": null,
@@ -827,45 +827,45 @@
    {
     "lines": [
      "\"Ethiopian Jewish\", develop: face and what they carry or hold, ideas: \"ash blonde\"",
-     "\"Pakistani\", gender: \"man\", develop: what they wear and what they carry or hold, ideas: \"a forest green gathered cotton peasant blouse and a charcoal tiered maxi skirt\"",
-     "\"Spanish\", gender: \"man\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Chinese\", gender: \"man\", develop: styling and grooming and what they wear, ideas: \"heavyset\"; \"golden blonde\"",
-     "\"Iraqi\", gender: \"man\", develop: bearing and posture and what they carry or hold, ideas: \"a cotton cobalt blue salwar kameez with straight sleeves and golden yellow embroidery\"",
-     "\"Mongolian\", gender: \"man\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Pakistani\", develop: what they wear and what they carry or hold, ideas: \"a forest green gathered cotton peasant blouse and a charcoal tiered maxi skirt\"",
+     "\"Spanish\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Chinese\", develop: styling and grooming and what they wear, ideas: \"heavyset\"; \"golden blonde\"",
+     "\"Iraqi\", develop: bearing and posture and what they carry or hold, ideas: \"a cotton cobalt blue salwar kameez with straight sleeves and golden yellow embroidery\"",
+     "\"Mongolian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"Dutch\", develop: bearing and posture and expression, ideas: \"coily\"; \"wiry\"",
      "\"Taiwanese\", develop: styling and grooming and what they carry or hold, ideas: \"platinum blonde\"; \"curvy\"",
-     "\"Japanese\", gender: \"man\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Japanese\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"White Canadian\", develop: what they wear and face, ideas: \"soft-bodied\"",
      "\"Filipino\", develop: expression and styling and grooming, ideas: \"stocky\"; \"a burgundy cotton T-shirt and straight blue jeans\"",
-     "\"Thai\", gender: \"man\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Ukrainian\", gender: \"man\", develop: styling and grooming and face, ideas: \"cropped\"; \"curly\"",
-     "\"Algerian\", gender: \"man\", develop: expression and what they wear, ideas: \"short\"",
+     "\"Thai\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Ukrainian\", develop: styling and grooming and face, ideas: \"cropped\"; \"curly\"",
+     "\"Algerian\", develop: expression and what they wear, ideas: \"short\"",
      "\"Zimbabwean\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"Lao\", develop: what they wear and build, ideas: \"wavy\"",
-     "\"English\", gender: \"man\", develop: bearing and posture and build, ideas: \"dark brown\"; \"a pale blue cotton jumpsuit with wide legs\"",
-     "\"Iranian\", gender: \"man\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Ecuadorian\", gender: \"man\", develop: bearing and posture and what they wear, ideas: \"hip-length\"; \"kinky-coily\"",
+     "\"English\", develop: bearing and posture and build, ideas: \"dark brown\"; \"a pale blue cotton jumpsuit with wide legs\"",
+     "\"Iranian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Ecuadorian\", develop: bearing and posture and what they wear, ideas: \"hip-length\"; \"kinky-coily\"",
      "\"Malay\", develop: build and face, ideas: \"buzzed\"",
      "\"African American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"Pashtun\", develop: face and what they carry or hold, ideas: \"hourglass-shaped\"",
      "\"Punjabi\", develop: what they wear and what they carry or hold, ideas: \"ash brown\"",
-     "\"Navajo\", gender: \"man\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Tajik\", gender: \"man\", develop: styling and grooming and what they wear, ideas: \"a patched oatmeal canvas coat and faded cream cargo pants\"; \"mid-back\"",
-     "\"Bengali\", gender: \"man\", develop: bearing and posture and what they carry or hold, ideas: \"chin-length\"; \"large-framed\"",
+     "\"Navajo\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Tajik\", develop: styling and grooming and what they wear, ideas: \"a patched oatmeal canvas coat and faded cream cargo pants\"; \"mid-back\"",
+     "\"Bengali\", develop: bearing and posture and what they carry or hold, ideas: \"chin-length\"; \"large-framed\"",
      "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"Kenyan\", develop: bearing and posture and expression, ideas: \"strawberry blonde\"; \"plus-size\"",
-     "\"Bangladeshi\", gender: \"man\", develop: styling and grooming and what they carry or hold, ideas: \"straight\"",
-     "\"Fijian\", gender: \"man\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Ghanaian\", gender: \"man\", develop: what they wear and face, ideas: \"fine\"",
-     "\"Congolese\", gender: \"man\", develop: expression and styling and grooming, ideas: \"waist-length\"; \"auburn\"",
-     "\"Korean\", gender: \"man\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Bangladeshi\", develop: styling and grooming and what they carry or hold, ideas: \"straight\"",
+     "\"Fijian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Ghanaian\", develop: what they wear and face, ideas: \"fine\"",
+     "\"Congolese\", develop: expression and styling and grooming, ideas: \"waist-length\"; \"auburn\"",
+     "\"Korean\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"Guatemalan\", develop: styling and grooming and face, ideas: \"a cotton djellaba with charcoal and white stripes over loose heather gray pants\"",
-     "\"Brazilian\", gender: \"man\", develop: expression and what they wear, ideas: \"medium brown\"",
-     "\"Korean\", gender: \"man\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Yemeni\", gender: \"man\", develop: what they wear and build, ideas: \"shoulder-length\"",
+     "\"Brazilian\", develop: expression and what they wear, ideas: \"medium brown\"",
+     "\"Korean\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Yemeni\", develop: what they wear and build, ideas: \"shoulder-length\"",
      "\"Kazakh\", develop: bearing and posture and build, ideas: \"an ecru boubou over matching cotton pants\"",
      "\"Argentinian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Nepali\", gender: \"man\", develop: bearing and posture and what they wear"
+     "\"Nepali\", develop: bearing and posture and what they wear"
     ],
     "seeds": [
      {
@@ -874,23 +874,23 @@
      },
      {
       "descent": "Pakistani",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Spanish",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Chinese",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Iraqi",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Mongolian",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Dutch",
@@ -902,7 +902,7 @@
      },
      {
       "descent": "Japanese",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "White Canadian",
@@ -914,15 +914,15 @@
      },
      {
       "descent": "Thai",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Ukrainian",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Algerian",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Zimbabwean",
@@ -934,15 +934,15 @@
      },
      {
       "descent": "English",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Iranian",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Ecuadorian",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Malay",
@@ -962,15 +962,15 @@
      },
      {
       "descent": "Navajo",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Tajik",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Bengali",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "White American",
@@ -982,23 +982,23 @@
      },
      {
       "descent": "Bangladeshi",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Fijian",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Ghanaian",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Congolese",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Korean",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Guatemalan",
@@ -1006,15 +1006,15 @@
      },
      {
       "descent": "Brazilian",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Korean",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Yemeni",
-      "gender": "man"
+      "gender": "woman"
      },
      {
       "descent": "Kazakh",
@@ -1026,16 +1026,16 @@
      },
      {
       "descent": "Nepali",
-      "gender": "man"
+      "gender": "woman"
      }
     ],
-    "user": "133ae57cbe5b2386",
+    "user": "6a50641d0f78dc41",
     "unseeded": "bd76bf978f0751e6"
    },
    {
-    "lines": "2e8b3a5eca717a20",
-    "seeds": "a6fbef9493f0bb11",
-    "user": "6ad6b1c6219ea553",
+    "lines": "7b9dcfc0b0963e90",
+    "seeds": "6f4a6feb51229b32",
+    "user": "7fdedd2b091e1614",
     "unseeded": "bd76bf978f0751e6"
    }
   ]
@@ -1176,11 +1176,12 @@
     "role": "gender",
     "list": "person.gender",
     "phrase": "elderly African man",
+    "where": {
+     "presentation": "masculine"
+    },
     "narrowed": [
-     "woman",
      "man",
-     "trans man",
-     "non-binary person"
+     "trans man"
     ]
    },
    {
@@ -1356,8 +1357,8 @@
    ],
    "gender": [
     "person.gender",
-    2,
-    "f51f01db760a338b"
+    1,
+    "538c3ce559331476"
    ],
    "age": null,
    "core": null,
@@ -1401,51 +1402,51 @@
   "draws": [
    {
     "lines": [
-     "\"White American\", gender: \"woman\", develop: face and what they carry or hold, ideas: \"white\"",
+     "\"White American\", develop: face and what they carry or hold, ideas: \"white\"",
      "\"African American\", develop: what they wear and what they carry or hold, ideas: \"a faded beard\"",
      "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"Indian\", develop: styling and grooming and what they wear, ideas: \"dark red\"",
      "\"White American\", develop: bearing and posture and what they carry or hold, ideas: \"coily\"; \"short sideburns\"",
      "\"Syrian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", gender: \"woman\", develop: bearing and posture and expression, ideas: \"gray\"; \"straight\"",
-     "\"Punjabi\", gender: \"woman\", develop: styling and grooming and what they carry or hold, ideas: \"dark brown\"; \"a chevron mustache\"",
+     "\"White American\", develop: bearing and posture and expression, ideas: \"gray\"; \"straight\"",
+     "\"Punjabi\", develop: styling and grooming and what they carry or hold, ideas: \"dark brown\"; \"a chevron mustache\"",
      "\"Burmese\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", gender: \"woman\", develop: what they wear and face, ideas: \"a short full beard\"",
-     "\"African American\", gender: \"woman\", develop: expression and styling and grooming, ideas: \"a wispy beard\"",
+     "\"White American\", develop: what they wear and face, ideas: \"a short full beard\"",
+     "\"African American\", develop: expression and styling and grooming, ideas: \"a wispy beard\"",
      "\"African American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"White American\", develop: styling and grooming and face, ideas: \"stocky\"; \"a burgundy cotton T-shirt and straight blue jeans\"",
      "\"White American\", develop: expression and what they wear, ideas: \"cropped\"; \"kinky-coily\"",
-     "\"White American\", gender: \"woman\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"African American\", gender: \"woman\", develop: what they wear and build, ideas: \"wavy\"; \"plus-size\"",
+     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"African American\", develop: what they wear and build, ideas: \"wavy\"; \"plus-size\"",
      "\"White American\", develop: bearing and posture and build, ideas: \"an ivory henley shirt and off-white canvas pants\"",
      "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"Mexican\", develop: bearing and posture and what they wear, ideas: \"dark blonde\"; \"curly\"",
-     "\"African American\", gender: \"woman\", develop: build and face, ideas: \"burgundy\"; \"floor-length\"",
-     "\"White American\", gender: \"woman\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", gender: \"woman\", develop: face and what they carry or hold, ideas: \"slender\"; \"short\"",
-     "\"White American\", gender: \"woman\", develop: what they wear and what they carry or hold",
+     "\"African American\", develop: build and face, ideas: \"burgundy\"; \"floor-length\"",
+     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: face and what they carry or hold, ideas: \"slender\"; \"short\"",
+     "\"White American\", develop: what they wear and what they carry or hold",
      "\"Argentinian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"Italian\", develop: styling and grooming and what they wear",
      "\"White American\", develop: bearing and posture and what they carry or hold, ideas: \"broad-shouldered\"",
-     "\"White American\", gender: \"woman\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", gender: \"woman\", develop: bearing and posture and expression, ideas: \"a cotton djellaba with deep teal and rust stripes over loose cream pants\"; \"chin-length\"",
+     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: bearing and posture and expression, ideas: \"a cotton djellaba with deep teal and rust stripes over loose cream pants\"; \"chin-length\"",
      "\"White American\", develop: styling and grooming and what they carry or hold, ideas: \"a patchy beard\"",
      "\"Puerto Rican\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"White American\", develop: what they wear and face, ideas: \"ear-length\"; \"a short boxed beard\"",
      "\"White American\", develop: expression and styling and grooming, ideas: \"an extended goatee\"; \"hip-length\"",
      "\"Korean\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Mexican\", gender: \"woman\", develop: styling and grooming and face, ideas: \"thinning\"; \"a Hollywoodian beard\"",
+     "\"Mexican\", develop: styling and grooming and face, ideas: \"thinning\"; \"a Hollywoodian beard\"",
      "\"Mexican\", develop: expression and what they wear, ideas: \"mid-back\"",
      "\"Taiwanese\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"White American\", develop: what they wear and build, ideas: \"light brown\"; \"waist-length\"",
-     "\"Zimbabwean\", gender: \"woman\", develop: bearing and posture and build, ideas: \"light stubble\"; \"buzzed\"",
-     "\"Mexican\", gender: \"woman\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Zimbabwean\", develop: bearing and posture and build, ideas: \"light stubble\"; \"buzzed\"",
+     "\"Mexican\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
      "\"White American\", develop: bearing and posture and what they wear"
     ],
     "seeds": [
      {
       "descent": "White American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "African American",
@@ -1469,11 +1470,11 @@
      },
      {
       "descent": "White American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "Punjabi",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "Burmese",
@@ -1481,11 +1482,11 @@
      },
      {
       "descent": "White American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "African American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "African American",
@@ -1501,11 +1502,11 @@
      },
      {
       "descent": "White American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "African American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "White American",
@@ -1521,19 +1522,19 @@
      },
      {
       "descent": "African American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "White American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "White American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "White American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "Argentinian",
@@ -1549,11 +1550,11 @@
      },
      {
       "descent": "White American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "White American",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "White American",
@@ -1577,7 +1578,7 @@
      },
      {
       "descent": "Mexican",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "Mexican",
@@ -1593,24 +1594,24 @@
      },
      {
       "descent": "Zimbabwean",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "Mexican",
-      "gender": "woman"
+      "gender": "man"
      },
      {
       "descent": "White American",
       "gender": "man"
      }
     ],
-    "user": "4eb9da6e98e5a7de",
+    "user": "f545ed84940304a8",
     "unseeded": "cad7cd32133a9d8e"
    },
    {
-    "lines": "dc54a999f67c18bb",
-    "seeds": "b4d2471149e9101b",
-    "user": "7bcc46b20671c29b",
+    "lines": "20bc8676f43052b8",
+    "seeds": "88a890253ad8c7bc",
+    "user": "a3d01a2fcf905966",
     "unseeded": "cad7cd32133a9d8e"
    }
   ]

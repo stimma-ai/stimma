@@ -248,6 +248,8 @@ def compose(parsed: Parsed, readings: Dict[int, Dict[str, Any]], labels: Optiona
             continue
         info.update(kind=r["kind"], label=str(r.get("label") or seg.words), lead=str(r.get("lead") or ""),
                     category=str(r.get("category") or ""))
+        if r.get("names") == "one":
+            info["one"] = True   # one specific thing: shown in different ways, never swapped for another
         stated = ((r.get(r["kind"]) or {}) if isinstance(r.get(r["kind"]), dict) else {}).get("stated")
         if stated:
             info["stated"] = dict(stated)

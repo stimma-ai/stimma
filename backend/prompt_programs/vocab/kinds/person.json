@@ -10,6 +10,7 @@
   ],
   "heading": "For a person:",
   "category": "\"\" for a person: \"elderly African man\", \"young woman\", \"chef\" and \"couple\" keep all their words.",
+  "one": "A person named by name (a character, a real person: \"Sherlock Holmes\") is \"one\", and so is someone the prompt describes as one particular person, or people the words settle exactly (\"identical twin boys\"): every image shows that same someone. \"old man\", \"nurse\", \"young woman\", \"couple\" and \"three friends\" are \"kind\".",
   "details_heading": "Person details:",
   "questions": [
    {
@@ -178,6 +179,7 @@
        "kind": "person",
        "label": "Elderly African man",
        "lead": "an",
+       "names": "kind",
        "category": "",
        "person": {
         "noun": "man",
@@ -209,6 +211,7 @@
        "kind": "animal",
        "label": "Pet",
        "lead": " with his",
+       "names": "kind",
        "category": "pet",
        "animal": {
         "noun": "pet",
@@ -239,6 +242,7 @@
        "kind": "list",
        "label": "Hairstyle",
        "lead": ",",
+       "names": "kind",
        "category": "hairstyle",
        "list": {
         "list": "person.hairstyle",
@@ -251,6 +255,7 @@
        "kind": "list",
        "label": "Outfit",
        "lead": ",",
+       "names": "kind",
        "category": "outfit",
        "list": {
         "list": "person.outfit.summer",
@@ -271,6 +276,7 @@
        "kind": "person",
        "label": "Dancer",
        "lead": "a",
+       "names": "kind",
        "category": "",
        "person": {
         "noun": "dancer",
@@ -298,6 +304,7 @@
        "kind": "free",
        "label": "Costume",
        "lead": " in a",
+       "names": "kind",
        "category": "costume",
        "free": {
         "about": "the dancer's costume",
@@ -309,11 +316,53 @@
        "kind": "list",
        "label": "Expression",
        "lead": " with a",
+       "names": "kind",
        "category": "look",
        "list": {
         "list": "person.expression",
         "about": "the dancer's expression",
         "presentation": ""
+       }
+      }
+     ],
+     "lists": []
+    }
+   },
+   {
+    "intro": "Another. In \"⟨1: Sherlock Holmes⟩ reading a letter on a bench in ⟨2: Hyde Park⟩\" both parts name one specific thing: the same detective and the same park in every image, shown in different ways:",
+    "reply": {
+     "slots": [
+      {
+       "n": 1,
+       "kind": "person",
+       "label": "Sherlock Holmes",
+       "lead": "",
+       "names": "one",
+       "category": "",
+       "person": {
+        "noun": "Holmes",
+        "presentation": "masculine",
+        "stated": {},
+        "vary": [],
+        "clothes_part": 0,
+        "clothes": "",
+        "dress": "",
+        "outfit": "written",
+        "place": "",
+        "people": "one",
+        "being": "human"
+       }
+      },
+      {
+       "n": 2,
+       "kind": "free",
+       "label": "Hyde Park",
+       "lead": " in",
+       "names": "one",
+       "category": "",
+       "free": {
+        "about": "the park the bench is in",
+        "lists": []
        }
       }
      ],
@@ -391,6 +440,11 @@
    "list": "person.gender",
    "phrase": "words",
    "about": "the {noun}'s gender",
+   "where": {
+    "presentation": {
+     "answer": "presentation"
+    }
+   },
    "when": {
     "people": [
      "one"
@@ -586,6 +640,11 @@
     "no_draw": "age"
    }
   },
+  "one_drop": [
+   "build",
+   "face",
+   "how their age shows"
+  ],
   "typical": {
    "text": "how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
    "share": 0.333333,
@@ -621,6 +680,7 @@
    "who: who the couple are. Say it through the two of them, in the variant's own words (\"the man in a linen shirt, the woman with her hair pinned up\"; \"two women in their thirties\"), never as a label repeated at the end.",
    "develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must. \"How someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet\": beside who they are (their heritage, gender and age as the line gives them), what most people like them wear and have on them at work or in this place and time, from what is on their head down to their feet, working dress and gear included, as a photograph of a real one would show them (a fisherman's sou'wester, oilskins and boots; a nurse's scrubs and lanyard). When people like them typically cover their head here, with a hat, helmet, cap, veil or scarf, put it on their head and leave their hair unsaid.",
    "age: about how old the person looks; work it in before their words (\"a 34-year-old chef\") or say it another natural way (\"a chef in her forties\"), never as a number tacked on at the end. When the prompt already says their age, write it no second time."
-  ]
+  ],
+  "one": "This part names one particular someone: every variant is that same person or those same people, as the marked words and the prompt give them, with their own look, sex and age; a named character or real person looks as they are known to look. Never change who they are, add anyone to them, or make them a child unless the words do."
  }
 }

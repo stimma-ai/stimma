@@ -57,7 +57,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-21"   # variants-21: trans and non-binary genders are drawn only when the words ask for them (gender shares 0); the writer's worked example seeds no gender. variants-20: a typical-dress variant develops its dress alone, from any headwear down, shown no list and no grooming aspect (a short list is dealt out across the other variants instead of shown whole), and is two thirds of a person whose role and place imply their dress; a session started again after a turn that left out gender is told so; a list shown whole has its colors filled in; a camera part whole is how the picture is taken, never a device. variants-19: a typical-dress variant puts on the headwear people like them typically wear and leaves their hair unsaid. variants-18: a young prompt's every slot drops adult-only seeds and is told a child is in the picture; a child is seeded with their age and child words. variants-17: the writer is told each kind's rules from its vocabulary data, in the kinds' order; a heritage may come with its look. variants-16: a couple, a family and a group are written as such (who a couple is drawn by its list, one shared heritage); a third of a person's variants wear what is typical for who and where they are; light is described as light; a camera part is how the picture is taken. variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-22"   # variants-22: a part naming one specific thing is written as that thing every time: its words kept as typed, capitals and all, no member seeds, its state, condition, angle, moment, details and surroundings varied. variants-21: trans and non-binary genders are drawn only when the words ask for them (gender shares 0); the writer's worked example seeds no gender. variants-20: a typical-dress variant develops its dress alone, from any headwear down, shown no list and no grooming aspect (a short list is dealt out across the other variants instead of shown whole), and is two thirds of a person whose role and place imply their dress; a session started again after a turn that left out gender is told so; a list shown whole has its colors filled in; a camera part whole is how the picture is taken, never a device. variants-19: a typical-dress variant puts on the headwear people like them typically wear and leaves their hair unsaid. variants-18: a young prompt's every slot drops adult-only seeds and is told a child is in the picture; a child is seeded with their age and child words. variants-17: the writer is told each kind's rules from its vocabulary data, in the kinds' order; a heritage may come with its look. variants-16: a couple, a family and a group are written as such (who a couple is drawn by its list, one shared heritage); a third of a person's variants wear what is typical for who and where they are; light is described as light; a camera part is how the picture is taken. variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -154,11 +154,18 @@ def valid_category(words: str, category: Any, kind: str = "") -> str:
     return category.strip() if _run_at(tokens(words), tokens(category)) >= 0 else ""
 
 
-def kept_chunks(words: str, category: str = "") -> List[str]:
+def kept_chunks(words: str, category: str = "", exact: bool = False) -> List[str]:
     """The runs of the slot's words a variant must keep: all of them with no category word,
     else what stands before and after it (none when the whole slot is its category). A run's
     leading article is no part of it: a variant says the phrase whole, so "a woman" may become
-    "a 40-year-old Welsh woman" (a possessive, "my dog", is kept). Structure only."""
+    "a 40-year-old Welsh woman" (a possessive, "my dog", is kept). `exact`: the runs as the user
+    typed them, capitals and punctuation within them kept ("abandoned McDonald’s"), for a part
+    naming one specific thing; else lowercased words. Structure only."""
+    if exact:
+        found = list(_TOKEN.finditer(str(words).replace("’", "'")))
+        if len(found) > 1 and found[0].group(0).lower() in _ARTICLES:
+            found = found[1:]
+        return [str(words)[found[0].start():found[-1].end()]] if found else []
     wt = tokens(words)
     ct = tokens(category)
     at = _run_at(wt, ct) if ct else -1
@@ -373,6 +380,7 @@ class Seeds:
     notes: Tuple[str, ...] = ()           # the chosen options' lines for the writer's turn (several people)
     room: int = 0                         # words a variant may add (0: MAX_ADDED_WORDS)
     second: float = 0.0                   # the share of variants whose second person gets a heritage of their own
+    one: bool = False                     # the part names one specific thing: no member of its kind is seeded
 
     @property
     def person(self) -> bool:
@@ -421,7 +429,7 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
                each: Sequence[Tuple[Dict[str, Any], Optional[Sequence[str]]]] = (),
                stated: Optional[Dict[str, Sequence[str]]] = None, minor: Sequence[str] = (),
                answers: Optional[Dict[str, Any]] = None, place: Optional[Dict[str, str]] = None,
-               young: str = "") -> Seeds:
+               young: str = "", one: bool = False) -> Seeds:
     """A slot's seeds by its kind (kinds.Kind) from its narrowed lists, role by role:
     `heritage`: (list, the values its words allow, None for the whole list), one per variant drawn
     by its context mix (places.py, `place`); `stated_descent`: the words state it, so a single
@@ -430,7 +438,11 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
     then; a picked stage seeds one all the same, Seeds.pinned); `age_role`: the kind draws an age.
     `ideas`, `cores`, `each`: (list or rule, narrowed) per list. `stated`: what the prompt states of
     the scene (bank). `minor`: ages under 18 they may be besides their own. `answers`: the reading's
-    answers, for the chosen options' notes, room and second heritage and the aspects' conditions."""
+    answers, for the chosen options' notes, room and second heritage and the aspects' conditions.
+    `one`: the part names one specific someone or something (reader: names "one"): no heritage,
+    who, age, idea, core or each seeds and no chosen option's notes (a family's "names its
+    members"), its aspects without those that would change who they are (aspects.one_drop) and
+    no typical share; a child's or a teenager's ages (`minor`) still hold, for the minors line."""
     from prompt_programs.kinds import Kind
     from prompt_programs.vocab import minor_ages, vocabulary
     k: Kind = kind
@@ -478,13 +490,18 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
     drop_if_none: List[Tuple[str, str]] = []
     typical = False
     share: Optional[float] = None
+    if one:
+        notes, second = [], 0.0
+        d = who = heritage = None
+        idea_banks, core, spread, each_banks = [], None, None, ()
+        dropped += list(asp.one_drop) if asp is not None else []
     if asp is not None:
         for name, cond in asp.drop.items():
             if "no_draw" in cond:
                 drop_if_none.append((name, str(cond["no_draw"])))
             if any(_answered(answers.get(x)) for x in cond.get("answered") or ()):
                 dropped.append(name)
-        if asp.typical:
+        if asp.typical and not one:
             typical = not any(_answered(answers.get(x)) for x in (asp.typical.get("unless") or {}).get("answered") or ())
             share = asp.typical_share(answers)
     return Seeds(descent=d, place=tuple(sorted(place.items())) if place else None,
@@ -494,12 +511,13 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
                  gender_fits=tuple(who[1]) if who and who[1] is not None else None,
                  # A child's or a teenager's age is always on their seed line, beside who they are, so a
                  # 10-year-old is never written as a man.
-                 age=bank(AGE, ages, minor=filt) if age_role and ages is not None and (_open_age(ages) or minor) else None,
+                 age=bank(AGE, ages, minor=filt) if age_role and ages is not None and (_open_age(ages) or minor) and not one
+                 else None,
                  age_fits=tuple(ages) if ages is not None else None, minor=minor, young=young,
                  core=core, spread=spread, ideas=tuple(idea_banks), each=each_banks,
                  aspects=asp, dropped=tuple(dropped), drop_if_none=tuple(drop_if_none), typical=typical,
                  typical_share=share,
-                 notes=tuple(notes), room=room, second=second)
+                 notes=tuple(notes), room=room, second=second, one=one)
 
 
 def _answered(v: Any) -> bool:
@@ -876,6 +894,11 @@ CORE_NOTE = ("The cores are random values of a list, and some won't fit this pro
              "variant with another value of the same kind that fits.")
 
 
+ONE_LINE = ("This part names one specific thing, not a kind of thing: every variant is that same thing, and contains "
+            "exactly {keep}, with the same spelling and capitals. Vary only its state, condition, angle, moment, "
+            "details and surroundings; never a substitute for it, another one of its kind, or something merely like it.")
+
+
 def minor_words(ages: Sequence[str]) -> str:
     """A minor person's possible ages, for the writer: "13-year-old" ... -> "13, 14 or 15 years old"."""
     spans = [a[: -len("-year-old")] if a.endswith("-year-old") else a for a in ages]
@@ -912,6 +935,7 @@ class Slot:
     span: Tuple[int, int]          # where <words> stands in it, brackets included
     kind: str = "free"             # the reader's kind
     category: str = ""             # checked with valid_category
+    one: bool = False              # it names one specific thing (reader: names "one"): every word kept as typed
 
     @property
     def n(self) -> int:
@@ -934,6 +958,8 @@ class Slot:
         return " ".join(left[-n:]).strip() or "(start of line)", " ".join(right[:n]).strip() or "(end of line)"
 
     def keep(self) -> List[str]:
+        if self.one:
+            return kept_chunks(self.words, exact=True)
         return kept_chunks(self.words, valid_category(self.words, self.category, self.kind))
 
 
@@ -942,13 +968,17 @@ def messages(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -
     from prompt_programs.vocab import vocabulary
     kind = vocabulary().kind(slot.kind)
     n = len(drawn.specs)
-    cat = valid_category(slot.words, slot.category, slot.kind)
-    keep = kept_chunks(slot.words, cat)
+    cat = "" if slot.one else valid_category(slot.words, slot.category, slot.kind)
+    keep = slot.keep()
     before, after = slot.around()
     lines = ["Prompt:", '"""', slot.marked(), '"""', "", f'Marked part: "{slot.words}".',
              f'It stands between "{before}" and "{after}": each variant must read correctly there, '
              'as one continuous phrase.']
-    if not cat:
+    if slot.one:
+        lines.append(ONE_LINE.replace("{keep}", ", ".join(f'"{k}"' for k in (keep or [slot.words]))))
+        if kind is not None and kind.writer_one:
+            lines.append(kind.writer_one)
+    elif not cat:
         lines.append('No category word: every variant contains exactly these words: '
                      + ", ".join(f'"{k}"' for k in (keep or [slot.words])) + ".")
     elif keep:
@@ -958,7 +988,7 @@ def messages(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -
         lines.append(kind.whole.replace("{cat}", cat) if kind is not None and kind.whole else
                      f'The whole part is the category "{cat}": every variant is a specific kind of it.')
     lines += minors_lines(seeds)
-    lines += list(seeds.notes)   # the chosen options' notes (several people)
+    lines += [] if slot.one else list(seeds.notes)   # the chosen options' notes (several people)
     if kind is not None and kind.note:
         lines.append(kind.note)   # the kind's own (a light part), in every first turn, seeded or not
     lines.append("")
@@ -1078,7 +1108,20 @@ def repair(text: str, left: Sequence[str], right: Sequence[str], *, words: str =
 _MARKUP = set("<>⟦⟧{}[]\n")
 
 
-def check(text: str, words: str, keep: Sequence[str], spec: Spec, *, cut: bool = False) -> str:
+def _cased_run(text: str, run: str) -> bool:
+    """`run` stands in `text` as consecutive words, each of its words with a capital written with
+    the same capitals ("McDonald's", "Shinjuku"); its lowercase words may take a capital (at the
+    start of a phrase). Structure only: the user's own letters."""
+    raw = _TOKEN.findall(str(text).replace("’", "'"))
+    want = _TOKEN.findall(str(run).replace("’", "'"))
+    n = len(want)
+    for i in range(len(raw) - n + 1):
+        if all(h == w if w != w.lower() else h.lower() == w for h, w in zip(raw[i:i + n], want)):
+            return True
+    return not n
+
+
+def check(text: str, words: str, keep: Sequence[str], spec: Spec, *, cut: bool = False, exact: bool = False) -> str:
     """"" when a repaired variant passes, else why not. `cut`: repair cut it at another slot's
     markup (a reply that copied the prompt), so what is left may be a fragment ("a", "fighting
     a"): it must still end on more than a grammar word. A variant of grammar words alone is never
@@ -1106,6 +1149,8 @@ def check(text: str, words: str, keep: Sequence[str], spec: Spec, *, cut: bool =
     for k in keep:
         if all(_run_at(r, tokens(k)) < 0 for r in runs):
             return "words not kept"
+        if exact and not _cased_run(text, k):
+            return "capitals not kept"   # a part naming one specific thing keeps the names as typed
     if len(tokens(text)) - sum(len(tokens(k)) for k in keep) > (spec.room or (MAX_ADDED_PEOPLE if spec.several else MAX_ADDED_WORDS)):
         return "too long"
     if tokens(text) == tokens(words):
@@ -1275,7 +1320,7 @@ def retry_note(slot: Slot, dropped: Dict[str, int], seeds: Optional[Seeds] = Non
         return ""
     why = max(dropped, key=lambda k: dropped[k])
     keep = slot.keep()
-    if why == "words not kept" and keep:
+    if why in ("words not kept", "capitals not kept") and keep:
         return ("The last attempt left these words out of its variants. Every variant contains them, exactly and in "
                 "order: " + ", ".join(f'"{k}"' for k in keep) + ".")
     if why == "gender missing":
@@ -1516,7 +1561,7 @@ async def write_turn(slot: Slot, drawn: Drawn, sent: List[Dict[str, Any]], *, as
         fixed, did = repair(obj["text"], left, right, words=slot.words, article=article, before=before)
         fixed = fix_articles(fixed)   # "a off-center selfie" is stored as "an off-center selfie"
         out.repairs += bool(did)
-        why = check(fixed, slot.words, keep, spec, cut="markup" in did)
+        why = check(fixed, slot.words, keep, spec, cut="markup" in did, exact=slot.one)
         if why:
             out.dropped[why] += 1
             return
