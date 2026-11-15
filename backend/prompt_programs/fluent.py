@@ -214,8 +214,9 @@ def count_draw(entry: Dict[str, Any], result: Any, *, profile_id: Optional[str] 
     """Count a shipped draw's variants (a generation, a buffered draw); a pool 80% drawn this
     round tops up in the background. A variant the judge refused on the way (`fix`, the draw's
     fix record) counts as one use too, so it rotates like the rest instead of leading the next
-    draw again. Returns what was counted, (pool key, text) each, so a buffered draw dropped
-    unshipped can be taken back (uncount). Never raises."""
+    draw again. Returns what the draw itself counted, (pool key, text) each, so a buffered draw
+    dropped unshipped can be taken back (uncount); a refusal stays counted, since the judge's
+    no stands whether or not its draw ships. Never raises."""
     counted: List[Tuple[str, str]] = []
     try:
         w = _writer(profile_id)
@@ -240,7 +241,6 @@ def count_draw(entry: Dict[str, Any], result: Any, *, profile_id: Optional[str] 
                     if " ".join(t.split()).lower() in known and " ".join(t.split()).lower() != shipped]
             if gone:
                 w.store.mark_used(job.key, gone)
-                counted += [(job.key, t) for t in gone]
             pick = Pick(d.value, d.source, dict(d.seeds or {}))
             w.drew(job, pick, choice=choice)
             if pick.counted and pick.text:

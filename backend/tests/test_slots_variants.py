@@ -425,7 +425,13 @@ async def test_a_variant_the_judge_refused_counts_as_a_use_when_the_draw_ships(m
     counted = count_draw(entry, result, profile_id=profile, fix=fix)
     uses = store.uses(light["pool"])
     assert uses[P._norm(first)] == 1 and uses[P._norm(shipped)] == 1
-    assert (light["pool"], first) in counted and (light["pool"], shipped) in counted
+    assert (light["pool"], first) not in counted and (light["pool"], shipped) in counted
+    # a buffered draw dropped unshipped takes back its own use, never the judge's no
+    from prompt_programs.fluent import uncount
+    uncount(counted, profile_id=profile)
+    uses = store.uses(light["pool"])
+    assert uses[P._norm(first)] == 1 and not uses.get(P._norm(shipped))
+    count_draw(entry, result, profile_id=profile)   # shipped after all
     # the next draw with the same seed takes neither
     again = next(d.value for d in prep.realize(entry, profile_id=profile, seed=5).draws if d.id == "lighting")
     assert again not in (first, shipped)
