@@ -114,45 +114,46 @@
           class="lock-pin-input"
         />
 
-        <!-- PIN dots (one per digit, min 4) -->
-        <div
-          class="lock-dots flex flex-wrap items-center justify-center gap-3.5 min-h-[20px] cursor-text"
-          :class="{ 'lock-dots-error': lockScreenShake }"
-          @click="lockScreenPinInput?.focus()"
-        >
-          <span
-            v-for="i in lockScreenDotCount"
-            :key="i"
-            class="lock-dot"
-            :class="{ 'lock-dot-on': i <= lockScreenPin.length }"
-          />
-        </div>
+        <!-- PIN field: shaped like the app's text inputs, one dash per digit.
+             Clicking it focuses the hidden input for keyboard entry. -->
+        <div class="flex flex-col items-center gap-3 w-full max-w-[280px] sm:max-w-[252px]">
+          <div
+            class="lock-field"
+            :class="{ 'lock-field-filled': lockScreenPin, 'lock-field-error': lockScreenShake }"
+            @click="lockScreenPinInput?.focus()"
+          >
+            <span v-if="!lockScreenPin" class="lock-field-placeholder" aria-hidden="true">PIN</span>
+            <span v-for="i in lockScreenPin.length" v-else :key="i" class="lock-field-mark" />
+          </div>
 
-        <p class="text-sm text-red-400 text-center -mt-3 min-h-[20px]">{{ lockScreenError }}</p>
+          <p class="text-sm text-red-400 text-center min-h-[20px] -my-1">{{ lockScreenError }}</p>
 
-        <!-- Keypad -->
-        <div class="grid grid-cols-3 gap-3 w-full max-w-[280px] sm:max-w-[252px]">
+          <!-- Keypad -->
+          <div class="grid grid-cols-3 gap-2 w-full">
+            <button
+              v-for="k in ['1','2','3','4','5','6','7','8','9']"
+              :key="k"
+              type="button"
+              class="lock-key"
+              :disabled="lockScreenSubmitting"
+              @click="lockScreenKey(k)"
+            >{{ k }}</button>
+            <span />
+            <button type="button" class="lock-key" :disabled="lockScreenSubmitting" @click="lockScreenKey('0')">0</button>
+            <button type="button" class="lock-key lock-key-ghost" title="Delete" :disabled="lockScreenSubmitting" @click="lockScreenKey('del')">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75 14.25 12m0 0 2.25 2.25M14.25 12l2.25-2.25M14.25 12 12 14.25m-2.58 4.92-6.374-6.375a1.125 1.125 0 0 1 0-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33Z" /></svg>
+            </button>
+          </div>
+
           <button
-            v-for="k in ['1','2','3','4','5','6','7','8','9']"
-            :key="k"
             type="button"
-            class="lock-key"
-            :disabled="lockScreenSubmitting"
-            @click="lockScreenKey(k)"
-          >{{ k }}</button>
-          <button type="button" class="lock-key lock-key-ghost" title="Delete" :disabled="lockScreenSubmitting" @click="lockScreenKey('del')">
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75 14.25 12m0 0 2.25 2.25M14.25 12l2.25-2.25M14.25 12 12 14.25m-2.58 4.92-6.374-6.375a1.125 1.125 0 0 1 0-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33Z" /></svg>
-          </button>
-          <button type="button" class="lock-key" :disabled="lockScreenSubmitting" @click="lockScreenKey('0')">0</button>
-          <button
-            type="button"
-            class="lock-key lock-key-go"
+            class="lock-unlock"
             title="Unlock"
             :disabled="!lockScreenPin || lockScreenSubmitting"
             @click="submitLockScreenPin"
           >
             <Spinner v-if="lockScreenSubmitting" size="sm" hue="border-t-white" />
-            <svg v-else class="w-[26px] h-[26px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+            <span v-else>Unlock</span>
           </button>
         </div>
       </div>
@@ -448,7 +449,6 @@ async function focusLockScreenPinInput() {
   if (isLocked.value) lockScreenPinInput.value?.focus({ preventScroll: true })
 }
 
-const lockScreenDotCount = computed(() => Math.max(4, lockScreenPin.value.length))
 
 // Keyboard PIN entry is handled here, at the window in the capture phase,
 // instead of relying on the hidden <input> holding focus. WebViews drop

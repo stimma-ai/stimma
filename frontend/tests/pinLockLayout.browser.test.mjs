@@ -24,13 +24,12 @@ const result = await build({
     load(id) {
       if (id === entryId) return `import { createApp } from 'vue'; import App from ${JSON.stringify(fixtureId)}; import ${JSON.stringify(`${root}/src/style.css`)}; createApp(App).mount('#app')`
       if (id === fixtureId) return `<template>${template}</template><script setup>
-        import { ref, computed } from 'vue'
+        import { ref } from 'vue'
         import FitToSpace from '../../src/components/FitToSpace.vue'
         const isLocked = true, isCompact = true, lockedProfileName = 'Test profile'
         const profiles = [], currentProfileId = 'test'
         const lockScreenPinInput = ref(null), lockScreenProfileDropdownOpen = ref(false)
         const lockScreenPin = ref(''), lockScreenError = ref(''), lockScreenSubmitting = ref(false), lockScreenShake = ref(false)
-        const lockScreenDotCount = computed(() => Math.max(4, lockScreenPin.value.length))
         function lockScreenKey(k) { lockScreenPin.value = k === 'del' ? lockScreenPin.value.slice(0, -1) : (lockScreenPin.value + k).slice(0, 20); lockScreenPinInput.value.focus() }
         function submitLockScreenPin() { lockScreenError.value = 'Invalid PIN. Please try again.'; lockScreenPin.value = '' }
         function toggleLockScreenProfileDropdown() { lockScreenProfileDropdownOpen.value = !lockScreenProfileDropdownOpen.value }
@@ -71,11 +70,11 @@ test('PIN panel scales on live resize; every key and error stays inside the safe
       document.documentElement.style.setProperty('--safe-top', `${top}px`)
       document.documentElement.style.setProperty('--safe-bottom', `${bottom}px`)
     }, [safeTop, safeBottom])
-    await page.waitForFunction(({ safeTop, safeBottom }) => [...document.querySelectorAll('.lock-key')].every(el => {
+    await page.waitForFunction(({ safeTop, safeBottom }) => [...document.querySelectorAll('.lock-key, .lock-unlock')].every(el => {
       const r = el.getBoundingClientRect()
       return r.top >= safeTop + 64 - 1 && r.bottom <= innerHeight - safeBottom - 24 + 1
     }), { safeTop, safeBottom })
-    const bounds = await page.locator('.lock-key, h1, img').evaluateAll(elements => elements.map(el => {
+    const bounds = await page.locator('.lock-key, .lock-unlock, h1, img').evaluateAll(elements => elements.map(el => {
       const r = el.getBoundingClientRect()
       return { x: r.x, y: r.y, right: r.right, bottom: r.bottom }
     }))
