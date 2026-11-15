@@ -33,7 +33,7 @@ async def _read(prompt, n, reading, **changes):
 
 def test_the_reader_asks_every_part_whether_it_names_one_thing_or_a_kind():
     text = reader.system_text()
-    assert '- names: "one" when' in text and '"kind" when they name a kind of thing' in text
+    assert '- names: "one" when' in text and '"kind" when they name a\n  kind of thing' in text
     assert 'A person named by name' in text   # the person kind's own words on it, from its data
     assert '"names": "one"' in text and "Sherlock Holmes" in text   # a worked example of each
     assert '"names": "kind"' in text
@@ -109,7 +109,7 @@ def test_the_writer_is_told_it_is_that_same_thing_with_its_words_as_typed():
     d = V.draw_seeds(random.Random(2), V.Seeds(one=True), 10, one.words)
     msg = V.messages(one, d, V.Seeds(one=True))[1]["content"]
     assert 'contains exactly "abandoned McDonald’s", with the same spelling and capitals' in msg
-    assert "never a substitute for it, another one of its kind" in msg and "Category word" not in msg
+    assert "Never a substitute for it, another one of its kind" in msg and "plus a few words of its own" in msg and "Category word" not in msg
     assert "No category word" not in msg and "Seeds, one line per variant" not in msg
     kind = V.messages(sl, d, V.Seeds())[1]["content"]
     assert "names one specific thing" not in kind and 'No category word: every variant contains exactly these words: "abandoned mcdonald\'s"' in kind

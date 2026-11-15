@@ -32,7 +32,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-27"   # reader-27: every part says whether it names one specific thing to show in different ways ("names": "one": a place, a brand, a character, people the words settle) or a kind of thing to pick members of; one keeps every word and varies no detail. reader-26: a person who leaves what they wear blank is "written" at once, not asked again (what the retry answered every time it was measured); a kind's fields given under another kind's object or at the part's top level are read. reader-25: reader-25: a person says whether who and where they are imply what they wear (dress: "implied"). reader-24: words naming one camera detail ("camera angle") vary only that detail; a made-up list id on the last try is the question's fallback answer ("written"), not a failed reading. reader-23: kinds are vocabulary data; a person says what sort of being they are (a declared sort, or "other") instead of whether a heritage applies, and a place may be any context table's. reader-22: a person names the place by its country's plain name, asked again when the table lacks it; a person says how many people they are (one, a couple, a family, a group) and whether a real-world heritage applies to them; light names the scene list unless its words call for a named look. reader-21: a person names the country the picture is set in (place), when the prompt says. reader-20: a person keeps the words saying what they wear (clothes), so their variants draw no outfit; a free part no longer gives kinds or things instead, nor a light examples (nothing used them). reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-27"   # reader-27: a category that is not a run of the part's words is asked again once; every part says whether it names one specific thing to show in different ways ("names": "one": a place, a brand, a character, people the words settle) or a kind of thing to pick members of; one keeps every word and varies no detail. reader-26: a person who leaves what they wear blank is "written" at once, not asked again (what the retry answered every time it was measured); a kind's fields given under another kind's object or at the part's top level are read. reader-25: reader-25: a person says whether who and where they are imply what they wear (dress: "implied"). reader-24: words naming one camera detail ("camera angle") vary only that detail; a made-up list id on the last try is the question's fallback answer ("written"), not a failed reading. reader-23: kinds are vocabulary data; a person says what sort of being they are (a declared sort, or "other") instead of whether a heritage applies, and a place may be any context table's. reader-22: a person names the place by its country's plain name, asked again when the table lacks it; a person says how many people they are (one, a couple, a family, a group) and whether a real-world heritage applies to them; light names the scene list unless its words call for a named look. reader-21: a person names the country the picture is set in (place), when the prompt says. reader-20: a person keeps the words saying what they wear (clothes), so their variants draw no outfit; a free part no longer gives kinds or things instead, nor a light examples (nothing used them). reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -80,17 +80,19 @@ EVERY_PART = """For every part:
 - label: two or three words naming it for a menu.
 - names: "one" when the part's words, read in the whole prompt, name one specific thing that every
   image shows in a different way: a particular place, building, landmark, brand, product, work,
-  character or real person, or someone the prompt describes as one particular person, or people
-  the words settle exactly ("Golden Gate Bridge", "a ruined Starbucks", "Mona Lisa", "Sherlock
-  Holmes", "identical twin boys"). "kind" when they name a kind of thing, so each image can show
-  a different one of it ("street", "pose", "cat", "weather", "hat", "sports car", "old man",
-  "nurse", "couple"). Most parts are "kind".{one}
-- category: "" when names is "one": every word of it stays. Else the word or words of the part
-  that only name what kind of thing it is, so that a more specific kind of it could take their
-  place and still be that thing; every other word describes it and stays. Copied exactly from
+  character or real person, someone the prompt names elsewhere ("a woman" in a prompt that says
+  she is Joan of Arc), or people the words settle exactly ("Golden Gate Bridge", "a ruined
+  Starbucks", "Mona Lisa", "Sherlock Holmes", "identical twin boys"). "kind" when they name a
+  kind of thing, so each image can show a different one of it, even when the prompt describes it
+  in detail ("street", "pose", "cat", "weather", "hat", "teacup", "sports car", "airship",
+  "parrot in a waistcoat", "old man", "nurse", "couple"). Most parts are "kind".{one}
+- category: the word or words of the part that only name what kind of thing it is, so that a
+  more specific kind of it could take their place and still be that thing; every other word
+  describes it and stays. Copied exactly from
   the part's words: "clothing" in "clothing slightly open in the front" (a cardigan slightly
   open in the front), "camera angle" in "selfie camera angle", "lighting" in "lighting",
   "expression" in "silly expression", "camera" in "vintage camera", "dog" in "dog".{no_category}
+  A part whose names is "one" has no category: "" (every word of it stays).
 - lead: when this part is left out of the prompt, the words right before it that would be left
   hanging without it, copied exactly: ", lit by" in "a kitchen, lit by ⟨light⟩"; " with a" in
   "a desk with a ⟨lamp⟩"; "," in "red car, ⟨camera⟩". Only joining words, articles and the
@@ -469,9 +471,21 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
     # for a kind that keeps all its words); anything else is no category, and every word stays.
     from prompt_programs.variants import valid_category
     out["category"] = "" if one else valid_category(seg.words, r.get("category"), out["kind"])
+    given = r.get("category").strip() if isinstance(r.get("category"), str) else ""
+    if strict and given and not one and not out["category"] and not _no_category(out["kind"]):
+        # A category that isn't the part's own words ("outdoors" for "outdoor place") is asked again
+        # once; on the last try it is none, as before. Structure only: a run of the words or not.
+        raise _Bad(f'part {n}: category "{given}" is not copied from the part\'s words "{seg.words}"; give the '
+                   'word or words of the part that name what kind of thing it is, copied exactly, or ""')
     if one:
         out["names"] = "one"   # every word kept as typed; variants are that thing, never a member of its kind
     return out
+
+
+def _no_category(kind: Any) -> bool:
+    from prompt_programs.vocab import vocabulary
+    k = vocabulary().kind(kind) if isinstance(kind, str) else None
+    return bool(k is not None and k.no_category)
 
 
 def check_parts(reply: str, parsed: Parsed, asked: Sequence[Tuple[str, int]], strict: bool = True

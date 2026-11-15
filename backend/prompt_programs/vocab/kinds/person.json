@@ -10,7 +10,7 @@
   ],
   "heading": "For a person:",
   "category": "\"\" for a person: \"elderly African man\", \"young woman\", \"chef\" and \"couple\" keep all their words.",
-  "one": "A person named by name (a character, a real person: \"Sherlock Holmes\") is \"one\", and so is someone the prompt describes as one particular person, or people the words settle exactly (\"identical twin boys\"): every image shows that same someone. \"old man\", \"nurse\", \"young woman\", \"couple\" and \"three friends\" are \"kind\".",
+  "one": "A person named by name (a character, a real person: \"Sherlock Holmes\"), someone the prompt names elsewhere, or people the words settle exactly (\"identical twin boys\") are \"one\": every image shows that same someone. \"old man\", \"nurse\", \"young woman\", \"couple\", \"three friends\" and a person the prompt only describes (\"a tall woman in a red coat\") are \"kind\".",
   "details_heading": "Person details:",
   "questions": [
    {

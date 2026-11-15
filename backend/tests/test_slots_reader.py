@@ -313,10 +313,10 @@ SILLY_AS_LIST = {"n": 2, "kind": "list", "label": "Silly expression", "lead": " 
                  "list": {"list": "person.expression", "about": "the young woman's expression"}}
 
 
-async def _category(prompt: str, n: int, reading: Dict[str, Any], category: Any) -> str:
+async def _category(prompt: str, n: int, reading: Dict[str, Any], category: Any, asks: int = 1) -> str:
     model = FakeModel(json.dumps({"slots": [{**reading, "category": category}]}))
     got = await reader.read_part(parse(prompt), "slot", n, ask=model, project_id=None, model="m")
-    assert len(model.asked) == 1 and not got.get("degraded")   # never a reason to retry
+    assert len(model.asked) == asks and not got.get("degraded")   # never read as written for it
     return got["category"]
 
 
@@ -330,7 +330,9 @@ async def test_a_category_that_is_a_run_of_the_parts_own_words_is_kept():
 
 @pytest.mark.parametrize("category", ["face", "silly face", "expression silly", "", None, 7, ["expression"]])
 async def test_a_category_that_isnt_a_run_of_the_parts_words_is_none(category):
-    assert await _category(SILLY_PROMPT, 2, SILLY_AS_LIST, category) == ""
+    # words that aren't the part's are asked again once ("outdoors" for "outdoor place"), then none
+    again = isinstance(category, str) and category.strip()
+    assert await _category(SILLY_PROMPT, 2, SILLY_AS_LIST, category, asks=2 if again else 1) == ""
 
 
 async def test_a_person_never_has_a_category():
