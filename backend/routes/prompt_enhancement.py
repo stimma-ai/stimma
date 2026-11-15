@@ -86,6 +86,8 @@ def enhancement_mode(
         return "ltx-2.5"
     if is_video or family in _VIDEO_FAMILIES:
         return "cinematography"
+    if family == "minimax-h3-image":
+        return "minimax-h3-image-edit" if is_image_edit else "minimax-h3-image"
     if family == "qwen-image-2.1":
         return "qwen-image-2.1-edit" if is_image_edit else "qwen-image-2.1"
     if family == "flux-3-klein":
@@ -116,6 +118,8 @@ _IMPROVE_PROMPT_BY_MODE = {
     "cinematography": "improve_cinematography_system_prompt",
     "ltx-2.5": "improve_ltx_25_system_prompt",
     "minimax-h3": "improve_minimax_h3_system_prompt",
+    "minimax-h3-image": "improve_minimax_h3_image_system_prompt",
+    "minimax-h3-image-edit": "improve_minimax_h3_image_edit_system_prompt",
     "qwen-image-2.1": "improve_qwen_image_21_system_prompt",
     "qwen-image-2.1-edit": "improve_qwen_image_21_edit_system_prompt",
     "flux3-klein": "improve_flux3_klein_system_prompt",
@@ -138,6 +142,7 @@ _LENGTH_TARGETS: Dict[str, Dict[str, Tuple[int, int, str]]] = {
     "krea-2": {"fill": (50, 80, "words"), "expand": (120, 180, "words")},
     "flux3-klein": {"fill": (80, 120, "words"), "expand": (200, 300, "words")},
     "qwen-image-2.1": {"fill": (100, 150, "words"), "expand": (250, 350, "words")},
+    "minimax-h3-image": {"fill": (50, 80, "words"), "expand": (100, 160, "words")},
     "prose": {"fill": (50, 80, "words"), "expand": (100, 160, "words")},
     "cinematography": {"fill": (50, 80, "words"), "expand": (80, 120, "words")},
     "ltx-2.5": {"fill": (2, 4, "sentences"), "expand": (4, 8, "sentences")},
@@ -1039,7 +1044,7 @@ async def style_guide(request: "ImprovePromptRequest", session,
             loaded = await _load_source_image_b64(session, media_id)
             if loaded:
                 source_images_b64.append((picture_number, loaded))
-    elif mode in ("qwen-image-2.1-edit", "flux3-klein-edit"):
+    elif mode in ("qwen-image-2.1-edit", "flux3-klein-edit", "minimax-h3-image-edit"):
         for image_number, media_id in enumerate(request.input_media_ids, start=1):
             if media_id is None:
                 continue
@@ -1174,6 +1179,14 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             "Return only the final model prompt:\n\n"
             f"{request.prompt}{instr}"
         )
+    elif mode in ("minimax-h3-image", "minimax-h3-image-edit"):
+        instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
+                 if request.instructions and request.instructions.strip() else "")
+        task = "reference-image edit" if mode.endswith("-edit") else "text-to-image"
+        user_content = (
+            f"Rewrite this MiniMax H3 Image {task} request. "
+            f"Return only the finished-image caption:\n\n{request.prompt}{instr}"
+        )
     elif mode == "qwen-image-2.1-edit":
         instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
                  if request.instructions and request.instructions.strip() else "")
@@ -1270,6 +1283,8 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                     else ("first frame" if picture_number == 1 else "last frame")
                 )
                 image_parts.append({"type": "text", "text": f"Picture {picture_number} ({role}):"})
+            elif mode == "minimax-h3-image-edit":
+                image_parts.append({"type": "text", "text": f"<Picture {picture_number}>:"})
             elif mode == "qwen-image-2.1-edit":
                 image_parts.append({"type": "text", "text": f"<image{picture_number}>:"})
             elif mode == "flux3-klein-edit":

@@ -629,12 +629,13 @@ async def execute_call_tool(
             resolved, media_id = await _resolve_input_media_ref(
                 img, "input image", kwargs, metadata_only)
             resolved_inputs.append(resolved)
+            # Keep reference numbering stable when a raw-path fallback has no id.
+            derived_ids.append(media_id)
             if media_id is not None:
-                derived_ids.append(media_id)
                 if index == 0:
                     first_input_id = media_id
         final_params["input_images"] = resolved_inputs
-        if derived_ids:
+        if any(media_id is not None for media_id in derived_ids):
             final_params["input_media_ids"] = derived_ids
 
     # 5b. Media nested in structured params (`x-media` leaves, e.g. keyframes[].media)

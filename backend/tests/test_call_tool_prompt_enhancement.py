@@ -184,6 +184,8 @@ async def test_call_tool_accepts_the_flag_nested_in_parameters():
         ("flux3-klein-base", None, "image-to-image", "FLUX.3 Klein"),
         ("flux2-klein-9b", None, "text-to-image", None),
         ("minimax_h3_fl2va_pruned_fp8_scaled", None, "image-to-video", "MiniMax H3"),
+        ("minimax-h3-image", None, "text-to-image", "MiniMax H3 Image"),
+        ("minimax-h3-image", None, "image-to-image", "MiniMax H3 Image"),
         ("ideogram:4@0", "ideogram", "text-to-image", "Ideogram 4"),
         ("flux1-dev", None, "text-to-image", None),
         ("qwen-image-2512", None, "text-to-image", None),

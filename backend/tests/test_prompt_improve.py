@@ -691,17 +691,17 @@ async def test_krea_2_gets_the_prose_request(prompt_variant_probe):
     assert prompt_variant_probe["messages"][1]["content"].startswith("Rewrite this image request as a concrete")
 
 
-@pytest.mark.parametrize("edit,expected", [(False, "prose"), (True, "edit")])
+@pytest.mark.parametrize("edit,expected", [(False, "minimax-h3-image"), (True, "minimax-h3-image-edit")])
 def test_h3_image_uses_image_enhancement_not_video_context_ir(edit, expected):
     family = model_family("minimax-h3-image")
     assert enhancement_mode(family, is_image_edit=edit) == expected
 
 
 @pytest.mark.parametrize("task,parameters,expected", [
-    ("text-to-image", {"prompt": "a teapot"}, "prose"),
-    ("image-to-image", {"prompt": "make it blue", "input_images": ["source.png"]}, "edit"),
-    ("inpaint-image", {"prompt": "a star", "input_images": ["source.png"], "mask": "mask.png"}, "edit"),
-    ("outpaint-image", {"input_images": ["source.png"], "expand_right_pct": 20}, "edit"),
+    ("text-to-image", {"prompt": "a teapot"}, "minimax-h3-image"),
+    ("image-to-image", {"prompt": "make it blue", "input_images": ["source.png"]}, "minimax-h3-image-edit"),
+    ("inpaint-image", {"prompt": "a star", "input_images": ["source.png"], "mask": "mask.png"}, "minimax-h3-image-edit"),
+    ("outpaint-image", {"input_images": ["source.png"], "expand_right_pct": 20}, "minimax-h3-image-edit"),
 ])
 def test_h3_image_generation_context_has_no_video_format(monkeypatch, task, parameters, expected):
     import routes.generation as gen
@@ -712,4 +712,4 @@ def test_h3_image_generation_context_has_no_video_format(monkeypatch, task, para
     assert context["enhance"]["h3_task"] is None
     assert context["enhance"]["h3_duration"] is None
     assert context["enhance"]["is_video"] is False
-    assert gen.native_prompt_format("comfyui:minimax-h3-image", task) is None
+    assert gen.native_prompt_format("comfyui:minimax-h3-image", task) == "MiniMax H3 Image"

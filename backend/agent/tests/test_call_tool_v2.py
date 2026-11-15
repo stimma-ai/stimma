@@ -163,3 +163,22 @@ async def test_enhancement_rejection_reaches_agent_without_submitting_generation
     assert '"param": "image"' in result
     assert "No generation was started" in result
     fake_queue.submit_job.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_call_tool_keeps_reference_slots_when_first_image_has_no_library_id(
+    session, test_chat, fake_queue, mock_generation, tmp_path, monkeypatch,
+):
+    from agent.v2.prompt_handling import PreparedPrompt
+
+    monkeypatch.setattr('agent.v2.tools.call_tool._resolve_input_media_ref',
+                        AsyncMock(side_effect=[('/tmp/raw-source.png', None), (33, 33)]))
+    prepare = AsyncMock(side_effect=lambda params, **kwargs: PreparedPrompt(dict(params)))
+    monkeypatch.setattr('agent.v2.prompt_handling.prepare_prompt', prepare)
+    await call_tool(
+        tool_id='image:model-a',
+        parameters={'prompt': 'use the second picture', 'input_images': ['/tmp/raw-source.png', 33]},
+        session=session, chat_id=test_chat.id, workspace_dir=str(tmp_path),
+    )
+    assert prepare.await_args.args[0]['input_media_ids'] == [None, 33]
+    assert fake_queue.submit_job.call_args.kwargs['parameters']['input_media_ids'] == [None, 33]

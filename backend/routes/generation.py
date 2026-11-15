@@ -547,7 +547,7 @@ async def _settle_batch(generation_queue, batch_id: str, profile_id: Optional[st
         log.warning(f"Batch {batch_id}: settling failed children failed: {e}")
 
 
-_PROGRAM_UNSUPPORTED_MODES = ("minimax-h3", "ideogram", "audio", "edit", "qwen-image-2.1-edit", "flux3-klein-edit")
+_PROGRAM_UNSUPPORTED_MODES = ("minimax-h3", "ideogram", "audio", "edit", "qwen-image-2.1-edit", "flux3-klein-edit", "minimax-h3-image-edit")
 
 
 def prompt_enhance_context(
@@ -569,7 +569,7 @@ def prompt_enhance_context(
     if family == "minimax-h3":
         h3 = _prompt_h3_context(parameters, effective_task)
     input_media_ids: List[Optional[int]] = []
-    if family in ("qwen-image-2.1", "flux-3-klein"):
+    if family in ("qwen-image-2.1", "flux-3-klein", "minimax-h3-image"):
         input_media_ids = _prompt_input_media_ids(parameters)
     is_video = "video" in effective_task
     is_audio = effective_task in _AUDIO_TASK_TYPES
@@ -1035,6 +1035,7 @@ _NATIVE_PROMPT_FORMAT_LABELS = {
     "qwen-image-2.1": "Qwen-Image-2.1",
     "flux3-klein": "FLUX.3 Klein",
     "minimax-h3": "MiniMax H3",
+    "minimax-h3-image": "MiniMax H3 Image",
     "ltx-2.5": "LTX-2.5",
 }
 

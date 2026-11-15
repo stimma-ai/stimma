@@ -15,7 +15,8 @@ _IMPROVE_KEYS = [
     "improve_system_prompt", "improve_krea2_system_prompt", "improve_keyword_system_prompt",
     "improve_cinematography_system_prompt", "improve_cinematography_image_system_prompt",
     "improve_ltx_25_system_prompt", "improve_ltx_25_image_system_prompt",
-    "improve_minimax_h3_system_prompt", "improve_qwen_image_21_system_prompt",
+    "improve_minimax_h3_system_prompt", "improve_minimax_h3_image_system_prompt",
+    "improve_minimax_h3_image_edit_system_prompt", "improve_qwen_image_21_system_prompt",
     "improve_qwen_image_21_edit_system_prompt", "improve_flux3_klein_system_prompt",
     "improve_flux3_klein_edit_system_prompt", "improve_image_edit_system_prompt",
     "improve_audio_system_prompt", "ideogram_json_system_prompt", "ideogram_json_refine_system_prompt",
@@ -25,6 +26,7 @@ _IMAGE_KEYS = [
     "improve_system_prompt", "improve_krea2_system_prompt", "improve_keyword_system_prompt",
     "improve_cinematography_system_prompt", "improve_ltx_25_system_prompt",
     "improve_qwen_image_21_system_prompt", "improve_flux3_klein_system_prompt",
+    "improve_minimax_h3_image_system_prompt",
 ]
 
 
@@ -50,6 +52,7 @@ def test_image_guides_fix_the_people_and_close_on_the_length(key):
 
 
 _MODELS = [
+    ("minimax-h3-image", {}), ("minimax-h3-image", {"input_image_count": 2}),
     ("flux1-dev", {}), ("krea2_turbo_fp8_scaled.safetensors", {}), ("sdxl_base_1.0", {}),
     ("qwen-image-2.1", {}), ("flux3-klein", {}), ("qwen-image-2.1", {"input_image_count": 2}),
     ("flux3-klein", {"input_image_count": 2}), ("flux1-dev", {"input_image_count": 1}),
