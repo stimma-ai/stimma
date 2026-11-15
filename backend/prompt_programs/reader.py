@@ -32,7 +32,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-25"   # reader-25: a person says whether who and where they are imply what they wear (dress: "implied"). reader-24: words naming one camera detail ("camera angle") vary only that detail; a made-up list id on the last try is the question's fallback answer ("written"), not a failed reading. reader-23: kinds are vocabulary data; a person says what sort of being they are (a declared sort, or "other") instead of whether a heritage applies, and a place may be any context table's. reader-22: a person names the place by its country's plain name, asked again when the table lacks it; a person says how many people they are (one, a couple, a family, a group) and whether a real-world heritage applies to them; light names the scene list unless its words call for a named look. reader-21: a person names the country the picture is set in (place), when the prompt says. reader-20: a person keeps the words saying what they wear (clothes), so their variants draw no outfit; a free part no longer gives kinds or things instead, nor a light examples (nothing used them). reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-26"   # reader-26: a person who leaves what they wear blank is "written" at once, not asked again (what the retry answered every time it was measured); a kind's fields given under another kind's object or at the part's top level are read. reader-25: reader-25: a person says whether who and where they are imply what they wear (dress: "implied"). reader-24: words naming one camera detail ("camera angle") vary only that detail; a made-up list id on the last try is the question's fallback answer ("written"), not a failed reading. reader-23: kinds are vocabulary data; a person says what sort of being they are (a declared sort, or "other") instead of whether a heritage applies, and a place may be any context table's. reader-22: a person names the place by its country's plain name, asked again when the table lacks it; a person says how many people they are (one, a couple, a family, a group) and whether a real-world heritage applies to them; light names the scene list unless its words call for a named look. reader-21: a person names the country the picture is set in (place), when the prompt says. reader-20: a person keeps the words saying what they wear (clothes), so their variants draw no outfit; a free part no longer gives kinds or things instead, nor a light examples (nothing used them). reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -396,8 +396,14 @@ def read_kind(k: Any, got: Dict[str, Any], n: Any, seg: Segment, before: str, no
         if q.only_if_varies and q.only_if_varies not in vary:
             ans[q.key] = q.default if q.type == "choice" else ""
     req = k.require_one
-    if strict and req and not any(ans.get(x) for x in req.get("of") or ()):
-        raise _Bad(str(req["message"]).replace("{n}", str(n)))
+    if req and not any(ans.get(x) for x in req.get("of") or ()):
+        # Left blank, a declared fallback answers at once (what a retry answered every time it was
+        # measured); one given that didn't hold (a part that isn't there) is asked again.
+        tried = any(got.get(x) not in (None, "", 0, [], {}) for x in req.get("of") or ())
+        if isinstance(req.get("fallback"), dict) and not tried:
+            ans.update(req["fallback"])
+        elif strict:
+            raise _Bad(str(req["message"]).replace("{n}", str(n)))
     out: Dict[str, Any] = {}
     for q in k.questions:
         v = ans.get(q.key)
@@ -421,11 +427,17 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
         raise _Bad(f"part {n}: kind must be one of {', '.join(names)}; a list's id goes in its object, as "
                    '"kind": "list", "list": {"list": "<the list\'s id>", "about": "..."}')
     got = r.get(kind)
+    k = vocab.kind(kind)
+    if not isinstance(got, dict) and k is not None:
+        # A declared kind's fields given under another kind's object ("light" as "list": {...}),
+        # or at the part's top level ("list": "lighting.scene"): the same answer. Structure only.
+        other = [v for name, v in r.items() if name in names and name != kind and isinstance(v, dict)]
+        top = {q.key: r[q.key] for q in k.questions if q.key in r and not isinstance(r[q.key], dict)}
+        got = other[0] if len(other) == 1 else top or None
     if not isinstance(got, dict):
         raise _Bad(f'part {n}: a {kind} needs its fields in a "{kind}" object, as "{kind}": {{...}}')
     lead = fit_lead(r.get("lead") if isinstance(r.get("lead"), str) else "", before) or ""
     out: Dict[str, Any] = {"n": n, "kind": kind, "label": str(r.get("label") or "").strip() or seg.words, "lead": lead}
-    k = vocab.kind(kind)
     if k is not None:
         out[kind] = read_kind(k, got, n, seg, before, notes, prompt, strict, others or {})
         out = one_detail(out)

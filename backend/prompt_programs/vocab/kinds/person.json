@@ -162,7 +162,10 @@
     "clothes_part",
     "clothes"
    ],
-   "message": "part {n}: a person's clothes change unless the prompt says what they wear: when another part is what they wear, give its number as \"clothes_part\"; when the prompt's own words say, copy them into \"clothes\"; else give an outfit list's id, or \"written\" when none suits"
+   "message": "part {n}: a person's clothes change unless the prompt says what they wear: when another part is what they wear, give its number as \"clothes_part\"; when the prompt's own words say, copy them into \"clothes\"; else give an outfit list's id, or \"written\" when none suits",
+   "fallback": {
+    "outfit": "written"
+   }
   },
   "examples": [
    {

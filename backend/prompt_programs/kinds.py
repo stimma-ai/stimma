@@ -370,6 +370,8 @@ def parse_kind(d: Any, where: str) -> Kind:
     req = r.get("require_one")
     if req is not None and not (isinstance(req, dict) and _strs(req, "of", w) and isinstance(req.get("message"), str)):
         raise Bad(f"{w}: reader.require_one needs of and message")
+    if req is not None and not isinstance(req.get("fallback", {}), dict):
+        raise Bad(f"{w}: reader.require_one.fallback must be an object of answers")
     if r.get("single_detail", "") not in ("", "list"):
         raise Bad(f"{w}: reader.single_detail is \"list\" or left out")
     wr = _dict(d, "writer", w)

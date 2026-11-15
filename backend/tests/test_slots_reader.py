@@ -762,13 +762,14 @@ async def test_a_light_reading_may_name_a_lighting_list():
     assert "not one of the lighting lists" in model.asked[1][-1]["content"]
 
 
-async def test_a_person_with_no_outfit_is_asked_once_why_then_stands():
+async def test_a_person_with_no_outfit_has_theirs_written_with_no_second_call():
+    # What a retry answered every time it was measured: the writer writes what they wear.
     bare = {"n": 1, "kind": "person", "label": "Young man", "lead": "",
             "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "young"}, "vary": ["age"], "outfit": ""}}
     model = FakeModel(json.dumps({"slots": [bare]}))
     got = await reader.read(parse("a <young man> in a dorm room"), ask=model, project_id=None, model="m")
-    assert len(model.asked) == 2 and '"clothes"' in model.asked[1][-1]["content"]
-    assert not got["slots"][0].get("degraded") and got["slots"][0]["person"]["outfit"] == ""
+    assert len(model.asked) == 1
+    assert not got["slots"][0].get("degraded") and got["slots"][0]["person"]["outfit"] == "written"
     dressed = {**bare, "person": {**bare["person"], "clothes": "in a red raincoat"}}
     model = FakeModel(json.dumps({"slots": [dressed]}))
     await reader.read(parse("a <young man> in a red raincoat"), ask=model, project_id=None, model="m")
@@ -959,3 +960,12 @@ async def test_a_made_up_outfit_list_twice_is_written_not_a_failed_reading():
     assert "is not one of the lists" in model.asked[1][-1]["content"]
     slot = got["slots"][0]
     assert "degraded" not in slot and slot["kind"] == "person" and slot["person"]["outfit"] == "written"
+
+
+async def test_a_kinds_fields_under_another_kinds_name_or_at_the_top_are_read():
+    # Measured on a local model: a light's one field given as a list's object, or bare.
+    for light in ({"list": {"list": "lighting.scene"}}, {"list": "lighting.scene"}):
+        r = {"n": 1, "kind": "light", "label": "Light", "lead": ",", **light}
+        model = FakeModel(json.dumps({"slots": [r]}))
+        got = await reader.read(parse("a kitchen, <light>"), ask=model, project_id=None, model="m")
+        assert len(model.asked) == 1 and got["slots"][0]["light"] == {"list": "lighting.scene"}
