@@ -55,6 +55,8 @@ interface Options {
 /** How long typing in the prompt pauses before it is read: long enough to ride over a breath
     mid-phrase, so a slot isn't read (or shown as being written) half typed. */
 const TYPING_IDLE_MS = 1500
+// fluent_prompt_changed events behind the first, gathered into one look
+const CHANGED_GATHER_MS = 150
 
 /** How often the editor looks for a program the server prepared in the background after a failure. */
 const ERROR_POLL_MS = 15_000
@@ -547,16 +549,24 @@ export function usePromptProgram(o: Options) {
   window.addEventListener('focus', onFocus)
   onUnmounted(() => window.removeEventListener('focus', onFocus))
   // The server says this prompt changed (a reading landed, variants were stored, a write
-  // ended): look again now. Several at once look once.
+  // ended): look again now. The first after a quiet spell looks at once; the ones behind it
+  // within CHANGED_GATHER_MS look once more at its end.
   const ws = useWebSocket()
   let changedTimer: ReturnType<typeof setTimeout> | null = null
+  let changedAgain = false
+  const lookAgain = () => { void lookup(); void fetchPools() }
   const onChanged = (data: { key?: string } | null) => {
-    if (!data?.key || data.key !== program.value?.key || changedTimer) return
-    changedTimer = setTimeout(() => {
+    if (!data?.key || data.key !== program.value?.key) return
+    if (changedTimer) { changedAgain = true; return }
+    lookAgain()
+    const settle = () => {
       changedTimer = null
-      void lookup()
-      void fetchPools()
-    }, 150)
+      if (!changedAgain) return
+      changedAgain = false
+      lookAgain()
+      changedTimer = setTimeout(settle, CHANGED_GATHER_MS)
+    }
+    changedTimer = setTimeout(settle, CHANGED_GATHER_MS)
   }
   ws.on('fluent_prompt_changed', onChanged)
   onUnmounted(() => { ws.off('fluent_prompt_changed', onChanged); if (changedTimer) clearTimeout(changedTimer) })

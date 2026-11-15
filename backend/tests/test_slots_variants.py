@@ -750,6 +750,7 @@ async def test_the_editor_hears_when_a_prompt_changes(monkeypatch, profile):
     monkeypatch.setattr(events, "_pools", events.OrderedDict())
     monkeypatch.setattr(events, "_pending", {})
     monkeypatch.setattr(events, "_flush", None)
+    monkeypatch.setattr(events, "_last", float("-inf"))
     monkeypatch.setattr(events, "GATHER", 0.01)
     use(monkeypatch)
     rp = _routes(monkeypatch, profile)
@@ -764,10 +765,14 @@ async def test_the_editor_hears_when_a_prompt_changes(monkeypatch, profile):
     await rp.pools(rp.PreviewRequest(tool_id="t", prompt=PROMPT, key=out["key"], cache_only=True, choices={}))
     ws.broadcasts.clear()
     pool = slot(entry, "lighting")["pool"]
-    for i in range(3):   # three chunks landing together
+    for i in range(3):   # three chunks landing together: the first goes out at once, the rest as one
         P.store_for(profile).append(pool, {"batch": 50 + i, "variants": [{"text": f"new light {i}", "seeds": {}}]})
+        if i == 0:
+            for _ in range(5):   # (the loop hands it on in a few steps, well inside GATHER)
+                await asyncio.sleep(0)
+            assert [d["key"] for e, d in ws.broadcasts if e == events.EVENT] == [out["key"]]
     await asyncio.sleep(0.05)
-    assert [d["key"] for e, d in ws.broadcasts if e == events.EVENT] == [out["key"]]
+    assert [d["key"] for e, d in ws.broadcasts if e == events.EVENT] == [out["key"]] * 2
     ws.broadcasts.clear()
     await rp.remove_variant(rp.RemoveVariantRequest(tool_id="t", prompt=PROMPT, key=out["key"], choice_id="lighting",
                                                     text="new light 0"))

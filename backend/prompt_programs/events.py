@@ -4,7 +4,8 @@ One event, `fluent_prompt_changed` with the prompt's key and its profile: a read
 prompt settled, slots._settle -> program.on_prepared), a variant of a pool was stored, a pool's
 write ended (kept something or failed), or a variant was removed. A pool can serve several
 prompts, so the prompts the editor was shown (`watch`, from /prepare and /pools) are remembered
-by the pools they draw from. Events for one prompt arriving together go out as one. Never raises
+by the pools they draw from. The first event after a quiet spell goes out at once; the ones
+behind it within GATHER go out as one. Never raises
 and never blocks the caller; with no event loop to send on, nothing is sent (the editor's slow
 poll still finds it).
 """
@@ -27,6 +28,7 @@ _pools: "OrderedDict[str, Tuple[Optional[str], Set[str]]]" = OrderedDict()   # p
 _loop: Optional[asyncio.AbstractEventLoop] = None
 _pending: Dict[Tuple[str, Optional[str]], None] = {}
 _flush: Optional[asyncio.TimerHandle] = None
+_last = float("-inf")   # loop time of the last send
 
 
 def watch(entry: Dict[str, Any], profile_id: Optional[str]) -> None:
@@ -69,15 +71,24 @@ def prompt_changed(key: Optional[str], profile_id: Optional[str]) -> None:
 
 
 def _queue(key: str, profile_id: Optional[str]) -> None:
-    global _flush
+    """The first event after a quiet spell goes out at once (a reading or a first variant
+    landing is what the editor waits on); the ones behind it within GATHER go out as one."""
+    global _flush, _last
     _pending[(key, profile_id)] = None
-    if _flush is None:
-        _flush = asyncio.get_running_loop().call_later(GATHER, _send)
+    if _flush is not None:
+        return
+    loop = asyncio.get_running_loop()
+    wait = _last + GATHER - loop.time()
+    if wait <= 0:
+        _send()
+    else:
+        _flush = loop.call_later(wait, _send)
 
 
 def _send() -> None:
-    global _flush
+    global _flush, _last
     _flush = None
+    _last = asyncio.get_running_loop().time()
     out = list(_pending)
     _pending.clear()
     for key, profile_id in out:
