@@ -156,13 +156,20 @@ def valid_category(words: str, category: Any, kind: str = "") -> str:
 
 def kept_chunks(words: str, category: str = "") -> List[str]:
     """The runs of the slot's words a variant must keep: all of them with no category word,
-    else what stands before and after it (none when the whole slot is its category)."""
+    else what stands before and after it (none when the whole slot is its category). A run's
+    leading article is no part of it: a variant says the phrase whole, so "a woman" may become
+    "a 40-year-old Welsh woman" (a possessive, "my dog", is kept). Structure only."""
     wt = tokens(words)
     ct = tokens(category)
     at = _run_at(wt, ct) if ct else -1
-    if at < 0:
-        return [" ".join(wt)] if wt else []
-    return [" ".join(x) for x in (wt[:at], wt[at + len(ct):]) if x]
+    runs = [wt] if at < 0 else [wt[:at], wt[at + len(ct):]]
+    out = []
+    for i, x in enumerate(runs):
+        if i == 0 and len(x) > 1 and x[0] in _ARTICLES:
+            x = x[1:]
+        if x:
+            out.append(" ".join(x))
+    return out
 
 
 # --------------------------------------------------------------------------- seeds
@@ -916,7 +923,8 @@ def messages(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -
              f'It stands between "{before}" and "{after}": each variant must read correctly there, '
              'as one continuous phrase.']
     if not cat:
-        lines.append(f'No category word: every variant contains exactly these words: "{slot.words}".')
+        lines.append('No category word: every variant contains exactly these words: '
+                     + ", ".join(f'"{k}"' for k in (keep or [slot.words])) + ".")
     elif keep:
         lines.append(f'Category word: "{cat}" (may become a kind of it). Every variant contains exactly: '
                      + ", ".join(f'"{k}"' for k in keep) + ".")
@@ -953,6 +961,7 @@ def _norm(s: str) -> str:
     return _WS.sub(" ", str(s)).strip()
 
 
+_ARTICLES = ("a", "an", "the")
 _DETERMINERS = ("a", "an", "the", "my", "your", "his", "her", "its", "our", "their", "this", "that", "these", "those")
 
 

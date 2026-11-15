@@ -139,6 +139,11 @@ def test_kept_chunks():
     assert V.kept_chunks("selfie camera angle", "camera angle") == ["selfie"]
     assert V.kept_chunks("body type, slim to avg", "body type") == ["slim to avg"]
     assert V.kept_chunks("lighting", "lighting") == []
+    # a leading article is the phrase's, not the user's words: "a woman" may become "a 40-year-old Welsh woman"
+    assert V.kept_chunks("a woman") == ["woman"]
+    assert V.kept_chunks("the old lighthouse", "lighthouse") == ["old"]
+    assert V.kept_chunks("my dog") == ["my dog"] and V.kept_chunks("a") == ["a"]
+    assert V.kept_chunks("a man in the hat") == ["man in the hat"]
     assert V.kept_chunks("dominant young woman", "") == ["dominant young woman"]
 
 
