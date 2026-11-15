@@ -369,10 +369,11 @@ def drawable(variants: Sequence[Dict[str, Any]], choice: Choice) -> List[Dict[st
     if choice.values:
         return [{**by[_norm(t)], "pinned": True} if _norm(t) in by else {"text": t, "seeds": {}, "pinned": True}
                 for t in choice.values]
+    pool = list(variants) if choice.pins.gender else unasked(variants)   # a gender is asked only by its pick
     if choice.pins:
-        hit = [v for v in variants if matches(v.get("seeds") or {}, choice.pins)]
+        hit = [v for v in pool if matches(v.get("seeds") or {}, choice.pins)]
         return hit + own if hit else []
-    return unasked(variants) + own
+    return pool + own
 
 
 def unasked(variants: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:

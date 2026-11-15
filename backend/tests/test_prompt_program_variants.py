@@ -638,7 +638,9 @@ def test_the_users_own_variants_draw_with_the_pool():
 def test_picked_seeds_filter_the_pool():
     rng = random.Random(2)
     c = P.Choice(pins=V.Pins(regions=("East Asia",)))
-    assert {P.pick(POOL, {}, c, rng, "w").seeds["descent"] for _ in range(30)} == {"Korean", "Japanese"}
+    assert {P.pick(POOL, {}, c, rng, "w").seeds["descent"] for _ in range(30)} == {"Korean"}   # the Japanese one is non-binary: opt-in
+    c = P.Choice(pins=V.Pins(regions=("East Asia",), gender=("non-binary person",)))
+    assert {P.pick(POOL, {}, c, rng, "w").seeds["descent"] for _ in range(30)} == {"Japanese"}
     c = P.Choice(pins=V.Pins(gender=("man",)))
     assert {P.pick(POOL, {}, c, rng, "w").text for _ in range(30)} == {"variant 1", "variant 4"}
     # nothing matching yet: the words, with a single picked descent before them
@@ -708,6 +710,9 @@ def test_unpinned_draws_leave_out_variants_written_for_an_opt_in_gender():
             {"text": "chef c", "seeds": {"gender": "trans woman"}}, {"text": "kid", "seeds": {"gender": "non-binary child"}}]
     assert [v["text"] for v in P.drawable(pool, P.Choice())] == ["chef a", "chef b"]
     assert [v["text"] for v in P.drawable(pool, P.Choice(pins=V.Pins(gender=("trans woman",))))] == ["chef c"]
+    # nor beside another pick: Korean and trans woman pinned, then gender cleared
+    korean = [{**v, "seeds": {**v["seeds"], "descent": "Korean"}} for v in pool]
+    assert [v["text"] for v in P.drawable(korean, P.Choice(pins=V.Pins(descent=("Korean",))))] == ["chef a", "chef b"]
     rng = random.Random(1)
     assert {P.pick(pool, {}, P.Choice(), rng, "chef").text for _ in range(50)} == {"chef a", "chef b"}
     # a pool the words asked for ("a trans woman") draws as before
