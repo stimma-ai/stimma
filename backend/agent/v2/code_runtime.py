@@ -2004,7 +2004,7 @@ class StimmaSDK:
         prompt_val = parameters.get("prompt")
         prompt_for_record = prompt_val if isinstance(prompt_val, str) else None
         control = self._control
-        call_item = control.begin_call(tool_id, prompt_for_record)
+        call_item = control.begin_call(tool_id, prompt_for_record, _task_type)
 
         def _on_job_submitted(job_id: int) -> None:
             call_item.job_id = job_id

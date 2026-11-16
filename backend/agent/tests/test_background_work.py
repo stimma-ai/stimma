@@ -199,3 +199,29 @@ async def test_runs_in_one_workspace_share_cwd_while_others_wait(tmp_path):
     await asyncio.wait_for(other, 2)
     assert seen == [second.resolve()]
     assert Path.cwd() == original
+
+
+@pytest.mark.asyncio
+async def test_items_say_what_they_make_for_the_task_bar(session, test_chat, tmp_path, fake_generation):
+    _, releases = fake_generation
+    control = RunControl()
+    sdk = StimmaSDK(session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+                    project_workspace_dir=None, interrupt_checker=lambda: False, control=control)
+    batch = asyncio.create_task(sdk._gather(
+        sdk._dispatch_tool("mock:gen", _task_type="text-to-image", prompt="a"),
+        sdk._dispatch_tool("mock:gen", _task_type="image-to-video", prompt="b"),
+        sdk._dispatch_tool("mock:gen", _task_type="speech-to-text", prompt="c"),
+    ))
+    await _until(lambda: len([i for i in control.items if i.job_id]) == 3)
+    for release in releases.values():
+        release.set()
+    await asyncio.wait_for(batch, 3)
+    assert [i.get("kind") for i in await control.snapshot_items()] == ["image", "video", None]
+
+
+def test_unlabeled_runs_read_cleanly_to_the_model():
+    run = bg.BackgroundRun(id="bg-1", profile="p", chat_id=1, label="", control=RunControl(),
+                           task=None, reason="steer", state="completed")
+    assert bg.notification_text(run, "ok").splitlines()[1] == "Background task bg-1 finished."
+    assert 'task bg-2 ("Upscaling"):' in bg.describe_detached("bg-2", "Upscaling", [], 0)
+    assert "task bg-2: no generation calls yet" in bg.describe_detached("bg-2", "", [], 0)

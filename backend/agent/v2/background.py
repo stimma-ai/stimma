@@ -50,6 +50,7 @@ class CallItem:
     item: int
     tool: str
     prompt: Optional[str]
+    task: Optional[str] = None  # e.g. "text-to-image"
     state: str = "preparing"  # preparing -> submitted -> done | failed | cancelled
     job_id: Optional[int] = None
     media_id: Optional[int] = None
@@ -79,10 +80,10 @@ class RunControl:
 
     # -- hooks used by the SDK ------------------------------------------------
 
-    def begin_call(self, tool: str, prompt: Optional[str]) -> CallItem:
+    def begin_call(self, tool: str, prompt: Optional[str], task: Optional[str] = None) -> CallItem:
         if self.cancel_new:
             raise GenerationCancelled("Cancelled before it started")
-        item = CallItem(item=len(self.items) + 1, tool=tool, prompt=_short(prompt))
+        item = CallItem(item=len(self.items) + 1, tool=tool, prompt=_short(prompt), task=task)
         self.items.append(item)
         return item
 
@@ -148,6 +149,9 @@ class RunControl:
         out = []
         for item in self.items:
             entry: dict[str, Any] = {"item": item.item, "tool": item.tool, "state": item.state}
+            kind = _media_kind(item.task)
+            if kind:
+                entry["kind"] = kind
             if item.prompt:
                 entry["prompt"] = item.prompt
             job = jobs.get(item.job_id) if item.job_id is not None else None
@@ -176,6 +180,21 @@ def _short(text: Optional[str], limit: int = 80) -> Optional[str]:
         return None
     s = str(text).strip().replace("\n", " ")
     return s if len(s) <= limit else s[: limit - 3] + "..."
+
+
+_AUDIO_TASKS = {"text-to-audio", "text-to-music", "text-to-speech", "audio-to-audio"}
+_NON_MEDIA_TASKS = {"speech-to-text", "detect-objects"}
+
+
+def _media_kind(task: Optional[str]) -> Optional[str]:
+    """What a call makes, in the user's words: image, video or audio."""
+    if not task or task in _NON_MEDIA_TASKS:
+        return None
+    if "video" in task or task == "lip-sync":
+        return "video"
+    if task in _AUDIO_TASKS:
+        return "audio"
+    return "image"
 
 
 def _counts(items: list[dict[str, Any]], waiting: int) -> dict[str, int]:
@@ -360,6 +379,10 @@ async def _watch(run: BackgroundRun, on_finished) -> None:
             log.error(f"Chat {run.chat_id}: background task {run.id} notification failed: {e}", exc_info=True)
 
 
+def _quoted(label: str) -> str:
+    return f' ("{label}")' if label else ""
+
+
 def describe_detached(run_id: str, label: str, items: list[dict[str, Any]], waiting: int) -> str:
     """The tool result for a call that moved to the background."""
     counts = _counts(items, waiting)
@@ -374,7 +397,7 @@ def describe_detached(run_id: str, label: str, items: list[dict[str, Any]], wait
         parts.append(f"{waiting} not submitted yet")
     status = "; ".join(parts) if parts else "no generation calls yet"
     return (
-        f'This code is still running, in the background as task {run_id} ("{label}"): {status}. '
+        f'This code is still running, in the background as task {run_id}{_quoted(label)}: {status}. '
         "Its results keep appearing in the chat, and you'll get a notification with the full "
         "receipt when it finishes, so there's no need to check on it. "
         f'In run_code, `await stimma.tasks.get("{run_id}")` lists each generation (state, '
@@ -388,7 +411,7 @@ def notification_text(run: BackgroundRun, output: str) -> str:
     verb = "failed" if run.state == "failed" else "finished"
     return (
         "<task-notification>\n"
-        f'Background task {run.id} ("{run.label}") {verb}.\n'
+        f"Background task {run.id}{_quoted(run.label)} {verb}.\n"
         f"{output}\n"
         "</task-notification>"
     )

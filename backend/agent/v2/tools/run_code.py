@@ -102,7 +102,8 @@ async def run_code_detachable(code: str, *, background: bool = False, **kwargs) 
                 control=control,
             )
 
-    label = (kwargs.get("label") or "").strip() or "Running code"
+    # No label: the app names the run from its generations.
+    label = (kwargs.get("label") or "").strip()
     fg = bg.ForegroundRun(control=control, label=label)
     task = asyncio.create_task(execute())
     has_steer = kwargs.get("_has_pending_input")

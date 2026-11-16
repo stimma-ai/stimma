@@ -9,7 +9,7 @@
     >
       <Spinner size="sm" class="flex-shrink-0" />
       <div class="flex-1 min-w-0 text-sm truncate">
-        <span class="text-content">{{ task.label }}</span>
+        <span class="text-content">{{ title(task) }}</span>
         <span v-if="summary(task)" class="text-content-muted"> · {{ summary(task) }}</span>
       </div>
       <button
@@ -44,6 +44,7 @@ export interface BackgroundTask {
   label: string
   state: string
   counts: BackgroundTaskCounts
+  items?: { kind?: string }[]
 }
 
 defineProps<{ tasks: BackgroundTask[] }>()
@@ -51,15 +52,37 @@ const emit = defineEmits<{ stop: [id: string] }>()
 
 const stopping = reactive(new Set<string>())
 
+function total(task: BackgroundTask): number {
+  const c = task.counts
+  if (!c) return 0
+  return c.done + c.failed + c.cancelled + c.generating + c.queued + c.preparing + c.waiting
+}
+
+const NOUNS: Record<string, [string, string]> = {
+  image: ['image', 'images'],
+  video: ['video', 'videos'],
+  audio: ['audio clip', 'audio clips'],
+}
+
+// The agent's own label wins; otherwise name the run from what it makes.
+function title(task: BackgroundTask): string {
+  if (task.label) return task.label
+  const n = total(task)
+  if (!n) return 'Working…'
+  const kinds = new Set((task.items || []).map(i => i.kind))
+  const nouns = kinds.size === 1 ? NOUNS[[...kinds][0] ?? ''] : undefined
+  const [one, many] = nouns ?? ['item', 'items']
+  return `Generating ${n} ${n === 1 ? one : many}`
+}
+
 function summary(task: BackgroundTask): string {
   const c = task.counts
-  if (!c) return ''
-  const total = c.done + c.failed + c.cancelled + c.generating + c.queued + c.preparing + c.waiting
-  if (!total) return ''
-  const parts = [`${c.done} of ${total} done`]
-  if (c.generating) parts.push(`${c.generating} generating`)
-  const waiting = c.queued + c.preparing + c.waiting
-  if (waiting) parts.push(`${waiting} waiting`)
+  const n = total(task)
+  if (!n) return ''
+  const parts = task.label ? [`${c.done} of ${n} done`] : [`${c.done} done`]
+  if (c.generating) parts.push(`${c.generating} in progress`)
+  const queued = c.queued + c.preparing + c.waiting
+  if (queued) parts.push(`${queued} queued`)
   if (c.failed) parts.push(`${c.failed} failed`)
   return parts.join(' · ')
 }
