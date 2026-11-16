@@ -102,14 +102,17 @@
           </button>
         </div>
 
-        <!-- Prompt Query Badge -->
-        <div v-if="localPromptQuery" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
-          <span class="leading-none">Prompt: {{ localPromptQuery }}</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearPromptQuery">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        <!-- Prompt filter: "/" opens it here, in the cart, and it filters as you type. -->
+        <div v-if="promptFieldOpen || localPromptQuery" class="w-64 compact:w-full" data-testid="prompt-filter">
+          <SearchField
+            ref="promptFieldRef"
+            v-model="localPromptQuery"
+            placeholder="Filter prompts"
+            @update:model-value="promptTyped"
+            @escape="promptEscape"
+            @keydown.enter="promptFieldRef?.blur()"
+            @focusout="promptFieldBlur"
+          />
         </div>
 
         <!-- Text Similarity Badge -->
@@ -669,7 +672,7 @@
               <input v-no-autocorrect
                 type="text"
                 v-model="localPromptQuery"
-                @input="debouncedUpdate"
+                @input="promptTyped"
                 placeholder="Filter"
                 class="bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
               />
@@ -775,11 +778,12 @@
 
 <script setup>
 import { formatDate } from '../utils/timeFormat'
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { useViewport } from '../composables/useViewport'
 import { MagnifyingGlassCircleIcon } from '@heroicons/vue/24/solid'
 import { ArchiveBoxIcon, ArrowUpTrayIcon, FunnelIcon } from '@heroicons/vue/24/outline'
 import Caret from './ui/Caret.vue'
+import SearchField from './ui/SearchField.vue'
 import { compactIcon, compactIconButton, compactPrimaryCreate } from './compact/headerStyles'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
@@ -1411,11 +1415,37 @@ const modalFilterParams = computed(() => {
   return params
 })
 
-function debouncedUpdate() {
+function debouncedUpdate(delay = 500) {
   clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
     emitUpdate()
-  }, 500)  // Increased from 300ms to 500ms
+  }, delay)
+}
+
+// Prompt filter: search as you type. The backend matches prompts from a word
+// index, so a short pause is enough to keep requests to one per burst.
+const promptFieldOpen = ref(false)
+const promptFieldRef = ref(null)
+
+function promptTyped() {
+  debouncedUpdate(120)
+}
+
+async function openPromptFilter() {
+  promptFieldOpen.value = true
+  await nextTick()
+  promptFieldRef.value?.focus()
+}
+
+// Enter keeps the filter and hands the keyboard back to the grid; Escape clears it.
+function promptEscape() {
+  promptFieldOpen.value = false
+  if (localPromptQuery.value) clearPromptQuery()
+  promptFieldRef.value?.blur()
+}
+
+function promptFieldBlur() {
+  if (!localPromptQuery.value) promptFieldOpen.value = false
 }
 
 function emitUpdate() {
@@ -2566,6 +2596,7 @@ onUnmounted(() => {
 
 // Expose methods for parent components to call
 defineExpose({
+  openPromptFilter,
   refreshTags: loadTags,
   reloadForProfile: handleProfileChanged
 })

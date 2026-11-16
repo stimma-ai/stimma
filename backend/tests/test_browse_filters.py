@@ -311,6 +311,52 @@ class TestAssetTextSearch:
     async def test_literal_like_characters_are_escaped(self, client, named_assets):
         assert await self._ids(client, "100%") == set()
 
+    async def test_index_follows_every_write(self, client, db_session):
+        """The word index is kept by triggers: new rows, prompt edits, renames,
+        title-less assets, malformed metadata and deletes all show at once."""
+        async with db_session() as session:
+            media = await create_media_item(
+                session, file_path="/tmp/zq-plain.png", materialize_asset=True,
+                extracted_prompt="A quokka beside a lighthouse",
+            )
+            broken = await create_media_item(
+                session, file_path="/tmp/zq-broken.png", materialize_asset=True,
+                generation_metadata="{not json", extracted_prompt="Zebrafish shoal, flux.2 render",
+            )
+            await session.commit()
+            media_id, broken_id = media.id, broken.id
+        assert media_id in await self._ids(client, "quok lighth")
+        assert broken_id in await self._ids(client, "zebrafish")
+        assert broken_id in await self._ids(client, "flux.2")
+
+        async with db_session() as session:
+            item = await session.get(type(media), media_id)
+            item.extracted_prompt = "A capybara in a hot spring"
+            asset = (await session.execute(
+                select(Asset).join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+                .where(AssetRevision.primary_media_id == media_id)
+            )).scalar_one()
+            asset.title = "Onsen Friend"
+            await session.commit()
+        assert media_id not in await self._ids(client, "quokka")
+        assert media_id in await self._ids(client, "capybara")
+        assert media_id in await self._ids(client, "onsen friend")
+
+        async with db_session() as session:
+            asset = await session.get(Asset, asset.id)
+            asset.deleted_at = datetime.utcnow()
+            await session.commit()
+        async with db_session() as session:
+            from sqlalchemy import text
+            rows = (await session.execute(text(
+                "SELECT rowid FROM media_text_search WHERE media_text_search MATCH '\"onsen\"*'"
+            ))).all()
+            assert rows == []
+            config = (await session.execute(text(
+                "SELECT v FROM media_text_search_config WHERE k = 'secure-delete'"
+            ))).scalar()
+            assert config == 1
+
 
 class TestSortOptions:
     """Tests for sort_by parameter."""

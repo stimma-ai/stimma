@@ -785,6 +785,13 @@ useGlobalKeyboardShortcuts({
     // The overlay owns keyboard input while it is open.
     if (slideshowState.active) return
 
+    // "/" opens the prompt filter, ready to type.
+    if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey && !document.activeElement?.isContentEditable) {
+      event.preventDefault()
+      filterBarRef.value?.openPromptFilter()
+      return
+    }
+
     // Priority 2: Multi-select keyboard shortcuts
     if (multiSelectKeyHandler(event)) {
       return  // Handled by multi-select composable
