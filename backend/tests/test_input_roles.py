@@ -174,3 +174,26 @@ async def test_an_unreadable_answer_degrades_to_an_edit_and_is_not_kept(improver
     improver["answer"] = _answer((REFERENCE, "the woman"))
     await pe.improve_prompt(request, session=object())
     assert len(improver["classify"]) == 2
+
+
+async def test_a_batch_asking_at_once_shares_one_call(monkeypatch, tmp_path):
+    """A batch's children submit together: they wait on the one question already being
+    asked, and all get its answer."""
+    import asyncio
+
+    monkeypatch.setattr(input_roles, "_cache_dir", lambda: tmp_path / "input_roles")
+    monkeypatch.setattr(input_roles, "_memory", {})
+    calls = []
+
+    async def slow_complete(*, config, messages, max_tokens, temperature):
+        calls.append(messages)
+        await asyncio.sleep(0.05)
+        return _answer((REFERENCE, "the woman"))
+
+    monkeypatch.setattr("llm.llm_complete_text", slow_complete)
+    results = await asyncio.gather(*(
+        input_roles.classify_input_roles(prompt="this woman on a beach", instructions=None, count=1,
+                                         llm_config={"provider": "test"})
+        for _ in range(4)))
+    assert len(calls) == 1
+    assert all(r == [InputRole(1, REFERENCE, "the woman")] for r in results)

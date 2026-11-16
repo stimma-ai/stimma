@@ -17,6 +17,7 @@ new crop or a swapped image doesn't change what the user asked for.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -82,6 +83,8 @@ def from_json(data: Any) -> Optional[List[InputRole]]:
 
 # Asked this session: the disk cache's hot front.
 _memory: Dict[str, List[InputRole]] = {}
+# Being asked now: callers with the same question wait on the one call.
+_asking: Dict[str, "asyncio.Future[List[InputRole]]"] = {}
 
 
 def _cache_key(prompt: str, instructions: Optional[str], count: int, writer: Optional[str]) -> str:
@@ -163,9 +166,8 @@ async def classify_input_roles(
     """The role of each of the `count` input images (1-based, in order), from the
     prompt as the user typed it. Asked once per prompt, notes, count and chat
     model. A failed or unreadable answer degrades to every image being changed
-    (an edit) and is not kept, so the next submit asks again."""
-    from llm import llm_complete_text
-
+    (an edit) and is not kept, so the next submit asks again. Callers asking the
+    same question at once (a batch's children) share one call and one answer."""
     if count <= 0:
         return []
     try:
@@ -177,6 +179,16 @@ async def classify_input_roles(
     if cached is not None:
         _memory[key] = cached
         return cached
+    pending = _asking.get(key)
+    if pending is None:
+        pending = asyncio.ensure_future(_ask(key, prompt, instructions, count, llm_config))
+        _asking[key] = pending
+        pending.add_done_callback(lambda _f: _asking.pop(key, None))
+    return list(await asyncio.shield(pending))
+
+
+async def _ask(key: str, prompt: str, instructions: Optional[str], count: int, llm_config: Any) -> List[InputRole]:
+    from llm import llm_complete_text
 
     listing = ", ".join(f"image {n}" for n in range(1, count + 1))
     request = prompt.strip()
