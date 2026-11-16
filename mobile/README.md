@@ -414,8 +414,8 @@ in both cases.
 - Server builds must include a mobile UI package. Older installed servers need
   an update before this shell can connect; UI packages cannot add native APIs.
 - Uploads require Content-Length and are limited to 1 GiB. Exports pass bytes
-  through the bridge and are limited to 64 MiB. Background transfers and push notifications are not
-  implemented.
+  through the bridge and are limited to 64 MiB. Background transfers and push
+  notifications are not implemented.
 - Bootstrap uses URLSession with pinned TLS and local-network ATS permission.
   Literal LAN/Tailscale IP routes are the current target; fully qualified host
   routes need additional trust/ATS verification before being advertised as
