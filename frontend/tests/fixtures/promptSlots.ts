@@ -5,10 +5,11 @@ import { setWildcards } from '../../src/composables/useWildcards'
 
 // Tool View's prompt box in Fluent, cut down to the editor: the real AIPromptEditor with a
 // stand-in prompt control in its mode slot. The page answers Suggest. What the
-// editor sends up lands in window.opened (open-slot) and window.text().
+// editor sends up lands in window.opened (open-slot), window.modes (slot-mode) and window.text().
 const prompt = ref((window as any).START ?? '')
 const promptOptions = ref<any>({ autoImprove: { enabled: true, instructions: '' }, varyPrompt: { enabled: false, instructions: '' } })
 const opened: any[] = ((window as any).opened = [])
+const modes: any[] = ((window as any).modes = [])
 setWildcards([{ name: 'hairstyle', values: ['bob', 'pixie'] } as any])
 
 ;(window as any).text = () => prompt.value
@@ -42,6 +43,7 @@ createApp({
       externalChat: true,
       rows: 5,
       suggestContext: { project_id: 7 },
+      'onSlot-mode': (e: { n: number; mode: string }) => { modes.push([e.n, e.mode]) },
       'onOpen-slot': (e: { n: number; words: string; rect: DOMRect }) => {
         opened.push({ n: e.n, words: e.words, rect: { x: e.rect.x, y: e.rect.y, width: e.rect.width, height: e.rect.height } })
       },

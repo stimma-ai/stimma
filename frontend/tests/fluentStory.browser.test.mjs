@@ -144,7 +144,7 @@ async function story(t, opts = {}) {
 
   // Vary this wraps it and its row opens while the slot is read, then fills.
   await page.locator('.cm-could-vary').click()
-  await tap(page.locator('[data-vary]'))
+  await tap(page.locator('[data-vary="kind"]'))
   await expect.poll(() => text(page)).toBe('dorm room with a <young man>')
   await shot(`${tag}-2-writing`)
   await expect(card.locator(`[data-variant="${MEN[0]}"]`)).toBeVisible({ timeout: 4000 })

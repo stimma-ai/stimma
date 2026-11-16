@@ -82,7 +82,7 @@ class TestVary:
         prompt = "a farmer at the Eiffel Tower with a dog"
         got = await sg.suggest(prompt, Fake({"vary": [
             {"phrase": "farmer", "how": "vary", "label": "different farmers"},
-            {"phrase": "Eiffel Tower", "how": "one", "label": "more of the Eiffel Tower"},
+            {"phrase": "Eiffel Tower", "how": "one", "label": "flesh out the Eiffel Tower"},
             {"phrase": "dog", "how": "something else"}]}))
         assert [(v["text"], v["mode"]) for v in got["vary"]] == [("farmer", "kind"), ("Eiffel Tower", "one"), ("dog", "kind")]
         assert '"one"' in sg.SUGGEST_SYSTEM and '"how"' in sg.SUGGEST_SYSTEM

@@ -11,14 +11,25 @@
            becomes a bottom sheet with a full-screen backdrop, which would cover the text
            and take the very taps and drags that make and adjust the selection. -->
       <Teleport to="body">
-        <div v-if="offer" class="fixed z-chrome" :style="offerStyle" data-slot-offer>
+        <div
+          v-if="offer"
+          ref="offerEl"
+          class="fixed z-chrome flex items-center rounded-lg bg-surface border border-edge-subtle shadow-lg overflow-hidden"
+          :style="offerStyle"
+          role="group"
+          data-slot-offer
+          @keydown="offerKey"
+          @focusout="offerFocusOut"
+        >
           <button
+            v-for="(m, i) in offerModes"
+            :key="m"
             type="button"
-            class="flex items-center gap-1.5 px-2.5 py-1.5 coarse:px-3 coarse:py-2 text-xs coarse:text-[13px] rounded-lg bg-surface border border-edge-subtle shadow-lg text-content hover:bg-surface-hover transition-colors"
-            :data-vary="offer.mode === 'one' ? 'one' : 'kind'"
+            :class="['flex items-center gap-1.5 px-2.5 py-1.5 coarse:px-3 coarse:py-2 coarse:min-h-11 text-xs coarse:text-[13px] whitespace-nowrap text-content hover:bg-surface-hover outline-none focus-visible:bg-surface-hover focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-selection/60 transition-colors', i ? 'border-l border-edge-subtle' : '']"
+            :data-vary="m"
             @mousedown.prevent
-            @click="varyOffer"
-          ><template v-if="offer.mode === 'one'"><ArrowsPointingOutIcon class="w-3.5 h-3.5 text-selection" />Flesh out this</template><template v-else><ArrowsRightLeftIcon class="w-3.5 h-3.5 text-selection" />Vary this</template></button>
+            @click="varyOffer(m)"
+          ><template v-if="m === 'one'"><ArrowsPointingOutIcon class="w-3.5 h-3.5 text-selection" />Flesh out this</template><template v-else><ArrowsRightLeftIcon class="w-3.5 h-3.5 text-selection" />Vary this</template></button>
         </div>
       </Teleport>
 
@@ -287,6 +298,7 @@ import { slotEditing, wrapSlot, unwrapSlot, replaceDocument, rangeRect, setVaryE
 import { setSlotMarks, slotMarks as slotMarksExtension, type SlotMarks } from '../../composables/promptSlotMarks'
 import { appendWords, shownWords, usePromptSuggestions, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
 import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
+import type { SlotMode } from '../../utils/programWire'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
 import { useViewport } from '../../composables/useViewport'
 import { PROMPT_LANGUAGES, promptLanguageByCode, DEFAULT_TRANSLATE_LANGUAGE } from './promptLanguages'
@@ -366,8 +378,8 @@ const emit = defineEmits<{
   (e: 'open-list', value: { n: number; rect: DOMRect }): void
   /** The caret left the slot just typed in (typed past it, or moved away): it's done. */
   (e: 'left-slot'): void
-  /** A slot was just made from a suggestion to flesh out (n: its place among the slots). */
-  (e: 'slot-mode', value: { n: number; mode: 'one' | 'kind' }): void
+  /** A slot was just made to start one way, Vary or Flesh out (n: its place among the slots). */
+  (e: 'slot-mode', value: { n: number; mode: SlotMode }): void
 }>()
 
 // Box height. Desktop rests at ~5 lines and grows to 408px; phones give the
@@ -485,7 +497,8 @@ function setTranslate(code: string | null) {
 }
 
 // --- Slots (Fluent): making one from written words, opening one ---
-// A phrase Fluent underlined was clicked, or words were selected: "Vary this" sits under them.
+// A phrase Fluent underlined was clicked, or words were selected: "Vary this" and "Flesh out
+// this" sit under them, the way Suggest would make it first (Vary for selected words).
 const offer = ref<{ from: number; to: number; rect: DOMRect; phrase: boolean; mode?: 'one' | 'kind' } | null>(null)
 const { isCoarsePointer } = useViewport()
 const offerStyle = computed(() => {
@@ -494,7 +507,7 @@ const offerStyle = computed(() => {
   // On touch the selection handles hang under the words: clear them.
   let top = r.bottom + (isCoarsePointer.value ? 28 : 6)
   if (top + 44 > window.innerHeight) top = r.top - 44
-  const left = Math.max(8, Math.min(window.innerWidth - 120, r.left))
+  const left = Math.max(8, Math.min(window.innerWidth - 250, r.left))
   return { left: `${Math.round(left)}px`, top: `${Math.round(top)}px` }
 })
 function showOffer(from: number, to: number, phrase: boolean, mode?: 'one' | 'kind') {
@@ -510,19 +523,43 @@ function openSlotAt(pos: number) {
   const rect = slot && rangeRect(view, slot.from, slot.to)
   if (slot && rect) emit('open-slot', { n: slot.n, words: slot.words, rect })
 }
-function varyOffer() {
+const offerEl = ref<HTMLElement | null>(null)
+const offerModes = computed<SlotMode[]>(() => offer.value?.mode === 'one' ? ['one', 'kind'] : ['kind', 'one'])
+/** One of the offer's actions: the words become a slot that starts that way. Vary is a slot's
+    plain start, so it is only said over a phrase Suggest would flesh out. */
+function varyOffer(mode: SlotMode) {
   const view = getView()
   const o = offer.value
   offer.value = null
   if (!view || !o) return
   const at = wrapSlot(view, o.from, o.to)
-  if (at != null) madeSlot(view, at, o.mode)
+  if (at != null) madeSlot(view, at, mode === 'one' || o.mode === 'one' ? mode : undefined)
+  view.focus()
 }
-/** A slot was just made at `at`: one to flesh out says so (before it is read), then it opens. */
-function madeSlot(view: EditorView, at: number, mode?: 'one' | 'kind') {
+/** Keys on the offer: arrows move between its actions, Escape goes back to the words. */
+function offerKey(e: KeyboardEvent) {
+  const buttons = [...(offerEl.value?.querySelectorAll('button') ?? [])]
+  const i = buttons.indexOf(document.activeElement as HTMLButtonElement)
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    e.preventDefault()
+    buttons[(i + (e.key === 'ArrowRight' ? 1 : buttons.length - 1)) % buttons.length]?.focus()
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    offer.value = null
+    getView()?.focus()
+  }
+}
+/** Focus leaving the offer for anything but the words closes it. */
+function offerFocusOut(e: FocusEvent) {
+  const to = e.relatedTarget as Node | null
+  if (to && (offerEl.value?.contains(to) || getView()?.dom.contains(to))) return
+  offer.value = null
+}
+/** A slot was just made at `at`: one that starts a given way says so (before it is read), then it opens. */
+function madeSlot(view: EditorView, at: number, mode?: SlotMode) {
   const slot = slotAt(view.state.doc.toString(), at)
   void nextTick(() => {
-    if (slot && mode === 'one') emit('slot-mode', { n: slot.n, mode })
+    if (slot && mode) emit('slot-mode', { n: slot.n, mode })
     openSlotAt(at)
   })
 }
@@ -562,7 +599,15 @@ const slotExtensions = [
     onLeftSlot: () => { void nextTick(() => emit('left-slot')) },
   }),
   EditorView.domEventHandlers({
-    keydown(e) { if (e.key === 'Escape') offer.value = null; return false },
+    keydown(e) {
+      if (e.key === 'Escape') offer.value = null
+      // Tab moves into the offer: its actions are buttons, chosen with the arrows and Enter.
+      else if (e.key === 'Tab' && !e.shiftKey && offer.value) {
+        const first = offerEl.value?.querySelector('button')
+        if (first) { e.preventDefault(); first.focus(); return true }
+      }
+      return false
+    },
   }),
   slotMarksExtension({
     onList: (n, rect) => { if (fluentSlots.value) { offer.value = null; emit('open-list', { n, rect }) } },
@@ -579,7 +624,11 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
       emit('update:modelValue', value)
     },
     // Leaving the box asks Fluent for suggestions now rather than after the pause.
-    onBlur: () => { offer.value = null; void suggestNow() },
+    // Focus moving into the offer keeps it.
+    onBlur: () => {
+      if (!offerEl.value?.contains(document.activeElement)) offer.value = null
+      void suggestNow()
+    },
     onSave: () => emit('save'),
     extensions: slotExtensions,
   })
@@ -630,7 +679,7 @@ function varyPhrase(p: SuggestedPhrase) {
   if (!view || view.state.doc.sliceString(p.from, p.to) !== p.text) return
   offer.value = null
   const at = wrapSlot(view, p.from, p.to)
-  if (at != null) madeSlot(view, at, p.mode)
+  if (at != null) madeSlot(view, at, p.mode === 'one' ? 'one' : undefined)
 }
 /** Write suggested words at the end of the prompt, as they are (one undo step). */
 function addWords(words: string) {

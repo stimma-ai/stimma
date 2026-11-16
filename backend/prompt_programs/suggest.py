@@ -31,7 +31,7 @@ from prompt_programs.slots import _VERBATIM, _line_marks, _lines, find_slots, is
 
 log = get_logger(__name__)
 
-SUGGEST_VERSION = "suggest-6"   # suggest-6: vary phrases say how (vary a kind, or flesh out one specific thing), up to 3. suggest-5: vary, looks and adds; fixed words, no photography slots. suggest-4: photography per part
+SUGGEST_VERSION = "suggest-7"   # suggest-7: "one" labels say flesh out ("flesh out the Eiffel Tower"), not "more of". suggest-6: vary phrases say how (vary a kind, or flesh out one specific thing), up to 3. suggest-5: vary, looks and adds; fixed words, no photography slots. suggest-4: photography per part
 MAX_VARY, MAX_LOOKS, MAX_ADDS = 3, 3, 2
 SUGGEST_TOKENS = 400
 
@@ -44,7 +44,7 @@ Offer a few small, separate improvements. Each one is a single click and changes
 vary: the one to three phrases already written in the prompt that would be most rewarding to see change from picture to picture: usually who or what the picture is of, and the place. Copy each exactly as written, the shortest stretch that names the thing with its own describing words, without "a" or "the": "farmer", "rural Vietnam", not "a farmer in". One thing per phrase, without what it is doing. Never anything already inside brackets or braces, never the whole prompt. Each says how it would change, in "how":
 - "vary" when the phrase names a kind of thing, so each picture can show a different one of it: "farmer", "fox", "rural Vietnam" (other places in it), "old car".
 - "one" when it names one specific thing worth showing in different ways, the same thing in every picture while its state, angle, moment, details and surroundings change: a particular place, landmark, building, brand, work, character or real person ("Eiffel Tower", "Sherlock Holmes", "abandoned McDonald's", "Shinjuku"). Look for these too: they are often the most rewarding part of a prompt.
-Each gets a label of two to four plain words that keeps their words and says they would see more of them: "different farmers", "other places in rural Vietnam", "different foxes" (not "different animals": the words they wrote stay); for "one", that they would see more of that same thing: "more of the Eiffel Tower", "more of Sherlock Holmes". Give none when nothing is worth it.
+Each gets a label of two to five plain words that keeps their words and says they would see more of them: "different farmers", "other places in rural Vietnam", "different foxes" (not "different animals": the words they wrote stay); for "one", that this same thing would be fleshed out: "flesh out the Eiffel Tower", "flesh out Sherlock Holmes". Give none when nothing is worth it.
 
 medium: "photo" when the picture should look like a photograph, as any prompt that names no other medium should; otherwise its medium in one to three words: "watercolor", "vector logo", "anime illustration". A prompt written as anime-style tags ("1girl, solo") is an anime illustration unless its tags ask for a photo.
 

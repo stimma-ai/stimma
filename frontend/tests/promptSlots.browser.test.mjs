@@ -22,7 +22,7 @@ const LOOKS = [{ text: 'candid phone snapshot, slightly off-center, harsh desk l
   { text: 'editorial portrait, 85mm lens, soft window light from the left', label: 'editorial portrait' }]
 const ADDS = [{ text: 'a stack of books on the desk', label: 'books' }, { text: 'rain streaking the window', label: 'rain' }]
 
-async function open(t, { start = PROMPT, theme = 'dark' } = {}) {
+async function open(t, { start = PROMPT, theme = 'dark', how } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 900, height: 700 }, deviceScaleFactor: 2 })
@@ -35,7 +35,7 @@ async function open(t, { start = PROMPT, theme = 'dark' } = {}) {
       const body = route.request().postDataJSON()
       calls.suggest.push(body)
       const i = body.prompt.indexOf('young man')
-      const vary = i < 0 || body.prompt[i - 1] === '<' ? [] : [{ from: i, to: i + 9, text: 'young man', label: 'different young men' }]
+      const vary = i < 0 || body.prompt[i - 1] === '<' ? [] : [{ from: i, to: i + 9, text: 'young man', label: 'different young men', ...(how ? { mode: how } : {}) }]
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ vary, looks: LOOKS, adds: ADDS }) })
     }
     if (url.includes('/api/')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
@@ -53,6 +53,8 @@ async function open(t, { start = PROMPT, theme = 'dark' } = {}) {
 
 const text = page => page.evaluate(() => window.text())
 const opened = page => page.evaluate(() => window.opened)
+const modes = page => page.evaluate(() => window.modes)
+const offered = page => page.locator('[data-slot-offer] [data-vary]')
 
 test('a phrase Fluent underlines becomes a slot with Vary this, and opens', async t => {
   const { page, editor, calls, shot } = await open(t)
@@ -64,10 +66,11 @@ test('a phrase Fluent underlines becomes a slot with Vary this, and opens', asyn
   await shot('underlined')
 
   await page.locator('.cm-could-vary').click()
-  await expect(page.locator('[data-vary]')).toBeVisible()
+  await expect(offered(page)).toHaveText(['Vary this', 'Flesh out this'])
   await shot('vary-offer')
-  await page.locator('[data-vary]').click()
+  await page.locator('[data-vary="kind"]').click()
   await expect.poll(() => text(page)).toBe('dorm room with a <young man>')
+  assert.deepEqual(await modes(page), [], 'Vary is how a slot starts')
   await expect(editor.locator('.cm-slot')).toHaveText('<young man>')
   await expect(page.locator('[data-vary]')).toHaveCount(0)
   const [o] = await opened(page)
@@ -81,13 +84,57 @@ test('a phrase Fluent underlines becomes a slot with Vary this, and opens', asyn
   assert.deepEqual((await opened(page))[1].words, 'young man')
 })
 
+test('every underline offers both, Suggest\'s way first; each makes a slot that starts that way', async t => {
+  for (const [how, order, pick, said] of [
+    ['one', ['one', 'kind'], 'kind', [[1, 'kind']]],
+    ['one', ['one', 'kind'], 'one', [[1, 'one']]],
+    ['kind', ['kind', 'one'], 'one', [[1, 'one']]],
+  ]) {
+    const { page, shot } = await open(t, { how })
+    await page.locator('.cm-could-vary').click()
+    await expect(offered(page)).toHaveCount(2)
+    assert.deepEqual(await offered(page).evaluateAll(b => b.map(e => e.dataset.vary)), order)
+    if (how === 'one') await shot('flesh-out-offer')
+    await page.locator(`[data-vary="${pick}"]`).click()
+    await expect.poll(() => text(page)).toBe('dorm room with a <young man>')
+    await expect.poll(() => modes(page)).toEqual(said)
+    await expect.poll(async () => (await opened(page)).map(o => [o.n, o.words])).toEqual([[1, 'young man']])
+    await expect(offered(page)).toHaveCount(0)
+  }
+})
+
+test('the offer by keyboard: Tab into it, arrows between, Enter picks, Escape goes back', async t => {
+  const { page, editor } = await open(t, { start: 'a cat on a porch' })
+  await editor.click()
+  await page.keyboard.press('End')
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowLeft')
+  await expect(offered(page)).toHaveText(['Vary this', 'Flesh out this'])
+  await page.keyboard.press('Tab')
+  await expect(page.locator('[data-vary="kind"]')).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(offered(page)).toHaveCount(0)
+  await expect(editor).toBeFocused()
+  assert.equal(await text(page), 'a cat on a porch')
+
+  await page.keyboard.press('End')
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowLeft')
+  await expect(offered(page)).toHaveCount(2)
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('ArrowRight')
+  await expect(page.locator('[data-vary="one"]')).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect.poll(() => text(page)).toBe('a cat on a <porch>')
+  await expect.poll(() => modes(page)).toEqual([[1, 'one']])
+  await expect(editor).toBeFocused()
+})
+
 test('selected words: Vary this under them, and < wraps them; with nothing selected < types', async t => {
   const { page, editor } = await open(t, { start: 'a cat on a porch' })
   // Select "porch" from the end of the line.
   await editor.click()
   await page.keyboard.press('End')
   for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowLeft')
-  await expect(page.locator('[data-vary]')).toBeVisible()
+  await expect(page.locator('[data-vary="kind"]')).toBeVisible()
   await page.keyboard.type('<')
   await expect.poll(() => text(page)).toBe('a cat on a <porch>')
   await expect.poll(async () => (await opened(page)).map(o => [o.n, o.words])).toEqual([[1, 'porch']])
@@ -113,7 +160,9 @@ test('on touch, Vary this floats by the words and is not turned into a bottom sh
   await expect(chip).toBeVisible()
   const words = await editor.boundingBox()
   const box = await chip.boundingBox()
-  assert.ok(box.width < 200, `chip width ${box.width}: not a full-width sheet`)
+  assert.ok(box.width < 320, `chip width ${box.width}: not a full-width sheet`)
+  await expect(offered(page)).toHaveText(['Vary this', 'Flesh out this'])
+  for (const b of await offered(page).all()) assert.ok((await b.boundingBox()).height >= 43, 'a touch-sized target')
   assert.ok(box.y < words.y + words.height + 60, `chip at ${box.y}: beside the words, not at the bottom`)
   assert.equal(await page.locator('[data-sheet-backdrop]').count(), 0)
 })
