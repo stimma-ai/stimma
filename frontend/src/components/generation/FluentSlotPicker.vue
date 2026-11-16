@@ -132,7 +132,6 @@
             <span class="flex-1">Writing more…</span>
           </div>
           <template v-for="g in groups" :key="g.id">
-            <div v-if="g.label" class="px-2 pt-2 pb-0.5 text-[11px] font-semibold text-content-tertiary">{{ g.label }}</div>
             <!-- A variant, and on hover (always on touch) a trash that removes it for good. -->
             <div v-for="o in g.items" :key="o.text" class="group/variant flex items-stretch rounded-md hover:bg-overlay-subtle">
               <button type="button" :class="[rowClass, 'flex-1 min-w-0 hover:bg-transparent']" :data-variant="o.text" :aria-pressed="isPinned(o.text)" @mousedown="onRowMouseDown" @click="pick(o.text, $event)">
@@ -266,19 +265,9 @@ const all = computed<Variant[]>(() => {
   return [...lead, ...shown.filter(v => !lead.includes(v))]
 })
 const rows = computed(() => (query.value.trim() ? all.value.filter(o => matchesQuery(o.text, query.value)) : all.value))
-// A person's variants, grouped by the region of the descent each was written with.
-const regionOfHeritage = computed(() => new Map((person.value?.descent?.parts || []).flatMap(p => p.values.map(h => [h, p.id] as const))))
-const groups = computed(() => {
-  if (!person.value?.descent) return [{ id: 'all', label: '', items: rows.value }]
-  const out: Array<{ id: string; label: string; items: Variant[] }> = []
-  const rest = rows.value.filter(o => !o.seeds?.descent || !regionOfHeritage.value.has(o.seeds.descent))
-  if (rest.length) out.push({ id: '', label: '', items: rest })
-  for (const p of person.value.descent.parts) {
-    const items = rows.value.filter(o => o.seeds?.descent && regionOfHeritage.value.get(o.seeds.descent) === p.id)
-    if (items.length) out.push({ id: p.id, label: p.id, items })
-  }
-  return out
-})
+// One list in the pool's own order: it is drawn mixed, and is shown that way (no grouping by
+// descent or anything else).
+const groups = computed(() => [{ id: 'all', label: '', items: rows.value }])
 // A click ticks or unticks one and is where a range starts (ctrl- or cmd-click the same);
 // shift-click sets every shown variant from there to here the way that one was left.
 const anchor = ref<string | null>(null)
