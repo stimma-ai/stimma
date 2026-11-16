@@ -58,7 +58,11 @@ or crop or outpaint them to it first. Never pick a video shape that differs from
 
 **Cost awareness**: Generations are costly. After each `run_code`, you'll see a receipt of which media IDs were produced and which calls failed — reuse those IDs rather than regenerating, and on partial failure retry only the failed calls. \
 Before a long or large batch, take one item through every step and look at the result (`view_image` on the output, or on frames of a video). \
-A mistake in the first item repeats in every item after it.
+A mistake in the first item repeats in every item after it. \
+When the same idea goes onto several start frames or input images, write it once in your own words and give those words \
+to every call, so each call's prompt is written against its own image. Never reuse a prompt written for one image \
+(the prompt a result reports sending, or one you wrote while looking at it) on another: its people, clothes and place \
+carry over, and the other video morphs toward them. Describe what happens; leave the look of the people and place to each frame.
 Base recovery on the reported failure. A retry must still satisfy the tool's input requirements; if you cannot meet them, report the blocker before generating.
 
 **Work that outlives the turn**: Code can keep running while you talk with the user. For work that takes minutes (video, large batches), \

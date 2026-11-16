@@ -106,11 +106,12 @@ def enhancement_mode(
 
 # The improve requests' own wording, beside the guides (which are hashed whole):
 # part of the per-image improver's cache key, so a change here writes prompts afresh.
+# improve-6: a video from a start frame follows the frame where the request describes its people or place differently.
 # improve-5: an edit whose images are all references is written as the new picture (input_roles).
 # improve-4: every guide says never to add sexualized dress, pose or expression for a child or a teenager.
 # improve-3: a model that makes no photos is named in the request too.
 # improve-2: a picture is said to be a photo unless something sets another look.
-IMPROVE_VERSION = "improve-5"
+IMPROVE_VERSION = "improve-6"
 
 # Enhancement style -> the prompts.yaml key for its system prompt. ``ideogram``
 # is intentionally absent: that family routes to /to-ideogram-json instead, and
@@ -499,7 +500,8 @@ def _h3_task_guidance(
             "(from [Shot 1]) is fully referenced.\n"
             "Start Shot 1 by anchoring its style, subjects, composition, scene, colors, key objects, "
             "and spatial relationships to Picture 1, then describe action onset, continuous development, "
-            "and the result or reaction. Preserve visual identity and layout."
+            "and the result or reaction. Preserve visual identity and layout. "
+            "Where the request describes a person, their clothes or the place differently from the pictures, the pictures are right: keep what the request has them do and say, and leave out the description it contradicts."
         )
     if task == "fl2va":
         return (
@@ -509,7 +511,8 @@ def _h3_task_guidance(
             f"with the 0.00-second mark of the target video; Picture 2 (from Shot N) aligns with the {end_time}-second mark of the target video.\n"
             "Replace N with the actual final shot number (normally 1). Describe the observable path from "
             "Picture 1 through intermediate changes until pose, objects, composition, camera, and lighting "
-            "land on Picture 2 at the end; do not merely describe two static images."
+            "land on Picture 2 at the end; do not merely describe two static images. "
+            "Where the request describes a person, their clothes or the place differently from the pictures, the pictures are right: keep what the request has them do and say, and leave out the description it contradicts."
         )
     if task == "l2va":
         return (
@@ -517,7 +520,8 @@ def _h3_task_guidance(
             "How the reference pictures align with the target video — <Picture 1> (from [Shot N]) "
             f"aligns with the {end_time}-second mark of the target video.\n"
             "Replace N with the actual final shot number. Infer a plausible preceding state and describe "
-            "a continuous path that converges on Picture 1's exact final composition."
+            "a continuous path that converges on Picture 1's exact final composition. "
+            "Where the request describes a person, their clothes or the place differently from the pictures, the pictures are right: keep what the request has them do and say, and leave out the description it contradicts."
         )
     return (
         "This is T2VA. Do not add an image-alignment instruction; begin directly with "

@@ -1950,10 +1950,21 @@ class StimmaSDK:
                 kwargs = await resolve_params_from(params_session, tool_id, params_from, kwargs)
                 # Varying an image that was itself varied starts from its prompt as
                 # written (and its detail level), so the rest of it really varies.
-                # Without vary, reproduction stays exact.
+                # Without vary, reproduction stays exact on the same input image.
                 if prompt_request.vary and "prompt" not in explicit_keys:
                     from .prompt_handling import source_prompt_for_vary
                     source = await source_prompt_for_vary(params_session, params_from)
+                    if source:
+                        kwargs["prompt"] = source["prompt"]
+                        if explicit_enhance is None:
+                            prompt_request.enhance = source["enhance"]
+                # Onto a new input image (another start frame), a prompt rewritten for
+                # the source's image would carry its people and place across: start
+                # from the words as written and rewrite them against this image.
+                elif "prompt" not in explicit_keys and "input_images" in explicit_keys:
+                    from .prompt_handling import source_prompt_for_new_input
+                    source = await source_prompt_for_new_input(
+                        params_session, params_from, kwargs.get("input_images"))
                     if source:
                         kwargs["prompt"] = source["prompt"]
                         if explicit_enhance is None:

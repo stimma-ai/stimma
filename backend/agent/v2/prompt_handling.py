@@ -384,6 +384,45 @@ def unchecked_note(record: Optional[Dict[str, Any]]) -> Optional[str]:
     return UNCHECKED_NOTE
 
 
+def _first_input(value: Any) -> Any:
+    first = value[0] if isinstance(value, (list, tuple)) and value else value
+    return getattr(first, "media_id", None) or first
+
+
+async def source_prompt_for_new_input(session, media_id: Any, input_images: Any) -> Optional[Dict[str, Any]]:
+    """For params_from onto a different input image (a new start frame, say): the
+    source's prompt as it was written, rewritten again against the new image, when the
+    source's prompt was rewritten for its own image. Its rewrite describes that image's
+    people and place, which the new image would morph toward. None when the first input
+    is the source's own (reproduction stays exact) or the prompt was never rewritten."""
+    from sqlalchemy import select
+    from database import MediaItem
+    from .tools.library import _parse_generation_metadata
+
+    try:
+        mid = int(media_id)
+    except (TypeError, ValueError):
+        return None
+    item = (await session.execute(select(MediaItem).where(MediaItem.id == mid))).scalar_one_or_none()
+    if not item:
+        return None
+    gen = _parse_generation_metadata(item) or {}
+    meta = gen.get("prompt_metadata") if isinstance(gen.get("prompt_metadata"), dict) else {}
+    written = meta.get("original_prompt")
+    if not meta.get("auto_improve_enabled") or not isinstance(written, str) or not written.strip():
+        return None
+    if written.strip() == str(gen.get("prompt") or "").strip():
+        return None
+    new_first = _first_input(input_images)
+    for entry in gen.get("source_inputs") or []:
+        if not isinstance(entry, dict) or entry.get("role") not in (None, "source_image", "input_image"):
+            continue
+        if new_first is not None and new_first in (entry.get("media_id"), entry.get("file_path")):
+            return None
+        break
+    return {"prompt": written, "enhance": True}
+
+
 async def source_prompt_for_vary(session, media_id: Any) -> Optional[Dict[str, Any]]:
     """For params_from + vary on an image made with varied choices: the prompt as it
     was written and the detail level it was prepared at, so the rest really varies.

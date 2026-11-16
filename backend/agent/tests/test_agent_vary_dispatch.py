@@ -126,3 +126,40 @@ async def test_media_info_lists_choices(session, tmp_path):
     assert info["choices"] == {"role": "nun", "setting": "a cloister garden"}
     assert info["draw_seed"] == 44
     assert info["written_prompt"] == "a {nun|nurse} in {{setting}}"
+
+
+async def _start_frame_clip(session, tmp_path, frame_id):
+    path = tmp_path / "clip.png"
+    file_hash = generate_test_image(path, width=8, height=8)
+    meta = {
+        "version": 3, "tool_id": "mock:gen", "task_type": "image-to-video",
+        "prompt": "A red-haired woman in a green coat turns and waves at the camera.",
+        "parameters": {"seed": 5, "steps": 9},
+        "prompt_metadata": {"original_prompt": "she turns and waves", "auto_improve_enabled": True},
+        "source_inputs": [{"media_id": frame_id, "role": "source_image"}],
+    }
+    item = await create_media_item(session, file_path=path, file_hash=file_hash, tool_id="mock:gen",
+                                   generation_metadata=json.dumps(meta))
+    return item.id
+
+
+async def test_params_from_onto_a_new_start_frame_rewrites_the_written_prompt(harness, session, tmp_path):
+    calls, run = harness
+    clip = await _start_frame_clip(session, tmp_path, frame_id=501)
+    # Another start frame: the rewrite described the first frame's person, so start
+    # from the words as written and rewrite them against the new frame.
+    await run(f"from stimma.tools.text_to_image import gen\nawait gen(params_from={clip}, input_images=[502])\n")
+    assert calls[0]["parameters"]["prompt"] == "she turns and waves"
+    assert calls[0]["request"].enhance is True
+    # The same start frame reproduces exactly.
+    await run(f"from stimma.tools.text_to_image import gen\nawait gen(params_from={clip}, input_images=[501])\n")
+    assert calls[1]["parameters"]["prompt"].startswith("A red-haired woman")
+    # No new input image, or an explicit prompt or enhance_prompt: as before.
+    await run(f"from stimma.tools.text_to_image import gen\nawait gen(params_from={clip})\n")
+    assert calls[2]["parameters"]["prompt"].startswith("A red-haired woman")
+    await run(f"from stimma.tools.text_to_image import gen\n"
+              f"await gen(params_from={clip}, input_images=[502], prompt='he nods', enhance_prompt=False)\n")
+    assert calls[3]["parameters"]["prompt"] == "he nods" and calls[3]["request"].enhance is False
+    await run(f"from stimma.tools.text_to_image import gen\n"
+              f"await gen(params_from={clip}, input_images=[502], enhance_prompt=False)\n")
+    assert calls[4]["parameters"]["prompt"] == "she turns and waves" and calls[4]["request"].enhance is False
