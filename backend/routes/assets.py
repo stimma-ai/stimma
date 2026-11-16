@@ -267,7 +267,6 @@ def _apply_asset_filters(query, **filters):
         query,
         caption_query=filters.get("caption_query"),
         prompt_query=filters.get("prompt_query"),
-        match_filenames=filters.get("match_filenames", False),
         media_types=filters.get("media_types"),
         excluded_media_types=filters.get("excluded_media_types"),
         resolutions=filters.get("resolutions"),
@@ -657,7 +656,6 @@ async def search_asset_groups(
     base = _apply_asset_filters(
         _asset_browser_base("active"),
         prompt_query=q,
-        match_filenames=True,
         project_ids=str(project_id) if project_id is not None else None,
         state="active",
     )

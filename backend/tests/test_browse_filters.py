@@ -294,16 +294,13 @@ class TestAssetTextSearch:
         assert response.status_code == 200, response.text
         return {item["media_id"] for group in response.json()["groups"] for item in group["items"]}
 
-    async def test_title_and_filename_match(self, client, named_assets):
-        # The browser's prompt filter matches what media info shows: titles,
-        # not filenames. Global search also matches filenames.
-        ids = await self._ids(client, "starfire")
-        assert named_assets["package"] in ids
-        assert named_assets["logo"] not in ids
-        assert named_assets["unrelated"] not in ids
-        ids = await self._search_ids(client, "starfire")
-        assert {named_assets["package"], named_assets["logo"]} <= ids
-        assert named_assets["unrelated"] not in ids
+    async def test_title_matches_and_filename_does_not(self, client, named_assets):
+        # Text search matches what people can see: titles, not filenames, in the
+        # browser filter and in global search alike (so "View all" agrees).
+        for ids in (await self._ids(client, "starfire"), await self._search_ids(client, "starfire")):
+            assert named_assets["package"] in ids
+            assert named_assets["logo"] not in ids
+            assert named_assets["unrelated"] not in ids
 
     async def test_hidden_metadata_numbers_do_not_match(self, client, db_session):
         """A machine filename or a node graph stored as the prompt never matches
@@ -320,7 +317,7 @@ class TestAssetTextSearch:
         assert media_id not in await self._ids(client, "00731")
         assert media_id not in await self._ids(client, "884412")
         assert media_id in await self._ids(client, "harbor")
-        assert media_id in await self._search_ids(client, "00731")
+        assert media_id not in await self._search_ids(client, "00731")
 
     async def test_type_word_narrows_to_format(self, client, named_assets):
         ids = await self._ids(client, "starfire package")

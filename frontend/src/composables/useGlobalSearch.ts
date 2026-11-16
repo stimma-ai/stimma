@@ -13,7 +13,7 @@ import { getMediaType, type MediaType } from '../utils/mediaTypes'
  * backend at GET /api/search. Tools are matched client-side from the cached
  * catalog. Assets come in TWO flavors, reflecting the app's duality:
  * TEXT matches (every query token must start a word in the asset's title,
- * filename, prompt, or type word such as "package" or "svg") and VISUAL
+ * prompt, prompt as typed, or type word such as "package" or "svg") and VISUAL
  * matches (CLIP text-to-image similarity). Captions are dead —
  * search never touches the caption path.
  */
@@ -215,7 +215,7 @@ export function useGlobalSearch() {
     )
   }
 
-  /** Assets whose title, filename, prompt, or type word matches every query token. */
+  /** Assets whose title, prompt, or type word matches every query token. */
   async function searchMediaByPrompt(q: string, pageSize = 6, projectId?: number | null, signal?: AbortSignal): Promise<MediaSearchHit[]> {
     if (!q.trim()) return []
     const params = new URLSearchParams({

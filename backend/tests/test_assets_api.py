@@ -1094,13 +1094,13 @@ async def test_search_groups_orders_deliverables_first_with_true_totals(client, 
         old = datetime.now() - timedelta(days=30)
         package = await create_media_item(
             session, file_format="stimmapackage", file_path="/tmp/nova-kit.stimmapackage",
-            created_date=old, generation_metadata='{"prompt": ""}',
+            created_date=old, generation_metadata='{"prompt": ""}', extracted_prompt="Nova kit",
         )
-        package.original_filename = "nova-kit.stimmapackage"
         await create_asset_from_media(session, media_id=package.id)
         for index in range(8):
-            image = await create_media_item(session, file_path=f"/tmp/nova-frame-{index}.png")
-            image.original_filename = f"nova-frame-{index}.png"
+            image = await create_media_item(
+                session, file_path=f"/tmp/nova-frame-{index}.png", extracted_prompt=f"Nova frame {index}",
+            )
             await create_asset_from_media(session, media_id=image.id)
         await session.commit()
 
