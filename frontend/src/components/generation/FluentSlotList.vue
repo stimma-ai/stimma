@@ -54,13 +54,14 @@
 
       <Transition :css="false" @enter="grow" @leave="shrink">
         <div v-if="openId === r.id" class="overflow-hidden" data-inline-picker>
-          <FluentSlotPicker :program="program" :id="r.id" class="pb-0.5" @close="program.close()" />
+          <FluentSlotPicker :program="program" :id="r.id" class="pb-0.5" @close="program.close()" @remove-slot="(s) => emit('remove-slot', s)" />
         </div>
       </Transition>
     </div>
 
     <!-- Suggestions: one quiet row in three groups, gone when there's nothing to offer. A ↔ chip
-         makes the words vary (as "Vary this" does); a + chip writes fixed words, the look of
+         makes the words vary (as "Vary this" does), a ⤢ chip fleshes out one specific thing (as
+         "Flesh out this" does); a + chip writes fixed words, the look of
          the shot first, then something to add. -->
     <div v-if="chips" class="mt-1 px-1 flex flex-wrap items-center gap-x-3 gap-y-0.5" data-slot-adds>
       <div v-if="s.vary.length" class="flex flex-wrap items-center gap-0.5" data-suggest-group="vary">
@@ -70,9 +71,10 @@
           type="button"
           class="shrink-0 inline-flex items-center gap-1 pl-1.5 pr-2 py-1 coarse:py-1.5 coarse:min-h-11 rounded-full text-[11px] coarse:text-xs text-content-muted hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60 transition-colors"
           :data-slot-vary="p.text"
+          :data-slot-mode="p.mode"
           @mousedown.prevent
           @click="emit('vary', p)"
-        ><ArrowsRightLeftIcon class="w-3 h-3 text-selection" />{{ p.label }}</button>
+        ><ArrowsPointingOutIcon v-if="p.mode === 'one'" class="w-3 h-3 text-selection" /><ArrowsRightLeftIcon v-else class="w-3 h-3 text-selection" />{{ p.label }}</button>
       </div>
       <div v-for="g in fixedGroups" :key="g.key" class="flex flex-wrap items-center gap-0.5" :data-suggest-group="g.key">
         <button
@@ -92,7 +94,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ArrowsRightLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { ArrowsPointingOutIcon, ArrowsRightLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import FluentSlotPicker from './FluentSlotPicker.vue'
 import { inPlayCount, optionsOf, resetState, rowValue, type RowValue } from '../../utils/programChoices'
 import { slotFlash } from '../../composables/slotFlash'
@@ -100,7 +102,11 @@ import type { PromptProgram } from '../../composables/usePromptProgram'
 import type { SuggestedPhrase, Suggestions } from '../../composables/usePromptSuggestions'
 
 const props = defineProps<{ program: PromptProgram; suggestions?: Suggestions | null }>()
-const emit = defineEmits<{ (e: 'vary', phrase: SuggestedPhrase): void; (e: 'words', text: string): void }>()
+const emit = defineEmits<{
+  (e: 'vary', phrase: SuggestedPhrase): void
+  (e: 'words', text: string): void
+  (e: 'remove-slot', slot: { n: number; words: string }): void
+}>()
 
 const s = computed<Suggestions>(() => props.suggestions ?? { vary: [], looks: [], adds: [] })
 const fixedGroups = computed(() => [

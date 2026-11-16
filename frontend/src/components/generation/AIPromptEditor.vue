@@ -15,10 +15,10 @@
           <button
             type="button"
             class="flex items-center gap-1.5 px-2.5 py-1.5 coarse:px-3 coarse:py-2 text-xs coarse:text-[13px] rounded-lg bg-surface border border-edge-subtle shadow-lg text-content hover:bg-surface-hover transition-colors"
-            data-vary
+            :data-vary="offer.mode === 'one' ? 'one' : 'kind'"
             @mousedown.prevent
             @click="varyOffer"
-          ><ArrowsRightLeftIcon class="w-3.5 h-3.5 text-selection" />Vary this</button>
+          ><template v-if="offer.mode === 'one'"><ArrowsPointingOutIcon class="w-3.5 h-3.5 text-selection" />Flesh out this</template><template v-else><ArrowsRightLeftIcon class="w-3.5 h-3.5 text-selection" />Vary this</template></button>
         </div>
       </Teleport>
 
@@ -270,7 +270,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, useSlots } from 'vue'
 import { EditorView } from '@codemirror/view'
-import { ArrowsRightLeftIcon } from '@heroicons/vue/24/outline'
+import { ArrowsPointingOutIcon, ArrowsRightLeftIcon } from '@heroicons/vue/24/outline'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
 import Caret from '../ui/Caret.vue'
@@ -283,10 +283,10 @@ import type { PromptSyntaxMode } from '../../composables/useCodeMirrorPrompt'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
-import { slotEditing, wrapSlot, replaceDocument, rangeRect, setVaryEffect } from '../../composables/promptSlotEditing'
+import { slotEditing, wrapSlot, unwrapSlot, replaceDocument, rangeRect, setVaryEffect } from '../../composables/promptSlotEditing'
 import { setSlotMarks, slotMarks as slotMarksExtension, type SlotMarks } from '../../composables/promptSlotMarks'
 import { appendWords, shownWords, usePromptSuggestions, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
-import { slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
+import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
 import { useViewport } from '../../composables/useViewport'
 import { PROMPT_LANGUAGES, promptLanguageByCode, DEFAULT_TRANSLATE_LANGUAGE } from './promptLanguages'
@@ -366,6 +366,8 @@ const emit = defineEmits<{
   (e: 'open-list', value: { n: number; rect: DOMRect }): void
   /** The caret left the slot just typed in (typed past it, or moved away): it's done. */
   (e: 'left-slot'): void
+  /** A slot was just made from a suggestion to flesh out (n: its place among the slots). */
+  (e: 'slot-mode', value: { n: number; mode: 'one' | 'kind' }): void
 }>()
 
 // Box height. Desktop rests at ~5 lines and grows to 408px; phones give the
@@ -484,7 +486,7 @@ function setTranslate(code: string | null) {
 
 // --- Slots (Fluent): making one from written words, opening one ---
 // A phrase Fluent underlined was clicked, or words were selected: "Vary this" sits under them.
-const offer = ref<{ from: number; to: number; rect: DOMRect; phrase: boolean } | null>(null)
+const offer = ref<{ from: number; to: number; rect: DOMRect; phrase: boolean; mode?: 'one' | 'kind' } | null>(null)
 const { isCoarsePointer } = useViewport()
 const offerStyle = computed(() => {
   const r = offer.value?.rect
@@ -495,10 +497,10 @@ const offerStyle = computed(() => {
   const left = Math.max(8, Math.min(window.innerWidth - 120, r.left))
   return { left: `${Math.round(left)}px`, top: `${Math.round(top)}px` }
 })
-function showOffer(from: number, to: number, phrase: boolean) {
+function showOffer(from: number, to: number, phrase: boolean, mode?: 'one' | 'kind') {
   const view = getView()
   const rect = view && rangeRect(view, from, to)
-  offer.value = rect ? { from, to, rect, phrase } : null
+  offer.value = rect ? { from, to, rect, phrase, mode } : null
 }
 /** Tell the host to open the slot around `pos`. */
 function openSlotAt(pos: number) {
@@ -514,16 +516,35 @@ function varyOffer() {
   offer.value = null
   if (!view || !o) return
   const at = wrapSlot(view, o.from, o.to)
-  if (at != null) void nextTick(() => openSlotAt(at))
+  if (at != null) madeSlot(view, at, o.mode)
+}
+/** A slot was just made at `at`: one to flesh out says so (before it is read), then it opens. */
+function madeSlot(view: EditorView, at: number, mode?: 'one' | 'kind') {
+  const slot = slotAt(view.state.doc.toString(), at)
+  void nextTick(() => {
+    if (slot && mode === 'one') emit('slot-mode', { n: slot.n, mode })
+    openSlotAt(at)
+  })
+}
+/** Take the brackets off a slot (by its place and words, else its words when only one slot has
+    them); its words stay. One undo step. */
+function removeSlot(t: { n: number; words: string }) {
+  const view = getView()
+  if (!view) return
+  const text = view.state.doc.toString()
+  const spans = findSlots(text).map(([from, to], i) => ({ n: i + 1, from, to, words: text.slice(from + 1, to - 1) }))
+  const same = spans.filter(s => s.words === t.words)
+  const hit = spans.find(s => s.n === t.n && s.words === t.words) ?? (same.length === 1 ? same[0] : null)
+  if (hit) unwrapSlot(view, hit.from, hit.to)
 }
 function hideOffer() { offer.value = null }
 // The phone keyboard opening (or closing) moves the words: follow them.
-function placeOffer() { const o = offer.value; if (o) showOffer(o.from, o.to, o.phrase) }
+function placeOffer() { const o = offer.value; if (o) showOffer(o.from, o.to, o.phrase, o.mode) }
 const slotExtensions = [
   slotEditing({
     enabled: () => fluentSlots.value,
     onSlotClick: (pos) => { offer.value = null; openSlotAt(pos) },
-    onPhraseClick: (p) => showOffer(p.from, p.to, true),
+    onPhraseClick: (p) => showOffer(p.from, p.to, true, p.mode),
     onSelection: ({ from, to }) => {
       if (from === to) {
         // The click that offered an underlined phrase leaves the cursor in it.
@@ -609,7 +630,7 @@ function varyPhrase(p: SuggestedPhrase) {
   if (!view || view.state.doc.sliceString(p.from, p.to) !== p.text) return
   offer.value = null
   const at = wrapSlot(view, p.from, p.to)
-  if (at != null) void nextTick(() => openSlotAt(at))
+  if (at != null) madeSlot(view, at, p.mode)
 }
 /** Write suggested words at the end of the prompt, as they are (one undo step). */
 function addWords(words: string) {
@@ -801,6 +822,7 @@ defineExpose({
   // Fluent's suggestions: the host shows them on their own line under the prompt.
   suggestions,
   varyPhrase,
+  removeSlot,
   addWords,
   setPromptText,
   animateDiff,

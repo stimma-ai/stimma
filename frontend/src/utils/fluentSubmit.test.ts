@@ -152,6 +152,18 @@ test('a program depends on the prompt and the tool only', () => {
   assert.notEqual(prepareSettingsSig(inputs('a <cat>')), prepareSettingsSig(inputs('a <cat>', 'u')))
 })
 
+test('a slot the user chose to flesh out or vary is prepared with that choice', () => {
+  const plain: PrepareInputs = { toolId: 't', prompt: 'a <cat>', projectId: 3 }
+  const fleshed: PrepareInputs = { ...plain, modes: { cat: 'one' } }
+  assert.deepEqual(prepareBody(fleshed), { tool_id: 't', prompt: 'a <cat>', project_id: 3, choices: { cat: { mode: 'one' } } })
+  // the pools' own choices (with the mode in them) go as sent
+  assert.deepEqual(prepareBody(fleshed, { choices: { cat: { mode: 'one', values: ['x'] } } }).choices, { cat: { mode: 'one', values: ['x'] } })
+  assert.deepEqual(prepareBody({ ...plain, modes: {} }), prepareBody(plain))
+  assert.notEqual(prepareSettingsSig(fleshed), prepareSettingsSig(plain))
+  assert.equal(prepareSettingsSig({ ...plain, modes: {} }), prepareSettingsSig(plain))
+  assert.equal(prepareSettingsSig({ ...plain, modes: { b: 'one', a: 'kind' } }), prepareSettingsSig({ ...plain, modes: { a: 'kind', b: 'one' } }))
+})
+
 test('a prompt too long or no balance says what to do, without mechanics', () => {
   const long = fallbackNotice('prompt_too_long', 'Brand')
   assert.equal(long.action, 'none')

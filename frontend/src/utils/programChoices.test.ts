@@ -3,7 +3,7 @@ import test from 'node:test'
 import {
   addOwn, addValue, dropVariant, inPlayCount, poolWithout, slotFailed, listChoiceAt, readChoices, setPicked, carriedIds, followId, carryChoices, cleanState, clearSeed, isChanged, keptPieces, lineOf, lookOf,
   numberRepeats, optionsOf, pickedYears, resetState, rowValue, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleStage,
-  toggleValue, toggleYear, wireState,
+  toggleValue, toggleYear, wireState, setMode, modeOf, chosenModes, slotIdsOf,
 } from './programChoices.ts'
 import type { ChoicePool, ProgramSlot } from './programWire.ts'
 
@@ -217,4 +217,26 @@ test('a removed variant leaves the picks, the user’s own and the pool shown', 
   assert.equal(out.variants!.length, pool.variants!.length - 1)
   assert.ok(!out.options.includes(korean) && !out.variants!.some(v => v.text === korean))
   assert.deepEqual(poolWithout({ options: ['a', 'b'] }, 'a'), { options: ['b'] })
+})
+
+test('Vary or Flesh out stays with the slot through its picks, and starts it over', () => {
+  assert.deepEqual(setMode({ values: ['a'], add: ['mine'], seeds: { gender: { values: ['woman'] } } }, 'one'), { add: ['mine'], mode: 'one' })
+  assert.deepEqual(setMode(null, 'kind'), { mode: 'kind' })
+  assert.deepEqual(cleanState({ mode: 'one' }), { mode: 'one' })
+  assert.deepEqual(cleanState({ mode: 'bogus' as any }), null)
+  assert.deepEqual(toggleValue({ mode: 'one' }, 'a'), { values: ['a'], mode: 'one' })
+  assert.deepEqual(resetState({ values: ['a'], mode: 'one' }), { mode: 'one' })
+  assert.deepEqual(cleanState({ off: true, mode: 'kind' }), { off: true, mode: 'kind' })
+  assert.equal(isChanged({ mode: 'one' }), false)
+  assert.equal(lookOf(ready, { mode: 'one' }), 'varying')
+  assert.equal(modeOf({ one: true }, null), 'one')
+  assert.equal(modeOf({ one: true }, { mode: 'kind' }), 'kind')
+  assert.equal(modeOf({}, undefined), 'kind')
+  assert.deepEqual(chosenModes({ a: { mode: 'one' }, b: { values: ['x'] }, c: { mode: 'kind' } }), { a: 'one', c: 'kind' })
+  assert.deepEqual(wireState({ mode: 'one', from: 3, values: ['a'] }), { mode: 'one', values: ['a'] })
+})
+
+test('a slot just made is named as the server names it', () => {
+  assert.deepEqual(slotIdsOf(['Central Park', 'young woman', 'young woman', '1girl', '!!'], 0), ['central_park', 'young_woman', 'young_woman_2', 'slot_1girl', 'slot'])
+  assert.deepEqual(slotIdsOf(['list1'], 1), ['list1_2'])
 })

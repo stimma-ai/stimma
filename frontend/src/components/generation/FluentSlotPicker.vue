@@ -104,6 +104,12 @@
 
     <!-- The variants -->
     <template v-else>
+      <!-- How the slot varies (Vary: a different one each time; Flesh out: the same thing shown
+           different ways), and taking the slot back out of the prompt, its words staying. -->
+      <div v-if="!isList" class="shrink-0 px-2 pt-0.5 pb-1.5 flex items-center gap-2" data-slot-head>
+        <SegmentedControl v-if="slot?.state !== 'reading' || st?.mode" :model-value="mode" :options="modeOptions" aria-label="How it varies" data-slot-mode @update:model-value="setMode" />
+        <button type="button" class="ml-auto px-2 py-1 coarse:py-2 rounded-md text-xs text-content-secondary hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60" data-remove-slot @click="removeSlot">Remove</button>
+      </div>
       <!-- A person's Age, Gender and Descent sit in the list's own columns. -->
       <div v-if="person" class="shrink-0 pb-1 flex flex-col gap-px" data-filters>
         <button v-for="f in filters" :key="f.id" type="button" :class="subRowClass" :data-filter="f.id" @click="filter = f.id">
@@ -185,6 +191,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ArrowPathIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, PlusIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import SearchField from '../ui/SearchField.vue'
+import SegmentedControl from '../ui/SegmentedControl.vue'
 import Spinner from '../ui/Spinner.vue'
 import { matchesQuery } from '../../utils/programVocab'
 import {
@@ -198,7 +205,7 @@ import type { PromptProgram } from '../../composables/usePromptProgram'
 type Stage = AgePicker['stages'][number]
 
 const props = withDefaults(defineProps<{ program: PromptProgram; id: string; listMax?: string }>(), { listMax: '15rem' })
-const emit = defineEmits<{ (e: 'close'): void }>()
+const emit = defineEmits<{ (e: 'close'): void; (e: 'remove-slot', slot: { n: number; words: string }): void }>()
 
 const rowClass = 'w-full flex items-start gap-2 px-2 py-1.5 coarse:py-2.5 rounded-md text-left text-xs coarse:text-[13px] cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60'
 const subRowClass = 'grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)_auto] items-start gap-x-3 w-full px-2 py-1.5 coarse:py-2.5 rounded-md text-left text-xs coarse:text-[13px] leading-snug cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60'
@@ -219,6 +226,19 @@ const failed = computed(() => !isList.value && slotFailed(slot.value, st.value, 
 
 function set(next: ChoiceState | null) {
   props.program.setState(props.id, next)
+}
+
+// Vary or Flesh out: the slot's variants are written again that way.
+const modeOptions = [{ label: 'Vary', value: 'kind' }, { label: 'Flesh out', value: 'one' }]
+const mode = computed(() => props.program.modeOf(props.id))
+function setMode(v: string | number) {
+  if (v === 'one' || v === 'kind') props.program.setMode(props.id, v)
+}
+function removeSlot() {
+  const s = slot.value
+  if (!s) return
+  emit('close')
+  emit('remove-slot', { n: s.n, words: s.words })
 }
 
 const filter = ref<'age' | 'gender' | 'descent' | null>(null)

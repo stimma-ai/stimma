@@ -56,7 +56,7 @@ def test_no_is_rerolled_yes_is_kept_and_an_unanswered_choice_stands(loop):
     lp = loop(lambda k: {"hazel": "no", "brown": "yes"}.get(k[4]))
     got = lp.judge.p_wrong(items("hazel", "brown", "gray"))
     assert got[0] > lp.judge.cut and got[1] == 0.0 and got[2] == 0.0
-    assert lp.judge.version == "llm:m/r4" and lp.judge.reroll_all
+    assert lp.judge.version == "llm:m/r5" and lp.judge.reroll_all
 
 
 def test_rare_is_never_rerolled_but_scores_apart_from_yes(loop):
@@ -215,3 +215,36 @@ class TestReady:
             return first, await llm_judge.ready()
         first, after = asyncio.run(go())
         assert first is not None and after is None and llm_judge.current() is None
+
+
+async def test_the_question_says_how_each_slot_varies(monkeypatch):
+    """A slot fleshed out is asked as the same thing shown another way; one varied as any one of
+    its kind; a user's own list says neither. The mode keys the answer too."""
+    sent = []
+
+    async def completion(cfg, messages, **kw):
+        sent.append(messages)
+        return SimpleNamespace(content='{"id": 1, "answer": "yes"}\n{"id": 2, "answer": "yes"}\n{"id": 3, "answer": "yes"}')
+    import llm
+    monkeypatch.setattr(llm, "llm_completion", completion)
+    judge = llm_judge.LlmJudge(asyncio.get_running_loop(), SimpleNamespace(model="m"))
+    todo = [("u", "A photo of [Park] with a beagle and a red hat.", "Park", "Central Park", "Central Park at dawn", "one"),
+            ("u", "A photo of Central Park at dawn with [Dog] and a red hat.", "Dog", "dog", "a beagle", "kind"),
+            ("u", "A photo of Central Park at dawn with a beagle and [Hat].", "Hat", "", "a red hat", "")]
+    await judge._ask(todo)
+    text = sent[0][1]["content"]
+    assert "Park (Central Park), the same thing, shown another way: Central Park at dawn" in text
+    assert "Dog, any one of its kind: a beagle" in text
+    assert "3. Hat: a red hat" in text
+    assert "the same thing, shown another way" in llm_judge.RULES and "any one of its kind" in llm_judge.RULES
+
+
+def test_draws_carry_the_slot_mode_into_the_judge_items():
+    from prompt_programs.fill import Draw
+    from prompt_programs.fix import _questions
+    from prompt_programs.fill import DrawResult
+    draws = [Draw("park", "Central Park at dawn", options=["a", "b"], about="Central Park", label="Park", mode="one"),
+             Draw("dog", "a beagle", options=["a", "b"], about="dog", label="Dog", mode="kind")]
+    result = DrawResult("A photo of Central Park at dawn with a beagle.", draws, 1)
+    got, ids, _ = _questions(result, "a photo of <Central Park> with a <dog>")
+    assert [(i.label, i.mode) for i in got] == [("Park", "one"), ("Dog", "kind")]

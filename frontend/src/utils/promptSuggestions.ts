@@ -8,7 +8,9 @@
  * adds   concrete things the picture lacks; a click adds the words.
  */
 
-export interface SuggestedPhrase { from: number; to: number; text: string; label: string }
+/** A phrase that could vary: `mode` 'one' fleshes out one specific thing (the same thing shown
+    different ways), 'kind' varies it (a different one of its kind). */
+export interface SuggestedPhrase { from: number; to: number; text: string; label: string; mode: 'one' | 'kind' }
 /** Fixed words a click writes into the prompt as they are, and the chip's label. */
 export interface SuggestedWords { text: string; label: string }
 export interface Suggestions { vary: SuggestedPhrase[]; looks: SuggestedWords[]; adds: SuggestedWords[] }
@@ -23,7 +25,8 @@ export function cleanSuggestions(data: any): Suggestions {
   const vary = Array.isArray(data?.vary) ? data.vary
     .filter((p: any) => Number.isInteger(p?.from) && Number.isInteger(p?.to) && typeof p?.text === 'string')
     .map((p: any): SuggestedPhrase => ({ from: p.from, to: p.to, text: p.text,
-      label: typeof p.label === 'string' && p.label.trim() ? p.label : p.text })) : []
+      label: typeof p.label === 'string' && p.label.trim() ? p.label : p.text,
+      mode: p.mode === 'one' ? 'one' : 'kind' })) : []
   return { vary, looks: words(data?.looks), adds: words(data?.adds) }
 }
 

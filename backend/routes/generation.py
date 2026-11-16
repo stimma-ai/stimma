@@ -428,7 +428,9 @@ async def _batch_prompt_preflight(parameters: Dict[str, Any], request) -> None:
     if not (isinstance(program_opts, dict) and program_opts.get("enabled")
             and prompt_enhance_context(parameters, request.tool_id, request.task_type, options)["program_supported"]):
         return
-    await _read_slots(prompt, profile_id=get_current_profile(), project_id=request.project_id)
+    from prompt_programs.choices import modes
+    await _read_slots(prompt, profile_id=get_current_profile(), project_id=request.project_id,
+                      modes=modes(program_opts.get("choices")))
 
 
 def _child_failure_message(e: BaseException) -> str:
@@ -781,15 +783,17 @@ def _slots_failed(e: Exception) -> HTTPException:
     return HTTPException(status_code=status, detail={"code": code, "message": f"Generation was not started: {e}"})
 
 
-async def _read_slots(prompt: str, *, profile_id: Optional[str], project_id: Optional[int]) -> Optional[Dict[str, Any]]:
+async def _read_slots(prompt: str, *, profile_id: Optional[str], project_id: Optional[int],
+                      modes: Optional[Dict[str, str]] = None) -> Optional[Dict[str, Any]]:
     """The prompt's slots as they stand now (prompt_programs.slots.current): never waits on the
     slot reader or narrowing, and starts reading whatever isn't read yet for later images. Only
-    a prompt too long to read fails, as _slots_failed."""
+    a prompt too long to read fails, as _slots_failed. `modes`: the slots the user chose to flesh
+    out or vary (prompt_programs.choices.modes)."""
     from prompt_programs import slots
     from prompt_programs.program import ProgramError
 
     try:
-        return await slots.current(prompt, profile_id=profile_id, project_id=project_id)
+        return await slots.current(prompt, profile_id=profile_id, project_id=project_id, modes=modes)
     except ProgramError as e:
         raise _slots_failed(e) from None
 
@@ -815,16 +819,16 @@ async def _run_slots(
     arguments) has the pool improve its draws too; a draw served improved fills `ahead`
     with the prompt to send ("sent") and what the improver did ("improve")."""
     from llm_resolver import LLMUnavailableError
-    from prompt_programs.choices import expand, kept
+    from prompt_programs.choices import expand, kept, modes
     from prompt_programs.fix import await_judge, prompt_view, realize_and_fix
     from prompt_programs.fluent import attach_writer, count_draw
     from prompt_programs.program import ProgramError, draw_seed, model_failure, spans_of
 
-    entry = await _read_slots(prompt, profile_id=profile_id, project_id=project_id)
+    choices = dict(program_opts.get("choices") or {})
+    entry = await _read_slots(prompt, profile_id=profile_id, project_id=project_id, modes=modes(choices))
     if not entry or not entry.get("key"):
         return None, prompt, None
     attach_writer(entry, profile_id)
-    choices = dict(program_opts.get("choices") or {})
     # An agent's keep_choices: the same holds as choices of values, named as its results name them.
     if program_opts.get("keep_choices"):
         choices.update(kept(entry, program_opts["keep_choices"]))

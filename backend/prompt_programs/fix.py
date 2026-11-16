@@ -91,6 +91,7 @@ class Item:
     about: str
     value: str
     user_prompt: str = ""
+    mode: str = ""   # a slot's way of varying ("one", "kind"), for the stand-in judge only; "" for a list
 
 
 def head(label: str, about: str) -> str:
@@ -573,7 +574,7 @@ def _questions(result: Any, user_prompt: str, skip: Sequence[str] = (),
         if st is None:
             out[d.id] = None
             continue
-        items.append(Item(st, d.label, d.about or "", str(d.value), user_prompt))
+        items.append(Item(st, d.label, d.about or "", str(d.value), user_prompt, getattr(d, "mode", "") or ""))
         ids.append(d.id)
     return items, ids, out
 

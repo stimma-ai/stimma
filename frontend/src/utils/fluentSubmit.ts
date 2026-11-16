@@ -45,6 +45,9 @@ export interface PrepareInputs {
   toolId: string | null
   prompt: string
   projectId: number | null | undefined
+  /** {slot id: 'one' | 'kind'}: the slots the user chose to flesh out or vary. A prepare is read
+      with them, so a change means preparing again. */
+  modes?: Record<string, 'one' | 'kind'>
 }
 
 /** The body of a prepare (and options, pools, preview) request. */
@@ -53,13 +56,15 @@ export function prepareBody(i: PrepareInputs, extra: Record<string, any> = {}): 
     tool_id: i.toolId,
     prompt: i.prompt || '',
     project_id: i.projectId ?? null,
+    ...(i.modes && Object.keys(i.modes).length ? { choices: Object.fromEntries(Object.entries(i.modes).map(([id, mode]) => [id, { mode }])) } : {}),
     ...extra,
   }
 }
 
 /** Everything but the prompt text that decides the program: a change means preparing again. */
 export function prepareSettingsSig(i: PrepareInputs): string {
-  return JSON.stringify({ tool: i.toolId })
+  const modes = i.modes && Object.keys(i.modes).length ? Object.fromEntries(Object.entries(i.modes).sort(([a], [b]) => a.localeCompare(b))) : null
+  return JSON.stringify(modes ? { tool: i.toolId, modes } : { tool: i.toolId })
 }
 
 /** Whether the prompt in the box still has to be sent for reading: it is stale, or a look-up

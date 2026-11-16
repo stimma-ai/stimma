@@ -159,5 +159,5 @@ async def test_the_judge_asks_for_no_reasoning(wire):
     state["answer"] = "1. ok"
     import llm_resolver
     judge = LlmJudge(asyncio.get_running_loop(), await llm_resolver.get_effective_llm_config("tool_assistant"))
-    await judge._call(("a man", "a 70-year-old man"), [("a man", "a [Age] man", "Age", "his age", "70-year-old")])
+    await judge._call(("a man", "a 70-year-old man"), [("a man", "a [Age] man", "Age", "his age", "70-year-old", "kind")])
     _asked_for_no_reasoning(sent[-1])

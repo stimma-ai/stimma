@@ -10,12 +10,15 @@ The editor sends one object per choice (`promptOptions.program.choices`, and /po
      "person": {"seeds": {"descent": {"values": ["Korean"], "groups": {"region": ["East Asia"]}},
                           "gender": {"values": ["trans woman"]},
                           "age": {"values": ["young adult"], "years": [47]}}},
-     "list1": {"values": ["autumn"]}}
+     "list1": {"values": ["autumn"]},
+     "central_park": {"mode": "one"}}
 
 `expand` turns it into what realize() and the pools read: for a slot, a variant_pools.Choice
 (pinned variants, the user's own, as written, left out, picked seeds); for a user list, pins
 (its ticked items) and edits (`off`, `add`). `{"any": true}` and `{}` are no choice. Choices the
 prompt doesn't have (one from before an edit, an old detail id like `young_man.age`) are passed by.
+A slot's `mode` ("one": Flesh out; "kind": Vary) is how the user chose it to vary, over the reader's
+own reading: it shapes the prepared prompt (`modes`, read by slots.prepare), not the draw.
 Picked life stages or years a person can't be (not a person, outside the ages their words allow, a child
 or teen stage the minors rules don't allow them) are passed by too.
 """
@@ -94,6 +97,16 @@ def expand(entry: Dict[str, Any], choices: Optional[Dict[str, Any]]
     return pins, edits, chosen
 
 
+def modes(choices: Optional[Dict[str, Any]]) -> Dict[str, str]:
+    """{slot id: "one" | "kind"}: the slots the user chose a way of varying for (Flesh out, Vary)."""
+    from prompt_programs.reader import MODES
+    out: Dict[str, str] = {}
+    for key, value in (choices or {}).items():
+        if isinstance(value, dict) and value.get("mode") in MODES:
+            out[str(key)] = str(value["mode"])
+    return out
+
+
 def kept(entry: Dict[str, Any], keep: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """An agent's keep_choices ({choice: value or [values]}) as choices of values. A choice is
     named by its id (as results report it) or its label; UnknownChoiceError for one the
@@ -118,4 +131,4 @@ def kept(entry: Dict[str, Any], keep: Optional[Dict[str, Any]]) -> Dict[str, Any
     return out
 
 
-__all__ = ["UnknownChoiceError", "expand", "kept"]
+__all__ = ["UnknownChoiceError", "expand", "kept", "modes"]

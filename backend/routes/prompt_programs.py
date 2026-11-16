@@ -13,7 +13,7 @@ log = get_logger(__name__)
 router = APIRouter(prefix="/api/prompt-programs", tags=["prompt-programs"])
 
 # What a slot and a choice say to the editor (the program text itself stays server-side unless asked for).
-_SLOT_KEYS = ("id", "n", "kind", "label", "words", "span", "line", "stated", "degraded", "state")
+_SLOT_KEYS = ("id", "n", "kind", "label", "words", "span", "line", "stated", "degraded", "state", "one", "mode")
 _CHOICE_KEYS = ("id", "kind", "label", "options", "slot")
 
 
@@ -38,11 +38,12 @@ class PrepareRequest(BaseModel):
     # version of the prompt is being prepared, and a prepare keeps its readings for the parts
     # the new version still has.
     key: Optional[str] = None
+    # What the user chose in the chooser, per choice (prompt_programs.choices). Preparing reads
+    # only each slot's `mode` (Flesh out or Vary); the pools and draws read the rest.
+    choices: Dict[str, Any] = Field(default_factory=dict)
 
 
 class PreviewRequest(PrepareRequest):
-    # What the user chose in the chooser, per choice (prompt_programs.choices).
-    choices: Dict[str, Any] = Field(default_factory=dict)
     seed: Optional[int] = None
 
 
@@ -68,6 +69,7 @@ def program_http_error(e: Exception, failed: str = "program_failed") -> Optional
 
 async def _prepare(req: PrepareRequest) -> Optional[Dict[str, Any]]:
     from prompt_programs import slots
+    from prompt_programs.choices import modes
     from routes.generation import prompt_enhance_context
 
     ctx = prompt_enhance_context(req.parameters, req.tool_id, req.task_type, None)
@@ -75,7 +77,8 @@ async def _prepare(req: PrepareRequest) -> Optional[Dict[str, Any]]:
         return {"unsupported": ctx["mode"]}
     try:
         return await slots.prepare(req.prompt, profile_id=get_current_profile(), project_id=req.project_id,
-                                   start=not req.cache_only, force=req.force, shown=req.key)
+                                   start=not req.cache_only, force=req.force, shown=req.key,
+                                   modes=modes(req.choices))
     except Exception as e:
         http = program_http_error(e)
         if http is None:
@@ -145,10 +148,9 @@ async def prepare(req: PrepareRequest) -> Dict[str, Any]:
 
 
 class OptionsRequest(PrepareRequest):
-    # The slot to write more variants for (More like these).
+    # The slot to write more variants for (More like these). What the user chose (`choices`)
+    # steers the batch: their picked seeds.
     choice_id: str
-    # What the user chose (their picked seeds steer the batch).
-    choices: Dict[str, Any] = Field(default_factory=dict)
 
 
 async def _shown(req: PrepareRequest) -> Optional[Dict[str, Any]]:

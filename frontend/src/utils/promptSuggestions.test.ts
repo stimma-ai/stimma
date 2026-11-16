@@ -5,11 +5,11 @@ import { appendWords, cleanSuggestions, shownWords } from './promptSuggestions.t
 
 test('a /suggest answer keeps well-formed vary phrases, looks and adds', () => {
   const got = cleanSuggestions({
-    vary: [{ from: 2, to: 8, text: 'farmer', label: 'different farmers' }, { from: 'x' }, { from: 0, to: 1, text: 'a' }],
+    vary: [{ from: 2, to: 8, text: 'farmer', label: 'different farmers' }, { from: 'x' }, { from: 0, to: 1, text: 'a', mode: 'one' }],
     looks: [{ text: 'documentary photo, wide shot, soft mist', label: 'documentary photo' }, { text: '' }, { label: 'x' }],
     adds: [{ text: 'carrying a bamboo basket' }, 4],
   })
-  assert.deepEqual(got.vary, [{ from: 2, to: 8, text: 'farmer', label: 'different farmers' }, { from: 0, to: 1, text: 'a', label: 'a' }])
+  assert.deepEqual(got.vary, [{ from: 2, to: 8, text: 'farmer', label: 'different farmers', mode: 'kind' }, { from: 0, to: 1, text: 'a', label: 'a', mode: 'one' }])
   assert.deepEqual(got.looks, [{ text: 'documentary photo, wide shot, soft mist', label: 'documentary photo' }])
   assert.deepEqual(got.adds, [{ text: 'carrying a bamboo basket', label: 'carrying a bamboo basket' }])
   assert.deepEqual(cleanSuggestions(null), { vary: [], looks: [], adds: [] })

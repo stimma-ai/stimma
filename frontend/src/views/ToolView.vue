@@ -334,6 +334,7 @@
             @save="preparePromptNow"
             @open-slot="openPromptSlot"
             @left-slot="promptProgram.leftSlot()"
+            @slot-mode="(e) => promptProgram.setModeAt(e.n, e.mode)"
             @open-list="promptProgram.status.value !== 'off' && promptProgram.openEditorList($event)"
             :rows="drawerMode ? 2 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
             external-chat
@@ -372,6 +373,7 @@
             :program="promptProgram"
             :suggestions="aiPromptEditorRef?.suggestions"
             @vary="(p) => aiPromptEditorRef?.varyPhrase(p)"
+            @remove-slot="(s) => aiPromptEditorRef?.removeSlot(s)"
             @words="(w) => aiPromptEditorRef?.addWords(w)"
           />
         </div>

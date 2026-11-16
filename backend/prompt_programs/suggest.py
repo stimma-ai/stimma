@@ -1,7 +1,10 @@
 """Suggest: the editor's recommendations for a Fluent prompt, a few small separate ones.
 
-vary   up to 2 phrases the user wrote that are worth changing from picture to picture. The
-       editor underlines them and shows a chip; a click wraps the words in brackets.
+vary   up to 3 phrases the user wrote that are worth changing from picture to picture, each
+       with how: "vary" (a kind of thing: a different one in each picture) or "one" (one
+       specific thing, flesh it out: the same thing shown different ways). The editor
+       underlines them and shows a chip ("Vary this", "Flesh out this"); a click wraps the
+       words in brackets, the slot set to that way.
 looks  3 complete descriptions of how the picture is shot or made (for a photo: the kind of
        photo, framing and light together), unless the prompt already says so. A click adds
        the fixed words.
@@ -28,9 +31,9 @@ from prompt_programs.slots import _VERBATIM, _line_marks, _lines, find_slots, is
 
 log = get_logger(__name__)
 
-SUGGEST_VERSION = "suggest-5"   # suggest-5: vary, looks and adds; fixed words, no photography slots. suggest-4: photography per part
-MAX_VARY, MAX_LOOKS, MAX_ADDS = 2, 3, 2
-SUGGEST_TOKENS = 360
+SUGGEST_VERSION = "suggest-6"   # suggest-6: vary phrases say how (vary a kind, or flesh out one specific thing), up to 3. suggest-5: vary, looks and adds; fixed words, no photography slots. suggest-4: photography per part
+MAX_VARY, MAX_LOOKS, MAX_ADDS = 3, 3, 2
+SUGGEST_TOKENS = 400
 
 Span = Tuple[int, int]
 
@@ -38,7 +41,10 @@ SUGGEST_SYSTEM = """You help someone make a better image prompt. Their prompt ma
 
 Offer a few small, separate improvements. Each one is a single click and changes one thing.
 
-vary: the one or two phrases already written in the prompt that would be most rewarding to see change from picture to picture: usually who or what the picture is of, and the place. Copy each exactly as written, the shortest stretch that names the thing with its own describing words, without "a" or "the": "farmer", "rural Vietnam", not "a farmer in". One thing per phrase, without what it is doing. Never anything already inside brackets or braces, never the whole prompt. Each gets a label of two to four plain words that keeps their words and says they would see more of them: "different farmers", "other places in rural Vietnam", "different foxes" (not "different animals": the words they wrote stay). Give none when nothing is worth it.
+vary: the one to three phrases already written in the prompt that would be most rewarding to see change from picture to picture: usually who or what the picture is of, and the place. Copy each exactly as written, the shortest stretch that names the thing with its own describing words, without "a" or "the": "farmer", "rural Vietnam", not "a farmer in". One thing per phrase, without what it is doing. Never anything already inside brackets or braces, never the whole prompt. Each says how it would change, in "how":
+- "vary" when the phrase names a kind of thing, so each picture can show a different one of it: "farmer", "fox", "rural Vietnam" (other places in it), "old car".
+- "one" when it names one specific thing worth showing in different ways, the same thing in every picture while its state, angle, moment, details and surroundings change: a particular place, landmark, building, brand, work, character or real person ("Eiffel Tower", "Sherlock Holmes", "abandoned McDonald's", "Shinjuku"). Look for these too: they are often the most rewarding part of a prompt.
+Each gets a label of two to four plain words that keeps their words and says they would see more of them: "different farmers", "other places in rural Vietnam", "different foxes" (not "different animals": the words they wrote stay); for "one", that they would see more of that same thing: "more of the Eiffel Tower", "more of Sherlock Holmes". Give none when nothing is worth it.
 
 medium: "photo" when the picture should look like a photograph, as any prompt that names no other medium should; otherwise its medium in one to three words: "watercolor", "vector logo", "anime illustration". A prompt written as anime-style tags ("1girl, solo") is an anime illustration unless its tags ask for a photo.
 
@@ -49,7 +55,7 @@ looks: how the picture is shot or made, as three alternatives that suit this pic
 adds: one or two concrete things you could see in the picture that it doesn't have yet and that would make it more complete or more believable: what the person or animal is doing, the time of day, the weather, a second subject, a telling detail of the place. Each is a short phrase of three to eight words that reads well added after a comma at the end of the prompt, written the way the prompt is written ("knee-deep in a flooded rice paddy", "steam rising from the broth"), never a category name ("activity", "weather"). Never anything the prompt already says in any words, and nothing about how it is shot or made. label: its two or three key words: "rice paddy".
 
 Reply with JSON only, in this shape:
-{"vary": [{"phrase": "farmer", "label": "different farmers"}], "medium": "photo", "shot_stated": false, "looks": [{"text": "...", "label": "..."}], "adds": [{"text": "...", "label": "..."}]}"""
+{"vary": [{"phrase": "farmer", "how": "vary", "label": "different farmers"}], "medium": "photo", "shot_stated": false, "looks": [{"text": "...", "label": "..."}], "adds": [{"text": "...", "label": "..."}]}"""
 
 
 def hidden(prompt: str) -> str:
@@ -179,8 +185,12 @@ def check_suggestions(prompt: str, got: Dict[str, Any]) -> Dict[str, Any]:
             b = at + len(text)
             if not _overlaps(at, b, blocked) and not _overlaps(at, b, [(v["from"], v["to"]) for v in vary]) \
                     and _fits(prompt, at, b):
+                # How it varies: "one" (flesh out one specific thing) only when the reply says so;
+                # anything else is a kind to vary, as every phrase was before.
+                how = item.get("how") if isinstance(item, dict) else None
                 vary.append({"from": at, "to": b, "text": text,
-                             "label": _label(item, text) if isinstance(item, dict) else text})
+                             "label": _label(item, text) if isinstance(item, dict) else text,
+                             "mode": "one" if isinstance(how, str) and how.strip().lower() == "one" else "kind"})
                 break
             at = prompt.find(text, at + 1)
         if len(vary) == MAX_VARY:
@@ -226,7 +236,7 @@ EMPTY: Dict[str, List[Dict[str, Any]]] = {"vary": [], "looks": [], "adds": []}
 
 async def suggest(prompt: str, ask: Optional[Ask] = None, cache: Optional[NarrowCache] = None,
                   project_id: Optional[int] = None, model: str = "", raw: bool = False) -> Dict[str, List[Dict[str, Any]]]:
-    """{"vary": [{from, to, text, label}], "looks": [{text, label}], "adds": [{text, label}]}
+    """{"vary": [{from, to, text, label, mode}], "looks": [{text, label}], "adds": [{text, label}]}
     for the prompt as sent. No call for an empty prompt (or only comment lines) or Raw mode.
     The checked reply is cached by the exact prompt; a reply that can't be read twice gives
     nothing and isn't cached."""

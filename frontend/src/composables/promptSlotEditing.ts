@@ -14,7 +14,8 @@ import { StateEffect, StateField, RangeSetBuilder, type Extension } from '@codem
 import { isolateHistory } from '@codemirror/commands'
 import { findSlots, slotWrapRange, usableVaryPhrases } from '../utils/promptSyntax'
 
-export interface VaryPhrase { from: number; to: number; text: string }
+/** A phrase Suggest underlined; `mode` 'one' when it would be fleshed out rather than varied. */
+export interface VaryPhrase { from: number; to: number; text: string; mode?: 'one' | 'kind' }
 
 /** Replace the underlined phrases (offsets into the current document). */
 export const setVaryEffect = StateEffect.define<VaryPhrase[]>()
@@ -28,7 +29,7 @@ const varyField = StateField.define<VaryPhrase[]>({
     for (const e of tr.effects) if (e.is(setVaryEffect)) value = e.value
     if (!tr.docChanged || !value.length) return value
     const text = tr.newDoc.toString()
-    const mapped = value.map(p => ({ from: tr.changes.mapPos(p.from, 1), to: tr.changes.mapPos(p.to, -1), text: p.text }))
+    const mapped = value.map(p => ({ ...p, from: tr.changes.mapPos(p.from, 1), to: tr.changes.mapPos(p.to, -1) }))
     return usableVaryPhrases(text, mapped)
   },
   provide: f => EditorView.decorations.from(f, (phrases): DecorationSet => {
@@ -67,6 +68,18 @@ export function wrapSlot(view: EditorView, from: number, to: number): number | n
     annotations: isolateHistory.of('full'),
   })
   return a
+}
+
+/** Take the brackets off the slot spanning [from, to) (brackets included), its words staying,
+    as one undo step. */
+export function unwrapSlot(view: EditorView, from: number, to: number) {
+  const doc = view.state.doc
+  if (doc.sliceString(from, from + 1) !== '<' || doc.sliceString(to - 1, to) !== '>') return
+  view.dispatch({
+    changes: [{ from, to: from + 1 }, { from: to - 1, to }],
+    userEvent: 'delete.slot',
+    annotations: isolateHistory.of('full'),
+  })
 }
 
 /** Replace the whole text with `text` as one undo step, changing only what differs. */

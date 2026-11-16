@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 RULES = """You check choices made for an image prompt. The user typed a request. A program turned it into a full prompt by drawing values at random for several choices, so that many different images can be made from the one request. Every image must still answer the request, and each must be a believable picture.
 
-You are given the user's request, the finished prompt, and the choices in it: what each choice is, and the value drawn for it.
+You are given the user's request, the finished prompt, and the choices in it: what each choice is, and the value drawn for it. A choice may say how it varies. "the same thing, shown another way": every image shows that one specific thing the user named, and its value must still be that same thing (its state, angle, moment, details or surroundings may change); another one of its kind, or something merely like it, is "no". "any one of its kind": the value must be a fair member of the kind the user's words name.
 
 Give each choice one of three answers:
 
@@ -43,7 +43,7 @@ To choose between "no" and "rare", ask whether a careful viewer would see the pi
 
 Reply with one JSON object per line and nothing else, in the form {"id": 1, "answer": "yes"}."""
 
-RULES_VERSION = "r4"     # bumped when RULES change, so fix records tell the rules apart
+RULES_VERSION = "r5"     # bumped when RULES change, so fix records tell the rules apart. r5: a choice says how it varies (the same thing shown another way, or any one of its kind)
 CUT = 0.5                # above this a choice is rerolled: only a "no"
 RARE = 0.25              # a "rare" answer's score: below the cut, so kept, and told apart from "yes" in the record
 BATCH = 24               # choices per call: a draw's choices go together
@@ -59,6 +59,9 @@ def _score(answer: str) -> float:
         return RARE
     return 0.0
 
+
+# How a slot varies, as a choice's line says it (RULES explains both).
+_MODE_WORDS = {"one": ", the same thing, shown another way", "kind": ", any one of its kind"}
 
 _ANSWER = re.compile(r'"id"\s*:\s*(\d+)[^{}]*"answer"\s*:\s*"(yes|rare|no)"')
 
@@ -76,12 +79,12 @@ class LlmJudge:
         where = hashlib.sha256(key.encode("utf-8")).hexdigest()[:6] if key else ""
         self.version = (f"llm:{getattr(cfg, 'model', '') or 'tool-assistant'}" + (f"@{where}" if where else "")
                         + f"/{RULES_VERSION}")
-        self._answers: Dict[Tuple[str, str, str, str, str], str] = {}
+        self._answers: Dict[Tuple[str, str, str, str, str, str], str] = {}
         self._lock = threading.Lock()
         self.calls = 0
 
     def p_wrong(self, items: Sequence[Any]) -> List[float]:
-        keys = [(it.user_prompt, it.state, it.label, it.about, it.value) for it in items]
+        keys = [(it.user_prompt, it.state, it.label, it.about, it.value, getattr(it, "mode", "") or "") for it in items]
         with self._lock:
             todo = list(dict.fromkeys(k for k in keys if k not in self._answers))
         if todo:
@@ -104,14 +107,14 @@ class LlmJudge:
         with self._lock:
             return [_score(self._answers.get(k, "yes")) for k in keys]
 
-    async def _ask(self, todo: List[Tuple[str, str, str, str, str]]) -> Dict[Tuple[str, str, str, str, str], str]:
+    async def _ask(self, todo: List[Tuple[str, str, str, str, str, str]]) -> Dict[Tuple[str, str, str, str, str, str], str]:
         # One call per finished prompt: its choices are read together, against the prompt whole.
-        draws: Dict[Tuple[str, str], List[Tuple[str, str, str, str, str]]] = {}
+        draws: Dict[Tuple[str, str], List[Tuple[str, str, str, str, str, str]]] = {}
         for k in todo:
-            user_prompt, state, label, _about, value = k
+            user_prompt, state, label, _about, value, _mode = k
             draws.setdefault((user_prompt, state.replace(f"[{label}]", value, 1)), []).append(k)
         chunks = [(head, ks[i:i + BATCH]) for head, ks in draws.items() for i in range(0, len(ks), BATCH)]
-        out: Dict[Tuple[str, str, str, str, str], str] = {}
+        out: Dict[Tuple[str, str, str, str, str, str], str] = {}
         got = await asyncio.gather(*(self._call(head, ks) for head, ks in chunks), return_exceptions=True)
         for (_head, ks), answers in zip(chunks, got):
             if isinstance(answers, BaseException):   # a failed call judges nothing: those choices stand
@@ -122,14 +125,15 @@ class LlmJudge:
                     out[k] = answers[i + 1]
         return out
 
-    async def _call(self, head: Tuple[str, str], chunk: List[Tuple[str, str, str, str, str]]) -> Dict[int, str]:
+    async def _call(self, head: Tuple[str, str], chunk: List[Tuple[str, str, str, str, str, str]]) -> Dict[int, str]:
         from agent.v2.llm_options import agent_llm_options
         from llm import llm_completion
         from llm_correlation import llm_correlation_context
         user_prompt, finished = head
         lines = [f"The user's request: {user_prompt}", "", f"The finished prompt: {finished}", "", "The choices in it:"]
-        for i, (_user, _state, label, about, value) in enumerate(chunk):
+        for i, (_user, _state, label, about, value, mode) in enumerate(chunk):
             what = f"{label} ({about})" if about and about.lower() != label.lower() else label
+            what += _MODE_WORDS.get(mode, "")
             lines.append(f"{i + 1}. {what}: {value}")
         messages = [{"role": "system", "content": RULES}, {"role": "user", "content": "\n".join(lines)}]
         self.calls += 1

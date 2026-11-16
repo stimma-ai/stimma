@@ -50,6 +50,9 @@ class Draw:
     said: str = ""
     shared: bool = False
     template: str = ""
+    # A slot's way of varying: "one" (one specific thing, shown different ways), "kind" (a member
+    # of its kind); "" for a list of the user's own. What the stand-in judge is told.
+    mode: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         d = {"id": self.id, "value": self.value, "kind": self.kind, "label": self.label, "source": self.source}
@@ -439,7 +442,7 @@ def fill(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Sequence[str
                 values[sid] = fixed[sid]
                 held.append(sid)
                 records[sid] = Draw(sid, fixed[sid], "pick", str(s.get("label") or s["words"]), "fixed", s.get("line"),
-                                    about=s["words"])
+                                    about=s["words"], mode="one" if s.get("one") else "kind")
             continue
         e = edits.get(sid) or {}
         choice = options.choice(sid) if options is not None else Choice()
@@ -464,7 +467,7 @@ def fill(entry: Dict[str, Any], seed: int, pins: Optional[Dict[str, Sequence[str
         shown = [v["text"] for v in drawable(variants, choice)] if got.source != "words" else []
         d = Draw(sid, got.text, "pick", str(s.get("label") or s["words"]), got.source, s.get("line"),
                  pinned=got.source == "pinned", options=shown, about=s["words"], own=got.source == "own",
-                 seeds={k: str(v) for k, v in (got.seeds or {}).items()})
+                 seeds={k: str(v) for k, v in (got.seeds or {}).items()}, mode="one" if s.get("one") else "kind")
         records[sid] = d
         if s.get("pool"):
             rev[sid] = {"pool": str(s["pool"]), "text": got.text}

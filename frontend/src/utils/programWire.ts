@@ -14,6 +14,10 @@ export type SlotKind = 'person' | 'animal' | 'camera' | 'light' | 'list' | 'free
     nothing: it stands as its words until the next prepare tries again). */
 export type SlotState = 'reading' | 'writing' | 'ready' | 'as_written'
 
+/** How a slot varies: `kind` (Vary: a different one of its kind each time) or `one` (Flesh out:
+    the same one specific thing, shown different ways). */
+export type SlotMode = 'one' | 'kind'
+
 /** One slot of the prompt, as /prepare reads it. */
 export interface ProgramSlot {
   id: string
@@ -29,6 +33,11 @@ export interface ProgramSlot {
   span?: [number, number] | null
   line?: number | null
   state?: SlotState
+  /** Read as one specific thing, fleshed out (the same thing shown different ways), not a kind
+      of thing to vary: the reader's reading, or the user's `mode`. */
+  one?: boolean
+  /** The way of varying the user chose for it, when they chose one. */
+  mode?: SlotMode
   /** Its id in the program the prepare named as shown (`from`), when it is the same slot there:
       what was chosen for it and its variants move over by this, not by the id. */
   was?: string
@@ -173,6 +182,8 @@ export interface ChoiceState {
   add?: string[]
   /** The image a single pin came from: its media id. Never sent. */
   from?: number
+  /** How the user chose the slot to vary (Vary or Flesh out), over the reader's reading. */
+  mode?: SlotMode
 }
 
 /** "Any" is sent as no entry: the server reads `{any: true}` and nothing chosen the same. */

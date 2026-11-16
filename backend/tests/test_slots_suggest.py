@@ -72,11 +72,20 @@ class TestVary:
         got = await sg.suggest("# a note\nred bicycle by a tree", Fake(reply("red bicycle by a tree", "bicycle", "red bicycle", "tree")))
         assert [v["text"] for v in got["vary"]] == ["bicycle", "tree"]
 
-    async def test_at_most_two_and_a_bare_string_or_bad_label_is_kept_as_its_words(self):
-        prompt = "a fox, a hare, an owl"
-        got = await sg.suggest(prompt, Fake({"vary": ["fox", {"phrase": "hare", "label": "<hares>"}, "owl"]}))
-        assert [(v["text"], v["label"]) for v in got["vary"]] == [("fox", "fox"), ("hare", "hare")]
-        assert sg.MAX_VARY == 2
+    async def test_at_most_three_and_a_bare_string_or_bad_label_is_kept_as_its_words(self):
+        prompt = "a fox, a hare, an owl, a stoat"
+        got = await sg.suggest(prompt, Fake({"vary": ["fox", {"phrase": "hare", "label": "<hares>"}, "owl", "stoat"]}))
+        assert [(v["text"], v["label"]) for v in got["vary"]] == [("fox", "fox"), ("hare", "hare"), ("owl", "owl")]
+        assert sg.MAX_VARY == 3
+
+    async def test_each_phrase_says_whether_it_is_varied_or_fleshed_out(self):
+        prompt = "a farmer at the Eiffel Tower with a dog"
+        got = await sg.suggest(prompt, Fake({"vary": [
+            {"phrase": "farmer", "how": "vary", "label": "different farmers"},
+            {"phrase": "Eiffel Tower", "how": "one", "label": "more of the Eiffel Tower"},
+            {"phrase": "dog", "how": "something else"}]}))
+        assert [(v["text"], v["mode"]) for v in got["vary"]] == [("farmer", "kind"), ("Eiffel Tower", "one"), ("dog", "kind")]
+        assert '"one"' in sg.SUGGEST_SYSTEM and '"how"' in sg.SUGGEST_SYSTEM
 
 
 # --------------------------------------------------------------------------- looks and adds
@@ -192,7 +201,7 @@ class TestRoutes:
         async with client as c:
             r = await c.post("/api/prompt-programs/suggest", json={"prompt": FARMER, "project_id": 3})
             assert r.status_code == 200
-            assert r.json() == {"vary": [{"from": 2, "to": 8, "text": "farmer", "label": "different farmer"}],
+            assert r.json() == {"vary": [{"from": 2, "to": 8, "text": "farmer", "label": "different farmer", "mode": "kind"}],
                                 "looks": [{"text": LOOKS[0], "label": "candid documentary photo"}],
                                 "adds": [{"text": "carrying a bamboo basket", "label": "basket"}]}
             again = await c.post("/api/prompt-programs/suggest", json={"prompt": FARMER})

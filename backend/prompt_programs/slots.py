@@ -250,6 +250,8 @@ def compose(parsed: Parsed, readings: Dict[int, Dict[str, Any]], labels: Optiona
                     category=str(r.get("category") or ""))
         if r.get("names") == "one":
             info["one"] = True   # one specific thing: shown in different ways, never swapped for another
+        if r.get("mode"):
+            info["mode"] = r["mode"]   # the user chose how it varies: its pool is its own
         stated = ((r.get(r["kind"]) or {}) if isinstance(r.get(r["kind"]), dict) else {}).get("stated")
         if stated:
             info["stated"] = dict(stated)
@@ -293,6 +295,8 @@ class _Prompt:
     # The prepared prompt the editor shows now (its key), whose readings stand for this prompt's
     # parts until they are checked or read.
     shown: Optional[str] = None
+    # slot number -> how the user chose it to vary ("one": flesh it out; "kind": vary it)
+    modes: Dict[int, str] = field(default_factory=dict)
 
     @property
     def root(self) -> str:
@@ -310,23 +314,41 @@ class _Prompt:
         for seg in self.parsed.segments:
             if seg.kind == "slot":
                 s += 1
-                out.append(("slot", s, part_key(self.parsed, seg, self.model, version)))
+                out.append(("slot", s, part_key(self.parsed, seg, self.model, version, self.modes.get(s))))
             elif seg.kind == "list":
                 l += 1
                 out.append(("list", l, part_key(self.parsed, seg, self.model, version)))
         return out
 
 
-def _key(model: Optional[str], masked: str, exact: Dict[str, str]) -> str:
+def _key(model: Optional[str], masked: str, exact: Dict[str, str], modes: Optional[Dict[int, str]] = None) -> str:
     from prompt_programs.reader import READER_VERSION
     from prompt_programs.store import program_key
     from prompt_programs.vocab import vocabulary
-    return program_key({"v": SLOTS_VERSION, "reader": READER_VERSION, "model": model, "vocab": vocabulary().version,
-                        "prompt": masked, "exact": exact})
+    parts: Dict[str, Any] = {"v": SLOTS_VERSION, "reader": READER_VERSION, "model": model, "vocab": vocabulary().version,
+                             "prompt": masked, "exact": exact}
+    if modes:
+        parts["modes"] = {str(n): m for n, m in sorted(modes.items())}
+    return program_key(parts)
+
+
+def _entry_modes(entry: Dict[str, Any]) -> Dict[int, str]:
+    """The slot modes an entry was prepared with (stored as {"n": mode})."""
+    return {int(n): str(m) for n, m in (entry.get("modes") or {}).items() if str(n).isdigit()}
+
+
+def slot_modes(parsed: Parsed, modes: Optional[Dict[str, str]]) -> Dict[int, str]:
+    """{slot id: "one" | "kind"} (the user's choice of how a slot varies) as slot number -> mode,
+    for the slots this prompt has."""
+    from prompt_programs.reader import MODES
+    if not modes:
+        return {}
+    ids = slot_ids(parsed)
+    return {n: str(modes[sid]) for n, sid in enumerate(ids, 1) if str(modes.get(sid) or "") in MODES}
 
 
 async def _read_prompt(prompt: str, profile_id: Optional[str], project_id: Optional[int],
-                       shown: Optional[str] = None) -> Optional[_Prompt]:
+                       shown: Optional[str] = None, modes: Optional[Dict[str, str]] = None) -> Optional[_Prompt]:
     """The prompt as parsed for reading, or None when nothing in it varies."""
     from prompt_pipeline import _profile_wildcards_and_segments
     from prompt_programs import program as prep
@@ -341,8 +363,9 @@ async def _read_prompt(prompt: str, profile_id: Optional[str], project_id: Optio
     if not parsed.varies():
         return None
     model = await prep.model_fingerprint(project_id)
-    return _Prompt(prompt, parsed, masked, exact, _key(model, masked, exact), model, prep.store_for(profile_id),
-                   profile_id, project_id, shown)
+    by_n = slot_modes(parsed, modes)
+    return _Prompt(prompt, parsed, masked, exact, _key(model, masked, exact, by_n), model, prep.store_for(profile_id),
+                   profile_id, project_id, shown, by_n)
 
 
 _WORD = re.compile(r"\w+|\s+|[^\w\s]")
@@ -447,7 +470,7 @@ def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
             prev = p.store.get(key)
             # the same reader, model and vocabulary: its key is this prompt's key for its own text
             if not prev or prev.get("key") != key or _key(p.model, str(prev.get("prompt") or ""),
-                                                          prev.get("exact") or {}) != key:
+                                                          prev.get("exact") or {}, _entry_modes(prev)) != key:
                 continue
             parsed = parse(str(prev["prompt"]))
             got = prev.get("readings") or {}
@@ -468,6 +491,8 @@ def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
                 r = readings.get(was)
                 if not isinstance(r, dict) or r.get("degraded"):
                     continue
+                if not _mode_holds(r, p.modes.get(new[j][1])):
+                    continue   # read for another way of varying it: read again in this one
                 r = _worn_moved(r, old, new, matched)
                 if r is None:
                     continue   # what they wore is gone: read again, never carried
@@ -480,6 +505,15 @@ def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
                 out[now] = {"label": str(x["label"]),
                             "seen": x["seen"] if isinstance(x.get("seen"), dict) else seen_in(parsed, seg)}
     return out
+
+
+def _mode_holds(reading: Dict[str, Any], mode: Optional[str]) -> bool:
+    """Whether a reading serves a slot the user chose `mode` for (None: the reader's own way):
+    one read in the reader's own way serves a mode it already reads as, never the other way."""
+    from prompt_programs.reader import mode_of
+    if mode is None:
+        return not reading.get("mode")
+    return mode_of(reading) == mode
 
 
 def _fit_lead(reading: Dict[str, Any], before: str) -> Optional[str]:
@@ -499,7 +533,7 @@ async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
     """The prompt's entry from its parse and the readings cached, narrowed with `ask` (None:
     from the cache only, which never calls a model)."""
     from prompt_programs.reader import as_written, cached, leads, seen_in
-    readings, labels = cached(p.parsed, p.model, p.cache())
+    readings, labels = cached(p.parsed, p.model, p.cache(), p.modes)
     from_cache = set(readings)
     segs = {(kind, n): seg for kind, n, seg in _marked(p.parsed)}
     # A part read before an edit keeps its reading until it is checked or read again.
@@ -559,6 +593,8 @@ async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
     for x in entry["lists"]:
         if x["n"] in list_seen:
             x["seen"] = list_seen[x["n"]]
+    if p.modes:
+        entry["modes"] = {str(n): m for n, m in sorted(p.modes.items())}
     entry.update({"key": p.key, "version": SLOTS_VERSION, "exact": p.exact, "typed": p.typed, "model": p.model or "",
                   "readings": {"slots": [readings[n] for n in sorted(readings)],
                                "lists": [{"n": n, "label": labels[n], **({"seen": list_seen[n]} if n in list_seen else {})}
@@ -619,7 +655,8 @@ def _pools(entry: Dict[str, Any], p: _Prompt) -> None:
         record = (entry.get("seeds") or {}).get(s["id"], {})
         seen = s.get("seen") if isinstance(s.get("seen"), dict) else seen_in(p.parsed, segs[s["n"]])
         s["pool"] = pool_key(p.model, s["words"], str(seen.get("marked") or ""), list(seen.get("notes") or []),
-                             young_marks(record), scene=str(seen.get("scene") or ""), place=mark(record.get("place")))
+                             young_marks(record), scene=str(seen.get("scene") or ""), place=mark(record.get("place")),
+                             mode=str(s.get("mode") or ""))
 
 
 def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
@@ -636,6 +673,7 @@ def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
     except Exception:
         return
     earlier: Dict[str, List[Tuple[str, Tuple[str, ...]]]] = {}   # per slot, (pool, its minors), nearest first
+    one_now = {s["id"]: bool(s.get("one")) for s in entry["slots"] if s.get("state") == "ready" and not s.get("degraded")}
     for key in dict.fromkeys(k for k in (p.key, p.shown) if k):
         try:
             prev = p.store.get(key)
@@ -647,7 +685,11 @@ def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
             minors = {sid: young_marks(r) for sid, r in (prev.get("seeds") or {}).items()}
             pools = {s["id"]: [(str(x), minors.get(s["id"], ())) for x in (s.get("pool"), s.get("stand_in")) if x]
                      for s in prev.get("slots") or [] if s["id"] not in (prev.get("seeds_pending") or [])}
+            one_old = {s["id"]: bool(s.get("one")) for s in prev.get("slots") or []}
             for i, j in match_marks(old, p.parsed).items():
+                # Never a pool of the other way of varying it: Flesh out shows no members of a kind.
+                if ids_new[j] in one_now and one_old.get(ids_old[i]) != one_now[ids_new[j]]:
+                    continue
                 earlier.setdefault(ids_new[j], []).extend(pools.get(ids_old[i]) or [])
         except Exception as e:   # nothing to stand in: the words stand meanwhile
             log.debug(f"[slots] no stand-in pools from {key}: {e}")
@@ -672,7 +714,7 @@ def _start(p: _Prompt, force: bool = False) -> None:
     once each lands. Returns at once."""
     import asyncio
     from prompt_programs.reader import cached, leads, seen_in
-    readings, labels = cached(p.parsed, p.model, p.cache()) if not force else ({}, {})
+    readings, labels = cached(p.parsed, p.model, p.cache(), p.modes) if not force else ({}, {})
     earlier = _earlier(p) if not force else {}
     before = leads(p.parsed)
     segs = {(kind, n): seg for kind, n, seg in _marked(p.parsed)}
@@ -790,7 +832,7 @@ async def _read_job(p: _Prompt, kind: str, n: int, key: str) -> None:
     flight = (p.root, key)
     try:
         got = await reader.read_part(p.parsed, kind, n, ask=prep.ask_model, project_id=p.project_id, model=p.model,
-                                     cache=p.cache())
+                                     cache=p.cache(), mode=p.modes.get(n) if kind == "slot" else None)
         if (kind == "slot" and got.get("degraded")) or (kind == "list" and not got):
             _failed[flight] = str(got.get("reason") or "") if kind == "slot" else "no label"
         else:
@@ -841,7 +883,8 @@ def _settle(p: _Prompt) -> None:
 
 
 async def prepare(prompt: str, *, profile_id: Optional[str], project_id: Optional[int] = None,
-                  start: bool = True, force: bool = False, shown: Optional[str] = None) -> Dict[str, Any]:
+                  start: bool = True, force: bool = False, shown: Optional[str] = None,
+                  modes: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """The prompt's entry now: every slot and list from the parse, each `ready` with its reading
     or still `reading`. Never waits on a model. `start` reads what isn't read yet in the
     background (`force`: everything again); `reading` says something is still out, `working`
@@ -850,8 +893,10 @@ async def prepare(prompt: str, *, profile_id: Optional[str], project_id: Optiona
     its reading there while an edit is checked, and only a part new to it is `reading`; `was`
     says which of its parts each of this prompt's is ({"from": shown, "ids": {id: its id there}}),
     so the editor's choices follow the part. A prompt with nothing that varies:
-    {"key": None, "slots": [], "choices": []}."""
-    p = await _read_prompt(prompt, profile_id, project_id, shown)
+    {"key": None, "slots": [], "choices": []}. `modes`: {slot id: "one" | "kind"}, how the user
+    chose a slot to vary (Flesh out or Vary), over the reader's own reading; a prompt prepared with
+    modes is an entry of its own, and each such slot a reading and a pool of its own."""
+    p = await _read_prompt(prompt, profile_id, project_id, shown, modes)
     if p is None:
         return {"key": None, "slots": [], "choices": []}
     entry = await _assemble(p, None)

@@ -10,7 +10,7 @@
  */
 
 import type {
-  AgePicker, ChoicePool, ChoiceSeeds, ChoiceState, DescentPicker, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot, Variant,
+  AgePicker, ChoicePool, ChoiceSeeds, ChoiceState, DescentPicker, PreparedProgram, ProgramChoice, ProgramChoices, ProgramSlot, SlotMode, Variant,
 } from './programWire.ts'
 
 type Person = ChoicePool['person']
@@ -39,7 +39,10 @@ export function cleanState(raw: ChoiceState | null | undefined): ChoiceState | n
   if (!raw) return null
   const { as_written: _old, ...s } = raw as ChoiceState & { as_written?: unknown }
   const add = uniq(s.add)
-  const own = add.length ? { add } : {}
+  const own = {
+    ...(add.length ? { add } : {}),
+    ...(s.mode === 'one' || s.mode === 'kind' ? { mode: s.mode } : {}),
+  }
   if (s.off) return { off: true, ...own }
   const values = uniq(s.values)
   const seeds = cleanSeeds(s.seeds)
@@ -84,12 +87,49 @@ export function isChanged(s: ChoiceState | null | undefined): boolean {
   return !!s && (!!s.off || !!s.values?.length || hasSeeds(s))
 }
 
-/** Back to how the choice starts; the user's own variants stay. */
+/** Back to how the choice starts; the user's own variants, and the way it varies, stay. */
 export function resetState(s: ChoiceState | null | undefined): ChoiceState | null {
-  return s?.add?.length ? { add: s.add } : null
+  const kept = own(s)
+  return Object.keys(kept).length ? kept : null
 }
 
-const own = (s: ChoiceState | null | undefined) => (s?.add?.length ? { add: s.add } : {})
+/** What a choice keeps through any pick: the user's own variants and the way it varies. */
+const own = (s: ChoiceState | null | undefined): ChoiceState => ({
+  ...(s?.add?.length ? { add: s.add } : {}),
+  ...(s?.mode ? { mode: s.mode } : {}),
+})
+
+/** Vary or Flesh out the slot (its pool is written again that way); the picks go with the old
+    pool, the user's own variants stay. */
+export function setMode(s: ChoiceState | null | undefined, mode: SlotMode): ChoiceState | null {
+  return cleanState({ ...(s?.add?.length ? { add: s.add } : {}), mode })
+}
+
+/** How a slot varies now: the user's choice, else the reader's reading. */
+export function modeOf(slot: Pick<ProgramSlot, 'one'> | null | undefined, s: ChoiceState | null | undefined): SlotMode {
+  return s?.mode ?? (slot?.one ? 'one' : 'kind')
+}
+
+/** {slot id: mode} for every choice that has one: what a prepare is read with. */
+export function chosenModes(states: ProgramChoices): Record<string, SlotMode> {
+  const out: Record<string, SlotMode> = {}
+  for (const [id, s] of Object.entries(states)) if (s?.mode === 'one' || s?.mode === 'kind') out[id] = s.mode
+  return out
+}
+
+/** Each slot's id in a prompt as typed, as the server gives them (slots.slot_ids): its words
+    slugged, a repeat `_2`, never a list's id. Only for naming a slot just made. */
+export function slotIdsOf(slotWords: string[], listCount: number): string[] {
+  const used = new Set(Array.from({ length: listCount }, (_, i) => `list${i + 1}`))
+  return slotWords.map(w => {
+    let base = w.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'slot'
+    if (!/^[a-z]/.test(base)) base = `slot_${base}`
+    let id = base
+    for (let k = 2; used.has(id); k++) id = `${base}_${k}`
+    used.add(id)
+    return id
+  })
+}
 const seedsOf = (s: ChoiceState | null | undefined) => (s?.seeds && !s.off ? { seeds: s.seeds } : {})
 
 /** Pin a variant, or un-pin it. Choosing brings a slot left out back. */
