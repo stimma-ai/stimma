@@ -470,7 +470,7 @@ def catalog():
             (
                 "assets_query",
                 workspace.query_binding,
-                "Find and count library assets. Scope to a known project first. Use similar_to_text for visual appearance, caption_query for caption words and prompt_query for generation instructions. Tags, markers and collection sections carry explicit organization or approval; similarity and recency do not imply approval. Preview a shortlist with media_read before choosing inputs.",
+                "Find and count library assets. Scope to a known project first. Use similar_to_text for visual appearance, prompt_query for generation instructions. Tags, markers and collection sections carry explicit organization or approval; similarity and recency do not imply approval. Preview a shortlist with media_read before choosing inputs.",
             ),
             (
                 "lineage_get",

@@ -15,10 +15,8 @@ from database import (
     AssetMarker,
     DeleteOperation,
     Face,
-    Keyword,
     Marker,
     MediaItem,
-    MediaKeyword,
     MediaMarker,
 )
 from sqlalchemy.orm import aliased
@@ -29,11 +27,9 @@ from media_scanner import (
     get_file_extension, path_is_within_resolved_roots,
 )
 from exif_extractor import extract_prompt_from_exif, extract_stimma_metadata
-from vlm_service import VLMService
 from config import get_settings
 from config_version import get_config_version_manager
 from core.logging import get_logger
-from prompts import get_prompt
 from PIL import Image
 from background_work_filters import media_eligible_for_background_work
 
@@ -45,7 +41,7 @@ METADATA_IO_WORKERS = 16
 _io_executor = ThreadPoolExecutor(max_workers=METADATA_IO_WORKERS, thread_name_prefix="file_io")
 
 # Processing phases (metadata must come first - others depend on it)
-PHASES = ['metadata', 'clip', 'face_detection', 'vlm_caption']
+PHASES = ['metadata', 'clip', 'face_detection']
 
 # Retry policy
 MAX_RETRIES = 5
@@ -59,7 +55,7 @@ DISCOVERY_INSERT_BATCH_SIZE = 500
 def is_visual_media(file_path: Path) -> bool:
     """Check if a file is visual media (image or video) that can be AI-processed.
 
-    Non-visual types (audio, text, sets, grids) should skip CLIP, face detection, and VLM captioning.
+    Non-visual types (audio, text, sets, grids) should skip CLIP and face detection.
     """
     ext = get_file_extension(file_path)
     return ext in VISUAL_EXTENSIONS
@@ -71,46 +67,6 @@ def extract_ingestion_metadata(file_path: Path) -> tuple[dict, Optional[str], Op
     raw_metadata, parsed_prompt = extract_prompt_from_exif(file_path)
     stimma_metadata = extract_stimma_metadata(file_path)
     return metadata, raw_metadata, parsed_prompt, stimma_metadata
-
-
-async def save_keywords_to_normalized_tables(session: AsyncSession, media_id: int, keywords_str: str):
-    """
-    Save keywords from comma-separated string to normalized keywords tables.
-
-    Args:
-        session: AsyncSession for database operations
-        media_id: ID of the media item
-        keywords_str: Comma-separated keywords string
-    """
-    if not keywords_str:
-        return
-
-    # Parse and normalize keywords
-    keyword_list = list(set(kw.strip().lower() for kw in keywords_str.split(',') if kw.strip()))
-
-    # Clear existing keywords for this media item
-    from sqlalchemy import delete
-    await session.execute(
-        delete(MediaKeyword).where(MediaKeyword.media_id == media_id)
-    )
-
-    for keyword_text in keyword_list:
-        # Get or create keyword
-        result = await session.execute(
-            select(Keyword).where(Keyword.keyword_text == keyword_text)
-        )
-        keyword = result.scalar_one_or_none()
-
-        if not keyword:
-            # Create new keyword
-            keyword = Keyword(keyword_text=keyword_text)
-            session.add(keyword)
-            await session.flush()  # Get the ID
-
-        # Create media_keyword relationship
-        media_keyword = MediaKeyword(media_id=media_id, keyword_id=keyword.id)
-        session.add(media_keyword)
-
 
 async def sync_auto_markers_for_items(
     session: AsyncSession,
@@ -233,7 +189,6 @@ class IngestionProgress:
             'metadata': {'pending': 0, 'processing': 0, 'completed': 0, 'failed': 0},
             'clip': {'pending': 0, 'processing': 0, 'completed': 0, 'failed': 0},
             'face_detection': {'pending': 0, 'processing': 0, 'completed': 0, 'failed': 0},
-            'vlm_caption': {'pending': 0, 'processing': 0, 'completed': 0, 'failed': 0},
         }
         self.current_operation = "Idle"
         self.current_file = ""
@@ -329,12 +284,6 @@ class MediaIngestion:
             auto_load=False  # Load on first use
         )
 
-        # VLM service is initialized lazily in init_async() to support Stimma Cloud
-        # which requires async token resolution
-        self.caption_service = None
-        self._vlm_analysis_prompt = get_prompt("visual_analysis")
-        self._vlm_parallelism = self.settings.captioning.parallelism
-
         self.progress = IngestionProgress()
         self.is_running = False
         self.is_paused = False  # Pause flag for background processing
@@ -353,7 +302,6 @@ class MediaIngestion:
             'metadata': set(),
             'clip': set(),
             'face_detection': set(),
-            'vlm_caption': set(),
         }
 
         # Slot limits per phase
@@ -361,11 +309,10 @@ class MediaIngestion:
             'metadata': 16,                                     # Increased for parallel I/O
             'clip': 4,                                          # ThreadPool workers
             'face_detection': self.settings.face_detection.parallelism,  # GPU workers
-            'vlm_caption': self.settings.captioning.parallelism,
         }
 
         # Semaphore to limit concurrent SQLite writes (SQLite only allows one writer at a time)
-        # This prevents blocking when many VLM tasks try to update status simultaneously
+        # This prevents blocking when many background tasks try to update status simultaneously
         self._db_write_semaphore = asyncio.Semaphore(10)
 
         # Timeout for stale 'processing' items (minutes)
@@ -375,55 +322,18 @@ class MediaIngestion:
         # When set: processing is paused. When cleared: processing runs.
         self._pause_event = None
 
-        log.info("INGESTION INIT: MediaIngestion coordinator ready (VLM pending async init)")
+        log.info("INGESTION INIT: MediaIngestion coordinator ready")
 
     async def init_async(self):
-        """Initialize async components like VLM service that require token resolution.
-
-        This must be called before using the caption_service.
-        """
-        await self._init_caption_service()
-
+        """Repair inconsistent statuses from older versions."""
         # Fix any inconsistent non-visual items from before defensive guards were added
         await self._fix_non_visual_statuses()
-
-    async def _init_caption_service(self):
-        """Initialize or disable the caption service based on current settings."""
-        if not self.settings.captioning.enabled:
-            log.info("INGESTION INIT: Captioning disabled; skipping visual analysis service init")
-            if self.caption_service is not None:
-                await self.caption_service.close()
-            self.caption_service = None
-            return
-
-        from llm_resolver import LLMUnavailableError, get_effective_llm_config
-
-        if self.caption_service is not None:
-            await self.caption_service.close()
-            self.caption_service = None
-
-        log.info("INGESTION INIT: Resolving LLM config for captioning...")
-        try:
-            llm_config = await get_effective_llm_config('quick_task')
-            log.info(f"INGESTION INIT: Captioning config resolved: model={llm_config.get_model()}, base={llm_config.get_api_base()}")
-
-            self.caption_service = VLMService(
-                config=llm_config,
-                analysis_prompt=self._vlm_analysis_prompt,
-                max_parallelism=self._vlm_parallelism
-            )
-            log.info("INGESTION INIT: Visual analysis service initialized ✓")
-        except (ValueError, LLMUnavailableError) as e:
-            # No LLM config available (e.g. not logged in to Stimma Cloud and no local endpoint)
-            # Captioning will be unavailable until config is reloaded after login
-            log.warning(f"INGESTION INIT: No LLM config available - captioning disabled until cloud connection or endpoint configured ({e})")
-            self.caption_service = None
 
     async def _fix_non_visual_statuses(self):
         """Fix items where some AI phases are 'skipped' but others are still 'pending'.
 
         This handles items that were created before the defensive guards were added,
-        where clip_status='skipped' but vlm_caption_status or face_detection_status
+        where clip_status='skipped' but face_detection_status
         are still 'pending'.
         """
         for profile in self.settings.profiles:
@@ -438,21 +348,8 @@ class MediaIngestion:
                     select(MediaItem).where(
                         and_(
                             MediaItem.deleted_at.is_(None),
-                            or_(
-                                # clip_status is 'skipped' but others are 'pending'
-                                and_(
-                                    MediaItem.clip_status == 'skipped',
-                                    or_(
-                                        MediaItem.face_detection_status == 'pending',
-                                        MediaItem.vlm_caption_status == 'pending'
-                                    )
-                                ),
-                                # face_detection_status is 'skipped' but vlm_caption is 'pending'
-                                and_(
-                                    MediaItem.face_detection_status == 'skipped',
-                                    MediaItem.vlm_caption_status == 'pending'
-                                )
-                            )
+                            MediaItem.clip_status == 'skipped',
+                            MediaItem.face_detection_status == 'pending',
                         )
                     )
                 )
@@ -462,10 +359,9 @@ class MediaIngestion:
                     log.info(f"INGESTION INIT: Fixing {len(items)} non-visual items with inconsistent statuses in profile {profile.id}")
                     for item in items:
                         # If any AI status is 'skipped', set all AI statuses to 'skipped'
-                        if item.clip_status == 'skipped' or item.face_detection_status == 'skipped' or item.vlm_caption_status == 'skipped':
+                        if item.clip_status == 'skipped' or item.face_detection_status == 'skipped':
                             item.clip_status = 'skipped'
                             item.face_detection_status = 'skipped'
-                            item.vlm_caption_status = 'skipped'
                     await session.commit()
                     log.info(f"INGESTION INIT: Fixed {len(items)} non-visual items in profile {profile.id}")
 
@@ -510,7 +406,7 @@ class MediaIngestion:
     def _on_task_complete(self, phase: str):
         """Return a callback that removes task from active workers and signals work available.
 
-        This is critical for dependent phases - when CLIP completes, VLM caption
+        This is critical for dependent phases - when CLIP completes, face detection
         can now process those items. Without this signal, the main loop would sleep
         and never check for newly-eligible work.
         """
@@ -751,7 +647,6 @@ class MediaIngestion:
 
         # Update settings reference
         self.settings = new_settings
-        await self._init_caption_service()
 
         # A config reload runs in a monitor task while the main ingestion loop
         # may be sleeping for up to five minutes. Adding a Source must wake that
@@ -1228,18 +1123,17 @@ class MediaIngestion:
             self._process_metadata(), return_exceptions=True
         )
         if await self._has_pending_metadata():
-            results = [metadata_result[0], 0, 0, 0]
+            results = [metadata_result[0], 0, 0]
         else:
             analysis_results = await asyncio.gather(
                 self._process_clip(),
                 self._process_face_detection(),
-                self._process_vlm_captions(),
                 return_exceptions=True,
             )
             results = [metadata_result[0], *analysis_results]
 
         # Count total processed and log any exceptions
-        phase_names = ['metadata', 'clip', 'face_detection', 'vlm_caption']
+        phase_names = ['metadata', 'clip', 'face_detection']
         total_processed = 0
         phase_results = []
         for i, result in enumerate(results):
@@ -1390,7 +1284,7 @@ class MediaIngestion:
             for task in tasks:
                 self.active_workers['metadata'].discard(task)
 
-            # Signal work available for dependent phases (CLIP, Face, VLM)
+            # Signal work available for dependent phases (CLIP and face detection)
             # These phases depend on metadata being complete, so they may now have work
             self._work_available.set()
 
@@ -1505,7 +1399,7 @@ class MediaIngestion:
         item.megapixels = metadata['megapixels']
         item.duration = metadata.get('duration')
         if dims_changed:
-            for phase_attr in ('clip_status', 'face_detection_status', 'vlm_caption_status'):
+            for phase_attr in ('clip_status', 'face_detection_status'):
                 if getattr(item, phase_attr) in ('completed', 'failed'):
                     setattr(item, phase_attr, 'pending')
             log.info(f"METADATA: Dimensions changed for {file_path}, reset visual AI phases")
@@ -1539,7 +1433,6 @@ class MediaIngestion:
         if is_non_visual:
             item.clip_status = 'skipped'
             item.face_detection_status = 'skipped'
-            item.vlm_caption_status = 'skipped'
             if metadata.get('raw_metadata'):
                 item.raw_metadata = metadata['raw_metadata']
 
@@ -1559,7 +1452,6 @@ class MediaIngestion:
         item.metadata_error = str(error)
         item.metadata_retry_count += 1
         item.clip_status = 'failed'
-        item.vlm_caption_status = 'failed'
 
     async def _extract_metadata_for_item(self, profile_id: str, item_id: int, file_path_str: str):
         """Compatibility wrapper for callers processing a single item."""
@@ -1671,7 +1563,6 @@ class MediaIngestion:
                 if not is_visual_media(file_path_obj):
                     item.clip_status = 'skipped'
                     item.face_detection_status = 'skipped'
-                    item.vlm_caption_status = 'skipped'
                     await session.commit()
                     log.debug(f"CLIP: Skipping non-visual media (all AI phases): {file_path}")
                     return
@@ -1915,201 +1806,6 @@ class MediaIngestion:
                     item.face_detection_processed_at = datetime.utcnow()
                     await session.commit()
 
-
-    async def _process_vlm_captions(self):
-        """Process VLM captions using slot-based concurrency across all profiles."""
-        # Check if captioning is enabled and VLM service is available
-        if not self.settings.captioning.enabled or self.caption_service is None:
-            return 0
-
-        # Calculate available slots
-        available_slots = self.slots['vlm_caption'] - len(self.active_workers['vlm_caption'])
-        if available_slots <= 0:
-            return 0
-
-        # Select work (newest first)
-        current_version = self.config_mgr.get_version('vlm_caption')
-        total_processed = 0
-
-        for profile in self.settings.profiles:
-            if available_slots <= 0:
-                break
-
-            db = await self._get_profile_db(profile.id)
-            async with db.async_session_maker() as session:
-                result = await session.execute(
-                    select(MediaItem).where(
-                        and_(
-                            MediaItem.metadata_status == 'completed',  # Dependency: need metadata first
-                            MediaItem.clip_status == 'completed',  # Dependency
-                            media_eligible_for_background_work(),
-                            MediaItem.ephemeral_run_id.is_(None),  # Skip ephemeral one-shot-run media
-                            or_(
-                                # Process pending items regardless of version
-                                MediaItem.vlm_caption_status == 'pending',
-                                # Reprocess completed items if config changed
-                                and_(
-                                    MediaItem.vlm_caption_status == 'completed',
-                                    or_(
-                                        MediaItem.vlm_caption_config_version != current_version,
-                                        MediaItem.vlm_caption_config_version == None
-                                    )
-                                )
-                            ),
-                            MediaItem.vlm_caption_status != 'processing'  # Exclude in-flight
-                        )
-                    ).order_by(MediaItem.indexed_date.desc()).limit(available_slots)
-                )
-                items = result.scalars().all()
-
-            if not items:
-                continue
-
-            # Spawn workers for each item
-            for item in items:
-                task = asyncio.create_task(self._process_one_vlm_caption(profile.id, item.id))
-                self.active_workers['vlm_caption'].add(task)
-                # Signal work available when task completes (for dependent phases)
-                task.add_done_callback(self._on_task_complete('vlm_caption'))
-            # Yield to let tasks start running
-            await asyncio.sleep(0)
-
-            available_slots -= len(items)
-            total_processed += len(items)
-
-        return total_processed
-
-    async def _process_one_vlm_caption(self, profile_id: str, item_id: int):
-        """Process visual analysis (caption + keywords) for a single item."""
-        try:
-            db = await self._get_profile_db(profile_id)
-        except ValueError:
-            # Profile was removed while task was queued - expected during config reload
-            log.debug(f"VLM: Skipping item {item_id}, profile '{profile_id}' was removed")
-            return
-        current_version = self.config_mgr.get_version('vlm_caption')
-        file_path = None
-
-        try:
-            # Mark as processing (use semaphore to limit concurrent DB writes)
-            async with self._db_write_semaphore:
-                async with db.async_session_maker() as session:
-                    result = await session.execute(select(MediaItem).where(MediaItem.id == item_id))
-                    item = result.scalar_one_or_none()
-                    if not item or item.vlm_caption_status == 'processing':
-                        return  # Already being processed or deleted
-
-                    file_path = item.file_path
-                    file_path_obj = Path(file_path)
-
-                    # Defensive check: skip non-visual media types (audio, text, sets, grids)
-                    # These should already be marked 'skipped' by metadata processing, but check anyway
-                    if not is_visual_media(file_path_obj):
-                        item.vlm_caption_status = 'skipped'
-                        await session.commit()
-                        log.debug(f"VLM: Skipping non-visual media: {file_path}")
-                        return
-
-                    item.vlm_caption_status = 'processing'
-                    item.vlm_caption_processed_at = datetime.utcnow()
-                    await session.commit()
-
-            # Process (outside session)
-
-            # Check file exists before processing - mark unavailable if missing
-            if not file_path_obj.exists():
-                async with self._db_write_semaphore:
-                    async with db.async_session_maker() as session:
-                        result = await session.execute(select(MediaItem).where(MediaItem.id == item_id))
-                        item = result.scalar_one_or_none()
-                        if item:
-                            item.file_unavailable = True
-                            item.file_unavailable_since = datetime.utcnow()
-                            item.vlm_caption_status = 'pending'  # Reset so it can be retried if file returns
-                            await session.commit()
-                            log.warning(f"VISUAL ANALYSIS: File missing, marked unavailable: {file_path}")
-                return
-
-            # For videos, extract first frame for analysis
-            video_frame = None
-            if file_path_obj.suffix.lower() in VIDEO_EXTENSIONS:
-                image = await self._extract_video_frame(file_path_obj)
-                video_frame = image  # Track for cleanup
-            else:
-                image = file_path_obj
-
-            try:
-                # Visual analysis returns caption + keywords in one call
-                caption, keywords, error = await self.caption_service.analyze_image(image)
-            finally:
-                # Close video frame if we extracted one
-                if video_frame is not None:
-                    video_frame.close()
-
-            # Update result (use semaphore to limit concurrent DB writes)
-            async with self._db_write_semaphore:
-                async with db.async_session_maker() as session:
-                    result = await session.execute(select(MediaItem).where(MediaItem.id == item_id))
-                    item = result.scalar_one_or_none()
-                    if item:
-                        if caption:
-                            item.vlm_caption = caption
-                            # Store keywords as comma-separated string
-                            if keywords:
-                                keywords_str = ', '.join(keywords)
-                                item.keywords = keywords_str
-                                # Save to normalized keywords tables
-                                await save_keywords_to_normalized_tables(session, item_id, keywords_str)
-                            item.vlm_caption_status = 'completed'
-                            item.vlm_caption_config_version = current_version
-                            item.vlm_caption_processed_at = datetime.utcnow()
-                            item.vlm_caption_error = None
-                            await session.commit()
-                            kw_count = len(keywords) if keywords else 0
-                            log.debug(f"VISUAL ANALYSIS: ✓ {file_path} ({kw_count} keywords)")
-                        else:
-                            # Check if error indicates file not found - mark unavailable instead of failed
-                            if error and "FileNotFoundError" in error:
-                                item.file_unavailable = True
-                                item.file_unavailable_since = datetime.utcnow()
-                                item.vlm_caption_status = 'pending'  # Reset for retry if file returns
-                                await session.commit()
-                                log.warning(f"VISUAL ANALYSIS: File missing, marked unavailable: {file_path}")
-                            else:
-                                item.vlm_caption_status = 'failed'
-                                item.vlm_caption_retry_count += 1
-                                item.vlm_caption_error = error or "Unknown error"
-                                item.vlm_caption_processed_at = datetime.utcnow()
-                                await session.commit()
-                                # Note: vlm_service already logged the error, no need to log again
-
-        except FileNotFoundError:
-            # File was deleted between query and processing - mark unavailable
-            async with self._db_write_semaphore:
-                async with db.async_session_maker() as session:
-                    result = await session.execute(select(MediaItem).where(MediaItem.id == item_id))
-                    item = result.scalar_one_or_none()
-                    if item:
-                        item.file_unavailable = True
-                        item.file_unavailable_since = datetime.utcnow()
-                        item.vlm_caption_status = 'pending'  # Reset for retry if file returns
-                        await session.commit()
-                        log.warning(f"VISUAL ANALYSIS: File missing, marked unavailable: {file_path}")
-
-        except Exception as e:
-            # vlm_service logs its own errors, this catches other exceptions (video extraction, etc.)
-            log.error(f"VISUAL ANALYSIS: ✗ {file_path}: {e}")
-            async with self._db_write_semaphore:
-                async with db.async_session_maker() as session:
-                    result = await session.execute(select(MediaItem).where(MediaItem.id == item_id))
-                    item = result.scalar_one_or_none()
-                    if item:
-                        item.vlm_caption_status = 'failed'
-                        item.vlm_caption_error = str(e)
-                        item.vlm_caption_retry_count += 1
-                        item.vlm_caption_processed_at = datetime.utcnow()
-                        await session.commit()
-
     async def _extract_video_frame(self, video_path: Path) -> Image.Image:
         """Extract first frame from video."""
         import ffmpeg
@@ -2172,15 +1868,6 @@ class MediaIngestion:
     async def cleanup(self):
         """Clean up all resources (HTTP sessions, thread pools, etc.)."""
         log.info("INGESTION CLEANUP: Starting resource cleanup...")
-
-        try:
-            # Close HTTP sessions
-            log.info("INGESTION CLEANUP: Closing HTTP sessions...")
-            if self.caption_service is not None:
-                await self.caption_service.close()
-            log.info("INGESTION CLEANUP: HTTP sessions closed ✓")
-        except Exception as e:
-            log.error(f"INGESTION CLEANUP: Error closing HTTP sessions: {e}", exc_info=True)
 
         try:
             # Shutdown thread pool executor
@@ -2249,7 +1936,7 @@ async def run_continuous_ingestion(rescan_event=None, process_pending_event=None
     log.info("INGESTION WORKER: Databases initialized")
 
     ingestion = MediaIngestion()
-    await ingestion.init_async()  # Initialize async components (VLM with Stimma Cloud support)
+    await ingestion.init_async()
 
     # Handle SIGTERM for graceful subprocess shutdown
     def shutdown_handler(sig, frame):

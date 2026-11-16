@@ -238,7 +238,7 @@ export function useGenerationJobs(options = {}) {
         const setData = mediaData.value[group.output_set_id]
         if (setData) {
           group.output_set_data = setData
-          // Extract title from raw_metadata or vlm_caption
+          // Extract title from raw_metadata
           if (setData.raw_metadata) {
             try {
               const parsed = typeof setData.raw_metadata === 'string'

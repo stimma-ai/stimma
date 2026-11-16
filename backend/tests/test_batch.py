@@ -26,9 +26,9 @@ class TestBatchJobSubmission:
         """Test submitting a batch job with a set input."""
         async with generation_db_session() as session:
             # Create test media items
-            media1 = await create_media_item(session, file_format='png', vlm_caption='Image 1')
-            media2 = await create_media_item(session, file_format='png', vlm_caption='Image 2')
-            media3 = await create_media_item(session, file_format='png', vlm_caption='Image 3')
+            media1 = await create_media_item(session, file_format='png', extracted_prompt='Image 1')
+            media2 = await create_media_item(session, file_format='png', extracted_prompt='Image 2')
+            media3 = await create_media_item(session, file_format='png', extracted_prompt='Image 3')
 
             # Create a set containing these items
             set_data = {
@@ -88,8 +88,8 @@ class TestBatchJobSubmission:
     ):
         """A child whose prompt fails is a failed job of the batch; the others are queued."""
         async with generation_db_session() as session:
-            media1 = await create_media_item(session, file_format='png', vlm_caption='Image 1')
-            media2 = await create_media_item(session, file_format='png', vlm_caption='Image 2')
+            media1 = await create_media_item(session, file_format='png', extracted_prompt='Image 1')
+            media2 = await create_media_item(session, file_format='png', extracted_prompt='Image 2')
             set_data = {
                 "version": 1,
                 "title": "Test Set",
@@ -281,7 +281,6 @@ class TestBatchCompletionHandling:
                 assert output_set is not None
                 assert output_set.id > 0
                 assert output_set.file_format == 'stimmaset.json'
-                assert "1 item" in output_set.vlm_caption
 
             # Verify set file was created
             assert os.path.exists(output_set.file_path)
@@ -329,7 +328,6 @@ class TestBatchCompletionHandling:
 
                 # Verify update
                 assert updated_set.id == output_set_id
-                assert "2 items" in updated_set.vlm_caption
 
             # Read and verify set content
             with open(updated_set.file_path, 'r') as f:

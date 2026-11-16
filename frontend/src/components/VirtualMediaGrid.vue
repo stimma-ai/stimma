@@ -65,7 +65,7 @@
                 <div class="h-full w-full" :style="coverTransform(rowItem)">
                 <AppImage
                   :src="editorLivePreview(assetIdOf(rowItem)) || getThumbnailUrl(rowItem.file_hash, GRID_THUMBNAIL_SIZE)"
-                  :alt="rowItem.vlm_caption || 'Media item'"
+                  :alt="rowItem.original_filename || 'Media item'"
                   :contain="rowItem.file_format === 'stimmalayout' || rowItem.file_format === 'svg'"
                   :has-alpha="rowItem.has_alpha"
                   loading="eager"

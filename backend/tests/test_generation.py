@@ -1072,21 +1072,20 @@ class TestConfigFromMedia:
         assert data["prompt"] == "config extraction test"
         assert data["input_media_id"] == media_id
 
-    async def test_caption_only_media_sets_disable_all_loras(
+    async def test_prompt_only_media_sets_disable_all_loras(
         self,
         generation_client: httpx.AsyncClient,
         generation_db_session,
     ):
-        """Caption-only media should return disable_all_loras=True."""
+        """Prompt-only media should return disable_all_loras=True."""
         from tests.helpers import create_media_item
 
-        # Create a media item with only vlm_caption (no generation_metadata)
+        # Create a media item with only an extracted prompt (no generation_metadata)
         async with generation_db_session() as session:
             media = await create_media_item(
                 session,
-                vlm_caption="A beautiful sunset over mountains",
-                vlm_caption_status="complete",
-                # No generation_metadata - simulates imported image with caption
+                extracted_prompt="A beautiful sunset over mountains",
+                # No generation_metadata - simulates imported image with a prompt
             )
 
         # Extract config

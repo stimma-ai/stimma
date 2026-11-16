@@ -2921,7 +2921,6 @@ class GenerationQueue:
             if ephemeral_run_id:
                 media_item.ephemeral_run_id = ephemeral_run_id
                 media_item.clip_status = 'skipped'
-                media_item.vlm_caption_status = 'skipped'
                 media_item.face_detection_status = 'skipped'
             # Flush to ensure changes are written
             await session.flush()
@@ -2957,7 +2956,6 @@ class GenerationQueue:
                 # One-shot flow-as-tool: born ephemeral, un-ingested, hard-deleted at run end.
                 ephemeral_run_id=ephemeral_run_id,
                 clip_status='skipped' if ephemeral_run_id else 'pending',
-                vlm_caption_status='skipped' if ephemeral_run_id else 'pending',
                 face_detection_status='skipped' if ephemeral_run_id else 'pending',
             )
 

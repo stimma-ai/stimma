@@ -29,7 +29,7 @@ async function load(reset = false) {
     const result = await fetchAssets({
       page: page.value + 1,
       page_size: 60,
-      caption_query: query.value || undefined,
+      prompt_query: query.value || undefined,
       project_id: sheetProjectId.value ?? undefined,
     })
     if (token !== request || !props.show) return

@@ -217,7 +217,6 @@ async def _save_to_library(
         metadata_processed_at=datetime.utcnow(),
         clip_status="skipped",
         face_detection_status="skipped",
-        vlm_caption_status="skipped",
         created_date=datetime.utcnow(),
         modified_date=datetime.utcnow(),
         indexed_date=datetime.utcnow(),

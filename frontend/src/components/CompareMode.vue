@@ -16,7 +16,6 @@
         @permanent-delete="handleAction('permanent-delete', leftItem)"
         v-on="hostHandlesActions ? { download: () => handleAction('download', leftItem) } : {}"
         @filter-by-tag="(tagId) => handleAction('filter-by-tag', leftItem, tagId)"
-        @filter-by-keyword="(keyword) => handleAction('filter-by-keyword', leftItem, keyword)"
         @navigate-to-collection="(collectionId) => handleAction('navigate-to-collection', leftItem, collectionId)"
         @navigate-to-source-media="(mediaId) => handleAction('navigate-to-source-media', leftItem, mediaId)"
         @compare-with-source="(sourceId) => handleAction('compare-with-source', leftItem, sourceId)"
@@ -64,7 +63,7 @@
             <div class="absolute inset-0 flex items-center justify-center bg-black">
               <img
                 :src="rightImageUrl"
-                :alt="rightItem?.vlm_caption || 'Right image'"
+                :alt="rightItem?.original_filename || 'Right image'"
                 class="w-full h-full object-contain"
                 style="image-orientation: from-image"
                 draggable="false"
@@ -79,7 +78,7 @@
             >
               <img
                 :src="leftImageUrl"
-                :alt="leftItem?.vlm_caption || 'Left image'"
+                :alt="leftItem?.original_filename || 'Left image'"
                 class="w-full h-full object-contain"
                 style="image-orientation: from-image"
                 draggable="false"
@@ -159,7 +158,6 @@
         @permanent-delete="handleAction('permanent-delete', rightItem)"
         v-on="hostHandlesActions ? { download: () => handleAction('download', rightItem) } : {}"
         @filter-by-tag="(tagId) => handleAction('filter-by-tag', rightItem, tagId)"
-        @filter-by-keyword="(keyword) => handleAction('filter-by-keyword', rightItem, keyword)"
         @navigate-to-collection="(collectionId) => handleAction('navigate-to-collection', rightItem, collectionId)"
         @navigate-to-source-media="(mediaId) => handleAction('navigate-to-source-media', rightItem, mediaId)"
         @compare-with-source="(sourceId) => handleAction('compare-with-source', rightItem, sourceId)"
@@ -178,7 +176,6 @@
         @permanent-delete="handleAction('permanent-delete', infoItem)"
         v-on="hostHandlesActions ? { download: () => handleAction('download', infoItem) } : {}"
         @filter-by-tag="(tagId) => handleAction('filter-by-tag', infoItem, tagId)"
-        @filter-by-keyword="(keyword) => handleAction('filter-by-keyword', infoItem, keyword)"
         @navigate-to-collection="(collectionId) => handleAction('navigate-to-collection', infoItem, collectionId)"
         @navigate-to-source-media="(mediaId) => handleAction('navigate-to-source-media', infoItem, mediaId)"
         @compare-with-source="(sourceId) => handleAction('compare-with-source', infoItem, sourceId)"

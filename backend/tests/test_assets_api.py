@@ -30,10 +30,8 @@ from database import (
     CachedProviderTool,
     DeleteOperation,
     DeleteOperationItem,
-    Keyword,
     Marker,
     MediaItem,
-    MediaKeyword,
     MediaMarker,
     MediaTag,
     MediaThumbnailCache,
@@ -57,7 +55,7 @@ async def test_asset_browse_ids_preserve_seeded_random_order(client, db_session)
         for index, random_value in enumerate(random_values):
             media = await create_media_item(
                 session,
-                vlm_caption=caption,
+                extracted_prompt=caption,
                 created_date=datetime(2025, 1, 1) + timedelta(days=index),
             )
             await create_asset_from_media(session, media_id=media.id)
@@ -65,7 +63,7 @@ async def test_asset_browse_ids_preserve_seeded_random_order(client, db_session)
         await session.commit()
 
     params = {
-        "caption_query": caption,
+        "prompt_query": caption,
         "sort_by": "random",
         "random_seed": 1,
     }
@@ -1145,10 +1143,8 @@ async def test_asset_facets_count_every_media_type(client, db_session):
 
 
 @pytest.mark.asyncio
-async def test_asset_facets_and_keywords_respect_project_scope(client, db_session):
+async def test_asset_facets_respect_project_scope(client, db_session):
     suffix = str(time.time_ns())
-    inside_keyword_text = f"inside-project-{suffix}"
-    outside_keyword_text = f"outside-project-{suffix}"
     inside_tag_text = f"inside-project-tag-{suffix}"
     outside_tag_text = f"outside-project-tag-{suffix}"
 
@@ -1170,16 +1166,12 @@ async def test_asset_facets_and_keywords_respect_project_scope(client, db_sessio
         inside_asset = await create_asset_from_media(session, media_id=inside_media.id)
         outside_asset = await create_asset_from_media(session, media_id=outside_media.id)
 
-        inside_keyword = Keyword(keyword_text=inside_keyword_text)
-        outside_keyword = Keyword(keyword_text=outside_keyword_text)
         inside_tag = Tag(tag_text=inside_tag_text)
         outside_tag = Tag(tag_text=outside_tag_text)
-        session.add_all([inside_keyword, outside_keyword, inside_tag, outside_tag])
+        session.add_all([inside_tag, outside_tag])
         await session.flush()
         session.add_all([
             ProjectAsset(project_id=project.id, asset_id=inside_asset.id),
-            MediaKeyword(media_id=inside_media.id, keyword_id=inside_keyword.id),
-            MediaKeyword(media_id=outside_media.id, keyword_id=outside_keyword.id),
             AssetTag(asset_id=inside_asset.id, tag_id=inside_tag.id),
             AssetTag(asset_id=outside_asset.id, tag_id=outside_tag.id),
         ])
@@ -1194,20 +1186,9 @@ async def test_asset_facets_and_keywords_respect_project_scope(client, db_sessio
     counts = response.json()
     assert counts["media_type"]["images"] == 1
     assert counts["media_type"]["videos"] == 0
-    assert counts["keywords"] == {inside_keyword_text: 1}
     assert {entry["tag"]: entry["usage_count"] for entry in counts["tags"]} == {
         inside_tag_text: 1,
     }
-
-    keywords = await client.get(
-        "/api/assets/keywords/top",
-        params={"project_id": project_id},
-    )
-    assert keywords.status_code == 200, keywords.text
-    assert keywords.json()["keywords"] == [
-        {"keyword": inside_keyword_text, "count": 1},
-    ]
-
 
 @pytest.mark.asyncio
 async def test_asset_facets_ignore_contextual_and_old_revision_media(client, db_session):
@@ -1225,16 +1206,10 @@ async def test_asset_facets_ignore_contextual_and_old_revision_media(client, db_
             root_id="facet-test",
             role="intermediate",
         )
-        old_keyword = Keyword(keyword_text="old-revision-only")
-        current_keyword = Keyword(keyword_text="current-only")
-        contextual_keyword = Keyword(keyword_text="intermediate-only")
         tag = Tag(tag_text="winner")
-        session.add_all([old_keyword, current_keyword, contextual_keyword, tag])
+        session.add(tag)
         await session.flush()
         session.add_all([
-            MediaKeyword(media_id=old_media.id, keyword_id=old_keyword.id),
-            MediaKeyword(media_id=current_media.id, keyword_id=current_keyword.id),
-            MediaKeyword(media_id=contextual.id, keyword_id=contextual_keyword.id),
             AssetTag(asset_id=asset.id, tag_id=tag.id),
         ])
         await session.commit()
@@ -1243,20 +1218,7 @@ async def test_asset_facets_ignore_contextual_and_old_revision_media(client, db_
     assert counts.status_code == 200, counts.text
     payload = counts.json()
     assert payload["media_type"]["images"] == before["media_type"]["images"] + 1
-    assert payload["keywords"]["current-only"] == 1
-    assert "old-revision-only" not in payload["keywords"]
-    assert "intermediate-only" not in payload["keywords"]
     assert {entry["tag"]: entry["usage_count"] for entry in payload["tags"]}["winner"] == 1
-
-    keywords = await client.get("/api/assets/keywords/top")
-    assert keywords.status_code == 200, keywords.text
-    keyword_counts = {
-        entry["keyword"]: entry["count"] for entry in keywords.json()["keywords"]
-    }
-    assert keyword_counts["current-only"] == 1
-    assert "old-revision-only" not in keyword_counts
-    assert "intermediate-only" not in keyword_counts
-
 
 @pytest.mark.asyncio
 async def test_asset_tool_facets_resolve_builtins_history_and_legacy_aliases(
@@ -1345,10 +1307,10 @@ async def test_edited_implicit_marker_projects_filters_and_counts(client, db_ses
     async with db_session() as session:
         edited_media = await create_media_item(
             session,
-            vlm_caption=caption,
+            extracted_prompt=caption,
             tool_id=IMAGE_EDITOR_TOOL_ID,
         )
-        plain_media = await create_media_item(session, vlm_caption=caption)
+        plain_media = await create_media_item(session, extracted_prompt=caption)
         edited_asset = await create_asset_from_media(
             session, media_id=edited_media.id
         )
@@ -1362,7 +1324,7 @@ async def test_edited_implicit_marker_projects_filters_and_counts(client, db_ses
         await session.flush()
         derived_media = await create_media_item(
             session,
-            vlm_caption=caption,
+            extracted_prompt=caption,
             tool_id="test:image-to-video",
         )
         derived_asset = await create_asset_from_media(
@@ -1380,7 +1342,7 @@ async def test_edited_implicit_marker_projects_filters_and_counts(client, db_ses
         derived_asset_id = derived_asset.id
 
     browse = await client.get(
-        "/api/assets/browse", params={"caption_query": caption}
+        "/api/assets/browse", params={"prompt_query": caption}
     )
     assert browse.status_code == 200, browse.text
     items = {item["asset_id"]: item for item in browse.json()["items"]}
@@ -1401,7 +1363,7 @@ async def test_edited_implicit_marker_projects_filters_and_counts(client, db_ses
 
     included = await client.get(
         "/api/assets/browse",
-        params={"caption_query": caption, "marker_ids": EDITED_MARKER_ID},
+        params={"prompt_query": caption, "marker_ids": EDITED_MARKER_ID},
     )
     assert included.status_code == 200, included.text
     assert [item["asset_id"] for item in included.json()["items"]] == [
@@ -1411,7 +1373,7 @@ async def test_edited_implicit_marker_projects_filters_and_counts(client, db_ses
     excluded = await client.get(
         "/api/assets/browse",
         params={
-            "caption_query": caption,
+            "prompt_query": caption,
             "excluded_marker_ids": EDITED_MARKER_ID,
         },
     )
@@ -1422,7 +1384,7 @@ async def test_edited_implicit_marker_projects_filters_and_counts(client, db_ses
     }
 
     counts = await client.get(
-        "/api/assets/filter-counts", params={"caption_query": caption}
+        "/api/assets/filter-counts", params={"prompt_query": caption}
     )
     assert counts.status_code == 200, counts.text
     assert counts.json()["implicit_markers"]["edited"] == 1
@@ -1443,7 +1405,7 @@ async def test_recently_edited_sort_uses_edit_date_then_import_fallback(
         )
         edited_one = await create_media_item(
             session,
-            vlm_caption=caption,
+            extracted_prompt=caption,
             tool_id=IMAGE_EDITOR_TOOL_ID,
         )
         edited_one.indexed_date = datetime(2025, 1, 10)
@@ -1464,7 +1426,7 @@ async def test_recently_edited_sort_uses_edit_date_then_import_fallback(
         )
         edited_two = await create_media_item(
             session,
-            vlm_caption=caption,
+            extracted_prompt=caption,
             tool_id=IMAGE_EDITOR_TOOL_ID,
         )
         edited_two.indexed_date = datetime(2025, 1, 1)
@@ -1485,7 +1447,7 @@ async def test_recently_edited_sort_uses_edit_date_then_import_fallback(
         )
         inherited_edit = await create_media_item(
             session,
-            vlm_caption=caption,
+            extracted_prompt=caption,
             tool_id="test:post-edit-transform",
         )
         inherited_edit.indexed_date = datetime(2025, 1, 1)
@@ -1502,7 +1464,7 @@ async def test_recently_edited_sort_uses_edit_date_then_import_fallback(
 
         direct_edit_without_lineage = await create_media_item(
             session,
-            vlm_caption=caption,
+            extracted_prompt=caption,
             tool_id=IMAGE_EDITOR_TOOL_ID,
         )
         direct_edit_without_lineage.indexed_date = datetime(2025, 1, 2)
@@ -1514,7 +1476,7 @@ async def test_recently_edited_sort_uses_edit_date_then_import_fallback(
         )
         direct_edit_revision.created_at = datetime(2025, 1, 6)
 
-        plain = await create_media_item(session, vlm_caption=caption)
+        plain = await create_media_item(session, extracted_prompt=caption)
         plain.indexed_date = datetime(2025, 1, 4)
         plain_asset = await create_asset_from_media(session, media_id=plain.id)
         await session.commit()
@@ -1528,7 +1490,7 @@ async def test_recently_edited_sort_uses_edit_date_then_import_fallback(
 
     response = await client.get(
         "/api/assets/browse",
-        params={"caption_query": caption, "sort_by": "edited_desc"},
+        params={"prompt_query": caption, "sort_by": "edited_desc"},
     )
     assert response.status_code == 200, response.text
     assert [item["asset_id"] for item in response.json()["items"]] == expected
@@ -1540,7 +1502,7 @@ async def test_recently_edited_sort_uses_edit_date_then_import_fallback(
 
     ids = await client.get(
         "/api/assets/browse/ids",
-        params={"caption_query": caption, "sort_by": "edited_desc"},
+        params={"prompt_query": caption, "sort_by": "edited_desc"},
     )
     assert ids.status_code == 200, ids.text
     assert ids.json()["ids"] == expected

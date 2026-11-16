@@ -78,7 +78,7 @@ async def _wait_for_cleanup_schedule(timeout: float) -> None:
         _cleanup_schedule_changed.clear()
 
 # Processing phases to monitor
-BROADCAST_PHASES = ['metadata', 'clip', 'face_detection', 'vlm_caption']
+BROADCAST_PHASES = ['metadata', 'clip', 'face_detection']
 IDLE_RECONCILIATION_SECONDS = 60
 
 

@@ -15,8 +15,7 @@ Advance `offset` by the page's item count until `has_more` is false. Limits are
 1–500. The older SDK `browse()` and `search()` methods return lists and accept
 filters and offsets too. Search is text matching, not semantic/vector search.
 
-Text fields: `prompt_query`, `negative_prompt_query`, `caption_query`,
-`keyword_query`, `query` (positive prompts, captions, keywords), `filenames`,
+Text fields: `prompt_query`, `negative_prompt_query`, `query` (positive prompts), `filenames`,
 `models`, `loras`, `task_types`, `direct_tools`.
 
 ```python
@@ -37,7 +36,7 @@ page = await stimma.library.query({
   and original user prompts. Negative prompts are separate.
 - Models, LoRAs, task types and direct tools describe the payload's own recorded
   generation. The legacy `tools` facet includes tools inherited from ancestors.
-- Other facets include media types, resolution buckets, folders, keywords, tags,
+- Other facets include media types, resolution buckets, folders, tags,
   markers, generated status, creation date bounds, and exact `media_ids`.
   Use the schema for their supported values and include/exclude syntax.
 - Unknown fields, invalid matching modes, and inappropriate action arguments

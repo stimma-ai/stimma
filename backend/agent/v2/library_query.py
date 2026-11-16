@@ -12,9 +12,7 @@ from database import MediaItem
 TEXT_FIELDS = {
     "query",
     "prompt_query",
-    "caption_query",
-    "negative_prompt_query",
-    "keyword_query",
+        "negative_prompt_query",
     "filenames",
     "models",
     "loras",
@@ -39,14 +37,12 @@ def field_columns(field):
         func.json_extract(meta, "$.prompt_metadata.original_prompt"),
     ]
     return {
-        "query": [*prompt, MediaItem.vlm_caption, MediaItem.keywords],
+        "query": prompt,
         "prompt_query": prompt,
-        "caption_query": [MediaItem.vlm_caption],
         "negative_prompt_query": [
             func.json_extract(meta, "$.negative_prompt"),
             func.json_extract(meta, "$.parameters.negative_prompt"),
         ],
-        "keyword_query": [MediaItem.keywords],
         "filenames": [MediaItem.file_path],
         "models": [
             func.json_extract(meta, path)

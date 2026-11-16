@@ -612,14 +612,12 @@ async def generated_and_regular_media(db_session):
             materialize_asset=True,
             generation_metadata='{"model": "test"}',
             extracted_prompt="A beautiful sunset over the ocean",
-            vlm_caption="sunset scene"
         ))
         items.append(await create_media_item(
             session,
             materialize_asset=True,
             generation_metadata='{"model": "test"}',
             extracted_prompt="A mountain landscape with snow",
-            vlm_caption="mountain scene"
         ))
         # Regular images (no generation_metadata)
         items.append(await create_media_item(session))

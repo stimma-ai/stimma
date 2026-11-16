@@ -2908,7 +2908,6 @@ async def _save_layout_media(
             metadata_config_version=get_config_version_manager().get_version("metadata"),
             clip_status="skipped",
             face_detection_status="skipped",
-            vlm_caption_status="skipped",
             width=0,
             height=0,
             megapixels=0,

@@ -1,15 +1,12 @@
 import { EXPIRING_MARKER_ID } from './implicitMarkers.js'
 
 export const DEFAULT_BROWSE_FILTERS = {
-  captionQuery: '',
   promptQuery: '',
   mediaTypes: [],
   excludedMediaTypes: [],
   resolutions: [],
   excludedResolutions: [],
   sortBy: 'created_desc',
-  selectedKeywords: [],
-  excludedKeywords: [],
   selectedFolders: [],
   excludedFolders: [],
   selectedTags: [],

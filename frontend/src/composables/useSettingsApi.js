@@ -103,7 +103,7 @@ export function useSettingsApi() {
 
   /**
    * Update background work settings.
-   * @param {object} data - Settings for face_detection, clip, and/or captioning
+   * @param {object} data - Settings for face_detection and/or clip
    */
   async function updateBackgroundWork(data) {
     const response = await axios.patch(`${getAPIBase()}/settings/background-work`, data)

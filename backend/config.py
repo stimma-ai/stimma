@@ -424,13 +424,6 @@ class LLMProviderConfig(BaseModel):
 # Type alias for LLM configs passed to llm_http
 LLMConfig = LLMEndpointConfig
 
-
-class CaptioningConfig(BaseModel):
-    """Captioning task config (uses agent-fast from llms)."""
-    enabled: bool = False
-    parallelism: int = 20
-
-
 class AgentLLMParams(BaseModel):
     """LLM invocation parameters for the agent.
 
@@ -617,7 +610,7 @@ class ProfileAgentModels(BaseModel):
     local-only, one on frontier models — so these never fall back to a global
     value; ``auto`` is the only cross-install default that can be honest.
     """
-    quick_task: RoleModelSelection = RoleModelSelection()      # captioning, chat titles
+    quick_task: RoleModelSelection = RoleModelSelection()      # chat titles
     tool_assistant: RoleModelSelection = RoleModelSelection()  # ToolView assistant
     chat: RoleModelSelection = RoleModelSelection()            # chat agent + sub-agents
     flow: RoleModelSelection = RoleModelSelection()            # new flow programs
@@ -1016,7 +1009,7 @@ class Settings(BaseSettings):
     clip_similarity_threshold: float = 0.75  # For image-to-image similarity
     clip_text_similarity_threshold: float = 0.225  # For text-to-image similarity (CLIP text embeddings have lower scores)
 
-    # LLM configurations: agent (main), agent-fast (prompt enhancement, captioning, etc.)
+    # LLM configurations: agent (main), agent-fast (prompt enhancement, etc.)
     # Each role has a source selector (stimma_cloud or custom) and custom config
     llms: Dict[str, LLMRoleConfig] = {}
     llm_reasoning_levels: Dict[str, str] = Field(default_factory=dict)
@@ -1036,7 +1029,6 @@ class Settings(BaseSettings):
     llm_extra_system_prompt: str = ''
 
     # Task-specific settings
-    captioning: CaptioningConfig = CaptioningConfig()
     clip: CLIPConfig
     face_detection: FaceDetectionConfig
     server: ServerConfig
@@ -1186,6 +1178,8 @@ class Settings(BaseSettings):
 
         # Expand environment variables in all string values
         config_data = expand_env_vars(config_data)
+        # Old installations can retain this retired section in config.yaml.
+        config_data.pop("captioning", None)
 
         # Retired global model choices. Deliberately NOT migrated into the
         # per-profile settings: they were a chat model and a background model,
@@ -1282,10 +1276,6 @@ class Settings(BaseSettings):
             if 'llm_params' in agent_data:
                 agent_data['llm_params'] = AgentLLMParams(**agent_data['llm_params'])
             config_data['agent'] = AgentConfig(**agent_data)
-
-        # Parse captioning config (no longer has llm)
-        if 'captioning' in config_data:
-            config_data['captioning'] = CaptioningConfig(**config_data['captioning'])
 
         # Migrate tool_providers: rename legacy 'transport' field to 'type'
         if 'tool_providers' in config_data:
@@ -1719,7 +1709,6 @@ def detect_config_changes(old: Settings, new: Settings) -> set[str]:
         'face_detection',
         'server',
         'agent',
-        'captioning',
         'cloud',
     ]
 

@@ -125,47 +125,6 @@ def test_rewrite_database_updates_all_text_cells_and_vacuums(tmp_path):
     assert scan_database(database, plan).occurrences == 0
     assert b"private" not in database.read_bytes()
 
-
-def test_rewrite_database_merges_colliding_normalized_keywords(tmp_path):
-    database = tmp_path / "stimma_v1.db"
-    with closing(sqlite3.connect(database)) as connection, connection:
-        connection.executescript(
-            """
-            CREATE TABLE keywords (
-                id INTEGER PRIMARY KEY,
-                keyword_text TEXT NOT NULL UNIQUE
-            );
-            CREATE TABLE media_keywords (
-                media_id INTEGER NOT NULL,
-                keyword_id INTEGER NOT NULL,
-                PRIMARY KEY (media_id, keyword_id)
-            );
-            INSERT INTO keywords VALUES (1, 'private portrait');
-            INSERT INTO keywords VALUES (2, 'clean portrait');
-            INSERT INTO keywords VALUES (3, 'very private');
-            INSERT INTO media_keywords VALUES (10, 1);
-            INSERT INTO media_keywords VALUES (10, 2);
-            INSERT INTO media_keywords VALUES (11, 1);
-            INSERT INTO media_keywords VALUES (12, 3);
-            """
-        )
-
-    result = rewrite_database(
-        database, ReplacementPlan([Rule("private", "clean")])
-    )
-
-    assert result.occurrences == 2
-    with closing(sqlite3.connect(database)) as connection, connection:
-        keywords = connection.execute(
-            "SELECT id, keyword_text FROM keywords ORDER BY id"
-        ).fetchall()
-        associations = connection.execute(
-            "SELECT media_id, keyword_id FROM media_keywords ORDER BY media_id, keyword_id"
-        ).fetchall()
-    assert keywords == [(2, "clean portrait"), (3, "very clean")]
-    assert associations == [(10, 2), (11, 2), (12, 3)]
-
-
 def test_rewrite_database_merges_colliding_tags_and_markers(tmp_path):
     database = tmp_path / "stimma_v1.db"
     with closing(sqlite3.connect(database)) as connection, connection:

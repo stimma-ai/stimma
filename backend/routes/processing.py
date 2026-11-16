@@ -11,9 +11,7 @@ from database import (
     Asset,
     AssetRevision,
     AssetTag,
-    Keyword,
     MediaItem,
-    MediaKeyword,
     MediaToolLineage,
     Project,
     ProjectAsset,
@@ -175,12 +173,6 @@ async def get_stats(session: AsyncSession = Depends(get_db_session)):
     )
     total_with_embeddings = result.scalar()
 
-    # Items with captions
-    result = await session.execute(
-        select(func.count(MediaItem.id)).where(MediaItem.has_vlm_caption == True)
-    )
-    total_with_captions = result.scalar()
-
     # Total size
     result = await session.execute(select(func.sum(MediaItem.file_size)))
     total_size = result.scalar() or 0
@@ -188,7 +180,6 @@ async def get_stats(session: AsyncSession = Depends(get_db_session)):
     return StatsResponse(
         total_items=total_items,
         total_with_embeddings=total_with_embeddings,
-        total_with_captions=total_with_captions,
         total_size_bytes=total_size
     )
 
@@ -547,14 +538,11 @@ async def get_config():
 
 @router.get("/filter-counts")
 async def get_filter_counts(
-    caption_query: Optional[str] = None,
     prompt_query: Optional[str] = None,
     media_types: Optional[str] = Query(None, description="Comma-separated currently selected media types"),
     excluded_media_types: Optional[str] = Query(None, description="Comma-separated excluded media types"),
     resolutions: Optional[str] = Query(None, description="Comma-separated currently selected resolutions"),
     excluded_resolutions: Optional[str] = Query(None, description="Comma-separated excluded resolutions"),
-    keywords: Optional[str] = Query(None, description="Comma-separated currently selected keywords"),
-    excluded_keywords: Optional[str] = Query(None, description="Comma-separated excluded keywords"),
     folders: Optional[str] = Query(None, description="Comma-separated currently selected folders"),
     excluded_folders: Optional[str] = Query(None, description="Comma-separated excluded folders"),
     is_generated: Optional[bool] = Query(None, description="Filter for generated images"),
@@ -565,7 +553,6 @@ async def get_filter_counts(
     similar_to: Optional[str] = Query(None, description="Comma-separated media IDs for similarity search"),
     similar_face_to: Optional[str] = Query(None, description="Comma-separated media IDs for face similarity search"),
     similarity_threshold: Optional[float] = Query(None, description="Similarity threshold (0.0-1.0)"),
-    keyword_limit: int = Query(5, ge=1, le=200, description="Number of top keywords to include with counts"),
     tag_limit: int = Query(50, ge=1, le=200, description="Number of top tags to include with counts"),
     project_ids: Optional[str] = Query(None, description="Comma-separated project IDs currently selected (OR logic)"),
     excluded_project_ids: Optional[str] = Query(None, description="Comma-separated project IDs to exclude"),
@@ -691,12 +678,9 @@ async def get_filter_counts(
     images_query = get_base_query()
     images_query = build_filtered_query(
         images_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -715,12 +699,9 @@ async def get_filter_counts(
     videos_query = get_base_query()
     videos_query = build_filtered_query(
         videos_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -740,12 +721,9 @@ async def get_filter_counts(
     audio_query = get_base_query()
     audio_query = build_filtered_query(
         audio_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -765,12 +743,9 @@ async def get_filter_counts(
     text_query = get_base_query()
     text_query = build_filtered_query(
         text_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -790,12 +765,9 @@ async def get_filter_counts(
     vectors_query = get_base_query()
     vectors_query = build_filtered_query(
         vectors_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -815,12 +787,9 @@ async def get_filter_counts(
     sets_query = get_base_query()
     sets_query = build_filtered_query(
         sets_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -840,12 +809,9 @@ async def get_filter_counts(
     grids_query = get_base_query()
     grids_query = build_filtered_query(
         grids_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -865,12 +831,9 @@ async def get_filter_counts(
     sprites_query = get_base_query()
     sprites_query = build_filtered_query(
         sprites_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -891,12 +854,9 @@ async def get_filter_counts(
     layouts_query = get_base_query()
     layouts_query = build_filtered_query(
         layouts_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -917,12 +877,9 @@ async def get_filter_counts(
     packages_query = get_base_query()
     packages_query = build_filtered_query(
         packages_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -942,12 +899,9 @@ async def get_filter_counts(
     small_query = get_base_query()
     small_query = build_filtered_query(
         small_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -966,12 +920,9 @@ async def get_filter_counts(
     medium_query = get_base_query()
     medium_query = build_filtered_query(
         medium_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -993,12 +944,9 @@ async def get_filter_counts(
     large_query = get_base_query()
     large_query = build_filtered_query(
         large_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -1020,14 +968,11 @@ async def get_filter_counts(
         folder_query = get_base_query()
         folder_query = build_filtered_query(
             folder_query,
-            caption_query=caption_query,
             prompt_query=prompt_query,
             media_types=media_types,
             excluded_media_types=excluded_media_types,
             resolutions=resolutions,
             excluded_resolutions=excluded_resolutions,
-            keywords=keywords,
-            excluded_keywords=excluded_keywords,
             is_generated=is_generated,
             marker_ids=marker_ids,
             excluded_marker_ids=excluded_marker_ids,
@@ -1042,63 +987,6 @@ async def get_filter_counts(
         folder_query = folder_query.where(MediaItem.file_path.startswith(folder_with_slash))
         result = await session.execute(folder_query)
         folder_counts[folder] = result.scalar()
-
-    # Keyword preview counts using efficient JOIN query
-    # This replaces the N+1 query pattern with a single GROUP BY query
-    keyword_counts_dict = {}
-
-    # Build base query that JOINs media_items with keywords through media_keywords
-    # Start with the keywords table
-    keyword_query = select(
-        Keyword.keyword_text,
-        func.count(func.distinct(MediaItem.id)).label('count')
-    ).select_from(Keyword).join(
-        MediaKeyword, Keyword.id == MediaKeyword.keyword_id
-    ).join(
-        MediaItem, MediaKeyword.media_id == MediaItem.id
-    )
-
-    # Exclude trashed items
-    keyword_query = keyword_query.where(MediaItem.deleted_at.is_(None))
-
-    # Apply similarity filter if needed
-    if base_item_ids is not None:
-        keyword_query = keyword_query.where(MediaItem.id.in_(base_item_ids))
-
-    # Apply all non-keyword filters to show preview counts
-    # This shows: "Of items matching my current non-keyword filters, how many have each keyword?"
-    keyword_query = build_filtered_query(
-        keyword_query,
-        caption_query=caption_query,
-        prompt_query=prompt_query,
-        media_types=media_types,
-        excluded_media_types=excluded_media_types,
-        resolutions=resolutions,
-        excluded_resolutions=excluded_resolutions,
-        folders=folders,
-        excluded_folders=excluded_folders,
-        is_generated=is_generated,
-        marker_ids=marker_ids,
-        excluded_marker_ids=excluded_marker_ids,
-        tag_ids=tag_ids,
-        excluded_tag_ids=excluded_tag_ids,
-        tool_ids=tool_ids,
-        excluded_tool_ids=excluded_tool_ids,
-        exclude_category='keywords'  # Don't apply keyword filters for preview
-    )
-
-    # Group by keyword and order by count
-    keyword_query = keyword_query.group_by(Keyword.keyword_text).order_by(
-        func.count(func.distinct(MediaItem.id)).desc()
-    ).limit(keyword_limit)
-
-    # Execute single query to get top keywords with their counts
-    result = await session.execute(keyword_query)
-    keyword_results = result.all()
-
-    log.info(f"Found {len(keyword_results)} keywords for preview counts")
-    for keyword_text, count in keyword_results:
-        keyword_counts_dict[keyword_text] = count
 
     # Tag preview counts using efficient JOIN query (similar to keywords)
     # Returns list of {id, tag, usage_count} for top tags
@@ -1142,14 +1030,11 @@ async def get_filter_counts(
     # This shows: "Of items matching my current non-tag filters, how many have each tag?"
     tag_query = build_filtered_query(
         tag_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -1197,14 +1082,11 @@ async def get_filter_counts(
         range_query = get_base_query()
         range_query = build_filtered_query(
             range_query,
-            caption_query=caption_query,
             prompt_query=prompt_query,
             media_types=media_types,
             excluded_media_types=excluded_media_types,
             resolutions=resolutions,
             excluded_resolutions=excluded_resolutions,
-            keywords=keywords,
-            excluded_keywords=excluded_keywords,
             folders=folders,
             excluded_folders=excluded_folders,
             marker_ids=marker_ids,
@@ -1253,14 +1135,11 @@ async def get_filter_counts(
     # Apply all non-tool filters
     tool_query = build_filtered_query(
         tool_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -1300,14 +1179,11 @@ async def get_filter_counts(
     # "not in a project" membership totals. exclude_category='projects' drops the project
     # predicates from the helper so these counts ignore the user's current project selection.
     project_facet_filters = dict(
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -1396,7 +1272,6 @@ async def get_filter_counts(
             "large": large_count
         },
         "folders": folder_counts,
-        "keywords": keyword_counts_dict,
         "tags": tag_counts_list,
         "tools": tool_counts_list,
         "projects": project_counts,

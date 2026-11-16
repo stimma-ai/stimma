@@ -494,7 +494,6 @@ async def get_normalized_container_content(
             "width": media.width,
             "height": media.height,
             "duration": media.duration,
-            "vlm_caption": media.vlm_caption,
             "generation_metadata": media.generation_metadata,
             "markers": markers_by_media.get(media.id, []),
             "tags": tags_by_media.get(media.id, []),

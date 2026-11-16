@@ -48,15 +48,6 @@ export function useMediaApi() {
     return response.data
   }
 
-  async function getTopKeywords(params = {}) {
-    // Support both old style (number) and new style (object)
-    const requestParams = typeof params === 'number' ? { limit: params } : params
-    const response = await axios.get(`${getAPIBase()}/keywords/top`, {
-      params: requestParams
-    })
-    return response.data
-  }
-
   async function getConfig() {
     const response = await axios.get(`${getAPIBase()}/config`)
     return response.data
@@ -589,7 +580,6 @@ export function useMediaApi() {
     findMediaIndex,
     searchSimilarMedia,
     getStats,
-    getTopKeywords,
     getConfig,
     getFilterCounts,
     getThumbnailUrl,

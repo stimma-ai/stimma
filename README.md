@@ -23,7 +23,7 @@ Electron shell (macOS / Windows / Linux)
             └─ Stimma Cloud  (optional hosted tools + LLMs)
 ```
 
-Your library is ordinary files on disk plus a per-profile SQLite database. Search, face grouping, filters, and lineage tracking run locally (ONNX weights are fetched on first use and cached). Generation runs on whichever providers you connect. The agent and captioning need an LLM — any OpenAI-compatible endpoint (vLLM, LM Studio, Ollama, ...) or Stimma Cloud.
+Your library is ordinary files on disk plus a per-profile SQLite database. Search, face grouping, filters, and lineage tracking run locally (ONNX weights are fetched on first use and cached). Generation runs on whichever providers you connect. The agent needs an LLM — any OpenAI-compatible endpoint (vLLM, LM Studio, Ollama, ...) or Stimma Cloud.
 
 No account is required. Source builds send no telemetry and do not check for updates. Aside from providers you choose to connect, their only automatic network contact is downloading local model weights on first use; `STIMMA_PRIVACY_LOCKDOWN=1` disables all contact with Stimma services.
 

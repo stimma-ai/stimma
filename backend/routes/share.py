@@ -327,7 +327,7 @@ async def _gather_composite_moderation_data(
     """All text and member image paths of a set or grid: (texts, member_paths)."""
     from share_payloads import _composite_content
 
-    texts = [title, description, media_item.extracted_prompt, media_item.vlm_caption]
+    texts = [title, description, media_item.extracted_prompt]
     member_paths: list[Path] = []
     try:
         content = await _composite_content(session, media_item, media_type)
@@ -346,7 +346,7 @@ async def _gather_composite_moderation_data(
             member_paths.append(path)
         texts.extend([entry.get("title"), entry.get("caption")])
         resolved = entry.get("resolved") or {}
-        texts.append(resolved.get("vlm_caption"))
+
         gen_meta = resolved.get("generation_metadata")
         if gen_meta:
             try:
@@ -363,7 +363,7 @@ async def _gather_layout_moderation_data(
     description: Optional[str] = None,
 ) -> tuple[list[str], list[Path]]:
     """Gather text and member image paths from a layout media item."""
-    texts = [title, description, media_item.extracted_prompt, media_item.vlm_caption]
+    texts = [title, description, media_item.extracted_prompt]
     member_paths = []
 
     layout_dir = Path(media_item.file_path)
@@ -635,8 +635,7 @@ def _share_form_fields(media_item: MediaItem, payload, request: ShareRequest, si
     moderation_prompt = "\n".join(t for t in [media_item.extracted_prompt, payload.moderation_text] if t)
     if moderation_prompt:
         metadata["extractedPrompt"] = moderation_prompt
-    if media_item.vlm_caption:
-        metadata["vlmCaption"] = media_item.vlm_caption
+
     data = {"metadata": json.dumps(metadata)}
     if payload.structured_content is not None:
         data["structuredContent"] = json.dumps(payload.structured_content)
@@ -871,7 +870,7 @@ async def suggest_share_title(request: SuggestTitleRequest, session: AsyncSessio
 
     Per-type strategy:
     - Sets/grids: use existing title if present, otherwise fall through to LLM
-    - Images/videos: use extracted prompt or VLM caption; VLM the image if neither exists
+    - Images/videos: use the extracted prompt; VLM the image if none exists
     - Layouts: extract text content from the HTML for LLM context
     """
     import time as _time
@@ -996,9 +995,6 @@ def _gather_composite_context(media_item) -> list[str]:
         except json.JSONDecodeError:
             pass
 
-    if media_item.vlm_caption:
-        parts.append(f"Visual description: {media_item.vlm_caption[:300]}")
-
     return parts
 
 
@@ -1008,9 +1004,6 @@ async def _gather_atomic_context(media_item) -> list[str]:
 
     if media_item.extracted_prompt:
         parts.append(f"Generation prompt: {media_item.extracted_prompt[:300]}")
-
-    if media_item.vlm_caption:
-        parts.append(f"Image description: {media_item.vlm_caption[:300]}")
 
     if not parts and media_item.generation_metadata:
         try:

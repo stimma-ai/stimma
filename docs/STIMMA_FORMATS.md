@@ -277,8 +277,7 @@ Returns the parsed content with resolved references for structured types.
         "media_id": 123,
         "file_hash": "abc123...",
         "width": 1024,
-        "height": 768,
-        "vlm_caption": "AI-generated description"
+        "height": 768
       }
     },
     {
@@ -349,7 +348,6 @@ Structured media files are created manually using any text editor. There is curr
 All structured types skip AI processing phases since they don't contain visual content:
 
 - `clip_status = 'skipped'`
-- `vlm_caption_status = 'skipped'`
 - `face_detection_status = 'skipped'`
 
 For markdown files, the parsed content (frontmatter + body) is stored in the `raw_metadata` field.

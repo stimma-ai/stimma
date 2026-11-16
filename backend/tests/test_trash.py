@@ -1354,16 +1354,16 @@ class TestFilteredTrash:
         for item in data["items"]:
             assert item["file_format"] not in ["mp4", "webm", "mov", "avi", "mkv", "ogg"]
 
-    async def test_filter_trash_by_caption(self, client: AsyncClient, filtered_trash_media):
+    async def test_filter_trash_by_prompt(self, client: AsyncClient, filtered_trash_media):
         """Test filtering trash by caption text."""
-        response = await client.get("/api/trash", params={"caption_query": "image"})
+        response = await client.get("/api/trash", params={"prompt_query": "image"})
         assert response.status_code == 200
 
         data = response.json()
         # Should match items with "image" in caption
         assert data["total"] >= 1
         for item in data["items"]:
-            assert "image" in item["vlm_caption"].lower()
+            assert "image" in item["extracted_prompt"].lower()
 
     async def test_trash_sorting_by_created_date(self, client: AsyncClient, filtered_trash_media):
         """Test sorting trash by created date."""
@@ -1429,7 +1429,7 @@ class TestTrashFilterCounts:
         response = await client.get("/api/trash/filter-counts", params=params)
         assert response.status_code == 200
         data = response.json()
-        assert {"media_type", "resolution", "folders", "keywords", "date_ranges"} <= data.keys()
+        assert {"media_type", "resolution", "folders", "date_ranges"} <= data.keys()
         assert data["media_type"]["images"] == 2
         assert data["media_type"]["videos"] == 1
         assert data["resolution"] == {"small": 2, "medium": 0, "large": 1}
@@ -1741,7 +1741,7 @@ async def filtered_trash_media(db_session, client: AsyncClient):
             file_format="png",
             width=100,
             height=100,
-            vlm_caption="A test image with red color",
+            extracted_prompt="A test image with red color",
             created_date=datetime.utcnow() - timedelta(hours=36),
         )
         items.append(item1)
@@ -1753,7 +1753,7 @@ async def filtered_trash_media(db_session, client: AsyncClient):
             file_format="jpg",
             width=200,
             height=200,
-            vlm_caption="A test image with blue color",
+            extracted_prompt="A test image with blue color",
             created_date=datetime.utcnow() - timedelta(hours=3),
         )
         items.append(item2)
@@ -1765,7 +1765,7 @@ async def filtered_trash_media(db_session, client: AsyncClient):
             file_format="mp4",
             width=1920,
             height=1080,
-            vlm_caption="A test video",
+            extracted_prompt="A test video",
             created_date=datetime.utcnow() - timedelta(minutes=30),
         )
         items.append(item3)
@@ -1777,7 +1777,7 @@ async def filtered_trash_media(db_session, client: AsyncClient):
             file_format="png",
             width=3000,
             height=3000,
-            vlm_caption="Large image",
+            extracted_prompt="Large image",
         )
         items.append(item4)
 

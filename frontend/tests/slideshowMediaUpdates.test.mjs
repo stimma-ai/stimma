@@ -72,9 +72,9 @@ test('a marker toggled on a set member reaches the set view when mediaList comes
   assert.deepEqual(h.cache.value.get(0).markers, [{ id: 3 }])
 })
 
-test('tags, captions and expiry updates reach every slideshow projection', () => {
+test('tags, prompts and expiry updates reach every slideshow projection', () => {
   const h = harness()
-  const patch = { tags: ['curated'], vlm_caption: 'Updated caption', expires_at: null }
+  const patch = { tags: ['curated'], extracted_prompt: 'Updated prompt', expires_at: null }
   h.patch(101, patch)
   for (const item of [h.current.value, h.displayItem.value, h.sourceViewStack.value[0].item,
     h.setViewStack.value[0].items[0], h.gridViewStack.value[0].cellMap.get('0,0').resolved]) {

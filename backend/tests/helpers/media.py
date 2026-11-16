@@ -50,10 +50,8 @@ async def create_media_item(
     width: int = 100,
     height: int = 100,
     file_size: int = 1000,
-    vlm_caption: Optional[str] = None,
     metadata_status: str = "completed",
     clip_status: str = "pending",
-    vlm_caption_status: str = "pending",
     face_detection_status: str = "pending",
     created_date: Optional[datetime] = None,
     generation_metadata: Optional[str] = None,
@@ -79,10 +77,8 @@ async def create_media_item(
         width: Image width
         height: Image height
         file_size: File size in bytes
-        vlm_caption: Optional caption for search tests
         metadata_status: Processing status for metadata
         clip_status: Processing status for CLIP embedding
-        vlm_caption_status: Processing status for VLM caption
         face_detection_status: Processing status for face detection
         created_date: File creation date (for date filtering)
         generation_metadata: JSON string marking as generated (sets is_generated=True in API)
@@ -115,10 +111,8 @@ async def create_media_item(
         height=height,
         file_size=file_size,
         megapixels=megapixels,
-        vlm_caption=vlm_caption,
         metadata_status=metadata_status,
         clip_status=clip_status,
-        vlm_caption_status=vlm_caption_status,
         face_detection_status=face_detection_status,
         indexed_date=datetime.now(),
         created_date=created_date,
@@ -150,7 +144,7 @@ async def create_test_media(
     session: AsyncSession,
     count: int = 5,
     temp_dir: Optional[Path] = None,
-    with_captions: bool = False,
+    with_prompts: bool = False,
     materialize_assets: bool = True,
 ) -> list[MediaItem]:
     """Create multiple test media items.
@@ -159,7 +153,7 @@ async def create_test_media(
         session: Database session
         count: Number of items to create
         temp_dir: Optional directory to create real image files
-        with_captions: If True, add unique captions for search testing
+        with_prompts: If True, add unique prompts for search testing
         materialize_assets: Promote each item into an Asset (library items are
             always Asset-backed in the product model). Pass False only when a
             test needs bare contextual Media.
@@ -192,14 +186,13 @@ async def create_test_media(
             file_path = None
             file_hash = None
 
-        caption = f"Test image {i} with {['red', 'green', 'blue', 'yellow', 'magenta', 'cyan', 'gray', 'orange', 'purple', 'teal'][i % 10]} color" if with_captions else None
+        caption = f"Test image {i} with {['red', 'green', 'blue', 'yellow', 'magenta', 'cyan', 'gray', 'orange', 'purple', 'teal'][i % 10]} color" if with_prompts else None
 
         item = await create_media_item(
             session,
             file_path=file_path,
             file_hash=file_hash,
-            vlm_caption=caption,
-            vlm_caption_status="complete" if caption else "pending",
+            extracted_prompt=caption,
             materialize_asset=materialize_assets,
         )
         items.append(item)

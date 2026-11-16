@@ -33,7 +33,6 @@ class MediaRef:
 
     # Context for understanding verbal references like "the red one"
     prompt: str | None = None  # What was requested (visible in generation UI)
-    ai_caption: str | None = None  # VLM description of what was actually generated
 
     def to_dict(self) -> dict:
         result = {
@@ -48,8 +47,6 @@ class MediaRef:
             result["height"] = self.height
         if self.prompt:
             result["prompt"] = self.prompt
-        if self.ai_caption:
-            result["ai_caption"] = self.ai_caption
         return result
 
     @classmethod
@@ -61,7 +58,6 @@ class MediaRef:
             width=data.get("width"),
             height=data.get("height"),
             prompt=data.get("prompt"),
-            ai_caption=data.get("ai_caption"),
         )
 
 

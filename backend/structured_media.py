@@ -283,7 +283,6 @@ async def resolve_set_references(
                     'width': media_item.width,
                     'height': media_item.height,
                     'duration': media_item.duration,
-                    'vlm_caption': media_item.vlm_caption,
                     'generation_metadata': media_item.generation_metadata,
                     'markers': [],  # Will be populated if needed
                     'tags': [],  # Will be populated if needed
@@ -352,7 +351,6 @@ async def resolve_grid_references(
                     'width': media_item.width,
                     'height': media_item.height,
                     'duration': media_item.duration,
-                    'vlm_caption': media_item.vlm_caption,
                     'generation_metadata': media_item.generation_metadata,
                     'markers': [],
                     'tags': [],
@@ -446,7 +444,6 @@ async def resolve_markdown_references(
                     'file_format': media_item.file_format,
                     'width': media_item.width,
                     'height': media_item.height,
-                    'vlm_caption': media_item.vlm_caption,
                     'generation_metadata': media_item.generation_metadata,
                 }
             })
@@ -623,7 +620,6 @@ async def create_batch_output_set(
         height=0,
         megapixels=0,
         raw_metadata=json.dumps(set_data),
-        # Note: vlm_caption is intentionally NOT set for sets - it's for AI captions of visual media
         generation_metadata=dump_generation_metadata(
             task_type='batch-output',
             source='batch',
@@ -714,13 +710,11 @@ async def append_to_set(
         # Write back atomically (updates disk + DB cache)
         await write_composite_content(session, set_item, set_data)
 
-    # Note: vlm_caption is intentionally NOT set for sets - it's for AI captions of visual media
-
     await session.commit()
     await session.refresh(set_item)
 
     # Broadcast media_updated
-    await broadcast_media_updated([set_item], ["file_hash", "file_size", "raw_metadata", "vlm_caption"], session)
+    await broadcast_media_updated([set_item], ["file_hash", "file_size", "raw_metadata"], session)
 
     log.debug(f"Appended item to set {set_media_id}, now has {item_count} items")
     return set_item

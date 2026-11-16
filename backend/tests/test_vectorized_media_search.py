@@ -35,7 +35,7 @@ async def test_vectorized_similarity_preserves_scores_filters_and_order(client, 
                 path.write_bytes(b"fixture")
                 item = await create_media_item(
                     session, file_path=path, materialize_asset=True,
-                    vlm_caption="vector fixture", clip_status="completed",
+                    extracted_prompt="vector fixture", clip_status="completed",
                     created_date=datetime(2025, 1, 1) + timedelta(days=i // 2),
                     generation_metadata='{"prompt":"fixture"}' if i % 2 else None,
                 )
@@ -45,7 +45,7 @@ async def test_vectorized_similarity_preserves_scores_filters_and_order(client, 
             reference = items[0]
             # Each should score 1.0 but remain excluded by the existing filters.
             for reason in ("bare", "trashed", "unavailable", "unfinished"):
-                item = await create_media_item(session, vlm_caption="vector fixture")
+                item = await create_media_item(session, extracted_prompt="vector fixture")
                 item.set_embedding(query)
                 if reason != "bare":
                     asset = await create_asset_from_media(session, media_id=item.id)
@@ -55,7 +55,7 @@ async def test_vectorized_similarity_preserves_scores_filters_and_order(client, 
                         item.file_unavailable = True
                     else:
                         item.metadata_status = "pending"
-            stale = await create_media_item(session, materialize_asset=True, vlm_caption="vector fixture", clip_status="completed")
+            stale = await create_media_item(session, materialize_asset=True, extracted_prompt="vector fixture", clip_status="completed")
             stale.set_embedding(np.ones(3, dtype=np.float32))
             await session.commit()
             reference_id = reference.id
@@ -76,7 +76,7 @@ async def test_vectorized_similarity_preserves_scores_filters_and_order(client, 
                     else:
                         random.Random(17).shuffle(expected)
                     params = dict(similar_to=str(reference_id), similarity_threshold=threshold,
-                                  caption_query="vector fixture", sort_by=sort, random_seed=17, page_size=2, page=2)
+                                  prompt_query="vector fixture", sort_by=sort, random_seed=17, page_size=2, page=2)
                     if generated is not None:
                         params["is_generated"] = str(generated).lower()
                     statements.clear()
@@ -106,7 +106,7 @@ async def test_vectorized_similarity_preserves_scores_filters_and_order(client, 
                               key=mixed_scores.get, reverse=True)
             response = await client.get("/api/media", params={
                 "similar_to": f"{items[0].id},{items[6].id}", "similarity_threshold": .95,
-                "caption_query": "vector fixture", "sort_by": "similarity",
+                "prompt_query": "vector fixture", "sort_by": "similarity",
             })
             assert [row["media_id"] for row in response.json()["items"]] == expected
             assert [row["similarity_score"] for row in response.json()["items"]] == [mixed_scores[media_id] for media_id in expected]
@@ -114,7 +114,7 @@ async def test_vectorized_similarity_preserves_scores_filters_and_order(client, 
             # Text encoding in the suite produces the same unit-axis query.
             response = await client.get("/api/media", params={
                 "similar_to_text": "fixture", "similarity_threshold": threshold,
-                "caption_query": "vector fixture", "sort_by": "similarity",
+                "prompt_query": "vector fixture", "sort_by": "similarity",
             })
             expected = sorted((item.id for item in items if scores[item.id] >= threshold), key=scores.get, reverse=True)
             assert [row["media_id"] for row in response.json()["items"]] == expected
@@ -141,7 +141,7 @@ async def test_similarity_winner_lookups_are_chunked(client, db_session, monkeyp
     async with db_session() as session:
         items = []
         for _ in range(5):
-            item = await create_media_item(session, materialize_asset=True, vlm_caption=f"chunked winners {mode}")
+            item = await create_media_item(session, materialize_asset=True, extracted_prompt=f"chunked winners {mode}")
             item.set_embedding(vector)
             items.append(item)
         await session.commit()
@@ -159,7 +159,7 @@ async def test_similarity_winner_lookups_are_chunked(client, db_session, monkeyp
     engine = db_session.kw["bind"].sync_engine
     event.listen(engine, "before_cursor_execute", limit_winner_query)
     try:
-        params = dict(caption_query=f"chunked winners {mode}", similarity_threshold=0.5, sort_by="similarity")
+        params = dict(prompt_query=f"chunked winners {mode}", similarity_threshold=0.5, sort_by="similarity")
         params["similar_to_text" if mode == "text" else "similar_to"] = "fixture" if mode == "text" else str(ids[0])
         if mode != "ids":
             params.update(page=1, page_size=1)

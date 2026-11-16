@@ -78,14 +78,6 @@ export function useBrowseFilters(scope = 'browse') {
     filterChangeCounter.value++
   }
 
-  // Set keyword filter (clears other filters)
-  function setKeywordFilter(keyword) {
-    console.log('[useBrowseFilters] setKeywordFilter:', keyword)
-    setFilters({
-      selectedKeywords: [keyword]
-    })
-    console.log('[useBrowseFilters] filters after set:', JSON.stringify(filters))
-  }
 
   // Set tag filter (clears other filters)
   function setTagFilter(tagId) {
@@ -170,7 +162,6 @@ export function useBrowseFilters(scope = 'browse') {
     setSimilarSearch,
     clearSimilarSearch,
     setSimilarFaceSearch,
-    setKeywordFilter,
     setTagFilter,
     setSimilarFilter,
     setSimilarFaceFilter

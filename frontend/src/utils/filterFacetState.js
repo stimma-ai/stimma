@@ -23,15 +23,12 @@ export function getFilterCountWatchValues(filters = {}, {
   similarSearchSourceItems = [],
 } = {}) {
   return [
-    filters.captionQuery,
     filters.promptQuery,
     filters.similarToText,
     filters.mediaTypes,
     filters.excludedMediaTypes,
     filters.resolutions,
     filters.excludedResolutions,
-    filters.selectedKeywords,
-    filters.excludedKeywords,
     filters.selectedFolders,
     filters.excludedFolders,
     filters.selectedTags,
@@ -63,7 +60,6 @@ export function buildFilterCountParams(filters = {}, {
   similarSearchSourceItems = [],
 } = {}) {
   const params = {
-    keyword_limit: 50,
     state: isTrashMode ? 'trashed' : 'active',
   }
 
@@ -76,15 +72,12 @@ export function buildFilterCountParams(filters = {}, {
     if (Array.isArray(value) && value.length > 0) params[key] = value.join(',')
   }
 
-  setText('caption_query', filters.captionQuery)
   setText('prompt_query', filters.promptQuery)
   setText('similar_to_text', filters.similarToText, { trim: true })
   setList('media_types', filters.mediaTypes)
   setList('excluded_media_types', filters.excludedMediaTypes)
   setList('resolutions', filters.resolutions)
   setList('excluded_resolutions', filters.excludedResolutions)
-  setList('keywords', filters.selectedKeywords)
-  setList('excluded_keywords', filters.excludedKeywords)
   setList('folders', filters.selectedFolders)
   setList('excluded_folders', filters.excludedFolders)
   setList('tag_ids', filters.selectedTags)

@@ -45,7 +45,6 @@
       @permanent-delete="handlePermanentDeleteCurrentItem"
       @download="downloadMedia"
       @filter-by-tag="filterByTag"
-      @filter-by-keyword="filterByKeyword"
       @navigate-to-collection="navigateToCollection"
       @navigate-to-project="navigateToProject"
       @navigate-to-source-media="navigateToSourceMedia"
@@ -395,9 +394,6 @@
     ><XMarkIcon class="h-icon-canvas w-icon-canvas" /></button>
 
     <!-- Caption (bottom) -->
-    <div v-if="currentItem && showCaption && currentItem.vlm_caption && captioningEnabledRef" class="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-md px-8 py-6 text-white text-sm leading-normal z-chrome">
-      {{ currentItem.vlm_caption }}
-    </div>
 
     <!-- Media display -->
     <div
@@ -478,7 +474,7 @@
           :key="`audio-${displayItem?.id}-${refreshKey}`"
           :src="getMediaFileUrl(displayItem.file_hash)"
           :media-id="mediaIdOf(displayItem)"
-          :title="displayItem.vlm_caption"
+          :title="displayItem.original_filename"
           :duration="displayItem.duration"
           :autoplay="mobileAutoplayAllowed"
         />
@@ -610,7 +606,7 @@
             v-else
             :key="`img-${displayItem?.id}-${refreshKey}`"
             :src="recoveredImageUrl(getMediaFileUrl(displayItem.file_hash), imageRecoveryRevision)"
-            :alt="displayItem.vlm_caption"
+            :alt="displayItem.original_filename"
             fetchpriority="high"
             :class="['w-full h-full select-none', hasExactDimensions ? '' : 'object-contain']"
             draggable="true"
@@ -753,7 +749,7 @@
       <div v-if="isViewingSource && currentItem" class="h-full flex items-center justify-center">
         <div
           class="flex items-center justify-center relative"
-          :title="currentItem.vlm_caption || 'Source image'"
+          :title="currentItem.original_filename || 'Source image'"
           :style="{ height: `${STRIP_ROW}px` }"
           @contextmenu="handleContextMenu($event, currentItem)"
         >
@@ -763,7 +759,7 @@
               :file-hash="currentItem.file_hash"
               :file-path="currentItem.file_path"
               :file-format="currentItem.file_format"
-              :alt="currentItem.vlm_caption"
+              :alt="currentItem.original_filename"
               thumbnail
               :thumbnail-size="256"
               :draggable="false"
@@ -791,7 +787,7 @@
           :key="item.id"
           @click="setViewIndex = index"
           class="flex-shrink-0 cursor-pointer transition-all relative"
-          :title="item.vlm_caption || `Item ${index + 1}`"
+          :title="item.original_filename || `Item ${index + 1}`"
         >
           <div
             class="w-[96px] h-[96px] compact:w-[52px] compact:h-[52px] bg-matte rounded-none transition-all"
@@ -802,7 +798,7 @@
               :file-hash="item.file_hash"
               :file-path="item.file_path"
               :file-format="item.file_format"
-              :alt="item.vlm_caption"
+              :alt="item.original_filename"
               draggable="true"
               @dragstart="handleStripDragStart($event, item)"
               @dragend="handleDragEnd"
@@ -847,7 +843,7 @@
             @contextmenu="!item._isPlaceholder && handleContextMenu($event, item)"
             class="flex items-center justify-center transition-all relative"
             :class="item._isPlaceholder ? 'cursor-default' : 'cursor-pointer'"
-            :title="item._isPlaceholder ? 'Loading...' : (item.vlm_caption || `Image ${index + 1}`)"
+            :title="item._isPlaceholder ? 'Loading...' : (item.original_filename || `Image ${index + 1}`)"
             :style="{ height: `${STRIP_ROW}px` }"
           >
             <!-- Placeholder skeleton while loading -->
@@ -868,7 +864,7 @@
                 :file-hash="item.file_hash"
                 :file-path="item.file_path"
                 :file-format="item.file_format"
-                :alt="item.vlm_caption"
+                :alt="item.original_filename"
                 draggable="true"
                 @dragstart="handleStripDragStart($event, item)"
                 @dragend="handleDragEnd"
@@ -1411,7 +1407,6 @@ import { ArrowUpTrayIcon, FilmIcon, LinkIcon } from '@heroicons/vue/24/outline'
 import { useShareDialog } from '../composables/useShareDialog'
 import HorizontalVirtualScroller from './HorizontalVirtualScroller.vue'
 import SlideshowMarkerControls from './SlideshowMarkerControls.vue'
-import { captioningEnabledRef } from '../appConfig'
 import MarkerBadges from './MarkerBadges.vue'
 import SlideshowInfoPanel from './SlideshowInfoPanel.vue'
 import Sheet from './ui/Sheet.vue'
@@ -1454,7 +1449,7 @@ import { announceProjectAssetsChanged } from '../utils/projectScope'
 useSlideshowPresence()
 
 const router = useRouter()
-const { setKeywordFilter, setTagFilter, setSimilarFilter } = useBrowseFilters()
+const { setTagFilter, setSimilarFilter } = useBrowseFilters()
 
 const props = defineProps({
   totalCount: {
@@ -1534,7 +1529,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'filterByKeyword', 'findSimilar', 'update:index', 'update:currentMediaId', 'update:randomized', 'update:randomSeed', 'navigate-to-media', 'compare-with-source', 'approve', 'reject', 'unapprove'])
+const emit = defineEmits(['close', 'findSimilar', 'update:index', 'update:currentMediaId', 'update:randomized', 'update:randomSeed', 'navigate-to-media', 'compare-with-source', 'approve', 'reject', 'unapprove'])
 
 const { getThumbnailUrl, getMediaFileUrl, getMseLoopUrls, getMediaItem, fetchMedia, deleteMedia, findMediaIndex, restoreFromTrash, permanentlyDeleteMedia, getMediaFaces, downloadMedia: downloadMediaApi, getProjects, addMediaToProject, removeMediaFromProject } = useMediaApi()
 const {
@@ -1668,7 +1663,7 @@ const refreshKey = ref(0) // Used to force image reload without index change
 const isPlaying = ref(false)
 const loopEnabled = ref(savedSettings.loopEnabled ?? false)
 const showInfo = ref(false)
-const showCaption = ref(false)
+
 // Global video-channel mute/volume, shared with every video surface and
 // persisted by the composable (so muting sticks across close/reopen).
 const { videoMuted: isMuted, videoVolume: volume, toggleVideoMute } = useMediaPlayback()
@@ -2455,16 +2450,10 @@ const currentMediaType = computed(() => {
   if (!displayItem.value) return 'image'
   return getMediaType(displayItem.value)
 })
-const keywordsArray = computed(() => {
-  if (!currentItem.value || !currentItem.value.keywords) return []
-  if (Array.isArray(currentItem.value.keywords)) return currentItem.value.keywords
-  // If it's a comma-separated string, split it
-  return currentItem.value.keywords.split(',').map(k => k.trim()).filter(k => k)
-})
 
 const canSendToGenerate = computed(() => {
   if (!currentItem.value) return false
-  return !!(currentItem.value.generation_metadata || currentItem.value.raw_metadata || currentItem.value.vlm_caption)
+  return !!(currentItem.value.generation_metadata || currentItem.value.raw_metadata)
 })
 
 const hasRawMetadata = computed(() => {
@@ -2747,7 +2736,7 @@ watch(
 
 function mediaUpdatePatch(fields = [], media = {}) {
   const patch = {}
-  if (fields.includes('caption') || fields.includes('prompt') || fields.includes('metadata')) {
+  if (fields.includes('prompt') || fields.includes('metadata')) {
     Object.assign(patch, media)
   }
   if (fields.includes('markers')) {
@@ -2780,11 +2769,6 @@ watch(() => itemIdentity(displayItem.value), (newId, oldId) => {
 // No auto-enter for sets - they behave like all other media types.
 // Users see the set cover and can interact with it (markers, tags, etc).
 // Click "View Set" button to enter and browse contents.
-
-const hasOnlyCaption = computed(() => {
-  if (!currentItem.value) return false
-  return !!(currentItem.value.vlm_caption && !currentItem.value.generation_metadata && !currentItem.value.raw_metadata)
-})
 
 const controlBarStyle = computed(() => {
   if (slideshowCompact.value) {
@@ -3989,10 +3973,6 @@ function toggleInfo() {
   showInfo.value = !showInfo.value
 }
 
-function toggleCaption() {
-  showCaption.value = !showCaption.value
-}
-
 function toggleLoop() {
   if (preventClick.value) return
   loopEnabled.value = !loopEnabled.value
@@ -4423,12 +4403,6 @@ function handleKeydown(event) {
     case 'i':
       event.preventDefault()
       showSidebar.value = !showSidebar.value
-      break
-    case 'C':
-      if (event.shiftKey) {
-        event.preventDefault()
-        toggleCaption()
-      }
       break
     case 'l':
       event.preventDefault()
@@ -5064,18 +5038,6 @@ async function handlePermanentDeleteCurrentItem() {
   } catch (error) {
     console.error('Failed to permanently delete media:', error)
     addToast('Failed to permanently delete item', 'error')
-  }
-}
-
-function filterByKeyword(keyword) {
-  // Set global filter state
-  setKeywordFilter(keyword)
-
-  // If already on Browse, close slideshow; otherwise navigate (which will unmount it)
-  if (router.currentRoute.value.name === 'browse') {
-    close()
-  } else {
-    router.push({ name: 'browse' })
   }
 }
 

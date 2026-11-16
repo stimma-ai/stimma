@@ -10,15 +10,12 @@ import {
 
 test('filter-count params include every All Assets filter that changes availability', () => {
   const params = buildFilterCountParams({
-    captionQuery: 'caption',
     promptQuery: 'prompt',
     similarToText: 'red fox',
     mediaTypes: ['images'],
     excludedMediaTypes: ['video'],
     resolutions: ['large'],
     excludedResolutions: ['small'],
-    selectedKeywords: ['animal'],
-    excludedKeywords: ['indoor'],
     selectedFolders: ['/photos'],
     excludedFolders: ['/drafts'],
     selectedTags: [1],
@@ -37,17 +34,13 @@ test('filter-count params include every All Assets filter that changes availabil
   })
 
   assert.deepEqual(params, {
-    keyword_limit: 50,
     state: 'active',
-    caption_query: 'caption',
     prompt_query: 'prompt',
     similar_to_text: 'red fox',
     media_types: 'images',
     excluded_media_types: 'video',
     resolutions: 'large',
     excluded_resolutions: 'small',
-    keywords: 'animal',
-    excluded_keywords: 'indoor',
     folders: '/photos',
     excluded_folders: '/drafts',
     tag_ids: '1',
@@ -118,7 +111,6 @@ test('similarity inputs use the active search source without dropping text searc
     similarFaceTo: [8, 9],
     similarTo: [10],
   }, { similarSearchActive: true }), {
-    keyword_limit: 50,
     state: 'active',
     similar_to_text: 'landscape',
     similar_face_to: '8,9',
@@ -145,4 +137,22 @@ test('legacy saved-view expiring flags become the implicit expiring marker', () 
   const hidden = normalizeBrowseFilters({ excludeExpiring: true, excludedMarkers: ['implicit:expiring'] })
   assert.deepEqual(hidden.excludedMarkers, ['implicit:expiring'])
   assert.deepEqual(hidden.selectedMarkers, [])
+})
+
+test('retired caption and keyword criteria cannot survive saved-view restoration', () => {
+  const legacy = {
+    promptQuery: 'keep this',
+    captionQuery: 'retired caption',
+    selectedKeywords: ['animal'],
+    excludedKeywords: ['indoor'],
+  }
+  const restored = normalizeBrowseFilters(legacy)
+  assert.equal(restored.promptQuery, 'keep this')
+  for (const key of ['captionQuery', 'selectedKeywords', 'excludedKeywords']) {
+    assert.equal(key in restored, false)
+  }
+  const params = buildFilterCountParams(legacy)
+  for (const key of ['caption_query', 'keywords', 'excluded_keywords', 'keyword_limit']) {
+    assert.equal(key in params, false)
+  }
 })

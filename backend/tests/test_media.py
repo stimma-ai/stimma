@@ -74,20 +74,20 @@ class TestMediaListing:
 class TestMediaSearch:
     """Tests for media search functionality."""
 
-    async def test_caption_search(self, client: AsyncClient, seeded_media_with_captions):
-        """Test searching by caption text."""
-        response = await client.get("/api/media", params={"caption_query": "red"})
+    async def test_prompt_search(self, client: AsyncClient, seeded_media_with_prompts):
+        """Test searching by prompt text."""
+        response = await client.get("/api/media", params={"prompt_query": "red"})
         assert response.status_code == 200
 
         data = response.json()
-        # Should find items with "red" in caption
+        # Should find items with "red" in prompt
         assert len(data["items"]) >= 1
         for item in data["items"]:
-            assert "red" in item.get("vlm_caption", "").lower()
+            assert "red" in item.get("extracted_prompt", "").lower()
 
-    async def test_caption_search_no_results(self, client: AsyncClient, seeded_media):
+    async def test_prompt_search_no_results(self, client: AsyncClient, seeded_media):
         """Test search with no matching results."""
-        response = await client.get("/api/media", params={"caption_query": "xyznonexistent123"})
+        response = await client.get("/api/media", params={"prompt_query": "xyznonexistent123"})
         assert response.status_code == 200
 
         data = response.json()
@@ -440,12 +440,12 @@ async def seeded_media(db_session):
 
 
 @pytest.fixture
-async def seeded_media_with_captions(db_session):
-    """Create test media items with captions for search testing."""
+async def seeded_media_with_prompts(db_session):
+    """Create test media items with prompts for search testing."""
     from tests.helpers.media import create_test_media
 
     async with db_session() as session:
-        items = await create_test_media(session, count=5, with_captions=True)
+        items = await create_test_media(session, count=5, with_prompts=True)
         yield items
 
 

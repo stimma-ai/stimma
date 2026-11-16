@@ -142,7 +142,6 @@ from routes import (
     generation,
     home,
     image_stack,
-    keywords,
     markers,
     media,
     multi_device as multi_device_routes,
@@ -210,7 +209,6 @@ app.include_router(multi_device_routes.router)
 app.include_router(mobile_ui.router)
 app.include_router(tags.router)
 app.include_router(trash.router)
-app.include_router(keywords.router)
 app.include_router(generation.router)
 app.include_router(image_stack.router)
 app.include_router(postprocessing.router)

@@ -400,34 +400,6 @@
       </div>
 
       <!-- AI description -->
-      <div v-if="currentItem.vlm_caption && captioningEnabledRef" class="mb-8 last:mb-0">
-        <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary flex items-center justify-between">
-          <span>AI description</span>
-          <Tooltip text="Copy">
-            <IconButton aria-label="Copy description" @click="copyTextWithToast(currentItem.vlm_caption)">
-              <ClipboardDocumentIcon class="w-4 h-4" />
-            </IconButton>
-          </Tooltip>
-        </h4>
-        <p class="text-content-secondary text-sm leading-relaxed m-0 select-text">{{ currentItem.vlm_caption }}</p>
-      </div>
-
-      <!-- Keywords -->
-      <div v-if="keywordsArray.length > 0 && captioningEnabledRef" class="mb-8 last:mb-0">
-        <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary">Keywords</h4>
-        <div class="flex flex-wrap gap-1.5">
-          <button
-            v-for="keyword in keywordsArray"
-            :key="keyword"
-            type="button"
-            :aria-label="`Filter by ${keyword}`"
-            @click="$emit('filter-by-keyword', keyword)"
-            class="inline-block px-2 py-0.5 bg-overlay-subtle rounded-md border-none text-xs text-content-secondary cursor-pointer transition-colors duration-150 hover:bg-overlay-hover hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-          >
-            {{ keyword }}
-          </button>
-        </div>
-      </div>
 
       <!-- File -->
       <ProvenanceFileFacts class="mb-6" :rows="fileInfoRows">
@@ -461,10 +433,7 @@
             <StatusDot :bucket="processingStatusBucket(currentItem.face_detection_status)" :pulse="isProcessingStatusPulsing(currentItem.face_detection_status)" />
             <span class="text-xs text-content-tertiary">Face analysis</span>
           </div>
-          <div v-if="captioningEnabledRef" class="flex items-center gap-2 py-1.5">
-            <StatusDot :bucket="processingStatusBucket(currentItem.vlm_caption_status)" :pulse="isProcessingStatusPulsing(currentItem.vlm_caption_status)" />
-            <span class="text-xs text-content-tertiary">Visual analysis</span>
-          </div>
+
         </div>
       </div>
 
@@ -541,7 +510,6 @@ import Spinner from './ui/Spinner.vue'
 import IconButton from './ui/IconButton.vue'
 import ActionRow from './ui/ActionRow.vue'
 import Tooltip from './ui/Tooltip.vue'
-import { captioningEnabledRef } from '../appConfig'
 import { getApiBase, isDesktop } from '../apiConfig'
 import { formatRelativeTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { useExpirationClock } from '../composables/useExpirationClock'
@@ -643,7 +611,6 @@ const emit = defineEmits([
   'edit-image',
   'share-to-cloud',
   'filter-by-tag',
-  'filter-by-keyword',
   'navigate-to-collection',
   'navigate-to-project',
   'navigate-to-source-media',
@@ -931,13 +898,6 @@ const currentMediaType = computed(() => props.currentItem ? getMediaType(props.c
 // Used to determine whether to show AI processing status
 const isVisualMedia = computed(() => props.currentItem ? hasVisualContent(props.currentItem) : false)
 
-// Computed: keywords array from currentItem
-const keywordsArray = computed(() => {
-  if (!props.currentItem || !props.currentItem.keywords) return []
-  if (Array.isArray(props.currentItem.keywords)) return props.currentItem.keywords
-  return props.currentItem.keywords.split(',').map(k => k.trim()).filter(k => k)
-})
-
 async function copyTextWithToast(text) {
   if (await copyToClipboard(text)) {
     addToast('Copied to clipboard', 'success')
@@ -1044,7 +1004,7 @@ async function removeAutoDelete() {
   }
 }
 
-// Local status vocabulary (clip_status/face_detection_status/vlm_caption_status)
+// Local status vocabulary (clip_status/face_detection_status)
 // mapped onto the shared StatusBucket vocabulary — colors always come from
 // statusColors.ts via StatusDot (DESIGN.md §1.9); this only knows the
 // mapping, never a color.
@@ -1068,19 +1028,18 @@ function isProcessingStatusPulsing(status) {
   return status === 'processing' || status === 'reprocessing'
 }
 
-// All-clear check for the collapsed one-line footer. Caption status only
-// counts when captioning is enabled.
+// All-clear check for the collapsed one-line footer.
 const allProcessingDone = computed(() => {
   const m = props.currentItem
   if (!m) return false
   const statuses = [m.clip_status, m.face_detection_status]
-  if (captioningEnabledRef.value) statuses.push(m.vlm_caption_status)
+
   return statuses.every(s => s === 'completed')
 })
 
 const processingSummary = computed(() => {
   const parts = ['indexed', 'faces analyzed']
-  if (captioningEnabledRef.value) parts.push('captioned')
+
   return parts.join(' · ')
 })
 

@@ -380,7 +380,6 @@ async def save_sheet_media(
         has_alpha=False,
         clip_status="skipped",
         face_detection_status="skipped",
-        vlm_caption_status="skipped",
         raw_metadata=json.dumps(meta),
         generation_metadata=dump_generation_metadata(
             task_type="contact_sheet",

@@ -50,32 +50,6 @@ async def reload_config():
         log.error(f"ADMIN: Failed to reload config: {e}")
         return {"status": "error", "message": str(e)}
 
-
-@router.post("/reset-keywords")
-async def reset_keywords(session: AsyncSession = Depends(get_db_session)):
-    """
-    Reset all keywords to trigger regeneration.
-    Useful when switching from NLP to LLM-based keyword extraction.
-    """
-    result = await session.execute(select(MediaItem))
-    items = result.scalars().all()
-
-    count = 0
-    for item in items:
-        if item.keywords:
-            item.keywords = None
-            count += 1
-
-    await session.commit()
-    log.info(f"ADMIN: Reset keywords for {count} items - they will be regenerated on next ingestion cycle")
-
-    return {
-        "status": "success",
-        "message": f"Reset keywords for {count} items",
-        "items_reset": count
-    }
-
-
 @router.get("/request-metrics", response_model=RequestMetricsResponse)
 async def get_request_metrics(
     sort_by: Literal["p95_ms", "p99_ms", "p90_ms", "p50_ms", "avg_ms", "count", "max_ms"] = Query(default="p95_ms"),

@@ -142,7 +142,6 @@ Behavior:
 
 Explicit deletes are used for:
 - `faces`
-- `media_keywords`
 - `media_markers`
 - `media_tags`
 - `media_tool_lineage`

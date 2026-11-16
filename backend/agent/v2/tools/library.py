@@ -24,7 +24,7 @@ from database import (
     Asset, AssetMarker, AssetRevision, AssetTag, CollectionAssetItem, ProjectAsset,
     MediaItem, MediaLineage, Tag,
     Collection, CollectionItem, CollectionSection, Marker,
-    Keyword, MediaKeyword, MediaToolLineage, Face,
+    MediaToolLineage, Face,
 )
 from generation_metadata import build_parameters, dump_generation_metadata
 
@@ -33,14 +33,13 @@ log = get_logger(__name__)
 STATIC_MEDIA_TYPES = ["images", "videos", "audio", "text", "sets", "grids", "sprites", "packages", "structured"]
 STATIC_RESOLUTIONS = ["small", "medium", "large", "huge"]
 STATIC_SORTS = ["created_desc", "created_asc", "indexed_desc", "indexed_asc", "random"]
-OPTION_FACETS = ["media_types", "resolutions", "generated", "folders", "keywords", "tags", "markers", "tools"]
+OPTION_FACETS = ["media_types", "resolutions", "generated", "folders", "tags", "markers", "tools"]
 OPTION_FACETS += sorted(METADATA_FACETS)
 FACET_TO_FILTER_KEY = {
     "media_types": "media_types",
     "resolutions": "resolutions",
     "generated": "generated",
     "folders": "folders",
-    "keywords": "keywords",
     "tags": "tags",
     "markers": "markers",
     "tools": "tools",
@@ -73,7 +72,6 @@ def _media_summary(item: MediaItem, asset_id: int | None = None) -> Dict[str, An
         "media_id": item.id,
         "filename": os.path.basename(item.file_path) if item.file_path else None,
         "prompt": _best_prompt(item),
-        "caption": item.vlm_caption,
         "width": item.width,
         "height": item.height,
         "tool_id": item.tool_id or gen.get("tool_id"),
@@ -160,7 +158,7 @@ def _normalize_filters(filters: Any) -> Dict[str, Any]:
         raise ValueError("filters must be an object")
 
     normalized: Dict[str, Any] = {}
-    allowed = TEXT_FIELDS | {"generated", "media_types", "resolutions", "folders", "keywords", "tags", "markers", "tools", "created_at", "media_ids"}
+    allowed = TEXT_FIELDS | {"generated", "media_types", "resolutions", "folders", "tags", "markers", "tools", "created_at", "media_ids"}
     unknown = set(parsed) - allowed
     if unknown:
         raise ValueError(f"Unknown library filters: {sorted(unknown)}. Use browse_schema to discover supported fields.")
@@ -176,7 +174,7 @@ def _normalize_filters(filters: Any) -> Dict[str, Any]:
     if isinstance(generated, bool):
         normalized["generated"] = generated
 
-    for facet in ("media_types", "resolutions", "folders", "keywords", "tags", "markers", "tools"):
+    for facet in ("media_types", "resolutions", "folders", "tags", "markers", "tools"):
         raw = parsed.get(facet)
         if raw is None:
             continue
@@ -419,8 +417,6 @@ async def _build_browse_query(
         excluded_media_types=_as_csv(filters.get("media_types", {}).get("exclude", [])),
         resolutions=_as_csv(filters.get("resolutions", {}).get("include", [])),
         excluded_resolutions=_as_csv(filters.get("resolutions", {}).get("exclude", [])),
-        keywords=_as_csv(filters.get("keywords", {}).get("include", [])),
-        excluded_keywords=_as_csv(filters.get("keywords", {}).get("exclude", [])),
         folders=_as_csv(filters.get("folders", {}).get("include", [])),
         excluded_folders=_as_csv(filters.get("folders", {}).get("exclude", [])),
         is_generated=filters.get("generated"),
@@ -460,8 +456,7 @@ def _browse_schema() -> Dict[str, Any]:
     schema = {
         "action": "browse",
         "filters": {
-            "query": {"type": "string", "description": "Caption OR prompt substring search"},
-            "caption_query": {"type": "string"},
+            "query": {"type": "string", "description": "Prompt substring search"},
             "prompt_query": {"type": "string"},
             "generated": {"type": "boolean"},
             "media_types": {
@@ -478,11 +473,6 @@ def _browse_schema() -> Dict[str, Any]:
                 "type": "facet",
                 "include_exclude": True,
                 "discovery": "library(action='browse_options', facet='folders', ...)",
-            },
-            "keywords": {
-                "type": "facet",
-                "include_exclude": True,
-                "discovery": "library(action='browse_options', facet='keywords', ...)",
             },
             "tags": {
                 "type": "facet",
@@ -507,7 +497,7 @@ def _browse_schema() -> Dict[str, Any]:
         "sort_options": STATIC_SORTS,
         "option_facets": OPTION_FACETS,
         "notes": [
-            "Use browse_options for high-cardinality facets like tags, folders, keywords, markers, and tools.",
+            "Use browse_options for high-cardinality facets like tags, folders, markers, and tools.",
             "For tags and markers, browse consumes IDs or exact names; browse_options returns IDs for dynamic facets.",
         ],
     }
@@ -531,7 +521,7 @@ def _browse_schema() -> Dict[str, Any]:
         "lineage": "await stimma.library.lineage(media_id=None, media_ids=None, direction='parents', relationship='derived', filters=None, limit=20, offset=0)",
     }
     schema["notes"] += [
-        "Text filters combine with AND. Prompts search extracted, rendered, and original user prompts; query also searches captions and keywords.",
+        "Text filters combine with AND. Prompts search extracted, rendered, and original user prompts; query searches the same prompt fields.",
         "models, loras, task_types, and direct_tools describe the item's OWN recorded generation. tools is the legacy ancestor-inclusive tool facet.",
         "Model/LoRA/filename exact and glob matching accepts a full path or basename. SQL % and _ are literal characters. Glob brackets are literal.",
         "Use inspect(media_ids) for batch metadata without copying files; get copies one file into the workspace.",
@@ -691,20 +681,6 @@ async def _browse_options_dynamic(
         if search:
             stmt = stmt.where(func.lower(Marker.name).ilike(search))
         stmt = stmt.order_by(func.count(func.distinct(AssetMarker.asset_id)).desc(), Marker.name.asc())
-    elif facet == "keywords":
-        stmt = (
-            select(
-                Keyword.id.label("id"),
-                Keyword.keyword_text.label("label"),
-                func.count(func.distinct(MediaKeyword.media_id)).label("count"),
-            )
-            .join(MediaKeyword, MediaKeyword.keyword_id == Keyword.id)
-            .join(asset_media_ids, asset_media_ids.c.media_id == MediaKeyword.media_id)
-            .group_by(Keyword.id, Keyword.keyword_text)
-        )
-        if search:
-            stmt = stmt.where(func.lower(Keyword.keyword_text).ilike(search))
-        stmt = stmt.order_by(func.count(func.distinct(MediaKeyword.media_id)).desc(), Keyword.keyword_text.asc())
     elif facet == "tools":
         stmt = (
             select(
@@ -774,7 +750,7 @@ def _parse_generation_metadata(item: MediaItem) -> Optional[Dict[str, Any]]:
 
 
 def _best_prompt(item: MediaItem, generation_metadata: Optional[Dict[str, Any]] = None) -> Optional[str]:
-    """Prefer the user-authored generation prompt over extracted prompt and AI caption."""
+    """Prefer the user-authored generation prompt over extracted prompt."""
     gen = generation_metadata if generation_metadata is not None else _parse_generation_metadata(item)
     prompt_metadata = gen.get("prompt_metadata") if isinstance(gen, dict) else None
     original_prompt = prompt_metadata.get("original_prompt") if isinstance(prompt_metadata, dict) else None
@@ -1044,7 +1020,7 @@ async def resolve_params_from(
     parameters=[
         ToolParameter("action", "string", "search | inspect | get | generation_params | browse | browse_schema | browse_options | save | lineage | tag | marker | collection"),
         ToolParameter("query", "string", "Text query. Search matches against generation prompts by default (best signal). Use search_fields to broaden.", required=False),
-        ToolParameter("search_fields", "string", "prompt (default) | caption | keywords | all — which fields search.query matches. Structured filters compose with search too.", required=False),
+        ToolParameter("search_fields", "string", "prompt (default) | all — which fields search.query matches. Structured filters compose with search too.", required=False),
         ToolParameter("media_id", "integer", "Exact Media payload ID. Used for get/lineage, and ALSO accepted as the target for tag/marker/collection actions (resolved to its owning Asset — just pass the media_id you already have).", required=False),
         ToolParameter("media_ids", "array", "Exact Media payload IDs for payload operations, or as bulk targets for tag/marker/collection actions.", required=False, items={"type": "integer"}),
         ToolParameter("asset_id", "integer", "Asset ID for tag/marker/collection actions. Optional — if you only have a media_id, pass that instead (do not mix asset and media IDs in one call).", required=False),
@@ -1205,12 +1181,12 @@ async def _search(
         return "Error: query is required for search"
 
     fields = (search_fields or "prompt").lower().strip()
-    valid_fields = {"prompt", "caption", "keywords", "all"}
+    valid_fields = {"prompt", "all"}
     if fields not in valid_fields:
         return f"Error: search_fields must be one of: {', '.join(sorted(valid_fields))}"
 
     normalized = _normalize_filters(filters)
-    key = {"prompt": "prompt_query", "caption": "caption_query", "keywords": "keyword_query", "all": "query"}[fields]
+    key = {"prompt": "prompt_query", "all": "query"}[fields]
     if key in normalized:
         raise ValueError(f"Pass either query/search_fields or filters.{key}, not both")
     normalized[key] = normalize_match(query, key)
@@ -1398,8 +1374,6 @@ async def get_media_for_workspace(
         "tool_id": raw_tool_id,
         "tool_name": tool_name,
         "created_at": item.created_date.isoformat() if item.created_date else None,
-        "caption": item.vlm_caption,
-        "keywords": item.keywords.split(",") if item.keywords else [],
         "generation_metadata": generation_metadata,
     }
 
@@ -1625,7 +1599,6 @@ async def save_workspace_file(
         metadata_config_version=get_config_version_manager().get_version('metadata'),
         clip_status="skipped" if is_non_visual else None,
         face_detection_status="skipped" if is_non_visual else None,
-        vlm_caption_status="skipped" if is_non_visual else None,
         created_date=datetime.utcnow(),
         modified_date=datetime.utcnow(),
         indexed_date=datetime.utcnow(),

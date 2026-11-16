@@ -15,7 +15,6 @@ from tests.helpers.media import create_media_item
 async def test_library_get_prioritizes_prompt_and_includes_history(session):
     media = await create_media_item(
         session,
-        vlm_caption="AI caption should not lead",
         extracted_prompt="Fallback prompt",
         generation_metadata=json.dumps({
             "task_type": "text-to-image",
@@ -50,11 +49,9 @@ async def test_library_get_prioritizes_prompt_and_includes_history(session):
     data = json.loads(raw)
 
     assert data["prompt"] == "original user intent prompt"
-    assert data["caption"] == "AI caption should not lead"
+    assert "caption" not in data
     assert data["history"][0]["prompt"] == "rendered prompt text"
     assert data["history"][1]["prompt"] == "ancestor prompt"
-    assert raw.index('"prompt"') < raw.index('"caption"')
-
 
 @pytest.mark.asyncio
 async def test_library_inspect_retains_history_without_inventing_lineage_edges(session):

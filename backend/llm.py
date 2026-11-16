@@ -15,7 +15,7 @@ Usage:
     resp.tool_calls   # normalized tool calls
     resp.finish_reason
 
-    # Simple text (prompt enhancement, captioning, etc.)
+    # Simple text (prompt enhancement, etc.)
     text = await llm_complete_text(config, messages=messages, max_tokens=500)
 """
 from __future__ import annotations
@@ -842,7 +842,7 @@ async def llm_complete_text(
 ) -> str:
     """Make a completion call and return just the text content.
 
-    Thinking is requested OFF by default (prompt enhancement, captioning, etc.); pass
+    Thinking is requested OFF by default (prompt enhancement, etc.); pass
     enable_thinking=True for callers that want the model to reason first — slower,
     but can improve quality on weaker models. Strips tags either way. Uses the
     shared agent_llm_options so the thinking dialect matches the agent loop.

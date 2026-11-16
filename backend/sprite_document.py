@@ -276,7 +276,6 @@ def media_payload(media: MediaItem, **extra: Any) -> dict[str, Any]:
         "width": media.width,
         "height": media.height,
         "duration": media.duration,
-        "vlm_caption": media.vlm_caption,
         "generation_metadata": media.generation_metadata,
         "markers": [],
         "tags": [],

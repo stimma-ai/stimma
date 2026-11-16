@@ -23,7 +23,6 @@ export function useUrlState() {
   /**
    * Encode filters to compact URL format
    * Format: uses short keys to minimize URL length
-   * - cq: caption query
    * - pq: prompt query
    * - stt: similar to text (text-based CLIP search)
    * - mt: media types (i=images, v=videos, a=audio, t=text, s=vectors, e=sets, g=grids, r=sprites, p=packages, l=layouts)
@@ -31,8 +30,6 @@ export function useUrlState() {
    * - r: resolutions (s=small, m=medium, l=large)
    * - xr: excluded resolutions
    * - s: sort by (cd=created_desc, ca=created_asc, ri=indexed_desc, re=edited_desc, r=random, sim=similarity)
-   * - k: keywords (comma-separated)
-   * - xk: excluded keywords
    * - f: folders (comma-separated)
    * - xf: excluded folders
    * - sim: similar to (media ID)
@@ -45,7 +42,7 @@ export function useUrlState() {
     const params = new URLSearchParams()
 
     // Text queries
-    if (filters.captionQuery) params.set('cq', filters.captionQuery)
+
     if (filters.promptQuery) params.set('pq', filters.promptQuery)
     if (filters.similarToText) params.set('stt', filters.similarToText)
 
@@ -71,14 +68,6 @@ export function useUrlState() {
     if (filters.sortBy && filters.sortBy !== 'created_desc') {
       const sortMap = { created_asc: 'ca', indexed_desc: 'ri', edited_desc: 're', random: 'r', created_desc: 'cd', similarity: 'sim' }
       params.set('s', sortMap[filters.sortBy] || filters.sortBy)
-    }
-
-    // Keywords
-    if (filters.selectedKeywords?.length > 0) {
-      params.set('k', filters.selectedKeywords.join(','))
-    }
-    if (filters.excludedKeywords?.length > 0) {
-      params.set('xk', filters.excludedKeywords.join(','))
     }
 
     // Marker IDs may be numeric configurable markers or namespaced implicit
@@ -167,7 +156,6 @@ export function useUrlState() {
    */
   function decodeFiltersFromUrl(queryParams) {
     const filters = {
-      captionQuery: queryParams.cq || '',
       promptQuery: queryParams.pq || '',
       similarToText: queryParams.stt || '',
       mediaTypes: [],
@@ -175,8 +163,6 @@ export function useUrlState() {
       resolutions: [],
       excludedResolutions: [],
       sortBy: 'created_desc',
-      selectedKeywords: [],
-      excludedKeywords: [],
       selectedFolders: [],
       excludedFolders: [],
       similarTo: [],
@@ -225,14 +211,6 @@ export function useUrlState() {
     if (queryParams.s) {
       const sortMap = { ca: 'created_asc', ri: 'indexed_desc', re: 'edited_desc', r: 'random', cd: 'created_desc', sim: 'similarity' }
       filters.sortBy = sortMap[queryParams.s] || queryParams.s
-    }
-
-    // Keywords
-    if (queryParams.k) {
-      filters.selectedKeywords = queryParams.k.split(',').filter(k => k)
-    }
-    if (queryParams.xk) {
-      filters.excludedKeywords = queryParams.xk.split(',').filter(k => k)
     }
 
     const decodeMarkerId = value => /^\d+$/.test(value) ? Number(value) : value

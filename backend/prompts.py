@@ -34,14 +34,14 @@ def get_prompt(section: str, key: str = "prompt") -> str:
     Get a prompt by section and key, re-reading from disk if file changed.
 
     Args:
-        section: Top-level key in prompts.yaml (e.g., "captioning", "agent")
+        section: Top-level key in prompts.yaml (e.g., "metadata_to_generation", "agent")
         key: Key within the section (default "prompt", or e.g., "system_prompt")
 
     Returns:
         The prompt string, or empty string if not found.
 
     Examples:
-        get_prompt("captioning")  # Gets captioning.prompt
+        get_prompt("metadata_to_generation")  # Gets metadata_to_generation.prompt
         get_prompt("agent", "system_prompt")  # Gets agent.system_prompt
         get_prompt("prompt_enhancement", "improve_system_prompt")
     """

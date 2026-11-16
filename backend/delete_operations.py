@@ -21,7 +21,6 @@ from database import (
     GenerationJob,
     MediaItem,
     MediaSidecar,
-    MediaKeyword,
     MediaLineage,
     ManagedArtifact,
     MediaMarker,
@@ -2019,7 +2018,7 @@ async def _batch_scrub_references(session, media_ids: list[int]) -> None:
     await session.execute(
         update(MediaLineage).where(MediaLineage.source_media_id.in_(media_ids)).values(source_media_id=None, source_file_path=None)
     )
-    for model in (Face, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage, ProjectMedia, CollectionItem):
+    for model in (Face, MediaMarker, MediaTag, MediaToolLineage, ProjectMedia, CollectionItem):
         await session.execute(delete(model).where(model.media_id.in_(media_ids)))
 
     # Null out ChatItem.media_id FK (indexed)
@@ -2239,7 +2238,7 @@ async def _scrub_references(session, media_id: int) -> None:
     await session.execute(
         update(MediaLineage).where(MediaLineage.source_media_id == media_id).values(source_media_id=None, source_file_path=None)
     )
-    for model in (Face, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage, ProjectMedia, CollectionItem):
+    for model in (Face, MediaMarker, MediaTag, MediaToolLineage, ProjectMedia, CollectionItem):
         await session.execute(delete(model).where(model.media_id == media_id))
 
     await session.execute(

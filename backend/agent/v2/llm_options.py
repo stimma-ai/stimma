@@ -18,7 +18,7 @@ def agent_llm_options(*, enable_thinking: bool) -> dict[str, Any]:
 
     ``enable_thinking`` is required and is set per call site, not via config —
     interactive agent loops (chat, flow, delegate, prompt-improver mini-agent)
-    pass ``True``; tiny one-off tasks (auto-name, captioning) bypass this
+    pass ``True``; tiny one-off tasks (auto-name) bypass this
     helper and go through ``llm_complete_text`` which hardcodes thinking off.
     """
     options: dict[str, Any] = {

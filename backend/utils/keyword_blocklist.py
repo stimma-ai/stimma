@@ -142,15 +142,13 @@ def gather_texts_for_blocklist(
 ) -> list[str]:
     """Gather all relevant text fields from a media item for blocklist checking.
 
-    Includes title, description, extracted_prompt, vlm_caption, and prompts
+    Includes title, description, extracted_prompt, and prompts
     from the generation_metadata lineage_trace.
     """
     texts = [title, description]
 
     if hasattr(media_item, "extracted_prompt"):
         texts.append(media_item.extracted_prompt)
-    if hasattr(media_item, "vlm_caption"):
-        texts.append(media_item.vlm_caption)
 
     # Extract prompts from generation_metadata (includes lineage_trace)
     if hasattr(media_item, "generation_metadata") and media_item.generation_metadata:

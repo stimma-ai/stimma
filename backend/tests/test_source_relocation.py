@@ -99,15 +99,13 @@ async def test_folder_relocation_preserves_identity_and_processing(
             metadata_status="completed",
             clip_status="completed",
             face_detection_status="completed",
-            vlm_caption_status="completed",
-            vlm_caption="unchanged caption",
+            extracted_prompt="unchanged caption",
         )
         media.modified_date = old_mtime
         media.clip_embedding = b"stable-embedding"
         media.metadata_config_version = "metadata-v1"
         media.clip_config_version = "clip-v1"
         media.face_detection_config_version = "faces-v1"
-        media.vlm_caption_config_version = "caption-v1"
         storage, asset = await register_external_asset(session, media=media)
         asset.updated_at = fixed_asset_time
         lineage = MediaLineage(
@@ -167,15 +165,13 @@ async def test_folder_relocation_preserves_identity_and_processing(
         assert relocated.file_path == str(new_file)
         assert relocated.file_hash == digest
         assert relocated.clip_embedding == b"stable-embedding"
-        assert relocated.vlm_caption == "unchanged caption"
+        assert relocated.extracted_prompt== "unchanged caption"
         assert relocated.metadata_status == "completed"
         assert relocated.clip_status == "completed"
         assert relocated.face_detection_status == "completed"
-        assert relocated.vlm_caption_status == "completed"
         assert relocated.metadata_config_version == "metadata-v1"
         assert relocated.clip_config_version == "clip-v1"
         assert relocated.face_detection_config_version == "faces-v1"
-        assert relocated.vlm_caption_config_version == "caption-v1"
         assert relocated_storage.external_path == str(new_file)
         assert relocated_storage.expected_hash == digest
         assert relocated_asset.id == asset_id

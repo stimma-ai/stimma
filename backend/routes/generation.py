@@ -3201,7 +3201,7 @@ async def generate_config_from_media(
     This endpoint handles three cases:
     1. Image has generation_metadata from our system -> parse and return it
     2. Image has raw_metadata from other software -> use LLM to extract settings
-    3. Image only has vlm_caption -> create default T2I config with caption as prompt
+    3. Image has an extracted prompt -> create default T2I config from it
 
     For videos, we only return the prompt (not model/params) since there's no
     "generate video" feature yet - the user will be sent to "Generate Image"
@@ -3539,10 +3539,10 @@ async def generate_config_from_media(
         except Exception as e:
             log.error(f"Error calling LLM for metadata parsing: {e}", exc_info=True)
 
-    # Case 3: Has extracted prompt or AI caption - use as prompt only
-    # Prefer extracted_prompt (from external metadata) over vlm_caption (AI-generated)
+    # Case 3: Has an extracted prompt - use it as the prompt only
+    # Use the recorded prompt from external metadata
     # DO NOT include sampling params - let the target tool use its own defaults
-    prompt_text = media_item.extracted_prompt or media_item.vlm_caption
+    prompt_text = media_item.extracted_prompt
     if prompt_text:
         # For videos, only return the prompt
         if is_video:
@@ -3578,7 +3578,7 @@ async def generate_config_from_media(
     # No usable data found
     raise HTTPException(
         status_code=400,
-        detail="No generation metadata, raw metadata, extracted prompt, or AI caption found for this image"
+        detail="No generation metadata, raw metadata, or extracted prompt found for this image"
     )
 
 

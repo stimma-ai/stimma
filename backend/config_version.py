@@ -5,7 +5,6 @@ import hashlib
 from core.logging import get_logger
 from typing import Dict, Optional
 from config import get_settings
-from prompts import get_prompt
 
 log = get_logger(__name__)
 
@@ -36,17 +35,6 @@ class ConfigVersionManager:
         self._version_cache['clip'] = self._compute_hash(
             self.settings.clip.model,
             self.settings.clip.pretrained
-        )
-
-        # Visual analysis version: model + prompt (both affect output)
-        # Generates both caption and keywords in one call
-        if "agent-fast" in self.settings.llms:
-            caption_model = self.settings.get_llm("agent-fast").get_model() or "stimma_cloud"
-        else:
-            caption_model = "disabled"
-        self._version_cache['vlm_caption'] = self._compute_hash(
-            caption_model,
-            get_prompt("visual_analysis")
         )
 
         # Face detection version: model + min_confidence + max_faces (all affect output)

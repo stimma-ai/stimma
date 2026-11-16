@@ -223,7 +223,6 @@ const phases = computed(() => [
   { id: 'metadata', label: 'Processing media', pausable: false },
   { id: 'clip', label: 'Visual indexing', pausable: true },
   { id: 'face_detection', label: 'Face analysis', pausable: true },
-  { id: 'vlm_caption', label: 'Visual analysis', pausable: true },
 ].filter((phase) => isPhaseEnabled(phase.id)))
 
 function getFileName(path) {

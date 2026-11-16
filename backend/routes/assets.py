@@ -41,8 +41,6 @@ from database import (
     MediaOwner,
     StorageObject,
     Tag,
-    Keyword,
-    MediaKeyword,
     MediaToolLineage,
     Project,
     ProjectAsset,
@@ -265,14 +263,11 @@ def _apply_asset_scope(query, scope: str | None, project_id: int | None):
 def _apply_asset_filters(query, **filters):
     return build_filtered_query(
         query,
-        caption_query=filters.get("caption_query"),
         prompt_query=filters.get("prompt_query"),
         media_types=filters.get("media_types"),
         excluded_media_types=filters.get("excluded_media_types"),
         resolutions=filters.get("resolutions"),
         excluded_resolutions=filters.get("excluded_resolutions"),
-        keywords=filters.get("keywords"),
-        excluded_keywords=filters.get("excluded_keywords"),
         folders=filters.get("folders"),
         excluded_folders=filters.get("excluded_folders"),
         is_generated=filters.get("is_generated"),
@@ -375,14 +370,11 @@ async def browse_assets(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     state: str = Query("active", pattern="^(active|trashed)$"),
-    caption_query: str | None = None,
     prompt_query: str | None = None,
     media_types: str | None = None,
     excluded_media_types: str | None = None,
     resolutions: str | None = None,
     excluded_resolutions: str | None = None,
-    keywords: str | None = None,
-    excluded_keywords: str | None = None,
     folders: str | None = None,
     excluded_folders: str | None = None,
     similar_to: str | None = None,
@@ -431,14 +423,11 @@ async def browse_assets(
         )
     query = _apply_asset_filters(
         _asset_browser_base(state),
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -696,14 +685,11 @@ async def search_asset_groups(
 @router.get("/browse/ids")
 async def browse_asset_ids(
     state: str = Query("active", pattern="^(active|trashed)$"),
-    caption_query: str | None = None,
     prompt_query: str | None = None,
     media_types: str | None = None,
     excluded_media_types: str | None = None,
     resolutions: str | None = None,
     excluded_resolutions: str | None = None,
-    keywords: str | None = None,
-    excluded_keywords: str | None = None,
     folders: str | None = None,
     excluded_folders: str | None = None,
     similar_to: str | None = None,
@@ -746,14 +732,11 @@ async def browse_asset_ids(
             page=1,
             page_size=10_000_000,
             state=state,
-            caption_query=caption_query,
             prompt_query=prompt_query,
             media_types=media_types,
             excluded_media_types=excluded_media_types,
             resolutions=resolutions,
             excluded_resolutions=excluded_resolutions,
-            keywords=keywords,
-            excluded_keywords=excluded_keywords,
             folders=folders,
             excluded_folders=excluded_folders,
             similar_to=similar_to,
@@ -794,14 +777,11 @@ async def browse_asset_ids(
     ) or None
     query = _apply_asset_filters(
         _asset_browser_base(state),
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -908,122 +888,15 @@ async def _count_assets(session: AsyncSession, query) -> int:
 def _facet_filters(**values) -> dict:
     return {key: value for key, value in values.items() if value is not None}
 
-
-@router.get("/keywords/top")
-async def get_asset_top_keywords(
-    limit: int = Query(50, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
-    search: str | None = None,
-    state: str = Query("active", pattern="^(active|trashed)$"),
-    project_id: int | None = None,
-    caption_query: str | None = None,
-    prompt_query: str | None = None,
-    media_types: str | None = None,
-    excluded_media_types: str | None = None,
-    resolutions: str | None = None,
-    excluded_resolutions: str | None = None,
-    folders: str | None = None,
-    excluded_folders: str | None = None,
-    is_generated: bool | None = None,
-    is_imported: bool | None = None,
-    marker_ids: str | None = None,
-    excluded_marker_ids: str | None = None,
-    tag_ids: str | None = None,
-    excluded_tag_ids: str | None = None,
-    project_ids: str | None = None,
-    excluded_project_ids: str | None = None,
-    has_project: bool | None = None,
-    tool_ids: str | None = None,
-    excluded_tool_ids: str | None = None,
-    similar_to: str | None = None,
-    similar_face_to: str | None = None,
-    similar_to_text: str | None = None,
-    similarity_threshold: float | None = None,
-    scope: str | None = None,
-    session: AsyncSession = Depends(get_db_session),
-):
-    """Keyword vocabulary/counts over current Asset revisions only."""
-    filters = _facet_filters(
-        caption_query=caption_query,
-        prompt_query=prompt_query,
-        media_types=media_types,
-        excluded_media_types=excluded_media_types,
-        resolutions=resolutions,
-        excluded_resolutions=excluded_resolutions,
-        folders=folders,
-        excluded_folders=excluded_folders,
-        is_generated=is_generated,
-        is_imported=is_imported,
-        marker_ids=marker_ids,
-        excluded_marker_ids=excluded_marker_ids,
-        tag_ids=tag_ids,
-        excluded_tag_ids=excluded_tag_ids,
-        project_ids=project_ids,
-        excluded_project_ids=excluded_project_ids,
-        has_project=has_project,
-        tool_ids=tool_ids,
-        excluded_tool_ids=excluded_tool_ids,
-    )
-    similarity_ids = await _similarity_media_ids_for_facets(
-        session,
-        state=state,
-        project_id=project_id,
-        similar_to=similar_to,
-        similar_face_to=similar_face_to,
-        similar_to_text=similar_to_text,
-        similarity_threshold=similarity_threshold,
-        scope=scope,
-    )
-    query = _asset_facet_query(
-        state=state,
-        filters=filters,
-        project_id=project_id,
-        exclude_category="keywords",
-        similarity_media_ids=similarity_ids,
-        scope=scope,
-    ).join(MediaKeyword, MediaKeyword.media_id == MediaItem.id).join(
-        Keyword, Keyword.id == MediaKeyword.keyword_id
-    )
-    if search:
-        query = query.where(Keyword.keyword_text.ilike(f"%{search}%"))
-    rows = (
-        await session.execute(
-            query.with_only_columns(
-                Keyword.keyword_text,
-                func.count(func.distinct(Asset.id)).label("count"),
-            )
-            .group_by(Keyword.keyword_text)
-            .order_by(func.count(func.distinct(Asset.id)).desc(), Keyword.keyword_text)
-            .offset(offset)
-            .limit(limit)
-        )
-    ).all()
-    total_query = query.with_only_columns(
-        func.count(func.distinct(Keyword.id))
-    ).order_by(None)
-    return {
-        "keywords": [
-            {"keyword": keyword_text, "count": count}
-            for keyword_text, count in rows
-        ],
-        "total_unique": await session.scalar(total_query) or 0,
-        "offset": offset,
-        "limit": limit,
-    }
-
-
 @router.get("/filter-counts")
 async def get_asset_filter_counts(
     state: str = Query("active", pattern="^(active|trashed)$"),
     project_id: int | None = None,
-    caption_query: str | None = None,
     prompt_query: str | None = None,
     media_types: str | None = None,
     excluded_media_types: str | None = None,
     resolutions: str | None = None,
     excluded_resolutions: str | None = None,
-    keywords: str | None = None,
-    excluded_keywords: str | None = None,
     folders: str | None = None,
     excluded_folders: str | None = None,
     is_generated: bool | None = None,
@@ -1046,7 +919,6 @@ async def get_asset_filter_counts(
     similar_face_to: str | None = None,
     similar_to_text: str | None = None,
     similarity_threshold: float | None = None,
-    keyword_limit: int = Query(50, ge=1, le=200),
     tag_limit: int = Query(50, ge=1, le=200),
     tool_limit: int = Query(50, ge=1, le=200),
     scope: str | None = None,
@@ -1054,14 +926,11 @@ async def get_asset_filter_counts(
 ):
     """Facet preview counts over Asset identity and current Revision payloads."""
     filters = _facet_filters(
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -1129,21 +998,6 @@ async def get_asset_filter_counts(
         if maximum is not None:
             query = query.where(MediaItem.megapixels < maximum)
         resolution_counts[name] = await _count_assets(session, query)
-
-    keyword_query = facet("keywords").join(
-        MediaKeyword, MediaKeyword.media_id == MediaItem.id
-    ).join(Keyword, Keyword.id == MediaKeyword.keyword_id)
-    keyword_rows = (
-        await session.execute(
-            keyword_query.with_only_columns(
-                Keyword.keyword_text,
-                func.count(func.distinct(Asset.id)),
-            )
-            .group_by(Keyword.keyword_text)
-            .order_by(func.count(func.distinct(Asset.id)).desc())
-            .limit(keyword_limit)
-        )
-    ).all()
 
     tag_query = facet("tags").join(
         AssetTag,
@@ -1261,7 +1115,6 @@ async def get_asset_filter_counts(
         "media_type": media_type_counts,
         "resolution": resolution_counts,
         "folders": folder_counts,
-        "keywords": {text: count for text, count in keyword_rows},
         "tags": [
             {"id": tag_id, "tag": text, "usage_count": count}
             for tag_id, text, count in tag_rows
@@ -2115,13 +1968,6 @@ async def list_contextual_media(
                         or_(
                             MediaItem.original_filename.ilike(pattern),
                             MediaItem.extracted_prompt.ilike(pattern),
-                            MediaItem.vlm_caption.ilike(pattern),
-                            MediaItem.keywords.ilike(pattern),
-                            MediaItem.id.in_(
-                                select(MediaKeyword.media_id)
-                                .join(Keyword, Keyword.id == MediaKeyword.keyword_id)
-                                .where(Keyword.keyword_text.ilike(pattern))
-                            ),
                         ),
                     )
                 )

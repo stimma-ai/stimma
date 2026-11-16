@@ -52,7 +52,6 @@ from config_writer import (
     validate_markers,
     validate_folders,
     validate_parallelism,
-    validate_captioning_parallelism,
     validate_confidence,
     validate_max_faces,
     ValidationError,
@@ -119,19 +118,10 @@ class ClipResponse(BaseModel):
     """CLIP settings response."""
     enabled: bool
 
-
-class CaptioningResponse(BaseModel):
-    """Captioning settings response."""
-    enabled: bool
-    parallelism: int
-
-
 class BackgroundWorkResponse(BaseModel):
     """Background work settings response."""
     face_detection: FaceDetectionResponse
     clip: ClipResponse
-    captioning: CaptioningResponse
-
 
 class ToolProviderResponse(BaseModel):
     """Tool provider response (for settings UI)."""
@@ -441,8 +431,6 @@ class UpdateBackgroundWorkRequest(BaseModel):
     """Request to update background work settings."""
     face_detection: Optional[Dict[str, Any]] = None
     clip: Optional[Dict[str, Any]] = None
-    captioning: Optional[Dict[str, Any]] = None
-
 
 class CreateProfileRequest(BaseModel):
     """Request to create a new profile."""
@@ -625,10 +613,6 @@ async def get_settings_all():
         ),
         clip=ClipResponse(
             enabled=settings.clip.enabled,
-        ),
-        captioning=CaptioningResponse(
-            enabled=settings.captioning.enabled,
-            parallelism=settings.captioning.parallelism,
         ),
     )
 
@@ -1626,7 +1610,7 @@ async def delete_tool_provider_endpoint(provider_id: str):
 
 @router.patch("/background-work")
 async def update_background_work(request: UpdateBackgroundWorkRequest):
-    """Update background work settings (face detection, CLIP, captioning).
+    """Update background work settings (face detection and CLIP).
 
     After updating settings, signals the ingestion worker to reload its config
     so the new enabled flags take effect immediately.
@@ -1672,22 +1656,6 @@ async def update_background_work(request: UpdateBackgroundWorkRequest):
                 clip_data["enabled"] = bool(value)
 
         patch_global_section("clip", clip_data)
-
-    # Update captioning
-    if request.captioning is not None:
-        captioning_data = settings.captioning.model_dump()
-
-        for key, value in request.captioning.items():
-            if key == "enabled":
-                captioning_data["enabled"] = bool(value)
-            elif key == "parallelism":
-                try:
-                    validate_captioning_parallelism(value)
-                except ValidationError as e:
-                    raise HTTPException(status_code=400, detail=str(e))
-                captioning_data["parallelism"] = value
-
-        patch_global_section("captioning", captioning_data)
 
     # Signal ingestion worker to reload config so new settings take effect
     reload_event = get_reload_config_event()

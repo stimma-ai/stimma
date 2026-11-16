@@ -295,7 +295,7 @@ def chatgpt_model(
     )
     if default_effort not in levels:
         default_effort = "medium" if "medium" in levels else levels[0]
-    # Quick tasks (auto-title, captioning, prompt enhancement) run on the
+    # Quick tasks (auto-title, prompt enhancement) run on the
     # cheapest rung available — they spend the same plan quota as a chat turn,
     # so they must not default to deep reasoning.
     quick_task = levels[0]

@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, or_, and_, func, literal, Integer, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import Asset, AssetRevision, Collection, CollectionAssetItem, CollectionSection, Marker, MediaItem, Keyword, MediaKeyword, MediaToolLineage, Face, Project, ProjectAsset, ProjectMedia
+from database import Asset, AssetRevision, Collection, CollectionAssetItem, CollectionSection, Marker, MediaItem, MediaToolLineage, Face, Project, ProjectAsset, ProjectMedia
 from asset_association_service import media_compatibility_projections
 from core.dependencies import get_db_session
 from models.api_models import CollectionSummaryResponse, MediaListResponse, MediaItemResponse, MediaIndexResponse, SimilaritySearchRequest, StructuredContentUpdateRequest
@@ -190,17 +190,13 @@ async def root():
 async def get_media(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-    caption_query: Optional[str] = None,
     prompt_query: Optional[str] = None,
     text_query: Optional[str] = None,  # Deprecated, kept for backwards compatibility
-    search_in: str = Query("both", pattern="^(caption|prompt|both)$"),  # Deprecated
     media_types: Optional[str] = Query(None, description="Comma-separated media types (images,videos,audio,text,sets,grids,layouts,structured) - OR logic"),
     excluded_media_types: Optional[str] = Query(None, description="Comma-separated media types to exclude (images,videos,audio,text,sets,grids,layouts,structured) - NOT logic"),
     media_type: str = Query("both", pattern="^(images|videos|both)$"),  # Deprecated
     resolutions: Optional[str] = Query(None, description="Comma-separated resolutions (small,medium,large,huge) - OR logic"),
     excluded_resolutions: Optional[str] = Query(None, description="Comma-separated resolutions to exclude (small,medium,large,huge) - NOT logic"),
-    keywords: Optional[str] = Query(None, description="Comma-separated keywords to filter by (AND logic)"),
-    excluded_keywords: Optional[str] = Query(None, description="Comma-separated keywords to exclude (NOT logic)"),
     exclude_media_type: bool = Query(False, description="Exclude the specified media type instead of including it"),
     exclude_resolution: bool = Query(False, description="Exclude the specified resolution range instead of including it"),
     folders: Optional[str] = Query(None, description="Comma-separated folder paths to filter by (OR logic)"),
@@ -255,14 +251,10 @@ async def get_media(
     if project_id is not None:
         query = _scope_media_query_to_project(query, project_id, sort_by)
 
-    # Backward-compat shim: old text_query+search_in is rewritten into caption_query/prompt_query
-    # so the helper can handle them uniformly.
-    if text_query and not caption_query and not prompt_query:
+    # Legacy text_query searches recorded prompts.
+    if text_query and not prompt_query:
         text_filter = []
-        if search_in in ("caption", "both"):
-            text_filter.append(MediaItem.vlm_caption.ilike(f"%{text_query}%"))
-        if search_in in ("prompt", "both"):
-            text_filter.append(MediaItem.extracted_prompt.ilike(f"%{text_query}%"))
+        text_filter.append(MediaItem.extracted_prompt.ilike(f"%{text_query}%"))
         if text_filter:
             query = query.where(or_(*text_filter))
 
@@ -304,14 +296,11 @@ async def get_media(
     # and filter-counts can never disagree.
     query = build_filtered_query(
         query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -607,9 +596,9 @@ async def get_media(
         items = result.scalars().all()
 
     # Track search telemetry
-    if caption_query or prompt_query or text_query:
+    if prompt_query or text_query:
         from telemetry import get_telemetry_client
-        query_type = "caption" if caption_query else ("prompt" if prompt_query else "text")
+        query_type = "prompt" if prompt_query else "text"
         get_telemetry_client().track("search_used", {
             "queryType": query_type,
             "hasResults": total > 0,
@@ -634,17 +623,13 @@ async def get_media(
 
 @router.get("/api/media/ids")
 async def get_media_ids(
-    caption_query: Optional[str] = None,
     prompt_query: Optional[str] = None,
     text_query: Optional[str] = None,
-    search_in: str = Query("both", pattern="^(caption|prompt|both)$"),
     media_types: Optional[str] = Query(None, description="Comma-separated media types (images,videos,audio,text,sets,grids,layouts,structured) - OR logic"),
     excluded_media_types: Optional[str] = Query(None, description="Comma-separated media types to exclude (images,videos,audio,text,sets,grids,layouts,structured) - NOT logic"),
     media_type: str = Query("both", pattern="^(images|videos|both)$"),
     resolutions: Optional[str] = Query(None, description="Comma-separated resolutions (small,medium,large,huge) - OR logic"),
     excluded_resolutions: Optional[str] = Query(None, description="Comma-separated resolutions to exclude (small,medium,large,huge) - NOT logic"),
-    keywords: Optional[str] = Query(None, description="Comma-separated keywords to filter by (AND logic)"),
-    excluded_keywords: Optional[str] = Query(None, description="Comma-separated keywords to exclude (NOT logic)"),
     exclude_media_type: bool = Query(False, description="Exclude the specified media type instead of including it"),
     exclude_resolution: bool = Query(False, description="Exclude the specified resolution range instead of including it"),
     folders: Optional[str] = Query(None, description="Comma-separated folder paths to filter by (OR logic)"),
@@ -700,12 +685,9 @@ async def get_media_ids(
         query = _scope_media_query_to_project(query, project_id, sort_by)
 
     # text_query backwards compat (deprecated)
-    if text_query and not caption_query and not prompt_query:
+    if text_query and not prompt_query:
         text_filter = []
-        if search_in in ("caption", "both"):
-            text_filter.append(MediaItem.vlm_caption.ilike(f"%{text_query}%"))
-        if search_in in ("prompt", "both"):
-            text_filter.append(MediaItem.extracted_prompt.ilike(f"%{text_query}%"))
+        text_filter.append(MediaItem.extracted_prompt.ilike(f"%{text_query}%"))
         if text_filter:
             query = query.where(or_(*text_filter))
 
@@ -740,14 +722,11 @@ async def get_media_ids(
     # All shared filter semantics come from the helper.
     query = build_filtered_query(
         query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         marker_ids=marker_ids,
@@ -1223,14 +1202,11 @@ async def get_media_faces(
 @router.get("/api/media/{media_id}/find-index", response_model=MediaIndexResponse)
 async def find_media_index(
     media_id: int,
-    caption_query: Optional[str] = None,
     prompt_query: Optional[str] = None,
     media_types: Optional[str] = Query(None, description="Comma-separated media types (images,videos,audio,text,sets,grids,layouts,structured) - OR logic"),
     excluded_media_types: Optional[str] = Query(None, description="Comma-separated media types to exclude - NOT logic"),
     resolutions: Optional[str] = Query(None, description="Comma-separated resolutions (small,medium,large,huge)"),
     excluded_resolutions: Optional[str] = Query(None, description="Comma-separated resolutions to exclude (small,medium,large,huge)"),
-    keywords: Optional[str] = Query(None, description="Comma-separated keywords to filter by"),
-    excluded_keywords: Optional[str] = Query(None, description="Comma-separated keywords to exclude"),
     folders: Optional[str] = Query(None, description="Comma-separated folder paths"),
     excluded_folders: Optional[str] = Query(None, description="Comma-separated folder paths to exclude"),
     min_mp: Optional[float] = None,
@@ -1312,14 +1288,11 @@ async def find_media_index(
     # All shared filters
     query = build_filtered_query(
         query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -1667,7 +1640,6 @@ async def create_set_from_media(
         height=0,
         megapixels=0,
         raw_metadata=json.dumps(set_data),
-        # Note: vlm_caption is intentionally NOT set for sets - it's for AI captions of visual media
         generation_metadata=json.dumps({
             'version': 3,
             'task_type': 'set-creation',

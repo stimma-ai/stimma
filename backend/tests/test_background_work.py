@@ -25,7 +25,6 @@ async def test_processing_stats_preserve_backlog_and_report_live_enabled_flags(d
     settings = SimpleNamespace(
         clip=SimpleNamespace(enabled=False),
         face_detection=SimpleNamespace(enabled=False),
-        captioning=SimpleNamespace(enabled=False),
     )
     async with db_session() as session:
         await create_media_item(session, clip_status="pending", face_detection_status="pending")
@@ -35,16 +34,15 @@ async def test_processing_stats_preserve_backlog_and_report_live_enabled_flags(d
         ):
             disabled = (await get_processing_stats(session))["phase_stats"]
             assert disabled["metadata"]["enabled"] is True
-            for phase in ("clip", "face_detection", "vlm_caption"):
+            assert "vlm_caption" not in disabled
+            for phase in ("clip", "face_detection"):
                 assert disabled[phase]["enabled"] is False
             assert disabled["clip"]["pending"] > 0
             assert disabled["face_detection"]["pending"] > 0
 
             settings.clip.enabled = True
-            settings.captioning.enabled = True
             enabled = (await get_processing_stats(session))["phase_stats"]
             assert enabled["clip"]["enabled"] is True
-            assert enabled["vlm_caption"]["enabled"] is True
             assert enabled["face_detection"]["enabled"] is False
             assert enabled["clip"]["pending"] == disabled["clip"]["pending"]
 
@@ -57,7 +55,6 @@ async def test_processing_monitor_broadcasts_enabled_changes_without_counter_cha
         profiles=[],
         clip=SimpleNamespace(enabled=False),
         face_detection=SimpleNamespace(enabled=False),
-        captioning=SimpleNamespace(enabled=False),
     )
     ticks = 0
 
@@ -94,7 +91,6 @@ async def test_processing_monitor_sends_each_profile_its_own_snapshot():
         profiles=[SimpleNamespace(id="alpha"), SimpleNamespace(id="beta"), SimpleNamespace(id="gone")],
         clip=SimpleNamespace(enabled=True),
         face_detection=SimpleNamespace(enabled=False),
-        captioning=SimpleNamespace(enabled=False),
     )
 
     class Row:
@@ -228,41 +224,6 @@ class TestEnabledFlagChecks:
         # Returns 0 because no profiles, but the enabled check passed
         assert result == 0
 
-    async def test_process_vlm_captions_respects_enabled_flag(self):
-        """_process_vlm_captions should return 0 when captioning.enabled is False."""
-        import ingestion
-
-        mock_ingestion = MagicMock(spec=ingestion.MediaIngestion)
-        mock_ingestion.settings = MagicMock()
-        mock_ingestion.settings.captioning.enabled = False
-        mock_ingestion.settings.profiles = []
-        mock_ingestion.slots = {'vlm_caption': 2}
-        mock_ingestion.active_workers = {'vlm_caption': set()}
-
-        result = await ingestion.MediaIngestion._process_vlm_captions(mock_ingestion)
-
-        assert result == 0
-
-    async def test_process_vlm_captions_enabled_continues(self):
-        """_process_vlm_captions should continue when captioning.enabled is True."""
-        import ingestion
-
-        mock_ingestion = MagicMock(spec=ingestion.MediaIngestion)
-        mock_ingestion.settings = MagicMock()
-        mock_ingestion.settings.captioning.enabled = True
-        mock_ingestion.settings.profiles = []  # No profiles = no work
-        mock_ingestion.slots = {'vlm_caption': 2}
-        mock_ingestion.active_workers = {'vlm_caption': set()}
-
-        mock_ingestion.config_mgr = MagicMock()
-        mock_ingestion.config_mgr.get_version.return_value = "1"
-        mock_ingestion.caption_service = MagicMock()
-
-        result = await ingestion.MediaIngestion._process_vlm_captions(mock_ingestion)
-
-        # Returns 0 because no profiles, but the enabled check passed
-        assert result == 0
-
     async def test_processing_prioritizes_metadata_backlog(self):
         """Visual inference must not starve first-run Asset materialization."""
         import ingestion
@@ -272,14 +233,12 @@ class TestEnabledFlagChecks:
         worker._has_pending_metadata = AsyncMock(return_value=True)
         worker._process_clip = AsyncMock(return_value=4)
         worker._process_face_detection = AsyncMock(return_value=2)
-        worker._process_vlm_captions = AsyncMock(return_value=3)
 
         worked = await ingestion.MediaIngestion._process_pending_items(worker)
 
         assert worked is True
         worker._process_clip.assert_not_awaited()
         worker._process_face_detection.assert_not_awaited()
-        worker._process_vlm_captions.assert_not_awaited()
 
     async def test_processing_starts_analysis_after_metadata_is_materialized(self):
         import ingestion
@@ -289,48 +248,12 @@ class TestEnabledFlagChecks:
         worker._has_pending_metadata = AsyncMock(return_value=False)
         worker._process_clip = AsyncMock(return_value=4)
         worker._process_face_detection = AsyncMock(return_value=2)
-        worker._process_vlm_captions = AsyncMock(return_value=3)
 
         worked = await ingestion.MediaIngestion._process_pending_items(worker)
 
         assert worked is True
         worker._process_clip.assert_awaited_once()
         worker._process_face_detection.assert_awaited_once()
-        worker._process_vlm_captions.assert_awaited_once()
-
-    async def test_init_caption_service_skips_llm_resolution_when_disabled(self):
-        """Caption service init should not resolve LLM config when captioning is disabled."""
-        import ingestion
-
-        mock_ingestion = MagicMock(spec=ingestion.MediaIngestion)
-        mock_ingestion.settings = MagicMock()
-        mock_ingestion.settings.captioning.enabled = False
-        mock_ingestion.caption_service = None
-
-        with patch('llm_resolver.get_effective_llm_config', new_callable=AsyncMock) as mock_resolver:
-            await ingestion.MediaIngestion._init_caption_service(mock_ingestion)
-
-        mock_resolver.assert_not_called()
-        assert mock_ingestion.caption_service is None
-
-    async def test_init_caption_service_tolerates_unavailable_llm(self):
-        """Caption service init should not fail ingestion when no LLM is configured."""
-        import ingestion
-        from llm_resolver import LLMNotConfiguredError
-
-        mock_ingestion = MagicMock(spec=ingestion.MediaIngestion)
-        mock_ingestion.settings = MagicMock()
-        mock_ingestion.settings.captioning.enabled = True
-        mock_ingestion.caption_service = None
-
-        with patch(
-            'llm_resolver.get_effective_llm_config',
-            new=AsyncMock(side_effect=LLMNotConfiguredError("Sign in to Stimma Cloud or choose a local endpoint."))
-        ):
-            await ingestion.MediaIngestion._init_caption_service(mock_ingestion)
-
-        assert mock_ingestion.caption_service is None
-
 
 class TestBackgroundWorkSettingsAPI:
     """Tests for the background work settings API endpoint.
@@ -350,7 +273,6 @@ class TestBackgroundWorkSettingsAPI:
         mock_settings = MagicMock()
         mock_settings.face_detection.model_dump.return_value = {"enabled": True}
         mock_settings.clip.model_dump.return_value = {"enabled": True}
-        mock_settings.captioning.model_dump.return_value = {"enabled": True}
 
         request = UpdateBackgroundWorkRequest(clip={"enabled": False})
 
@@ -393,12 +315,10 @@ class TestBackgroundWorkSettingsAPI:
         mock_settings = MagicMock()
         mock_settings.face_detection.model_dump.return_value = {"enabled": True, "min_confidence": 0.5}
         mock_settings.clip.model_dump.return_value = {"enabled": True}
-        mock_settings.captioning.model_dump.return_value = {"enabled": True, "parallelism": 2}
 
         request = UpdateBackgroundWorkRequest(
             face_detection={"enabled": False},
             clip={"enabled": False},
-            captioning={"enabled": False}
         )
 
         with patch('routes.settings.get_settings', return_value=mock_settings), \

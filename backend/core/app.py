@@ -260,7 +260,6 @@ async def fix_pending_items_with_metadata(profile_id: str) -> int:
             if is_non_visual:
                 item.clip_status = 'skipped'
                 item.face_detection_status = 'skipped'
-                item.vlm_caption_status = 'skipped'
 
         await session.commit()
         log.info(f"STARTUP [{profile_id}]: Fixed {len(items)} items stuck in 'pending' with metadata already computed")
@@ -559,11 +558,6 @@ async def watch_config_file():
                             # Agent config is read fresh on each request
                             log.info("agent config updated - will apply on next request")
                             refreshed.append("agent")
-
-                        elif section == 'captioning':
-                            # Captioning config is read fresh on each request
-                            log.info("captioning config updated - will apply on next request")
-                            refreshed.append("captioning")
 
                     except Exception as e:
                         log.error(f"failed to refresh {section}", error=str(e))

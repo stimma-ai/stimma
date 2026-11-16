@@ -79,10 +79,6 @@ export function useAssetApi() {
     })).data
   }
 
-  async function getTopKeywords(params: Record<string, unknown> = {}) {
-    return (await axios.get(`${api()}/assets/keywords/top`, { params })).data
-  }
-
   async function getFilterCounts(params: Record<string, unknown> = {}) {
     return (await axios.get(`${api()}/assets/filter-counts`, { params })).data
   }
@@ -250,7 +246,6 @@ export function useAssetApi() {
     getContextualMedia,
     promoteContextualMedia,
     getTags,
-    getTopKeywords,
     getFilterCounts,
     getAvailableImplicitMarkers,
     findAssetIndex,

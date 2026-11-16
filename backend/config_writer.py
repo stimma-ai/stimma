@@ -149,7 +149,7 @@ def patch_global_section(section: str, value: Any) -> None:
     """Update a global (non-profile) section of the config.
 
     Args:
-        section: The section name (e.g., 'face_detection', 'clip', 'captioning').
+        section: The section name (e.g., 'face_detection', 'clip').
         value: The new value for the section.
     """
     data, yaml = _load_config_yaml()
@@ -384,22 +384,6 @@ def validate_parallelism(n: Any) -> None:
         raise ValidationError(f"Parallelism must be an integer, got {type(n).__name__}")
     if n < 1 or n > 8:
         raise ValidationError(f"Parallelism must be between 1 and 8, got {n}")
-
-
-def validate_captioning_parallelism(n: Any) -> None:
-    """Validate captioning parallelism value is an integer between 1 and 50.
-
-    Args:
-        n: The parallelism value to validate.
-
-    Raises:
-        ValidationError: If the value is invalid.
-    """
-    if not isinstance(n, int):
-        raise ValidationError(f"Parallelism must be an integer, got {type(n).__name__}")
-    if n < 1 or n > 50:
-        raise ValidationError(f"Captioning parallelism must be between 1 and 50, got {n}")
-
 
 def validate_confidence(value: Any) -> None:
     """Validate confidence threshold is a float between 0.0 and 1.0.

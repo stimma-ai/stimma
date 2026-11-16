@@ -38,9 +38,6 @@ const hideAccountRef = ref(localStorage.getItem(HIDE_ACCOUNT_KEY) === 'true')
 const imagePreviewsRef = ref(false)
 const videoPreviewsRef = ref(false)
 
-// Reactive ref for captioning (visual analysis) feature - allows hiding all caption/keyword UI when disabled
-const captioningEnabledRef = ref(false)
-
 // Anonymous usage telemetry consent: true/false, or null while undetermined
 // (onboarding not completed). Official builds only — dev builds have no
 // telemetry regardless.
@@ -109,14 +106,6 @@ export function setDevMode(enabled) {
   devModeRef.value = enabled === true
 }
 
-/**
- * Set captioning enabled from backend settings.
- * Controls visibility of all caption/keyword UI elements.
- */
-export function setCaptioningEnabled(enabled) {
-  captioningEnabledRef.value = enabled === true
-}
-
 export function setGenerationPreviews({ images, videos } = {}) {
   if (images !== undefined) imagePreviewsRef.value = images !== false
   if (videos !== undefined) videoPreviewsRef.value = videos !== false
@@ -148,4 +137,5 @@ export function setHideAccount(enabled) {
  * Reactive ref for developer mode.
  * Use this in Vue components for reactive updates.
  */
-export { devModeRef, appBranchRef, captioningEnabledRef, imagePreviewsRef, videoPreviewsRef, telemetryEnabledRef, hidePricesRef, hideAccountRef }
+
+export { devModeRef, appBranchRef, imagePreviewsRef, videoPreviewsRef, telemetryEnabledRef, hidePricesRef, hideAccountRef }

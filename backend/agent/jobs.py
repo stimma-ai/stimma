@@ -242,8 +242,7 @@ async def create_media_refs(
     """
     Create MediaRefs with context for the given media IDs.
 
-    Fetches VLM captions from the database and attaches them to the refs.
-    This enables verbal references like "the red one" to work.
+    Attaches the supplied generation prompts to the refs.
 
     Args:
         media_ids: List of media IDs
@@ -253,24 +252,16 @@ async def create_media_refs(
         prompts: Dict mapping media_id -> prompt for per-image prompts
 
     Returns:
-        List of MediaRef objects with prompt and ai_caption populated
+        List of MediaRef objects with recorded prompts populated
     """
     if not media_ids:
         return []
-
-    # Fetch media items to get their VLM captions
-    result = await session.execute(
-        select(MediaItem.id, MediaItem.vlm_caption).where(MediaItem.id.in_(media_ids))
-    )
-    rows = result.fetchall()
-    caption_map = {row.id: row.vlm_caption for row in rows}
 
     return [
         MediaRef(
             media_id=media_id,
             media_type=media_type,
             prompt=(prompts or {}).get(media_id) or prompt,
-            ai_caption=caption_map.get(media_id),
         )
         for media_id in media_ids
     ]

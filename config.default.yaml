@@ -36,7 +36,7 @@ profiles:
 # Configure LLMs for the copilot agent and prompt enhancement.
 # Two roles:
 #   - agent: Main copilot model (large, capable)
-#   - agent-fast: Mid-sized model for prompt enhancement, captioning, lora matching
+#   - agent-fast: Mid-sized model for prompt enhancement and lora matching
 #
 # Each role supports three sources (switch without losing config):
 #   - source: 'auto' | 'stimma_cloud' | 'endpoint'

@@ -16,9 +16,7 @@ from database import (
     Chat,
     ChatItem,
     ContainerMember,
-    Keyword,
     MediaItem,
-    MediaKeyword,
     MediaLineage,
     MediaToolLineage,
     Project,
@@ -429,14 +427,11 @@ def _joins_asset_revisions(query) -> bool:
 
 def build_filtered_query(
     query,
-    caption_query: Optional[str] = None,
     prompt_query: Optional[str] = None,
     media_types: Optional[str] = None,
     excluded_media_types: Optional[str] = None,
     resolutions: Optional[str] = None,
     excluded_resolutions: Optional[str] = None,
-    keywords: Optional[str] = None,
-    excluded_keywords: Optional[str] = None,
     folders: Optional[str] = None,
     excluded_folders: Optional[str] = None,
     is_generated: Optional[bool] = None,
@@ -474,7 +469,7 @@ def build_filtered_query(
 
     Args:
         query: SQLAlchemy query to apply filters to
-        exclude_category: Category to exclude from filtering ('media_types', 'resolutions', 'keywords', 'folders', 'tags', 'projects', 'tools', 'markers', 'imported')
+        exclude_category: Category to exclude from filtering ('media_types', 'resolutions', 'folders', 'tags', 'projects', 'tools', 'markers', 'imported')
         project_ids: Comma-separated project IDs; item must belong to at least one (OR logic).
         excluded_project_ids: Comma-separated project IDs; item must NOT belong to any of them.
         has_project: Tri-state membership predicate — True = in at least one (non-deleted) project,
@@ -522,9 +517,6 @@ def build_filtered_query(
         query = query.where(not_due_for_autodelete())
 
     # Text filters
-    if caption_query:
-        query = query.where(MediaItem.vlm_caption.ilike(f"%{caption_query}%"))
-
     if prompt_query:
         query = query.where(asset_text_predicate(prompt_query, asset_join=_joins_asset_revisions(query)))
 
@@ -585,38 +577,6 @@ def build_filtered_query(
                     query = query.where(~MediaItem.file_format.in_(PACKAGE_FORMATS))
                 elif media_type_item == 'structured':
                     query = query.where(~MediaItem.file_format.in_(STRUCTURED_FORMATS))
-
-    # Keyword filter (AND logic) - using normalized keywords tables
-    if exclude_category != 'keywords':
-        if keywords:
-            keyword_list = [k.strip().lower() for k in keywords.split(',') if k.strip()]
-            for keyword in keyword_list:
-                # Use EXISTS subquery to check if media item has this keyword
-                # This works with the normalized keywords tables
-                keyword_exists = select(1).select_from(MediaKeyword).join(
-                    Keyword, MediaKeyword.keyword_id == Keyword.id
-                ).where(
-                    and_(
-                        MediaKeyword.media_id == MediaItem.id,
-                        Keyword.keyword_text == keyword
-                    )
-                ).exists()
-                query = query.where(keyword_exists)
-
-        # Excluded keywords filter (NOT logic)
-        if excluded_keywords:
-            excluded_list = [k.strip().lower() for k in excluded_keywords.split(',') if k.strip()]
-            for keyword in excluded_list:
-                # Use NOT EXISTS subquery
-                keyword_exists = select(1).select_from(MediaKeyword).join(
-                    Keyword, MediaKeyword.keyword_id == Keyword.id
-                ).where(
-                    and_(
-                        MediaKeyword.media_id == MediaItem.id,
-                        Keyword.keyword_text == keyword
-                    )
-                ).exists()
-                query = query.where(~keyword_exists)
 
     # Folder filters (OR within category) - ensure paths end with / to avoid partial matches
     if exclude_category != 'folders':

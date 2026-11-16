@@ -153,7 +153,6 @@ async def relocate_source_folder(
                 MediaItem.metadata_status,
                 MediaItem.clip_status,
                 MediaItem.face_detection_status,
-                MediaItem.vlm_caption_status,
             ).where(_under_roots(MediaItem.file_path, old_roots))
         )
     ).all()
@@ -162,7 +161,6 @@ async def relocate_source_folder(
         "metadata_status",
         "clip_status",
         "face_detection_status",
-        "vlm_caption_status",
     )
     if any(
         row._mapping[phase] == "processing"

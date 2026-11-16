@@ -70,8 +70,6 @@
           </div>
         </div>
 
-        <PromptBlock :text="media.vlm_caption" label="Description" />
-
         <!-- Derivatives (children of this node) -->
         <div v-if="childNodes.length > 0">
           <h4 class="m-0 mb-2 text-xs font-semibold text-content-secondary">Made from this</h4>

@@ -353,7 +353,6 @@ import {
   setDevMode,
   setGenerationPreviews,
   setAppBranch,
-  setCaptioningEnabled,
   setTelemetryEnabled,
 } from './appConfig'
 import { initFeatureFlags } from './composables/useFeatureFlags'
@@ -1024,7 +1023,6 @@ async function loadAppSettings() {
   setCloudBaseUrl(settings.cloud_base_url)
   setDevMode(settings.developer_mode)
   setAppBranch(settings.app_branch)
-  setCaptioningEnabled(settings.background_work?.captioning?.enabled)
   setGenerationPreviews({
     images: settings.show_image_generation_previews,
     videos: settings.show_video_generation_previews,

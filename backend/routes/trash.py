@@ -11,7 +11,7 @@ from sqlalchemy import select, func, or_, and_, literal, Integer, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.profile_context import get_current_profile
-from database import Asset, AssetRevision, AssetTag, DeleteOperation, MediaItem, MediaKeyword, Keyword, Tag
+from database import Asset, AssetRevision, AssetTag, DeleteOperation, MediaItem, Tag
 from asset_association_service import media_compatibility_projections
 from core.dependencies import get_db_session
 
@@ -170,7 +170,6 @@ async def bulk_delete_media(
 async def get_trash(
     page: int = Query(1, ge=1),
     page_size: int = Query(200, ge=1, le=200),
-    caption_query: Optional[str] = None,
     prompt_query: Optional[str] = None,
     similar_to_text: Optional[str] = Query(None, description="Text query to find visually similar images using CLIP text encoding"),
     similarity_threshold: Optional[float] = Query(None, description="Similarity threshold for filtering results (0.0-1.0)"),
@@ -178,8 +177,6 @@ async def get_trash(
     excluded_media_types: Optional[str] = Query(None, description="Comma-separated media types to exclude - NOT logic"),
     resolutions: Optional[str] = Query(None, description="Comma-separated resolutions (small,medium,large,huge) - OR logic"),
     excluded_resolutions: Optional[str] = Query(None, description="Comma-separated resolutions to exclude (small,medium,large,huge) - NOT logic"),
-    keywords: Optional[str] = Query(None, description="Comma-separated keywords to filter by (AND logic)"),
-    excluded_keywords: Optional[str] = Query(None, description="Comma-separated keywords to exclude (NOT logic)"),
     folders: Optional[str] = Query(None, description="Comma-separated folder paths to filter by (OR logic)"),
     excluded_folders: Optional[str] = Query(None, description="Comma-separated folder paths to exclude"),
     created_after: Optional[str] = None,
@@ -220,14 +217,11 @@ async def get_trash(
     # library list, find-index, and filter-counts endpoints.
     query = build_filtered_query(
         query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -360,14 +354,11 @@ async def get_trash(
 
 @router.get("/trash/filter-counts")
 async def get_trash_filter_counts(
-    caption_query: Optional[str] = None,
     prompt_query: Optional[str] = None,
     media_types: Optional[str] = Query(None, description="Comma-separated currently selected media types"),
     excluded_media_types: Optional[str] = Query(None, description="Comma-separated excluded media types"),
     resolutions: Optional[str] = Query(None, description="Comma-separated currently selected resolutions"),
     excluded_resolutions: Optional[str] = Query(None, description="Comma-separated excluded resolutions"),
-    keywords: Optional[str] = Query(None, description="Comma-separated currently selected keywords"),
-    excluded_keywords: Optional[str] = Query(None, description="Comma-separated excluded keywords"),
     folders: Optional[str] = Query(None, description="Comma-separated currently selected folders"),
     excluded_folders: Optional[str] = Query(None, description="Comma-separated excluded folders"),
     is_generated: Optional[bool] = Query(None, description="Filter for generated images"),
@@ -375,7 +366,6 @@ async def get_trash_filter_counts(
     excluded_marker_ids: Optional[str] = Query(None, description="Comma-separated marker IDs to exclude (NOT logic)"),
     tag_ids: Optional[str] = Query(None, description="Comma-separated tag IDs to filter by (OR logic)"),
     excluded_tag_ids: Optional[str] = Query(None, description="Comma-separated tag IDs to exclude (NOT logic)"),
-    keyword_limit: int = Query(5, ge=1, le=200, description="Number of top keywords to include with counts"),
     tag_limit: int = Query(50, ge=1, le=200, description="Number of top tags to include with counts"),
     session: AsyncSession = Depends(get_db_session)
 ):
@@ -426,12 +416,9 @@ async def get_trash_filter_counts(
         type_query = get_base_query()
         type_query = build_filtered_query(
             type_query,
-            caption_query=caption_query,
             prompt_query=prompt_query,
             resolutions=resolutions,
             excluded_resolutions=excluded_resolutions,
-            keywords=keywords,
-            excluded_keywords=excluded_keywords,
             folders=folders,
             excluded_folders=excluded_folders,
             is_generated=is_generated,
@@ -450,12 +437,9 @@ async def get_trash_filter_counts(
     small_query = get_base_query()
     small_query = build_filtered_query(
         small_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -473,12 +457,9 @@ async def get_trash_filter_counts(
     medium_query = get_base_query()
     medium_query = build_filtered_query(
         medium_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -499,12 +480,9 @@ async def get_trash_filter_counts(
     large_query = get_base_query()
     large_query = build_filtered_query(
         large_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -525,14 +503,11 @@ async def get_trash_filter_counts(
         folder_query = get_base_query()
         folder_query = build_filtered_query(
             folder_query,
-            caption_query=caption_query,
             prompt_query=prompt_query,
             media_types=media_types,
             excluded_media_types=excluded_media_types,
             resolutions=resolutions,
             excluded_resolutions=excluded_resolutions,
-            keywords=keywords,
-            excluded_keywords=excluded_keywords,
             is_generated=is_generated,
             marker_ids=marker_ids,
             excluded_marker_ids=excluded_marker_ids,
@@ -546,66 +521,6 @@ async def get_trash_filter_counts(
         folder_query = folder_query.where(MediaItem.file_path.startswith(folder_with_slash))
         result = await session.execute(folder_query)
         folder_counts[folder] = result.scalar()
-
-    # Keyword preview counts using efficient JOIN query
-    keyword_counts_dict = {}
-
-    # Build base query that JOINs media_items with keywords through media_keywords
-    keyword_query = select(
-        Keyword.keyword_text,
-        func.count(func.distinct(MediaItem.id)).label('count')
-    ).select_from(Keyword).join(
-        MediaKeyword, Keyword.id == MediaKeyword.keyword_id
-    ).join(
-        MediaItem, MediaKeyword.media_id == MediaItem.id
-    )
-
-    keyword_query = keyword_query.join(
-        AssetRevision, AssetRevision.primary_media_id == MediaItem.id
-    ).join(
-        Asset,
-        and_(
-            Asset.id == AssetRevision.asset_id,
-            Asset.current_revision_id == AssetRevision.id,
-        ),
-    ).where(
-        Asset.state == "trashed",
-        Asset.deleted_at.is_not(None),
-        AssetRevision.deleted_at.is_(None),
-        MediaItem.deleted_at.is_(None),
-    )
-
-    # Apply all non-keyword filters to show preview counts
-    keyword_query = build_filtered_query(
-        keyword_query,
-        caption_query=caption_query,
-        prompt_query=prompt_query,
-        media_types=media_types,
-        excluded_media_types=excluded_media_types,
-        resolutions=resolutions,
-        excluded_resolutions=excluded_resolutions,
-        folders=folders,
-        excluded_folders=excluded_folders,
-        is_generated=is_generated,
-        marker_ids=marker_ids,
-        excluded_marker_ids=excluded_marker_ids,
-        tag_ids=tag_ids,
-        excluded_tag_ids=excluded_tag_ids,
-        exclude_category='keywords',
-        exclude_expired=False,
-    )
-
-    # Group by keyword and order by count
-    keyword_query = keyword_query.group_by(Keyword.keyword_text).order_by(
-        func.count(func.distinct(MediaItem.id)).desc()
-    ).limit(keyword_limit)
-
-    # Execute single query to get top keywords with their counts
-    result = await session.execute(keyword_query)
-    keyword_results = result.all()
-
-    for keyword_text, count in keyword_results:
-        keyword_counts_dict[keyword_text] = count
 
     # Tag preview counts using efficient JOIN query (similar to keywords)
     tag_counts_list = []
@@ -642,14 +557,11 @@ async def get_trash_filter_counts(
     # Apply all non-tag filters to show preview counts
     tag_query = build_filtered_query(
         tag_query,
-        caption_query=caption_query,
         prompt_query=prompt_query,
         media_types=media_types,
         excluded_media_types=excluded_media_types,
         resolutions=resolutions,
         excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
         folders=folders,
         excluded_folders=excluded_folders,
         is_generated=is_generated,
@@ -695,14 +607,11 @@ async def get_trash_filter_counts(
         range_query = get_base_query()
         range_query = build_filtered_query(
             range_query,
-            caption_query=caption_query,
             prompt_query=prompt_query,
             media_types=media_types,
             excluded_media_types=excluded_media_types,
             resolutions=resolutions,
             excluded_resolutions=excluded_resolutions,
-            keywords=keywords,
-            excluded_keywords=excluded_keywords,
             folders=folders,
             excluded_folders=excluded_folders,
             marker_ids=marker_ids,
@@ -725,7 +634,6 @@ async def get_trash_filter_counts(
             "large": large_count
         },
         "folders": folder_counts,
-        "keywords": keyword_counts_dict,
         "tags": tag_counts_list,
         "date_ranges": date_range_counts
     }

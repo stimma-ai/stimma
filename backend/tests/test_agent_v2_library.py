@@ -15,9 +15,7 @@ from database import (
     Collection,
     CollectionAssetItem,
     CollectionSection,
-    Keyword,
     Marker,
-    MediaKeyword,
     MediaTag,
     MediaToolLineage,
     Project,
@@ -46,7 +44,6 @@ async def test_library_browse_supports_structured_filters(db_session):
             session,
             file_path=Path(f"/library/{prefix}/hero.png"),
             file_format="png",
-            vlm_caption="hero portrait",
             extracted_prompt="cinematic hero portrait",
             generation_metadata=json.dumps({"prompt": "hero portrait"}),
             tool_id="comfyui:turbo-gen",
@@ -56,7 +53,6 @@ async def test_library_browse_supports_structured_filters(db_session):
             session,
             file_path=Path(f"/library/{prefix}/reference.jpg"),
             file_format="jpg",
-            vlm_caption="reference portrait",
             extracted_prompt="reference shot",
             created_date=datetime.now() - timedelta(days=2),
         )
@@ -177,8 +173,7 @@ async def test_library_browse_options_supports_folder_pagination(db_session):
     assert len(second_data["items"]) == 1
     assert all(prefix in item["label"] for item in first_data["items"] + second_data["items"])
 
-
-async def test_library_browse_options_returns_marker_and_keyword_matches(db_session):
+async def test_library_browse_options_returns_marker_matches(db_session):
     async with db_session() as session:
         prefix = str(uuid.uuid4())[:8]
         item = await create_media_item(
@@ -189,11 +184,9 @@ async def test_library_browse_options_returns_marker_and_keyword_matches(db_sess
         )
         asset = await create_asset_from_media(session, media_id=item.id)
         marker = Marker(name=f"favorite-{prefix}", icon_svg="<svg></svg>", color="#fff")
-        keyword = Keyword(keyword_text=f"heroic-{prefix}")
-        session.add_all([marker, keyword])
+        session.add(marker)
         await session.flush()
         session.add(AssetMarker(asset_id=asset.id, marker_id=marker.id, source="manual"))
-        session.add(MediaKeyword(media_id=item.id, keyword_id=keyword.id))
         await session.commit()
 
         marker_result = await library(
@@ -203,19 +196,9 @@ async def test_library_browse_options_returns_marker_and_keyword_matches(db_sess
             filters={"generated": True},
             session=session,
         )
-        keyword_result = await library(
-            action="browse_options",
-            facet="keywords",
-            query=prefix[:4],
-            filters={"generated": True},
-            session=session,
-        )
 
     marker_data = json.loads(marker_result)
-    keyword_data = json.loads(keyword_result)
     assert marker_data["items"] == [{"id": marker.id, "label": f"favorite-{prefix}", "count": 1}]
-    assert keyword_data["items"] == [{"id": keyword.id, "label": f"heroic-{prefix}", "count": 1}]
-
 
 async def test_library_organization_actions_target_asset_roots(db_session):
     async with db_session() as session:

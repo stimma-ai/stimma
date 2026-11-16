@@ -7,7 +7,6 @@ from config_writer import (
     validate_marker,
     validate_markers,
     validate_parallelism,
-    validate_captioning_parallelism,
     validate_confidence,
     validate_max_faces,
     validate_folders,
@@ -91,30 +90,6 @@ class TestValidateParallelism:
     def test_float_fails(self):
         with pytest.raises(ValidationError):
             validate_parallelism(3.5)
-
-
-# ---------------------------------------------------------------------------
-# validate_captioning_parallelism
-# ---------------------------------------------------------------------------
-
-class TestValidateCaptioningParallelism:
-    def test_valid_min(self):
-        validate_captioning_parallelism(1)
-
-    def test_valid_max(self):
-        validate_captioning_parallelism(50)
-
-    def test_zero_fails(self):
-        with pytest.raises(ValidationError):
-            validate_captioning_parallelism(0)
-
-    def test_over_max_fails(self):
-        with pytest.raises(ValidationError):
-            validate_captioning_parallelism(51)
-
-    def test_non_int_fails(self):
-        with pytest.raises(ValidationError):
-            validate_captioning_parallelism(10.0)
 
 
 # ---------------------------------------------------------------------------

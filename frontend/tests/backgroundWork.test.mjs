@@ -34,7 +34,6 @@ test('disabled analysis backlog stays idle and enabling a phase updates the pane
         metadata: phase(true, 0, 4266),
         clip: phase(false, 83, 4150),
         face_detection: phase(false, 874, 3359),
-        vlm_caption: phase(false, 4233, 0, 2),
       }
     })
     assert.equal(await page.getByTestId('indicator').count(), 0)

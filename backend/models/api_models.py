@@ -48,17 +48,13 @@ class MediaItemResponse(BaseModel):
     created_date: Optional[str]
     modified_date: Optional[str]
     indexed_date: str
-    vlm_caption: Optional[str]
     raw_metadata: Optional[str]
     extracted_prompt: Optional[str]
     generation_metadata: Optional[str]
     has_editor_sidecar: bool = False
     sidecars: List[Dict[str, Any]] = []
     has_working_document: bool = False
-    keywords: List[str]
     has_clip_embedding: bool
-    has_vlm_caption: bool
-    vlm_error: Optional[str]
     similarity_score: Optional[float] = None
     auto_delete_at: Optional[str] = None
     expires_at: Optional[str] = None
@@ -70,9 +66,6 @@ class MediaItemResponse(BaseModel):
     metadata_status: Optional[str] = None
     clip_status: Optional[str] = None
     face_detection_status: Optional[str] = None
-    vlm_caption_status: Optional[str] = None
-    vlm_extract_status: Optional[str] = None
-    llm_keywords_status: Optional[str] = None
     # Structured media (sets/grids) member count and title
     member_count: Optional[int] = None
     title: Optional[str] = None
@@ -102,7 +95,6 @@ class SimilaritySearchRequest(BaseModel):
 class StatsResponse(BaseModel):
     total_items: int
     total_with_embeddings: int
-    total_with_captions: int
     total_size_bytes: int
 
 

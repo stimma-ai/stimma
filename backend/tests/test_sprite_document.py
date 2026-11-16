@@ -265,7 +265,7 @@ async def test_library_save_registers_a_sprite_container(db_session, sprite_fixt
         saved = json.loads(raw)
         media = await session.get(MediaItem, saved["media_id"])
         assert media.file_format == "stimmasprite.json"
-        assert media.clip_status == "skipped" and media.vlm_caption_status == "skipped"
+        assert media.clip_status == "skipped"
         assert json.loads(media.raw_metadata)["title"] == "Saved Fox"
 
         asset = await session.get(Asset, saved["asset_id"])

@@ -9,7 +9,6 @@ import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import { useWebSocket } from './useWebSocket'
 import { useDeleteOperations } from './useDeleteOperations'
-import { captioningEnabledRef } from '../appConfig'
 import { makeGlobalKey } from '../utils/storageKeys'
 import { syncedStorage } from '../utils/workspaceStore'
 
@@ -19,14 +18,12 @@ export const PHASE_NAMES = {
   metadata: 'Reading Files',
   clip: 'Visual indexing',
   face_detection: 'Face analysis',
-  vlm_caption: 'Visual analysis',
 }
 
 const stats = ref({
   metadata: { pending: 0, processing: 0, completed: 0, failed: 0 },
   clip: { pending: 0, processing: 0, completed: 0, failed: 0 },
   face_detection: { pending: 0, processing: 0, completed: 0, failed: 0 },
-  vlm_caption: { pending: 0, processing: 0, completed: 0, failed: 0 },
 })
 const systemWarnings = ref([])
 const statsLoading = ref(true)
@@ -163,7 +160,7 @@ function hasPendingWork(phase) {
 }
 
 function isPhaseEnabled(phase) {
-  return stats.value[phase]?.enabled ?? (phase !== 'vlm_caption' || captioningEnabledRef.value)
+  return stats.value[phase]?.enabled ?? true
 }
 
 const activePhases = computed(() =>

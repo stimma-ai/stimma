@@ -1,29 +1,6 @@
 # Prompts configuration - hot-reloaded on every access
 # Edit this file freely; changes take effect immediately without backend restart
 
-visual_analysis:
-  prompt: |
-    You are an impartial visual analysis expert.
-
-    Analyze this image and return a JSON object with two fields:
-    1. "caption": A detailed description (10-15 sentences) covering composition, lighting, colors, setting, and subject details
-    2. "keywords": An array of 10-15 distinctive, specific keywords for search
-
-    CAPTION GUIDELINES:
-    - Describe compositional details, photographic qualities, lighting, colors, background, setting
-    - Describe the subject in detail including all physical/visual characteristics (age, gender, ethnicity, etc.)
-    - Speak in certainties - no hedging phrases like "appears to be"
-    - Do NOT editorialize or add details not present in the image
-
-    KEYWORD GUIDELINES:
-    - Focus on DISTINCTIVE, SPECIFIC features that make this image unique
-    - PRIORITIZE: specific physical features ("red leather jacket", "asymmetric bob"), distinctive settings ("cyberpunk alleyway", "marble bathroom"), unique characteristics ("green eyes", "freckles"), specific objects ("smartphone", "wine glass"), concrete mood ("melancholic", "tense")
-    - AVOID generic terms: "person", "woman", "realistic", "detailed", "high quality", "portrait", "lighting", "composition"
-    - Use lowercase only, no generic junk words
-
-    Return ONLY valid JSON with no additional text:
-    {"caption": "detailed description here...", "keywords": ["keyword1", "keyword2", "keyword3"]}
-
 metadata_to_generation:
   prompt: |
     You are a metadata analysis tool for AI image generation. You will be given raw metadata from an AI-generated image (possibly from ComfyUI, Automatic1111, or other generators).
@@ -59,7 +36,7 @@ metadata_to_generation:
     - Default weight to 1.0 if not specified
     - Include ALL loras you find, even if the format is unusual
     - Look for patterns like "<lora:name:weight>" in prompts (common in A1111)
-    - Exclude loras related to performance like "lightning" loras. 
+    - Exclude loras related to performance like "lightning" loras.
 
     Output a JSON object with ONLY the fields you can confidently extract. Use null for missing values.
     Do NOT make up or guess values. If you cannot find a field, omit it or set it to null.

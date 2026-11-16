@@ -52,7 +52,7 @@ Deliberately not offered: Flow control, custom-tool authoring, arbitrary chat co
 
 Choose `tools_run` for a known operation and parameters; choose `agent_start` when Stimma should select tools and creatively iterate. The external assistant can supply business context from other connected systems in its brief.
 
-For library discovery, scope to a known project or inspect a collection first. `similar_to_text` searches visual appearance, `caption_query` matches captions and `prompt_query` matches generation instructions. Tags, markers and collection sections can record explicit approval; visual similarity and recency cannot establish approval. Use `media_read` to inspect a shortlist.
+For library discovery, scope to a known project or inspect a collection first. `similar_to_text` searches visual appearance, `prompt_query` matches generation instructions. Tags, markers and collection sections can record explicit approval; visual similarity and recency cannot establish approval. Use `media_read` to inspect a shortlist.
 
 There is no separate MCP budget, cumulative spend allocation or renewal protocol. Existing agent/runtime safeguards, tool permissions and cancellation remain in effect.
 

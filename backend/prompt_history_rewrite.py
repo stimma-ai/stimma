@@ -359,7 +359,7 @@ def _rewrite_normalized_vocabularies(
     """Rewrite/merge normalized vocabularies without violating unique indexes.
 
     A literal replacement can collapse e.g. ``private portrait`` and
-    ``clean portrait`` to the same final keyword. Keep the existing canonical
+    ``clean portrait`` to the same final label. Keep the existing canonical
     row when possible, union its associations, then remove the redundant row
     inside the same transaction. Tags and markers use the same treatment.
     """
@@ -370,7 +370,6 @@ def _rewrite_normalized_vocabularies(
         )
     }
     specs = (
-        ("keywords", "keyword_text", (("media_keywords", "keyword_id", False),)),
         (
             "tags",
             "tag_text",

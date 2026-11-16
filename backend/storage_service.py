@@ -486,7 +486,6 @@ async def ensure_durable_snapshot_media(
         indexed_date=datetime.utcnow(),
         metadata_status="completed",
         clip_status=media.clip_status,
-        vlm_caption_status=media.vlm_caption_status,
         face_detection_status=media.face_detection_status,
         raw_metadata=media.raw_metadata,
         extracted_prompt=media.extracted_prompt,

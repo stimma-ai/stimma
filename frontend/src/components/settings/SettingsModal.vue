@@ -692,9 +692,7 @@ async function handleBackgroundWorkUpdate(data) {
     if (data.clip) {
       bgWork.clip = { ...bgWork.clip, ...data.clip }
     }
-    if (data.captioning) {
-      bgWork.captioning = { ...bgWork.captioning, ...data.captioning }
-    }
+
     settings.value = { ...settings.value, background_work: bgWork }
   }
   // Fire-and-forget

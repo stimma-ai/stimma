@@ -52,7 +52,6 @@
     <!-- Filter Bar -->
     <FilterBar
       ref="filterBarRef"
-      v-model:captionQuery="filters.captionQuery"
       v-model:promptQuery="filters.promptQuery"
       v-model:similarToText="filters.similarToText"
       v-model:mediaTypes="filters.mediaTypes"
@@ -60,8 +59,6 @@
       v-model:resolutions="filters.resolutions"
       v-model:excludedResolutions="filters.excludedResolutions"
       v-model:sortBy="filters.sortBy"
-      v-model:selectedKeywords="filters.selectedKeywords"
-      v-model:excludedKeywords="filters.excludedKeywords"
       v-model:selectedFolders="filters.selectedFolders"
       v-model:excludedFolders="filters.excludedFolders"
       v-model:selectedTags="filters.selectedTags"
@@ -404,15 +401,12 @@ const filterChangeCounter = computed(() => globalFilterState.filterChangeCounter
 
 // True when any filter criteria is narrowing results (mirrors FilterBar.hasActiveFilters)
 const hasActiveFilterCriteria = computed(() =>
-  !!filters.captionQuery ||
   !!filters.promptQuery ||
   !!filters.similarToText ||
   (filters.mediaTypes?.length > 0) ||
   (filters.excludedMediaTypes?.length > 0) ||
   (filters.resolutions?.length > 0) ||
   (filters.excludedResolutions?.length > 0) ||
-  (filters.selectedKeywords?.length > 0) ||
-  (filters.excludedKeywords?.length > 0) ||
   (filters.selectedFolders?.length > 0) ||
   (filters.excludedFolders?.length > 0) ||
   (filters.selectedTags?.length > 0) ||
@@ -822,7 +816,6 @@ useGlobalKeyboardShortcuts({
 // Build filter params for API calls
 function buildFilterParams() {
   const params = {
-    caption_query: filters.captionQuery || undefined,
     prompt_query: filters.promptQuery || undefined,
     sort_by: filters.sortBy,
     random_seed: filters.sortBy === 'random' ? randomSeed.value : undefined,
@@ -843,12 +836,7 @@ function buildFilterParams() {
   if (filters.excludedResolutions && filters.excludedResolutions.length > 0) {
     params.excluded_resolutions = filters.excludedResolutions.join(',')
   }
-  if (filters.selectedKeywords && filters.selectedKeywords.length > 0) {
-    params.keywords = filters.selectedKeywords.join(',')
-  }
-  if (filters.excludedKeywords && filters.excludedKeywords.length > 0) {
-    params.excluded_keywords = filters.excludedKeywords.join(',')
-  }
+
   if (filters.selectedFolders && filters.selectedFolders.length > 0) {
     params.folders = filters.selectedFolders.join(',')
   }
@@ -937,7 +925,7 @@ function buildTrashFilterParams() {
   }
 
   // Text filters
-  if (filters.captionQuery) params.caption_query = filters.captionQuery
+
   if (filters.promptQuery) params.prompt_query = filters.promptQuery
 
   // Similarity search (CLIP text-based)
@@ -965,12 +953,6 @@ function buildTrashFilterParams() {
   }
 
   // Keyword filter (AND logic)
-  if (filters.selectedKeywords?.length > 0) {
-    params.keywords = filters.selectedKeywords.join(',')
-  }
-  if (filters.excludedKeywords?.length > 0) {
-    params.excluded_keywords = filters.excludedKeywords.join(',')
-  }
 
   // Folder filters
   if (filters.selectedFolders?.length > 0) {
@@ -1309,11 +1291,7 @@ async function handleCompareAction({ action, item, payload }) {
         addTagFilter(payload)
       }
       break
-    case 'filter-by-keyword':
-      if (payload) {
-        addKeywordFilter(payload)
-      }
-      break
+
     case 'navigate-to-collection':
       if (payload) {
         router.push({ name: 'collection-detail', params: { id: payload } })
@@ -1777,13 +1755,6 @@ async function startSlideshowFromSelected() {
   }
 }
 
-function handleKeywordFilter(keyword) {
-  if (!filters.selectedKeywords.includes(keyword)) {
-    filters.selectedKeywords.push(keyword)
-  }
-  loadMedia()
-}
-
 function generateNewRandomSeed() {
   randomSeed.value = Date.now()
 }
@@ -2218,10 +2189,8 @@ async function handleSettingsLoaded() {
   const savedFilters = loadSavedFilters()
   if (savedFilters) {
     // Check if any filters were actually loaded (not just defaults)
-    const hasNonDefaultFilters = savedFilters.captionQuery ||
-      savedFilters.promptQuery ||
+    const hasNonDefaultFilters = savedFilters.promptQuery ||
       savedFilters.mediaTypes?.length > 0 ||
-      savedFilters.selectedKeywords?.length > 0 ||
       savedFilters.selectedTags?.length > 0 ||
       savedFilters.selectedFolders?.length > 0 ||
       savedFilters.selectedMarkers?.length > 0 ||
@@ -2264,7 +2233,7 @@ async function handleProfileChanged() {
   }
   await loadImplicitMarkers()
 
-  // Force FilterBar to reload its data (tags, keywords, etc.)
+  // Force FilterBar to reload its data (tags, folders, etc.)
   filterKey.value++
 
   // Reload media

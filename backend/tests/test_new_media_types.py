@@ -51,7 +51,6 @@ async def create_audio_item(
         audio_bitrate=audio_bitrate,
         audio_codec=audio_codec,
         clip_status="skipped",
-        vlm_caption_status="skipped",
         face_detection_status="skipped",
         **kwargs
     )
@@ -92,7 +91,6 @@ async def create_text_item(
         height=0,
         raw_metadata=raw_metadata,
         clip_status="skipped",
-        vlm_caption_status="skipped",
         face_detection_status="skipped",
         **kwargs
     )
@@ -118,7 +116,6 @@ async def create_set_item(
         height=0,
         raw_metadata=raw_metadata,
         clip_status="skipped",
-        vlm_caption_status="skipped",
         face_detection_status="skipped",
         **kwargs
     )
@@ -152,7 +149,6 @@ async def create_grid_item(
         height=0,
         raw_metadata=raw_metadata,
         clip_status="skipped",
-        vlm_caption_status="skipped",
         face_detection_status="skipped",
         **kwargs
     )
@@ -466,7 +462,6 @@ class TestProcessingSkip:
                 file_format=file_format,
                 clip_status="pending",
                 face_detection_status="pending",
-                vlm_caption_status="pending",
             )
 
         worker = MediaIngestion.__new__(MediaIngestion)
@@ -484,7 +479,6 @@ class TestProcessingSkip:
             return (
                 refreshed.clip_status,
                 refreshed.face_detection_status,
-                refreshed.vlm_caption_status,
             )
 
     @pytest.mark.parametrize("file_format", ["mp3", "md", "stimmaset.json"])
@@ -493,5 +487,5 @@ class TestProcessingSkip:
     ):
         """The CLIP worker classifies audio, text, and sets as non-visual."""
         assert await self._run_clip_skip_decision(db_session, file_format) == (
-            "skipped", "skipped", "skipped"
+            "skipped", "skipped"
         )

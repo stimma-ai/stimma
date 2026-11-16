@@ -109,10 +109,8 @@ class MediaItem(Base):
 
     # AI/ML processed data
     clip_embedding = Column(LargeBinary, nullable=True)
-    vlm_caption = Column(String, nullable=True)
     raw_metadata = Column(String, nullable=True)
     extracted_prompt = Column(String, nullable=True)
-    keywords = Column(String, nullable=True)
     generation_metadata = Column(String, nullable=True)  # JSON string for generation params
 
     # Non-destructive editor project state stored in sidecar file
@@ -121,19 +119,16 @@ class MediaItem(Base):
     # Config version tracking (hash of config used for each phase)
     metadata_config_version = Column(String, nullable=True)
     clip_config_version = Column(String, nullable=True)
-    vlm_caption_config_version = Column(String, nullable=True)
     face_detection_config_version = Column(String, nullable=True)
 
     # Per-phase status (pending/processing/completed/failed)
     metadata_status = Column(String, default='pending', index=True)
     clip_status = Column(String, default='pending', index=True)
-    vlm_caption_status = Column(String, default='pending', index=True)
     face_detection_status = Column(String, default='pending', index=True)
 
     # Per-phase completion timestamps
     metadata_processed_at = Column(DateTime, nullable=True)
     clip_processed_at = Column(DateTime, nullable=True)
-    vlm_caption_processed_at = Column(DateTime, nullable=True)
     face_detection_processed_at = Column(DateTime, nullable=True)
 
     # Per-phase error tracking
@@ -141,8 +136,6 @@ class MediaItem(Base):
     metadata_retry_count = Column(Integer, default=0)
     clip_error = Column(String, nullable=True)
     clip_retry_count = Column(Integer, default=0)
-    vlm_caption_error = Column(String, nullable=True)
-    vlm_caption_retry_count = Column(Integer, default=0)
     face_detection_error = Column(String, nullable=True)
     face_detection_retry_count = Column(Integer, default=0)
 
@@ -234,20 +227,15 @@ class MediaItem(Base):
             "chat_item_id": self.chat_item_id,
             "tool_id": self.tool_id,
             "preset_id": self.preset_id,
-            "vlm_caption": self.vlm_caption,
             "raw_metadata": self.raw_metadata,
             "extracted_prompt": self.extracted_prompt,
-            "keywords": self.keywords.split(",") if self.keywords else [],
             "generation_metadata": self.generation_metadata,
             "has_editor_sidecar": self.has_editor_sidecar or False,
             "has_clip_embedding": self.clip_embedding is not None,
-            "has_vlm_caption": self.vlm_caption is not None,
-            "vlm_error": self.vlm_caption_error,
             # Processing statuses
             "metadata_status": self.metadata_status,
             "clip_status": self.clip_status,
             "face_detection_status": self.face_detection_status,
-            "vlm_caption_status": self.vlm_caption_status,
         }
 
         # Include markers if relationship is loaded
@@ -750,36 +738,6 @@ class Face(Base):
             "created_at": self.created_at.isoformat(),
         }
 
-
-class Keyword(Base):
-    """Normalized keyword table for fast lookups."""
-    __tablename__ = "keywords"
-
-    id = Column(Integer, primary_key=True, index=True)
-    keyword_text = Column(String, unique=True, nullable=False, index=True)
-
-    def to_dict(self):
-        """Convert to dictionary for API responses."""
-        return {
-            "id": self.id,
-            "keyword": self.keyword_text,
-        }
-
-
-class MediaKeyword(Base):
-    """Junction table for media items and keywords (many-to-many)."""
-    __tablename__ = "media_keywords"
-
-    media_id = Column(Integer, nullable=False, primary_key=True)
-    keyword_id = Column(Integer, nullable=False, primary_key=True)
-
-    # Composite indexes for fast lookups in both directions
-    __table_args__ = (
-        Index('idx_keyword_media', keyword_id, media_id),
-        Index('idx_media_keyword', media_id, keyword_id),
-    )
-
-
 class ControlFlag(Base):
     """Simple key-value table for inter-process communication flags."""
     __tablename__ = "control_flags"
@@ -1035,7 +993,7 @@ class MediaMarker(Base):
 
 
 class Tag(Base):
-    """Table for user-defined tags (separate from AI-generated keywords)."""
+    """Table for user-defined tags."""
     __tablename__ = "tags"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -2050,7 +2008,7 @@ class Database:
         )
         # secure_delete is a per-connection PRAGMA in default sqlite builds;
         # apply it on every connection so DELETEs zero out freed pages instead
-        # of leaving prompt/path/caption bytes recoverable in unallocated space.
+        # of leaving prompt/path bytes recoverable in unallocated space.
         @event.listens_for(self.async_engine.sync_engine, "connect")
         def _set_sqlite_pragmas(dbapi_conn, _):
             cursor = dbapi_conn.cursor()

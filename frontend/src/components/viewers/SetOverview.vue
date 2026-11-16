@@ -36,7 +36,7 @@
             :file-hash="item.resolved.file_hash"
             :file-path="item.resolved.file_path"
             :file-format="item.resolved.file_format"
-            :alt="item.resolved.vlm_caption || 'Set item'"
+            :alt="item.resolved.original_filename || 'Set item'"
             thumbnail
             :thumbnail-size="256"
             :draggable="false"
