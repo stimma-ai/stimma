@@ -15,7 +15,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select
 
-from database import Asset, AssetRevision
+from database import Asset, AssetRevision, MediaItem
 from datetime import datetime, timedelta
 from pathlib import Path
 from httpx import AsyncClient
@@ -301,6 +301,24 @@ class TestAssetTextSearch:
             assert named_assets["package"] in ids
             assert named_assets["logo"] not in ids
             assert named_assets["unrelated"] not in ids
+
+    async def test_text_match_runs_once_in_the_asset_join(self, db_session):
+        """The word-index list must filter the browse join, not drive it: driving
+        asset_revisions from it re-ran the MATCH per Asset row (26 s per keystroke
+        on a large library)."""
+        from sqlalchemy import func, text
+        from utils.query_builder import asset_text_predicate
+
+        stmt = (
+            select(func.count()).select_from(Asset)
+            .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+            .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
+            .where(Asset.state == "active", asset_text_predicate("stump"))
+        )
+        sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+        async with db_session() as session:
+            plan = "\n".join(row[-1] for row in (await session.execute(text("EXPLAIN QUERY PLAN " + sql))).all())
+        assert "primary_media_id=?" not in plan, plan
 
     async def test_hidden_metadata_numbers_do_not_match(self, client, db_session):
         """A machine filename or a node graph stored as the prompt never matches

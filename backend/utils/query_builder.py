@@ -398,7 +398,10 @@ def asset_text_predicate(text: str):
         # One quoted prefix term per word, never a phrase: "flux.2" needs a word
         # starting "flux" and one starting "2".
         match = ' '.join('"' + w + '"*' for w in words)
-        alternatives = [MediaItem.id.in_(
+        # "id + 0" keeps SQLite from driving the browse join from this list
+        # into the revision index, which re-ran the MATCH for every Asset row
+        # (26 s on a large library); as a plain filter it runs once.
+        alternatives = [(MediaItem.id + 0).in_(
             select(_media_text_search.c.rowid)
             .where(literal_column(MEDIA_TEXT_SEARCH).op('MATCH')(match))
         )]
