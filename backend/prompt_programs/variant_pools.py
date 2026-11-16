@@ -22,6 +22,11 @@ with no model call:
   slot's later ones. Each variant is stored the moment its object closes in the stream. A slot not
   about a person whose seeds are still narrowed opens its session with one unseeded turn (role
   "early"); the seeded turns that follow continue that log, and it counts toward its pool.
+- Checking. A writer with a check (pool_check.py) asks it about each turn's survivors once the
+  turn ends, and stores its verdicts with the pool (`{"batch", "check": {"dropped", ...}}`). A
+  value the check drops is never drawn or listed and never joins the session log; a value still
+  waiting for its batch's check is drawn only while nothing checked is there to draw. The check
+  never empties a pool: when it dropped everything, those values stand.
 
 A failed write is never stored: the slot stands as written and the next prepare that starts
 work asks again.
@@ -50,10 +55,12 @@ from prompt_programs.variants import (
     age_stages, age_years, ask_writer, draw_seeds, first_turn, more_turn, reply_text, retry_note, split, stages_of, write_turn,
     year_ages,
 )
+from prompt_programs.pool_check import CHECK_VERSION, Checked
+from prompt_programs.pool_check import check as check_batch
 
 log = get_logger(__name__)
 
-POOL_VERSION = "pool-2"   # pool-2: keyed by the minors rules' marks for the whole prompt (seeding.young_marks)
+POOL_VERSION = "pool-3"   # pool-3: keyed by the pool check's version (pool_check.CHECK_VERSION): every pool is checked. pool-2: keyed by the minors rules' marks for the whole prompt (seeding.young_marks)
 TOPUP_AT = 0.8      # share of what a slot draws from drawn this round that starts a top-up
 MAX_POOL = 300      # a pool this big stops topping up and cycles least-used
 RETRY_AFTER = 120.0 # seconds a failed first write stands as written before a prepare or poll asks again
@@ -76,8 +83,8 @@ def pool_key(model: Optional[str], words: str, marked: str, notes: Sequence[str]
     read again because an edit elsewhere changed the scene (`scene`, reader.scene_mark), and a
     person whose place context differs (`place`, places.mark: "JP@prompt", "FR@default"), and a
     slot whose way of varying the user chose (`mode`: "one", flesh it out; "kind", vary it)."""
-    parts: Dict[str, Any] = {"v": POOL_VERSION, "writer": VARIANTS_VERSION, "model": model, "words": words,
-                             "marked": marked, "notes": list(notes)}
+    parts: Dict[str, Any] = {"v": POOL_VERSION, "writer": VARIANTS_VERSION, "check": CHECK_VERSION, "model": model,
+                             "words": words, "marked": marked, "notes": list(notes)}
     if minor:
         parts["minor"] = sorted(minor)
     if scene:
@@ -136,12 +143,18 @@ class VariantStore:
         self._mem[key] = (size, out)
         return out
 
-    def variants(self, key: str) -> List[Dict[str, Any]]:
-        """The pool in order: {"text", "seeds", "batch"}; the first of two texts that differ only in
-        case and spacing wins. A text the user removed is never in it."""
+    def variants(self, key: str, *, fallback: bool = True) -> List[Dict[str, Any]]:
+        """The pool in order: {"text", "seeds", "batch"}, and "unchecked": True on a variant whose
+        batch's check hasn't answered yet; the first of two texts that differ only in case and
+        spacing wins. A text the user removed is never in it, nor one the check dropped, unless
+        the check dropped everything (`fallback`): then those stand."""
         seen: set = set(self.removed(key))
+        recs = self.batches(key)
+        checked = {rec.get("batch") for rec in recs if isinstance(rec.get("check"), dict)}
+        dropped = self.check_dropped(key)
         out: List[Dict[str, Any]] = []
-        for rec in self.batches(key):
+        failed: List[Dict[str, Any]] = []
+        for rec in recs:
             for v in rec.get("variants") or []:
                 if not isinstance(v, dict) or not isinstance(v.get("text"), str) or not v["text"].strip():
                     continue
@@ -149,8 +162,16 @@ class VariantStore:
                 if n in seen:
                     continue
                 seen.add(n)
-                out.append({"text": v["text"], "seeds": dict(v.get("seeds") or {}), "batch": rec.get("batch")})
-        return out
+                got = {"text": v["text"], "seeds": dict(v.get("seeds") or {}), "batch": rec.get("batch")}
+                if rec.get("checking") and rec.get("batch") not in checked:
+                    got["unchecked"] = True
+                (failed if n in dropped else out).append(got)
+        return out if out or not fallback else failed
+
+    def check_dropped(self, key: str) -> set:
+        """The texts the pool check dropped from a pool (normalized)."""
+        return {_norm(t) for rec in self.batches(key) if isinstance(rec.get("check"), dict)
+                for t in rec["check"].get("dropped") or [] if isinstance(t, str)}
 
     def has(self, key: str) -> bool:
         return bool(self.variants(key))
@@ -372,6 +393,8 @@ def drawable(variants: Sequence[Dict[str, Any]], choice: Choice) -> List[Dict[st
     if choice.values:
         return [{**by[_norm(t)], "pinned": True} if _norm(t) in by else {"text": t, "seeds": {}, "pinned": True}
                 for t in choice.values]
+    if any(v.get("unchecked") for v in variants) and not all(v.get("unchecked") for v in variants):
+        variants = [v for v in variants if not v.get("unchecked")]   # a batch waiting for its check, while checked ones are there
     pool = list(variants) if choice.pins.gender else unasked(variants)   # a gender is asked only by its pick
     if choice.pins:
         hit = [v for v in pool if matches(v.get("seeds") or {}, choice.pins)]
@@ -638,8 +661,9 @@ class PoolWriter:
     stored: `failed(key)` says why until the next first write is asked."""
 
     def __init__(self, store: VariantStore, ask: Ask = ask_writer, paused: Optional[Callable[[], bool]] = None,
-                 streams: int = STREAMS):
+                 streams: int = STREAMS, check: Optional[Ask] = None):
         self.store, self.ask = store, ask
+        self.check = check   # the pool check's model (pool_check.py); None: written batches stand unchecked
         self.paused = paused or (lambda: False)
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self._lock = threading.Lock()
@@ -655,6 +679,11 @@ class PoolWriter:
         self.calls = 0   # turns asked
 
     # -- state
+    @property
+    def checks(self) -> bool:
+        """Whether written batches are checked (pool_check.py)."""
+        return self.check is not None and bool(getattr(self.check, "enabled", True))
+
     def busy(self, key: str) -> bool:
         with self._lock:
             return any(f"{key}{x}" in self._inflight for x in LANES) or any(j.key == key for j in self._queued)
@@ -666,8 +695,9 @@ class PoolWriter:
         batches = [b for b in self.store.batches(key) if b.get("role") != "early" and b.get("variants")]
         if not batches:
             return False
+        dropped = self.store.check_dropped(key)
         return key in self._thin or any(b.get("role") != "first" for b in batches) or \
-            sum(len(b["variants"]) for b in batches) >= MIN_POOL
+            sum(1 for b in batches for v in b["variants"] if _norm(v.get("text", "")) not in dropped) >= MIN_POOL
 
     def failed(self, key: str) -> Optional[str]:
         got = self._failed.get(key)
@@ -857,7 +887,7 @@ class PoolWriter:
         asked = 0
         i = 0
         while i < len(parts) or (job.role == "first" and more < MORE_TURNS
-                                 and len(self.store.variants(job.key)) < MIN_POOL):
+                                 and len(self.store.variants(job.key, fallback=False)) < MIN_POOL):
             if i == len(parts):
                 # Short of MIN_POOL after its planned turns (repeats, drops): one more turn, a few times.
                 more += 1
@@ -872,8 +902,8 @@ class PoolWriter:
                         len(self.store.variants(job.key)) - len(have) - len(out) >= n - len(out):
                     break   # More like these went ahead and wrote at least what this top-up had left
                 session = Session() if fresh else Session.of(self.store.session(job.key))
-                removed = self.store.removed(job.key)
-                pool = self.store.variants(job.key)
+                removed = [*self.store.removed(job.key), *self.store.check_dropped(job.key)]
+                pool = self.store.variants(job.key, fallback=False)
                 seen = {_norm(v["text"]) for v in pool} | set(removed)
                 a = len(session.texts) + 1
                 if session.open:
@@ -890,7 +920,8 @@ class PoolWriter:
                 def landed(v: Dict[str, Any], batch: int = batch) -> bool:
                     if not self._room(job, out, n):
                         return False
-                    self.store.append(job.key, self._record(job, batch, turn=i, variants=[v]))
+                    self.store.append(job.key, self._record(job, batch, turn=i, variants=[v],
+                                                            **({"checking": True} if self.checks else {})))
                     out.append(v["text"])
                     return True
                 # A background top-up's turn gives its pool to More like these the moment it comes
@@ -905,12 +936,18 @@ class PoolWriter:
                     if cut is not None and self._cuts.get(job.key) is cut:
                         del self._cuts[job.key]
                 self.calls += 1
+                kept = turn.variants
+                if self.checks and turn.variants:
+                    verdict = await self._check(job, batch, turn)
+                    gone = {_norm(t) for t in verdict.dropped}
+                    kept = [v for v in turn.variants if _norm(v["text"]) not in gone]
                 logged = turn.passed
                 if logged:
                     if not session.open:
                         session = Session(messages=[dict(sent[0])], seeded=opened_seeded,
                                           restarts=session.restarts + int(restarted))
-                    session.log(dict(user), reply_text(turn.variants, a, turn.rejected), turn.texts())
+                    # The log holds what the check kept: a later turn never copies a value it dropped.
+                    session.log(dict(user), reply_text(kept, a, turn.rejected), [v["text"] for v in kept])
                     if opened_seeded:
                         session.seeded = True   # what an unseeded opening lacked has been shown now
                     self.store.save_session(job.key, session.to_dict())
@@ -952,6 +989,19 @@ class PoolWriter:
                 log.info(f"[variants] {job.slot.words!r} kept only {len(self.store.variants(job.key))}; "
                          f"asked again later: {why[:200]}")
         return out
+
+    async def _check(self, job: Job, batch: int, turn: Turn) -> Checked:
+        """The pool check on one turn's survivors, its verdicts stored with the pool (also when it
+        failed: the batch then stands as written and is no longer waiting). Never raises."""
+        try:
+            verdict = await check_batch(job.slot, turn.texts(), ask=self.check, project_id=job.project_id)
+        except Exception as e:   # never: check() degrades on its own; belt and braces
+            verdict = Checked(asked=len(turn.variants), error=f"{type(e).__name__}: {e}"[:200])
+        if verdict.dropped:
+            log.info(f"[pool-check] {job.slot.words!r}: dropped {len(verdict.dropped)} of {verdict.asked}: "
+                     + "; ".join(f"{t!r} ({verdict.why.get(t, '')})" for t in verdict.dropped)[:600])
+        self.store.append(job.key, self._record(job, batch, check=verdict.to_dict()))
+        return verdict
 
     async def more(self, job: Job) -> List[str]:
         """More like these: TOPUP more, awaited. Its turns go next in the pool's session, ahead of
@@ -1047,6 +1097,31 @@ class _Ask:
 
 _ask = _Ask()
 
+async def _default_check(*args: Any, **kwargs: Any) -> str:
+    from prompt_programs.pool_check import ask_check
+    return await ask_check(*args, **kwargs)
+
+
+# What a profile's writer asks to check a written batch (pool_check.py): the app's chat model, whole
+# replies. None: batches stand unchecked (tests set it, so no check reaches a model).
+CHECK: Optional[Ask] = _default_check
+
+
+class _Check:
+    """The profile writers' check: whatever CHECK is now; `enabled` while there is one."""
+
+    @property
+    def enabled(self) -> bool:
+        return CHECK is not None
+
+    async def __call__(self, *args: Any, **kwargs: Any) -> str:
+        if CHECK is None:
+            raise RuntimeError("no pool check")
+        return await CHECK(*args, **kwargs)
+
+
+_check = _Check()
+
 
 def store_for(profile_id: Optional[str]) -> VariantStore:
     import app_dirs
@@ -1063,7 +1138,7 @@ def writer_for(profile_id: Optional[str]) -> PoolWriter:
     w = _writers.get(str(store.root))
     if w is None:
         from prompt_programs.slots import preparing
-        w = _writers[str(store.root)] = PoolWriter(store, ask=_ask, paused=preparing)
+        w = _writers[str(store.root)] = PoolWriter(store, ask=_ask, paused=preparing, check=_check)
     try:
         w.attach()
     except RuntimeError:
