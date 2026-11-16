@@ -32,7 +32,7 @@ from prompt_programs.slots import Parsed, Segment
 
 log = get_logger(__name__)
 
-READER_VERSION = "reader-30"   # reader-30: a person says from the whole prompt whether none of what they wear would show (shows: "hidden": covered by bedcovers, water or a towel, or framed on the face alone), and then draws no outfit or build. reader-29: the user may choose how a part varies (flesh it out: "one"; vary it: "kind"); the reading is told that answer and keeps it, cached apart from the reader's own. reader-28: a category that is not a run of the part's words is asked again once; a kind described in detail stays a kind. reader-27: every part says whether it names one specific thing to show in different ways ("names": "one": a place, a brand, a character, people the words settle) or a kind of thing to pick members of; one keeps every word and varies no detail. reader-26: a person who leaves what they wear blank is "written" at once, not asked again (what the retry answered every time it was measured); a kind's fields given under another kind's object or at the part's top level are read. reader-25: reader-25: a person says whether who and where they are imply what they wear (dress: "implied"). reader-24: words naming one camera detail ("camera angle") vary only that detail; a made-up list id on the last try is the question's fallback answer ("written"), not a failed reading. reader-23: kinds are vocabulary data; a person says what sort of being they are (a declared sort, or "other") instead of whether a heritage applies, and a place may be any context table's. reader-22: a person names the place by its country's plain name, asked again when the table lacks it; a person says how many people they are (one, a couple, a family, a group) and whether a real-world heritage applies to them; light names the scene list unless its words call for a named look. reader-21: a person names the country the picture is set in (place), when the prompt says. reader-20: a person keeps the words saying what they wear (clothes), so their variants draw no outfit; a free part no longer gives kinds or things instead, nor a light examples (nothing used them). reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
+READER_VERSION = "reader-31"   # reader-31: a part the user chose to vary that names one specific thing (by the reader's own reading, or its answer now) gives kind_of, the kind of thing it is one of as the prompt uses it ("famous suspension bridge"), a field of every part's, asked again once when missing; every word of it may go. reader-30: a person says from the whole prompt whether none of what they wear would show (shows: "hidden": covered by bedcovers, water or a towel, or framed on the face alone), and then draws no outfit or build. reader-29: the user may choose how a part varies (flesh it out: "one"; vary it: "kind"); the reading is told that answer and keeps it, cached apart from the reader's own. reader-28: a category that is not a run of the part's words is asked again once; a kind described in detail stays a kind. reader-27: every part says whether it names one specific thing to show in different ways ("names": "one": a place, a brand, a character, people the words settle) or a kind of thing to pick members of; one keeps every word and varies no detail. reader-26: a person who leaves what they wear blank is "written" at once, not asked again (what the retry answered every time it was measured); a kind's fields given under another kind's object or at the part's top level are read. reader-25: reader-25: a person says whether who and where they are imply what they wear (dress: "implied"). reader-24: words naming one camera detail ("camera angle") vary only that detail; a made-up list id on the last try is the question's fallback answer ("written"), not a failed reading. reader-23: kinds are vocabulary data; a person says what sort of being they are (a declared sort, or "other") instead of whether a heritage applies, and a place may be any context table's. reader-22: a person names the place by its country's plain name, asked again when the table lacks it; a person says how many people they are (one, a couple, a family, a group) and whether a real-world heritage applies to them; light names the scene list unless its words call for a named look. reader-21: a person names the country the picture is set in (place), when the prompt says. reader-20: a person keeps the words saying what they wear (clothes), so their variants draw no outfit; a free part no longer gives kinds or things instead, nor a light examples (nothing used them). reader-19: a person no longer says whether their face varies or writes outfits (variants do); every part names its category word (the run of its words a kind of it may replace; none for a person), and a free part names up to three lists that could seed it. reader-18: a person says which other part is what they wear (clothes_part) and then draws no outfit; a person varies some of their fixed details, else it is words about someone (an expression) and is retried, then stands as written; a garment no list holds kinds of is free. reader-17: a camera that varies one detail is a list slot on that detail's list; words naming the whole camera vary all four. reader-16: an animal says the kind the words call for ("pet"). reader-15: hair is length, texture and color, a hairstyle starts left out, and every directory's lists are offered. reader-14: a coat list is a breed list. reader-13: a young animal's word states its life stage. reader-12: light names its looks; a person with no outfit says what the prompt says they wear. reader-11: a list about a person says how they present; face is its own true/false, only when asked for. reader-9: animals are a builder; light may name a lighting list. reader-8: each part is read on its own. reader-7: a free slot gives things instead only when something naturally stands there. reader-6: the example's prompt is shown; only the numbered parts are parts, and the message names them. reader-5: a part about someone the prompt has is never a person (worked tag example; the noun is copied); a list says what it is about. reader-4: a stated detail is always drawn; a person with nothing to draw is retried. reader-3: a part of a person is not a person; leads are joining words; descent is usual. reader-2: each kind's object is shown
 
 Ask = Callable[[List[Dict[str, Any]], Optional[int], int], Awaitable[str]]
 
@@ -86,6 +86,11 @@ EVERY_PART = """For every part:
   kind of thing, so each image can show a different one of it, even when the prompt describes it
   in detail ("street", "pose", "cat", "weather", "hat", "teacup", "sports car", "airship",
   "parrot in a waistcoat", "old man", "nurse", "couple"). Most parts are "kind".{one}
+- kind_of: only for a part the user chose to vary that names one specific thing (said after the
+  prompt): the kind of thing it is one of, as this prompt uses it, in a few words, so each image
+  shows another one of that kind, not it ("famous suspension bridge" for ⟨Golden Gate Bridge⟩ on a
+  postcard, "grand old-town square" for ⟨Grand Place⟩ at a market, "fictional wizard" for
+  ⟨Gandalf⟩); its category is "". Left out for every other part.
 - category: the word or words of the part that only name what kind of thing it is, so that a
   more specific kind of it could take their place and still be that thing; every other word
   describes it and stays. Copied exactly from
@@ -240,6 +245,7 @@ def part_key(parsed: Parsed, seg: Segment, model: Optional[str], vocab_version: 
 # How the user chose a slot to vary, overriding the reader's `names`: "one" fleshes out one
 # specific thing (same thing, shown different ways), "kind" varies it (other members of its kind).
 MODES = ("one", "kind")
+KIND_OF_WORDS = 8   # a kind_of longer than this is a description, not the name of a kind: none
 
 
 def mode_of(reading: Any) -> str:
@@ -247,15 +253,21 @@ def mode_of(reading: Any) -> str:
     return "one" if isinstance(reading, dict) and reading.get("names") == "one" else "kind"
 
 
-def _mode_line(n: int, mode: str) -> str:
+def _mode_line(n: int, mode: str, named: bool = False) -> str:
+    """The user's choice for ⟨n⟩, said to the reader. `named`: the reader's own reading of it names
+    one specific thing, so Vary means other members of the kind it is one of (its kind_of)."""
     if mode == "one":
         return (f'The user chose to see ⟨{n}⟩ as one specific thing, the same in every image, shown in different '
                 'ways: answer "names": "one" for it.')
-    return (f'The user chose to see ⟨{n}⟩ as a kind of thing, a different one of it in each image: answer '
-            '"names": "kind" for it.')
+    if named:
+        return (f'⟨{n}⟩ names one specific thing, and the user chose to vary it, a different one in each image: '
+                f'answer "names": "kind", "category": "" and its "kind_of" for it.')
+    return (f'The user chose to see ⟨{n}⟩ varied, a different one in each image. Still answer "names" as its words '
+            f'read, and when that is "one", give its "kind_of".')
 
 
-def user_message(parsed: Parsed, asked: Sequence[Tuple[str, int]], modes: Optional[Dict[int, str]] = None) -> str:
+def user_message(parsed: Parsed, asked: Sequence[Tuple[str, int]], modes: Optional[Dict[int, str]] = None,
+                 named: Sequence[int] = ()) -> str:
     marks = _marked(parsed)
     # named apart from the prompt's own marks (⟨1⟩ "pet"), so each part is shown in the prompt once
     shown = {(kind, n): f'⟨{n}⟩ "{seg.words}"' if kind == "slot" else f"{{L{n}}}" for kind, n, seg in marks}
@@ -265,7 +277,7 @@ def user_message(parsed: Parsed, asked: Sequence[Tuple[str, int]], modes: Option
     else:
         text += "\n\nAnswer for each of its parts: "
     text += ", ".join(shown[k] for k in asked) + "."
-    chosen = [_mode_line(n, (modes or {})[n]) for kind, n in asked if kind == "slot" and (modes or {}).get(n) in MODES]
+    chosen = [_mode_line(n, (modes or {})[n], n in named) for kind, n in asked if kind == "slot" and (modes or {}).get(n) in MODES]
     if chosen:
         text += "\n\n" + "\n".join(chosen)
     return text
@@ -451,11 +463,13 @@ def read_kind(k: Any, got: Dict[str, Any], n: Any, seg: Segment, before: str, no
 
 
 def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str], prompt: str = "",
-               strict: bool = True, others: Optional[Dict[int, str]] = None, mode: Optional[str] = None) -> Dict[str, Any]:
+               strict: bool = True, others: Optional[Dict[int, str]] = None, mode: Optional[str] = None,
+               named: bool = False) -> Dict[str, Any]:
     """One slot's reading as the seeds take it, or _Bad. Answers its kind doesn't allow, stated
     words that aren't the user's and a lead that isn't the text before the slot are dropped.
     `mode`: the user's choice of how it varies ("one" or "kind"), which stands over the model's
-    `names` and is kept in the reading as `mode`.
+    `names` and is kept in the reading as `mode`. `named`: the reader's own reading names one
+    specific thing, so a part the user chose to vary needs its kind_of.
     `others`: the prompt's other slots, number -> words (what a part question may name)."""
     from prompt_programs.vocab import vocabulary
     vocab = vocabulary()
@@ -479,12 +493,25 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
     # One specific thing to show in different ways, or a kind of thing to pick members of: the
     # model's answer; anything but "one" is a kind, as every part was read before (a slip
     # degrades to that). Structure only: the answer, never the words.
-    one = isinstance(r.get("names"), str) and r["names"].strip().lower() == "one"
+    one = one_read = isinstance(r.get("names"), str) and r["names"].strip().lower() == "one"
     if mode in MODES:
         one = mode == "one"   # the user's choice, whatever the model answered
+    # A part the user chose to vary that names one specific thing: the kind of thing it is one of,
+    # in this prompt (the model's judgment), whose other members its variants are, every word of
+    # it free to go. Structure only: a short phrase or none.
+    kind_of = ""
+    given_kind = r.get("kind_of") if isinstance(r.get("kind_of"), str) else (got or {}).get("kind_of")
+    if mode == "kind" and isinstance(given_kind, str) and 0 < len(given_kind.split()) <= KIND_OF_WORDS:
+        kind_of = " ".join(given_kind.split())   # (also read inside the kind's object, where it lands at times)
+    if mode == "kind" and (one_read or named) and not kind_of and strict:
+        # Named one specific thing the user chose to vary, with no kind to draw others from: asked
+        # again once; on the last try it varies as before, every word kept. Structure only.
+        raise _Bad(f'part {n}: "names" is "one" and the user chose to vary it: give "kind_of", the kind of thing '
+                   f'it is one of as this prompt uses it, in a few words')
     out: Dict[str, Any] = {"n": n, "kind": kind, "label": str(r.get("label") or "").strip() or seg.words, "lead": lead}
     if k is not None:
-        out[kind] = read_kind(k, got, n, seg, before, notes, prompt, strict, others or {}, one)
+        # (its members are other things of that kind: no detail of it to vary)
+        out[kind] = read_kind(k, got, n, seg, before, notes, prompt, strict, others or {}, one or bool(kind_of))
         out = one_detail(out)
     elif kind == "list":
         lid = got.get("list")
@@ -500,15 +527,17 @@ def check_slot(r: Dict[str, Any], seg: Segment, before: str, notes: Sequence[str
     # The words a kind of it may replace (variants.valid_category: a run of its own words, none
     # for a kind that keeps all its words); anything else is no category, and every word stays.
     from prompt_programs.variants import valid_category
-    out["category"] = "" if one else valid_category(seg.words, r.get("category"), out["kind"])
+    out["category"] = "" if one or kind_of else valid_category(seg.words, r.get("category"), out["kind"])
     given = r.get("category").strip() if isinstance(r.get("category"), str) else ""
-    if strict and given and not one and not out["category"] and not _no_category(out["kind"]):
+    if strict and given and not one and not kind_of and not out["category"] and not _no_category(out["kind"]):
         # A category that isn't the part's own words ("outdoors" for "outdoor place") is asked again
         # once; on the last try it is none, as before. Structure only: a run of the words or not.
         raise _Bad(f'part {n}: category "{given}" is not copied from the part\'s words "{seg.words}"; give the '
                    'word or words of the part that name what kind of thing it is, copied exactly, or ""')
     if one:
         out["names"] = "one"   # every word kept as typed; variants are that thing, never a member of its kind
+    if kind_of:
+        out["kind_of"] = kind_of   # its variants are other members of that kind, none of its words kept
     if mode in MODES:
         out["mode"] = mode
     return out
@@ -521,7 +550,7 @@ def _no_category(kind: Any) -> bool:
 
 
 def check_parts(reply: str, parsed: Parsed, asked: Sequence[Tuple[str, int]], strict: bool = True,
-                modes: Optional[Dict[int, str]] = None
+                modes: Optional[Dict[int, str]] = None, named: Sequence[int] = ()
                 ) -> Tuple[Dict[int, Any], Dict[int, str], Dict[Tuple[str, int], str]]:
     """The asked slots' readings and lists' labels that a reply gives in a usable form, and
     for each asked part it doesn't, what is wrong, said plainly. Never raises: one part's bad
@@ -552,7 +581,7 @@ def check_parts(reply: str, parsed: Parsed, asked: Sequence[Tuple[str, int]], st
         seen.add(n)
         try:
             slots[n] = check_slot(r, marks[("slot", n)], before.get(n, ""), notes, parsed.prompt, strict, others,
-                                  (modes or {}).get(n))
+                                  (modes or {}).get(n), n in named)
         except _Bad as e:
             bad[("slot", n)] = str(e)
     lists: Dict[int, str] = {}
@@ -647,12 +676,15 @@ async def read_part(parsed: Parsed, kind: str, n: int, *, ask: Ask, project_id: 
     mode = mode if kind == "slot" and mode in MODES else None
     key = part_key(parsed, seg, model, vocabulary().version, mode)
     modes = {n: mode} if mode else None
+    # Varying what the reader's own reading names as one specific thing: other members of its kind.
+    own = _cache_get(cache, part_key(parsed, seg, model, vocabulary().version)) if mode == "kind" else None
+    named = [n] if isinstance(own, dict) and not own.get("degraded") and mode_of(own) == "one" else []
     messages = [{"role": "system", "content": system_text()},
-                {"role": "user", "content": user_message(parsed, [(kind, n)], modes)}]
+                {"role": "user", "content": user_message(parsed, [(kind, n)], modes, named)}]
     why = ""
     for attempt in range(2):
         reply = await ask(messages, project_id, READING_TOKENS + SLOT_TOKENS)
-        slots, lists, bad = check_parts(reply, parsed, [(kind, n)], strict=attempt == 0, modes=modes)
+        slots, lists, bad = check_parts(reply, parsed, [(kind, n)], strict=attempt == 0, modes=modes, named=named)
         if kind == "slot" and n in slots:
             why = _unusable(parsed, n, slots[n]) or ""
             if not why:

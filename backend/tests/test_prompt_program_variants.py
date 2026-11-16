@@ -1798,3 +1798,21 @@ def test_a_removed_variant_is_never_stored_again_nor_listed(tmp_path):
         # the session is told nothing of the removal (no note about it in the turns)
         assert all("remov" not in c["user"].lower() for c in fake.calls)
     run(go())
+
+
+def test_vary_on_a_named_thing_keeps_none_of_its_words_and_drops_it_itself():
+    import dataclasses
+    sl = dataclasses.replace(slot_of("a tourist taking a selfie in front of the <Eiffel Tower>"), kind_of="famous landmark")
+    assert sl.keep() == [] and sl.n == V.N_OTHER
+    reply = _fenced([{"n": 1, "text": "Statue of Liberty under a hazy summer sky", "idea": ""},
+                     {"n": 2, "text": "Eiffel Tower glowing at dusk", "idea": ""},
+                     {"n": 3, "text": "Colosseum, its arches warm in the afternoon sun", "idea": ""}])
+
+    async def ask(*a, **k):
+        return reply
+    t = turn_of(sl, V.Seeds(), 3, ask=ask, drawn=V.Drawn([V.Spec()] * 3, []))
+    assert [v["text"] for v in t.variants] == ["Statue of Liberty under a hazy summer sky",
+                                               "Colosseum, its arches warm in the afternoon sun"]
+    assert t.dropped["names it itself"] == 1
+    text = V.messages(sl, V.Drawn([V.Spec()], []), V.Seeds())[-1]["content"]
+    assert 'another famous landmark' in text and "Every variant contains exactly" not in text

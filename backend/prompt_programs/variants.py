@@ -57,7 +57,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-24"   # variants-24: a person is only who they are and how they look: no action, pose, held thing or scene (posture and carried things are no longer aspects; hair and worn accessories are, typical dress has no gear), and a person whose clothes the picture hides is told to describe none. variants-23: one specific thing is told each variant adds words of its own (a bare name was written back 10 of 10). variants-22: a part naming one specific thing is written as that thing every time: its words kept as typed, capitals and all, no member seeds, its state, condition, angle, moment, details and surroundings varied. variants-21: trans and non-binary genders are drawn only when the words ask for them (gender shares 0); the writer's worked example seeds no gender. variants-20: a typical-dress variant develops its dress alone, from any headwear down, shown no list and no grooming aspect (a short list is dealt out across the other variants instead of shown whole), and is two thirds of a person whose role and place imply their dress; a session started again after a turn that left out gender is told so; a list shown whole has its colors filled in; a camera part whole is how the picture is taken, never a device. variants-19: a typical-dress variant puts on the headwear people like them typically wear and leaves their hair unsaid. variants-18: a young prompt's every slot drops adult-only seeds and is told a child is in the picture; a child is seeded with their age and child words. variants-17: the writer is told each kind's rules from its vocabulary data, in the kinds' order; a heritage may come with its look. variants-16: a couple, a family and a group are written as such (who a couple is drawn by its list, one shared heritage); a third of a person's variants wear what is typical for who and where they are; light is described as light; a camera part is how the picture is taken. variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-25"   # variants-25: a named thing the user chose to vary is written as other real members of the kind the reader says it is one of (kind_of), each with a few words showing it, none of its words kept, one that still has its words as a run dropped, in a first write of 30; one specific thing is never a narrower kind its words don't name (a forced flesh-out of "fox" wrote "fennec fox"). variants-24: a person is only who they are and how they look: no action, pose, held thing or scene (posture and carried things are no longer aspects; hair and worn accessories are, typical dress has no gear), and a person whose clothes the picture hides is told to describe none. variants-23: one specific thing is told each variant adds words of its own (a bare name was written back 10 of 10). variants-22: a part naming one specific thing is written as that thing every time: its words kept as typed, capitals and all, no member seeds, its state, condition, angle, moment, details and surroundings varied. variants-21: trans and non-binary genders are drawn only when the words ask for them (gender shares 0); the writer's worked example seeds no gender. variants-20: a typical-dress variant develops its dress alone, from any headwear down, shown no list and no grooming aspect (a short list is dealt out across the other variants instead of shown whole), and is two thirds of a person whose role and place imply their dress; a session started again after a turn that left out gender is told so; a list shown whole has its colors filled in; a camera part whole is how the picture is taken, never a device. variants-19: a typical-dress variant puts on the headwear people like them typically wear and leaves their hair unsaid. variants-18: a young prompt's every slot drops adult-only seeds and is told a child is in the picture; a child is seeded with their age and child words. variants-17: the writer is told each kind's rules from its vocabulary data, in the kinds' order; a heritage may come with its look. variants-16: a couple, a family and a group are written as such (who a couple is drawn by its list, one shared heritage); a third of a person's variants wear what is typical for who and where they are; light is described as light; a camera part is how the picture is taken. variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -897,8 +897,17 @@ CORE_NOTE = ("The cores are random values of a list, and some won't fit this pro
 ONE_LINE = ("This part names one specific thing, not a kind of thing: every variant is that same thing, and contains "
             "exactly {keep}, with the same spelling and capitals, plus a few words of its own that show it one particular "
             "way: its state, condition, angle, moment, details or surroundings (\"Golden Gate Bridge\" -> \"the Golden "
-            "Gate Bridge half lost in morning fog\"). Never a substitute for it, another one of its kind, or something "
-            "merely like it.")
+            "Gate Bridge half lost in morning fog\"). Never a substitute for it, another one of its kind, a narrower "
+            "kind of it its words don't name (a species, breed, make, model or variety: \"owl\" stays an owl, never a "
+            "snowy owl), or something merely like it.")
+
+
+OTHERS_LINE = ("The user chose to vary \"{words}\": every variant is another {kind_of}, one particular one that "
+               "is not \"{words}\" and that really is one, named when it has a name, plus a few words of its own "
+               "showing it as it looks in this picture, fitting the rest of the prompt (what happens with it, where and "
+               "when). None of its words need stay. Never \"{words}\" itself, in any state, moment or view, nor a "
+               "copy of it, a made-up name or a bare description of a role, and never named by way of it (\"its "
+               "neighbor\", \"its rival\").")
 
 
 def minor_words(ages: Sequence[str]) -> str:
@@ -938,11 +947,14 @@ class Slot:
     kind: str = "free"             # the reader's kind
     category: str = ""             # checked with valid_category
     one: bool = False              # it names one specific thing (reader: names "one"): every word kept as typed
+    kind_of: str = ""              # a named thing the user chose to vary: variants are other members of this kind
 
     @property
     def n(self) -> int:
         """The first write's size: the kind's (vocab/kinds/*.json first_write), else N_OTHER."""
         from prompt_programs.vocab import vocabulary
+        if self.kind_of and not self.one:
+            return N_OTHER   # other members of a kind, named: no person's longer first write
         k = vocabulary().kind(self.kind)
         return k.first_write if k is not None else N_OTHER
 
@@ -960,6 +972,8 @@ class Slot:
         return " ".join(left[-n:]).strip() or "(start of line)", " ".join(right[:n]).strip() or "(end of line)"
 
     def keep(self) -> List[str]:
+        if self.kind_of and not self.one:
+            return []   # other members of its kind: none of its words stay
         if self.one:
             return kept_chunks(self.words, exact=True)
         return kept_chunks(self.words, valid_category(self.words, self.category, self.kind))
@@ -976,7 +990,9 @@ def messages(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -
     lines = ["Prompt:", '"""', slot.marked(), '"""', "", f'Marked part: "{slot.words}".',
              f'It stands between "{before}" and "{after}": each variant must read correctly there, '
              'as one continuous phrase.']
-    if slot.one:
+    if slot.kind_of and not slot.one:
+        lines.append(OTHERS_LINE.replace("{words}", slot.words).replace("{kind_of}", slot.kind_of))
+    elif slot.one:
         lines.append(ONE_LINE.replace("{keep}", ", ".join(f'"{k}"' for k in (keep or [slot.words]))))
         if kind is not None and kind.writer_one:
             lines.append(kind.writer_one)
@@ -1564,6 +1580,8 @@ async def write_turn(slot: Slot, drawn: Drawn, sent: List[Dict[str, Any]], *, as
         fixed = fix_articles(fixed)   # "a off-center selfie" is stored as "an off-center selfie"
         out.repairs += bool(did)
         why = check(fixed, slot.words, keep, spec, cut="markup" in did, exact=slot.one)
+        if not why and slot.kind_of and not slot.one and has_run(fixed, slot.words):
+            why = "names it itself"   # Vary on a named thing: another one, never it (its own words, as a run)
         if why:
             out.dropped[why] += 1
             return

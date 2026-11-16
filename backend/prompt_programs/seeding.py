@@ -34,7 +34,7 @@ from prompt_programs import variants as V
 
 log = get_logger(__name__)
 
-SEEDS_VERSION = "seeds-7"   # seeds-7: a part naming one specific thing seeds no member of its kind (a person: only their age, for the minors rules). seeds-6: a person carries whether their role and place imply their dress (the typical share). seeds-5: a person is pinned child, teenager or adult by the natural reading of the whole prompt (ages.py), and one young flag holds for every slot of the prompt; a child or teenager draws their stage's ages, child words and no build. seeds-4: ages under 18 count only after the model says yes, the prompt's own words make this person a child or a teenager. seeds-3: kinds and their draw rules are vocabulary data; a heritage's place is its table's. seeds-2: groups, heritage, scene-narrowed clothes, hairstyle and light
+SEEDS_VERSION = "seeds-8"   # seeds-8: a named thing the user chose to vary (reader: kind_of) seeds no member lists: its writer names other members of that kind. seeds-7: a part naming one specific thing seeds no member of its kind (a person: only their age, for the minors rules). seeds-6: a person carries whether their role and place imply their dress (the typical share). seeds-5: a person is pinned child, teenager or adult by the natural reading of the whole prompt (ages.py), and one young flag holds for every slot of the prompt; a child or teenager draws their stage's ages, child words and no build. seeds-4: ages under 18 count only after the model says yes, the prompt's own words make this person a child or a teenager. seeds-3: kinds and their draw rules are vocabulary data; a heritage's place is its table's. seeds-2: groups, heritage, scene-narrowed clothes, hairstyle and light
 
 # A draw rule's role as the bank records it (the roles' older names, which stored records and the picker use).
 BANK_ROLE = {"heritage": "descent", "who": "gender", "age": "age", "core": "core", "each": "each", "idea": "idea"}
@@ -133,10 +133,11 @@ def kind_plan(kind: Any, reading: Dict[str, Any], words: str) -> Dict[str, Any]:
     banks: List[Dict[str, Any]] = []
     heritage_key = ""
     one = is_one(reading)
+    others = has_others(reading)
     for rule in kind.draws:
         if not _holds(got, kind, rule.when, True) or _holds(got, kind, rule.unless, False):
             continue
-        if one and rule.role != "age":
+        if (one or others) and rule.role != "age":
             continue
         for lid in _rule_lists(rule, kind, got, vary):
             if any(b["role"] == BANK_ROLE[rule.role] and b["list"] == lid for b in banks):
@@ -156,7 +157,8 @@ def kind_plan(kind: Any, reading: Dict[str, Any], words: str) -> Dict[str, Any]:
     said = {q.key: str(got.get(q.key) or "").strip() for q in kind.questions if q.type == "context"}
     answers = {q.key: got[q.key] for q in kind.questions if q.key in got and q.type in ("choice", "words", "part", "list")}
     return {"kind": kind.id, "banks": banks, "stated_descent": bool(heritage_key and stated.get(heritage_key)),
-            "answers": answers, **({"one": True} if one else {}), **({"said": {k: v for k, v in said.items() if v}} if any(said.values()) else {}),
+            "answers": answers, **({"one": True} if one else {}), **({"kind_of": True} if others else {}),
+            **({"said": {k: v for k, v in said.items() if v}} if any(said.values()) else {}),
             **({"people": answers["people"]} if str(answers.get("people") or "") not in ("", "one") else {})}
 
 
@@ -189,6 +191,8 @@ def plan(reading: Dict[str, Any], words: str = "") -> Dict[str, Any]:
     banks: List[Dict[str, Any]] = []
     if is_one(reading):
         return {"kind": kind, "banks": banks, "one": True}   # one specific thing: no members of its kind to seed
+    if has_others(reading):
+        return {"kind": kind, "banks": banks, "kind_of": True}   # the writer names other members of its kind
     if kind == "list":
         p = got.get("presentation") if got.get("presentation") in ("feminine", "masculine") else ""
         _add(banks, "core", str(got.get("list")), words, str(got.get("about") or words), {"presentation": p} if p else None)
@@ -210,6 +214,12 @@ def is_one(reading: Any) -> bool:
     return isinstance(reading, dict) and reading.get("names") == "one"
 
 
+def has_others(reading: Any) -> bool:
+    """Whether a reading is of a named thing the user chose to vary (reader: kind_of): its
+    variants are other members of the kind it is one of, which no list seeds."""
+    return isinstance(reading, dict) and bool(reading.get("kind_of"))
+
+
 def seeds_of(record: Dict[str, Any]) -> V.Seeds:
     """The writer's seeds from a slot's narrowed plan (entry["seeds"][slot id])."""
     from prompt_programs.vocab import vocabulary
@@ -222,6 +232,8 @@ def seeds_of(record: Dict[str, Any]) -> V.Seeds:
         n = b.get("narrowed")
         return list(n) if isinstance(n, list) else None
     kind = vocabulary().kind(record.get("kind"))
+    if record.get("kind_of"):
+        return V.Seeds(minor=minor, young=young)   # other members of its kind, named by the writer
     if kind is not None:
         by = {b["role"]: b for b in banks if b["role"] in ("descent", "gender", "age")}
         age = by.get("age")
@@ -552,7 +564,7 @@ def _records(entry: Dict[str, Any], plans: Dict[str, Dict[str, Any]], asks: Dict
         said = next(iter((p.get("said") or {}).values()), "")
         place = place_for(said, home, heritage) if heritage else None
         out[sid] = {"v": SEEDS_VERSION, "kind": p["kind"], "banks": banks, "stated_descent": p.get("stated_descent", False),
-                    **({"one": True} if p.get("one") else {}),
+                    **({"one": True} if p.get("one") else {}), **({"kind_of": True} if p.get("kind_of") else {}),
                     **({"people": p["people"]} if p.get("people") else {}),
                     **({"answers": p["answers"]} if p.get("answers") else {}),
                     **({"place": place} if place else {}),
@@ -565,4 +577,4 @@ def _records(entry: Dict[str, Any], plans: Dict[str, Dict[str, Any]], asks: Dict
 
 
 __all__ = ["BANK_ROLE", "ReadingError", "SEEDS_VERSION", "adult_ages", "age_basis", "age_choices", "is_one", "kind_plan",
-           "narrow_seeds", "plan", "reading_text", "seeds_of", "stage_ages", "staged_who", "young_marks"]
+           "has_others", "narrow_seeds", "plan", "reading_text", "seeds_of", "stage_ages", "staged_who", "young_marks"]

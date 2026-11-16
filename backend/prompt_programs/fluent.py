@@ -129,7 +129,7 @@ def slot_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", pr
     span = slot.get("span") or [0, 0]
     sl = Slot(words=slot["words"], prompt=str(entry.get("prompt") or ""), span=(int(span[0]), int(span[1])),
               kind=str(slot.get("kind") or "free"), category=str(slot.get("category") or ""),
-              one=bool(slot.get("one")))
+              one=bool(slot.get("one")), kind_of=str(slot.get("kind_of") or ""))
     return Job(key=str(slot["pool"]), slot=sl, seeds=seeds_of(record), project_id=project_id, model=model)
 
 
@@ -163,7 +163,7 @@ def early_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", p
     span = slot.get("span") or [0, 0]
     sl = Slot(words=slot["words"], prompt=str(entry.get("prompt") or ""), span=(int(span[0]), int(span[1])),
               kind=str(slot.get("kind") or "free"), category=str(slot.get("category") or ""),
-              one=bool(slot.get("one")))
+              one=bool(slot.get("one")), kind_of=str(slot.get("kind_of") or ""))
     return Job(key=str(slot["pool"]), slot=sl, seeds=seeds, role="early", project_id=project_id, model=model)
 
 
@@ -332,7 +332,7 @@ def pool_view(entry: Dict[str, Any], chosen: Optional[Dict[str, Choice]] = None,
         if more:
             busy.append(sid)
         from prompt_programs.variants import kept_chunks, valid_category
-        keep = (kept_chunks(s["words"], exact=True) if s.get("one") else
+        keep = ([] if s.get("kind_of") and not s.get("one") else kept_chunks(s["words"], exact=True) if s.get("one") else
                 kept_chunks(s["words"], valid_category(s["words"], s.get("category") or "", str(s.get("kind") or ""))))
         view: Dict[str, Any] = {"kind": "variants", "state": slot_state(entry, s, writer), "more": more, "keep": keep,
                                 "variants": listed, "options": [v["text"] for v in listed], "chosen": c.to_dict()}

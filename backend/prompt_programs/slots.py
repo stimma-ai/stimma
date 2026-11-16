@@ -250,6 +250,8 @@ def compose(parsed: Parsed, readings: Dict[int, Dict[str, Any]], labels: Optiona
                     category=str(r.get("category") or ""))
         if r.get("names") == "one":
             info["one"] = True   # one specific thing: shown in different ways, never swapped for another
+        if r.get("kind_of"):
+            info["kind_of"] = str(r["kind_of"])   # a named thing the user chose to vary: other members of this kind
         if r.get("mode"):
             info["mode"] = r["mode"]   # the user chose how it varies: its pool is its own
         stated = ((r.get(r["kind"]) or {}) if isinstance(r.get(r["kind"]), dict) else {}).get("stated")
