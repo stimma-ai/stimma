@@ -328,9 +328,11 @@ def asset_unused_predicate(asset_id_column):
 
 # --- Text search over asset names and prompts -------------------------------
 
-# Word-prefix index over each media row's prompts, original filename and current
-# Asset title, kept current by triggers (alembic revision mts01). Contentless:
-# it holds postings, not text. Its rowid is the media item id.
+# Word-prefix index over each media row, kept current by triggers (alembic
+# revisions mts01, mts02). Columns: prompt (what the prompt panel shows: the
+# prompt and the prompt as typed), title (the current Asset title) and filename
+# (the original filename). Contentless: it holds postings, not text. Its rowid
+# is the media item id.
 MEDIA_TEXT_SEARCH = 'media_text_search'
 _media_text_search = table(MEDIA_TEXT_SEARCH, column('rowid'))
 
@@ -372,12 +374,14 @@ def _formats_named_by(prefix: str) -> list:
     return formats
 
 
-def asset_text_predicate(text: str):
-    """Match media whose name or prompt has a word starting with every token of ``text``.
+def asset_text_predicate(text: str, match_filenames: bool = False):
+    """Match media whose prompt or name has a word starting with every token of ``text``.
 
-    Searched fields: the generation/extracted prompt, the current Asset title,
-    the original filename, and a type word derived from the format ("package",
-    "set", "svg", ...). Every token must appear at the start of a word (so
+    Searched fields: the prompt and the prompt as typed, the current Asset
+    title, a type word derived from the format ("package", "set", "svg", ...)
+    and, with ``match_filenames``, the original filename. Filenames are off for
+    the browser's prompt filter: generated files carry machine names (dates,
+    counters) that nobody sees in media info, so a number would match them. Every token must appear at the start of a word (so
     "star" finds "Starfire"); a trailing "s" is optional so "icons" matches
     "icon" and "packages" matches "package". Tokens may appear in any order and
     in different fields, which is what lets "starfire package" work. A token
@@ -395,7 +399,8 @@ def asset_text_predicate(text: str):
             continue
         # One quoted prefix term per word, never a phrase: "flux.2" needs a word
         # starting "flux" and one starting "2".
-        match = ' '.join('"' + w + '"*' for w in words)
+        columns = 'prompt title filename' if match_filenames else 'prompt title'
+        match = '{' + columns + '} : (' + ' '.join('"' + w + '"*' for w in words) + ')'
         alternatives = [MediaItem.id.in_(
             select(_media_text_search.c.rowid)
             .where(literal_column(MEDIA_TEXT_SEARCH).op('MATCH')(match))
@@ -445,6 +450,7 @@ def build_filtered_query(
     exclude_category: Optional[str] = None,
     asset_id_column=None,
     expiration_column=None,
+    match_filenames: bool = False,
 ):
     """
     Apply filters to a query, optionally excluding a specific filter category.
@@ -507,7 +513,7 @@ def build_filtered_query(
         query = query.where(MediaItem.vlm_caption.ilike(f"%{caption_query}%"))
 
     if prompt_query:
-        query = query.where(asset_text_predicate(prompt_query))
+        query = query.where(asset_text_predicate(prompt_query, match_filenames))
 
     # Media type filter (OR within category)
     if exclude_category != 'media_types':

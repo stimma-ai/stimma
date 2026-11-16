@@ -102,18 +102,6 @@
           </button>
         </div>
 
-        <!-- Prompt filter: "/" opens it here, in the cart, and it filters as you type. -->
-        <div v-if="promptFieldOpen || localPromptQuery" class="w-64 compact:w-full" data-testid="prompt-filter">
-          <SearchField
-            ref="promptFieldRef"
-            v-model="localPromptQuery"
-            placeholder="Filter prompts"
-            @update:model-value="promptTyped"
-            @escape="promptEscape"
-            @keydown.enter="promptFieldRef?.blur()"
-            @focusout="promptFieldBlur"
-          />
-        </div>
 
         <!-- Text Similarity Badge -->
         <div v-if="localSimilarToText" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
@@ -290,6 +278,28 @@
 
       <!-- Right Side Controls -->
       <div class="flex items-center gap-2 compact:order-3 compact:ml-auto compact:gap-1">
+      <!-- Prompt filter: the spyglass (or "/") widens into the field; it filters as
+           you type and stays open while it holds text. -->
+      <div
+        class="flex h-control items-center justify-end transition-[width] duration-200 ease-out compact:h-11"
+        :class="promptExpanded ? 'w-64 compact:w-44' : 'w-8 compact:w-11'"
+        data-testid="prompt-filter"
+      >
+        <SearchField
+          v-if="promptExpanded"
+          ref="promptFieldRef"
+          v-model="localPromptQuery"
+          class="w-full"
+          placeholder="Filter prompts"
+          @update:model-value="promptTyped"
+          @escape="promptEscape"
+          @keydown.enter="promptFieldRef?.blur()"
+          @focusout="promptFieldBlur"
+        />
+        <IconButton v-else size="lg" aria-label="Filter prompts" title="Filter prompts (/)" @click="openPromptFilter">
+          <MagnifyingGlassIcon class="h-icon-nav w-icon-nav" aria-hidden="true" />
+        </IconButton>
+      </div>
       <!-- Unified Pill Group -->
       <div class="flex items-center gap-1">
         <!-- Item count -->
@@ -668,14 +678,6 @@
                 placeholder="Search"
                 class="bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
               />
-              <h5 class="m-0 mt-2 text-xs font-semibold text-content-secondary">Prompt filter</h5>
-              <input v-no-autocorrect
-                type="text"
-                v-model="localPromptQuery"
-                @input="promptTyped"
-                placeholder="Filter"
-                class="bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
-              />
             </div>
           </div>
 
@@ -781,9 +783,10 @@ import { formatDate } from '../utils/timeFormat'
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { useViewport } from '../composables/useViewport'
 import { MagnifyingGlassCircleIcon } from '@heroicons/vue/24/solid'
-import { ArchiveBoxIcon, ArrowUpTrayIcon, FunnelIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, ArrowUpTrayIcon, FunnelIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 import Caret from './ui/Caret.vue'
 import SearchField from './ui/SearchField.vue'
+import IconButton from './ui/IconButton.vue'
 import { compactIcon, compactIconButton, compactPrimaryCreate } from './compact/headerStyles'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
@@ -1426,6 +1429,7 @@ function debouncedUpdate(delay = 500) {
 // index, so a short pause is enough to keep requests to one per burst.
 const promptFieldOpen = ref(false)
 const promptFieldRef = ref(null)
+const promptExpanded = computed(() => promptFieldOpen.value || !!localPromptQuery.value)
 
 function promptTyped() {
   debouncedUpdate(120)
