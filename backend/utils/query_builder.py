@@ -373,7 +373,7 @@ def _formats_named_by(prefix: str) -> list:
     return formats
 
 
-def asset_text_predicate(text: str):
+def asset_text_predicate(text: str, asset_join: bool = False):
     """Match media whose prompt or title has a word starting with every token of ``text``.
 
     Searched fields, all of them visible to people: the prompt and the prompt
@@ -387,7 +387,14 @@ def asset_text_predicate(text: str):
 
     Search-as-you-type runs this for the grid and every facet count on each
     keystroke, so it reads the word-prefix index and never scans row text.
+
+    ``asset_join``: the query joins Assets to their current revision's media.
+    There SQLite would drive the join from the matching ids into the revision
+    index and re-run the MATCH for every Asset row (26 s on a large library),
+    so the id is compared as "id + 0", which keeps the list a one-time filter.
+    Media-only queries keep the plain id, which probes by primary key.
     """
+    media_id = MediaItem.id + 0 if asset_join else MediaItem.id
     conditions = []
     for token in asset_search_tokens(text):
         if len(token) > 3 and token.endswith('s'):
@@ -398,10 +405,7 @@ def asset_text_predicate(text: str):
         # One quoted prefix term per word, never a phrase: "flux.2" needs a word
         # starting "flux" and one starting "2".
         match = ' '.join('"' + w + '"*' for w in words)
-        # "id + 0" keeps SQLite from driving the browse join from this list
-        # into the revision index, which re-ran the MATCH for every Asset row
-        # (26 s on a large library); as a plain filter it runs once.
-        alternatives = [(MediaItem.id + 0).in_(
+        alternatives = [media_id.in_(
             select(_media_text_search.c.rowid)
             .where(literal_column(MEDIA_TEXT_SEARCH).op('MATCH')(match))
         )]
@@ -512,7 +516,7 @@ def build_filtered_query(
         query = query.where(MediaItem.vlm_caption.ilike(f"%{caption_query}%"))
 
     if prompt_query:
-        query = query.where(asset_text_predicate(prompt_query))
+        query = query.where(asset_text_predicate(prompt_query, asset_join=asset_id_column is not None))
 
     # Media type filter (OR within category)
     if exclude_category != 'media_types':

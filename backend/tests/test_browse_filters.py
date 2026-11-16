@@ -306,19 +306,26 @@ class TestAssetTextSearch:
         """The word-index list must filter the browse join, not drive it: driving
         asset_revisions from it re-ran the MATCH per Asset row (26 s per keystroke
         on a large library)."""
-        from sqlalchemy import func, text
+        from sqlalchemy import func
         from utils.query_builder import asset_text_predicate
 
         stmt = (
             select(func.count()).select_from(Asset)
             .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
             .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
-            .where(Asset.state == "active", asset_text_predicate("stump"))
+            .where(Asset.state == "active", asset_text_predicate("stump", asset_join=True))
         )
+        assert "primary_media_id=?" not in await self._plan(db_session, stmt)
+
+        # Without the asset join the matching ids probe media by primary key.
+        stmt = select(func.count(MediaItem.id)).where(asset_text_predicate("stump"))
+        assert "SCAN media_items" not in await self._plan(db_session, stmt)
+
+    async def _plan(self, db_session, stmt):
+        from sqlalchemy import text
         sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
         async with db_session() as session:
-            plan = "\n".join(row[-1] for row in (await session.execute(text("EXPLAIN QUERY PLAN " + sql))).all())
-        assert "primary_media_id=?" not in plan, plan
+            return "\n".join(row[-1] for row in (await session.execute(text("EXPLAIN QUERY PLAN " + sql))).all())
 
     async def test_hidden_metadata_numbers_do_not_match(self, client, db_session):
         """A machine filename or a node graph stored as the prompt never matches
