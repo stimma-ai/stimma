@@ -84,16 +84,17 @@ export function usePromptSuggestions(o: PromptSuggestionsOptions) {
     timer = setTimeout(() => { void suggestNow() }, SUGGEST_DELAY_MS)
   }
 
-  /** The kind of the words at [start, end) of `text` ("hairstyle" for "short bob"), for Add
-      Variety on words Suggest didn't name; "" when it can't be said. */
-  const kinds = new Map<string, Promise<string>>()
-  function kindOf(text: string, start: number, end: number): Promise<string> {
+  /** The wider kind of the words at [start, end) of `text` ("hairstyle" for "short bob"), for
+      Add Variety; "" when there is nothing wider (`person`), null when it couldn't be asked
+      (asked again next time). */
+  const kinds = new Map<string, Promise<string | null>>()
+  function kindOf(text: string, start: number, end: number): Promise<string | null> {
     const key = `${start}:${end}:${text}`
     let p = kinds.get(key)
     if (!p) {
       p = axios.post(`${getApiBase()}/prompt-programs/suggest-kind`, body({ prompt: text, start, end }))
         .then(({ data }) => (typeof data?.kind === 'string' ? data.kind.trim() : ''))
-        .catch(() => { kinds.delete(key); return '' })
+        .catch(() => { kinds.delete(key); return null })
       kinds.set(key, p)
     }
     return p

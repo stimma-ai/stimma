@@ -25,7 +25,6 @@
             v-for="(m, i) in offerWays"
             :key="m"
             type="button"
-            :disabled="m === 'any' && !offer.kind"
             :class="['flex items-center gap-1.5 px-2.5 py-1.5 coarse:px-3 coarse:py-2 coarse:min-h-11 text-xs coarse:text-[13px] whitespace-nowrap text-content hover:bg-surface-hover outline-none focus-visible:bg-surface-hover focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-selection/60 transition-colors', i ? 'border-l border-edge-subtle' : '']"
             :data-way="m"
             @mousedown.prevent
@@ -496,10 +495,11 @@ function setTranslate(code: string | null) {
 }
 
 // --- Slots (Fluent): making one from written words, opening one ---
-// A phrase Fluent underlined was clicked, or words were selected: Add Detail and Add Variety sit
-// under them, the way Suggest would take it first (Add Detail for selected words). Add Variety
-// writes the words' kind: Suggest's, or asked for when the offer opens on words it didn't name;
-// it waits for the kind, which the button never shows.
+// A phrase Fluent underlined was clicked, or words were selected: Add Detail sits under them, and
+// Add Variety beside it once the words' wider kind is known, the way Suggest would take it first
+// (Add Detail for selected words). Add Variety writes that kind in their place: Suggest's for a
+// phrase it offered as Add Variety, else asked for when the offer opens. Words with nothing
+// wider (`person`) are offered Add Detail alone; Add Variety is never shown unable.
 const offer = ref<{ from: number; to: number; rect: DOMRect; phrase: boolean; mode?: 'one' | 'kind'; way?: PhraseWay; kind?: string } | null>(null)
 const { isCoarsePointer } = useViewport()
 const offerStyle = computed(() => {
@@ -511,10 +511,13 @@ const offerStyle = computed(() => {
   const left = Math.max(8, Math.min(window.innerWidth - 250, r.left))
   return { left: `${Math.round(left)}px`, top: `${Math.round(top)}px` }
 })
-function showOffer(from: number, to: number, phrase: boolean, p?: Pick<VaryPhrase, 'mode' | 'way' | 'kind'>) {
+/** Offer the words at [from, to). `known`: their wider kind, already asked (the offer placed
+    again); else Suggest's, for a phrase it offered as Add Variety. */
+function showOffer(from: number, to: number, phrase: boolean, p?: Pick<VaryPhrase, 'mode' | 'way' | 'kind'>, known?: string) {
   const view = getView()
   const rect = view && rangeRect(view, from, to)
-  offer.value = rect ? { from, to, rect, phrase, mode: p?.mode, way: p?.way, kind: p?.kind || undefined } : null
+  const kind = known || (p?.way === 'any' ? p.kind : '') || undefined
+  offer.value = rect ? { from, to, rect, phrase, mode: p?.mode, way: p?.way, kind } : null
   if (!rect || !view || offer.value?.kind) return
   const text = view.state.doc.toString()
   void kindOf(text, from, to).then(kind => {
@@ -531,7 +534,11 @@ function openSlotAt(pos: number) {
   if (slot && rect) emit('open-slot', { n: slot.n, words: slot.words, rect })
 }
 const offerEl = ref<HTMLElement | null>(null)
-const offerWays = computed<PhraseWay[]>(() => offer.value?.way === 'any' ? ['any', 'detail'] : ['detail', 'any'])
+const offerWays = computed<PhraseWay[]>(() => {
+  const o = offer.value
+  if (!o?.kind) return ['detail']
+  return o.way === 'any' ? ['any', 'detail'] : ['detail', 'any']
+})
 /** One of the offer's actions. Add Detail: the words become a slot. Add Variety: their kind, in brackets, takes their place. */
 function takeOffer(way: PhraseWay) {
   const view = getView()
@@ -589,12 +596,12 @@ function slotSpan(t: { n: number; words: string }) {
   const same = spans.filter(s => s.words === t.words)
   return spans.find(s => s.n === t.n && s.words === t.words) ?? (same.length === 1 ? same[0] : null)
 }
-/** The kind of a slot's words ("hairstyle" for `<short bob>`), for the picker's Add Variety;
-    "" when it can't be said. */
-function slotKind(t: { n: number; words: string }): Promise<string> {
+/** The wider kind of a slot's words ("hairstyle" for `<short bob>`), for its row's Add Variety;
+    "" when there is nothing wider, null when it couldn't be asked (or the slot isn't there). */
+function slotKind(t: { n: number; words: string }): Promise<string | null> {
   const view = getView()
   const hit = slotSpan(t)
-  if (!view || !hit) return Promise.resolve('')
+  if (!view || !hit) return Promise.resolve(null)
   return kindOf(view.state.doc.toString(), hit.from + 1, hit.to - 1)
 }
 /** Add Variety on a slot whose words read as a kind already (`<short bob>`): its kind takes
@@ -609,7 +616,7 @@ function varySlot(t: { n: number; words: string }, kind: string) {
 }
 function hideOffer() { offer.value = null }
 // The phone keyboard opening (or closing) moves the words: follow them.
-function placeOffer() { const o = offer.value; if (o) showOffer(o.from, o.to, o.phrase, o) }
+function placeOffer() { const o = offer.value; if (o) showOffer(o.from, o.to, o.phrase, o, o.kind) }
 const slotExtensions = [
   slotEditing({
     enabled: () => fluentSlots.value,

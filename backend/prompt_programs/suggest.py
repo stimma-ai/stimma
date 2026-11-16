@@ -33,10 +33,11 @@ from prompt_programs.slots import _VERBATIM, _line_marks, _lines, find_slots, is
 
 log = get_logger(__name__)
 
-SUGGEST_VERSION = "suggest-11"   # suggest-11: phrases give a label for their chip. suggest-10: people listed, faces described or not. suggest-9: the person a face is offered for may be a slot; phrases on screen stay. suggest-8: phrases say detail (more specific) or any (its kind), with their kind; adds are slots from a fixed list (camera, face), no fixed words. suggest-7: "one" labels say flesh out. suggest-6: vary phrases say how. suggest-5: vary, looks and adds.
+SUGGEST_VERSION = "suggest-12"   # suggest-12: a kind may be "none" (nothing wider), and that answer is kept; "any" only for a phrase with a wider kind. suggest-11: phrases give a label for their chip. suggest-10: people listed, faces described or not. suggest-9: the person a face is offered for may be a slot; phrases on screen stay. suggest-8: phrases say detail (more specific) or any (its kind), with their kind; adds are slots from a fixed list (camera, face), no fixed words. suggest-7: "one" labels say flesh out. suggest-6: vary phrases say how. suggest-5: vary, looks and adds.
 MAX_PHRASES, MAX_ANY = 3, 1
 SUGGEST_TOKENS = 400
 KIND_TOKENS = 40
+NO_KIND = "none"   # the kind reply that says there is nothing wider
 
 Span = Tuple[int, int]
 
@@ -47,7 +48,7 @@ Image models fall into the same habits whenever a prompt leaves something open: 
 phrases: the one to three phrases already written in the prompt that would be most rewarding to change from picture to picture. Copy each exactly as written, the shortest stretch that names the thing with its own describing words, without "a" or "the": "farmer", "rural Vietnam", "short bob", not "a farmer in". One thing per phrase, without what it is doing. Never anything already inside brackets or braces, never the whole prompt. For each give:
 - way: "detail" or "any".
   "detail" keeps their words true in every picture and makes each picture a specific, fully described one of them. Use it for broad, plain words the image model would fill the same way every time: people ("boy", "woman", "farmer"), animals ("dog", "fox"), places ("rural Vietnam", "a kitchen"), things ("old car", "house"). Also for one specific thing to show in different ways: a particular place, landmark, building, brand, work, character or real person ("Eiffel Tower", "Sherlock Holmes", "Shinjuku"). These come first: they matter most.
-  "any" is for a specific choice the user made that could open up to others of its kind: "short bob" (any hairstyle), "golden retriever" (any dog), "red dress" (any dress), "Paris" (any city). Give at most one "any", and only when a phrase like that is in the prompt.
+  "any" is for a specific choice the user made that could open up to others of its kind: "short bob" (any hairstyle), "golden retriever" (any dog), "red dress" (any dress), "Paris" (any city). Give at most one "any", and only when a phrase like that is in the prompt. Never "any" for a phrase whose kind is no wider than its words.
 - kind: the plain word for what kind of thing it is, one or two words, singular, that could stand in the prompt in its place: "hairstyle" for "short bob", "dog" for "golden retriever", "animal" for "dog", "person" for "boy", "city" for "Paris", "landmark" for "Eiffel Tower".
 - names: "one" when it names one specific thing (a particular place, landmark, brand, character, person), else "kind".
 - label: one or two plain words naming the thing, for a button, however long the phrase is: "dog" for "scruffy old dog", "hairstyle" for "short bob", "jacket" for "worn leather jacket", "Eiffel Tower" for "Eiffel Tower".
@@ -64,7 +65,9 @@ face_described: true when the prompt already says what any of their faces look l
 Reply with JSON only, in this shape:
 {"phrases": [{"phrase": "dog", "way": "detail", "kind": "animal", "names": "kind", "label": "dog"}], "medium": "photo", "camera_stated": false, "people": ["boy"], "face_described": false}"""
 
-KIND_SYSTEM = """You name what kind of thing a phrase in an image prompt is. Reply with the plain word for its kind, one or two words, singular, that could stand in the prompt in its place, and nothing else: "hairstyle" for "short bob", "dog" for "golden retriever", "animal" for "dog", "city" for "Paris", "dress" for "red dress", "person" for "boy"."""
+KIND_SYSTEM = """You name the wider kind of a phrase in an image prompt: the plain word that could stand in the prompt in its place so the pictures show other things of that kind. Reply with only that word, one or two words, singular: "hairstyle" for "short bob", "dog" for "golden retriever", "animal" for "dog", "person" for "woman", "city" for "Paris", "dress" for "red dress", "landmark" for "Eiffel Tower".
+
+Reply "none" when no plain, wider word would read naturally in the prompt in the phrase's place and give a meaningfully broader mix. The wider word must take in many things the phrase leaves out; another word for the same thing ("human" for "person") is not wider. Words that are already as wide as plain words go have nothing wider: "person", "thing", "place", "animal", "object"."""
 
 
 def hidden(prompt: str) -> str:
@@ -230,7 +233,7 @@ def check_suggestions(prompt: str, got: Dict[str, Any], previous: Optional[Dict[
         if not span:
             continue
         kind = _kind(item.get("kind"))
-        if kind.lower() == text.lower():
+        if kind.lower() in (NO_KIND, text.lower()):
             kind = ""
         way = "any" if str(item.get("way") or "").strip().lower() == "any" and kind and anys < MAX_ANY else "detail"
         anys += way == "any"
@@ -357,8 +360,10 @@ async def suggest(prompt: str, ask: Optional[Ask] = None, cache: Optional[Narrow
 
 async def kind_of(prompt: str, start: int, end: int, ask: Optional[Ask] = None, cache: Optional[NarrowCache] = None,
                   project_id: Optional[int] = None, model: str = "") -> str:
-    """The kind of the words at prompt[start:end] ("hairstyle" for "short bob"), for Add Variety
-    on words Suggest didn't name; "" when it can't be said. Cached by the prompt and the span."""
+    """The wider kind of the words at prompt[start:end] ("hairstyle" for "short bob"), for Add
+    Variety; "" when there is nothing wider (the model says "none", or gives the words back) or it
+    can't be said. Every answer the model gives is cached by the prompt and the span, the empty
+    ones too, so words with nothing wider aren't asked about again."""
     words = prompt[start:end].strip() if 0 <= start < end <= len(prompt) else ""
     if not words or _MARKS.search(words):
         return ""
@@ -374,8 +379,9 @@ async def kind_of(prompt: str, start: int, end: int, ask: Optional[Ask] = None, 
                       project_id, KIND_TOKENS)
     first = str(reply or "").strip().splitlines()[0] if str(reply or "").strip() else ""
     kind = _kind(first.strip().strip('"\'').strip(".").strip('"\''))
-    if kind.lower() == words.lower():
+    # "none" is the answer that there is nothing wider; so is the words given back.
+    if kind.lower() in (NO_KIND, words.lower()):
         kind = ""
-    if cache is not None and kind:
+    if cache is not None:
         cache.put_raw(key, {"kind": kind})
     return kind

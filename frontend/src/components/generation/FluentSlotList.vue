@@ -28,7 +28,7 @@
         @keydown.space.self.prevent="program.toggleRow(r.id)"
       >
         <!-- Its words; open, the slot's way right after them (Add Detail or Add Variety). -->
-        <span :class="['min-w-0 break-words', openId === r.id ? 'text-content' : 'text-content-tertiary']" data-words>{{ r.words }}<FluentSlotWay v-if="openId === r.id && r.slot && r.wayShown" :program="program" :id="r.id" :slot-kind="slotKind" @vary-slot="(s) => emit('vary-slot', s)" /></span>
+        <span :class="['min-w-0 break-words', openId === r.id ? 'text-content' : 'text-content-tertiary']" data-words>{{ r.words }}<FluentSlotWay v-if="openId === r.id && r.slot && r.wayShown" :program="program" :id="r.id" :kind="r.kind" @vary-slot="(s) => emit('vary-slot', s)" /></span>
         <span class="min-w-0 break-words flex flex-col gap-0.5" data-value>
           <!-- An open person's picks are its Age, Gender and Descent rows, just below. -->
           <template v-if="!(openId === r.id && r.person && r.value.kind === 'restricted')">
@@ -119,15 +119,16 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ArrowsPointingInIcon, ArrowsPointingOutIcon, ChevronRightIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import FluentSlotPicker from './FluentSlotPicker.vue'
 import FluentSlotWay from './FluentSlotWay.vue'
-import { inPlayCount, optionsOf, resetState, rowValue, type RowValue } from '../../utils/programChoices'
+import { hasWayChoice, inPlayCount, optionsOf, resetState, rowValue, slotWays, type RowValue } from '../../utils/programChoices'
 import { slotFlash } from '../../composables/slotFlash'
 import type { PromptProgram } from '../../composables/usePromptProgram'
 import { phraseLabel, type SuggestedAdd, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
 
 const props = defineProps<{
   program: PromptProgram; suggestions?: Suggestions | null
-  /** The kind of a slot's words, for the picker's Add Variety (the prompt editor's slotKind). */
-  slotKind?: (slot: { n: number; words: string }) => Promise<string>
+  /** The wider kind of a slot's words, for its row's Add Variety (the prompt editor's slotKind):
+      "" when there is nothing wider, null when it couldn't be asked. */
+  slotKind?: (slot: { n: number; words: string }) => Promise<string | null>
 }>()
 const emit = defineEmits<{
   (e: 'vary', phrase: SuggestedPhrase): void
@@ -144,9 +145,40 @@ const rootRef = ref<HTMLElement | null>(null)
 const openId = computed(() => props.program.openId.value)
 const flashId = computed(() => slotFlash.value?.id ?? null)
 
-/** `slot`: a slot (not a list of the user's own), so it has a way and can be removed; `wayShown`:
-    its way can be told (not while it is first being read, unless the user chose one). */
-interface Row { id: string; words: string; person: boolean; value: RowValue; of: string | null; slot: boolean; wayShown: boolean }
+// Each slot's wider kind ("hairstyle" for <short bob>; "" when there is nothing wider, as for
+// <person>), by its place and words, so edits elsewhere in the prompt ask nothing. Asked as each
+// slot appears or is read, a couple at a time in the prompt's order, the open row at once: its
+// way is known before its menu is. One that couldn't be asked is asked again when the slots
+// change or a row opens.
+const kinds = ref<Record<string, string>>({})
+const asking = new Set<string>()
+const failed = new Set<string>()
+const KIND_ASKS = 2
+const kindKey = (s: { n: number; words: string }) => `${s.n}:${s.words}`
+function askKinds() {
+  const ask = props.slotKind
+  if (!ask) return
+  const p = props.program
+  const open = openId.value
+  const want = p.slots.value.filter(s => p.byId.value[s.id] && !(kindKey(s) in kinds.value) && !asking.has(kindKey(s)) && !failed.has(kindKey(s)))
+    .sort((a, b) => Number(b.id === open) - Number(a.id === open))
+  for (const s of want) {
+    if (asking.size >= KIND_ASKS && s.id !== open) break
+    const key = kindKey(s)
+    asking.add(key)
+    ask({ n: s.n, words: s.words }).then(
+      (k) => { if (k != null) kinds.value = { ...kinds.value, [key]: k.trim() }; else failed.add(key) },
+      () => { failed.add(key) },
+    ).finally(() => { asking.delete(key); askKinds() })
+  }
+}
+watch([() => props.program.slots.value.map(s => `${kindKey(s)}:${s.state}`).join('|'), openId],
+  () => { failed.clear(); askKinds() }, { immediate: true })
+
+/** `slot`: a slot (not a list of the user's own), so it can be removed; `wayShown`: it has a way
+    to choose (Add Variety is current, or can be chosen) and that can be told (not while it is
+    first being read, unless the user chose one); `kind`: its words' wider kind, when known. */
+interface Row { id: string; words: string; person: boolean; value: RowValue; of: string | null; slot: boolean; wayShown: boolean; kind?: string }
 const ofText = (c: { of: number; total: number } | null) => (c ? `${c.of} of ${c.total}` : null)
 /** Each slot's last count while it varied, by id and words (display only). */
 const lastCount = new Map<string, string>()
@@ -166,7 +198,8 @@ const rows = computed<Row[]>(() => {
     const total = pool?.variants?.length ?? pool?.options?.length ?? 0
     out.push({ id: s.id, words: s.words, person: s.kind === 'person' && !!pool?.person && value.kind !== 'words', value,
       of: value.kind === 'restricted' ? ofText(inPlayCount(pool, st, total)) : null,
-      slot: true, wayShown: s.state !== 'reading' || !!st?.mode })
+      slot: true, kind: kinds.value[kindKey(s)],
+      wayShown: (s.state !== 'reading' || !!st?.mode) && hasWayChoice(slotWays(s, st, kinds.value[kindKey(s)])) })
   }
   for (const c of p.choices.value) {
     if (c.slot) continue

@@ -360,14 +360,38 @@ class TestKindOf:
             assert await sg.kind_of(prompt, start, end, ask) == ""
         assert ask.calls == []
 
-    async def test_cached_by_the_prompt_and_the_span_and_only_when_said(self, tmp_path):
+    @pytest.mark.parametrize("answer", ["none", "None.", ' "none" ', "NONE\nnothing is wider"])
+    async def test_none_says_nothing_is_wider(self, answer):
+        assert await sg.kind_of("a person in a park", 2, 8, Fake(answer)) == ""
+
+    async def test_the_words_given_back_are_nothing_wider(self):
+        assert await sg.kind_of("a person in a park", 2, 8, Fake("Person")) == ""
+
+    async def test_cached_by_the_prompt_and_the_span_empty_answers_too(self, tmp_path):
         cache = NarrowCache(tmp_path)
-        ask = Fake("hairstyle", "city", "")
+        ask = Fake("hairstyle", "city", "none", "bob")
         assert await sg.kind_of(self.PROMPT, *self.span("short bob"), ask, cache, model="m") == "hairstyle"
         assert await sg.kind_of(self.PROMPT, *self.span("short bob"), ask, cache, model="m") == "hairstyle"
         assert await sg.kind_of(self.PROMPT, *self.span("Paris"), ask, cache, model="m") == "city"
-        assert await sg.kind_of(self.PROMPT, *self.span("woman"), ask, cache, model="m") == ""
-        assert len(ask.calls) == 3 and len(list(tmp_path.rglob("*.json"))) == 2
+        for _ in range(2):   # "none", then the words given back: each asked once, then cached as ""
+            assert await sg.kind_of(self.PROMPT, *self.span("woman"), ask, cache, model="m") == ""
+            assert await sg.kind_of(self.PROMPT, *self.span("bob"), ask, cache, model="m") == ""
+        assert len(ask.calls) == 4 and len(list(tmp_path.rglob("*.json"))) == 4
+
+    async def test_a_new_version_asks_again(self, tmp_path, monkeypatch):
+        cache = NarrowCache(tmp_path)
+        assert sg.SUGGEST_VERSION == "suggest-12"
+        assert await sg.kind_of(self.PROMPT, *self.span("woman"), Fake("none"), cache, model="m") == ""
+        monkeypatch.setattr(sg, "SUGGEST_VERSION", "suggest-13")
+        assert await sg.kind_of(self.PROMPT, *self.span("woman"), Fake("person"), cache, model="m") == "person"
+
+    def test_the_prompts_say_when_nothing_is_wider(self):
+        assert 'Reply "none" when no plain, wider word' in sg.KIND_SYSTEM
+        assert 'Never "any" for a phrase whose kind is no wider than its words.' in sg.SUGGEST_SYSTEM
+
+    async def test_a_suggested_none_kind_is_no_kind(self):
+        got = await sg.suggest("a person in a park", Fake(reply(phrase("person", "any", "none"))))
+        assert [(v["text"], v["way"], v["kind"]) for v in got["phrases"]] == [("person", "detail", "")]
 
 
 # --------------------------------------------------------------------------- the routes

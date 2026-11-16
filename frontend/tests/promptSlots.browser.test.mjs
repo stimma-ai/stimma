@@ -19,8 +19,8 @@ const css = output.find(item => item.type === 'asset' && item.fileName.endsWith(
 const SHOTS = process.env.PROMPT_SHOTS_DIR
 
 const PROMPT = 'dorm room with a young man'
-// What the editor asks the kind of, by the words selected; '' when it can't be said.
-const KINDS = { porch: 'place', cat: '' }
+// What the editor asks the wider kind of, by the words; '' when there is nothing wider.
+const KINDS = { porch: 'place', cat: '', 'young man': 'person' }
 
 /** Where words go at the end of the last picture line (not a # note), as suggest.py places the camera. */
 function endOfPicture(prompt) {
@@ -48,7 +48,7 @@ function answer(prompt, { way = 'detail', mode = 'kind', reverse = false } = {})
   return { phrases, adds: reverse ? adds.reverse() : adds }
 }
 
-async function open(t, { start = PROMPT, theme = 'dark', suggest = {}, delay = 0 } = {}) {
+async function open(t, { start = PROMPT, theme = 'dark', suggest = {}, delay = 0, kindDelay = 0 } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 900, height: 700 }, deviceScaleFactor: 2 })
@@ -67,6 +67,7 @@ async function open(t, { start = PROMPT, theme = 'dark', suggest = {}, delay = 0
     if (url.endsWith('/prompt-programs/suggest-kind')) {
       const body = route.request().postDataJSON()
       calls.kind.push(body)
+      if (kindDelay) await new Promise(resolve => setTimeout(resolve, kindDelay))
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ kind: KINDS[body.prompt.slice(body.start, body.end)] ?? '' }) })
     }
     if (url.includes('/api/')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
@@ -104,7 +105,8 @@ test('a phrase Fluent underlines becomes a slot with Add Detail, and opens', asy
 
   await page.locator('.cm-could-vary').click()
   await expect(offered(page)).toHaveText(['Add Detail', 'Add Variety'])
-  assert.deepEqual(calls.kind, [], 'Suggest named its kind: nothing asked')
+  // Suggest offered it as Add Detail: its wider kind is asked, not taken from Suggest.
+  assert.deepEqual(calls.kind.map(c => c.prompt.slice(c.start, c.end)), ['young man'])
   await shot('vary-offer')
   await page.locator('[data-slot-offer] [data-way="detail"]').click()
   await expect.poll(() => text(page)).toBe('dorm room with a <young man>')
@@ -149,7 +151,7 @@ test('every underline offers both, Suggest\'s way first; Add Detail keeps the wo
 test('the offer by keyboard: Tab into it, arrows between, Enter picks, Escape goes back', async t => {
   const { page, editor, calls } = await open(t, { start: 'a cat on a porch' })
   await selectEnd(page, editor, 5)
-  // Words Suggest didn't name: Add Variety waits for their kind.
+  // Words Suggest didn't name: Add Variety comes once their wider kind is known.
   await expect(offered(page)).toHaveText(['Add Detail', 'Add Variety'])
   await expect(page.locator('[data-slot-offer] [data-way="any"]')).toBeEnabled()
   assert.deepEqual(calls.kind.at(-1), { project_id: 7, prompt: 'a cat on a porch', start: 11, end: 16 })
@@ -173,19 +175,32 @@ test('the offer by keyboard: Tab into it, arrows between, Enter picks, Escape go
   await expect(editor).toBeFocused()
 })
 
-test('Add Variety is off while the words have no kind', async t => {
-  const { page, editor, calls } = await open(t, { start: 'a cat on a porch' })
+test('words with nothing wider are offered Add Detail alone', async t => {
+  const { page, editor, calls, shot } = await open(t, { start: 'a cat on a porch' })
   await editor.click()
   await page.keyboard.press('Home')
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('ArrowRight')
   for (let i = 0; i < 3; i++) await page.keyboard.press('Shift+ArrowRight')
-  await expect(offered(page)).toHaveText(['Add Detail', 'Add Variety'])
+  await expect(offered(page)).toHaveText(['Add Detail'])
   await expect.poll(() => calls.kind.map(c => c.prompt.slice(c.start, c.end))).toContain('cat')
   await page.waitForTimeout(200)
-  await expect(page.locator('[data-slot-offer] [data-way="any"]')).toBeDisabled()
+  await expect(offered(page)).toHaveText(['Add Detail'])
+  await expect(page.locator('[data-slot-offer] [data-way="any"]')).toHaveCount(0)
+  await expect(page.locator('[data-slot-offer] button:disabled')).toHaveCount(0)
+  await shot('offer-detail-only')
   await page.locator('[data-slot-offer] [data-way="detail"]').click()
   await expect.poll(() => text(page)).toBe('a <cat> on a porch')
+})
+
+test('Add Variety joins the offer once the kind comes, and the offer stays where it is', async t => {
+  const { page, editor } = await open(t, { start: 'a cat on a porch', kindDelay: 400 })
+  await selectEnd(page, editor, 5)
+  await expect(offered(page)).toHaveText(['Add Detail'])
+  const before = await page.locator('[data-slot-offer]').boundingBox()
+  await expect(offered(page)).toHaveText(['Add Detail', 'Add Variety'], { timeout: 3000 })
+  const after = await page.locator('[data-slot-offer]').boundingBox()
+  assert.deepEqual([after.x, after.y], [before.x, before.y])
 })
 
 test('selected words: Add Detail under them, and < wraps them; with nothing selected < types', async t => {

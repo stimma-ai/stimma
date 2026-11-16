@@ -56,7 +56,7 @@ function readSlots(prompt, modes = {}) {
 }
 const variantsOf = (id, words) => (VARIANTS[id] || [`a ${words}`, `an old ${words}`, `a small ${words}`]).map(text => ({ text, seeds: {} }))
 
-async function open(t, { theme = 'dark', width = 900, height = 760, mobile = false, start = '', dev = false, run = null, failing = [] } = {}) {
+async function open(t, { theme = 'dark', width = 900, height = 760, mobile = false, start = '', dev = false, run = null, failing = [], kindFails = [] } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2, hasTouch: mobile, isMobile: mobile, colorScheme: theme })
@@ -86,7 +86,7 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
       if (!p.includes('<camera>')) adds.push({ key: 'camera', label: 'Camera', at: p.trimEnd().length, text: ', <camera>' })
       return json({ phrases, adds })
     }
-    if (url.endsWith('/prompt-programs/suggest-kind')) { calls.kind.push(body); return json({ kind: KINDS[body.prompt.slice(body.start, body.end)] ?? '' }) }
+    if (url.endsWith('/prompt-programs/suggest-kind')) { calls.kind.push(body); if (kindFails.includes(body.prompt.slice(body.start, body.end))) return route.fulfill({ status: 500, body: '{}' }); return json({ kind: KINDS[body.prompt.slice(body.start, body.end)] ?? '' }) }
     if (url.endsWith('/prompt-programs/remove-variant')) {
       calls.remove.push(body)
       removed.add(body.text)
@@ -324,7 +324,9 @@ test('the row’s way menu: Add Variety sticks on a slot read as one thing, Add 
   await expect(menu.locator('[role="menuitemradio"]')).toHaveText(['Add Detail', 'Add Variety'])
   await expect(menu.locator('[aria-checked="true"]')).toHaveText('Add Detail')
   await expect(item('any')).toBeEnabled()
-  assert.deepEqual(calls.kind, [], 'varying by mode needs no kind')
+  // Every slot's wider kind is asked as it appears, once; the Eiffel Tower has none (the
+  // stand-in says ""), but as a named thing its row still offers Add Variety.
+  assert.deepEqual(calls.kind.map(c => c.prompt.slice(c.start, c.end)).sort(), ['Eiffel Tower', 'Mona Lisa', 'short bob'])
   await shot('picker-way-menu')
   // Escape closes the menu, not the picker.
   await page.keyboard.press('Escape')
@@ -378,35 +380,60 @@ test('the row’s way menu: Add Variety sticks on a slot read as one thing, Add 
   await expect.poll(() => text(page)).toBe(start)
 })
 
-test('Add Variety on a person rewrites it as its kind; words with no kind say so and ask again', async t => {
-  const { page, calls, card, mark } = await open(t, { start: 'a <young man> on a <porch>' })
+test('Add Variety on a person rewrites it as its kind; a slot with nothing wider has no way control', async t => {
+  const { page, calls, card, mark, editor, shot } = await open(t, { start: 'a <young man> on a <porch>' })
   const way = page.locator('[data-row-wrap][data-open] [data-slot-way]')
   const menu = page.locator('[data-slot-way-menu]')
   const item = w => menu.locator(`[data-way-item="${w}"]`)
+  const asked = () => calls.kind.map(c => c.prompt.slice(c.start, c.end))
 
+  // Both slots' kinds are asked as they appear, before any row opens.
+  await expect.poll(asked, { timeout: 4000 }).toEqual(['young man', 'porch'])
   await mark(1).click()
   await expect(card.locator(`[data-variant="${MEN[0]}"]`)).toBeVisible({ timeout: 4000 })
   await way.click()
   await expect(menu.locator('[aria-checked="true"]')).toHaveText('Add Detail')
-  await expect(item('any')).toBeEnabled({ timeout: 4000 })
+  await expect(item('detail')).toBeEnabled()
+  await expect(item('any')).toBeEnabled()
+  await expect(menu.locator('button:disabled')).toHaveCount(0)
+  await shot('way-menu-wider-kind')
   await item('any').click()
   await expect.poll(() => text(page)).toBe('a <person> on a <porch>')
   await expect(page.locator('[data-row-wrap="person"][data-open]')).toHaveCount(1, { timeout: 4000 })
   assert.equal(calls.prepare.at(-1)?.choices?.person?.mode ?? null, null, 'a rewrite stores no mode')
 
-  // No kind for these words: Add Variety is off with a reason, never left waiting.
+  // Nothing wider than these words: no way control at all (Add Detail is what every slot
+  // does); Remove is still there.
   await mark(2).click()
   await expect(card.locator('[data-variant="a porch"]')).toBeVisible({ timeout: 4000 })
-  await page.waitForTimeout(500)
-  await way.click()
-  await expect(item('any')).toHaveAttribute('data-kind-state', 'none', { timeout: 4000 })
-  await expect(item('any')).toBeDisabled()
-  await expect(item('any')).toHaveAttribute('title', /kind/)
-  const asked = calls.kind.at(-1)
-  assert.equal(asked.prompt.slice(asked.start, asked.end), 'porch')
-  await page.keyboard.press('Escape')
-  await way.click()
-  await expect(item('any')).toHaveAttribute('data-kind-state', 'none', { timeout: 4000 })
+  await page.waitForTimeout(300)
+  await expect(page.locator('[data-row-wrap="porch"][data-open]')).toHaveCount(1)
+  await expect(way).toHaveCount(0)
+  await expect(page.locator('[data-row-wrap][data-open] [data-remove-slot]')).toBeVisible()
+  await shot('row-no-way')
+
+  // An edit elsewhere in the prompt asks no kind again for slots that kept their place and words.
+  const n = calls.kind.length
+  await editor.focus()
+  await page.keyboard.press('ControlOrMeta+End')
+  await page.keyboard.type(' at dusk')
+  await page.waitForTimeout(1500)
+  assert.equal(calls.kind.length, n, JSON.stringify(asked()))
+})
+
+test('a kind that couldn\u2019t be asked is asked again only when a row opens, never in a loop', async t => {
+  const { page, calls, mark, card } = await open(t, { start: 'a <young man> on a <porch>', kindFails: ['porch'] })
+  const porch = () => calls.kind.filter(c => c.prompt.slice(c.start, c.end) === 'porch').length
+  await expect.poll(porch, { timeout: 4000 }).toBe(1)
+  await page.waitForTimeout(800)
+  assert.equal(porch(), 1)
+  await mark(2).click()
+  await expect(card.locator('[data-variant="a porch"]')).toBeVisible({ timeout: 4000 })
+  await expect.poll(porch).toBeGreaterThan(1)
+  const n = porch()
+  await page.waitForTimeout(800)
+  assert.ok(porch() <= n + 1, `asked ${porch()} times`)
+  await expect(page.locator('[data-row-wrap][data-open] [data-slot-way]')).toHaveCount(0)
 })
 
 test('a slot typed is read once the user pauses in the prompt', async t => {

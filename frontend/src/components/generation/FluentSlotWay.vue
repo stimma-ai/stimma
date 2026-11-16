@@ -33,18 +33,14 @@
         type="button"
         role="menuitemradio"
         :aria-checked="ways.way === w"
-        :disabled="w === 'any' && !varietyReady"
-        :title="w === 'any' && kind.state === 'none' ? 'Couldn’t tell what these words are a kind of' : undefined"
-        class="w-full flex items-center gap-2 px-3 py-1.5 coarse:py-2.5 text-left text-xs coarse:text-[13px] text-content hover:bg-overlay-subtle disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:bg-overlay-subtle"
+        class="w-full flex items-center gap-2 px-3 py-1.5 coarse:py-2.5 text-left text-xs coarse:text-[13px] text-content hover:bg-overlay-subtle outline-none focus-visible:bg-overlay-subtle"
         :data-way-item="w"
-        :data-kind-state="w === 'any' && ways.variety === 'rewrite' ? kind.state : undefined"
         @click="choose(w)"
       >
         <ArrowsPointingOutIcon v-if="w === 'any'" class="w-3.5 h-3.5 shrink-0 text-selection" />
         <ArrowsPointingInIcon v-else class="w-3.5 h-3.5 shrink-0 text-selection" />
         <span class="flex-1 whitespace-nowrap">{{ WAY_NAMES[w] }}</span>
-        <span v-if="w === 'any' && kind.state === 'finding'" class="w-3.5 h-3.5 shrink-0 flex items-center justify-center"><span class="w-2 h-2 rounded-full border border-content-muted/25 border-t-content-muted/70 animate-spin" /></span>
-        <CheckIcon v-else :class="['w-3.5 h-3.5 shrink-0 text-selection', ways.way === w ? '' : 'invisible']" stroke-width="2.5" />
+        <CheckIcon :class="['w-3.5 h-3.5 shrink-0 text-selection', ways.way === w ? '' : 'invisible']" stroke-width="2.5" />
       </button>
     </div>
   </Teleport>
@@ -59,44 +55,27 @@ import { WAY_NAMES } from '../../utils/promptSuggestions'
 
 const props = defineProps<{
   program: PromptProgram; id: string
-  /** The kind of a slot's words ("hairstyle" for `<short bob>`); "" when it can't be said. */
-  slotKind?: (slot: { n: number; words: string }) => Promise<string>
+  /** The wider kind of the slot's words ("hairstyle" for `<short bob>`): "" when there is
+      nothing wider, absent while not known. */
+  kind?: string
 }>()
 const emit = defineEmits<{
-  /** Add Variety on a slot whose words read as a kind: write `kind` in their place. */
+  /** Add Variety on a slot whose words have a wider kind: write `kind` in their place. */
   (e: 'vary-slot', slot: { n: number; words: string; kind: string }): void
 }>()
 
 // Add Detail keeps the words and makes each picture a specific one of them; Add Variety lets
 // others of their kind in. Only this menu stores a mode (slotWays): Add Variety on a slot read
-// as one thing sets 'kind', and Add Detail clears it again. Words that read as a kind already
-// (<short bob>, <woman>) take Add Variety by having their kind written in their place
-// (<hairstyle>, <person>), and the new slot opens.
+// as one thing sets 'kind', and Add Detail clears it again. Words with a wider kind
+// (<short bob>, <woman>) take Add Variety by having it written in their place (<hairstyle>,
+// <person>), and the new slot opens. The row shows this control only when there is a choice
+// (hasWayChoice), so both items are always open.
 const slot = computed(() => props.program.slotById.value[props.id] || null)
-const ways = computed(() => slotWays(slot.value, props.program.states.value[props.id]))
+const ways = computed(() => slotWays(slot.value, props.program.states.value[props.id], props.kind))
 const open = ref(false)
 const btn = ref<HTMLElement | null>(null)
 const menu = ref<HTMLElement | null>(null)
 const style = ref<Record<string, string>>({})
-
-// The words' kind, for a rewrite: looked up when the menu opens (never shown). 'none' when it
-// failed or came back empty; opening the menu again asks again.
-const kind = ref<{ key: string; state: 'idle' | 'finding' | 'found' | 'none'; text: string }>({ key: '', state: 'idle', text: '' })
-const varietyReady = computed(() => ways.value.variety === 'kind' || (ways.value.variety === 'rewrite' && kind.value.state === 'found'))
-function findKind() {
-  const s = slot.value
-  if (!open.value || ways.value.variety !== 'rewrite' || !s) return
-  const key = `${s.n}:${s.words}`
-  if (kind.value.key === key && (kind.value.state === 'found' || kind.value.state === 'finding')) return
-  if (!props.slotKind) { kind.value = { key, state: 'none', text: '' }; return }
-  kind.value = { key, state: 'finding', text: '' }
-  props.slotKind({ n: s.n, words: s.words }).then(
-    (k) => { if (kind.value.key === key) kind.value = { key, state: k.trim() ? 'found' : 'none', text: k.trim() } },
-    () => { if (kind.value.key === key) kind.value = { key, state: 'none', text: '' } },
-  )
-}
-// The slot read again (or its words changed) while the menu is open: ask for what it needs now.
-watch([() => ways.value.variety, () => slot.value?.words], findKind)
 
 function toggle() {
   if (open.value) { open.value = false; return }
@@ -105,8 +84,6 @@ function toggle() {
   const top = r.bottom + 4 + 80 > window.innerHeight ? r.top - 4 - 80 : r.bottom + 4
   style.value = { left: `${Math.round(Math.max(8, Math.min(window.innerWidth - 168, r.left)))}px`, top: `${Math.round(top)}px` }
   open.value = true
-  if (kind.value.state === 'none') kind.value = { ...kind.value, state: 'idle' }
-  findKind()
 }
 function choose(w: 'detail' | 'any') {
   open.value = false
@@ -115,7 +92,7 @@ function choose(w: 'detail' | 'any') {
   if (!s || !to) return
   if (to === 'clear') props.program.clearMode(props.id)
   else if (to === 'kind') props.program.setMode(props.id, 'kind')
-  else if (kind.value.state === 'found') emit('vary-slot', { n: s.n, words: s.words, kind: kind.value.text })
+  else if (props.kind?.trim()) emit('vary-slot', { n: s.n, words: s.words, kind: props.kind.trim() })
 }
 
 // A press anywhere but the menu or its button closes it; so does scrolling it out from under,

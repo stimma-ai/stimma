@@ -121,13 +121,19 @@ export function clearMode(s: ChoiceState | null | undefined): ChoiceState | null
     when the stored mode is 'kind', and Add Detail then clears it ('clear': back to the reader's
     reading). Otherwise it is Add Detail, and Add Variety sets 'kind' on a slot read as one
     specific thing (`<Eiffel Tower>`, or one stored as 'one' the old way), or else writes the
-    words' kind in their place ('rewrite': `<short bob>` becomes `<hairstyle>`, `<woman>`
-    becomes `<person>`). */
-export function slotWays(slot: Pick<ProgramSlot, 'one'> | null | undefined, s: ChoiceState | null | undefined):
+    words' wider kind in their place ('rewrite': `<short bob>` becomes `<hairstyle>`, `<woman>`
+    becomes `<person>`) when there is one (`kind`, from /suggest-kind). With none (`<person>`, or
+    not known yet) there is no other way: `variety` is null, and the row shows no way control
+    (`hasWayChoice`), since Add Detail is what every slot does. */
+export function slotWays(slot: Pick<ProgramSlot, 'one'> | null | undefined, s: ChoiceState | null | undefined, kind?: string | null):
   { way: 'detail' | 'any'; detail: 'clear' | null; variety: 'kind' | 'rewrite' | null } {
   if (s?.mode === 'kind') return { way: 'any', detail: 'clear', variety: null }
-  return { way: 'detail', detail: null, variety: s?.mode === 'one' || slot?.one ? 'kind' : 'rewrite' }
+  const variety = s?.mode === 'one' || slot?.one ? 'kind' : kind?.trim() ? 'rewrite' : null
+  return { way: 'detail', detail: null, variety }
 }
+
+/** Whether a slot's row offers a way at all: Add Variety is current, or can be chosen. */
+export const hasWayChoice = (w: ReturnType<typeof slotWays>) => w.way === 'any' || w.variety !== null
 
 /** {slot id: mode} for every choice that has one: what a prepare is read with. */
 export function chosenModes(states: ProgramChoices): Record<string, SlotMode> {
