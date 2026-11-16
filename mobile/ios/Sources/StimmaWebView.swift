@@ -446,9 +446,12 @@ struct StimmaWebView: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            // The page that started a dictation is going away and can't reach it again.
+            stopListening()
             if !connectionScreen, isCurrentOrigin { model.resetPresentation() }
         }
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            stopListening()
             if !connectionScreen, isCurrentOrigin { model.resetPresentation() }
             pageNeedsReload = true
             restoreTerminatedPageIfReady()

@@ -52,7 +52,7 @@ final class VoiceDictation {
     private var tapInstalled = false
     private var onDevice = false
     private var quietRestarts = 0
-    private var stopping: CheckedContinuation<Void, Never>?
+    private var stopping: CheckedContinuation<String, Never>?
     private var savedAudio: (category: AVAudioSession.Category, mode: AVAudioSession.Mode, options: AVAudioSession.CategoryOptions)?
     private(set) var session = 0
 
@@ -119,7 +119,8 @@ final class VoiceDictation {
         stopMicrophone()
         request?.endAudio()
         let owner = session
-        await withCheckedContinuation { continuation in
+        // The text is read when the wait ends, before a newer dictation can reset it.
+        let text = await withCheckedContinuation { continuation in
             stopping = continuation
             // The last words usually arrive within a moment; never wait forever.
             Task { @MainActor [weak self] in
@@ -127,8 +128,8 @@ final class VoiceDictation {
                 if self?.session == owner { self?.resumeStopping() }
             }
         }
-        let text = transcript.text
-        end()
+        // A newer dictation may have started meanwhile; it isn't this stop's to end.
+        if session == owner { end() }
         return text
     }
 
@@ -192,7 +193,7 @@ final class VoiceDictation {
     }
 
     private func resumeStopping() {
-        stopping?.resume(); stopping = nil
+        stopping?.resume(returning: transcript.text); stopping = nil
     }
 
     private func stopMicrophone() {
