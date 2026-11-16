@@ -415,7 +415,7 @@ async def source_prompt_for_new_input(session, media_id: Any, input_images: Any)
         return None
     new_first = _first_input(input_images)
     for entry in gen.get("source_inputs") or []:
-        if not isinstance(entry, dict) or entry.get("role") not in (None, "source_image", "input_image"):
+        if not isinstance(entry, dict) or entry.get("role") not in (None, "source_image", "input_image", "start_image"):
             continue
         if new_first is not None and new_first in (entry.get("media_id"), entry.get("file_path")):
             return None

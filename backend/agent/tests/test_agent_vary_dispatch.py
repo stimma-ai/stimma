@@ -136,7 +136,8 @@ async def _start_frame_clip(session, tmp_path, frame_id):
         "prompt": "A red-haired woman in a green coat turns and waves at the camera.",
         "parameters": {"seed": 5, "steps": 9},
         "prompt_metadata": {"original_prompt": "she turns and waves", "auto_improve_enabled": True},
-        "source_inputs": [{"media_id": frame_id, "role": "source_image"}],
+        "source_inputs": [{"media_id": frame_id, "role": "start_image"},
+                          {"media_id": 777, "role": "end_image"}],
     }
     item = await create_media_item(session, file_path=path, file_hash=file_hash, tool_id="mock:gen",
                                    generation_metadata=json.dumps(meta))
