@@ -271,6 +271,9 @@ const props = defineProps<{
   direct: boolean
   /** Increase Detail: off adds nothing (your wording joined up), fill is Medium (plus what the model needs), expand is High. */
   enhance: EnhanceLevel
+  /** Ideogram's JSON: Direct converts the prompt rather than writing it at Increase Detail,
+      so Direct has no detail here (fluentSubmit directDetail). */
+  ideogramJson?: boolean
   /** No chat model is set up, so Fluent can't read prompts. */
   llmUnconfigured: boolean
   /** The image model's name, for the menu's one line of description. */
@@ -372,16 +375,17 @@ const languageOptions = computed(() => [
 ])
 // Detail level is one setting for Fluent and Direct. Fluent hides it where it always writes
 // the prompt fuller; Direct, where it sends the prompt as filled.
-const showsDetail = computed(() => tab.value === 'direct' || !props.program.unsupported.value)
+const directDetail = computed(() => !props.ideogramJson)
+const showsDetail = computed(() => tab.value === 'direct' ? directDetail.value : !props.program.unsupported.value)
 // Fluent draws the people in its slots; Direct and Raw have none.
 const peopleFrom = usePeopleFrom()
 const peopleFromOptions = computed(() => placeOptions(peopleFrom.places.value))
 const showsPeopleFrom = computed(() => tab.value === 'fluent' && !props.program.unsupported.value && peopleFrom.places.value.length > 0)
 // Direct writes each image's prompt (at Medium or High, with a chat model).
-const directWrites = computed(() => props.enhance !== 'off' && !props.llmUnconfigured)
+const directWrites = computed(() => directDetail.value && props.enhance !== 'off' && !props.llmUnconfigured)
 // A model writes each image's prompt in this tab, so the LoRA notes reach it.
 const improves = computed(() => tab.value === 'direct'
-  ? props.enhance !== 'off'
+  ? directDetail.value && props.enhance !== 'off'
   : props.enhance !== 'off' || props.program.unsupported.value)
 const on = computed(() => running.value === 'fluent')
 const busy = computed(() => on.value && props.program.status.value === 'busy')

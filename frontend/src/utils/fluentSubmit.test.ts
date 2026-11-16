@@ -49,9 +49,11 @@ test('Direct with Increase Detail off, or with no chat model, sends no Enhance',
   assert.equal(noModel.autoImprove.enabled, false)
 })
 
-test('Direct improves a prompt the tool cannot prepare too (an edit, a sound, a format)', () => {
+test('Direct improves a prompt the tool cannot prepare too (an edit, a sound, H3), but not Ideogram JSON', () => {
   const out = shapePromptOptions(saved({ direct: true }), ctx({ unsupported: true }))
   assert.equal(out.autoImprove.enabled, true)
+  const ideogram = shapePromptOptions(saved({ direct: true }), ctx({ unsupported: true, directDetail: false }))
+  assert.equal(ideogram.autoImprove.enabled, false)
 })
 
 test('Raw goes untouched', () => {

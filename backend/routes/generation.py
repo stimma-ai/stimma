@@ -679,10 +679,14 @@ async def _apply_generation_prompt_pipeline(
         effective_preload = None
     # Direct with Increase Detail: the prompt filled as Direct fills it (lists and saved
     # wildcards drawn, slots as their words), then improved per image at that level for
-    # this tool's kind of prompt (a picture, an edit, a sound, a structured format),
-    # keeping every drawn value and following its comments. Off sends it as filled.
+    # this tool's kind of prompt (a picture, an edit, a sound, MiniMax H3), keeping every
+    # drawn value and following its comments. Off sends it as filled, and so does
+    # Ideogram, whose JSON is converted rather than written at a level.
     direct = not raw and not fluent and bool((prompt_options or {}).get("direct"))
-    direct_improve = direct and enhance_on
+    direct_improve = direct and enhance_on and ctx["mode"] != "ideogram"
+    if direct and not direct_improve and enhance_on:
+        prompt_options = {**(prompt_options or {}), "autoImprove": {**auto_improve, "enabled": False}}
+        enhance_on = False
     if direct_improve:
         level = "fill" if auto_improve.get("level") == "fill" else "expand"
         prompt_options = {**(prompt_options or {}), "autoImprove": {**auto_improve, "enabled": True, "level": level}}

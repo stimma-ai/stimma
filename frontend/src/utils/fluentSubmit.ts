@@ -25,6 +25,9 @@ export interface PromptOptionsContext {
   /** The tool's prompt format can't be prepared (Ideogram JSON, MiniMax H3): the prompt
       is written fuller per image instead, which is what the menu promises there. */
   unsupported: boolean
+  /** Direct writes this tool's prompt at Increase Detail: every kind of prompt but
+      Ideogram's JSON, which is converted, not written. Absent: true. */
+  directDetail?: boolean
   /** Fields the per-image enhancer reads (model, isVideo, mode, …). */
   enhance: Record<string, any>
   /** What the prepared program carries, or undefined when no program runs. */
@@ -104,9 +107,9 @@ export function shapePromptOptions(saved: any, c: PromptOptionsContext): any {
   // another tool never reaches them. Classic builds send an enabled Enhance even with no
   // chat model, so it fails visibly; with the feature on, no chat model means Direct, with
   // nothing improved. Direct with a chat model is improved at Increase Detail, on every
-  // kind of prompt (an edit, a sound or a structured format too).
+  // kind of prompt (an edit, a sound, MiniMax H3) but Ideogram's JSON.
   let enhanceOn = c.toolHasPrompt && !!base.autoImprove?.enabled
-    && (way !== 'direct' || !c.llmUnconfigured)
+    && (way !== 'direct' || (!c.llmUnconfigured && c.directDetail !== false))
   // A tool that can't be prepared hides Increase Detail and says it writes a fuller prompt.
   if (way === 'fluent' && c.unsupported && c.toolHasPrompt) enhanceOn = true
   return {

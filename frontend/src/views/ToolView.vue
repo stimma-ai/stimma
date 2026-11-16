@@ -351,6 +351,7 @@
               :raw="rawMode"
               :direct="directMode"
               :enhance="enhanceLevel"
+              :ideogram-json="enhanceMode === 'ideogram-json'"
               :llm-unconfigured="llmUnconfigured"
               :model-name="tool?.name"
               :has-loras="hasLoras"
@@ -5762,6 +5763,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
     llmUnconfigured: llmUnconfigured.value,
     toolHasPrompt,
     unsupported: promptProgram.unsupported.value,
+    directDetail: enhanceMode.value !== 'ideogram-json',
     enhance: {
       model: toolModelString.value || null,
       // Task-authoritative: video tools always get cinematography.

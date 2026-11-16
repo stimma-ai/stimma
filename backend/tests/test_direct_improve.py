@@ -234,6 +234,14 @@ async def test_an_edit_is_improved_at_its_level_too(tool, monkeypatch):
     assert out["prompt_direct"]["filled"] == "remove the red car" and out["prompt_direct"]["level"] == "expand"
 
 
+async def test_ideogram_is_sent_as_filled(tool, monkeypatch):
+    monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {
+        "model": "m", "model_vendor": None, "effective_task": "text-to-image", "schema_props": {},
+        "mode": "ideogram", "program_supported": False, "enhance": {}})
+    out = await _submit("a {red|red} car", level="expand")
+    assert tool == [] and out["prompt"] == "a red car" and "prompt_direct" not in out
+
+
 @pytest.mark.parametrize("failure", [
     HTTPException(status_code=502, detail={"code": "prompt_enhancement_failed", "message": "empty"}),
     RuntimeError("the chat model went away"),
