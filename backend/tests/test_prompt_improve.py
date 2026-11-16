@@ -545,6 +545,66 @@ async def test_qwen_image_21_edit_shows_references_labeled_by_position(prompt_va
     ]
 
 
+async def test_edit_improver_sees_the_cropped_reference_not_the_original(prompt_variant_probe, tmp_path):
+    """A reference cropped in the picker reaches the tool as a prepared file; the
+    improver must be shown that crop, not the whole library image."""
+    import base64
+    import io
+    from PIL import Image
+    import routes.prompt_enhancement as pe
+    from routes.generation import _prompt_input_image_paths
+
+    original = tmp_path / "original.png"
+    Image.new("RGB", (800, 400), "red").save(original)
+    cropped = tmp_path / "cropped.png"
+    Image.new("RGB", (200, 300), "blue").save(cropped)
+
+    class Item:
+        file_path = str(original)
+        file_format = "png"
+
+    class Session:
+        async def get(self, model, media_id):
+            return Item()
+
+    parameters = {
+        "input_images": [str(original), str(cropped)],
+        "_original_input_paths": [str(original), str(original)],
+        "_input_crops": [None, {"x": 0, "y": 0, "width": 200, "height": 300}],
+        "input_media_ids": [11, 11],
+    }
+    paths = _prompt_input_image_paths(parameters)
+    assert paths == [None, str(cropped)]
+
+    await pe.improve_prompt(
+        ImprovePromptRequest(
+            prompt="put the hat from image 2 on the man in image 1",
+            model="qwen-image-2.1",
+            input_image_count=2,
+            input_media_ids=[11, 11],
+            input_image_paths=paths,
+        ),
+        session=Session(),
+    )
+
+    content = prompt_variant_probe["messages"][1]["content"]
+    shown = [
+        Image.open(io.BytesIO(base64.b64decode(part["image_url"]["url"].split(",", 1)[1])))
+        for part in content[2::2]
+    ]
+    assert [img.size for img in shown] == [(800, 400), (200, 300)]
+
+
+def test_controlnet_maps_are_not_shown_to_the_improver():
+    from routes.generation import _prompt_input_image_paths
+
+    assert _prompt_input_image_paths({
+        "input_images": ["/prep/depth.png"],
+        "_original_input_paths": ["/lib/photo.png"],
+        "_input_preprocessors": ["depth"],
+    }) == []
+
+
 def test_qwen_canvas_guidance_names_orientation_only_when_known():
     from routes.prompt_enhancement import _qwen_canvas_guidance
 

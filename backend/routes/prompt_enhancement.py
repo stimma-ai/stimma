@@ -695,9 +695,13 @@ def _strip_hallucinated_placeholders(output: str, source: str) -> str:
 
 
 async def _load_source_image_b64(
-    session: AsyncSession, media_id: int, max_size: int = 1024
+    session: AsyncSession, media_id: int, max_size: int = 1024,
+    prepared_path: Optional[str] = None,
 ) -> Optional[str]:
     """Load a library image by id and return EXIF-corrected base64 JPEG, or None.
+
+    `prepared_path`, when given, is the input as the tool receives it (cropped,
+    flipped, scaled...) and is shown instead of the library original.
 
     Used to show an i2v source frame to the enhancement model. Best-effort: any
     failure (missing item, unreadable file, non-raster format) returns None so
@@ -710,12 +714,17 @@ async def _load_source_image_b64(
         from database import MediaItem
         from utils.image_ops import open_oriented
 
-        item = await session.get(MediaItem, media_id)
-        if not item or not item.file_path:
-            return None
-        if (item.file_format or "").lower() not in _VLM_IMAGE_FORMATS:
-            return None
-        path = Path(item.file_path)
+        if prepared_path:
+            path = Path(prepared_path)
+            if path.suffix.lower().lstrip(".") not in _VLM_IMAGE_FORMATS:
+                return None
+        else:
+            item = await session.get(MediaItem, media_id)
+            if not item or not item.file_path:
+                return None
+            if (item.file_format or "").lower() not in _VLM_IMAGE_FORMATS:
+                return None
+            path = Path(item.file_path)
         if not path.exists():
             return None
 
@@ -731,7 +740,7 @@ async def _load_source_image_b64(
         finally:
             img.close()
     except Exception as e:
-        log.warning(f"improve: could not load source image {media_id}: {e}")
+        log.warning(f"improve: could not load source image {media_id or prepared_path}: {e}")
         return None
 
 
@@ -794,6 +803,10 @@ class ImprovePromptRequest(BaseModel):
     # an input that isn't a library item). Qwen-Image-2.1 edits address inputs
     # positionally as <image1>, <image2>, ..., so its enhancer is shown them.
     input_media_ids: List[Optional[int]] = Field(default_factory=list)
+    # Positional with input_media_ids: the prepared file (cropped, flipped,
+    # scaled...) the tool receives for a slot, None where the input is used
+    # as-is. The enhancer is shown the prepared file in place of the original.
+    input_image_paths: List[Optional[str]] = Field(default_factory=list)
     # Target canvas, when known. Qwen-Image-2.1's rewriter composes the frame
     # for its orientation rather than guessing one.
     width: Optional[int] = None
@@ -1036,23 +1049,33 @@ async def style_guide(request: "ImprovePromptRequest", session,
     # i2v: on the cinematography paths, show the source frame to the model so the
     # prompt animates the real image. Best-effort — if the frame can't be loaded
     # we fall back to the text-only cinematography prompt.
+    # Each input is shown as the tool receives it: a cropped (or otherwise
+    # prepared) input shows its prepared file, not the library original.
+    prepared = request.input_image_paths
+
+    async def load_slot(slot: int, media_id: Optional[int]) -> Optional[str]:
+        path = prepared[slot] if slot < len(prepared) else None
+        if path:
+            return await _load_source_image_b64(session, media_id, prepared_path=path)
+        return await _load_source_image_b64(session, media_id)
+
     source_images_b64: List[tuple[int, str]] = []
     if mode == "minimax-h3":
-        for picture_number, media_id in enumerate(request.h3_media_ids, start=1):
+        for slot, media_id in enumerate(request.h3_media_ids):
             if media_id is None:
                 continue
-            loaded = await _load_source_image_b64(session, media_id)
+            loaded = await load_slot(slot, media_id)
             if loaded:
-                source_images_b64.append((picture_number, loaded))
+                source_images_b64.append((slot + 1, loaded))
     elif mode in ("qwen-image-2.1-edit", "flux3-klein-edit", "minimax-h3-image-edit"):
-        for image_number, media_id in enumerate(request.input_media_ids, start=1):
+        for slot, media_id in enumerate(request.input_media_ids):
             if media_id is None:
                 continue
-            loaded = await _load_source_image_b64(session, media_id)
+            loaded = await load_slot(slot, media_id)
             if loaded:
-                source_images_b64.append((image_number, loaded))
+                source_images_b64.append((slot + 1, loaded))
     elif mode in {"cinematography", "ltx-2.5"} and request.media_id is not None:
-        loaded = await _load_source_image_b64(session, request.media_id)
+        loaded = await load_slot(0, request.media_id)
         if loaded:
             source_images_b64.append((1, loaded))
 

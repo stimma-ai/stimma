@@ -249,6 +249,27 @@ def _prompt_input_media_ids(parameters: Dict[str, Any]) -> List[Optional[int]]:
     return [v if isinstance(v, int) and not isinstance(v, bool) else None for v in raw_ids]
 
 
+def _prompt_input_image_paths(parameters: Dict[str, Any]) -> List[Optional[str]]:
+    """The prepared file (cropped, flipped, scaled...) the tool receives for each
+    input slot, positional with input_media_ids; None where the input goes as-is.
+    The improver is shown these in place of the library originals. A ControlNet
+    map (depth, edges) is not the picture, so those slots keep the original."""
+    images = parameters.get("input_images")
+    originals = parameters.get("_original_input_paths")
+    if not isinstance(images, list) or not isinstance(originals, list):
+        return []
+    preprocessors = parameters.get("_input_preprocessors")
+    if not isinstance(preprocessors, list):
+        preprocessors = []
+    paths: List[Optional[str]] = []
+    for index, path in enumerate(images):
+        original = originals[index] if index < len(originals) else None
+        mapped = index < len(preprocessors) and bool(preprocessors[index])
+        prepared = isinstance(path, str) and path and path != original and not mapped
+        paths.append(path if prepared else None)
+    return paths if any(paths) else []
+
+
 def _prompt_h3_context(
     parameters: Dict[str, Any], effective_task: Optional[str] = None
 ) -> tuple[str, Optional[float], List[Optional[int]], bool, List[Dict[str, Any]]]:
@@ -605,6 +626,7 @@ def prompt_enhance_context(
             "h3_generate_audio": h3[3],
             "h3_reference_manifest": h3[4],
             "input_media_ids": input_media_ids,
+            "input_image_paths": _prompt_input_image_paths(parameters),
             "width": _optional_int(parameters, "width"),
             "height": _optional_int(parameters, "height"),
         },
