@@ -59,6 +59,55 @@ final class ShellUITests: XCTestCase {
         XCTAssertTrue(app.webViews.descendants(matching: .any).matching(identifier: "Connection options").firstMatch.waitForExistence(timeout: 10), app.debugDescription)
     }
 
+    func testDevPageSeesPhoneFeatures() throws {
+        // The shell lists its newer commands before page scripts run, and answers them.
+        let listener = try NWListener(using: .tcp, on: .any)
+        let ready = expectation(description: "Feature page listening")
+        listener.stateUpdateHandler = { if case .ready = $0 { ready.fulfill() } }
+        listener.newConnectionHandler = { connection in
+            connection.start(queue: .global())
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { _, _, _, _ in
+                let html = """
+                <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+                <body><p id="features">Features: none</p><p id="voice">Waiting for voice status</p>
+                <script>
+                const native = (method) => window.webkit.messageHandlers.stimma.postMessage({method, args: {}});
+                const features = window.stimmaNativeFeatures;
+                document.getElementById('features').textContent = 'Features: ' + (Object.isFrozen(features) ? features.join(' ') : 'missing');
+                native('voiceStatus').then(status => {
+                  document.getElementById('voice').textContent = 'Voice status ' + (typeof status.available === 'boolean' && ['granted', 'prompt'].includes(status.permission) ? 'answered' : 'malformed');
+                  return native('interfaceReady');
+                });
+                </script>
+                """
+                let bytes = Data(html.utf8)
+                var response = Data("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: \(bytes.count)\r\nConnection: close\r\n\r\n".utf8)
+                response.append(bytes)
+                connection.send(content: response, completion: .contentProcessed { _ in connection.cancel() })
+            }
+        }
+        listener.start(queue: .global())
+        defer { listener.cancel() }
+        wait(for: [ready], timeout: 5)
+        let port = try XCTUnwrap(listener.port).rawValue
+        let app = XCUIApplication()
+        app.launchArguments = ["-mobile.devServerAddress", ""]
+        app.launch()
+        let options = app.webViews.descendants(matching: .any).matching(identifier: "Connection options").firstMatch
+        XCTAssertTrue(options.waitForExistence(timeout: 10), app.debugDescription)
+        options.tap()
+        let dev = app.webViews.descendants(matching: .any).matching(identifier: "Dev server").firstMatch
+        XCTAssertTrue(dev.waitForExistence(timeout: 15), app.debugDescription)
+        dev.tap()
+        let address = app.webViews.textFields["Server IP and frontend port"]
+        XCTAssertTrue(address.waitForExistence(timeout: 5))
+        address.tap()
+        address.typeText("127.0.0.1:\(port)")
+        app.webViews.buttons["Connect to dev server"].tap()
+        XCTAssertTrue(app.webViews.staticTexts["Features: print saveFile shareBase64 voice"].waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(app.webViews.staticTexts["Voice status answered"].waitForExistence(timeout: 10), app.debugDescription)
+    }
+
     func testAuthEndpointConnectivity() {
         let app = XCUIApplication()
         app.launchArguments = ["--auth-network-check"]

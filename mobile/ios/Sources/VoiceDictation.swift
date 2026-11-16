@@ -1,4 +1,5 @@
 import AVFoundation
+import OSLog
 import Speech
 
 /// Hands microphone buffers to whichever recognition request is current. Set on the main actor, read on the audio thread.
@@ -38,6 +39,7 @@ private struct RecognitionUpdate: Sendable {
 @MainActor
 final class VoiceDictation {
     private static let maxQuietRestarts = 12
+    private static let logger = Logger(subsystem: "ai.stimma.mobile", category: "voice")
 
     private let emit: ([String: Any]) -> Void
     private let engine = AVAudioEngine()
@@ -171,6 +173,8 @@ final class VoiceDictation {
             return
         }
         guard let domain = update.errorDomain else { return }
+        // Only the error's kind is logged, never what was said.
+        Self.logger.notice("recognition_error domain=\(domain, privacy: .public) code=\(update.errorCode) on_device=\(self.onDevice)")
         transcript.finish(nil)
         if stopping != nil { resumeStopping(); return }
         let message = dictationErrorMessage(domain: domain, code: update.errorCode)

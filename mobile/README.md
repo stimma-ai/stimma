@@ -54,8 +54,8 @@ contact sheet) and keeps that layout until the dialog closes. Voice input uses
 the phone's speech recognizer (on-device when offered), asks for the microphone
 on first use, and keeps listening across pauses until stopped; without a
 recognizer the button is hidden. The shell lists these newer commands in
-`window.stimmaNativeFeatures`, so a newer UI package on an older shell (or on
-iOS, which has none of them yet) keeps sharing exports and hides voice input.
+`window.stimmaNativeFeatures`, so a newer UI package on an older shell keeps
+sharing exports and hides voice input.
 
 Transient recovery retains the page and package. Android Back
 dismisses the top sheet or slideshow first, then navigates page history. At the root it backgrounds the app. Rotation retains the WebView. Activity recreation
@@ -200,6 +200,18 @@ visible images retry when the media connection returns; offscreen failures wait
 until visible. Native file sharing is limited to 64 MiB: larger exports show an
 error and can be reduced or exported from a computer. Cancelling a share never
 reports a successful export.
+
+Save to phone puts pictures and videos in Photos (add-only access, asked on
+first save) and opens the Files picker for anything else, or when Photos access
+is refused or Photos can't take the file; the page confirms "Saved to Photos"
+or "Saved to Files", and closing the picker leaves the export dialog open.
+Exports cross the bridge as base64. Print opens the system print dialog for
+the page's print layout on white paper and keeps that layout until the dialog
+closes. Voice input uses the phone's speech recognizer (on device when the
+phone offers it), asks for the microphone and speech recognition on first use,
+keeps listening across pauses until stopped, and stops when the app leaves the
+screen. The shell lists these commands in `window.stimmaNativeFeatures`, as
+Android does; older iOS shells keep sharing exports and hide voice input.
 
 ```sh
 tools/stimma mobile ios doctor
@@ -402,8 +414,8 @@ in both cases.
 - Server builds must include a mobile UI package. Older installed servers need
   an update before this shell can connect; UI packages cannot add native APIs.
 - Uploads require Content-Length and are limited to 1 GiB. Exports pass bytes
-  through the bridge and are limited to 64 MiB. iOS native dictation,
-  background transfers, and push notifications are not implemented.
+  through the bridge and are limited to 64 MiB. Background transfers and push notifications are not
+  implemented.
 - Bootstrap uses URLSession with pinned TLS and local-network ATS permission.
   Literal LAN/Tailscale IP routes are the current target; fully qualified host
   routes need additional trust/ATS verification before being advertised as

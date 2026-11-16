@@ -30,7 +30,9 @@ enum PhoneExports {
         info.outputType = .general
         let printer = UIPrintInteractionController.shared
         printer.printInfo = info
-        printer.printFormatter = webView.viewPrintFormatter()
+        let pages = FullPageRenderer()
+        pages.addPrintFormatter(webView.viewPrintFormatter(), startingAtPageAt: 0)
+        printer.printPageRenderer = pages
         // The WebView's own dark background would show around the printed content; paper is white.
         let background = webView.backgroundColor
         let underPage = webView.underPageBackgroundColor
@@ -65,6 +67,15 @@ enum PhoneExports {
             return false
         }
     }
+}
+
+/**
+ * Lays the page out on the whole sheet. The page's print layout sets its own
+ * margins, and the printer's unprintable edge would otherwise be added on top,
+ * pushing a page-sized layout onto a second, blank sheet.
+ */
+final class FullPageRenderer: UIPrintPageRenderer {
+    override var printableRect: CGRect { paperRect }
 }
 
 /// The system Files export picker for one file. Resolves true once the person picks a place, false on cancel.
