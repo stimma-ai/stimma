@@ -1,6 +1,6 @@
 {
  "name": "pick-judge",
- "version": "2026-11-15.3",
+ "version": "2026-11-16.1",
  "contract": 1,
  "kind": "enc",
  "maxlen": 512,
@@ -11,7 +11,7 @@
   "wrong"
  ],
  "wrong": "wrong",
- "cut": 0.81613,
+ "cut": 0.4898,
  "model": "model.int8.onnx",
  "files": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "path": "io.json",
-   "size": 162,
-   "sha256": "f7af9cd882f6ce2d9534a3506de7900863fc49f3d29323fb790ff8a37ec9c2f1"
+   "size": 161,
+   "sha256": "e38c802a35ec490604d36112078334594f303ec04b246532e136754dfb302c73"
   },
   {
    "path": "LICENSE",
