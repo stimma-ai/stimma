@@ -663,7 +663,7 @@
               <input v-no-autocorrect
                 type="text"
                 v-model="localSimilarToText"
-                @input="debouncedUpdate"
+                @input="debouncedUpdate()"
                 @keyup.enter="emitUpdate"
                 placeholder="Search"
                 class="bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
