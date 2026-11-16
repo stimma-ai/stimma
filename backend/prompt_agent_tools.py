@@ -365,12 +365,12 @@ _OPTION_TOOLS = [
         "state_context.prompt_choices); 'direct' sends the words as written ({a|b} picks one, saved "
         "wildcards fill, [brackets] unwrap, # lines drop) with no chat model; 'raw' sends the text exactly "
         "as typed. state_context.prompt_options.mode_names gives the name the user sees for each mode. "
-        "detail: how much is added when the prompt is read: 'yours' only the user's words, 'medium' what "
+        "detail (Increase Detail in the menu): how much is added when the prompt is read: 'off' nothing, 'medium' what "
         "this model needs to read them well, 'high' a full, rich prompt that may add choices of its own. "
-        "When state_context.prompt_options has no mode, only detail applies: 'yours' turns Enhance off, "
+        "When state_context.prompt_options has no mode, only detail applies: 'off' turns Enhance off, "
         "'medium' or 'high' turn it on.",
         {"mode": {"type": "string", "enum": ["vary", "direct", "raw"]},
-         "detail": {"type": "string", "enum": ["yours", "medium", "high"]}},
+         "detail": {"type": "string", "enum": ["off", "medium", "high"]}},
     ),
     _fn(
         "set_choice",

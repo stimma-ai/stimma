@@ -225,12 +225,13 @@ async def test_raw_is_never_improved(tool):
     assert tool == [] and out["prompt"] == PROMPT and "prompt_direct" not in out
 
 
-async def test_a_prompt_that_is_not_a_picture_is_sent_as_filled(tool, monkeypatch):
+async def test_an_edit_is_improved_at_its_level_too(tool, monkeypatch):
     monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {
         "model": "m", "model_vendor": None, "effective_task": "image-to-image", "schema_props": {},
         "mode": "edit", "program_supported": False, "enhance": {}})
     out = await _submit("remove the {red|red} car", level="expand")
-    assert tool == [] and out["prompt"] == "remove the red car" and "prompt_direct" not in out
+    assert len(tool) == 1 and tool[0].level == "expand"
+    assert out["prompt_direct"]["filled"] == "remove the red car" and out["prompt_direct"]["level"] == "expand"
 
 
 @pytest.mark.parametrize("failure", [

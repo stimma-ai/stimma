@@ -398,13 +398,14 @@ export const lineString = (items: string[]) => { const f = lineOf(items); return
 
 export type RowValue =
   | { kind: 'writing' }
-  | { kind: 'varying'; text: string }
+  /** `more`: more options are being written. */
+  | { kind: 'varying'; text: string; more?: boolean }
   /** `failed`: the slot couldn't be varied (slotFailed), not the user's choice. */
   | { kind: 'words'; text: string; failed?: boolean }
   | { kind: 'restricted'; lines: Array<{ shown: string; more: number }> }
 
-/** What a slot's row says: how many options its pool holds while it varies freely (the row
-    reads "Varied" until it opens), what it's limited to (a person: a line each for age, gender,
+/** What a slot's row says: how many options its pool holds while it varies freely (with a
+    quiet spinner while more are written), what it's limited to (a person: a line each for age, gender,
     descent, then variants), its words in quotes when it can't vary, or a shimmer while its
     first variants are written. A list of the user's own counts its options. */
 export function rowValue(slot: Pick<ProgramSlot, 'state' | 'words'> | null, s: ChoiceState | null | undefined,
@@ -420,7 +421,7 @@ export function rowValue(slot: Pick<ProgramSlot, 'state' | 'words'> | null, s: C
     return { kind, lines: lines.filter(l => l.length).map(l => lineOf(l)) }
   }
   const n = pool?.variants?.length ?? (pool?.options?.length || options.length)
-  return { kind: 'varying', text: `${n} option${n === 1 ? '' : 's'}` }
+  return { kind: 'varying', text: `${n} option${n === 1 ? '' : 's'}`, ...(pool?.more ? { more: true } : {}) }
 }
 
 /** How many of a choice's options are in play: `of` the pool's `total` when it's limited to

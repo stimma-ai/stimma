@@ -29,7 +29,7 @@ export type { ChoicePool, ChoiceState, PreparedProgram, ProgramChoice, ProgramCh
 
 export type ProgramStatus = 'off' | 'ready' | 'stale' | 'busy' | 'error'
 
-/** Detail level, by its wire values: off is Yours, fill is Medium, expand is High. */
+/** Detail level, by its wire values: off adds nothing, fill is Medium, expand is High. */
 export type EnhanceLevel = 'off' | 'fill' | 'expand'
 
 /** What row is open: a slot (by its place in the prompt and its words, so a slot just typed

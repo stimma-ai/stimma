@@ -56,7 +56,7 @@ def test_prompting_tools_mirror_the_prompt_menu():
     by_name = {t["function"]["name"]: t["function"] for t in TOOL_SCHEMAS}
     props = by_name["set_prompting"]["parameters"]["properties"]
     assert props["mode"]["enum"] == ["vary", "direct", "raw"]
-    assert props["detail"]["enum"] == ["yours", "medium", "high"]
+    assert props["detail"]["enum"] == ["off", "medium", "high"]
     assert "fluent" not in json.dumps(TOOL_SCHEMAS).lower()
     from prompts import get_prompt
     sp = get_prompt("prompt_enhancement", "agent_system_prompt")

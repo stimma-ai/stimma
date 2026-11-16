@@ -1,6 +1,6 @@
 <template>
   <!-- Under the prompt box: every part of the prompt that can vary, in the prompt's order. Its
-       words, then what it does: "Varied" (open, "40 options"), what it's limited to (a person's
+       words, then what it does: "40 options" (a quiet spinner while more are written), what it's limited to (a person's
        picks a line each: age, gender, descent; many picks read "Korean, Irish +28"; open, "3 of
        30" with Clear), or “its words” when it can't vary; a shimmer while its first variants are
        written. Clicking a row (or the part in the prompt) opens its picker right under the row.
@@ -32,7 +32,7 @@
           <!-- An open person's picks are its Age, Gender and Descent rows, just below. -->
           <template v-if="!(openId === r.id && r.person && r.value.kind === 'restricted')">
             <span v-if="r.value.kind === 'writing'" class="inline-block align-middle w-16 h-2.5 rounded-full fluent-shimmer" aria-label="Writing" />
-            <span v-else-if="r.value.kind === 'varying'" class="text-content-muted tabular-nums">{{ openId === r.id ? r.value.text : 'Varied' }}</span>
+            <span v-else-if="r.value.kind === 'varying'" class="inline-flex items-center gap-1.5 text-content-muted tabular-nums">{{ r.value.text }}<span v-if="r.value.more" class="w-2 h-2 rounded-full border border-content-muted/25 border-t-content-muted/70 animate-spin" aria-label="Writing more" data-more-spinner /></span>
             <span v-else-if="r.value.kind === 'words'" class="text-content">{{ r.value.text }}</span>
             <span v-else class="flex flex-col text-content">
               <span v-for="(l, i) in r.value.lines" :key="i">{{ l.shown }}<span v-if="l.more" class="ml-1 text-content-tertiary tabular-nums" data-more-count>+{{ l.more }}</span></span>

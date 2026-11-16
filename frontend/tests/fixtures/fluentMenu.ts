@@ -9,7 +9,6 @@ const level = ref<EnhanceLevel>('fill')
 const hasLoras = ref(true)
 // The way chosen in the menu's tabs, and whether Direct can write this tool's prompt.
 const way = ref<'fluent' | 'direct' | 'raw'>('fluent')
-const directImproves = ref(true)
 const program: any = {
   status: computed(() => 'ready'),
   unsupported: computed(() => false),
@@ -23,7 +22,6 @@ const program: any = {
   previewRuns: async () => [],
 }
 ;(window as any).level = () => level.value
-;(window as any).setDirectImproves = (on: boolean) => { directImproves.value = on }
 
 createApp({
   render: () => h('div', { class: 'p-4' }, [
@@ -32,7 +30,6 @@ createApp({
       raw: way.value === 'raw',
       direct: way.value === 'direct',
       enhance: level.value,
-      directImproves: directImproves.value,
       llmUnconfigured: false,
       modelName: 'Krea 2',
       hasLoras: hasLoras.value,

@@ -43,12 +43,12 @@ test('each detail level says how much it adds, in plain words', async t => {
   await menu.getByRole('radio', { name: 'High' }).click()
   assert.equal(await page.evaluate(() => window.level()), 'expand')
   await expect(line).toHaveText('Adds a lot: a full paragraph, or a long list of tags.')
-  await menu.getByRole('radio', { name: 'Yours' }).click()
+  await menu.getByRole('radio', { name: 'Off' }).click()
   assert.equal(await page.evaluate(() => window.level()), 'off')
-  await expect(line).toHaveText('Your words as written, nothing added.')
+  await expect(line).toHaveText('Nothing added to your prompt.')
   await expect(menu).toContainText('keeping your wording')
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/fluent-menu-yours.png` })
-  // Nothing reads LoRA notes at Yours; trigger words still go in.
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/fluent-menu-off.png` })
+  // Nothing reads LoRA notes at Off; trigger words still go in.
   await expect(menu.getByText('LoRA notes')).toHaveCount(0)
   await expect(menu.getByText('LoRA trigger words')).toBeVisible()
   // The old writer's retake is gone, and no copy explains mechanics.
@@ -68,14 +68,10 @@ test('Direct shares the detail level, and Raw has none', async t => {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/fluent-menu-direct.png` })
   await menu.getByRole('radio', { name: 'High' }).click()
   assert.equal(await page.evaluate(() => window.level()), 'expand')
-  await menu.getByRole('radio', { name: 'Yours' }).click()
-  await expect(line).toHaveText('Your words as written, nothing added.')
+  await menu.getByRole('radio', { name: 'Off' }).click()
+  await expect(line).toHaveText('Nothing added to your prompt.')
   await expect(menu).toContainText('Fills in your lists and saved wildcards.')
   await expect(menu.getByText('LoRA notes')).toHaveCount(0)
-  // A tool whose prompt Direct sends as filled (an edit, a sound) shows no detail level.
-  await page.evaluate(() => window.setDirectImproves(false))
-  await expect(line).toHaveCount(0)
-  await page.evaluate(() => window.setDirectImproves(true))
   await menu.getByRole('radio', { name: 'Raw' }).click()
   await expect(line).toHaveCount(0)
   await expect(menu.getByText('Translate prompt')).toHaveCount(0)

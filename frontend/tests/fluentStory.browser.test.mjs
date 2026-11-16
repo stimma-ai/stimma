@@ -390,8 +390,8 @@ test('search opens in the foot: Select all the matches, then Deselect all; Clear
   const { page, card, mark, shot } = await open(t, { start: 'dorm room, lit by <light>' })
   await expect(mark(1)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
   const row = page.locator('[data-row="light"]')
-  // Closed with nothing picked, it reads Varied.
-  await expect(row.locator('[data-value]')).toHaveText('Varied')
+  // Closed or open with nothing picked, it reads how many options it has.
+  await expect(row.locator('[data-value]')).toHaveText('3 options')
   await row.click()
   await expect(row.locator('[data-value]')).toHaveText('3 options')
   const state = () => page.evaluate(() => window.options().programChoices?.light ?? null)
@@ -417,7 +417,7 @@ test('search opens in the foot: Select all the matches, then Deselect all; Clear
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
   await expect(card).toHaveCount(0)
-  await expect(row.locator('[data-value]')).toHaveText('Varied')
+  await expect(row.locator('[data-value]')).toHaveText('3 options')
 })
 
 const RUN = { key: 'k0', version: 'slots-1', draws: [
@@ -539,9 +539,9 @@ for (const [label, opts] of [['desktop dark', {}], ['desktop light', { theme: 'l
     const { page, shot } = await open(t, opts)
     const tips = await openTips(page)
     const sections = await tips.locator('section h4').allInnerTexts()
-    assert.deepEqual(sections, ['Vary any part', 'Choose what it can be', 'Use from an image', 'Detail level', 'Lists', 'Saved wildcards and segments', 'Comment lines', 'Exact text'])
+    assert.deepEqual(sections, ['Vary any part', 'Choose what it can be', 'Use from an image', 'Increase Detail', 'Lists', 'Saved wildcards and segments', 'Comment lines', 'Exact text'])
     const text = await tips.innerText()
-    for (const s of ['Vary this', 'press <', '+ light', 'Choose Use', 'Yours', 'Medium', 'High'])
+    for (const s of ['Vary this', 'press <', '+ light', 'Choose Use', 'Off', 'Medium', 'High'])
       assert.ok(text.includes(s), `tips mention ${s}`)
     await expect(tips.locator('[data-tip-example="slot"]')).toContainText('<young man>')
     // No mechanics, no old features, no em dashes.

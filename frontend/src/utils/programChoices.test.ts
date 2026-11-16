@@ -127,6 +127,7 @@ test('how a slot shows: writing, varying, restricted, its words when it can’t 
 test('a row says the pool size, the picks as one or two then +N, or the words in quotes', () => {
   const slot = { state: 'ready' as const, words: 'dominant young woman' }
   assert.deepEqual(rowValue(slot, null, pool), { kind: 'varying', text: '4 options' })
+  assert.deepEqual(rowValue(slot, null, { ...pool, more: true }), { kind: 'varying', text: '4 options', more: true })
   assert.deepEqual(rowValue({ state: 'as_written', words: 'dominant young woman' }, null, pool), { kind: 'words', text: '“dominant young woman”', failed: true })
   assert.deepEqual(rowValue({ state: 'writing', words: 'x' }, null, null), { kind: 'writing' })
   const picked = rowValue(slot, { seeds: { age: { values: ['young adult'], years: [40] }, gender: { values: ['trans woman'] }, descent: { values: ['Korean', 'Irish', 'Samoan'] } } }, pool)

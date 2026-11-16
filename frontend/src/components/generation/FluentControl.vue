@@ -86,11 +86,11 @@
               :aria-disabled="llmUnconfigured || undefined"
               :class="['flex items-center gap-3 px-3 py-2 coarse:py-3', llmUnconfigured ? 'opacity-40' : '']"
             >
-              <span class="flex-1 text-[12px] coarse:text-[13px] text-content">Detail level</span>
+              <span class="flex-1 text-[12px] coarse:text-[13px] text-content">Increase Detail</span>
               <SegmentedControl
                 :model-value="enhance"
-                :options="[{ label: 'Yours', value: 'off' }, { label: 'Medium', value: 'fill' }, { label: 'High', value: 'expand' }]"
-                aria-label="Detail level"
+                :options="[{ label: 'Off', value: 'off' }, { label: 'Medium', value: 'fill' }, { label: 'High', value: 'expand' }]"
+                aria-label="Increase Detail"
                 @update:model-value="(v) => emit('mode', v as EnhanceLevel)"
               />
             </div>
@@ -117,7 +117,7 @@
                 <span class="flex-1 text-[12px] coarse:text-[13px] text-content">LoRA trigger words</span>
                 <Toggle :model-value="!!loraTriggers" label="LoRA trigger words" @update:model-value="(v) => emit('lora', 'loraTriggers', v)" />
               </label>
-              <!-- Notes reach the model that writes each image's prompt; Yours has none. -->
+              <!-- Notes reach the model that writes each image's prompt; Off has none. -->
               <label
                 v-if="improves"
                 :inert="llmUnconfigured || undefined"
@@ -205,7 +205,7 @@
             <div class="max-h-[16vh] overflow-y-auto rounded-md bg-surface-overlay border border-edge-subtle px-3 py-2 text-[12px] leading-relaxed text-content-secondary whitespace-pre-wrap select-text">{{ lastPrompt || lastRun?.sent }}</div>
           </div>
           <div v-if="nothingVaries" class="mx-4 rounded-md border border-edge-subtle bg-surface-overlay px-3 py-4 text-[12px] text-content-secondary" data-nothing-varies>
-            Nothing in this prompt varies: no slots or lists. Each image is improved at the detail level.
+            Nothing in this prompt varies: no slots or lists. Each image gets the detail you chose.
           </div>
           <div v-else class="mx-4 grid grid-cols-1 md:grid-cols-2 gap-2 h-[40vh] min-h-[200px]">
             <div class="min-h-0 flex flex-col rounded-md border border-edge-subtle bg-surface-overlay overflow-hidden">
@@ -269,10 +269,8 @@ const props = defineProps<{
   raw: boolean
   /** Direct: lists and saved wildcards fill in, no model reads the prompt. */
   direct: boolean
-  /** Detail level: off is Yours (your wording joined up), fill is Medium (plus what the model needs), expand is High. */
+  /** Increase Detail: off adds nothing (your wording joined up), fill is Medium (plus what the model needs), expand is High. */
   enhance: EnhanceLevel
-  /** Direct writes this tool's prompt at the Detail level (fluentSubmit directImproves). */
-  directImproves?: boolean
   /** No chat model is set up, so Fluent can't read prompts. */
   llmUnconfigured: boolean
   /** The image model's name, for the menu's one line of description. */
@@ -361,7 +359,7 @@ const tagline = computed(() => {
 })
 /** How much each detail level adds, in a short line. Tag models get tags, other models sentences. */
 const LEVEL_LINES: Record<EnhanceLevel, string> = {
-  off: 'Your words as written, nothing added.',
+  off: 'Nothing added to your prompt.',
   fill: 'Adds a little: a few sentences, or a short list of tags.',
   expand: 'Adds a lot: a full paragraph, or a long list of tags.',
 }
@@ -372,19 +370,18 @@ const languageOptions = computed(() => [
   { code: null as string | null, label: 'Off', english: '', picked: !translating.value },
   ...PROMPT_LANGUAGES.map(l => ({ code: l.code as string | null, label: l.label, english: l.english === l.label ? '' : l.english, picked: translating.value && languageCode.value === l.code })),
 ])
-const detail = computed(() => props.enhance === 'expand' || props.program.unsupported.value)
 // Detail level is one setting for Fluent and Direct. Fluent hides it where it always writes
 // the prompt fuller; Direct, where it sends the prompt as filled.
-const showsDetail = computed(() => tab.value === 'direct' ? !!props.directImproves : !props.program.unsupported.value)
+const showsDetail = computed(() => tab.value === 'direct' || !props.program.unsupported.value)
 // Fluent draws the people in its slots; Direct and Raw have none.
 const peopleFrom = usePeopleFrom()
 const peopleFromOptions = computed(() => placeOptions(peopleFrom.places.value))
 const showsPeopleFrom = computed(() => tab.value === 'fluent' && !props.program.unsupported.value && peopleFrom.places.value.length > 0)
 // Direct writes each image's prompt (at Medium or High, with a chat model).
-const directWrites = computed(() => !!props.directImproves && props.enhance !== 'off' && !props.llmUnconfigured)
+const directWrites = computed(() => props.enhance !== 'off' && !props.llmUnconfigured)
 // A model writes each image's prompt in this tab, so the LoRA notes reach it.
 const improves = computed(() => tab.value === 'direct'
-  ? !!props.directImproves && props.enhance !== 'off'
+  ? props.enhance !== 'off'
   : props.enhance !== 'off' || props.program.unsupported.value)
 const on = computed(() => running.value === 'fluent')
 const busy = computed(() => on.value && props.program.status.value === 'busy')
@@ -398,7 +395,7 @@ const chipText = computed(() => {
   if (running.value === 'raw') return 'Raw'
   if (running.value === 'direct') return 'Direct'
   if (failed.value) return `${BRAND} · as written`
-  return props.enhance === 'off' && !props.program.unsupported.value ? `${BRAND} · your words` : BRAND
+  return BRAND
 })
 const chipTitle = computed(() => {
   const t = chipTitleBase.value
@@ -408,12 +405,10 @@ const chipTitleBase = computed(() => {
   if (running.value === 'raw') return 'Raw: sent exactly as typed'
   if (running.value === 'direct') return props.llmUnconfigured && way.value === 'fluent'
     ? `Direct: ${BRAND} needs a chat model`
-    : directWrites.value
-      ? `Direct, ${props.enhance === 'fill' ? 'adding a little detail' : 'adding detail'}`
-      : 'Direct: lists and saved wildcards filled in'
+    : 'Direct'
   if (busy.value) return 'Preparing your prompt…'
   if (failed.value) return [fallback.value.head, fallback.value.body].filter(Boolean).join('. ')
-  return detail.value ? `${BRAND}, adding detail` : props.enhance === 'fill' ? `${BRAND}, adding a little detail` : `${BRAND}, in your own words`
+  return BRAND
 })
 
 type Action = { label: string; run: () => void }

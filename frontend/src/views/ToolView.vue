@@ -351,7 +351,6 @@
               :raw="rawMode"
               :direct="directMode"
               :enhance="enhanceLevel"
-              :direct-improves="directImprovesHere"
               :llm-unconfigured="llmUnconfigured"
               :model-name="tool?.name"
               :has-loras="hasLoras"
@@ -3446,7 +3445,7 @@ import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptPro
 import FluentSlotList from '../components/generation/FluentSlotList.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
-import { directImproves, firstStage, promptVaries, promptWrites, stageTile, type PromptStage, fallbackNotice, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
+import { firstStage, promptVaries, promptWrites, stageTile, type PromptStage, fallbackNotice, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import UseFromImage from '../components/generation/UseFromImage.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
@@ -3956,14 +3955,14 @@ const rawMode = computed(() => fluentOn.value && !!globalPrefs.value.promptOptio
 const directMode = computed(() => fluentOn.value && !!globalPrefs.value.promptOptions?.direct)
 // What a run actually does: Direct when chosen, and whenever there's no chat model.
 const runsDirect = computed(() => fluentOn.value && !rawMode.value && (directMode.value || llmUnconfigured.value))
-// Detail level, stored as Enhance: Yours is Enhance off; Medium and High are its two
+// Increase Detail, stored as Enhance: Off is Enhance off; Medium and High are its two
 // levels (the setting predates Medium, so an enabled setting without a level is High).
 const enhanceLevel = computed<EnhanceLevel>(() => {
   const ai = globalPrefs.value.promptOptions?.autoImprove
   return !ai?.enabled ? 'off' : ai.level === 'fill' ? 'fill' : 'expand'
 })
-// The prompt bar's agent names Detail level as the menu does (Yours, Medium, High).
-const AGENT_DETAIL_NAMES: Record<EnhanceLevel, string> = { off: 'yours', fill: 'medium', expand: 'high' }
+// The prompt bar's agent names Increase Detail as the menu does (Off, Medium, High).
+const AGENT_DETAIL_NAMES: Record<EnhanceLevel, string> = { off: 'off', fill: 'medium', expand: 'high' }
 const promptProgram = usePromptProgram({
   toolId: computed(() => fullToolIdFromProps || null),
   prompt: computed(() => globalPrefs.value.prompt || ''),
@@ -4129,11 +4128,6 @@ const enhanceUsesImage = computed(() => {
   return !!(source?.path || source?.file_path || source?.filePath)
 })
 const enhanceIsMiniMaxH3 = computed(() => isMiniMaxH3VideoModel(toolModelString.value))
-// Direct improves at the Detail level only a prompt that describes a picture or a clip.
-const directImprovesHere = computed(() => directImproves({
-  ideogram: enhanceMode.value === 'ideogram-json', h3: enhanceIsMiniMaxH3.value,
-  audio: enhanceIsAudio.value, inputImageCount: enhanceInputImageCount.value,
-}))
 
 // Server-owned prompt warm pool: while generate-forever is running, tells the
 // server how many LLM-enhanced prompt variants to keep ready so submits pick
@@ -5768,7 +5762,6 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
     llmUnconfigured: llmUnconfigured.value,
     toolHasPrompt,
     unsupported: promptProgram.unsupported.value,
-    directImproves: directImprovesHere.value,
     enhance: {
       model: toolModelString.value || null,
       // Task-authoritative: video tools always get cinematography.
@@ -7112,7 +7105,7 @@ async function runTool(name: string, args: any): Promise<string> {
       }
       if (args.detail != null) {
         const level = (Object.entries(AGENT_DETAIL_NAMES).find(([, name]) => name === String(args.detail)) || [])[0] as EnhanceLevel | undefined
-        if (!level) return `Unknown detail "${args.detail}". Use yours, medium or high.`
+        if (!level) return `Unknown detail "${args.detail}". Use off, medium or high.`
         if (fluentOn.value) setDetailLevel(level)
         else {
           const po = globalPrefs.value.promptOptions || {}

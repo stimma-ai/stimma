@@ -669,23 +669,20 @@ async def _apply_generation_prompt_pipeline(
     if fluent:
         # Fluent: the prompt's slots and lists are drawn for this image (none: it goes as
         # written), then the per-image improver writes it for the model at the Detail
-        # level, keeping every drawn value exactly. Its Detail level is Enhance's setting:
-        # off is Yours, "fill" Medium, anything else on High.
+        # level, keeping every drawn value exactly. Its level (Increase Detail) is Enhance's
+        # setting: off is Off, "fill" Medium, anything else on High.
         level = ("fill" if auto_improve.get("level") == "fill" else "expand") if enhance_on else "off"
         prompt_options = {**(prompt_options or {}), "autoImprove": {**auto_improve, "enabled": True, "level": level}}
         enhance_on = True
         outcome = {}
         # A preload was improved without seeing this image's draws: never used for Fluent.
         effective_preload = None
-    # Direct with a Detail level: the prompt filled as Direct fills it (lists and saved
-    # wildcards drawn, slots as their words), then improved per image like Fluent's fill,
-    # keeping every drawn value. Yours sends it as filled, and a prompt that isn't a picture
-    # to describe (an edit, a sound, a structured format) is never improved in Direct.
+    # Direct with Increase Detail: the prompt filled as Direct fills it (lists and saved
+    # wildcards drawn, slots as their words), then improved per image at that level for
+    # this tool's kind of prompt (a picture, an edit, a sound, a structured format),
+    # keeping every drawn value and following its comments. Off sends it as filled.
     direct = not raw and not fluent and bool((prompt_options or {}).get("direct"))
-    direct_improve = direct and enhance_on and ctx["program_supported"]
-    if direct and not direct_improve and enhance_on:
-        prompt_options = {**(prompt_options or {}), "autoImprove": {**auto_improve, "enabled": False}}
-        enhance_on = False
+    direct_improve = direct and enhance_on
     if direct_improve:
         level = "fill" if auto_improve.get("level") == "fill" else "expand"
         prompt_options = {**(prompt_options or {}), "autoImprove": {**auto_improve, "enabled": True, "level": level}}
