@@ -30,7 +30,7 @@
             :data-way="m"
             @mousedown.prevent
             @click="takeOffer(m)"
-          ><template v-if="m === 'detail'"><MagnifyingGlassPlusIcon class="w-3.5 h-3.5 text-selection" />Detail</template><template v-else><SwatchIcon class="w-3.5 h-3.5 text-selection" />{{ offer.kind ? `Any ${offer.kind}` : 'Any…' }}</template></button>
+          ><ArrowsPointingOutIcon v-if="m === 'any'" class="w-3.5 h-3.5 text-selection" /><ArrowsPointingInIcon v-else class="w-3.5 h-3.5 text-selection" />{{ WAY_NAMES[m] }}</button>
         </div>
       </Teleport>
 
@@ -282,7 +282,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, useSlots } from 'vue'
 import { EditorView } from '@codemirror/view'
-import { MagnifyingGlassPlusIcon, SwatchIcon } from '@heroicons/vue/24/outline'
+import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from '@heroicons/vue/24/outline'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
 import Caret from '../ui/Caret.vue'
@@ -295,9 +295,9 @@ import type { PromptSyntaxMode } from '../../composables/useCodeMirrorPrompt'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
-import { slotEditing, wholeWords, wrapSlot, unwrapSlot, replaceDocument, replaceWithSlot, rangeRect, setVaryEffect, setAddsEffect, shownSuggestions, usableAdds, type VaryPhrase } from '../../composables/promptSlotEditing'
+import { slotEditing, wholeWords, wrapSlot, unwrapSlot, rewriteSlot, replaceDocument, replaceWithSlot, rangeRect, setVaryEffect, setAddsEffect, shownSuggestions, usableAdds, type VaryPhrase } from '../../composables/promptSlotEditing'
 import { setSlotMarks, slotMarks as slotMarksExtension, type SlotMarks } from '../../composables/promptSlotMarks'
-import { insertAdd, NO_SUGGESTIONS, usePromptSuggestions, type PhraseWay, type SuggestedAdd, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
+import { insertAdd, NO_SUGGESTIONS, usePromptSuggestions, WAY_NAMES, type PhraseWay, type SuggestedAdd, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
 import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
 import type { SlotMode } from '../../utils/programWire'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
@@ -498,9 +498,10 @@ function setTranslate(code: string | null) {
 }
 
 // --- Slots (Fluent): making one from written words, opening one ---
-// A phrase Fluent underlined was clicked, or words were selected: Detail and Any sit under
-// them, the way Suggest would take it first (Detail for selected words). Any names the words'
-// kind ("Any hairstyle"): Suggest's, or asked for when the offer opens on words it didn't name.
+// A phrase Fluent underlined was clicked, or words were selected: Add Detail and Add Variety sit
+// under them, the way Suggest would take it first (Add Detail for selected words). Add Variety
+// writes the words' kind: Suggest's, or asked for when the offer opens on words it didn't name;
+// it waits for the kind, which the button never shows.
 const offer = ref<{ from: number; to: number; rect: DOMRect; phrase: boolean; mode?: 'one' | 'kind'; way?: PhraseWay; kind?: string } | null>(null)
 const { isCoarsePointer } = useViewport()
 const offerStyle = computed(() => {
@@ -533,8 +534,8 @@ function openSlotAt(pos: number) {
 }
 const offerEl = ref<HTMLElement | null>(null)
 const offerWays = computed<PhraseWay[]>(() => offer.value?.way === 'any' ? ['any', 'detail'] : ['detail', 'any'])
-/** One of the offer's actions. Detail: the words become a slot (one specific thing starts as
-    one). Any: their kind, in brackets, takes their place. */
+/** One of the offer's actions. Add Detail: the words become a slot (one specific thing starts
+    as one). Add Variety: their kind, in brackets, takes their place. */
 function takeOffer(way: PhraseWay) {
   const view = getView()
   const o = offer.value
@@ -581,12 +582,36 @@ function madeSlot(view: EditorView, at: number, mode?: SlotMode) {
     them); its words stay. One undo step. */
 function removeSlot(t: { n: number; words: string }) {
   const view = getView()
-  if (!view) return
+  const hit = slotSpan(t)
+  if (view && hit) unwrapSlot(view, hit.from, hit.to)
+}
+/** The slot `t` (by its place and words, else its words when only one slot has them) in the
+    text as it stands. */
+function slotSpan(t: { n: number; words: string }) {
+  const view = getView()
+  if (!view) return null
   const text = view.state.doc.toString()
   const spans = findSlots(text).map(([from, to], i) => ({ n: i + 1, from, to, words: text.slice(from + 1, to - 1) }))
   const same = spans.filter(s => s.words === t.words)
-  const hit = spans.find(s => s.n === t.n && s.words === t.words) ?? (same.length === 1 ? same[0] : null)
-  if (hit) unwrapSlot(view, hit.from, hit.to)
+  return spans.find(s => s.n === t.n && s.words === t.words) ?? (same.length === 1 ? same[0] : null)
+}
+/** The kind of a slot's words ("hairstyle" for `<short bob>`), for the picker's Add Variety;
+    "" when it can't be said. */
+function slotKind(t: { n: number; words: string }): Promise<string> {
+  const view = getView()
+  const hit = slotSpan(t)
+  if (!view || !hit) return Promise.resolve('')
+  return kindOf(view.state.doc.toString(), hit.from + 1, hit.to - 1)
+}
+/** Add Variety on a slot whose words read as a kind already (`<short bob>`): its kind takes
+    their place (`<hairstyle>`), one undo step, and the new slot opens. */
+function varySlot(t: { n: number; words: string }, kind: string) {
+  const view = getView()
+  const hit = slotSpan(t)
+  if (!view || !hit || !kind.trim() || kind.trim() === hit.words.trim()) return
+  offer.value = null
+  const at = rewriteSlot(view, hit.from, hit.to, kind.trim())
+  if (at != null) void nextTick(() => openSlotAt(at + 1))
 }
 function hideOffer() { offer.value = null }
 // The phone keyboard opening (or closing) moves the words: follow them.
@@ -666,7 +691,7 @@ function showMarks() {
 }
 watch([() => props.slotMarks, fluentSlots], showMarks, { flush: 'post' })
 
-// Suggest: phrases worth changing (underlined, and chips under the text: Detail or Any) and
+// Suggest: phrases worth changing (underlined, and chips under the text: Add Detail or Add Variety) and
 // slots it could add (chips: the camera, a face). What shows lives in the editor and moves with
 // the edits, so taking one chip leaves the others where they are; Suggest is told what shows
 // and keeps what still fits, and a fresh answer keeps the chips it shares in their places.
@@ -700,7 +725,7 @@ const suggestions = computed<Suggestions>(() => {
   const shown = shownSuggestions(view)
   return { phrases: shown.phrases as SuggestedPhrase[], adds: shown.adds, loading: pending.value === text }
 })
-/** Take a suggested phrase its way, as the offer's Detail or Any does, then open it. */
+/** Take a suggested phrase its way, as the offer's Add Detail or Add Variety does, then open it. */
 function varyPhrase(p: SuggestedPhrase, way: PhraseWay = p.way) {
   const view = getView()
   if (!view || view.state.doc.sliceString(p.from, p.to) !== p.text) return
@@ -891,7 +916,7 @@ watch(() => props.modelValue, (newVal) => {
 onMounted(() => {
   showMarks()
   document.addEventListener('click', handleClickOutside)
-  // The Detail / Any offer floats over the text: anything scrolling moves the words out from under it.
+  // The Add Detail / Add Variety offer floats over the text: anything scrolling moves the words out from under it.
   window.addEventListener('scroll', hideOffer, true)
   window.addEventListener('resize', placeOffer)
 })
@@ -908,6 +933,8 @@ defineExpose({
   suggestions,
   varyPhrase,
   removeSlot,
+  slotKind,
+  varySlot,
   addSlot,
   setPromptText,
   animateDiff,

@@ -54,14 +54,15 @@
 
       <Transition :css="false" @enter="grow" @leave="shrink">
         <div v-if="openId === r.id" class="overflow-hidden" data-inline-picker>
-          <FluentSlotPicker :program="program" :id="r.id" class="pb-0.5" @close="program.close()" @remove-slot="(s) => emit('remove-slot', s)" />
+          <FluentSlotPicker :program="program" :id="r.id" :slot-kind="slotKind" class="pb-0.5" @close="program.close()" @remove-slot="(s) => emit('remove-slot', s)" @vary-slot="(s) => emit('vary-slot', s)" />
         </div>
       </Transition>
     </div>
 
-    <!-- Suggestions: one quiet row, gone when there's nothing to offer. Phrases first: Detail
-         keeps the words and makes each picture a specific one ("Detail dog"), Any lets in others
-         of their kind ("Any hairstyle"); then + chips, each a slot to write in (the camera, a face). -->
+    <!-- Suggestions: one quiet row, gone when there's nothing to offer. Phrases first, each
+         named by Suggest's label: Add Detail keeps the words and makes each picture a specific
+         one ("Add Detail: dog"), Add Variety lets in others of their kind ("Add Variety:
+         hairstyle"); then + chips, each a slot to write in (the camera, a face). -->
     <div v-if="chips" class="mt-1 px-1 flex flex-wrap items-center gap-x-3 gap-y-0.5" data-slot-adds>
       <div v-if="s.phrases.length" class="flex flex-wrap items-center gap-0.5" data-suggest-group="phrases">
         <button
@@ -73,7 +74,7 @@
           :data-way="p.way"
           @mousedown.prevent
           @click="emit('vary', p)"
-        ><SwatchIcon v-if="p.way === 'any'" class="w-3 h-3 text-selection" /><MagnifyingGlassPlusIcon v-else class="w-3 h-3 text-selection" />{{ phraseLabel(p) }}</button>
+        ><ArrowsPointingOutIcon v-if="p.way === 'any'" class="w-3 h-3 text-selection" /><ArrowsPointingInIcon v-else class="w-3 h-3 text-selection" />{{ phraseLabel(p) }}</button>
       </div>
       <div v-if="s.adds.length" class="flex flex-wrap items-center gap-0.5" data-suggest-group="adds">
         <button
@@ -97,18 +98,23 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ChevronRightIcon, MagnifyingGlassPlusIcon, PlusIcon, SwatchIcon } from '@heroicons/vue/24/outline'
+import { ArrowsPointingInIcon, ArrowsPointingOutIcon, ChevronRightIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import FluentSlotPicker from './FluentSlotPicker.vue'
 import { inPlayCount, optionsOf, resetState, rowValue, type RowValue } from '../../utils/programChoices'
 import { slotFlash } from '../../composables/slotFlash'
 import type { PromptProgram } from '../../composables/usePromptProgram'
 import { phraseLabel, type SuggestedAdd, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
 
-const props = defineProps<{ program: PromptProgram; suggestions?: Suggestions | null }>()
+const props = defineProps<{
+  program: PromptProgram; suggestions?: Suggestions | null
+  /** The kind of a slot's words, for the picker's Add Variety (the prompt editor's slotKind). */
+  slotKind?: (slot: { n: number; words: string }) => Promise<string>
+}>()
 const emit = defineEmits<{
   (e: 'vary', phrase: SuggestedPhrase): void
   (e: 'add', add: SuggestedAdd): void
   (e: 'remove-slot', slot: { n: number; words: string }): void
+  (e: 'vary-slot', slot: { n: number; words: string; kind: string }): void
 }>()
 
 const s = computed<Suggestions>(() => props.suggestions ?? { phrases: [], adds: [] })
@@ -152,7 +158,7 @@ function clear(id: string) {
 function onOutside(e: PointerEvent) {
   if (!openId.value) return
   const t = e.target as Element | null
-  if (t?.closest?.('[data-slot-list], .cm-slot-mark, .cm-list-mark')) return
+  if (t?.closest?.('[data-slot-list], [data-slot-way-menu], .cm-slot-mark, .cm-list-mark')) return
   props.program.close()
 }
 onMounted(() => document.addEventListener('pointerdown', onOutside, true))

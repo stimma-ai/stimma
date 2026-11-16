@@ -374,7 +374,9 @@
             :suggestions="aiPromptEditorRef?.suggestions"
             @vary="(p) => aiPromptEditorRef?.varyPhrase(p)"
             @remove-slot="(s) => aiPromptEditorRef?.removeSlot(s)"
+            @vary-slot="(s) => aiPromptEditorRef?.varySlot(s, s.kind)"
             @add="(a) => aiPromptEditorRef?.addSlot(a)"
+            :slot-kind="(s) => aiPromptEditorRef?.slotKind(s) ?? Promise.resolve('')"
           />
         </div>
         </Teleport>

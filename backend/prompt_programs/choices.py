@@ -17,7 +17,7 @@ The editor sends one object per choice (`promptOptions.program.choices`, and /po
 (pinned variants, the user's own, as written, left out, picked seeds); for a user list, pins
 (its ticked items) and edits (`off`, `add`). `{"any": true}` and `{}` are no choice. Choices the
 prompt doesn't have (one from before an edit, an old detail id like `young_man.age`) are passed by.
-A slot's `mode` ("one": Flesh out; "kind": Vary) is how the user chose it to vary, over the reader's
+A slot's `mode` ("one": Add Detail; "kind": Add Variety on a named thing) is how the user chose it to vary, over the reader's
 own reading: it shapes the prepared prompt (`modes`, read by slots.prepare), not the draw.
 Picked life stages or years a person can't be (not a person, outside the ages their words allow, a child
 or teen stage the minors rules don't allow them) are passed by too.
@@ -98,7 +98,7 @@ def expand(entry: Dict[str, Any], choices: Optional[Dict[str, Any]]
 
 
 def modes(choices: Optional[Dict[str, Any]]) -> Dict[str, str]:
-    """{slot id: "one" | "kind"}: the slots the user chose a way of varying for (Flesh out, Vary)."""
+    """{slot id: "one" | "kind"}: the slots the user chose a way of varying for (Add Detail, Add Variety)."""
     from prompt_programs.reader import MODES
     out: Dict[str, str] = {}
     for key, value in (choices or {}).items():

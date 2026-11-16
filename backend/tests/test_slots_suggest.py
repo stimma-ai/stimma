@@ -53,8 +53,9 @@ class TestPhrases:
         ask = Fake(reply(phrase("rural Vietnam", "any", "region"), phrase("farmer", kind="person")))
         got = await sg.suggest(FARMER, ask)
         assert got["phrases"] == [
-            {"from": 2, "to": 8, "text": "farmer", "kind": "person", "way": "detail", "mode": "kind"},
-            {"from": 12, "to": 25, "text": "rural Vietnam", "kind": "region", "way": "any", "mode": "kind"}]
+            {"from": 2, "to": 8, "text": "farmer", "kind": "person", "way": "detail", "mode": "kind", "label": "farmer"},
+            {"from": 12, "to": 25, "text": "rural Vietnam", "kind": "region", "way": "any", "mode": "kind",
+             "label": "rural Vietnam"}]
         for v in got["phrases"]:
             assert FARMER[v["from"]:v["to"]] == v["text"]
         assert ask.calls[0][0]["role"] == "system" and FARMER in ask.calls[0][1]["content"]
@@ -116,6 +117,22 @@ class TestPhrases:
         for word in ('"detail"', '"any"', '"kind"', '"names"', '"one"'):
             assert word in sg.SUGGEST_SYSTEM
 
+    async def test_each_phrase_has_a_label_for_its_chip(self):
+        prompt = "a scruffy old dog in a worn leather jacket by the Eiffel Tower, a woman with a short bob"
+        got = await sg.suggest(prompt, Fake(reply(
+            {**phrase("scruffy old dog"), "label": "  dog. "},                           # trimmed
+            {**phrase("worn leather jacket"), "label": "a very long label for it"},     # too long: last two words
+            {**phrase("Eiffel Tower"), "label": "<landmark>"},                          # marks: last two words
+            {**phrase("short bob", "any", "hairstyle"), "label": 4})))                  # not words: last two words
+        assert [(v["text"], v["label"]) for v in got["phrases"]] == [
+            ("scruffy old dog", "dog"), ("worn leather jacket", "leather jacket"), ("Eiffel Tower", "Eiffel Tower"),
+            ("short bob", "short bob")]
+        got = await sg.suggest("a fox", Fake(reply({**phrase("fox"), "label": "red fox"})))
+        assert got["phrases"][0]["label"] == "red fox"
+        got = await sg.suggest("a fox", Fake(reply("fox")))   # missing: the phrase's own words
+        assert got["phrases"][0]["label"] == "fox"
+        assert '"label"' in sg.SUGGEST_SYSTEM
+
     async def test_a_bad_reply_gives_nothing_quietly(self):
         for junk in ({"phrases": 3, "people": "x", "medium": 4}, {"phrases": [1, None, {"phrase": 4}, {"phrase": "a"}]}, {}):
             assert await sg.suggest(FARMER, Fake(junk)) == EMPTY
@@ -136,6 +153,14 @@ class TestPrevious:
             ("golden retriever", "detail", "dog", "kind"),   # the one Any is the shown sofa's
             ("cat", "detail", "animal", "one"),              # as shown, not as the reply says
             ("sofa", "any", "furniture", "kind")]
+
+    async def test_a_shown_phrase_keeps_its_label(self):
+        shown = {"phrases": [{"text": "golden retriever", "way": "any", "kind": "dog", "mode": "kind", "label": "dog"}]}
+        got = await sg.suggest(self.PROMPT, Fake(reply({**phrase("golden retriever"), "label": "retriever"})), previous=shown)
+        assert [(v["text"], v["label"]) for v in got["phrases"]] == [("golden retriever", "dog")]
+        shown = {"phrases": [{"text": "golden retriever", "way": "any", "kind": "dog", "mode": "kind"}]}   # from before labels
+        got = await sg.suggest(self.PROMPT, Fake(reply()), previous=shown)
+        assert [(v["text"], v["label"]) for v in got["phrases"]] == [("golden retriever", "golden retriever")]
 
     async def test_a_reply_repeating_a_shown_phrase_keeps_it_once(self):
         prompt = "a dog chasing a dog"
@@ -243,8 +268,10 @@ class TestAdds:
 
     def test_the_adds_are_a_fixed_list(self):
         assert [(a["key"], a["slot"], a["place"]) for a in sg.ADDS] == [("face", "face", "after_person"), ("camera", "camera", "end")]
-        for gone in ("looks", "vary", "shot_stated", "label"):
+        for gone in ("looks", "vary", "shot_stated"):
             assert f'"{gone}"' not in sg.SUGGEST_SYSTEM
+        # A label is only a phrase's now, never an add's (adds take theirs from ADDS).
+        assert '"label"' not in sg.SUGGEST_SYSTEM.split('"medium"')[-1]
 
 
 # --------------------------------------------------------------------------- the call
@@ -368,7 +395,8 @@ class TestRoutes:
             r = await c.post("/api/prompt-programs/suggest", json={"prompt": FARMER, "project_id": 3})
             assert r.status_code == 200
             assert r.json() == {
-                "phrases": [{"from": 2, "to": 8, "text": "farmer", "kind": "person", "way": "detail", "mode": "kind"}],
+                "phrases": [{"from": 2, "to": 8, "text": "farmer", "kind": "person", "way": "detail", "mode": "kind",
+                             "label": "farmer"}],
                 "adds": [{"key": "face", "label": "Face", "at": 8, "text": " with <face>"},
                          {"key": "camera", "label": "Camera", "at": 25, "text": ", <camera>"}]}
             again = await c.post("/api/prompt-programs/suggest", json={"prompt": FARMER})

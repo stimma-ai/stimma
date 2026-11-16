@@ -5,8 +5,8 @@ import { build } from 'vite'
 import { chromium, expect } from '@playwright/test'
 import config from '../vite.config.js'
 
-// Making and opening slots in the prompt editor (Fluent): underlined phrases and the Detail /
-// Any offer, `<` around a selection, the suggestions under the text (phrase chips and + chips
+// Making and opening slots in the prompt editor (Fluent): underlined phrases and the Add Detail /
+// Add Variety offer, `<` around a selection, the suggestions under the text (phrase chips and + chips
 // that write a slot in), and the open-slot event.
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
@@ -40,7 +40,7 @@ function answer(prompt, { way = 'detail', mode = 'kind', reverse = false } = {})
   const inNote = at => prompt.slice(prompt.lastIndexOf('\n', at) + 1).trimStart().startsWith('#')
   let i = prompt.indexOf('young man')
   while (i >= 0 && inNote(i)) i = prompt.indexOf('young man', i + 1)
-  const phrases = i >= 0 && prompt[i - 1] !== '<' ? [{ from: i, to: i + 9, text: 'young man', kind: 'person', way, mode }] : []
+  const phrases = i >= 0 && prompt[i - 1] !== '<' ? [{ from: i, to: i + 9, text: 'young man', kind: 'person', way, mode, label: 'man' }] : []
   const adds = []
   if (i >= 0 && !prompt.includes('<face>')) adds.push({ key: 'face', label: 'Face', at: i + 9 + (prompt[i - 1] === '<' ? 1 : 0), text: ' with <face>' })
   const end = endOfPicture(prompt)
@@ -94,21 +94,21 @@ async function selectEnd(page, editor, n) {
   for (let i = 0; i < n; i++) await page.keyboard.press('Shift+ArrowLeft')
 }
 
-test('a phrase Fluent underlines becomes a slot with Detail, and opens', async t => {
+test('a phrase Fluent underlines becomes a slot with Add Detail, and opens', async t => {
   const { page, editor, calls, shot } = await open(t)
   await expect(page.locator('.cm-could-vary')).toHaveText('young man', { timeout: 3000 })
   assert.deepEqual(calls.suggest, [{ project_id: 7, prompt: PROMPT, previous: { phrases: [], adds: [] } }])
-  await expect(page.locator('[data-slot-vary]')).toHaveText(['Detail young man'])
+  await expect(page.locator('[data-slot-vary]')).toHaveText(['Add Detail: man'])
   await expect(page.locator('[data-slot-add]')).toHaveText(['Face', 'Camera'])
   await shot('underlined')
 
   await page.locator('.cm-could-vary').click()
-  await expect(offered(page)).toHaveText(['Detail', 'Any person'])
+  await expect(offered(page)).toHaveText(['Add Detail', 'Add Variety'])
   assert.deepEqual(calls.kind, [], 'Suggest named its kind: nothing asked')
   await shot('vary-offer')
   await page.locator('[data-slot-offer] [data-way="detail"]').click()
   await expect.poll(() => text(page)).toBe('dorm room with a <young man>')
-  assert.deepEqual(await modes(page), [], 'Detail on a kind is how a slot starts')
+  assert.deepEqual(await modes(page), [], 'Add Detail on a kind is how a slot starts')
   await expect(editor.locator('.cm-slot')).toHaveText('<young man>')
   await expect(offered(page)).toHaveCount(0)
   const [o] = await opened(page)
@@ -122,7 +122,7 @@ test('a phrase Fluent underlines becomes a slot with Detail, and opens', async t
   assert.deepEqual((await opened(page))[1].words, 'young man')
 })
 
-test('every underline offers both, Suggest\'s way first; Detail keeps the words, Any writes the kind', async t => {
+test('every underline offers both, Suggest\'s way first; Add Detail keeps the words, Add Variety writes the kind', async t => {
   for (const [way, mode, order, pick, after, said] of [
     ['detail', 'kind', ['detail', 'any'], 'detail', 'dorm room with a <young man>', []],
     ['detail', 'one', ['detail', 'any'], 'detail', 'dorm room with a <young man>', [[1, 'one']]],
@@ -134,6 +134,8 @@ test('every underline offers both, Suggest\'s way first; Detail keeps the words,
     await page.locator('.cm-could-vary').click()
     await expect(offered(page)).toHaveCount(2)
     assert.deepEqual(await offered(page).evaluateAll(b => b.map(e => e.dataset.way)), order, `${way}/${mode}`)
+    // Two words each, never the prompt's words or the kind.
+    await expect(offered(page)).toHaveText(order.map(w => (w === 'any' ? 'Add Variety' : 'Add Detail')))
     if (way === 'any' && mode === 'kind') await shot('any-offer')
     await page.locator(`[data-slot-offer] [data-way="${pick}"]`).click()
     await expect.poll(() => text(page)).toBe(after)
@@ -146,8 +148,9 @@ test('every underline offers both, Suggest\'s way first; Detail keeps the words,
 test('the offer by keyboard: Tab into it, arrows between, Enter picks, Escape goes back', async t => {
   const { page, editor, calls } = await open(t, { start: 'a cat on a porch' })
   await selectEnd(page, editor, 5)
-  // Words Suggest didn't name: Any waits for their kind.
-  await expect(offered(page)).toHaveText(['Detail', 'Any place'])
+  // Words Suggest didn't name: Add Variety waits for their kind.
+  await expect(offered(page)).toHaveText(['Add Detail', 'Add Variety'])
+  await expect(page.locator('[data-slot-offer] [data-way="any"]')).toBeEnabled()
   assert.deepEqual(calls.kind.at(-1), { project_id: 7, prompt: 'a cat on a porch', start: 11, end: 16 })
   await page.keyboard.press('Tab')
   await expect(page.locator('[data-slot-offer] [data-way="detail"]')).toBeFocused()
@@ -169,14 +172,14 @@ test('the offer by keyboard: Tab into it, arrows between, Enter picks, Escape go
   await expect(editor).toBeFocused()
 })
 
-test('Any is off while the words have no kind', async t => {
+test('Add Variety is off while the words have no kind', async t => {
   const { page, editor, calls } = await open(t, { start: 'a cat on a porch' })
   await editor.click()
   await page.keyboard.press('Home')
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('ArrowRight')
   for (let i = 0; i < 3; i++) await page.keyboard.press('Shift+ArrowRight')
-  await expect(offered(page)).toHaveText(['Detail', 'Any…'])
+  await expect(offered(page)).toHaveText(['Add Detail', 'Add Variety'])
   await expect.poll(() => calls.kind.map(c => c.prompt.slice(c.start, c.end))).toContain('cat')
   await page.waitForTimeout(200)
   await expect(page.locator('[data-slot-offer] [data-way="any"]')).toBeDisabled()
@@ -184,7 +187,7 @@ test('Any is off while the words have no kind', async t => {
   await expect.poll(() => text(page)).toBe('a <cat> on a porch')
 })
 
-test('selected words: Detail under them, and < wraps them; with nothing selected < types', async t => {
+test('selected words: Add Detail under them, and < wraps them; with nothing selected < types', async t => {
   const { page, editor } = await open(t, { start: 'a cat on a porch' })
   await selectEnd(page, editor, 5)
   await expect(page.locator('[data-slot-offer] [data-way="detail"]')).toBeVisible()
@@ -223,7 +226,7 @@ async function drag(page, from, to) {
   await page.mouse.up()
 }
 
-test('every way of selecting words offers Detail; a collapsed selection hides it', async t => {
+test('every way of selecting words offers Add Detail; a collapsed selection hides it', async t => {
   const { page, editor } = await open(t, { start: 'a cat on a sunny porch' })
   const offer = page.locator('[data-slot-offer]')
   const detailOn = async (how, wrapped) => {
@@ -293,7 +296,7 @@ test('on touch, the offer floats by the words and is not turned into a bottom sh
   const chip = page.locator('[data-slot-offer]')
   await expect(chip).toBeVisible()
   const words = await editor.boundingBox()
-  await expect(offered(page)).toHaveText(['Detail', 'Any place'])
+  await expect(offered(page)).toHaveText(['Add Detail', 'Add Variety'])
   const box = await chip.boundingBox()
   assert.ok(box.width < 320, `chip width ${box.width}: not a full-width sheet`)
   for (const b of await offered(page).all()) assert.ok((await b.boundingBox()).height >= 43, 'a touch-sized target')
@@ -316,8 +319,8 @@ test('no wrapping in a comment line or inside a list', async t => {
 
 test('a phrase chip takes its words Suggest\'s way and opens the slot, as the offer does', async t => {
   for (const [how, label, after] of [
-    [{ way: 'detail', mode: 'one' }, 'Detail young man', 'dorm room with a <young man>'],
-    [{ way: 'any' }, 'Any person', 'dorm room with a <person>'],
+    [{ way: 'detail', mode: 'one' }, 'Add Detail: man', 'dorm room with a <young man>'],
+    [{ way: 'any' }, 'Add Variety: man', 'dorm room with a <person>'],
   ]) {
     const { page } = await open(t, { suggest: how })
     const chip = page.locator('[data-slot-vary="young man"]')
@@ -338,7 +341,7 @@ test('an add writes its slot where Suggest placed it, opens it, and undoes in on
   await expect.poll(async () => (await opened(page)).map(o => [o.n, o.words])).toEqual([[1, 'camera']])
   // Its slot is in the prompt now: its chip goes; the others stay where they were.
   await expect(page.locator('[data-slot-add]')).toHaveText(['Face'])
-  await expect(page.locator('[data-slot-vary]')).toHaveText(['Detail young man'])
+  await expect(page.locator('[data-slot-vary]')).toHaveText(['Add Detail: man'])
   await shot('added')
   // Once Suggest has answered for the text with the camera in it.
   await expect.poll(() => calls.suggest.map(c => c.prompt), { timeout: 4000 }).toContain(`${PROMPT}, <camera>`)
@@ -372,7 +375,7 @@ test('chips move with the edits, Suggest is told what shows, and a fresh answer 
   await expect(page.locator('[data-slot-add]')).toHaveText(['Face', 'Camera'])
   await expect.poll(() => calls.suggest.length, { timeout: 4000 }).toBe(2)
   assert.deepEqual(calls.suggest[1], { project_id: 7, prompt: `${PROMPT} asleep`,
-    previous: { phrases: [{ text: 'young man', way: 'detail', kind: 'person', mode: 'kind' }], adds: ['face', 'camera'] } })
+    previous: { phrases: [{ text: 'young man', way: 'detail', kind: 'person', mode: 'kind', label: 'man' }], adds: ['face', 'camera'] } })
   await page.waitForTimeout(300)
   await expect(page.locator('[data-slot-add]')).toHaveText(['Face', 'Camera'])
   await page.locator('[data-slot-add="camera"]').click()

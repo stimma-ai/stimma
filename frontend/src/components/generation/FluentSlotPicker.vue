@@ -104,9 +104,53 @@
 
     <!-- The variants -->
     <template v-else>
-      <!-- How the slot varies (a different one each time, or the same one shown new ways), and taking the slot back out of the prompt, its words staying. -->
+      <!-- The slot's way (Add Detail or Add Variety): a small icon that opens a two-item menu;
+           and taking the slot back out of the prompt, its words staying. -->
       <div v-if="!isList" class="shrink-0 px-2 pt-0.5 pb-1.5 flex items-center gap-2" data-slot-head>
-        <SegmentedControl v-if="slot?.state !== 'reading' || st?.mode" :model-value="mode" :options="modeOptions" aria-label="How it varies" data-slot-mode @update:model-value="setMode" />
+        <button
+          v-if="slot?.state !== 'reading' || st?.mode"
+          ref="wayBtn"
+          type="button"
+          class="flex items-center gap-0.5 pl-1.5 pr-1 py-1 coarse:py-2 coarse:min-h-11 rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60"
+          aria-haspopup="menu"
+          :aria-expanded="wayOpen"
+          :aria-label="WAY_NAMES[ways.way]"
+          :title="WAY_NAMES[ways.way]"
+          data-slot-way
+          :data-way="ways.way"
+          @click="toggleWay"
+        >
+          <ArrowsPointingOutIcon v-if="ways.way === 'any'" class="w-3.5 h-3.5 text-selection" />
+          <ArrowsPointingInIcon v-else class="w-3.5 h-3.5 text-selection" />
+          <ChevronDownIcon :class="['w-2.5 h-2.5 text-content-muted transition-transform duration-150', wayOpen ? 'rotate-180' : '']" stroke-width="2.5" />
+        </button>
+        <Teleport to="body">
+          <div
+            v-if="wayOpen"
+            ref="wayMenu"
+            role="menu"
+            class="fixed z-menu py-1 min-w-40 bg-surface border border-edge-subtle rounded-lg shadow-lg"
+            :style="wayStyle"
+            data-slot-way-menu
+          >
+            <button
+              v-for="w in (['detail', 'any'] as const)"
+              :key="w"
+              type="button"
+              role="menuitemradio"
+              :aria-checked="ways.way === w"
+              :disabled="w === 'any' && ways.variety === 'rewrite' && !slotKindNow"
+              class="w-full flex items-center gap-2 px-3 py-1.5 coarse:py-2.5 text-left text-xs coarse:text-[13px] text-content hover:bg-overlay-subtle disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:bg-overlay-subtle"
+              :data-way-item="w"
+              @click="chooseWay(w)"
+            >
+              <ArrowsPointingOutIcon v-if="w === 'any'" class="w-3.5 h-3.5 shrink-0 text-selection" />
+              <ArrowsPointingInIcon v-else class="w-3.5 h-3.5 shrink-0 text-selection" />
+              <span class="flex-1 whitespace-nowrap">{{ WAY_NAMES[w] }}</span>
+              <CheckIcon :class="['w-3.5 h-3.5 shrink-0 text-selection', ways.way === w ? '' : 'invisible']" stroke-width="2.5" />
+            </button>
+          </div>
+        </Teleport>
         <button type="button" class="ml-auto px-2 py-1 coarse:py-2 rounded-md text-xs text-content-secondary hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60" data-remove-slot @click="removeSlot">Remove</button>
       </div>
       <!-- A person's Age, Gender and Descent sit in the list's own columns. -->
@@ -188,23 +232,32 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ArrowPathIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, PlusIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, PlusIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import SearchField from '../ui/SearchField.vue'
-import SegmentedControl from '../ui/SegmentedControl.vue'
 import Spinner from '../ui/Spinner.vue'
 import { matchesQuery } from '../../utils/programVocab'
 import {
   ageItems, cap, clearSeed, descentItems, genderItems, hasSeeds, keptPieces, lineString, lookOf, optionsOf,
-  pickedHeritages, pickedYears, setPicked, shownVariants, slotFailed, toggleGender, toggleHeritage, toggleRegion, toggleStage, toggleValue, toggleYear,
+  pickedHeritages, pickedYears, setPicked, shownVariants, slotFailed, slotWays, toggleGender, toggleHeritage, toggleRegion, toggleStage, toggleValue, toggleYear,
   yearOfAge,
 } from '../../utils/programChoices'
 import type { AgePicker, ChoiceState, Variant } from '../../utils/programWire'
 import type { PromptProgram } from '../../composables/usePromptProgram'
+import { WAY_NAMES } from '../../utils/promptSuggestions'
 
 type Stage = AgePicker['stages'][number]
 
-const props = withDefaults(defineProps<{ program: PromptProgram; id: string; listMax?: string }>(), { listMax: '15rem' })
-const emit = defineEmits<{ (e: 'close'): void; (e: 'remove-slot', slot: { n: number; words: string }): void }>()
+const props = withDefaults(defineProps<{
+  program: PromptProgram; id: string; listMax?: string
+  /** The kind of a slot's words ("hairstyle" for `<short bob>`), for Add Variety; "" when unknown. */
+  slotKind?: (slot: { n: number; words: string }) => Promise<string>
+}>(), { listMax: '15rem' })
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'remove-slot', slot: { n: number; words: string }): void
+  /** Add Variety on a slot whose words read as a kind: write `kind` in their place. */
+  (e: 'vary-slot', slot: { n: number; words: string; kind: string }): void
+}>()
 
 const rowClass = 'w-full flex items-start gap-2 px-2 py-1.5 coarse:py-2.5 rounded-md text-left text-xs coarse:text-[13px] cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60'
 const subRowClass = 'grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)_auto] items-start gap-x-3 w-full px-2 py-1.5 coarse:py-2.5 rounded-md text-left text-xs coarse:text-[13px] leading-snug cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60'
@@ -227,13 +280,51 @@ function set(next: ChoiceState | null) {
   props.program.setState(props.id, next)
 }
 
-// Both keep the words: a different one of them in each picture, or one specific thing shown
-// new ways (the Eiffel Tower). The slot's variants are written again that way.
-const modeOptions = [{ label: 'A different one', value: 'kind' }, { label: 'The same one', value: 'one' }]
-const mode = computed(() => props.program.modeOf(props.id))
-function setMode(v: string | number) {
-  if (v === 'one' || v === 'kind') props.program.setMode(props.id, v)
+// The slot's way. Add Detail keeps the words and makes each picture a specific one of them; Add
+// Variety lets others of their kind in. A named thing (<Eiffel Tower>) switches by mode, its
+// variants written again that way; words that read as a kind already (<short bob>) take Add
+// Variety by having their kind written in their place (<hairstyle>), as the prompt's own offer
+// does, and the new slot opens.
+const ways = computed(() => slotWays(slot.value, st.value))
+const wayOpen = ref(false)
+const wayBtn = ref<HTMLElement | null>(null)
+const wayMenu = ref<HTMLElement | null>(null)
+const wayStyle = ref<Record<string, string>>({})
+const slotKindNow = ref('')
+let kindFor = ''
+function toggleWay() {
+  if (wayOpen.value) { wayOpen.value = false; return }
+  const r = wayBtn.value?.getBoundingClientRect()
+  if (!r) return
+  const top = r.bottom + 4 + 80 > window.innerHeight ? r.top - 4 - 80 : r.bottom + 4
+  wayStyle.value = { left: `${Math.round(Math.max(8, Math.min(window.innerWidth - 168, r.left)))}px`, top: `${Math.round(top)}px` }
+  wayOpen.value = true
+  // Add Variety by rewriting waits for the words' kind, never shown.
+  const s = slot.value
+  if (ways.value.variety !== 'rewrite' || !s || !props.slotKind) return
+  const key = `${s.n}:${s.words}`
+  if (kindFor === key && slotKindNow.value) return
+  kindFor = key
+  slotKindNow.value = ''
+  void props.slotKind({ n: s.n, words: s.words }).then(k => { if (kindFor === key) slotKindNow.value = k.trim() })
 }
+function chooseWay(w: 'detail' | 'any') {
+  wayOpen.value = false
+  const s = slot.value
+  const to = w === 'detail' ? ways.value.detail : ways.value.variety
+  if (!s || !to) return
+  if (to === 'rewrite') {
+    if (slotKindNow.value) emit('vary-slot', { n: s.n, words: s.words, kind: slotKindNow.value })
+  } else props.program.setMode(props.id, to)
+}
+// A press anywhere but the menu or its button closes it; so does scrolling it out from under.
+function onWayOutside(e: Event) {
+  const t = e.target as Node | null
+  if (!wayOpen.value || (t && (wayMenu.value?.contains(t) || wayBtn.value?.contains(t)))) return
+  wayOpen.value = false
+}
+function closeWay() { wayOpen.value = false }
+watch(() => props.id, () => { wayOpen.value = false; slotKindNow.value = ''; kindFor = '' })
 function removeSlot() {
   const s = slot.value
   if (!s) return
@@ -436,11 +527,22 @@ function onKey(e: KeyboardEvent) {
   if (editor && editor.querySelector('.cm-tooltip')) return
   e.preventDefault()
   e.stopPropagation()
-  if (query.value) query.value = ''
+  if (wayOpen.value) { wayOpen.value = false; wayBtn.value?.focus() }
+  else if (query.value) query.value = ''
   else if (searching.value) searching.value = false
   else if (filter.value) back()
   else emit('close')
 }
-onMounted(() => window.addEventListener('keydown', onKey, true))
-onUnmounted(() => window.removeEventListener('keydown', onKey, true))
+onMounted(() => {
+  window.addEventListener('keydown', onKey, true)
+  document.addEventListener('pointerdown', onWayOutside, true)
+  window.addEventListener('scroll', closeWay, true)
+  window.addEventListener('resize', closeWay)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKey, true)
+  document.removeEventListener('pointerdown', onWayOutside, true)
+  window.removeEventListener('scroll', closeWay, true)
+  window.removeEventListener('resize', closeWay)
+})
 </script>

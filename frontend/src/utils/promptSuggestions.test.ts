@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { cleanSuggestions, insertAdd, NO_SUGGESTIONS, phraseLabel } from './promptSuggestions.ts'
+import { cleanSuggestions, insertAdd, NO_SUGGESTIONS, phraseLabel, WAY_NAMES } from './promptSuggestions.ts'
 
 test('a /suggest answer keeps well-formed phrases and adds', () => {
   const got = cleanSuggestions({
     phrases: [
-      { from: 2, to: 8, text: 'farmer', kind: ' person ', way: 'detail', mode: 'kind' },
-      { from: 12, to: 21, text: 'short bob', kind: 'hairstyle', way: 'any' },
+      { from: 2, to: 8, text: 'farmer', kind: ' person ', way: 'detail', mode: 'kind', label: ' farmer ' },
+      { from: 12, to: 21, text: 'short bob', kind: 'hairstyle', way: 'any', label: 'hairstyle' },
+      { from: 30, to: 49, text: 'worn leather jacket', kind: 'jacket', way: 'detail', label: 4 },   // no label: its last two words
       { from: 0, to: 1, text: 'a', way: 'any', mode: 'one' },       // Any without a kind: Detail
       { from: 'x', to: 3, text: 'b' }, { from: 1, to: 2 }, null,
     ],
@@ -19,9 +20,10 @@ test('a /suggest answer keeps well-formed phrases and adds', () => {
     ],
   })
   assert.deepEqual(got.phrases, [
-    { from: 2, to: 8, text: 'farmer', kind: 'person', way: 'detail', mode: 'kind' },
-    { from: 12, to: 21, text: 'short bob', kind: 'hairstyle', way: 'any', mode: 'kind' },
-    { from: 0, to: 1, text: 'a', kind: '', way: 'detail', mode: 'one' },
+    { from: 2, to: 8, text: 'farmer', kind: 'person', way: 'detail', mode: 'kind', label: 'farmer' },
+    { from: 12, to: 21, text: 'short bob', kind: 'hairstyle', way: 'any', mode: 'kind', label: 'hairstyle' },
+    { from: 30, to: 49, text: 'worn leather jacket', kind: 'jacket', way: 'detail', mode: 'kind', label: 'leather jacket' },
+    { from: 0, to: 1, text: 'a', kind: '', way: 'detail', mode: 'one', label: 'a' },
   ])
   assert.deepEqual(got.adds, [
     { key: 'face', label: 'Face', at: 8, text: ' with <face>' },
@@ -33,12 +35,15 @@ test('a /suggest answer keeps well-formed phrases and adds', () => {
     looks: [{ text: 'documentary photo', label: 'documentary' }], adds: [{ text: 'carrying a basket', label: 'basket' }] }), NO_SUGGESTIONS)
 })
 
-test('a phrase chip says Detail with its words, or Any with its kind', () => {
-  assert.equal(phraseLabel({ text: 'dog', kind: 'animal', way: 'detail' }), 'Detail dog')
-  assert.equal(phraseLabel({ text: 'short bob', kind: 'hairstyle', way: 'any' }), 'Any hairstyle')
-  assert.equal(phraseLabel({ text: 'dog', kind: 'animal', way: 'detail' }, 'any'), 'Any animal')
-  assert.equal(phraseLabel({ text: 'short bob', kind: 'hairstyle', way: 'any' }, 'detail'), 'Detail short bob')
-  assert.equal(phraseLabel({ text: 'dog', kind: '', way: 'any' }), 'Detail dog')
+test('a phrase chip says Add Detail or Add Variety, then Suggest’s label', () => {
+  assert.equal(phraseLabel({ text: 'scruffy old dog', kind: 'animal', way: 'detail', label: 'dog' }), 'Add Detail: dog')
+  assert.equal(phraseLabel({ text: 'short bob', kind: 'hairstyle', way: 'any', label: 'hairstyle' }), 'Add Variety: hairstyle')
+  assert.equal(phraseLabel({ text: 'dog', kind: 'animal', way: 'detail', label: 'dog' }, 'any'), 'Add Variety: dog')
+  assert.equal(phraseLabel({ text: 'short bob', kind: 'hairstyle', way: 'any', label: 'hairstyle' }, 'detail'), 'Add Detail: hairstyle')
+  // Add Variety needs a kind; no label: the words.
+  assert.equal(phraseLabel({ text: 'dog', kind: '', way: 'any', label: 'dog' }), 'Add Detail: dog')
+  assert.equal(phraseLabel({ text: 'farmer', kind: 'person', way: 'detail' }), 'Add Detail: farmer')
+  assert.deepEqual(WAY_NAMES, { detail: 'Add Detail', any: 'Add Variety' })
 })
 
 test('an add goes in where Suggest placed it, and says where its slot starts', () => {

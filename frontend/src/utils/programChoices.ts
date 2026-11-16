@@ -99,7 +99,7 @@ const own = (s: ChoiceState | null | undefined): ChoiceState => ({
   ...(s?.mode ? { mode: s.mode } : {}),
 })
 
-/** Vary or Flesh out the slot (its pool is written again that way); the picks go with the old
+/** Set the slot's mode, 'one' or 'kind' (its pool is written again that way); the picks go with the old
     pool, the user's own variants stay. */
 export function setMode(s: ChoiceState | null | undefined, mode: SlotMode): ChoiceState | null {
   return cleanState({ ...(s?.add?.length ? { add: s.add } : {}), mode })
@@ -108,6 +108,20 @@ export function setMode(s: ChoiceState | null | undefined, mode: SlotMode): Choi
 /** How a slot varies now: the user's choice, else the reader's reading. */
 export function modeOf(slot: Pick<ProgramSlot, 'one'> | null | undefined, s: ChoiceState | null | undefined): SlotMode {
   return s?.mode ?? (slot?.one ? 'one' : 'kind')
+}
+
+/** A slot's way in its picker: Add Detail ('detail') or Add Variety ('any'), and what choosing
+    the other does. `detail`/`variety`: the mode to set, 'rewrite' (its words read as a kind
+    already, `<short bob>`: Add Variety writes their kind in their place, `<hairstyle>`), or
+    null when that way is the current one. A named thing (`<Eiffel Tower>`) switches by mode;
+    one the user forced to 'one' the old way is Add Detail. */
+export function slotWays(slot: Pick<ProgramSlot, 'one' | 'kind_of' | 'state'> | null | undefined, s: ChoiceState | null | undefined):
+  { way: 'detail' | 'any'; detail: SlotMode | null; variety: SlotMode | 'rewrite' | null } {
+  // Varied by mode: a named thing the user chose to vary (read with its kind, or being read again).
+  if (s?.mode === 'kind' && (slot?.kind_of || slot?.state === 'reading')) return { way: 'any', detail: 'one', variety: null }
+  // Named one thing (the reader's reading, or the user's old choice): others of its kind by mode.
+  if (s?.mode === 'one' || (!s?.mode && slot?.one)) return { way: 'detail', detail: null, variety: 'kind' }
+  return { way: 'detail', detail: null, variety: 'rewrite' }
 }
 
 /** {slot id: mode} for every choice that has one: what a prepare is read with. */

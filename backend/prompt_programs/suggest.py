@@ -1,12 +1,14 @@
 """Suggest: the editor's recommendations for a Fluent prompt, in two kinds.
 
 phrases  up to 3 phrases the user wrote worth changing from picture to picture, each with a
-         way: "detail" (keep the words true and make each picture a specific, fully described
-         one of them: "dog", "boy", the Eiffel Tower seen new ways) or "any" (the words become one
-         of their kind and the others come in: "short bob" -> any hairstyle). Every phrase also
-         names its kind ("hairstyle") so the editor can offer both. The editor underlines them and
-         shows a chip ("Detail dog", "Any hairstyle"); Detail wraps the words in brackets, Any
-         writes the kind in their place, in brackets.
+         way: "detail" (Add Detail: keep the words true and make each picture a specific, fully
+         described one of them: "dog", "boy", the Eiffel Tower seen new ways) or "any" (Add
+         Variety: the words become one of their kind and the others come in: "short bob" -> a
+         hairstyle). Every phrase also names its kind ("hairstyle") so the editor can offer both,
+         and a label, one or two plain words naming the thing ("dog", "hairstyle"). The editor
+         underlines them and shows a chip ("Add Detail: dog", "Add Variety: hairstyle"); Add
+         Detail wraps the words in brackets, Add Variety writes the kind in their place, in
+         brackets.
 adds     things good prompts of this kind state and this one leaves to the image model's habits,
          each written in as a new slot: the camera of a photo, the face of a person. They come
          from a fixed list (ADDS); the model only says which apply.
@@ -31,7 +33,7 @@ from prompt_programs.slots import _VERBATIM, _line_marks, _lines, find_slots, is
 
 log = get_logger(__name__)
 
-SUGGEST_VERSION = "suggest-10"   # suggest-10: people listed, faces described or not. suggest-9: the person a face is offered for may be a slot; phrases on screen stay. suggest-8: phrases say detail (more specific) or any (its kind), with their kind; adds are slots from a fixed list (camera, face), no fixed words. suggest-7: "one" labels say flesh out. suggest-6: vary phrases say how. suggest-5: vary, looks and adds.
+SUGGEST_VERSION = "suggest-11"   # suggest-11: phrases give a label for their chip. suggest-10: people listed, faces described or not. suggest-9: the person a face is offered for may be a slot; phrases on screen stay. suggest-8: phrases say detail (more specific) or any (its kind), with their kind; adds are slots from a fixed list (camera, face), no fixed words. suggest-7: "one" labels say flesh out. suggest-6: vary phrases say how. suggest-5: vary, looks and adds.
 MAX_PHRASES, MAX_ANY = 3, 1
 SUGGEST_TOKENS = 400
 KIND_TOKENS = 40
@@ -48,6 +50,7 @@ phrases: the one to three phrases already written in the prompt that would be mo
   "any" is for a specific choice the user made that could open up to others of its kind: "short bob" (any hairstyle), "golden retriever" (any dog), "red dress" (any dress), "Paris" (any city). Give at most one "any", and only when a phrase like that is in the prompt.
 - kind: the plain word for what kind of thing it is, one or two words, singular, that could stand in the prompt in its place: "hairstyle" for "short bob", "dog" for "golden retriever", "animal" for "dog", "person" for "boy", "city" for "Paris", "landmark" for "Eiffel Tower".
 - names: "one" when it names one specific thing (a particular place, landmark, brand, character, person), else "kind".
+- label: one or two plain words naming the thing, for a button, however long the phrase is: "dog" for "scruffy old dog", "hairstyle" for "short bob", "jacket" for "worn leather jacket", "Eiffel Tower" for "Eiffel Tower".
 Give none when nothing is worth it.
 
 medium: "photo" when the picture should look like a photograph, as any prompt that names no other medium should; otherwise its medium in one to three words: "watercolor", "vector logo", "anime illustration". A prompt written as anime-style tags ("1girl, solo") is an anime illustration unless its tags ask for a photo.
@@ -59,7 +62,7 @@ people: every human in the picture, each copied exactly as written, the shortest
 face_described: true when the prompt already says what any of their faces look like (features, expression, makeup), else false.
 
 Reply with JSON only, in this shape:
-{"phrases": [{"phrase": "dog", "way": "detail", "kind": "animal", "names": "kind"}], "medium": "photo", "camera_stated": false, "people": ["boy"], "face_described": false}"""
+{"phrases": [{"phrase": "dog", "way": "detail", "kind": "animal", "names": "kind", "label": "dog"}], "medium": "photo", "camera_stated": false, "people": ["boy"], "face_described": false}"""
 
 KIND_SYSTEM = """You name what kind of thing a phrase in an image prompt is. Reply with the plain word for its kind, one or two words, singular, that could stand in the prompt in its place, and nothing else: "hairstyle" for "short bob", "dog" for "golden retriever", "animal" for "dog", "city" for "Paris", "dress" for "red dress", "person" for "boy"."""
 
@@ -153,6 +156,15 @@ def _body(prompt: str) -> str:
 _MARKS = re.compile(r"[<>\[\]{}|#]")
 
 
+def _label(value: Any, text: str) -> str:
+    """A phrase's chip label as the model gave it, trimmed: plain words, at most three of them.
+    Else the phrase's last two words."""
+    k = " ".join(value.split()).strip(".") if isinstance(value, str) else ""
+    if k and len(k.split()) <= 3 and len(k) <= 30 and not _MARKS.search(k):
+        return k
+    return " ".join(text.split()[-2:])
+
+
 def _kind(value: Any) -> str:
     """A kind as the model gave it: plain words, one to three of them, else ""."""
     k = value.strip().strip(".").strip() if isinstance(value, str) else ""
@@ -194,14 +206,16 @@ def check_suggestions(prompt: str, got: Dict[str, Any], previous: Optional[Dict[
     a slot could stand, outside comment lines, verbatim, lists, names and slots, and not over a
     phrase kept before it; the whole prompt is not a phrase. "any" needs a kind (else it is
     "detail"), and only one "any" is kept. A phrase the editor shows now (`previous`) stays
-    as it was while it can still become a slot, whatever the reply says. An add is kept when the reply says it applies and
+    as it was (its label too) while it can still become a slot, whatever the reply says. A label
+    is the reply's, trimmed, when it is plain words, at most three; else the phrase's last two words. An add is kept when the reply says it applies and
     the prompt has no slot of those words yet."""
     blocked, slots = _blocked(prompt)
     body = _body(prompt)
     phrases: List[Dict[str, Any]] = []
     anys = 0
     shown = [p for p in (previous or {}).get("phrases") or [] if isinstance(p, dict)]
-    kept = [{"phrase": p.get("text"), "way": p.get("way"), "kind": p.get("kind"), "names": p.get("mode")} for p in shown]
+    kept = [{"phrase": p.get("text"), "way": p.get("way"), "kind": p.get("kind"), "names": p.get("mode"),
+             "label": p.get("label")} for p in shown]
     replied = got.get("phrases") if isinstance(got.get("phrases"), list) else []
     shown_texts = {str(p.get("phrase") or "").strip() for p in kept}
     for i, item in enumerate(kept + replied):
@@ -222,7 +236,8 @@ def check_suggestions(prompt: str, got: Dict[str, Any], previous: Optional[Dict[
         anys += way == "any"
         names = item.get("names")
         phrases.append({"from": span[0], "to": span[1], "text": text, "kind": kind, "way": way,
-                        "mode": "one" if isinstance(names, str) and names.strip().lower() == "one" else "kind"})
+                        "mode": "one" if isinstance(names, str) and names.strip().lower() == "one" else "kind",
+                        "label": _label(item.get("label"), text)})
         if len(phrases) == MAX_PHRASES + 1:
             break
     phrases.sort(key=lambda v: v["from"])
@@ -311,7 +326,7 @@ EMPTY: Dict[str, List[Dict[str, Any]]] = {"phrases": [], "adds": []}
 async def suggest(prompt: str, ask: Optional[Ask] = None, cache: Optional[NarrowCache] = None,
                   project_id: Optional[int] = None, model: str = "", raw: bool = False,
                   previous: Optional[Dict[str, Any]] = None) -> Dict[str, List[Dict[str, Any]]]:
-    """{"phrases": [{from, to, text, kind, way, mode}], "adds": [{key, label, at, text}]} for the
+    """{"phrases": [{from, to, text, kind, way, mode, label}], "adds": [{key, label, at, text}]} for the
     prompt as sent. No call for an empty prompt (or only comment lines) or Raw mode.
     The checked reply is cached by the exact prompt; a reply that can't be read twice gives
     nothing and isn't cached."""
@@ -342,7 +357,7 @@ async def suggest(prompt: str, ask: Optional[Ask] = None, cache: Optional[Narrow
 
 async def kind_of(prompt: str, start: int, end: int, ask: Optional[Ask] = None, cache: Optional[NarrowCache] = None,
                   project_id: Optional[int] = None, model: str = "") -> str:
-    """The kind of the words at prompt[start:end] ("hairstyle" for "short bob"), for "Any"
+    """The kind of the words at prompt[start:end] ("hairstyle" for "short bob"), for Add Variety
     on words Suggest didn't name; "" when it can't be said. Cached by the prompt and the span."""
     words = prompt[start:end].strip() if 0 <= start < end <= len(prompt) else ""
     if not words or _MARKS.search(words):

@@ -689,7 +689,7 @@ def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
                      for s in prev.get("slots") or [] if s["id"] not in (prev.get("seeds_pending") or [])}
             one_old = {s["id"]: bool(s.get("one")) for s in prev.get("slots") or []}
             for i, j in match_marks(old, p.parsed).items():
-                # Never a pool of the other way of varying it: Flesh out shows no members of a kind.
+                # Never a pool of the other way of varying it: Add Detail ("one") shows no members of a kind.
                 if ids_new[j] in one_now and one_old.get(ids_old[i]) != one_now[ids_new[j]]:
                     continue
                 earlier.setdefault(ids_new[j], []).extend(pools.get(ids_old[i]) or [])
@@ -896,7 +896,7 @@ async def prepare(prompt: str, *, profile_id: Optional[str], project_id: Optiona
     says which of its parts each of this prompt's is ({"from": shown, "ids": {id: its id there}}),
     so the editor's choices follow the part. A prompt with nothing that varies:
     {"key": None, "slots": [], "choices": []}. `modes`: {slot id: "one" | "kind"}, how the user
-    chose a slot to vary (Flesh out or Vary), over the reader's own reading; a prompt prepared with
+    chose a slot to vary (Add Detail or Add Variety), over the reader's own reading; a prompt prepared with
     modes is an entry of its own, and each such slot a reading and a pool of its own."""
     p = await _read_prompt(prompt, profile_id, project_id, shown, modes)
     if p is None:

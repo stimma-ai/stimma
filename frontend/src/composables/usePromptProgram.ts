@@ -102,7 +102,7 @@ export function usePromptProgram(o: Options) {
     setStates({ [id]: s })
   }
   /** Set several at once (an image's choices, the agent): one write. The way a slot varies
-      (Vary or Flesh out) stays unless the new state says one. */
+      (its mode: Add Detail or Add Variety) stays unless the new state says one. */
   function setStates(patch: Record<string, ChoiceState | null>) {
     const next = { ...states.value }
     for (const [id, s] of Object.entries(patch)) {
@@ -414,11 +414,11 @@ export function usePromptProgram(o: Options) {
     return got.length
   }
 
-  /** How a slot varies now (Vary or Flesh out): the user's choice, else its reading. */
+  /** How a slot varies now (its mode, 'one' or 'kind'): the user's choice, else its reading. */
   function modeOf(id: string): SlotMode {
     return modeIn(slotById.value[id], states.value[id])
   }
-  /** Vary or Flesh out a slot: its reading and pool are made again that way (the old ones stay
+  /** Set a slot's mode ('kind': Add Variety on a named thing, 'one': Add Detail): its reading and pool are made again that way (the old ones stay
       for coming back), its picks go. The open row stays on it. */
   function setMode(id: string, mode: SlotMode) {
     if (modeOf(id) === mode) return

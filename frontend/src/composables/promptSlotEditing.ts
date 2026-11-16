@@ -5,7 +5,7 @@
  * - With words selected, typing `<` puts the brackets around them, where the grammar
  *   allows a slot there (`slotWrapRange`). Otherwise `<` types as usual.
  * - Clicking a slot, or an underlined phrase, and settling a selection are reported to
- *   the editor component, which shows "Vary this" or opens the slot.
+ *   the editor component, which offers Add Detail and Add Variety or opens the slot.
  * - The caret leaving the slot just edited (typing past it, or moving away) is reported, so
  *   Fluent reads that slot without waiting for a pause.
  */
@@ -15,8 +15,9 @@ import { isolateHistory } from '@codemirror/commands'
 import { findSlots, slotWrapRange, usableVaryPhrases } from '../utils/promptSyntax'
 
 /** A phrase Suggest underlined: its kind ("hairstyle"), which way Suggest would take it
-    (Detail or Any), and `mode` 'one' when it names one specific thing. */
-export interface VaryPhrase { from: number; to: number; text: string; kind?: string; way?: 'detail' | 'any'; mode?: 'one' | 'kind' }
+    (Add Detail or Add Variety), `mode` 'one' when it names one specific thing, and the
+    `label` its chip shows. */
+export interface VaryPhrase { from: number; to: number; text: string; kind?: string; way?: 'detail' | 'any'; mode?: 'one' | 'kind'; label?: string }
 
 /** Replace the underlined phrases (offsets into the current document). */
 export const setVaryEffect = StateEffect.define<VaryPhrase[]>()
@@ -104,7 +105,7 @@ export function wrapSlot(view: EditorView, from: number, to: number): number | n
   return a
 }
 
-/** Write `<words>` in place of [from, to) as one undo step ("Any hairstyle" over "short bob");
+/** Write `<words>` in place of [from, to) as one undo step (Add Variety: `<hairstyle>` over "short bob");
     where the slot starts, or null when no slot could stand there. */
 export function replaceWithSlot(view: EditorView, from: number, to: number, words: string): number | null {
   if (!slotWrapRange(view.state.doc.toString(), from, to)) return null
@@ -112,6 +113,21 @@ export function replaceWithSlot(view: EditorView, from: number, to: number, word
   view.dispatch({
     changes: { from, to, insert },
     selection: { anchor: from + insert.length },
+    userEvent: 'input.slot',
+    annotations: isolateHistory.of('full'),
+  })
+  return from
+}
+
+/** Write `words` as the words of the slot spanning [from, to) (brackets included), as one undo
+    step (Add Variety on a slot: `<short bob>` becomes `<hairstyle>`); where the slot starts, or
+    null when [from, to) isn't a slot. */
+export function rewriteSlot(view: EditorView, from: number, to: number, words: string): number | null {
+  const doc = view.state.doc
+  if (doc.sliceString(from, from + 1) !== '<' || doc.sliceString(to - 1, to) !== '>' || !words.trim()) return null
+  view.dispatch({
+    changes: { from: from + 1, to: to - 1, insert: words },
+    selection: { anchor: from + words.length + 2 },
     userEvent: 'input.slot',
     annotations: isolateHistory.of('full'),
   })

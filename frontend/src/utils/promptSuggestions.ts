@@ -3,19 +3,21 @@
  * asks is composables/usePromptSuggestions.ts).
  *
  * phrases  words the user wrote worth changing from picture to picture: underlined in the
- *          text, and a chip. Detail keeps the words and wraps them in brackets ("Detail dog");
- *          Any writes their kind in their place, in brackets ("Any hairstyle").
+ *          text, and a chip named by Suggest's label. Add Detail keeps the words and wraps them
+ *          in brackets ("Add Detail: dog"); Add Variety writes their kind in their place, in
+ *          brackets ("Add Variety: hairstyle").
  * adds     something good prompts state and this one leaves to the image model's habits,
  *          written in as a new slot ("+ Camera", "+ Face").
  */
 
-/** Detail: every picture keeps the words, each a specific one of them. Any: the words become
-    one of their kind and the others come in. */
+/** 'detail' (Add Detail): every picture keeps the words, each a specific one of them. 'any'
+    (Add Variety): the words become one of their kind and the others come in. */
 export type PhraseWay = 'detail' | 'any'
 
 /** A phrase worth changing. `kind` names what it is ("hairstyle" for "short bob"), "" when
-    unknown; `mode` 'one' when it names one specific thing (the Eiffel Tower, seen new ways). */
-export interface SuggestedPhrase { from: number; to: number; text: string; kind: string; way: PhraseWay; mode: 'one' | 'kind' }
+    unknown; `mode` 'one' when it names one specific thing (the Eiffel Tower, seen new ways);
+    `label` one or two words naming the thing, for its chip ("dog" for "scruffy old dog"). */
+export interface SuggestedPhrase { from: number; to: number; text: string; kind: string; way: PhraseWay; mode: 'one' | 'kind'; label: string }
 /** A slot to write in: `text` (holding the slot) goes in at `at`, an offset into the prompt the
     answer is for. */
 export interface SuggestedAdd { key: string; label: string; at: number; text: string }
@@ -30,8 +32,10 @@ export function cleanSuggestions(data: any): Suggestions {
     .filter((p: any) => Number.isInteger(p?.from) && Number.isInteger(p?.to) && typeof p?.text === 'string')
     .map((p: any): SuggestedPhrase => {
       const kind = typeof p.kind === 'string' ? p.kind.trim() : ''
+      const label = typeof p.label === 'string' ? p.label.trim() : ''
       return { from: p.from, to: p.to, text: p.text, kind,
-        way: p.way === 'any' && kind ? 'any' : 'detail', mode: p.mode === 'one' ? 'one' : 'kind' }
+        way: p.way === 'any' && kind ? 'any' : 'detail', mode: p.mode === 'one' ? 'one' : 'kind',
+        label: label || p.text.trim().split(/\s+/).slice(-2).join(' ') }
     }) : []
   const adds = Array.isArray(data?.adds) ? data.adds
     .filter((a: any) => typeof a?.key === 'string' && typeof a?.text === 'string' && a.text.includes('<') && Number.isInteger(a?.at))
@@ -39,9 +43,13 @@ export function cleanSuggestions(data: any): Suggestions {
   return { phrases, adds }
 }
 
-/** A phrase chip's words: "Detail dog", "Any hairstyle". */
-export function phraseLabel(p: Pick<SuggestedPhrase, 'text' | 'kind' | 'way'>, way: PhraseWay = p.way): string {
-  return way === 'any' && p.kind ? `Any ${p.kind}` : `Detail ${p.text}`
+/** A way's name, as every control says it. */
+export const WAY_NAMES: Record<PhraseWay, string> = { detail: 'Add Detail', any: 'Add Variety' }
+
+/** A phrase chip's words: "Add Detail: dog", "Add Variety: hairstyle". Its label is Suggest's
+    (its words when there is none). */
+export function phraseLabel(p: Pick<SuggestedPhrase, 'text' | 'kind' | 'way'> & { label?: string }, way: PhraseWay = p.way): string {
+  return `${WAY_NAMES[way === 'any' && p.kind ? 'any' : 'detail']}: ${p.label?.trim() || p.text}`
 }
 
 /** The prompt with an add written in, and where its slot's `<` lands. */

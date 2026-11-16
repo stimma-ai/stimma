@@ -13,7 +13,7 @@ log = get_logger(__name__)
 router = APIRouter(prefix="/api/prompt-programs", tags=["prompt-programs"])
 
 # What a slot and a choice say to the editor (the program text itself stays server-side unless asked for).
-_SLOT_KEYS = ("id", "n", "kind", "label", "words", "span", "line", "stated", "degraded", "state", "one", "mode")
+_SLOT_KEYS = ("id", "n", "kind", "label", "words", "span", "line", "stated", "degraded", "state", "one", "mode", "kind_of")
 _CHOICE_KEYS = ("id", "kind", "label", "options", "slot")
 
 
@@ -39,7 +39,7 @@ class PrepareRequest(BaseModel):
     # the new version still has.
     key: Optional[str] = None
     # What the user chose in the chooser, per choice (prompt_programs.choices). Preparing reads
-    # only each slot's `mode` (Flesh out or Vary); the pools and draws read the rest.
+    # only each slot's `mode` (Add Detail or Add Variety); the pools and draws read the rest.
     choices: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -357,14 +357,14 @@ class SuggestRequest(BaseModel):
     project_id: Optional[int] = None
     # Raw mode sends the prompt as typed: nothing in it varies, so nothing is suggested.
     raw: bool = False
-    # What the editor shows now ({phrases: [{text, way, kind}], adds: [key]}): kept where it
+    # What the editor shows now ({phrases: [{text, way, kind, mode, label}], adds: [key]}): kept where it
     # still fits, so chips stay put from one answer to the next.
     previous: Optional[Dict[str, Any]] = None
 
 
 @router.post("/suggest")
 async def suggest_slots(req: SuggestRequest) -> Dict[str, Any]:
-    """Phrases in the prompt worth varying (Detail or Any, with their kind) and slots to add."""
+    """Phrases in the prompt worth varying (Add Detail or Add Variety, with their kind and label) and slots to add."""
     from prompt_programs.suggest import cache_for, model_name, suggest
     try:
         model = await model_name(req.project_id) if req.prompt.strip() and not req.raw else ""

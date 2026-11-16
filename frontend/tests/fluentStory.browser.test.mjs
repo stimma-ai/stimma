@@ -25,9 +25,15 @@ const MEN = ['young man of Korean descent with a buzz cut', 'lanky young man of 
 const LIGHTS = ['warm desk lamp glow', 'soft afternoon window light', 'cool overhead fluorescent light']
 const VARIANTS = { young_man: MEN, light: LIGHTS }
 
+// What the stand-in reader reads as one specific thing, and the kind it is one of.
+const NAMED = { 'Eiffel Tower': 'landmark' }
+// The stand-in's /suggest-kind, by the words asked about.
+const KINDS = { 'short bob': 'hairstyle' }
+
 // A stand-in backend: one choice per slot, built into the editor's view of a program as
-// `public()` builds it; each slot's variants come with /pools.
-function readSlots(prompt) {
+// `public()` builds it; each slot's variants come with /pools. A named thing is read as one
+// (`one`), unless the user's mode says otherwise (`kind`: its kind_of comes in).
+function readSlots(prompt, modes = {}) {
   const slots = []
   const choices = []
   const re = /<([^<>{}[\]|#:=\n]+)>/g
@@ -39,7 +45,10 @@ function readSlots(prompt) {
     const span = [m.index, m.index + m[0].length]
     const id = words.replace(/\W+/g, '_')
     const label = words === 'light' ? 'Lighting' : words === 'young man' ? 'Young man' : words
-    slots.push({ id, n, kind: words === 'young man' ? 'person' : words === 'light' ? 'light' : 'free', label, words, span, line: 1 })
+    const mode = modes[id]?.mode
+    const named = NAMED[words]
+    const way = mode === 'one' || (!mode && named) ? { one: true } : mode === 'kind' && named ? { kind_of: named } : {}
+    slots.push({ id, n, kind: words === 'young man' ? 'person' : words === 'light' ? 'light' : 'free', label, words, span, line: 1, ...way, ...(mode ? { mode } : {}) })
     choices.push({ id, kind: 'variants', label, slot: id })
   }
   return { key: slots.length ? `k:${slots.map(s => s.words).join('|')}` : null, slots, choices }
@@ -76,6 +85,7 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
       if (!p.includes('<camera>')) adds.push({ key: 'camera', label: 'Camera', at: p.trimEnd().length, text: ', <camera>' })
       return json({ phrases, adds })
     }
+    if (url.endsWith('/prompt-programs/suggest-kind')) return json({ kind: KINDS[body.prompt.slice(body.start, body.end)] ?? '' })
     if (url.endsWith('/prompt-programs/remove-variant')) {
       calls.remove.push(body)
       removed.add(body.text)
@@ -84,7 +94,7 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
     if (url.endsWith('/prompt-programs/prepare')) {
       calls.prepare.push(body)
       if (body.retry) failed.clear()
-      const read = readSlots(body.prompt)
+      const read = readSlots(body.prompt, body.choices)
       if (!read.key) return json({ key: null, slots: [], choices: [] })
       // As slots.prepare answers: at once, every slot from the parse, each `reading` until it
       // is read (a slot read for an earlier prompt is read here too). Only a prepare that isn't
@@ -140,7 +150,7 @@ async function story(t, opts = {}) {
   await page.keyboard.type('dorm room with a young man')
   await expect(page.locator('.cm-could-vary')).toHaveText('young man', { timeout: 4000 })
   await expect(page.locator('[data-slot-add]')).toHaveText(['Face', 'Camera'])
-  await expect(page.locator('[data-slot-vary]')).toHaveText(['Detail young man'])
+  await expect(page.locator('[data-slot-vary]')).toHaveText(['Add Detail: young man'])
   assert.equal(calls.suggest.at(-1).prompt, 'dorm room with a young man')
   assert.equal(calls.suggest.at(-1).project_id, 7)
   // Nothing varies yet: no rows.
@@ -148,7 +158,7 @@ async function story(t, opts = {}) {
   await expect(page.locator('[data-program-choices]')).toHaveCount(0)
   await shot(`${tag}-1-underlined`)
 
-  // Detail wraps it and its row opens while the slot is read, then fills.
+  // Add Detail wraps it and its row opens while the slot is read, then fills.
   await page.locator('.cm-could-vary').click()
   await tap(page.locator('[data-slot-offer] [data-way="detail"]'))
   await expect.poll(() => text(page)).toBe('dorm room with a <young man>')
@@ -160,9 +170,10 @@ async function story(t, opts = {}) {
   await expect(card.locator('[aria-pressed="true"]')).toHaveCount(0)
   await expect(card.locator('[data-any], [data-count], [data-keep-words]')).toHaveCount(0)
   await expect(card.locator('[data-more]')).toHaveText('More')
-  // How it varies: a different one each time (Detail on a kind starts it so), or the same one.
-  await expect(page.locator('[data-slot-mode] [role="radio"]')).toHaveText(['A different one', 'The same one'])
-  await expect(page.locator('[data-slot-mode] [role="radio"][aria-checked="true"]')).toHaveText('A different one')
+  // Its way: Add Detail (it made the slot), a small icon in the header with Remove.
+  await expect(card.locator('[data-slot-way]')).toHaveAttribute('data-way', 'detail')
+  await expect(card.locator('[data-slot-way]')).toHaveAttribute('aria-label', 'Add Detail')
+  await expect(card.locator('[data-remove-slot]')).toHaveText('Remove')
   await shot(`${tag}-3-picker`)
 
   // Pin a variant: the slot fills, and its row says what it is, and how many of the pool.
@@ -277,6 +288,55 @@ async function filledIn({ mark, calls }) {
   await expect(mark(1)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
   assert.deepEqual(reads(calls), ['a <young man>'])
 }
+
+test('the picker header’s way menu: Add Detail or Add Variety, by mode or by writing the kind', async t => {
+  const start = 'a woman with a <short bob> by the <Eiffel Tower>'
+  const { page, calls, shot, card, mark, editor } = await open(t, { start })
+  const way = page.locator('[data-row-wrap][data-open] [data-slot-way]')
+  const menu = page.locator('[data-slot-way-menu]')
+  const item = w => menu.locator(`[data-way-item="${w}"]`)
+  const modeSent = () => calls.prepare.at(-1)?.choices?.Eiffel_Tower?.mode ?? null
+
+  // A named thing reads as one: Add Detail, and Add Variety varies it by mode.
+  await mark(2).click()
+  await expect(card.locator(`[data-variant="a Eiffel Tower"]`)).toBeVisible({ timeout: 4000 })
+  await expect(way).toHaveAttribute('data-way', 'detail')
+  await way.click()
+  await expect(menu.locator('[role="menuitemradio"]')).toHaveText(['Add Detail', 'Add Variety'])
+  await expect(menu.locator('[aria-checked="true"]')).toHaveText('Add Detail')
+  await expect(item('any')).toBeEnabled()
+  await shot('picker-way-menu')
+  // Escape closes the menu, not the picker.
+  await page.keyboard.press('Escape')
+  await expect(menu).toHaveCount(0)
+  await expect(card).toHaveCount(1)
+  await way.click()
+  await item('any').click()
+  await expect(menu).toHaveCount(0)
+  await expect.poll(modeSent, { timeout: 4000 }).toBe('kind')
+  await expect(way).toHaveAttribute('data-way', 'any')
+  await way.click()
+  await expect(menu.locator('[aria-checked="true"]')).toHaveText('Add Variety')
+  await item('detail').click()
+  await expect.poll(modeSent, { timeout: 4000 }).toBe('one')
+  await expect(way).toHaveAttribute('data-way', 'detail')
+  assert.equal(await text(page), start, 'switching by mode leaves the words')
+
+  // Words that read as a kind: Add Detail; Add Variety writes their kind in their place, one
+  // undo step, and the new slot opens.
+  await mark(1).click()
+  await expect(page.locator('[data-row-wrap="short_bob"][data-open]')).toHaveCount(1, { timeout: 4000 })
+  await expect(way).toHaveAttribute('data-way', 'detail')
+  await way.click()
+  await expect(menu.locator('[aria-checked="true"]')).toHaveText('Add Detail')
+  await expect(item('any')).toBeEnabled({ timeout: 4000 })
+  await item('any').click()
+  await expect.poll(() => text(page)).toBe('a woman with a <hairstyle> by the <Eiffel Tower>')
+  await expect(page.locator('[data-row-wrap="hairstyle"][data-open]')).toHaveCount(1, { timeout: 4000 })
+  await editor.focus()
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(() => text(page)).toBe(start)
+})
 
 test('a slot typed is read once the user pauses in the prompt', async t => {
   const o = await typeSlot(t)
@@ -553,7 +613,7 @@ for (const [label, opts] of [['desktop dark', {}], ['desktop light', { theme: 'l
     const sections = await tips.locator('section h4').allInnerTexts()
     assert.deepEqual(sections, ['Vary any part', 'Choose what it can be', 'Use from an image', 'Increase Detail', 'Lists', 'Saved wildcards and segments', 'Comment lines', 'Exact text'])
     const text = await tips.innerText()
-    for (const s of ['Detail or Any', 'press <', '+ Camera', 'Choose Use', 'Off', 'Medium', 'High'])
+    for (const s of ['Add Detail or Add Variety', 'press <', '+ Camera', 'Choose Use', 'Off', 'Medium', 'High'])
       assert.ok(text.includes(s), `tips mention ${s}`)
     await expect(tips.locator('[data-tip-example="slot"]')).toContainText('<young man>')
     // No mechanics, no old features, no em dashes.

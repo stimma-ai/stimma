@@ -2,7 +2,7 @@
  * Suggest, the prompt editor's recommendations in Fluent.
  *
  * It asks, for the prompt as it stands, which written phrases are worth changing (`phrases`:
- * Detail or Any, with their kind) and which slots it could add (`adds`: the camera, a face).
+ * Add Detail or Add Variety, with their kind and label) and which slots it could add (`adds`: the camera, a face).
  * It runs a moment after typing stops and when the box loses focus, remembers each answer by
  * the exact prompt text, and drops answers that come back for text that has since changed.
  * The answer's shapes and checks are in utils/promptSuggestions.ts. A failure changes nothing.
@@ -13,7 +13,7 @@ import { getApiBase } from '../apiConfig'
 import { cleanSuggestions, type Suggestions } from '../utils/promptSuggestions'
 
 export type { PhraseWay, SuggestedAdd, SuggestedPhrase, Suggestions } from '../utils/promptSuggestions'
-export { insertAdd, phraseLabel, NO_SUGGESTIONS } from '../utils/promptSuggestions'
+export { insertAdd, phraseLabel, WAY_NAMES, NO_SUGGESTIONS } from '../utils/promptSuggestions'
 
 /** How long after the last keystroke Suggest runs. */
 const SUGGEST_DELAY_MS = 900
@@ -50,7 +50,7 @@ export function usePromptSuggestions(o: PromptSuggestionsOptions) {
     let p = inFlight.get(text)
     if (!p) {
       const prev = o.previous?.()
-      const previous = prev ? { phrases: prev.phrases.map(p => ({ text: p.text, way: p.way, kind: p.kind, mode: p.mode })), adds: prev.adds.map(a => a.key) } : undefined
+      const previous = prev ? { phrases: prev.phrases.map(p => ({ text: p.text, way: p.way, kind: p.kind, mode: p.mode, label: p.label })), adds: prev.adds.map(a => a.key) } : undefined
       p = axios.post(`${getApiBase()}/prompt-programs/suggest`, body({ prompt: text, previous }))
         .then(({ data }) => { const s = cleanSuggestions(data); cache.set(text, s); return s })
         .catch(() => null)
@@ -84,8 +84,8 @@ export function usePromptSuggestions(o: PromptSuggestionsOptions) {
     timer = setTimeout(() => { void suggestNow() }, SUGGEST_DELAY_MS)
   }
 
-  /** The kind of the words at [start, end) of `text` ("hairstyle" for "short bob"), for Any on
-      words Suggest didn't name; "" when it can't be said. */
+  /** The kind of the words at [start, end) of `text` ("hairstyle" for "short bob"), for Add
+      Variety on words Suggest didn't name; "" when it can't be said. */
   const kinds = new Map<string, Promise<string>>()
   function kindOf(text: string, start: number, end: number): Promise<string> {
     const key = `${start}:${end}:${text}`
