@@ -221,10 +221,19 @@ async def test_publish_open_revise_and_review(client, db_session, tmp_path, no_a
         assert second["media_count"] == 3
         assert not second["warnings"]
 
-        # Dropping a reviewed component warns: the review would lose its place.
+        # Review the agent has been sent doesn't pin its component: a new id is a fresh start.
         reopened.set_html(reopened.html().replace('id="hero"', 'id="ridge"').replace('for="hero"', 'for="ridge"'))
         third = await reopened.publish()
-        assert any("hero" in w and "review" in w for w in third["warnings"])
+        assert not third["warnings"]
+        review = (await client.get(f"/api/contact-sheets/{asset.id}/review")).json()
+        assert any(c["anchor"] == "hero" for c in review["comments"])  # still readable
+
+        # Dropping a component with review the agent hasn't seen yet warns.
+        await client.post(f"/api/contact-sheets/{asset.id}/review/comments",
+                          json={"anchor": "round-2-media-1", "text": "Darker sky."})
+        reopened.set_html(reopened.html().replace('id="round-2-media-1"', 'id="r2-headland"'))
+        fourth = await reopened.publish()
+        assert any("round-2-media-1" in w and "hasn't been sent" in w for w in fourth["warnings"])
 
 
 async def test_review_routes_reject_non_sheets(client, db_session, tmp_path):

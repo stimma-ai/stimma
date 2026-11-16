@@ -92,7 +92,8 @@ again. Each publish is a new version of the same sheet.""",
 
 For bigger edits: path = sheet.write_html("sheet.html"), change it with
 edit_file, then sheet.set_html(path) and publish(). Refs in a published sheet
-read media:<id>. Keep existing ids: the review is tied to them.""",
+read media:<id>. The review is tied to component ids: keep an id while its
+review is open, and give an item a new id to start it fresh once you've acted on it.""",
         group="contact_sheets",
         is_async=True,
     ),

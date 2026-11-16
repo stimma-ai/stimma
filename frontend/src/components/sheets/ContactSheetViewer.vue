@@ -33,13 +33,16 @@
     <!-- The review: it saves as you go; sending it is one step. -->
     <div
       v-if="sheet.pendingCount.value && !sheet.readonly.value"
-      class="flex flex-none items-center gap-3 border-t border-edge-subtle bg-surface px-4 py-2.5 pb-safe compact:px-3"
+      class="flex-none border-t border-edge-subtle bg-surface py-2.5 pb-safe"
     >
-      <span class="h-1.5 w-1.5 flex-none rounded-full bg-accent" />
-      <span class="min-w-0 flex-1 truncate text-[12.5px] text-content-secondary"><span class="text-content">Your review</span> · {{ pendingSummary }}</span>
-      <Button v-if="sheet.chatId.value != null" variant="primary" size="sm" :disabled="sheet.sending.value" @click="sheet.send()">
-        {{ sheet.sending.value ? 'Sending…' : 'Send to agent' }}
-      </Button>
+      <!-- Lined up with the sheet's column, so Send sits under the work on a wide stage. -->
+      <div class="mx-auto flex max-w-[1120px] items-center gap-3 px-8 compact:px-4">
+        <span class="h-1.5 w-1.5 flex-none rounded-full bg-accent" />
+        <span class="min-w-0 flex-1 truncate text-[12.5px] text-content-secondary"><span class="text-content">Your review</span> · {{ pendingSummary }}</span>
+        <Button v-if="sheet.chatId.value != null" variant="primary" size="sm" :disabled="sheet.sending.value" @click="sheet.send()">
+          {{ sheet.sending.value ? 'Sending…' : 'Send to agent' }}
+        </Button>
+      </div>
     </div>
 
     <SheetCommentPopover />

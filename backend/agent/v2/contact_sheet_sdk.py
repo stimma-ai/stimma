@@ -231,7 +231,7 @@ class ContactSheetDraft:
             ingredient_ids,
             normalize_sheet_html,
             require_sheet_asset,
-            reviewed_anchors,
+            unsent_review_anchors,
             save_sheet_media,
             sheet_metadata,
         )
@@ -255,13 +255,15 @@ class ContactSheetDraft:
             )
         if self._asset_id is not None:
             await require_sheet_asset(session, self._asset_id)
-            dropped = sorted(await reviewed_anchors(session, self._asset_id)
+            # Review already sent is the agent's to act on, and dropping what it was about
+            # is a normal edit. Only review the agent hasn't seen would lose its place.
+            dropped = sorted(await unsent_review_anchors(session, self._asset_id)
                              - set(normalized.components) - {"sheet"})
             if dropped:
                 warnings.append(
-                    "These ids carry the user's review but are no longer on the sheet: "
-                    + ", ".join(dropped[:12])
-                    + ". Keep ids stable when you rewrite, or the review loses its place."
+                    "The user has review on these ids that hasn't been sent to you yet, and they "
+                    "are no longer on the sheet: " + ", ".join(dropped[:12])
+                    + ". Keep them until you've read that review (contact_sheets.review())."
                 )
         media = await save_sheet_media(
             session,

@@ -689,8 +689,9 @@ async def take_pending_review(session: AsyncSession, asset_id: int) -> tuple[lis
     return items, message
 
 
-async def reviewed_anchors(session: AsyncSession, asset_id: int) -> set[str]:
-    return {row.anchor for row in await review_rows(session, asset_id)}
+async def unsent_review_anchors(session: AsyncSession, asset_id: int) -> set[str]:
+    """Component ids with review the agent hasn't been sent yet."""
+    return {row.anchor for row in _pending(await review_rows(session, asset_id))}
 
 
 async def ingredient_ids(session: AsyncSession, media_ids: list[int], *, exempt: Iterable[int] = (),
