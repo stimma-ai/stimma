@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { directImproves, effectiveWay, isPrepareFailureCode, pollDelay, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, readPending, shownKey, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
+import { directImproves, effectiveWay, firstStage, promptVaries, promptWrites, stageTile, isPrepareFailureCode, pollDelay, prepareBody, fallbackNotice, prepareErrorCode, prepareSettingsSig, readPending, shownKey, WORDS_AS_WRITTEN, programRunActions, shapePromptOptions, type PrepareInputs, type PromptOptionsContext } from './fluentSubmit.ts'
 
 const saved = (extra: Record<string, any> = {}) => ({
   autoImprove: { enabled: true, instructions: '' },  // a new tool: Detail level High
@@ -194,4 +194,31 @@ test('looking again backs off to a slow poll and never stops while something is 
   assert.equal(pollDelay('pools', 0), 2000)
   assert.equal(pollDelay('pools', 59), 6000)
   assert.equal(pollDelay('pools', 10_000), 6000)
+})
+
+test('a run tile starts on the prompt step that will run', () => {
+  assert.equal(firstStage({ varies: true, writes: true }), 'picking')
+  assert.equal(firstStage({ varies: true, writes: false }), 'picking')
+  assert.equal(firstStage({ varies: false, writes: true }), 'writing')
+  assert.equal(firstStage({ varies: false, writes: false }), 'queued')
+})
+
+test('each step has its own words; nothing to do is the ordinary queued tile', () => {
+  assert.deepEqual(stageTile('picking'), { label: 'Picking details…', status: 'enhancing' })
+  assert.deepEqual(stageTile('writing'), { label: 'Writing your prompt…', status: 'enhancing' })
+  assert.deepEqual(stageTile('queued'), { label: null, status: 'queued' })
+})
+
+test('a prompt varies when it has slots or lists, or is not read yet', () => {
+  assert.equal(promptVaries('ready', { key: 'k' }), true)
+  assert.equal(promptVaries('ready', { key: null }), false)
+  assert.equal(promptVaries('stale', { key: null }), true)
+  assert.equal(promptVaries('busy', null), true)
+})
+
+test('the chat model writes the prompt for a Detail level or a translation', () => {
+  assert.equal(promptWrites({ autoImprove: { enabled: true } }), true)
+  assert.equal(promptWrites({ autoImprove: { enabled: false }, translate: { enabled: true } }), true)
+  assert.equal(promptWrites({ autoImprove: { enabled: false }, translate: { enabled: false } }), false)
+  assert.equal(promptWrites(undefined), false)
 })

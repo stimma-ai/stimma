@@ -1052,6 +1052,16 @@ export function useGenerationJobs(options = {}) {
     if (job && job.pending_label !== label) job.pending_label = label
   }
 
+  // A pending tile that follows its prompt's steps (ToolView, utils/fluentSubmit.ts): its
+  // label and look now. Returns whether the tile is still there.
+  function setPendingJobStage(pendingId, { label, status }) {
+    const job = pendingJobs.value.find(j => j.id === pendingId)
+    if (!job) return false
+    if (job.pending_label !== label) job.pending_label = label
+    if (job.status !== status) job.status = status
+    return true
+  }
+
   function hasPendingJob(pendingId) {
     return pendingJobs.value.some(j => j.id === pendingId)
   }
@@ -1382,6 +1392,7 @@ export function useGenerationJobs(options = {}) {
     refreshCompletedHistoryCount,
     addPendingJob,
     setPendingJobLabel,
+    setPendingJobStage,
     removePendingJob,
     cancelPendingJob,
     wasPendingJobCancelled,

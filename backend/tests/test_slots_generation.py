@@ -227,6 +227,70 @@ async def test_a_prompt_with_nothing_to_vary_goes_straight_to_the_improver(tool,
     assert out["prompt"] == "a lighthouse at dusk" + ADDED
 
 
+@pytest.fixture
+def stages(monkeypatch):
+    """The prompt steps a submit's tile is told about (prompt_stage), in order."""
+    told = []
+
+    async def capture(event, data, include_profile=True):
+        if event == "generation_prompt_stage":
+            told.append((data["client_ref"], data["stage"]))
+
+    monkeypatch.setattr("utils.websocket.ws_manager.broadcast", capture)
+    return told
+
+
+async def _submit_for_tile(ref="pending-1", **kw):
+    from prompt_stage import for_tile
+    with for_tile(ref):
+        return await _submit(**kw)
+
+
+async def test_a_tile_hears_picking_then_writing(tool, monkeypatch, profile, stages):
+    await _read(monkeypatch, profile)
+    await _submit_for_tile(level="expand")
+    assert stages == [("pending-1", "picking"), ("pending-1", "writing")]
+
+
+async def test_a_tile_with_nothing_to_vary_hears_only_writing(tool, monkeypatch, stages):
+    _use(monkeypatch, FakeModel())
+    await _submit_for_tile(prompt="a lighthouse at dusk", level="fill")
+    assert stages == [("pending-1", "writing")]
+
+
+async def test_a_tile_with_nothing_to_do_hears_nothing(tool, monkeypatch, stages):
+    _use(monkeypatch, FakeModel())
+    await _submit_for_tile(prompt="a lighthouse at dusk", level="off")
+    assert stages == [] and tool == []
+
+
+async def test_yours_with_slots_only_picks(tool, monkeypatch, profile, stages):
+    await _read(monkeypatch, profile)
+    await _submit_for_tile(level="off")
+    assert stages == [("pending-1", "picking")]
+
+
+async def test_a_submit_with_no_tile_says_nothing(tool, monkeypatch, profile, stages):
+    await _read(monkeypatch, profile)
+    await _submit(level="expand")
+    assert stages == []
+
+
+async def test_a_tile_never_goes_back_to_picking():
+    """A batch's images share one tile: one still picking never takes it back from writing."""
+    import prompt_stage
+    from unittest.mock import patch
+    told = []
+
+    async def capture(event, data, include_profile=True):
+        told.append(data["stage"])
+
+    with patch("utils.websocket.ws_manager.broadcast", capture), prompt_stage.for_tile("t"):
+        for stage in ("picking", "writing", "picking", "writing"):
+            await prompt_stage.say(stage)
+    assert told == ["picking", "writing"]
+
+
 async def test_agent_keep_choices_are_choices_of_values(tool, monkeypatch, profile):
     await _read(monkeypatch, profile)
     out = await _submit(keep_choices={"Pet": "gray parrot", "Season": "summer"})

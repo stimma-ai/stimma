@@ -479,7 +479,11 @@ async def _queue_children_as_ready(
                 project_id=request.project_id,
             )
 
-    tasks = {asyncio.ensure_future(one(idx, parameters)): idx for idx, parameters in enumerate(children)}
+    # The batch's one tile hears which prompt step is running (prompt_stage); each child's
+    # task copies the context, so they share what the tile was last told.
+    from prompt_stage import for_tile
+    with for_tile(getattr(request, "client_ref", None)):
+        tasks = {asyncio.ensure_future(one(idx, parameters)): idx for idx, parameters in enumerate(children)}
     job_ids: List[Optional[int]] = [None] * len(children)
     held: List[Tuple[int, Exception]] = []  # failures before any child succeeded
     made = 0
@@ -839,6 +843,9 @@ async def _run_slots(
         except ValueError:
             pass
     try:
+        # The tile says so while this image's details are picked (prompt_stage).
+        from prompt_stage import say
+        await say("picking")
         # The judge is how the draws fit together: wait for it before a hot draw is taken,
         # so the pool's signature sees it ready.
         await await_judge(entry, project_id=project_id)
@@ -2252,16 +2259,19 @@ async def submit_generation_job(
 
         # Build the single flat parameters dict with job metadata that needs tracking
         parameters = dict(request.parameters) if request.parameters else {}
-        parameters = await _apply_generation_prompt_pipeline(
-            parameters,
-            tool_id=request.tool_id,
-            task_type=request.task_type,
-            prompt_options=request.prompt_options,
-            prompt_preload=request.prompt_preload,
-            generator_instance_id=request.generator_instance_id,
-            project_id=request.project_id,
-            forever=_should_consume_forever_reservation(request),
-        )
+        from prompt_stage import for_tile
+        # The tile this submit came from hears which prompt step is running (prompt_stage).
+        with for_tile(request.client_ref):
+            parameters = await _apply_generation_prompt_pipeline(
+                parameters,
+                tool_id=request.tool_id,
+                task_type=request.task_type,
+                prompt_options=request.prompt_options,
+                prompt_preload=request.prompt_preload,
+                generator_instance_id=request.generator_instance_id,
+                project_id=request.project_id,
+                forever=_should_consume_forever_reservation(request),
+            )
         if request.prompt_metadata:
             parameters["prompt_metadata"] = request.prompt_metadata.model_dump()
         if request.auto_marker_ids:

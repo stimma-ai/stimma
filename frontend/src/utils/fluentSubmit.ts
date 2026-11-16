@@ -122,9 +122,43 @@ export function directImproves(t: { ideogram: boolean; h3: boolean; audio: boole
   return !t.ideogram && !t.h3 && !t.audio && t.inputImageCount === 0
 }
 
-/** A run's tile in the strip, from the click until its job is queued: while this image's
-    slots are filled and checked to fit together. */
-export const DRAWING_LABEL = 'Filling in your prompt…'
+/** What a run's tile says from the click until its job is queued: the prompt step running
+    now. `picking`: this image's slots and lists are drawn and checked to fit together.
+    `writing`: the chat model writes the prompt out (Detail Medium or High, a translation,
+    Ideogram JSON). `queued`: neither, so it is waiting on its job. The server says when a
+    step starts (prompt_stage, `generation_prompt_stage`); until then the tile shows
+    firstStage's guess. */
+export type PromptStage = 'picking' | 'writing' | 'queued'
+
+const STAGE_LABELS: Record<PromptStage, string | null> = {
+  picking: 'Picking details…',
+  writing: 'Writing your prompt…',
+  queued: null,   // the tile's own "Queued…"
+}
+
+/** The tile's label and look for a stage: a step's own words with the working spinner, or
+    the ordinary queued tile. */
+export function stageTile(stage: PromptStage): { label: string | null; status: 'enhancing' | 'queued' } {
+  return { label: STAGE_LABELS[stage], status: stage === 'queued' ? 'queued' : 'enhancing' }
+}
+
+/** The step a run starts on, from what the editor knows at the click. `varies`: the prompt
+    has slots or lists, or isn't read yet (a read prompt with nothing that varies has no key).
+    `writes`: the submit asks the chat model to write the prompt. */
+export function firstStage(o: { varies: boolean; writes: boolean }): PromptStage {
+  if (o.varies) return 'picking'
+  return o.writes ? 'writing' : 'queued'
+}
+
+/** Whether the prompt may vary: it has slots or lists, or it hasn't been read yet. */
+export function promptVaries(status: ProgramStatus, program: { key?: string | null } | null | undefined): boolean {
+  return status !== 'ready' || !!program?.key
+}
+
+/** Whether a submit's promptOptions ask the chat model to write the prompt. */
+export function promptWrites(promptOptions: any): boolean {
+  return !!promptOptions?.autoImprove?.enabled || !!promptOptions?.translate?.enabled
+}
 
 /** How long the editor waits before looking again while the server is still reading the
     prompt, or still writing variants (`round` counts from 0): soon at first, then slowly, for as

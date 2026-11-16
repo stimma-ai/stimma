@@ -3444,7 +3444,7 @@ import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptPro
 import FluentSlotList from '../components/generation/FluentSlotList.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
-import { DRAWING_LABEL, directImproves, fallbackNotice, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
+import { directImproves, firstStage, promptVaries, promptWrites, stageTile, type PromptStage, fallbackNotice, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import UseFromImage from '../components/generation/UseFromImage.vue'
 import type { LoraPoolItem } from '../composables/useLoraPool'
@@ -5555,10 +5555,24 @@ function openRunTile(label: string | null, prompt: string = globalPrefs.value.pr
     close: () => {
       if (!open) return
       open = false
+      stagedTiles.delete(id)
       jobsManager.removePendingJob(id)
       finish()
     },
   }
+}
+
+// Tiles that follow their prompt's steps: the editor's guess at the click, then the server's
+// word as each step starts (generation_prompt_stage, backend prompt_stage.py).
+const stagedTiles = new Set<string>()
+function setTileStage(tile: RunTile, stage: PromptStage) {
+  stagedTiles.add(tile.id)
+  if (!jobsManager.setPendingJobStage(tile.id, stageTile(stage))) stagedTiles.delete(tile.id)
+}
+function handlePromptStage(data: any) {
+  const id = data?.client_ref
+  if (!id || !stagedTiles.has(id) || (data.stage !== 'picking' && data.stage !== 'writing')) return
+  if (!jobsManager.setPendingJobStage(id, stageTile(data.stage))) stagedTiles.delete(id)
 }
 
 type SubmitJobResult = {
@@ -5618,13 +5632,19 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
   const count = options.foreverBackendName
     ? 1
     : Math.min(8, Math.max(1, options.countOverride ?? uiState.value.batchSize ?? 1))
-  // A Fluent run's tiles go up now, one per image, while each image's slots are filled and
-  // checked to fit together on the server before its job is queued. A run never waits for
-  // the prompt to be read: a slot not read yet goes in as its words. submitOneJob hands each
-  // tile to its job.
+  // A Fluent run's tiles go up now, one per image, saying which prompt step each is on until
+  // its job is queued: its details picked (slots and lists drawn and checked to fit
+  // together), then its prompt written by the chat model. A run never waits for the prompt
+  // to be read: a slot not read yet goes in as its words. submitOneJob settles each tile's
+  // first step once its prompt options are known, and hands the tile to its job.
   promptProgram.ensureReady()
+  const varies = promptVaries(promptProgram.status.value, promptProgram.program.value)
   const tiles: RunTile[] = promptProgram.status.value !== 'off'
-    ? Array.from({ length: count }, () => openRunTile(DRAWING_LABEL))
+    ? Array.from({ length: count }, () => {
+      const t = openRunTile(null)
+      setTileStage(t, firstStage({ varies, writes: true }))
+      return t
+    })
     : []
   const closeTiles = () => tiles.forEach(t => t.close())
 
@@ -5784,6 +5804,13 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
   // (client_ref), so the job it queues retires this tile and no other.
   const runTile = options.runTile
     ?? (needsEnhancing ? openRunTile(null, prompt, capturedState.parameters || {}) : null)
+  // With the feature on, the tile says which step its prompt is on (Direct's too).
+  if (runTile && fluentOn.value) {
+    setTileStage(runTile, firstStage({
+      varies: !!promptOptions?.program && promptVaries(promptProgram.status.value, promptProgram.program.value),
+      writes: promptWrites(promptOptions),
+    }))
+  }
   const removePendingEnhancementJob = () => runTile?.close()
   // The tile was cancelled after its submit went out: the job it queued is cancelled.
   const tileCancelled = () => !!runTile && jobsManager.wasPendingJobCancelled(runTile.id)
@@ -7805,7 +7832,8 @@ onMounted(async () => {
     onWebSocketEvent('generation_request_work', handleWorkRequest),
     onWebSocketEvent('generation_job_completed', handleForeverModeJobCompleted),
     onWebSocketEvent('generation_job_failed', handleForeverModeJobFailed),
-    onWebSocketEvent('batch_completed', handleForeverModeBatchCompleted)
+    onWebSocketEvent('batch_completed', handleForeverModeBatchCompleted),
+    onWebSocketEvent('generation_prompt_stage', handlePromptStage),
   ]
 
   // Subscribe to provider status changes for reactive availability updates

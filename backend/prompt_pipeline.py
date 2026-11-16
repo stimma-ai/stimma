@@ -396,6 +396,9 @@ async def _improve_with_verbatim_protection(
         log.info(f"[prompt-pipeline] Improve skipped: detail level is off for {mode}")
         report["improved"] = "skipped"
         return prompt
+    # The chat model writes it now: the submit's tile says so (prompt_stage).
+    from prompt_stage import say
+    await say("writing")
 
     source = mark_values(prompt, fixed_spans) if fixed_spans else prompt
     prompt_with_placeholders, segments = extract_verbatim(
@@ -1010,6 +1013,8 @@ async def run_prompt_pipeline(
     # language. A generic translation pass would corrupt that required schema.
     if translate.get("enabled") and translate.get("language") and h3_task is None:
         try:
+            from prompt_stage import say
+            await say("writing")
             processed = await _translate_with_verbatim_protection(
                 processed, translate["language"], project_id
             )
@@ -1031,6 +1036,8 @@ async def run_prompt_pipeline(
 
     # 5) Ideogram JSON — on the fully resolved prompt (last step).
     if ideogram_json_mode:
+        from prompt_stage import say
+        await say("writing")
         processed = await _to_ideogram_json(processed, width, height, project_id)
 
     return processed
