@@ -303,23 +303,26 @@ class TestAssetTextSearch:
             assert named_assets["unrelated"] not in ids
 
     async def test_text_match_runs_once_in_the_asset_join(self, db_session):
-        """The word-index list must filter the browse join, not drive it: driving
+        """The word-index list must filter an asset join, not drive it: driving
         asset_revisions from it re-ran the MATCH per Asset row (26 s per keystroke
-        on a large library)."""
+        on a large library). build_filtered_query picks the form from the query
+        it is given, so every asset-joined caller (browse, trash facets, agent)
+        gets it, while media-only queries still probe media by primary key."""
         from sqlalchemy import func
-        from utils.query_builder import asset_text_predicate
+        from utils.query_builder import build_filtered_query
 
-        stmt = (
-            select(func.count()).select_from(Asset)
+        trash_facet = (
+            select(func.count(Asset.id)).select_from(Asset)
             .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
             .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
-            .where(Asset.state == "active", asset_text_predicate("stump", asset_join=True))
+            .where(Asset.state == "trashed", Asset.deleted_at.is_not(None))
         )
-        assert "primary_media_id=?" not in await self._plan(db_session, stmt)
+        plan = await self._plan(db_session, build_filtered_query(trash_facet, prompt_query="stump"))
+        assert "REUSE LIST SUBQUERY" not in plan, plan
 
-        # Without the asset join the matching ids probe media by primary key.
-        stmt = select(func.count(MediaItem.id)).where(asset_text_predicate("stump"))
-        assert "SCAN media_items" not in await self._plan(db_session, stmt)
+        media_only = select(func.count(MediaItem.id))
+        plan = await self._plan(db_session, build_filtered_query(media_only, prompt_query="stump"))
+        assert "SCAN media_items" not in plan, plan
 
     async def _plan(self, db_session, stmt):
         from sqlalchemy import text

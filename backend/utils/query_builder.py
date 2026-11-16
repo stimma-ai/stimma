@@ -4,6 +4,7 @@ from typing import Optional, Union
 import re
 from sqlalchemy import select, or_, and_, case, func, false, true, union_all, literal, literal_column, table, column
 from sqlalchemy.orm import aliased
+from sqlalchemy.sql.util import find_tables
 from database import (
     Asset,
     AssetMarker,
@@ -417,6 +418,15 @@ def asset_text_predicate(text: str, asset_join: bool = False):
     return and_(true(), *conditions)
 
 
+def _joins_asset_revisions(query) -> bool:
+    """True when ``query`` selects from a join through asset_revisions."""
+    return any(
+        getattr(table, "name", None) == AssetRevision.__tablename__
+        for from_ in query.get_final_froms()
+        for table in find_tables(from_)
+    )
+
+
 def build_filtered_query(
     query,
     caption_query: Optional[str] = None,
@@ -516,7 +526,7 @@ def build_filtered_query(
         query = query.where(MediaItem.vlm_caption.ilike(f"%{caption_query}%"))
 
     if prompt_query:
-        query = query.where(asset_text_predicate(prompt_query, asset_join=asset_id_column is not None))
+        query = query.where(asset_text_predicate(prompt_query, asset_join=_joins_asset_revisions(query)))
 
     # Media type filter (OR within category)
     if exclude_category != 'media_types':
