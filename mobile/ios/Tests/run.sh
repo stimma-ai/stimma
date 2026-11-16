@@ -6,6 +6,8 @@ trap 'rm -rf "$mobile_test_build"' EXIT
 xcrun swiftc -swift-version 5 -parse-as-library "$mobile_tests_dir/../Sources/MobilePresence.swift" "$mobile_tests_dir/PresenceChecks.swift" -o "$mobile_test_build/presence-checks"
 python3 "$mobile_tests_dir/presence_fixture.py" "$mobile_test_build/presence-checks"
 xcrun swiftc -swift-version 5 "$mobile_tests_dir/../Sources/DevServerAddress.swift" "$mobile_tests_dir/DevServerChecks.swift" -o "$mobile_test_build/dev-server-checks"
+xcrun swiftc -swift-version 5 "$mobile_tests_dir/../Sources/PhoneFeatures.swift" "$mobile_tests_dir/PhoneFeatureChecks.swift" -o "$mobile_test_build/phone-feature-checks"
+"$mobile_test_build/phone-feature-checks"
 "$mobile_test_build/dev-server-checks"
 node --test "$mobile_tests_dir/../../../frontend/tests/mobileApiOrigin.test.mjs" "$mobile_tests_dir/../../../frontend/tests/recoveryWindow.test.mjs" "$mobile_tests_dir/../../../frontend/tests/mobileJobRecovery.test.mjs" "$mobile_tests_dir/../../../frontend/tests/mobileRecovery.browser.test.mjs"
 node --test "$mobile_tests_dir/../../../frontend/tests/connectionScreen.browser.test.mjs"

@@ -5,7 +5,7 @@ import { addToast } from '../composables/useToasts.ts'
 import { mobileNative as native, mobilePlatform } from './mobileNative.ts'
 import type { ConnectionState, DesktopBridge, DeviceRecord, LocalAuthResponse, MultiDeviceState, VoiceTranscriptEvent } from './types'
 
-/** Native commands newer phone shells add; older shells and iOS list none of them. */
+/** Native commands newer phone shells add; older shells list none of them. */
 export type MobileFeature = 'print' | 'saveFile' | 'shareBase64' | 'voice'
 
 export function hasMobileFeature(feature: MobileFeature): boolean {
@@ -14,7 +14,7 @@ export function hasMobileFeature(feature: MobileFeature): boolean {
   return Array.isArray(features) && features.includes(feature)
 }
 
-/** This phone saves exports into its own Photos and Downloads, rather than only sharing them. */
+/** This phone saves exports into its own Photos and Downloads or Files, rather than only sharing them. */
 export function phoneSavesFiles(): boolean {
   return isMobileShell() && hasMobileFeature('saveFile')
 }
@@ -40,6 +40,7 @@ export async function shareOnPhone(filename: string, data: Uint8Array): Promise<
 const SAVED_MESSAGE: Record<string, string> = {
   photos: 'Saved to Photos',
   downloads: 'Saved to Downloads',
+  files: 'Saved to Files',
 }
 
 type VoiceStart = { started: boolean; session?: number; reason?: string; message?: string }

@@ -358,3 +358,19 @@ test('a denied microphone rejects voiceStart with its message', async () => {
     await assert.rejects(mobileBridge.voiceStart(() => {}), /Allow microphone access/)
   } finally { android.restore() }
 })
+
+test('an iOS shell that saves a document into Files says so', async () => {
+  const { clearToasts, useToasts } = await import('../composables/useToasts.ts')
+  clearToasts()
+  const previous = globalThis.window
+  const requests: any[] = []
+  globalThis.window = {
+    stimmaNativeFeatures: ['print', 'saveFile', 'shareBase64', 'voice'],
+    webkit: { messageHandlers: { stimma: { postMessage: async (request: any) => { requests.push(request); return { location: 'files' } } } } },
+  } as any
+  try {
+    assert.equal(await mobileBridge.saveToDownloads('notes.txt', new Uint8Array([104, 105])), true)
+    assert.deepEqual(requests[0], { method: 'saveFile', args: { filename: 'notes.txt', base64: 'aGk=' } })
+    assert.equal(useToasts().toasts.value.at(-1)?.message, 'Saved to Files')
+  } finally { globalThis.window = previous; clearToasts() }
+})

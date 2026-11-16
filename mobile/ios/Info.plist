@@ -17,6 +17,8 @@
 <key>NSLocalNetworkUsageDescription</key><string>Connect to your Stimma server on your local network.</string>
 <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 <key>NSCameraUsageDescription</key><string>Import a photo into your Stimma library.</string>
-<key>NSMicrophoneUsageDescription</key><string>Record audio for your Stimma library.</string>
+<key>NSMicrophoneUsageDescription</key><string>Hear what you say when you use voice input, and record audio for your Stimma library.</string>
+<key>NSSpeechRecognitionUsageDescription</key><string>Turn what you say into text when you use voice input.</string>
+<key>NSPhotoLibraryAddUsageDescription</key><string>Save pictures and videos to Photos.</string>
 <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLSchemes</key><array><string>stimma-mobile</string></array></dict></array>
 </dict></plist>

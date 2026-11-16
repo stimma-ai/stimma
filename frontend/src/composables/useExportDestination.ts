@@ -4,8 +4,8 @@
  * Desktop shells write through native pickers: a Save panel for one file, a
  * folder picker for several files or a multi-file format. The panel opens in
  * the folder the profile last exported to. "Save to Downloads" skips the
- * picker. Phones save into their own Photos or Downloads (older phone apps
- * hand the file to the share sheet); browsers download.
+ * picker. Phones save into their own Photos, Downloads or Files (older phone
+ * apps hand the file to the share sheet); browsers download.
  */
 
 import { unzipSync } from 'fflate'
@@ -14,6 +14,8 @@ import type { KnownFolder } from '../desktop/types'
 import { getCurrentProfileId } from './useProfile'
 import { addToast } from './useToasts'
 import { useDesktopDownload } from './useDesktopDownload'
+import { phoneSavesFiles } from '../desktop/mobileBridge'
+import { checkMobileDownloadSize } from '../utils/mobileDownload'
 
 export type ExportMediaCategory =
   'image' | 'video' | 'audio' | 'layout' | 'vector' | 'sprite' | 'package' | 'mixed' | 'other'
@@ -139,14 +141,23 @@ export async function exportToChosenFolder(
   return true
 }
 
-/** Write straight to Downloads (desktop), or hand off to the share sheet / browser. */
-export async function exportToDownloads(file: ExportFile): Promise<void> {
+/**
+ * Write straight to Downloads (desktop), save on the phone, or hand off to the
+ * share sheet / browser. Resolves false when the person closes the phone's
+ * save picker without choosing a place.
+ */
+export async function exportToDownloads(file: ExportFile): Promise<boolean> {
+  if (phoneSavesFiles()) {
+    checkMobileDownloadSize(file.blob.size, desktop.kind)
+    return Boolean(await desktop.saveToDownloads(file.filename, await bytesOf(file.blob)))
+  }
   if (!canChooseExportLocation()) {
     await useDesktopDownload().downloadFromResponse(file.blob, file.filename)
-    return
+    return true
   }
   const saved = await desktop.saveToDownloads(file.filename, await bytesOf(file.blob))
   if (!saved) throw new Error('The file was not saved. Please try exporting again.')
   const savedPath = typeof saved === 'string' ? saved : null
   announce(`Saved ${savedPath ? folderLabel(savedPath) : file.filename} to Downloads`, savedPath)
+  return true
 }

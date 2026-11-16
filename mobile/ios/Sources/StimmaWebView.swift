@@ -91,6 +91,10 @@ struct StimmaWebView: UIViewRepresentable {
         }
     }
 
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        coordinator.stopListening()
+    }
+
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandlerWithReply {
         let model: ShellModel
@@ -154,7 +158,20 @@ struct StimmaWebView: UIViewRepresentable {
             super.init()
             NotificationCenter.default.addObserver(self, selector: #selector(pauseForInterruption), name: UIApplication.willResignActiveNotification, object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(resumeInterface), name: UIApplication.didBecomeActiveNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(stopListening), name: UIApplication.didEnterBackgroundNotification, object: nil)
         }
+
+        private var dictationInstance: VoiceDictation?
+        private var dictation: VoiceDictation {
+            if let dictationInstance { return dictationInstance }
+            let created = VoiceDictation { [weak self] detail in self?.dispatch("stimma:voice", detail: detail) }
+            dictationInstance = created
+            return created
+        }
+        private var filesExport: FilesExport?
+
+        /// Never keep listening once the app is out of sight, or after its page is gone.
+        @objc func stopListening() { dictationInstance?.invalidate() }
 
         @objc private func pauseForInterruption() {
             // Native pausing covers subframes and does not depend on the JS
@@ -173,12 +190,14 @@ struct StimmaWebView: UIViewRepresentable {
         deinit { NotificationCenter.default.removeObserver(self) }
 
         func installStorageScript(_ controller: WKUserContentController) throws {
-            guard let storage else { return }
-            let source = try LocalStoragePersistence.script(values: storage.load(), origin: origin)
+            let source = try storage.map { try LocalStoragePersistence.script(values: $0.load(), origin: origin) }
             // Update the seed after every save as well, so reloads and WebContent
             // process recovery cannot replay the WebView's original preferences.
             controller.removeAllUserScripts()
-            controller.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+            controller.addUserScript(WKUserScript(source: nativeFeaturesScript(), injectionTime: .atDocumentStart, forMainFrameOnly: true))
+            if let source {
+                controller.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+            }
         }
 
         func userContentController(_ userContentController: WKUserContentController,
@@ -292,41 +311,86 @@ struct StimmaWebView: UIViewRepresentable {
                         await UIApplication.shared.open(url)
                         result = NSNull()
                     case "share":
-                        guard let name = args["filename"] as? String,
-                              let values = args["bytes"] as? [UInt8], values.count <= 64 * 1024 * 1024 else {
-                            throw ShellError.message("This export is too large for the share sheet")
-                        }
-                        let safeName = URL(fileURLWithPath: name).lastPathComponent
-                        guard !safeName.isEmpty, safeName != ".", safeName != ".." else { throw ShellError.message("Invalid filename") }
-                        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-                        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-                        let file = directory.appendingPathComponent(safeName)
-                        try Data(values).write(to: file, options: .atomic)
+                        let file = try writeExport(args, tooLarge: "This export is too large for the share sheet")
                         let activity = UIActivityViewController(activityItems: [file], applicationActivities: nil)
-                        guard var presenter = webView?.window?.rootViewController else {
-                            try? FileManager.default.removeItem(at: directory)
-                            throw ShellError.message("Cannot open share sheet")
-                        }
-                        while let presented = presenter.presentedViewController { presenter = presented }
-                        guard !presenter.isBeingDismissed else {
-                            try? FileManager.default.removeItem(at: directory)
-                            throw ShellError.message("Please close the current sheet and try exporting again.")
-                        }
+                        let presenter: UIViewController
+                        do { presenter = try PhoneExports.presenter(for: webView) }
+                        catch { removeExport(file); throw error }
                         activity.popoverPresentationController?.sourceView = webView
                         // Resolve after the user completes or cancels sharing;
                         // presenting a sheet alone is not a successful export.
                         result = await withCheckedContinuation { continuation in
                             activity.completionWithItemsHandler = { _, completed, _, _ in
-                                try? FileManager.default.removeItem(at: directory)
+                                try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
                                 continuation.resume(returning: completed)
                             }
                             presenter.present(activity, animated: true)
                         }
+                    case "saveFile":
+                        guard !connectionScreen else { throw ShellError.message("Open your library to save files.") }
+                        guard filesExport == nil else { throw ShellError.message("A save is already open.") }
+                        let file = try writeExport(args, tooLarge: "This export is too large to save on the phone")
+                        defer { removeExport(file) }
+                        let target = saveTarget(file.lastPathComponent)
+                        if target != .files, await PhoneExports.saveToPhotos(file, video: target == .video) {
+                            result = ["location": target.location]
+                        } else {
+                            // Other files, or Photos said no: let the person choose a place in Files.
+                            let presenter = try PhoneExports.presenter(for: webView)
+                            let export = FilesExport()
+                            filesExport = export
+                            defer { filesExport = nil }
+                            let saved = await export.run(file, from: presenter, sourceView: webView)
+                            result = saved ? ["location": SaveTarget.files.location] as Any : false
+                        }
+                    case "print":
+                        guard !connectionScreen, let webView else { throw ShellError.message("Open your library to print.") }
+                        let title = ((args["title"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                        // Answers when the dialog closes, so the page keeps its print layout until then.
+                        await PhoneExports.print(webView, title: title.isEmpty ? "Stimma" : String(title.prefix(80)))
+                        result = NSNull()
+                    case "voiceStatus":
+                        result = ["available": dictation.available, "permission": dictation.permissionGranted ? "granted" : "prompt"]
+                    case "voiceStart":
+                        guard !connectionScreen else { throw ShellError.message(DictationMessage.unavailable) }
+                        let voice = dictation
+                        if !voice.available {
+                            result = ["started": false, "reason": "unavailable"]
+                        } else {
+                            let asked = voice.session
+                            if let denied = await voice.requestPermission() {
+                                result = ["started": false, "reason": "denied", "message": denied]
+                            } else if asked != voice.session {
+                                // Cancelled while a permission prompt was open.
+                                result = ["started": false, "reason": "cancelled"]
+                            } else {
+                                do { let session = try voice.start(); result = ["started": true, "session": session] }
+                                catch { result = ["started": false, "reason": "unavailable", "message": error.localizedDescription] }
+                            }
+                        }
+                    case "voiceStop": result = await dictation.stop()
+                    case "voiceCancel": dictationInstance?.invalidate(); result = NSNull()
                     default: throw ShellError.message("Unsupported native operation")
                     }
                     replyHandler(result, nil)
                 } catch { replyHandler(nil, error.localizedDescription) }
             }
+        }
+
+        /// Writes an export to its own temporary folder under its own name.
+        private func writeExport(_ args: [String: Any], tooLarge: String) throws -> URL {
+            guard let name = args["filename"] as? String, validExportName(name) else { throw ShellError.message("Invalid filename") }
+            let data = try exportData(args, tooLarge: tooLarge)
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let file = directory.appendingPathComponent(name)
+            do { try data.write(to: file, options: .atomic) }
+            catch { try? FileManager.default.removeItem(at: directory); throw error }
+            return file
+        }
+
+        private func removeExport(_ file: URL) {
+            try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
         }
 
         private func object<T: Encodable>(_ value: T) throws -> Any {

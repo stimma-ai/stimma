@@ -971,8 +971,7 @@ async function produceLayoutExport() {
  */
 async function deliver(file, destination) {
   if (destination === 'downloads' || !canChooseLocation) {
-    await exportToDownloads(file)
-    return true
+    return exportToDownloads(file)
   }
   const category = mediaCategory.value
   if (isZipExport(file) && category !== 'package') {
