@@ -378,3 +378,39 @@ async def test_generate_forever_discards_the_pool_when_the_level_or_prompt_chang
 async def test_generate_forever_at_yours_keeps_no_pool(tool, forever_queue):
     await _submit(forever=True, level="off")
     assert tool == [] and "gen-1" not in forever_queue._prompt_warm_intent
+
+
+async def test_an_edit_asks_what_its_images_are_for_once_about_the_prompt_as_typed(tool, monkeypatch, tmp_path):
+    """The intent is the user's: every image of the submit (each with its own draws) is
+    improved with the roles read once from the typed prompt, wildcards and all."""
+    import json
+    import input_roles
+    import llm_resolver
+
+    monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {
+        "model": "m", "model_vendor": None, "effective_task": "image-to-image", "schema_props": {},
+        "mode": "edit", "program_supported": False, "enhance": {"input_image_count": 1}})
+    monkeypatch.setattr(input_roles, "_cache_dir", lambda: tmp_path / "input_roles")
+    monkeypatch.setattr(input_roles, "_memory", {})
+    asked = []
+
+    async def fake_config(role, project_id=None):
+        return {"provider": "test"}
+
+    async def fake_complete(*, config, messages, max_tokens, temperature):
+        asked.append(messages[1]["content"])
+        return json.dumps({"images": [{"image": 1, "role": "reference", "gives": "the woman"}]})
+
+    monkeypatch.setattr(llm_resolver, "get_effective_llm_config", fake_config)
+    monkeypatch.setattr("llm.llm_complete_text", fake_complete)
+
+    typed = "this woman in a {red|blue} coat walking {{animal}}"
+    for _ in range(3):
+        await _submit(typed, level="fill")
+    assert len(asked) == 1 and typed in asked[0]
+    assert len(tool) == 3
+    assert all(r.input_roles == [{"image": 1, "role": "reference", "gives": "the woman"}] for r in tool)
+
+    # Yours makes no improve call, so nothing is asked.
+    await _submit("this woman on a beach", level="off")
+    assert len(asked) == 1

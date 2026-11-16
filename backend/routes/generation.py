@@ -720,6 +720,16 @@ async def _apply_generation_prompt_pipeline(
         effective_preload = None
     lora_context = (_shape_lora_context(await lora_context_for(tool_id, parameters, profile_id), lora_triggers, lora_notes)
                     if enhance_on else None)
+    # An edit's input images are either being changed or references for a new picture.
+    # That is the user's intent: asked once, about the prompt as typed (before any draw
+    # or fill), and handed to every improve this submit makes.
+    from routes.prompt_enhancement import _EDIT_MODES
+    input_roles = None
+    if enhance_on and level != "off" and ctx["mode"] in _EDIT_MODES and not ideogram_json:
+        from input_roles import roles_for_submit, to_json
+        input_roles = to_json(await roles_for_submit(
+            prompt=parameters["prompt"], instructions=(auto_improve.get("instructions") or "").strip() or None,
+            count=ctx["enhance"].get("input_image_count", 0), project_id=project_id))
     pipeline = dict(
         prompt_options=prompt_options,
         model=model,
@@ -729,6 +739,7 @@ async def _apply_generation_prompt_pipeline(
         profile_id=profile_id,
         project_id=project_id,
         level=level,
+        input_roles=input_roles,
     )
     ahead: Dict[str, Any] = {}
     if fluent:

@@ -1,6 +1,6 @@
 """Prompt enhancement routes for AI-assisted prompt editing."""
 from core.logging import get_logger
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
@@ -15,6 +15,7 @@ from llm import llm_complete_text, EntitlementError
 from llm_http import LLMProviderHTTPError
 from llm_correlation import llm_correlation_context
 from model_family import is_non_photo_model, model_family
+from input_roles import CHANGE, InputRole, all_references, classify_input_roles, from_json
 
 router = APIRouter(prefix="/api/prompt", tags=["prompt"])
 log = get_logger(__name__)
@@ -105,10 +106,11 @@ def enhancement_mode(
 
 # The improve requests' own wording, beside the guides (which are hashed whole):
 # part of the per-image improver's cache key, so a change here writes prompts afresh.
+# improve-5: an edit whose images are all references is written as the new picture (input_roles).
 # improve-4: every guide says never to add sexualized dress, pose or expression for a child or a teenager.
 # improve-3: a model that makes no photos is named in the request too.
 # improve-2: a picture is said to be a photo unless something sets another look.
-IMPROVE_VERSION = "improve-4"
+IMPROVE_VERSION = "improve-5"
 
 # Enhancement style -> the prompts.yaml key for its system prompt. ``ideogram``
 # is intentionally absent: that family routes to /to-ideogram-json instead, and
@@ -341,6 +343,66 @@ def _flux3_canvas_guidance(width: Optional[int], height: Optional[int], exact: b
 def _input_images_phrase(n: int) -> str:
     """Human-readable count of input images for the edit system prompt."""
     return "an input image" if n <= 1 else f"{n} input images"
+
+
+# The modes that write an instruction over input images, and the text-to-image mode
+# each writes in instead when every input is a reference for a new picture.
+_EDIT_MODES = frozenset({"edit", "qwen-image-2.1-edit", "flux3-klein-edit", "minimax-h3-image-edit"})
+
+
+def _reference_mode(edit_mode: str, family: Optional[str]) -> str:
+    if edit_mode == "edit":
+        return "krea-2" if family == "krea-2" else "prose"
+    return edit_mode.removesuffix("-edit")
+
+
+def _input_name(edit_mode: str, n: int, count: int) -> str:
+    """An input image as this model's prompts name it."""
+    if edit_mode == "qwen-image-2.1-edit":
+        return f"<image{n}>" if count > 1 else "the image"
+    if edit_mode == "minimax-h3-image-edit":
+        return f"<Picture {n}>"
+    if edit_mode == "flux3-klein-edit" or count > 1:
+        return _ordinal_image(n)
+    return "the image"
+
+
+def _references_guidance(edit_mode: str, roles: Sequence[InputRole]) -> str:
+    """The closing part of a text-to-image guide whose picture is drawn from
+    reference images: what each gives, and to point at it, not describe it."""
+    count = len(roles)
+    names = [_input_name(edit_mode, r.image, count) for r in roles]
+    lines = "\n".join(f"- {name} gives {r.gives or 'what the request takes from it'}."
+                      for name, r in zip(names, roles))
+    phrase = "a reference image" if count == 1 else f"{count} reference images"
+    # The example names the first reference's thing in the request's own word ("the woman").
+    thing = (roles[0].gives or "").split(":")[0].strip()
+    thing = thing if thing.lower().startswith("the ") and len(thing.split()) <= 4 else "the person"
+    return (
+        f"\n\nReference images: the image model also receives {phrase} with this description, and they set "
+        f"how the things they give look.\n{lines}\n"
+        "Write the new picture the request describes: its scene, setting, action and framing are the "
+        "request's, never the references'. Name each thing a reference gives by its reference, as in "
+        f"\"{thing} from {names[0]}\", using the request's own word for it, and leave its looks to the reference: do not describe a referenced "
+        "person's face, hair, build, skin or outfit, an object's design, or a style the reference sets, "
+        "unless the request changes it. A reference's own background, setting and pose are not part of the "
+        "picture unless the request asks for them. Write everything else as above."
+    )
+
+
+def _roles_line(edit_mode: str, roles: Optional[Sequence[InputRole]]) -> str:
+    """For an edit that also draws on references: which input is being changed and
+    what each reference gives. Empty when every input is being changed."""
+    if not roles or all(r.role == CHANGE for r in roles):
+        return ""
+    count = len(roles)
+    parts = [
+        f"{_input_name(edit_mode, r.image, count)} is "
+        + ("the picture being changed" if r.role == CHANGE
+           else f"a reference that gives {r.gives or 'what the request takes from it'}")
+        for r in roles
+    ]
+    return "\n\nWhat each input is for: " + "; ".join(parts) + "."
 
 
 # The cinematography prompts carry an {audio_guidance} slot because the right
@@ -783,6 +845,10 @@ class ImprovePromptRequest(BaseModel):
     # the prompt as an instruction over the input image(s) rather than a fresh
     # scene to describe. 0 for text-to-image. Ignored for video/keyword/ideogram.
     input_image_count: int = 0
+    # What each input image is for, decided once per submit from the prompt as typed
+    # (input_roles.roles_for_submit), as [{image, role, gives}]. None: the improver
+    # asks about this prompt itself.
+    input_roles: Optional[List[Dict[str, Any]]] = None
     # Whether the tool is generating against a supplied audio track (LTX
     # image+audio-to-video, lip-sync, avatar). On the cinematography path this
     # flips the soundtrack instruction: the model reproduces the track rather than
@@ -1026,14 +1092,18 @@ Guidelines:
 - Output ONLY the improved prompt, no explanations or additional text"""
 
 async def style_guide(request: "ImprovePromptRequest", session,
-                      fill: bool = False, exact_canvas: bool = True) -> Tuple[str, List[Tuple[int, str]], str]:
+                      fill: bool = False, exact_canvas: bool = True,
+                      roles: Optional[Sequence["InputRole"]] = None) -> Tuple[str, List[Tuple[int, str]], str]:
     """How to write a prompt for this request's image model: the per-model system prompt
     with this request's slots filled (images, canvas, audio, protected text, LoRAs), the
     source images the writer should see, and the mode. The enhancer rewrites one prompt
     with it.
     fill: the "off" level's guide where the mode has one (fill_*: MiniMax H3's format),
     keeping the user's words, instead of the full improver (improve_*).
-    exact_canvas=False: the canvas by its shape alone, not its size."""
+    exact_canvas=False: the canvas by its shape alone, not its size.
+    roles: what each input image is for (input_roles). When every input is a
+    reference, the request describes a new picture: the mode's text-to-image guide
+    writes it, told what each reference gives, instead of the edit guide."""
     # Pick the enhancement style. Task drives video (cinematography) and edits
     # (input images on a natural-language model); model family drives the rest
     # (keyword / ideogram / prose). Falls back to prose for unknown families and
@@ -1052,6 +1122,10 @@ async def style_guide(request: "ImprovePromptRequest", session,
     # Each input is shown as the tool receives it: a cropped (or otherwise
     # prepared) input shows its prepared file, not the library original.
     prepared = request.input_image_paths
+    edit_mode = mode
+    references = mode in _EDIT_MODES and all_references(roles)
+    if references:
+        mode = _reference_mode(mode, family)
 
     async def load_slot(slot: int, media_id: Optional[int]) -> Optional[str]:
         path = prepared[slot] if slot < len(prepared) else None
@@ -1060,7 +1134,11 @@ async def style_guide(request: "ImprovePromptRequest", session,
         return await _load_source_image_b64(session, media_id)
 
     source_images_b64: List[tuple[int, str]] = []
-    if mode == "minimax-h3":
+    if references:
+        # The writer describes the new picture from the request, told what each
+        # reference gives; shown the images, it would re-describe them.
+        pass
+    elif mode == "minimax-h3":
         for slot, media_id in enumerate(request.h3_media_ids):
             if media_id is None:
                 continue
@@ -1147,7 +1225,9 @@ async def style_guide(request: "ImprovePromptRequest", session,
     )
     # Per-request parts close the guide, so the text before them stays the same
     # across requests and can be cached; empty slots leave only blank lines.
-    system_prompt = (system_prompt.rstrip() + _non_photo_model_guidance(request.model, mode)
+    system_prompt = (system_prompt.rstrip()
+                     + (_references_guidance(edit_mode, roles or []) if references else "")
+                     + _non_photo_model_guidance(request.model, mode)
                      + _lora_guidance(request.lora_context, keyword_mode=(mode == "keyword")))
     system_prompt = re.sub(r"\n{3,}", "\n\n", system_prompt)
     return system_prompt, source_images_b64, mode
@@ -1184,7 +1264,25 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         )
 
     # "off" reaches the model only where it needs its format, and keeps the user's words.
-    system_prompt, source_images_b64, mode = await style_guide(request, session, fill=request.level == "off")
+    # Edits: what each input image is for. A submit asks once about the prompt as
+    # typed and hands the answer down (input_roles); the Improve button's prompt is
+    # the typed one, so it asks here. A request that describes a new picture of
+    # what the images show is written as that picture, not as an edit.
+    roles: Optional[List[InputRole]] = None
+    if request_mode in _EDIT_MODES and request.input_image_count > 0:
+        roles = from_json(request.input_roles)
+        if roles is None or len(roles) != request.input_image_count:
+            with llm_correlation_context("prompt-agent"):
+                roles = await classify_input_roles(
+                    prompt=request.prompt, instructions=request.instructions,
+                    count=request.input_image_count, llm_config=llm_config)
+    system_prompt, source_images_b64, mode = await style_guide(
+        request, session, fill=request.level == "off", roles=roles)
+    references = request_mode in _EDIT_MODES and mode not in _EDIT_MODES
+    # Said in the request to a text-to-image guide that is drawing from references.
+    t2i = "reference-guided" if references else "text-to-image"
+    refs_note = " The image model also receives the reference images the guide lists." if references else ""
+    roles_line = "" if references else _roles_line(request_mode, roles)
     max_tokens = (improve_max_tokens(fitted_target(length_target(mode, request.level, family), request.prompt))
                   if request.level else 8192)
     log.info(
@@ -1207,8 +1305,8 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                  if request.instructions and request.instructions.strip() else "")
         task = "reference-image edit" if mode.endswith("-edit") else "text-to-image"
         user_content = (
-            f"Rewrite this MiniMax H3 Image {task} request. "
-            f"Return only the finished-image caption:\n\n{request.prompt}{instr}"
+            f"Rewrite this MiniMax H3 Image {task if not references else 'reference-guided'} request.{refs_note} "
+            f"Return only the finished-image caption:\n\n{request.prompt}{instr}{roles_line}"
         )
     elif mode == "qwen-image-2.1-edit":
         instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
@@ -1218,13 +1316,13 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             f"{_qwen_image_refs_phrase(request.input_image_count)}"
             + (" (attached below, labeled)" if source_images_b64 else "")
             + ". Return only the final model prompt:\n\n"
-            f"{request.prompt}{instr}"
+            f"{request.prompt}{instr}{roles_line}"
         )
     elif mode == "qwen-image-2.1":
         instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
                  if request.instructions and request.instructions.strip() else "")
         user_content = (
-            "Rewrite this request as a Qwen-Image-2.1 text-to-image prompt. "
+            f"Rewrite this request as a Qwen-Image-2.1 {t2i} prompt.{refs_note} "
             f"Return only the final model prompt:\n\n{request.prompt}{instr}"
         )
     elif mode == "flux3-klein-edit":
@@ -1235,13 +1333,13 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             f"{_flux3_image_refs_phrase(request.input_image_count)}"
             + (" (attached below, labeled)" if source_images_b64 else "")
             + ". Return only the final model prompt:\n\n"
-            f"{request.prompt}{instr}"
+            f"{request.prompt}{instr}{roles_line}"
         )
     elif mode == "flux3-klein":
         instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
                  if request.instructions and request.instructions.strip() else "")
         user_content = (
-            "Rewrite this request as a FLUX.3 Klein text-to-image caption. "
+            f"Rewrite this request as a FLUX.3 Klein {t2i} caption.{refs_note} "
             f"Return only the final model prompt:\n\n{request.prompt}{instr}"
         )
     elif mode == "ltx-2.5":
@@ -1269,7 +1367,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         # already sees — refine it as an edit instruction, not a scene description.
         instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
                  if request.instructions and request.instructions.strip() else "")
-        user_content = f"Refine this image-edit instruction:\n\n{request.prompt}{instr}"
+        user_content = f"Refine this image-edit instruction:\n\n{request.prompt}{instr}{roles_line}"
     elif mode in ("prose", "krea-2"):
         instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
                  if request.instructions and request.instructions.strip() else "")
@@ -1277,7 +1375,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             "Rewrite this image request as a concrete visual description. Add only concrete "
             "things the picture is missing, and keep the original intent. Keep its people exactly as they "
             "are: add no one, and never write that someone is absent. Write about light only if the request "
-            "names where it comes from. " + _medium_line(request.model, tags=False) + " "
+            "names where it comes from. " + _medium_line(request.model, tags=False) + refs_note + " "
             "Return only the rewritten prompt:\n\n"
             f"{request.prompt}{instr}"
         )

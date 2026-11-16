@@ -131,9 +131,9 @@ async def test_prose_at_off_makes_no_call(llm):
 async def test_h3_at_off_keeps_the_users_words_in_its_format(llm, monkeypatch):
     seen = []
 
-    async def recording_style_guide(request, session, fill=False, exact_canvas=True):
+    async def recording_style_guide(request, session, fill=False, exact_canvas=True, **kw):
         seen.append(fill)
-        return await style_guide(request, session, fill=fill, exact_canvas=exact_canvas)
+        return await style_guide(request, session, fill=fill, exact_canvas=exact_canvas, **kw)
 
     monkeypatch.setattr(pe, "style_guide", recording_style_guide)
     await pe.improve_prompt(ImprovePromptRequest(

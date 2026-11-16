@@ -372,6 +372,7 @@ async def _improve_with_verbatim_protection(
     fixed_spans: Optional[Sequence[Sequence[Any]]] = None,
     level: Optional[str] = None,
     outcome: Optional[Dict[str, Any]] = None,
+    input_roles: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """Improve one prompt, keeping [verbatim] text and the values at `fixed_spans`
     ((start, end, ...) in `prompt`) exactly. `level` makes this the per-image
@@ -437,6 +438,7 @@ async def _improve_with_verbatim_protection(
             lora_context=lora_context or [],
             level=level,
             marked=bool(values),
+            input_roles=input_roles,
         )
         async with db.async_session_maker() as session:
             candidate = (await improve_prompt(request, session)).improved_prompt
@@ -916,6 +918,7 @@ async def run_prompt_pipeline(
     fixed_spans: Optional[Sequence[Sequence[Any]]] = None,
     level: Optional[str] = None,
     outcome: Optional[Dict[str, Any]] = None,
+    input_roles: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """Run the full generate-time pipeline on a prompt, server-side.
 
@@ -927,6 +930,8 @@ async def run_prompt_pipeline(
     LLM failures propagate (the caller fails the step, like the interactive
     submit surfaces the error). Enabled enhancement must succeed, including
     validation, before generation can start.
+    `input_roles`: what each input image is for, decided once for the submit from the
+    prompt as typed (input_roles.roles_for_submit); the improver asks itself without.
     `fixed_spans`, `level` and `outcome` are for the per-image improver; see
     _improve_with_verbatim_protection. The spans index `prompt` as given. The
     per-image improver never fails the run (_improve_or_as_filled).
@@ -1009,6 +1014,7 @@ async def run_prompt_pipeline(
             project_id=project_id,
             lora_context=lora_context,
             fixed_spans=spans,
+            input_roles=input_roles,
         )
 
     # 3) Translate.
