@@ -11,6 +11,16 @@ from utils.migrations import get_alembic_config
 
 # Indexes created by migrations after the identity repair.
 ADDED_LATER = {"idx_chat_items_chat_id", "idx_chat_items_chat_type"}
+# These columns were deliberately removed by retirevlm01; all other fields,
+# indexes, identities, and references must survive the full migration chain.
+RETIRED_MEDIA_COLUMNS = {
+    "keywords", "vlm_caption", "vlm_caption_config_version", "vlm_caption_status",
+    "vlm_caption_processed_at", "vlm_caption_error", "vlm_caption_retry_count",
+    "vlm_extract_config_version", "vlm_extract_status", "vlm_extract_processed_at",
+    "vlm_extract_error", "vlm_extract_retry_count", "llm_keywords_config_version",
+    "llm_keywords_status", "llm_keywords_processed_at", "llm_keywords_error",
+    "llm_keywords_retry_count",
+}
 
 
 def test_migrations_preserve_non_reusable_ids(tmp_path):
@@ -109,14 +119,18 @@ def test_identity_repair_preserves_existing_data_and_high_water(tmp_path, alread
             for model in tables:
                 name = model.__tablename__
                 rows_after = connection.exec_driver_sql(f'SELECT * FROM "{name}" ORDER BY id').mappings().all()
-                # Additive migrations may introduce columns; every existing
-                # field and row must retain exactly the same value.
+                # All retained fields and rows must keep exactly the same value.
+                retired = RETIRED_MEDIA_COLUMNS if name == "media_items" else set()
                 assert len(rows_after) == len(rows_before[name])
                 for before, after_row in zip(rows_before[name], rows_after):
-                    assert {key: after_row[key] for key in before} == dict(before)
-                # Later migrations may add indexes; none may be lost or changed.
+                    retained = {key: value for key, value in before.items() if key not in retired}
+                    assert {key: after_row[key] for key in retained} == retained
+                # Only indexes for explicitly retired columns may disappear.
                 after = [i for i in inspector.get_indexes(name) if i["name"] not in ADDED_LATER]
-                assert after == [i for i in indexes_before[name] if i["name"] not in ADDED_LATER]
+                assert after == [
+                    i for i in indexes_before[name]
+                    if i["name"] not in ADDED_LATER and not set(i["column_names"]) & retired
+                ]
                 by_columns = lambda fk: tuple(fk["constrained_columns"])
                 assert sorted(inspector.get_foreign_keys(name), key=by_columns) == sorted(fks_before[name], key=by_columns)
             assert connection.exec_driver_sql("PRAGMA foreign_key_check").all() == []
