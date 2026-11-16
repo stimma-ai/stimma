@@ -27,12 +27,16 @@
         @keydown.enter.self.prevent="program.toggleRow(r.id)"
         @keydown.space.self.prevent="program.toggleRow(r.id)"
       >
-        <span :class="['min-w-0 break-words', openId === r.id ? 'text-content' : 'text-content-tertiary']">{{ r.words }}</span>
+        <!-- Its words; open, the slot's way right after them (Add Detail or Add Variety). -->
+        <span :class="['min-w-0 break-words', openId === r.id ? 'text-content' : 'text-content-tertiary']" data-words>{{ r.words }}<FluentSlotWay v-if="openId === r.id && r.slot && r.wayShown" :program="program" :id="r.id" :slot-kind="slotKind" @vary-slot="(s) => emit('vary-slot', s)" /></span>
         <span class="min-w-0 break-words flex flex-col gap-0.5" data-value>
           <!-- An open person's picks are its Age, Gender and Descent rows, just below. -->
           <template v-if="!(openId === r.id && r.person && r.value.kind === 'restricted')">
-            <span v-if="r.value.kind === 'writing'" class="inline-block align-middle w-16 h-2.5 rounded-full fluent-shimmer" aria-label="Writing" />
-            <span v-else-if="r.value.kind === 'varying'" class="inline-flex items-center gap-1.5 text-content-muted tabular-nums">{{ r.value.text }}<span v-if="r.value.more" class="w-2 h-2 rounded-full border border-content-muted/25 border-t-content-muted/70 animate-spin" aria-label="Writing more" data-more-spinner /></span>
+            <!-- Its first options being written: a shimmer as tall as a line of text, so the row
+                 keeps its height when the count arrives. -->
+            <span v-if="r.value.kind === 'writing'" class="flex items-center h-[1.375em]" aria-label="Writing"><span class="w-16 h-2.5 rounded-full fluent-shimmer" /></span>
+            <!-- The count, and while more are written a small spinner in a place kept for it. -->
+            <span v-else-if="r.value.kind === 'varying'" class="inline-flex items-center gap-1.5 text-content-muted tabular-nums">{{ r.value.text }}<span class="w-2 h-2 shrink-0"><span v-if="r.value.more" class="block w-2 h-2 rounded-full border border-content-muted/25 border-t-content-muted/70 animate-spin" aria-label="Writing more" data-more-spinner /></span></span>
             <span v-else-if="r.value.kind === 'words'" class="text-content">{{ r.value.text }}</span>
             <span v-else class="flex flex-col text-content">
               <span v-for="(l, i) in r.value.lines" :key="i">{{ l.shown }}<span v-if="l.more" class="ml-1 text-content-tertiary tabular-nums" data-more-count>+{{ l.more }}</span></span>
@@ -48,13 +52,27 @@
             {{ r.of }}<span aria-hidden="true">·</span><button type="button" class="px-1 -mx-1 coarse:py-1 rounded text-content-tertiary hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60" data-clear @click.stop="clear(r.id)">Clear</button>
           </span>
         </span>
-        <!-- Disclosure: › closed, ⌄ open. -->
-        <ChevronRightIcon :class="['w-3.5 h-4 shrink-0 transition-transform duration-150 ease-out', openId === r.id ? 'rotate-90 text-content-secondary' : 'text-content-muted opacity-60 group-hover:opacity-100']" data-disclosure />
+        <!-- Open, Remove (the brackets come off, its words stay); then the disclosure, › closed,
+             ⌄ open. Remove's place is kept on every row, so a row doesn't shift as it opens. -->
+        <span class="flex items-start gap-1.5">
+          <button
+            type="button"
+            :class="['-my-0.5 p-0.5 coarse:-my-2 coarse:p-2 rounded text-content-muted hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60', openId === r.id && r.slot ? '' : 'invisible']"
+            :tabindex="openId === r.id && r.slot ? 0 : -1"
+            :aria-hidden="openId === r.id && r.slot ? undefined : 'true'"
+            title="Remove"
+            aria-label="Remove"
+            data-remove-slot
+            @click.stop="removeSlot(r.id)"
+            @keydown.stop
+          ><XMarkIcon class="w-3.5 h-3.5" /></button>
+          <ChevronRightIcon :class="['w-3.5 h-4 shrink-0 transition-transform duration-150 ease-out', openId === r.id ? 'rotate-90 text-content-secondary' : 'text-content-muted opacity-60 group-hover:opacity-100']" />
+        </span>
       </div>
 
       <Transition :css="false" @enter="grow" @leave="shrink">
         <div v-if="openId === r.id" class="overflow-hidden" data-inline-picker>
-          <FluentSlotPicker :program="program" :id="r.id" :slot-kind="slotKind" class="pb-0.5" @close="program.close()" @remove-slot="(s) => emit('remove-slot', s)" @vary-slot="(s) => emit('vary-slot', s)" />
+          <FluentSlotPicker :program="program" :id="r.id"  class="pb-0.5" @close="program.close()" />
         </div>
       </Transition>
     </div>
@@ -98,8 +116,9 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ArrowsPointingInIcon, ArrowsPointingOutIcon, ChevronRightIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { ArrowsPointingInIcon, ArrowsPointingOutIcon, ChevronRightIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import FluentSlotPicker from './FluentSlotPicker.vue'
+import FluentSlotWay from './FluentSlotWay.vue'
 import { inPlayCount, optionsOf, resetState, rowValue, type RowValue } from '../../utils/programChoices'
 import { slotFlash } from '../../composables/slotFlash'
 import type { PromptProgram } from '../../composables/usePromptProgram'
@@ -125,8 +144,12 @@ const rootRef = ref<HTMLElement | null>(null)
 const openId = computed(() => props.program.openId.value)
 const flashId = computed(() => slotFlash.value?.id ?? null)
 
-interface Row { id: string; words: string; person: boolean; value: RowValue; of: string | null }
+/** `slot`: a slot (not a list of the user's own), so it has a way and can be removed; `wayShown`:
+    its way can be told (not while it is first being read, unless the user chose one). */
+interface Row { id: string; words: string; person: boolean; value: RowValue; of: string | null; slot: boolean; wayShown: boolean }
 const ofText = (c: { of: number; total: number } | null) => (c ? `${c.of} of ${c.total}` : null)
+/** Each slot's last count while it varied, by id and words (display only). */
+const lastCount = new Map<string, string>()
 const rows = computed<Row[]>(() => {
   const p = props.program
   const out: Row[] = []
@@ -134,20 +157,34 @@ const rows = computed<Row[]>(() => {
     if (!p.byId.value[s.id]) continue
     const pool = p.poolOf(s.id)
     const st = p.states.value[s.id]
-    const value = rowValue(s, st, pool)
+    let value = rowValue(s, st, pool)
+    // Read again (a new way, a retry): the count it had stays, with the spinner, rather than
+    // the first-write shimmer coming back.
+    const key = `${s.id}:${s.words}`
+    if (value.kind === 'varying') lastCount.set(key, value.text)
+    else if (value.kind === 'writing' && lastCount.has(key)) value = { kind: 'varying', text: lastCount.get(key)!, more: true }
     const total = pool?.variants?.length ?? pool?.options?.length ?? 0
     out.push({ id: s.id, words: s.words, person: s.kind === 'person' && !!pool?.person && value.kind !== 'words', value,
-      of: value.kind === 'restricted' ? ofText(inPlayCount(pool, st, total)) : null })
+      of: value.kind === 'restricted' ? ofText(inPlayCount(pool, st, total)) : null,
+      slot: true, wayShown: s.state !== 'reading' || !!st?.mode })
   }
   for (const c of p.choices.value) {
     if (c.slot) continue
     const st = p.states.value[c.id]
     const options = optionsOf(c, p.poolOf(c.id), st)
     const value = rowValue(null, st, p.poolOf(c.id), options)
-    out.push({ id: c.id, words: c.label, person: false, value, of: value.kind === 'restricted' ? ofText(inPlayCount(null, st, options.length)) : null })
+    out.push({ id: c.id, words: c.label, person: false, value, of: value.kind === 'restricted' ? ofText(inPlayCount(null, st, options.length)) : null, slot: false, wayShown: false })
   }
   return out
 })
+
+/** Take a slot's brackets off (its words stay), closing its row. */
+function removeSlot(id: string) {
+  const s = props.program.slotById.value[id]
+  if (!s) return
+  props.program.close()
+  emit('remove-slot', { n: s.n, words: s.words })
+}
 
 /** Clear: back to any of them (the user's own variants stay). */
 function clear(id: string) {

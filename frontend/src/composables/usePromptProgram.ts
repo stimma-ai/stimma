@@ -4,7 +4,7 @@ import { getApiBase } from '../apiConfig'
 import { pollDelay, prepareBody, prepareErrorCode, prepareSettingsSig, readPending, shownKey, type PrepareInputs } from '../utils/fluentSubmit'
 import {
   addOwn as addOwnTo, carriedIds, carryChoices, cleanState, dropVariant, followId, isChanged, keptPools, listChoiceAt, lookOf, numberRepeats, optionsOf as optionsIn, poolWithout,
-  chosenModes, modeOf as modeIn, readChoices, resetState, setMode as setModeIn, slotIdsOf, wireState, type SlotLookKind,
+  chosenModes, clearMode as clearModeIn, modeOf as modeIn, readChoices, resetState, setMode as setModeIn, slotIdsOf, wireState, type SlotLookKind,
 } from '../utils/programChoices'
 import type { ChoicePool, ChoiceState, PoolsResponse, PreparedProgram, PrepareResponse, ProgramChoice, ProgramChoices, ProgramSlot, SlotMode } from '../utils/programWire'
 import { findLists, findSlots } from '../utils/promptSyntax'
@@ -424,13 +424,16 @@ export function usePromptProgram(o: Options) {
     if (modeOf(id) === mode) return
     setState(id, setModeIn(states.value[id], mode))
   }
-  /** A slot just made in the text (its place among the prompt's slots, as typed) starts this way:
-      named by the id the server will give it. */
-  function setModeAt(n: number, mode: SlotMode) {
-    const text = o.prompt.value || ''
-    const words = findSlots(text).map(([a, b]) => text.slice(a + 1, b - 1))
-    const id = slotIdsOf(words, findLists(text).length)[n - 1]
-    if (id) setState(id, setModeIn(states.value[id], mode))
+  /** Back to the reader's own reading of a slot (Add Detail after Add Variety): the user's mode
+      goes, and its picks with it. */
+  function clearMode(id: string) {
+    if (!states.value[id]?.mode) return
+    // Not through setStates, which keeps a slot's mode.
+    const next = { ...states.value }
+    const clean = clearModeIn(states.value[id])
+    if (clean) next[id] = clean
+    else delete next[id]
+    writeStates(next)
   }
 
   /** Add the user's own variant and pin it. */
@@ -604,7 +607,7 @@ export function usePromptProgram(o: Options) {
   return {
     program, status, error, unsupported, typing, doneTyping, leftSlot, slots, choices, byId, slotById, pools, fresh, states, openCard, openId, marks,
     lookup, prepare, needsRead, ensureReady, payload, fetchProgramText, previewRuns,
-    poolOf, optionsOf, moreLikeThese, addOwn, removeVariant, modeOf, setMode, setModeAt, retrySlots, retrying, unreachable, setState, setStates, setValues, reset, resetAll, lookOfSlot,
+    poolOf, optionsOf, moreLikeThese, addOwn, removeVariant, modeOf, setMode, clearMode, retrySlots, retrying, unreachable, setState, setStates, setValues, reset, resetAll, lookOfSlot,
     slotFor, toggleRow, openEditorList, openEditorSlot, close,
   }
 }

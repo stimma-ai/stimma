@@ -125,9 +125,9 @@ test('a phrase Fluent underlines becomes a slot with Add Detail, and opens', asy
 test('every underline offers both, Suggest\'s way first; Add Detail keeps the words, Add Variety writes the kind', async t => {
   for (const [way, mode, order, pick, after, said] of [
     ['detail', 'kind', ['detail', 'any'], 'detail', 'dorm room with a <young man>', []],
-    ['detail', 'one', ['detail', 'any'], 'detail', 'dorm room with a <young man>', [[1, 'one']]],
+    ['detail', 'one', ['detail', 'any'], 'detail', 'dorm room with a <young man>', []],
     ['any', 'kind', ['any', 'detail'], 'any', 'dorm room with a <person>', []],
-    ['any', 'one', ['any', 'detail'], 'detail', 'dorm room with a <young man>', [[1, 'one']]],
+    ['any', 'one', ['any', 'detail'], 'detail', 'dorm room with a <young man>', []],
     ['detail', 'one', ['detail', 'any'], 'any', 'dorm room with a <person>', []],
   ]) {
     const { page, shot } = await open(t, { suggest: { way, mode } })
@@ -140,6 +140,7 @@ test('every underline offers both, Suggest\'s way first; Add Detail keeps the wo
     await page.locator(`[data-slot-offer] [data-way="${pick}"]`).click()
     await expect.poll(() => text(page)).toBe(after)
     await expect.poll(async () => (await opened(page)).map(o => [o.n, o.words])).toEqual([[1, after.match(/<(.+)>/)[1]]])
+    // Suggest's reading never becomes the user's mode: the reader decides.
     assert.deepEqual(await modes(page), said, `${way}/${mode} → ${pick}`)
     await expect(offered(page)).toHaveCount(0)
   }
@@ -329,7 +330,7 @@ test('a phrase chip takes its words Suggest\'s way and opens the slot, as the of
     await chip.click()
     await expect.poll(() => text(page)).toBe(after)
     await expect.poll(async () => (await opened(page)).map(o => [o.n, o.words])).toEqual([[1, after.match(/<(.+)>/)[1]]])
-    assert.deepEqual(await modes(page), how.mode === 'one' ? [[1, 'one']] : [])
+    assert.deepEqual(await modes(page), [], 'no mode stored from Suggest')
     await expect(page.locator('[data-slot-vary]')).toHaveCount(0)
   }
 })

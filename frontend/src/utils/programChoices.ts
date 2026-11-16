@@ -110,18 +110,23 @@ export function modeOf(slot: Pick<ProgramSlot, 'one'> | null | undefined, s: Cho
   return s?.mode ?? (slot?.one ? 'one' : 'kind')
 }
 
-/** A slot's way in its picker: Add Detail ('detail') or Add Variety ('any'), and what choosing
-    the other does. `detail`/`variety`: the mode to set, 'rewrite' (its words read as a kind
-    already, `<short bob>`: Add Variety writes their kind in their place, `<hairstyle>`), or
-    null when that way is the current one. A named thing (`<Eiffel Tower>`) switches by mode;
-    one the user forced to 'one' the old way is Add Detail. */
-export function slotWays(slot: Pick<ProgramSlot, 'one' | 'kind_of' | 'state'> | null | undefined, s: ChoiceState | null | undefined):
-  { way: 'detail' | 'any'; detail: SlotMode | null; variety: SlotMode | 'rewrite' | null } {
-  // Varied by mode: a named thing the user chose to vary (read with its kind, or being read again).
-  if (s?.mode === 'kind' && (slot?.kind_of || slot?.state === 'reading')) return { way: 'any', detail: 'one', variety: null }
-  // Named one thing (the reader's reading, or the user's old choice): others of its kind by mode.
-  if (s?.mode === 'one' || (!s?.mode && slot?.one)) return { way: 'detail', detail: null, variety: 'kind' }
-  return { way: 'detail', detail: null, variety: 'rewrite' }
+/** Back to the reader's own reading of the slot: the user's mode goes, with the picks of the
+    pool it wrote; the user's own variants stay. */
+export function clearMode(s: ChoiceState | null | undefined): ChoiceState | null {
+  return s?.add?.length ? cleanState({ add: s.add }) : null
+}
+
+/** A slot's way in its row: Add Detail ('detail') or Add Variety ('any'), and what choosing the
+    other does. Only the user's choice in the way menu is stored: Add Variety is the way exactly
+    when the stored mode is 'kind', and Add Detail then clears it ('clear': back to the reader's
+    reading). Otherwise it is Add Detail, and Add Variety sets 'kind' on a slot read as one
+    specific thing (`<Eiffel Tower>`, or one stored as 'one' the old way), or else writes the
+    words' kind in their place ('rewrite': `<short bob>` becomes `<hairstyle>`, `<woman>`
+    becomes `<person>`). */
+export function slotWays(slot: Pick<ProgramSlot, 'one'> | null | undefined, s: ChoiceState | null | undefined):
+  { way: 'detail' | 'any'; detail: 'clear' | null; variety: 'kind' | 'rewrite' | null } {
+  if (s?.mode === 'kind') return { way: 'any', detail: 'clear', variety: null }
+  return { way: 'detail', detail: null, variety: s?.mode === 'one' || slot?.one ? 'kind' : 'rewrite' }
 }
 
 /** {slot id: mode} for every choice that has one: what a prepare is read with. */

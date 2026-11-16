@@ -7,7 +7,8 @@ import { phraseLabel } from '../../src/utils/promptSuggestions'
 
 // Tool View's prompt box in Fluent, cut down to the editor: the real AIPromptEditor with a
 // stand-in prompt control in its mode slot. The page answers Suggest. What the
-// editor sends up lands in window.opened (open-slot), window.modes (slot-mode) and window.text().
+// editor sends up lands in window.opened (open-slot), window.modes (slot-mode, which
+// it no longer sends: only the way menu stores a mode) and window.text().
 // window.usableAdds is the editor's check on which adds still fit the text.
 const prompt = ref((window as any).START ?? '')
 const promptOptions = ref<any>({ autoImprove: { enabled: true, instructions: '' }, varyPrompt: { enabled: false, instructions: '' } })

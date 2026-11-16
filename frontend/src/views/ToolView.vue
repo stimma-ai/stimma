@@ -334,7 +334,6 @@
             @save="preparePromptNow"
             @open-slot="openPromptSlot"
             @left-slot="promptProgram.leftSlot()"
-            @slot-mode="(e) => promptProgram.setModeAt(e.n, e.mode)"
             @open-list="promptProgram.status.value !== 'off' && promptProgram.openEditorList($event)"
             :rows="drawerMode ? 2 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
             external-chat

@@ -299,7 +299,6 @@ import { slotEditing, wholeWords, wrapSlot, unwrapSlot, rewriteSlot, replaceDocu
 import { setSlotMarks, slotMarks as slotMarksExtension, type SlotMarks } from '../../composables/promptSlotMarks'
 import { insertAdd, NO_SUGGESTIONS, usePromptSuggestions, WAY_NAMES, type PhraseWay, type SuggestedAdd, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
 import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
-import type { SlotMode } from '../../utils/programWire'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
 import { useViewport } from '../../composables/useViewport'
 import { PROMPT_LANGUAGES, promptLanguageByCode, DEFAULT_TRANSLATE_LANGUAGE } from './promptLanguages'
@@ -380,7 +379,6 @@ const emit = defineEmits<{
   /** The caret left the slot just typed in (typed past it, or moved away): it's done. */
   (e: 'left-slot'): void
   /** A slot was just made to start one way: a different one each picture, or the same one shown new ways (n: its place among the slots). */
-  (e: 'slot-mode', value: { n: number; mode: SlotMode }): void
 }>()
 
 // Box height. Desktop rests at ~5 lines and grows to 408px; phones give the
@@ -534,8 +532,7 @@ function openSlotAt(pos: number) {
 }
 const offerEl = ref<HTMLElement | null>(null)
 const offerWays = computed<PhraseWay[]>(() => offer.value?.way === 'any' ? ['any', 'detail'] : ['detail', 'any'])
-/** One of the offer's actions. Add Detail: the words become a slot (one specific thing starts
-    as one). Add Variety: their kind, in brackets, takes their place. */
+/** One of the offer's actions. Add Detail: the words become a slot. Add Variety: their kind, in brackets, takes their place. */
 function takeOffer(way: PhraseWay) {
   const view = getView()
   const o = offer.value
@@ -544,10 +541,10 @@ function takeOffer(way: PhraseWay) {
   if (way === 'any') {
     if (!o.kind) return
     const at = replaceWithSlot(view, o.from, o.to, o.kind)
-    if (at != null) madeSlot(view, at)
+    if (at != null) madeSlot(at)
   } else {
     const at = wrapSlot(view, o.from, o.to)
-    if (at != null) madeSlot(view, at, o.mode === 'one' ? 'one' : undefined)
+    if (at != null) madeSlot(at)
   }
   view.focus()
 }
@@ -570,13 +567,10 @@ function offerFocusOut(e: FocusEvent) {
   if (to && (offerEl.value?.contains(to) || getView()?.dom.contains(to))) return
   offer.value = null
 }
-/** A slot was just made at `at`: one that starts a given way says so (before it is read), then it opens. */
-function madeSlot(view: EditorView, at: number, mode?: SlotMode) {
-  const slot = slotAt(view.state.doc.toString(), at)
-  void nextTick(() => {
-    if (slot && mode) emit('slot-mode', { n: slot.n, mode })
-    openSlotAt(at)
-  })
+/** A slot was just made at `at`: it opens. How it varies is the reader's to say until the user
+    picks a way in its row. */
+function madeSlot(at: number) {
+  void nextTick(() => openSlotAt(at))
 }
 /** Take the brackets off a slot (by its place and words, else its words when only one slot has
     them); its words stay. One undo step. */
@@ -731,7 +725,7 @@ function varyPhrase(p: SuggestedPhrase, way: PhraseWay = p.way) {
   if (!view || view.state.doc.sliceString(p.from, p.to) !== p.text) return
   offer.value = null
   const at = way === 'any' && p.kind ? replaceWithSlot(view, p.from, p.to, p.kind) : wrapSlot(view, p.from, p.to)
-  if (at != null) madeSlot(view, at, way === 'detail' && p.mode === 'one' ? 'one' : undefined)
+  if (at != null) madeSlot(at)
 }
 /** Write a suggested slot in where Suggest placed it (one undo step), then open it. */
 function addSlot(add: SuggestedAdd) {

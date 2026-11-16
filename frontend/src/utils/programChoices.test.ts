@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  slotWays,
+  slotWays, clearMode,
   addOwn, addValue, dropVariant, inPlayCount, poolWithout, slotFailed, listChoiceAt, readChoices, setPicked, carriedIds, followId, carryChoices, cleanState, clearSeed, isChanged, keptPieces, lineOf, lookOf,
   numberRepeats, optionsOf, pickedYears, resetState, rowValue, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleStage,
   toggleValue, toggleYear, wireState, setMode, modeOf, chosenModes, slotIdsOf,
@@ -243,17 +243,27 @@ test('a slot just made is named as the server names it', () => {
   assert.deepEqual(slotIdsOf(['list1'], 1), ['list1_2'])
 })
 
-test('a slot’s way in its picker: Add Detail or Add Variety, and what the other does', () => {
-  // Read as a kind (<short bob>): Add Detail; Add Variety writes its kind in its place.
+test('a slot’s way in its row: Add Detail or Add Variety, and what the other does', () => {
+  // Words read as a kind (<short bob>, <woman>): Add Detail; Add Variety writes their kind.
   assert.deepEqual(slotWays({ state: 'ready' }, null), { way: 'detail', detail: null, variety: 'rewrite' })
-  // A named thing (<Eiffel Tower>): Add Detail; Add Variety varies it by mode.
+  // Read as one specific thing (<Eiffel Tower>): Add Detail; Add Variety sets 'kind'.
   assert.deepEqual(slotWays({ state: 'ready', one: true }, null), { way: 'detail', detail: null, variety: 'kind' })
-  // Varied by mode: read with its kind, or being read again that way.
-  assert.deepEqual(slotWays({ state: 'ready', kind_of: 'landmark' }, { mode: 'kind' }), { way: 'any', detail: 'one', variety: null })
-  assert.deepEqual(slotWays({ state: 'reading', one: true }, { mode: 'kind' }), { way: 'any', detail: 'one', variety: null })
-  // Forced to 'one' the old way: Add Detail, whatever it was read as.
+  // Stored 'kind' is Add Variety, whatever the slot reads as now (a person gets no kind_of,
+  // a slot being read again has no reading yet); Add Detail clears it.
+  for (const slot of [{ state: 'ready', kind_of: 'landmark' }, { state: 'reading' }, { state: 'ready' }, { state: 'ready', one: true }, null] as const) {
+    assert.deepEqual(slotWays(slot as any, { mode: 'kind' }), { way: 'any', detail: 'clear', variety: null })
+  }
+  // An old stored 'one' (made by Add Detail before only the menu stored a mode): Add Detail,
+  // and Add Variety sets 'kind', even on a kind the reader reads as no one thing (<woman>).
   assert.deepEqual(slotWays({ state: 'ready', one: true }, { mode: 'one' }), { way: 'detail', detail: null, variety: 'kind' })
-  // 'kind' over a reading of a kind (no kind of its own): its words are a kind already.
-  assert.deepEqual(slotWays({ state: 'ready' }, { mode: 'kind' }), { way: 'detail', detail: null, variety: 'rewrite' })
+  assert.deepEqual(slotWays({ state: 'ready' }, { mode: 'one' }), { way: 'detail', detail: null, variety: 'kind' })
   assert.deepEqual(slotWays(null, null), { way: 'detail', detail: null, variety: 'rewrite' })
+  // The reported case: <woman> stored 'one', Add Variety, then read again with no kind_of and
+  // no 'one': it stays Add Variety (it fell back to Add Detail and a rewrite before).
+  const varied = setMode({ mode: 'one' }, slotWays({ state: 'ready' }, { mode: 'one' }).variety as 'kind')
+  assert.equal(slotWays({ state: 'ready' }, varied).way, 'any')
+  // Add Detail after Add Variety: the stored mode goes, the user's own variants stay.
+  assert.equal(clearMode({ mode: 'kind', values: ['a'] }), null)
+  assert.deepEqual(clearMode({ mode: 'kind', add: ['mine'], values: ['mine'] }), { add: ['mine'] })
+  assert.equal(clearMode(null), null)
 })

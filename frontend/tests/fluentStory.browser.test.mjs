@@ -26,13 +26,14 @@ const LIGHTS = ['warm desk lamp glow', 'soft afternoon window light', 'cool over
 const VARIANTS = { young_man: MEN, light: LIGHTS }
 
 // What the stand-in reader reads as one specific thing, and the kind it is one of.
-const NAMED = { 'Eiffel Tower': 'landmark' }
+const NAMED = { 'Eiffel Tower': 'landmark', 'Mona Lisa': null }
 // The stand-in's /suggest-kind, by the words asked about.
-const KINDS = { 'short bob': 'hairstyle' }
+const KINDS = { 'short bob': 'hairstyle', 'young man': 'person' }
 
 // A stand-in backend: one choice per slot, built into the editor's view of a program as
 // `public()` builds it; each slot's variants come with /pools. A named thing is read as one
-// (`one`), unless the user's mode says otherwise (`kind`: its kind_of comes in).
+// (`one`), unless the user's mode says otherwise (`kind`: its kind_of comes in, if it has one;
+// the Mona Lisa, like a person, gets none).
 function readSlots(prompt, modes = {}) {
   const slots = []
   const choices = []
@@ -46,8 +47,8 @@ function readSlots(prompt, modes = {}) {
     const id = words.replace(/\W+/g, '_')
     const label = words === 'light' ? 'Lighting' : words === 'young man' ? 'Young man' : words
     const mode = modes[id]?.mode
-    const named = NAMED[words]
-    const way = mode === 'one' || (!mode && named) ? { one: true } : mode === 'kind' && named ? { kind_of: named } : {}
+    const named = words in NAMED
+    const way = mode === 'one' || (!mode && named) ? { one: true } : mode === 'kind' && NAMED[words] ? { kind_of: NAMED[words] } : {}
     slots.push({ id, n, kind: words === 'young man' ? 'person' : words === 'light' ? 'light' : 'free', label, words, span, line: 1, ...way, ...(mode ? { mode } : {}) })
     choices.push({ id, kind: 'variants', label, slot: id })
   }
@@ -61,7 +62,7 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2, hasTouch: mobile, isMobile: mobile, colorScheme: theme })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  const calls = { prepare: [], suggest: [], pools: [], remove: [] }
+  const calls = { prepare: [], suggest: [], pools: [], remove: [], kind: [] }
   // Slots whose variants failed (as_written) until a prepare asks again (retry), and variants
   // removed for good.
   const failed = new Set(failing)
@@ -85,7 +86,7 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
       if (!p.includes('<camera>')) adds.push({ key: 'camera', label: 'Camera', at: p.trimEnd().length, text: ', <camera>' })
       return json({ phrases, adds })
     }
-    if (url.endsWith('/prompt-programs/suggest-kind')) return json({ kind: KINDS[body.prompt.slice(body.start, body.end)] ?? '' })
+    if (url.endsWith('/prompt-programs/suggest-kind')) { calls.kind.push(body); return json({ kind: KINDS[body.prompt.slice(body.start, body.end)] ?? '' }) }
     if (url.endsWith('/prompt-programs/remove-variant')) {
       calls.remove.push(body)
       removed.add(body.text)
@@ -170,10 +171,27 @@ async function story(t, opts = {}) {
   await expect(card.locator('[aria-pressed="true"]')).toHaveCount(0)
   await expect(card.locator('[data-any], [data-count], [data-keep-words]')).toHaveCount(0)
   await expect(card.locator('[data-more]')).toHaveText('More')
-  // Its way: Add Detail (it made the slot), a small icon in the header with Remove.
-  await expect(card.locator('[data-slot-way]')).toHaveAttribute('data-way', 'detail')
-  await expect(card.locator('[data-slot-way]')).toHaveAttribute('aria-label', 'Add Detail')
-  await expect(card.locator('[data-remove-slot]')).toHaveText('Remove')
+  // One header: the open row holds its words, its way (Add Detail: it made the slot), the
+  // count, Remove and the chevron, in that order; the picker has no head of its own.
+  const head = page.locator('[data-row="young_man"]')
+  await expect(page.locator('[data-slot-head]')).toHaveCount(0)
+  await expect(card.locator('[data-slot-way], [data-remove-slot]')).toHaveCount(0)
+  await expect(head.locator('[data-slot-way]')).toHaveAttribute('data-way', 'detail')
+  await expect(head.locator('[data-slot-way]')).toHaveAttribute('aria-label', 'Add Detail')
+  await expect(head.locator('[data-remove-slot]')).toHaveAttribute('aria-label', 'Remove')
+  await expect(head.locator('[data-remove-slot]')).toBeVisible()
+  const order = await head.evaluate(row => ['[data-words]', '[data-slot-way]', '[data-value]', '[data-remove-slot]', ':scope > :last-child > svg']
+    .map(q => { const e = row.querySelector(q); if (!e) throw new Error(`no ${q} in ${row.outerHTML.slice(0, 600)}`); const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top + r.height / 2)] }))
+  for (let i = 1; i < order.length; i++) assert.ok(order[i][0] > order[i - 1][0], `header order at ${i}: ${JSON.stringify(order)}`)
+  const rowBox = await head.boundingBox()
+  for (const [, y] of order) assert.ok(y > rowBox.y && y < rowBox.y + rowBox.height, 'every part on the one row')
+  // The way is no click target for collapsing the row.
+  await tap(head.locator('[data-slot-way]'))
+  await expect(page.locator('[data-slot-way-menu]')).toHaveCount(1)
+  await expect(card).toHaveCount(1)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('[data-slot-way-menu]')).toHaveCount(0)
+  await expect(card).toHaveCount(1)
   await shot(`${tag}-3-picker`)
 
   // Pin a variant: the slot fills, and its row says what it is, and how many of the pool.
@@ -289,22 +307,24 @@ async function filledIn({ mark, calls }) {
   assert.deepEqual(reads(calls), ['a <young man>'])
 }
 
-test('the picker header’s way menu: Add Detail or Add Variety, by mode or by writing the kind', async t => {
-  const start = 'a woman with a <short bob> by the <Eiffel Tower>'
+test('the row’s way menu: Add Variety sticks on a slot read as one thing, Add Detail goes back, a kind is rewritten', async t => {
+  const start = 'a woman with a <short bob> by the <Eiffel Tower> and the <Mona Lisa>'
   const { page, calls, shot, card, mark, editor } = await open(t, { start })
   const way = page.locator('[data-row-wrap][data-open] [data-slot-way]')
   const menu = page.locator('[data-slot-way-menu]')
   const item = w => menu.locator(`[data-way-item="${w}"]`)
-  const modeSent = () => calls.prepare.at(-1)?.choices?.Eiffel_Tower?.mode ?? null
+  const modeSent = id => () => calls.prepare.at(-1)?.choices?.[id]?.mode ?? null
 
   // A named thing reads as one: Add Detail, and Add Variety varies it by mode.
   await mark(2).click()
   await expect(card.locator(`[data-variant="a Eiffel Tower"]`)).toBeVisible({ timeout: 4000 })
+  await expect(page.locator('[data-slot-head]')).toHaveCount(0)
   await expect(way).toHaveAttribute('data-way', 'detail')
   await way.click()
   await expect(menu.locator('[role="menuitemradio"]')).toHaveText(['Add Detail', 'Add Variety'])
   await expect(menu.locator('[aria-checked="true"]')).toHaveText('Add Detail')
   await expect(item('any')).toBeEnabled()
+  assert.deepEqual(calls.kind, [], 'varying by mode needs no kind')
   await shot('picker-way-menu')
   // Escape closes the menu, not the picker.
   await page.keyboard.press('Escape')
@@ -313,14 +333,34 @@ test('the picker header’s way menu: Add Detail or Add Variety, by mode or by w
   await way.click()
   await item('any').click()
   await expect(menu).toHaveCount(0)
-  await expect.poll(modeSent, { timeout: 4000 }).toBe('kind')
+  await expect.poll(modeSent('Eiffel_Tower'), { timeout: 4000 }).toBe('kind')
   await expect(way).toHaveAttribute('data-way', 'any')
   await way.click()
   await expect(menu.locator('[aria-checked="true"]')).toHaveText('Add Variety')
+  // Add Detail clears the user's mode: back to the reader's reading.
   await item('detail').click()
-  await expect.poll(modeSent, { timeout: 4000 }).toBe('one')
+  await expect.poll(modeSent('Eiffel_Tower'), { timeout: 4000 }).toBe(null)
   await expect(way).toHaveAttribute('data-way', 'detail')
   assert.equal(await text(page), start, 'switching by mode leaves the words')
+
+  // Read as one, but read again in 'kind' with no kind_of (as a person is): Add Variety sticks,
+  // checked, after the read; Add Detail stays enabled and takes it back.
+  await mark(3).click()
+  await expect(card.locator('[data-variant="a Mona Lisa"]')).toBeVisible({ timeout: 4000 })
+  await page.waitForTimeout(500)   // the opened row scrolls into view, which closes a menu
+  await expect(way).toHaveAttribute('data-way', 'detail')
+  await way.click()
+  await item('any').click()
+  await expect.poll(modeSent('Mona_Lisa'), { timeout: 4000 }).toBe('kind')
+  await expect(mark(3)).toHaveAttribute('data-slot-look', 'varying', { timeout: 4000 })
+  await page.waitForTimeout(300)
+  await expect(way).toHaveAttribute('data-way', 'any')
+  await way.click()
+  await expect(menu.locator('[aria-checked="true"]')).toHaveText('Add Variety')
+  await expect(item('detail')).toBeEnabled()
+  await item('detail').click()
+  await expect.poll(modeSent('Mona_Lisa'), { timeout: 4000 }).toBe(null)
+  await expect(way).toHaveAttribute('data-way', 'detail')
 
   // Words that read as a kind: Add Detail; Add Variety writes their kind in their place, one
   // undo step, and the new slot opens.
@@ -331,11 +371,42 @@ test('the picker header’s way menu: Add Detail or Add Variety, by mode or by w
   await expect(menu.locator('[aria-checked="true"]')).toHaveText('Add Detail')
   await expect(item('any')).toBeEnabled({ timeout: 4000 })
   await item('any').click()
-  await expect.poll(() => text(page)).toBe('a woman with a <hairstyle> by the <Eiffel Tower>')
+  await expect.poll(() => text(page)).toBe('a woman with a <hairstyle> by the <Eiffel Tower> and the <Mona Lisa>')
   await expect(page.locator('[data-row-wrap="hairstyle"][data-open]')).toHaveCount(1, { timeout: 4000 })
   await editor.focus()
   await page.keyboard.press('ControlOrMeta+z')
   await expect.poll(() => text(page)).toBe(start)
+})
+
+test('Add Variety on a person rewrites it as its kind; words with no kind say so and ask again', async t => {
+  const { page, calls, card, mark } = await open(t, { start: 'a <young man> on a <porch>' })
+  const way = page.locator('[data-row-wrap][data-open] [data-slot-way]')
+  const menu = page.locator('[data-slot-way-menu]')
+  const item = w => menu.locator(`[data-way-item="${w}"]`)
+
+  await mark(1).click()
+  await expect(card.locator(`[data-variant="${MEN[0]}"]`)).toBeVisible({ timeout: 4000 })
+  await way.click()
+  await expect(menu.locator('[aria-checked="true"]')).toHaveText('Add Detail')
+  await expect(item('any')).toBeEnabled({ timeout: 4000 })
+  await item('any').click()
+  await expect.poll(() => text(page)).toBe('a <person> on a <porch>')
+  await expect(page.locator('[data-row-wrap="person"][data-open]')).toHaveCount(1, { timeout: 4000 })
+  assert.equal(calls.prepare.at(-1)?.choices?.person?.mode ?? null, null, 'a rewrite stores no mode')
+
+  // No kind for these words: Add Variety is off with a reason, never left waiting.
+  await mark(2).click()
+  await expect(card.locator('[data-variant="a porch"]')).toBeVisible({ timeout: 4000 })
+  await page.waitForTimeout(500)
+  await way.click()
+  await expect(item('any')).toHaveAttribute('data-kind-state', 'none', { timeout: 4000 })
+  await expect(item('any')).toBeDisabled()
+  await expect(item('any')).toHaveAttribute('title', /kind/)
+  const asked = calls.kind.at(-1)
+  assert.equal(asked.prompt.slice(asked.start, asked.end), 'porch')
+  await page.keyboard.press('Escape')
+  await way.click()
+  await expect(item('any')).toHaveAttribute('data-kind-state', 'none', { timeout: 4000 })
 })
 
 test('a slot typed is read once the user pauses in the prompt', async t => {
