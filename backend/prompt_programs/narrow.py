@@ -7,7 +7,9 @@ asked once, by asking which of the list's values fit the words, and cached on di
 prompts: "young woman" on the age list is asked once per vocabulary version, ever. The reply
 copies the items that fit back (numbers alone made models unreliable with reasoning off), or
 ["ALL"]; a long list is asked in chunks of WORDS_CHUNK side by side, each cached on its own.
-A list with declared groups (descent) is shown by group and answered by group.
+A list with declared groups (descent) is shown by group and answered by group. A list of things
+or places of the sort the words name keeps only what is one of them ("beach" keeps beaches, not a
+garden or a harbor); a list of details (colors, patterns, weather) is not narrowed by that.
 
 Ages. The age list's bands under 18 are opt-in (vocab.py), kept only when the words call for
 them, and an age is read in its line and the prompt's notes. Whether a person is a child, a
@@ -33,7 +35,7 @@ from prompt_programs.vocab import AGE_LIST, Leaf
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-17"   # narrow-17: words for a woman fit woman only; trans and non-binary genders are opt-in, kept only when the words say so. narrow-16: (asked afresh with the minors rules rebuilt; the question is unchanged). narrow-15: words naming a kind of being (an elf) leave gender open. narrow-14: a list may be read in its scene (what a person wears, the light). narrow-13: the gender list, whose description says words for a woman fit a trans woman too. narrow-12: "elderly" is 70 and over. narrow-11: an age is read in its own line and the notes; "young" is 18 to 29. narrow-10: a grouped list is answered as {"groups", "items"}; an empty answer stands. narrow-9: a list with declared groups (descent) is shown by group. narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
+NARROW_VERSION = "narrow-18"   # narrow-18: a list of things or places of the sort the words name keeps only the items that are one of what they name, every word true of them (no garden or harbor for a beach, no bread for a cake); a list of details (colors, patterns, weather) is not narrowed by what kind of thing the words name. narrow-17: words for a woman fit woman only; trans and non-binary genders are opt-in, kept only when the words say so. narrow-16: (asked afresh with the minors rules rebuilt; the question is unchanged). narrow-15: words naming a kind of being (an elf) leave gender open. narrow-14: a list may be read in its scene (what a person wears, the light). narrow-13: the gender list, whose description says words for a woman fit a trans woman too. narrow-12: "elderly" is 70 and over. narrow-11: an age is read in its own line and the notes; "young" is 18 to 29. narrow-10: a grouped list is answered as {"groups", "items"}; an empty answer stands. narrow-9: a list with declared groups (descent) is shown by group. narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
 NARROW_SECONDS = 180.0   # all of a prompt's narrowing calls together; past it what hasn't answered seeds nothing
 WORDS_CHUNK = 80         # a list longer than this is asked in chunks of about this many, side by side
 
@@ -55,6 +57,15 @@ college student" is not 60, "a veteran" is not 20, "retired" is not 30), and "ol
 "little" narrow even where the noun alone would not ("an old man" is old, not any adult).
 Only when the description truly says nothing about an item either way, keep it, unless the
 list says that item is kept only when called for.
+
+First see what the list's items are. When they are things or places of the sort the
+description names (boats, chairs, dishes, outdoor places for words naming one of those), an item
+fits only when it is one of what the description names, with every word of it true of the item:
+for "a river", a braided glacial river fits, but a canal, an estuary or a waterfall does not,
+whatever it is near or has in it; for "a wooden chair", no stool, bench, sofa or metal chair; and
+nothing of another sort at all (no bread for "a cake"). When they are details something may have
+(colors, patterns, materials, weather, light, styles), the kind of thing the description names
+rules none of them out: keep each one the description doesn't rule out.
 
 Ages: a person is an adult (18 or over) unless the description itself makes them a child or
 a teenager: "a child", "a baby", "a toddler", "kids", "a teenage boy", "a 10-year-old", "a
