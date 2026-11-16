@@ -681,9 +681,12 @@ async def _apply_generation_prompt_pipeline(
     # wildcards drawn, slots as their words), then improved per image at that level for
     # this tool's kind of prompt (a picture, an edit, a sound, MiniMax H3), keeping every
     # drawn value and following its comments. Off sends it as filled, and so does
-    # Ideogram, whose JSON is converted rather than written at a level.
+    # Ideogram 4, whose JSON is converted rather than written at a level (the same test
+    # as run_prompt_pipeline's JSON path, and the menu's).
     direct = not raw and not fluent and bool((prompt_options or {}).get("direct"))
-    direct_improve = direct and enhance_on and ctx["mode"] != "ideogram"
+    from prompt_pipeline import is_ideogram4
+    ideogram_json = auto_improve.get("mode") == "ideogram-json" or is_ideogram4(model_vendor, model)
+    direct_improve = direct and enhance_on and not ideogram_json
     if direct and not direct_improve and enhance_on:
         prompt_options = {**(prompt_options or {}), "autoImprove": {**auto_improve, "enabled": False}}
         enhance_on = False

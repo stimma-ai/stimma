@@ -234,12 +234,20 @@ async def test_an_edit_is_improved_at_its_level_too(tool, monkeypatch):
     assert out["prompt_direct"]["filled"] == "remove the red car" and out["prompt_direct"]["level"] == "expand"
 
 
-async def test_ideogram_is_sent_as_filled(tool, monkeypatch):
+async def test_ideogram_json_is_sent_as_filled(tool, monkeypatch):
     monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {
-        "model": "m", "model_vendor": None, "effective_task": "text-to-image", "schema_props": {},
+        "model": "ideogram:4@0", "model_vendor": "ideogram", "effective_task": "text-to-image", "schema_props": {},
         "mode": "ideogram", "program_supported": False, "enhance": {}})
     out = await _submit("a {red|red} car", level="expand")
     assert tool == [] and out["prompt"] == "a red car" and "prompt_direct" not in out
+
+
+async def test_ideogram_without_its_json_format_is_improved(tool, monkeypatch):
+    monkeypatch.setattr(gen, "prompt_enhance_context", lambda *a, **k: {
+        "model": "ideogram:3@0", "model_vendor": "ideogram", "effective_task": "text-to-image", "schema_props": {},
+        "mode": "ideogram", "program_supported": False, "enhance": {}})
+    out = await _submit("a {red|red} car", level="fill")
+    assert len(tool) == 1 and tool[0].level == "fill" and out["prompt_direct"]["level"] == "fill"
 
 
 @pytest.mark.parametrize("failure", [
