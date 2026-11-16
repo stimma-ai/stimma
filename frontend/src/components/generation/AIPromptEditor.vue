@@ -295,7 +295,7 @@ import type { PromptSyntaxMode } from '../../composables/useCodeMirrorPrompt'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
-import { slotEditing, wrapSlot, unwrapSlot, replaceDocument, replaceWithSlot, rangeRect, setVaryEffect, setAddsEffect, shownSuggestions, usableAdds, type VaryPhrase } from '../../composables/promptSlotEditing'
+import { slotEditing, wholeWords, wrapSlot, unwrapSlot, replaceDocument, replaceWithSlot, rangeRect, setVaryEffect, setAddsEffect, shownSuggestions, usableAdds, type VaryPhrase } from '../../composables/promptSlotEditing'
 import { setSlotMarks, slotMarks as slotMarksExtension, type SlotMarks } from '../../composables/promptSlotMarks'
 import { insertAdd, NO_SUGGESTIONS, usePromptSuggestions, type PhraseWay, type SuggestedAdd, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
 import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
@@ -603,7 +603,8 @@ const slotExtensions = [
         if (!(o?.phrase && from >= o.from && from <= o.to)) offer.value = null
         return
       }
-      const at = slotWrapRange(getView()?.state.doc.toString() ?? '', from, to)
+      const text = getView()?.state.doc.toString() ?? ''
+      const at = slotWrapRange(text, ...wholeWords(text, from, to))
       if (at) showOffer(at[0], at[1], false)
       else offer.value = null
     },

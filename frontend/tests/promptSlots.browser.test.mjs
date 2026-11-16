@@ -201,6 +201,89 @@ test('selected words: Detail under them, and < wraps them; with nothing selected
   await expect.poll(() => text(page)).toBe('a cat on a porch <')
 })
 
+/** Where `word` is on screen (its first match in the text): left, right, middle y. */
+const wordAt = (page, word) => page.evaluate(w => {
+  const walker = document.createTreeWalker(document.querySelector('.cm-content'), NodeFilter.SHOW_TEXT)
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const i = n.data.indexOf(w)
+    if (i < 0) continue
+    const r = document.createRange()
+    r.setStart(n, i)
+    r.setEnd(n, i + w.length)
+    const b = r.getBoundingClientRect()
+    return { left: b.left, right: b.right, y: b.top + b.height / 2 }
+  }
+  return null
+}, word)
+
+async function drag(page, from, to) {
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  await page.mouse.move(to.x, to.y, { steps: 8 })
+  await page.mouse.up()
+}
+
+test('every way of selecting words offers Detail; a collapsed selection hides it', async t => {
+  const { page, editor } = await open(t, { start: 'a cat on a sunny porch' })
+  const offer = page.locator('[data-slot-offer]')
+  const detailOn = async (how, wrapped) => {
+    await expect(offer, how).toBeVisible()
+    await page.locator('[data-slot-offer] [data-way="detail"]').click()
+    await expect.poll(() => text(page), how).toBe(wrapped)
+    await page.keyboard.press('Control+z')
+    await expect.poll(() => text(page)).toBe('a cat on a sunny porch')
+    await page.keyboard.press('Escape')
+  }
+  const collapse = async how => {
+    const porch = await wordAt(page, 'porch')
+    await page.mouse.click(porch.right - 2, porch.y)
+    await expect(offer, how).toHaveCount(0)
+  }
+
+  // A drag released below the text, in the empty part of the box: the release lands outside
+  // the text, and once missed it used to silence every later selection too.
+  const sunny = await wordAt(page, 'sunny')
+  const box = await editor.boundingBox()
+  await editor.click()
+  await drag(page, { x: sunny.left + 1, y: sunny.y }, { x: box.x + box.width - 4, y: box.y + box.height + 30 })
+  await expect(offer, 'drag released below the editor').toBeVisible()
+  await collapse('a click collapses it')
+
+  // Then the keyboard: Shift+arrows, after that missed release.
+  await page.keyboard.press('End')
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowLeft')
+  await detailOn('shift+arrows', 'a cat on a sunny <porch>')
+  await collapse('collapsed after the keyboard')
+
+  // Right to left, starting and ending mid-word: the offer takes the whole words.
+  const cat = await wordAt(page, 'cat')
+  const sunny2 = await wordAt(page, 'sunny')
+  await drag(page, { x: sunny2.left + 12, y: sunny2.y }, { x: cat.left + 8, y: cat.y })
+  await detailOn('right-to-left drag, mid-word', 'a <cat on a sunny> porch')
+  await collapse('collapsed after the drag')
+
+  // A double-click on a word.
+  await page.mouse.dblclick(sunny2.left + 6, sunny2.y)
+  await detailOn('double-click', 'a cat on a <sunny> porch')
+
+  // Select all, with the editor not focused before.
+  await page.locator('#app').click({ position: { x: 2, y: 2 } })
+  await editor.click()
+  await page.keyboard.press('Control+a')
+  await expect(offer, 'select all').toBeVisible()
+  await page.keyboard.press('ArrowRight')
+  await expect(offer, 'an arrow collapses it').toHaveCount(0)
+
+  // A selection with no mouse at all, as touch handles make: the page's own selection.
+  await page.evaluate(() => {
+    const line = document.querySelector('.cm-line')
+    const node = [...line.childNodes].find(n => n.nodeType === 3 && n.data.includes('cat')) ?? line.firstChild
+    const i = node.data.indexOf('cat')
+    getSelection().setBaseAndExtent(node, i, node, i + 3)
+  })
+  await detailOn('a selection without the mouse', 'a <cat> on a sunny porch')
+})
+
 test('on touch, the offer floats by the words and is not turned into a bottom sheet', async t => {
   const { page, editor } = await open(t, { start: 'a cat on a porch' })
   // Touch converts every fixed menu-tier box into a sheet with a full-screen backdrop,

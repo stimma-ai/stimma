@@ -145,6 +145,16 @@ export function replaceDocument(view: EditorView, text: string) {
   })
 }
 
+/** [from, to) grown to whole words: a drag rarely starts or ends right at a word's edge, and a
+    slot can't start or end inside one (`w<oman>` isn't a slot). */
+export function wholeWords(text: string, from: number, to: number): [number, number] {
+  if (from > to) [from, to] = [to, from]
+  const word = (i: number) => i >= 0 && i < text.length && /[\p{L}\p{N}_]/u.test(text[i])
+  while (word(from - 1) && word(from)) from--
+  while (word(to - 1) && word(to)) to++
+  return [from, to]
+}
+
 /** Where [from, to) is on screen (the box around it when it wraps), or null when hidden. */
 export function rangeRect(view: EditorView, from: number, to: number): DOMRect | null {
   const a = view.coordsAtPos(from, 1)
@@ -182,8 +192,23 @@ export function slotEditing(h: SlotEditingHandlers): Extension {
       return true
     }),
     EditorView.domEventHandlers({
-      mousedown() { pointerDown = true },
-      mouseup(_e, view) { pointerDown = false; report(view) },
+      // A drag that starts in the words can end anywhere: under the last line (the box is
+      // taller than its text), past its edge, off the window. So the release is heard on the
+      // whole page, not just the text; heard only on the text, a missed release left every
+      // later selection unreported.
+      mousedown(e, view) {
+        if (e.button !== 0 || pointerDown) return
+        pointerDown = true
+        const win = view.dom.ownerDocument.defaultView ?? window
+        const up = () => {
+          win.removeEventListener('mouseup', up, true)
+          win.removeEventListener('blur', up)
+          pointerDown = false
+          report(view)
+        }
+        win.addEventListener('mouseup', up, true)
+        win.addEventListener('blur', up)
+      },
       scroll() { h.onMoved() },
       click(e, view) {
         if (!h.enabled() || !view.state.selection.main.empty) return false
