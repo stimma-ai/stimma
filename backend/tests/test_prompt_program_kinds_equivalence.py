@@ -46,6 +46,8 @@ PANEL: List[Any] = [
      _person(noun="dancer", outfit="", clothes_part={"n": 2, "words": "costume"}), None),
     ("clothes", "a <nurse> in green scrubs", "nurse", "person",
      _person(noun="nurse", outfit="", clothes="in green scrubs", vary=["age", "descent", "hair", "hairstyle"]), None),
+    ("hidden", "a <woman> asleep under thick bedcovers, only her face showing", "woman", "person",
+     _person(noun="woman", presentation="feminine", outfit="", shows="hidden"), None),
     ("pet", "a man on a porch with his <pet>", "pet", "animal",
      {"noun": "pet", "vary": ["species", "life_stage"], "type": "pet", "breed": "", "stated": {}}, None),
     ("dog", "a <dog> on a porch", "dog", "animal",

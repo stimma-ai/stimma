@@ -77,7 +77,19 @@
      "notes",
      "prompt"
     ],
-    "ask": "the words of the prompt or a note that say what they wear, or that no clothes show, copied exactly (\"in a red raincoat\", \"headshot\"); \"\" when nothing says so, which is most prompts."
+    "ask": "the words of the prompt or a note that say what they wear, copied exactly (\"in a red raincoat\", \"in a nurse's uniform\"); \"\" when nothing says so, which is most prompts."
+   },
+   {
+    "key": "shows",
+    "type": "choice",
+    "store": "always",
+    "options": [
+     {
+      "answer": "hidden",
+      "note": "None of what they wear shows in this picture, and maybe little of their body: write no clothes, shoes, hat or jewelry, and no build or height when only their face shows. Still say who they are as the seed line gives them (their gender, age and heritage), then how what shows of them looks (their face, hair, skin, expression), in words of your own: the prompt's words after the part already say what is in frame, so never repeat them."
+     }
+    ],
+    "ask": "\"hidden\" when, read in the whole prompt, none of what they wear would show: something covers them (bedcovers, bathwater or foam, a towel wrapped around them, water up to the head, a wall or a counter with only their face above it) or the framing is so close that only their face or part of it is in frame; \"\" when any of their clothes would show, which is most prompts (a portrait, a waist-up shot, someone sitting on a bed, someone behind a bar)."
    },
    {
     "key": "dress",
@@ -99,7 +111,7 @@
     ],
     "cleared_by": "clothes_part",
     "invalid": "part {n}: outfit \"{value}\" is not one of the lists",
-    "ask": "their clothes change too, unless clothes has words or clothes_part names a part. Give the id of the outfit list below that suits the scene, or \"written\" if none does, as for most dress that is implied (no list holds a firefighter's turnout gear or a nun's habit); \"\" only when clothes has words or clothes_part is not 0."
+    "ask": "their clothes change too, unless clothes has words, clothes_part names a part or shows is \"hidden\". Give the id of the outfit list below that suits the scene, or \"written\" if none does, as for most dress that is implied (no list holds a firefighter's turnout gear or a nun's habit); \"\" only when clothes has words, clothes_part is not 0 or shows is \"hidden\"."
    },
    {
     "key": "place",
@@ -161,7 +173,8 @@
    "of": [
     "outfit",
     "clothes_part",
-    "clothes"
+    "clothes",
+    "shows"
    ],
    "message": "part {n}: a person's clothes change unless the prompt says what they wear: when another part is what they wear, give its number as \"clothes_part\"; when the prompt's own words say, copy them into \"clothes\"; else give an outfit list's id, or \"written\" when none suits",
    "fallback": {
@@ -199,6 +212,7 @@
         ],
         "clothes_part": 0,
         "clothes": "",
+        "shows": "",
         "dress": "",
         "outfit": "person.outfit.casual",
         "place": "",
@@ -292,6 +306,7 @@
         ],
         "clothes_part": 2,
         "clothes": "",
+        "shows": "",
         "dress": "",
         "outfit": "",
         "place": "",
@@ -346,6 +361,7 @@
         "vary": [],
         "clothes_part": 0,
         "clothes": "",
+        "shows": "",
         "dress": "",
         "outfit": "written",
         "place": "",
@@ -508,7 +524,12 @@
      "couple"
     ]
    },
-   "adults": true
+   "adults": true,
+   "unless": {
+    "shows": [
+     "hidden"
+    ]
+   }
   },
   {
    "role": "idea",
@@ -613,19 +634,22 @@
      "group"
     ],
     "clothes_part": "answered",
-    "clothes": "answered"
+    "clothes": "answered",
+    "shows": [
+     "hidden"
+    ]
    }
   }
  ],
  "aspects": {
   "list": [
-   "bearing and posture",
+   "hair and how it is worn",
    "expression",
    "styling and grooming",
    "what they wear",
    "build",
    "face",
-   "what they carry or hold",
+   "jewelry, glasses and other things they wear",
    "how their age shows"
   ],
   "per_variant": 2,
@@ -633,11 +657,22 @@
    "what they wear": {
     "answered": [
      "clothes_part",
-     "clothes"
+     "clothes",
+     "shows"
     ]
    },
    "how their age shows": {
     "no_draw": "age"
+   },
+   "jewelry, glasses and other things they wear": {
+    "answered": [
+     "shows"
+    ]
+   },
+   "build": {
+    "answered": [
+     "shows"
+    ]
    }
   },
   "one_drop": [
@@ -646,17 +681,19 @@
    "how their age shows"
   ],
   "typical": {
-   "text": "how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+   "text": "how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
    "share": 0.333333,
    "replaces": "what they wear",
    "unless": {
     "answered": [
      "clothes_part",
-     "clothes"
+     "clothes",
+     "shows"
     ]
    },
    "without": [
-    "styling and grooming"
+    "styling and grooming",
+    "hair and how it is worn"
    ],
    "implied": {
     "answer": "dress",
@@ -669,16 +706,17 @@
  "writer": {
   "examples": [
    "\"a ⟦young woman⟧ in a kitchen\" (keep \"young woman\") -> \"freckled young woman with a short black bob\"",
-   "\"a ⟦dominant young woman⟧ in a living room\", three variants with their seed lines (\"Tunisian\", develop: bearing and posture and expression / \"Korean\", develop: styling and grooming and what they carry / \"Peruvian\", develop: build and what they wear, ideas: \"tall\") -> \"dominant young woman of Tunisian heritage, shoulders squared and chin lifted, giving the camera a cool, level stare that dares it to look away\", \"dominant young woman, Korean, hair slicked straight back, a dark lip, car keys looped around one finger like she owns the room\", \"tall, broad-shouldered dominant young woman, Peruvian, in a fitted black blazer worn over bare skin, sleeves pushed up\""
+   "\"a ⟦dominant young woman⟧ in a living room\", three variants with their seed lines (\"Tunisian\", develop: face and expression / \"Korean\", develop: styling and grooming and jewelry, glasses and other things they wear / \"Peruvian\", develop: build and what they wear, ideas: \"tall\") -> \"dominant young woman of Tunisian heritage, strong dark brows and a sharp jaw, a cool, level stare that dares the camera to look away\", \"dominant young woman, Korean, hair slicked straight back, a dark lip, heavy silver rings stacked on every finger\", \"tall, broad-shouldered dominant young woman, Peruvian, in a fitted black blazer worn over bare skin, sleeves pushed up\""
   ],
   "rules": [
-   "A person: 12 to 25 words beyond the marked words. Write each variant as an authored take on who this is, leaning into the marked words themselves: for \"dominant young woman\", how her dominance shows in her bearing, expression, styling and attitude, and in what she wears or carries when the prompt leaves that open. Each variant develops the aspects its seed line names, so the set differs in far more than hair. No shared template: vary how each variant is phrased and where things fall in it (the marked words first in some, after a detail in others: \"broad-shouldered Peruvian dominant young woman in a fitted blazer\"; the descent before the words, after them, or as \"of Tunisian heritage\"), and weave its seeds in where they read naturally, never as a list or a prefix. Never describe what another part of the prompt owns (a clothing part elsewhere owns the clothes)."
+   "A person variant says only who they are and how they look: their age, heritage, build, face, hair, expression, grooming and what they wear. Never what they are doing, how they stand, sit or hold themselves, a gesture, anything they hold or carry, or anything else in the scene (other people, animals, furniture, the place): the rest of the prompt owns those. When the prompt's own words give them an action or a thing (\"a man reading\"), leave it to the prompt and add none of your own.",
+   "A person: 12 to 25 words beyond the marked words. Write each variant as an authored take on who this is, leaning into the marked words themselves: for \"dominant young woman\", how her dominance shows in her face, expression and styling, and in what she wears when the prompt leaves that open. Each variant develops the aspects its seed line names, so the set differs in far more than hair. No shared template: vary how each variant is phrased and where things fall in it (the marked words first in some, after a detail in others: \"broad-shouldered Peruvian dominant young woman in a fitted blazer\"; the descent before the words, after them, or as \"of Tunisian heritage\"), and weave its seeds in where they read naturally, never as a list or a prefix. Never describe what another part of the prompt owns (a clothing part elsewhere owns the clothes)."
   ],
   "seed_rules": [
    "a quoted descent: give the person that heritage's look (the look given with it in brackets, when there is one), and write that exact word or words into the variant where it reads naturally. If the marked words name several people, it is the heritage they share, unless the line gives one for each. When it can't be true in this prompt (a figure who isn't of that people, such as a creature or a stylized character, or a setting or the user's words that settle who they are), leave it out and list it under \"rejected\", copied exactly. A descent marked (must appear) is always written in.",
    "gender: write the person as that, with those exact words in the variant (\"a woman\", \"a young man\"), woven in naturally; the marked words still stay.",
    "who: who the couple are. Say it through the two of them, in the variant's own words (\"the man in a linen shirt, the woman with her hair pinned up\"; \"two women in their thirties\"), never as a label repeated at the end.",
-   "develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must. \"How someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet\": beside who they are (their heritage, gender and age as the line gives them), what most people like them wear and have on them at work or in this place and time, from what is on their head down to their feet, working dress and gear included, as a photograph of a real one would show them (a fisherman's sou'wester, oilskins and boots; a nurse's scrubs and lanyard). When people like them typically cover their head here, with a hat, helmet, cap, veil or scarf, put it on their head and leave their hair unsaid.",
+   "develop: the aspects of the person this variant describes in particular; others lightly or not at all. Hair is one aspect among many, not a must. \"How someone like them is typically dressed here, from any headwear they typically wear down to their feet\": beside who they are (their heritage, gender and age as the line gives them), what most people like them wear at work or in this place and time, from what is on their head down to their feet, working dress included, as a photograph of a real one would show them (a fisherman's sou'wester, oilskins and boots; a nurse's scrubs and a lanyard around the neck), never a tool or anything in their hands. When people like them typically cover their head here, with a hat, helmet, cap, veil or scarf, put it on their head and leave their hair unsaid.",
    "age: about how old the person looks; work it in before their words (\"a 34-year-old chef\") or say it another natural way (\"a chef in her forties\"), never as a number tacked on at the end. When the prompt already says their age, write it no second time."
   ],
   "one": "This part names one particular someone: every variant is that same person or those same people, as the marked words and the prompt give them, with their own look, sex and age; a named character or real person looks as they are known to look. Never change who they are, add anyone to them, or make them a child unless the words do."

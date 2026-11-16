@@ -313,45 +313,45 @@
   "draws": [
    {
     "lines": [
-     "\"White American\", gender: \"man\", age: 21-year-old, develop: build and what they carry or hold, ideas: \"kinky-coily\"; \"auburn\"",
+     "\"White American\", gender: \"man\", age: 21-year-old, develop: build and jewelry, glasses and other things they wear, ideas: \"kinky-coily\"; \"auburn\"",
      "\"White American\", gender: \"woman\", age: 58-year-old, develop: face and how their age shows, ideas: \"muscular\"",
-     "\"African American\", gender: \"woman\", age: 27-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"African American\", gender: \"woman\", age: 27-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White American\", gender: \"man\", age: 53-year-old, develop: expression and face, ideas: \"light brown\"; \"short\"",
      "\"Indonesian\", gender: \"man\", age: 37-year-old, develop: build and face, ideas: \"a brick red abaya over a cream ankle-length dress\"",
-     "\"White American\", gender: \"woman\", age: 44-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Taiwanese\", gender: \"man\", age: 44-year-old, develop: bearing and posture and what they carry or hold, ideas: \"broad-hipped\"",
-     "\"White American\", gender: \"woman\", age: 43-year-old, develop: what they carry or hold and how their age shows, ideas: \"chin-length\"",
-     "\"Ashkenazi Jewish\", gender: \"woman\", age: 21-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", gender: \"woman\", age: 44-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Taiwanese\", gender: \"man\", age: 44-year-old, develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"broad-hipped\"",
+     "\"White American\", gender: \"woman\", age: 43-year-old, develop: jewelry, glasses and other things they wear and how their age shows, ideas: \"chin-length\"",
+     "\"Ashkenazi Jewish\", gender: \"woman\", age: 21-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Bengali\", gender: \"man\", age: 84-year-old, develop: styling and grooming and what they wear, ideas: \"a patched oatmeal canvas coat and faded cream cargo pants\"; \"mid-back\"",
      "\"Tanzanian\", gender: \"man\", age: 38-year-old, develop: expression and build, ideas: \"shoulder-length\"; \"burly\"",
-     "\"White American\", gender: \"woman\", age: 43-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", gender: \"man\", age: 57-year-old, develop: styling and grooming and what they carry or hold, ideas: \"straight\"",
-     "\"White American\", gender: \"man\", age: 64-year-old, develop: bearing and posture and expression, ideas: \"lean\"",
-     "\"Chilean\", gender: \"woman\", age: 44-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", gender: \"woman\", age: 43-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", gender: \"man\", age: 57-year-old, develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"straight\"",
+     "\"White American\", gender: \"man\", age: 64-year-old, develop: hair and how it is worn and expression, ideas: \"lean\"",
+     "\"Chilean\", gender: \"woman\", age: 44-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Salvadoran\", gender: \"man\", age: 47-year-old, develop: what they wear and how their age shows, ideas: \"curly\"; \"buzzed\"",
-     "\"Pakistani\", gender: \"woman\", age: 32-year-old, develop: bearing and posture and how their age shows, ideas: \"a sand side-fastening seated-cut overshirt and white elastic-waist canvas pants\"",
-     "\"Vietnamese\", gender: \"man\", age: 80-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", gender: \"woman\", age: 57-year-old, develop: what they wear and what they carry or hold, ideas: \"ear-length\"; \"plus-size\"",
+     "\"Pakistani\", gender: \"woman\", age: 32-year-old, develop: hair and how it is worn and how their age shows, ideas: \"a sand side-fastening seated-cut overshirt and white elastic-waist canvas pants\"",
+     "\"Vietnamese\", gender: \"man\", age: 80-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", gender: \"woman\", age: 57-year-old, develop: what they wear and jewelry, glasses and other things they wear, ideas: \"ear-length\"; \"plus-size\"",
      "\"Mexican\", gender: \"man\", age: 69-year-old, develop: styling and grooming and build, ideas: \"an embroidered jet black dashiki with charcoal stitching and slate gray pants\"; \"waist-length\"",
-     "\"Puerto Rican\", gender: \"man\", age: 58-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"German\", gender: \"man\", age: 46-year-old, develop: bearing and posture and build, ideas: \"wavy\"",
+     "\"Puerto Rican\", gender: \"man\", age: 58-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"German\", gender: \"man\", age: 46-year-old, develop: hair and how it is worn and build, ideas: \"wavy\"",
      "\"White American\", gender: \"woman\", age: 22-year-old, develop: expression and what they wear, ideas: \"blonde-highlighted brown\"",
-     "\"White American\", gender: \"man\", age: 47-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", gender: \"man\", age: 47-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White American\", gender: \"woman\", age: 44-year-old, develop: build and how their age shows, ideas: \"a taupe crochet camisole and off-white wide-leg linen pants\"; \"ash brown\"",
-     "\"Mexican\", gender: \"woman\", age: 36-year-old, develop: face and what they carry or hold, ideas: \"hip-length\"",
-     "\"African American\", gender: \"woman\", age: 45-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Saudi\", gender: \"man\", age: 49-year-old, develop: bearing and posture and face, ideas: \"coily\"",
-     "\"White American\", gender: \"woman\", age: 20-year-old, develop: build and what they carry or hold, ideas: \"thinning\"; \"an ivory sleeveless hooded jersey dress with a stepped hem over off-white cycling shorts\"",
-     "\"White American\", gender: \"woman\", age: 28-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", gender: \"man\", age: 64-year-old, develop: expression and what they carry or hold, ideas: \"floor-length\"; \"athletic\"",
+     "\"Mexican\", gender: \"woman\", age: 36-year-old, develop: face and jewelry, glasses and other things they wear, ideas: \"hip-length\"",
+     "\"African American\", gender: \"woman\", age: 45-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Saudi\", gender: \"man\", age: 49-year-old, develop: hair and how it is worn and face, ideas: \"coily\"",
+     "\"White American\", gender: \"woman\", age: 20-year-old, develop: build and jewelry, glasses and other things they wear, ideas: \"thinning\"; \"an ivory sleeveless hooded jersey dress with a stepped hem over off-white cycling shorts\"",
+     "\"White American\", gender: \"woman\", age: 28-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", gender: \"man\", age: 64-year-old, develop: expression and jewelry, glasses and other things they wear, ideas: \"floor-length\"; \"athletic\"",
      "\"White American\", gender: \"man\", age: 58-year-old, develop: expression and face, ideas: \"sparse\"",
-     "\"African American\", gender: \"man\", age: 31-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White Canadian\", gender: \"man\", age: 52-year-old, develop: bearing and posture and styling and grooming, ideas: \"a cotton kebaya with sand and navy floral motifs and a patterned white batik skirt\"",
-     "\"Chinese\", gender: \"woman\", age: 20-year-old, develop: bearing and posture and what they carry or hold",
-     "\"White American\", gender: \"woman\", age: 56-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"African American\", gender: \"man\", age: 31-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White Canadian\", gender: \"man\", age: 52-year-old, develop: hair and how it is worn and styling and grooming, ideas: \"a cotton kebaya with sand and navy floral motifs and a patterned white batik skirt\"",
+     "\"Chinese\", gender: \"woman\", age: 20-year-old, develop: hair and how it is worn and jewelry, glasses and other things they wear",
+     "\"White American\", gender: \"woman\", age: 56-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"African American\", gender: \"woman\", age: 24-year-old, develop: what they wear and face, ideas: \"narrow-hipped\"",
      "\"White American\", gender: \"man\", age: 36-year-old, develop: styling and grooming and what they wear, ideas: \"cropped\"",
-     "\"Korean\", gender: \"woman\", age: 27-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Korean\", gender: \"woman\", age: 27-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Mexican\", gender: \"man\", age: 27-year-old, develop: styling and grooming and how their age shows"
     ],
     "seeds": [
@@ -556,13 +556,13 @@
       "age": "27-year-old"
      }
     ],
-    "user": "03caa922d7890744",
+    "user": "b2eab355b668c429",
     "unseeded": "309f5b5be328b78d"
    },
    {
-    "lines": "b863594392ef2266",
+    "lines": "a04b12b746fe7a32",
     "seeds": "8c8cdbc092310e21",
-    "user": "0350137788d63576",
+    "user": "c75537e942dee4a8",
     "unseeded": "309f5b5be328b78d"
    }
   ]
@@ -826,46 +826,46 @@
   "draws": [
    {
     "lines": [
-     "\"Ethiopian Jewish\", develop: face and what they carry or hold, ideas: \"ash blonde\"",
-     "\"Pakistani\", develop: what they wear and what they carry or hold, ideas: \"a forest green gathered cotton peasant blouse and a charcoal tiered maxi skirt\"",
-     "\"Spanish\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Ethiopian Jewish\", develop: face and jewelry, glasses and other things they wear, ideas: \"ash blonde\"",
+     "\"Pakistani\", develop: what they wear and jewelry, glasses and other things they wear, ideas: \"a forest green gathered cotton peasant blouse and a charcoal tiered maxi skirt\"",
+     "\"Spanish\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Chinese\", develop: styling and grooming and what they wear, ideas: \"heavyset\"; \"golden blonde\"",
-     "\"Iraqi\", develop: bearing and posture and what they carry or hold, ideas: \"a cotton cobalt blue salwar kameez with straight sleeves and golden yellow embroidery\"",
-     "\"Mongolian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Dutch\", develop: bearing and posture and expression, ideas: \"coily\"; \"wiry\"",
-     "\"Taiwanese\", develop: styling and grooming and what they carry or hold, ideas: \"platinum blonde\"; \"curvy\"",
-     "\"Japanese\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Iraqi\", develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"a cotton cobalt blue salwar kameez with straight sleeves and golden yellow embroidery\"",
+     "\"Mongolian\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Dutch\", develop: hair and how it is worn and expression, ideas: \"coily\"; \"wiry\"",
+     "\"Taiwanese\", develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"platinum blonde\"; \"curvy\"",
+     "\"Japanese\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White Canadian\", develop: what they wear and face, ideas: \"soft-bodied\"",
      "\"Filipino\", develop: expression and styling and grooming, ideas: \"stocky\"; \"a burgundy cotton T-shirt and straight blue jeans\"",
-     "\"Thai\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Thai\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Ukrainian\", develop: styling and grooming and face, ideas: \"cropped\"; \"curly\"",
      "\"Algerian\", develop: expression and what they wear, ideas: \"short\"",
-     "\"Zimbabwean\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Zimbabwean\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Lao\", develop: what they wear and build, ideas: \"wavy\"",
-     "\"English\", develop: bearing and posture and build, ideas: \"dark brown\"; \"a pale blue cotton jumpsuit with wide legs\"",
-     "\"Iranian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Ecuadorian\", develop: bearing and posture and what they wear, ideas: \"hip-length\"; \"kinky-coily\"",
+     "\"English\", develop: hair and how it is worn and build, ideas: \"dark brown\"; \"a pale blue cotton jumpsuit with wide legs\"",
+     "\"Iranian\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Ecuadorian\", develop: hair and how it is worn and what they wear, ideas: \"hip-length\"; \"kinky-coily\"",
      "\"Malay\", develop: build and face, ideas: \"buzzed\"",
-     "\"African American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Pashtun\", develop: face and what they carry or hold, ideas: \"hourglass-shaped\"",
-     "\"Punjabi\", develop: what they wear and what they carry or hold, ideas: \"ash brown\"",
-     "\"Navajo\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"African American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Pashtun\", develop: face and jewelry, glasses and other things they wear, ideas: \"hourglass-shaped\"",
+     "\"Punjabi\", develop: what they wear and jewelry, glasses and other things they wear, ideas: \"ash brown\"",
+     "\"Navajo\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Tajik\", develop: styling and grooming and what they wear, ideas: \"a patched oatmeal canvas coat and faded cream cargo pants\"; \"mid-back\"",
-     "\"Bengali\", develop: bearing and posture and what they carry or hold, ideas: \"chin-length\"; \"large-framed\"",
-     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Kenyan\", develop: bearing and posture and expression, ideas: \"strawberry blonde\"; \"plus-size\"",
-     "\"Bangladeshi\", develop: styling and grooming and what they carry or hold, ideas: \"straight\"",
-     "\"Fijian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Bengali\", develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"chin-length\"; \"large-framed\"",
+     "\"White American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Kenyan\", develop: hair and how it is worn and expression, ideas: \"strawberry blonde\"; \"plus-size\"",
+     "\"Bangladeshi\", develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"straight\"",
+     "\"Fijian\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Ghanaian\", develop: what they wear and face, ideas: \"fine\"",
      "\"Congolese\", develop: expression and styling and grooming, ideas: \"waist-length\"; \"auburn\"",
-     "\"Korean\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Korean\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Guatemalan\", develop: styling and grooming and face, ideas: \"a cotton djellaba with charcoal and white stripes over loose heather gray pants\"",
      "\"Brazilian\", develop: expression and what they wear, ideas: \"medium brown\"",
-     "\"Korean\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Korean\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Yemeni\", develop: what they wear and build, ideas: \"shoulder-length\"",
-     "\"Kazakh\", develop: bearing and posture and build, ideas: \"an ecru boubou over matching cotton pants\"",
-     "\"Argentinian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Nepali\", develop: bearing and posture and what they wear"
+     "\"Kazakh\", develop: hair and how it is worn and build, ideas: \"an ecru boubou over matching cotton pants\"",
+     "\"Argentinian\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Nepali\", develop: hair and how it is worn and what they wear"
     ],
     "seeds": [
      {
@@ -1029,13 +1029,13 @@
       "gender": "woman"
      }
     ],
-    "user": "6a50641d0f78dc41",
+    "user": "dbd984c6eb280a0a",
     "unseeded": "bd76bf978f0751e6"
    },
    {
-    "lines": "7b9dcfc0b0963e90",
+    "lines": "ecdd44a381a14451",
     "seeds": "6f4a6feb51229b32",
-    "user": "7fdedd2b091e1614",
+    "user": "0f2bdba127d37aa5",
     "unseeded": "bd76bf978f0751e6"
    }
   ]
@@ -1402,46 +1402,46 @@
   "draws": [
    {
     "lines": [
-     "\"White American\", develop: face and what they carry or hold, ideas: \"white\"",
-     "\"African American\", develop: what they wear and what they carry or hold, ideas: \"a faded beard\"",
-     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: face and jewelry, glasses and other things they wear, ideas: \"white\"",
+     "\"African American\", develop: what they wear and jewelry, glasses and other things they wear, ideas: \"a faded beard\"",
+     "\"White American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Indian\", develop: styling and grooming and what they wear, ideas: \"dark red\"",
-     "\"White American\", develop: bearing and posture and what they carry or hold, ideas: \"coily\"; \"short sideburns\"",
-     "\"Syrian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", develop: bearing and posture and expression, ideas: \"gray\"; \"straight\"",
-     "\"Punjabi\", develop: styling and grooming and what they carry or hold, ideas: \"dark brown\"; \"a chevron mustache\"",
-     "\"Burmese\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"coily\"; \"short sideburns\"",
+     "\"Syrian\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: hair and how it is worn and expression, ideas: \"gray\"; \"straight\"",
+     "\"Punjabi\", develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"dark brown\"; \"a chevron mustache\"",
+     "\"Burmese\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White American\", develop: what they wear and face, ideas: \"a short full beard\"",
      "\"African American\", develop: expression and styling and grooming, ideas: \"a wispy beard\"",
-     "\"African American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"African American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White American\", develop: styling and grooming and face, ideas: \"stocky\"; \"a burgundy cotton T-shirt and straight blue jeans\"",
      "\"White American\", develop: expression and what they wear, ideas: \"cropped\"; \"kinky-coily\"",
-     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"African American\", develop: what they wear and build, ideas: \"wavy\"; \"plus-size\"",
-     "\"White American\", develop: bearing and posture and build, ideas: \"an ivory henley shirt and off-white canvas pants\"",
-     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Mexican\", develop: bearing and posture and what they wear, ideas: \"dark blonde\"; \"curly\"",
+     "\"White American\", develop: hair and how it is worn and build, ideas: \"an ivory henley shirt and off-white canvas pants\"",
+     "\"White American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Mexican\", develop: hair and how it is worn and what they wear, ideas: \"dark blonde\"; \"curly\"",
      "\"African American\", develop: build and face, ideas: \"burgundy\"; \"floor-length\"",
-     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", develop: face and what they carry or hold, ideas: \"slender\"; \"short\"",
-     "\"White American\", develop: what they wear and what they carry or hold",
-     "\"Argentinian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: face and jewelry, glasses and other things they wear, ideas: \"slender\"; \"short\"",
+     "\"White American\", develop: what they wear and jewelry, glasses and other things they wear",
+     "\"Argentinian\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Italian\", develop: styling and grooming and what they wear",
-     "\"White American\", develop: bearing and posture and what they carry or hold, ideas: \"broad-shouldered\"",
-     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", develop: bearing and posture and expression, ideas: \"a cotton djellaba with deep teal and rust stripes over loose cream pants\"; \"chin-length\"",
-     "\"White American\", develop: styling and grooming and what they carry or hold, ideas: \"a patchy beard\"",
-     "\"Puerto Rican\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"broad-shouldered\"",
+     "\"White American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: hair and how it is worn and expression, ideas: \"a cotton djellaba with deep teal and rust stripes over loose cream pants\"; \"chin-length\"",
+     "\"White American\", develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"a patchy beard\"",
+     "\"Puerto Rican\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White American\", develop: what they wear and face, ideas: \"ear-length\"; \"a short boxed beard\"",
      "\"White American\", develop: expression and styling and grooming, ideas: \"an extended goatee\"; \"hip-length\"",
-     "\"Korean\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Korean\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Mexican\", develop: styling and grooming and face, ideas: \"thinning\"; \"a Hollywoodian beard\"",
      "\"Mexican\", develop: expression and what they wear, ideas: \"mid-back\"",
-     "\"Taiwanese\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Taiwanese\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White American\", develop: what they wear and build, ideas: \"light brown\"; \"waist-length\"",
-     "\"Zimbabwean\", develop: bearing and posture and build, ideas: \"light stubble\"; \"buzzed\"",
-     "\"Mexican\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", develop: bearing and posture and what they wear"
+     "\"Zimbabwean\", develop: hair and how it is worn and build, ideas: \"light stubble\"; \"buzzed\"",
+     "\"Mexican\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: hair and how it is worn and what they wear"
     ],
     "seeds": [
      {
@@ -1605,13 +1605,13 @@
       "gender": "man"
      }
     ],
-    "user": "f545ed84940304a8",
+    "user": "199738c0c81db5dc",
     "unseeded": "cad7cd32133a9d8e"
    },
    {
-    "lines": "20bc8676f43052b8",
+    "lines": "e55e1331c0add38f",
     "seeds": "88a890253ad8c7bc",
-    "user": "a3d01a2fcf905966",
+    "user": "fc5a7d7e1bc69627",
     "unseeded": "cad7cd32133a9d8e"
    }
   ]
@@ -1930,45 +1930,45 @@
   "draws": [
    {
     "lines": [
-     "\"Vietnamese\", gender: \"man\", age: 21-year-old, develop: build and what they carry or hold, ideas: \"kinky-coily\"; \"auburn\"",
+     "\"Vietnamese\", gender: \"man\", age: 21-year-old, develop: build and jewelry, glasses and other things they wear, ideas: \"kinky-coily\"; \"auburn\"",
      "\"Vietnamese\", gender: \"woman\", age: 58-year-old, develop: face and how their age shows, ideas: \"muscular\"",
-     "\"Vietnamese\", gender: \"woman\", age: 27-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"woman\", age: 27-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Vietnamese\", gender: \"man\", age: 53-year-old, develop: expression and face, ideas: \"light brown\"; \"short\"",
      "\"Vietnamese\", gender: \"man\", age: 37-year-old, develop: build and face, ideas: \"a brick red abaya over a cream ankle-length dress\"",
-     "\"Vietnamese\", gender: \"woman\", age: 44-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Vietnamese\", gender: \"man\", age: 44-year-old, develop: bearing and posture and what they carry or hold, ideas: \"broad-hipped\"",
-     "\"Vietnamese\", gender: \"woman\", age: 43-year-old, develop: what they carry or hold and how their age shows, ideas: \"chin-length\"",
-     "\"Vietnamese\", gender: \"woman\", age: 21-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"woman\", age: 44-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"man\", age: 44-year-old, develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"broad-hipped\"",
+     "\"Vietnamese\", gender: \"woman\", age: 43-year-old, develop: jewelry, glasses and other things they wear and how their age shows, ideas: \"chin-length\"",
+     "\"Vietnamese\", gender: \"woman\", age: 21-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Vietnamese\", gender: \"man\", age: 84-year-old, develop: styling and grooming and what they wear, ideas: \"a patched oatmeal canvas coat and faded cream cargo pants\"; \"mid-back\"",
      "\"Vietnamese\", gender: \"man\", age: 38-year-old, develop: expression and build, ideas: \"shoulder-length\"; \"burly\"",
-     "\"Vietnamese\", gender: \"woman\", age: 43-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Vietnamese\", gender: \"man\", age: 57-year-old, develop: styling and grooming and what they carry or hold, ideas: \"straight\"",
-     "\"Vietnamese\", gender: \"man\", age: 64-year-old, develop: bearing and posture and expression, ideas: \"lean\"",
-     "\"White Canadian\", gender: \"woman\", age: 44-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"woman\", age: 43-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"man\", age: 57-year-old, develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"straight\"",
+     "\"Vietnamese\", gender: \"man\", age: 64-year-old, develop: hair and how it is worn and expression, ideas: \"lean\"",
+     "\"White Canadian\", gender: \"woman\", age: 44-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Saudi\", gender: \"man\", age: 47-year-old, develop: what they wear and how their age shows, ideas: \"curly\"; \"buzzed\"",
-     "\"Vietnamese\", gender: \"woman\", age: 32-year-old, develop: bearing and posture and how their age shows, ideas: \"a sand side-fastening seated-cut overshirt and white elastic-waist canvas pants\"",
-     "\"Vietnamese\", gender: \"man\", age: 80-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Vietnamese\", gender: \"woman\", age: 57-year-old, develop: what they wear and what they carry or hold, ideas: \"ear-length\"; \"plus-size\"",
+     "\"Vietnamese\", gender: \"woman\", age: 32-year-old, develop: hair and how it is worn and how their age shows, ideas: \"a sand side-fastening seated-cut overshirt and white elastic-waist canvas pants\"",
+     "\"Vietnamese\", gender: \"man\", age: 80-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"woman\", age: 57-year-old, develop: what they wear and jewelry, glasses and other things they wear, ideas: \"ear-length\"; \"plus-size\"",
      "\"Bangladeshi\", gender: \"man\", age: 69-year-old, develop: styling and grooming and build, ideas: \"an embroidered jet black dashiki with charcoal stitching and slate gray pants\"; \"waist-length\"",
-     "\"Egyptian\", gender: \"man\", age: 58-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Vietnamese\", gender: \"man\", age: 46-year-old, develop: bearing and posture and build, ideas: \"wavy\"",
+     "\"Egyptian\", gender: \"man\", age: 58-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"man\", age: 46-year-old, develop: hair and how it is worn and build, ideas: \"wavy\"",
      "\"Vietnamese\", gender: \"woman\", age: 22-year-old, develop: expression and what they wear, ideas: \"blonde-highlighted brown\"",
-     "\"Vietnamese\", gender: \"man\", age: 47-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"man\", age: 47-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Vietnamese\", gender: \"woman\", age: 44-year-old, develop: build and how their age shows, ideas: \"a taupe crochet camisole and off-white wide-leg linen pants\"; \"ash brown\"",
-     "\"Cambodian\", gender: \"woman\", age: 36-year-old, develop: face and what they carry or hold, ideas: \"hip-length\"",
-     "\"Vietnamese\", gender: \"woman\", age: 45-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Vietnamese\", gender: \"man\", age: 49-year-old, develop: bearing and posture and face, ideas: \"coily\"",
-     "\"Vietnamese\", gender: \"woman\", age: 20-year-old, develop: build and what they carry or hold, ideas: \"thinning\"; \"an ivory sleeveless hooded jersey dress with a stepped hem over off-white cycling shorts\"",
-     "\"Vietnamese\", gender: \"woman\", age: 28-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Vietnamese\", gender: \"man\", age: 64-year-old, develop: expression and what they carry or hold, ideas: \"floor-length\"; \"athletic\"",
+     "\"Cambodian\", gender: \"woman\", age: 36-year-old, develop: face and jewelry, glasses and other things they wear, ideas: \"hip-length\"",
+     "\"Vietnamese\", gender: \"woman\", age: 45-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"man\", age: 49-year-old, develop: hair and how it is worn and face, ideas: \"coily\"",
+     "\"Vietnamese\", gender: \"woman\", age: 20-year-old, develop: build and jewelry, glasses and other things they wear, ideas: \"thinning\"; \"an ivory sleeveless hooded jersey dress with a stepped hem over off-white cycling shorts\"",
+     "\"Vietnamese\", gender: \"woman\", age: 28-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"man\", age: 64-year-old, develop: expression and jewelry, glasses and other things they wear, ideas: \"floor-length\"; \"athletic\"",
      "\"Vietnamese\", gender: \"man\", age: 58-year-old, develop: expression and face, ideas: \"sparse\"",
-     "\"Vietnamese\", gender: \"man\", age: 31-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Vietnamese\", gender: \"man\", age: 52-year-old, develop: bearing and posture and styling and grooming, ideas: \"a cotton kebaya with sand and navy floral motifs and a patterned white batik skirt\"",
-     "\"Taiwanese\", gender: \"woman\", age: 20-year-old, develop: bearing and posture and what they carry or hold",
-     "\"Vietnamese\", gender: \"woman\", age: 56-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"man\", age: 31-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Vietnamese\", gender: \"man\", age: 52-year-old, develop: hair and how it is worn and styling and grooming, ideas: \"a cotton kebaya with sand and navy floral motifs and a patterned white batik skirt\"",
+     "\"Taiwanese\", gender: \"woman\", age: 20-year-old, develop: hair and how it is worn and jewelry, glasses and other things they wear",
+     "\"Vietnamese\", gender: \"woman\", age: 56-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Vietnamese\", gender: \"woman\", age: 24-year-old, develop: what they wear and face, ideas: \"narrow-hipped\"",
      "\"Vietnamese\", gender: \"man\", age: 36-year-old, develop: styling and grooming and what they wear, ideas: \"cropped\"",
-     "\"Korean\", gender: \"woman\", age: 27-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Korean\", gender: \"woman\", age: 27-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Thai\", gender: \"man\", age: 27-year-old, develop: styling and grooming and how their age shows"
     ],
     "seeds": [
@@ -2173,13 +2173,13 @@
       "age": "27-year-old"
      }
     ],
-    "user": "9e3f1e2fd33ea930",
+    "user": "77f78696cb2a472e",
     "unseeded": "6e70deff4673a79f"
    },
    {
-    "lines": "0c67f241a60ad67a",
+    "lines": "05df4d788d5828d8",
     "seeds": "fb4a28bd9da417c0",
-    "user": "c90013a34595cefa",
+    "user": "7fbcaf785e546cf7",
     "unseeded": "6e70deff4673a79f"
    }
   ]
@@ -2496,45 +2496,45 @@
   "draws": [
    {
     "lines": [
-     "\"White American\", who: \"a man and a woman\", age: 31-year-old, develop: build and what they carry or hold, ideas: \"a scarlet fine-knit crew-neck sweater and matching straight jersey pants\"",
+     "\"White American\", who: \"a man and a woman\", age: 31-year-old, develop: build and jewelry, glasses and other things they wear, ideas: \"a scarlet fine-knit crew-neck sweater and matching straight jersey pants\"",
      "\"White American\", who: \"a man and a woman\", age: 27-year-old, develop: face and how their age shows, ideas: \"a cotton djellaba with charcoal and white stripes over loose heather gray pants\"",
-     "\"African American\", who: \"a man and a woman\", age: 52-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"African American\", who: \"a man and a woman\", age: 52-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White American\", who: \"a man and a woman\", age: 44-year-old, develop: expression and face, ideas: \"medium brown\"",
      "\"Indonesian\", who: \"a man and a woman\", age: 38-year-old, develop: build and face, ideas: \"shoulder-length\"",
-     "\"White American\", who: \"a man and a woman\", age: 21-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Taiwanese\", who: \"two women\", age: 48-year-old, develop: bearing and posture and what they carry or hold, ideas: \"an embroidered jet black dashiki with charcoal stitching and slate gray pants\"; \"chin-length\"",
-     "\"White American\", who: \"a man and a woman\", age: 43-year-old, develop: what they carry or hold and how their age shows, ideas: \"wiry\"; \"curly\"",
-     "\"Ashkenazi Jewish\", who: \"a man and a woman\", age: 45-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", who: \"a man and a woman\", age: 21-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Taiwanese\", who: \"two women\", age: 48-year-old, develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"an embroidered jet black dashiki with charcoal stitching and slate gray pants\"; \"chin-length\"",
+     "\"White American\", who: \"a man and a woman\", age: 43-year-old, develop: jewelry, glasses and other things they wear and how their age shows, ideas: \"wiry\"; \"curly\"",
+     "\"Ashkenazi Jewish\", who: \"a man and a woman\", age: 45-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Bengali\", who: \"a man and a woman\", age: 44-year-old, develop: styling and grooming and what they wear, ideas: \"plus-size\"; \"ear-length\"",
      "\"Tanzanian\", who: \"a man and a woman\", age: 41-year-old, develop: expression and build, ideas: \"wavy\"",
-     "\"White American\", who: \"a man and a woman\", age: 80-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\" for one, \"Mexican\" for the other, who: \"a man and a woman\", age: 69-year-old, develop: styling and grooming and what they carry or hold, ideas: \"blonde-highlighted brown\"",
-     "\"White American\", who: \"a man and a woman\", age: 44-year-old, develop: bearing and posture and expression, ideas: \"a taupe crochet camisole and off-white wide-leg linen pants\"; \"light brown\"",
-     "\"Chilean\", who: \"a man and a woman\", age: 22-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", who: \"a man and a woman\", age: 80-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\" for one, \"Mexican\" for the other, who: \"a man and a woman\", age: 69-year-old, develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"blonde-highlighted brown\"",
+     "\"White American\", who: \"a man and a woman\", age: 44-year-old, develop: hair and how it is worn and expression, ideas: \"a taupe crochet camisole and off-white wide-leg linen pants\"; \"light brown\"",
+     "\"Chilean\", who: \"a man and a woman\", age: 22-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Salvadoran\", who: \"a man and a woman\", age: 29-year-old, develop: what they wear and how their age shows, ideas: \"athletic\"",
-     "\"Pakistani\", who: \"a man and a woman\", age: 36-year-old, develop: bearing and posture and how their age shows, ideas: \"a charcoal knee-length jersey dress with short sleeves\"",
-     "\"Vietnamese\", who: \"a man and a woman\", age: 49-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", who: \"a man and a woman\", age: 20-year-old, develop: what they wear and what they carry or hold, ideas: \"a cream short-sleeved blouse and a pale blue cotton pinafore dress\"; \"straight\"",
+     "\"Pakistani\", who: \"a man and a woman\", age: 36-year-old, develop: hair and how it is worn and how their age shows, ideas: \"a charcoal knee-length jersey dress with short sleeves\"",
+     "\"Vietnamese\", who: \"a man and a woman\", age: 49-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", who: \"a man and a woman\", age: 20-year-old, develop: what they wear and jewelry, glasses and other things they wear, ideas: \"a cream short-sleeved blouse and a pale blue cotton pinafore dress\"; \"straight\"",
      "\"Mexican\", who: \"a man and a woman\", age: 47-year-old, develop: styling and grooming and build, ideas: \"an ivory linen vest over a cream long-sleeved blouse and off-white palazzo pants\"",
-     "\"Puerto Rican\", who: \"a man and a woman\", age: 58-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"German\", who: \"a man and a woman\", age: 61-year-old, develop: bearing and posture and build, ideas: \"floor-length\"; \"stocky\"",
+     "\"Puerto Rican\", who: \"a man and a woman\", age: 58-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"German\", who: \"a man and a woman\", age: 61-year-old, develop: hair and how it is worn and build, ideas: \"floor-length\"; \"stocky\"",
      "\"White American\", who: \"a man and a woman\", age: 20-year-old, develop: expression and what they wear, ideas: \"a plum sleeveless hooded jersey dress with a stepped hem over charcoal cycling shorts\"",
-     "\"White American\" for one, \"Mexican\" for the other, who: \"a man and a woman\", age: 24-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\" for one, \"Mexican\" for the other, who: \"a man and a woman\", age: 24-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White American\", who: \"a man and a woman\", age: 22-year-old, develop: build and how their age shows, ideas: \"a cotton kebaya with sand and navy floral motifs and a patterned white batik skirt\"",
-     "\"Mexican\", who: \"a man and a woman\", age: 27-year-old, develop: face and what they carry or hold, ideas: \"coily\"",
-     "\"African American\", who: \"a man and a woman\", age: 41-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Saudi\", who: \"a man and a woman\", age: 20-year-old, develop: bearing and posture and face, ideas: \"white-streaked black\"",
-     "\"White American\", who: \"a man and a woman\", age: 28-year-old, develop: build and what they carry or hold, ideas: \"lean\"",
-     "\"White American\" for one, \"Puerto Rican\" for the other, who: \"a man and a woman\", age: 29-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", who: \"a man and a woman\", age: 20-year-old, develop: expression and what they carry or hold, ideas: \"a terracotta velour zip hoodie and matching flared track pants\"",
+     "\"Mexican\", who: \"a man and a woman\", age: 27-year-old, develop: face and jewelry, glasses and other things they wear, ideas: \"coily\"",
+     "\"African American\", who: \"a man and a woman\", age: 41-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Saudi\", who: \"a man and a woman\", age: 20-year-old, develop: hair and how it is worn and face, ideas: \"white-streaked black\"",
+     "\"White American\", who: \"a man and a woman\", age: 28-year-old, develop: build and jewelry, glasses and other things they wear, ideas: \"lean\"",
+     "\"White American\" for one, \"Puerto Rican\" for the other, who: \"a man and a woman\", age: 29-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", who: \"a man and a woman\", age: 20-year-old, develop: expression and jewelry, glasses and other things they wear, ideas: \"a terracotta velour zip hoodie and matching flared track pants\"",
      "\"White American\" for one, \"Thai\" for the other, who: \"a man and a woman\", age: 27-year-old, develop: expression and face, ideas: \"soft-bodied\"; \"a dusty rose short-sleeved cotton tunic and cream leggings\"",
-     "\"African American\", who: \"a man and a woman\", age: 46-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White Canadian\", who: \"two women\", age: 58-year-old, develop: bearing and posture and styling and grooming, ideas: \"short\"",
-     "\"Chinese\", who: \"a man and a woman\", age: 51-year-old, develop: bearing and posture and what they carry or hold, ideas: \"golden blonde\"",
-     "\"White American\", who: \"a man and a woman\", age: 35-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"African American\", who: \"a man and a woman\", age: 46-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White Canadian\", who: \"two women\", age: 58-year-old, develop: hair and how it is worn and styling and grooming, ideas: \"short\"",
+     "\"Chinese\", who: \"a man and a woman\", age: 51-year-old, develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"golden blonde\"",
+     "\"White American\", who: \"a man and a woman\", age: 35-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"African American\", who: \"a man and a woman\", age: 33-year-old, develop: what they wear and face, ideas: \"an oversized navy cotton T-shirt and heather gray parachute pants\"; \"kinky-coily\"",
      "\"White American\", who: \"a man and a woman\", age: 34-year-old, develop: styling and grooming and what they wear, ideas: \"slender\"",
-     "\"Korean\", who: \"a man and a woman\", age: 77-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Korean\", who: \"a man and a woman\", age: 77-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Mexican\", who: \"a man and a woman\", age: 31-year-old, develop: styling and grooming and how their age shows, ideas: \"a rust canvas coverall with rolled sleeves\"; \"thick\""
     ],
     "seeds": [
@@ -2739,13 +2739,13 @@
       "age": "31-year-old"
      }
     ],
-    "user": "0483bfc3784400cc",
+    "user": "ae78eb10533a953b",
     "unseeded": "b7caaa2983b3a1dd"
    },
    {
-    "lines": "e67039df0161db8e",
+    "lines": "13a1ba6f189d9325",
     "seeds": "73016c9d406ca131",
-    "user": "4e4c52b55cc204d5",
+    "user": "ce71cd71b4b49cf5",
     "unseeded": "b7caaa2983b3a1dd"
    }
   ]
@@ -2870,46 +2870,46 @@
   "draws": [
    {
     "lines": [
-     "\"White American\", develop: face and what they carry or hold, ideas: \"a neon pink sleeveless hooded jersey dress with a stepped hem over charcoal cycling shorts\"",
-     "\"African American\", develop: what they wear and what they carry or hold, ideas: \"a black boubou over matching cotton pants\"",
-     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: face and jewelry, glasses and other things they wear, ideas: \"a neon pink sleeveless hooded jersey dress with a stepped hem over charcoal cycling shorts\"",
+     "\"African American\", develop: what they wear and jewelry, glasses and other things they wear, ideas: \"a black boubou over matching cotton pants\"",
+     "\"White American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Cambodian\", develop: styling and grooming and what they wear, ideas: \"a slate blue jersey tank and blue-gray drawstring sweat shorts\"",
-     "\"White American\", develop: bearing and posture and what they carry or hold, ideas: \"a chocolate brown abaya over a cream ankle-length dress\"",
-     "\"Sri Lankan\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", develop: bearing and posture and expression, ideas: \"a plum huipil and a charcoal skirt\"",
-     "\"Malay\", develop: styling and grooming and what they carry or hold, ideas: \"a hot pink cropped jersey top and black low-rise cargo pants\"",
-     "\"Tibetan\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"a chocolate brown abaya over a cream ankle-length dress\"",
+     "\"Sri Lankan\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: hair and how it is worn and expression, ideas: \"a plum huipil and a charcoal skirt\"",
+     "\"Malay\", develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"a hot pink cropped jersey top and black low-rise cargo pants\"",
+     "\"Tibetan\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Mexican\", develop: what they wear and face, ideas: \"a camel zip-neck jersey pullover and off-white cropped sweatpants\"",
      "\"Ashkenazi Jewish\", develop: expression and styling and grooming, ideas: \"a sage sweatshirt and off-white jersey leggings\"",
-     "\"Zimbabwean\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Zimbabwean\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White American\", develop: styling and grooming and face, ideas: \"a cotton kebaya with espresso and cocoa floral motifs and a patterned tan batik skirt\"",
      "\"White American\", develop: expression and what they wear, ideas: \"a taupe thobe beneath a cropped dusty blue sleeveless brocade vest\"",
-     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Romanian\", develop: what they wear and build, ideas: \"an off-white cotton turtleneck and beige straight wool pants\"",
-     "\"White American\", develop: bearing and posture and build, ideas: \"a white linen vest over a scarlet long-sleeved blouse and charcoal palazzo pants\"",
-     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"Mexican\", develop: bearing and posture and what they wear, ideas: \"a neon red cotton sari with an electric blue short-sleeved blouse\"",
+     "\"White American\", develop: hair and how it is worn and build, ideas: \"a white linen vest over a scarlet long-sleeved blouse and charcoal palazzo pants\"",
+     "\"White American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"Mexican\", develop: hair and how it is worn and what they wear, ideas: \"a neon red cotton sari with an electric blue short-sleeved blouse\"",
      "\"African American\", develop: build and face, ideas: \"an olive quilted pinafore with a square bib over a tan jersey turtleneck and cream tights\"",
-     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", develop: face and what they carry or hold, ideas: \"a violet cotton twill shop coat over a tangerine T-shirt and white straight jeans\"",
-     "\"White American\", develop: what they wear and what they carry or hold, ideas: \"a cotton djellaba with burgundy and cream stripes over loose charcoal pants\"",
-     "\"Native Hawaiian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: face and jewelry, glasses and other things they wear, ideas: \"a violet cotton twill shop coat over a tangerine T-shirt and white straight jeans\"",
+     "\"White American\", develop: what they wear and jewelry, glasses and other things they wear, ideas: \"a cotton djellaba with burgundy and cream stripes over loose charcoal pants\"",
+     "\"Native Hawaiian\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Ghanaian\", develop: styling and grooming and what they wear, ideas: \"a neon yellow cotton yukata with an electric purple obi\"",
-     "\"White American\", develop: bearing and posture and what they carry or hold, ideas: \"a black jersey T-shirt and gray cargo pants\"",
-     "\"White American\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"White American\", develop: bearing and posture and expression, ideas: \"a dusty rose fine-knit crew-neck sweater and matching straight jersey pants\"",
-     "\"African American\", develop: styling and grooming and what they carry or hold, ideas: \"a neon orange cardigan and a charcoal jersey maxi skirt\"",
-     "\"Puerto Rican\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"a black jersey T-shirt and gray cargo pants\"",
+     "\"White American\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"White American\", develop: hair and how it is worn and expression, ideas: \"a dusty rose fine-knit crew-neck sweater and matching straight jersey pants\"",
+     "\"African American\", develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"a neon orange cardigan and a charcoal jersey maxi skirt\"",
+     "\"Puerto Rican\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White American\", develop: what they wear and face, ideas: \"a golden yellow cotton jumpsuit with wide legs\"",
      "\"White American\", develop: expression and styling and grooming, ideas: \"a camel short-sleeved linen top and off-white drawstring pants\"",
-     "\"Korean\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Korean\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"Mexican\", develop: styling and grooming and face, ideas: \"an embroidered neon orange dashiki with hot pink stitching and charcoal pants\"",
      "\"Mexican\", develop: expression and what they wear, ideas: \"a cotton violet salwar kameez with straight sleeves and tangerine embroidery\"",
-     "\"Chinese\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "\"Chinese\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "\"White American\", develop: what they wear and build, ideas: \"an off-white polo shirt and beige chinos\"",
-     "\"Afghan\", develop: bearing and posture and build, ideas: \"a brick red side-fastening seated-cut overshirt and cream elastic-waist canvas pants\"",
-     "\"Haitian\", develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "\"African American\", develop: bearing and posture and what they wear, ideas: \"a patched dusty rose canvas coat and faded cream cargo pants\""
+     "\"Afghan\", develop: hair and how it is worn and build, ideas: \"a brick red side-fastening seated-cut overshirt and cream elastic-waist canvas pants\"",
+     "\"Haitian\", develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "\"African American\", develop: hair and how it is worn and what they wear, ideas: \"a patched dusty rose canvas coat and faded cream cargo pants\""
     ],
     "seeds": [
      {
@@ -3033,13 +3033,13 @@
       "descent": "African American"
      }
     ],
-    "user": "e2aa32861ebce084",
+    "user": "3543d4e5fd6411ea",
     "unseeded": "b5333a93b92b764b"
    },
    {
-    "lines": "db806bd5b9740ec5",
+    "lines": "0db55e2164582c71",
     "seeds": "604c7b0f70673aae",
-    "user": "bffb72e4f1dbb080",
+    "user": "69c8618754a770d0",
     "unseeded": "b5333a93b92b764b"
    }
   ]
@@ -3065,46 +3065,46 @@
   "draws": [
    {
     "lines": [
-     "develop: face and what they carry or hold",
-     "develop: what they wear and what they carry or hold",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "develop: face and jewelry, glasses and other things they wear",
+     "develop: what they wear and jewelry, glasses and other things they wear",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "develop: styling and grooming and what they wear",
-     "develop: bearing and posture and what they carry or hold",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "develop: bearing and posture and expression",
-     "develop: styling and grooming and what they carry or hold",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "develop: hair and how it is worn and jewelry, glasses and other things they wear",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "develop: hair and how it is worn and expression",
+     "develop: styling and grooming and jewelry, glasses and other things they wear",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "develop: what they wear and face",
      "develop: expression and styling and grooming",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "develop: styling and grooming and face",
      "develop: expression and what they wear",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "develop: what they wear and build",
-     "develop: bearing and posture and build",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "develop: bearing and posture and what they wear",
+     "develop: hair and how it is worn and build",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "develop: hair and how it is worn and what they wear",
      "develop: build and face",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "develop: face and what they carry or hold",
-     "develop: what they wear and what they carry or hold",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "develop: face and jewelry, glasses and other things they wear",
+     "develop: what they wear and jewelry, glasses and other things they wear",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "develop: styling and grooming and what they wear",
-     "develop: bearing and posture and what they carry or hold",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "develop: bearing and posture and expression",
-     "develop: styling and grooming and what they carry or hold",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "develop: hair and how it is worn and jewelry, glasses and other things they wear",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "develop: hair and how it is worn and expression",
+     "develop: styling and grooming and jewelry, glasses and other things they wear",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "develop: what they wear and face",
      "develop: expression and styling and grooming",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "develop: styling and grooming and face",
      "develop: expression and what they wear",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "develop: what they wear and build",
-     "develop: bearing and posture and build",
-     "develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "develop: bearing and posture and what they wear"
+     "develop: hair and how it is worn and build",
+     "develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "develop: hair and how it is worn and what they wear"
     ],
     "seeds": [
      {},
@@ -3148,13 +3148,13 @@
      {},
      {}
     ],
-    "user": "80e0fc099f177bbe",
+    "user": "c2a3aef73e2d0358",
     "unseeded": "453c055704cf1d40"
    },
    {
-    "lines": "02745402045162a4",
+    "lines": "10b2259fc1c1eb64",
     "seeds": "1d285a35d7eb64ee",
-    "user": "680f6fd48dd94bc7",
+    "user": "c1a77d4f383fb7ca",
     "unseeded": "453c055704cf1d40"
    }
   ]
@@ -3451,45 +3451,45 @@
   "draws": [
    {
     "lines": [
-     "gender: \"woman\", age: 51-year-old, develop: build and what they carry or hold, ideas: \"gray-templed dark brown\"",
+     "gender: \"woman\", age: 51-year-old, develop: build and jewelry, glasses and other things they wear, ideas: \"gray-templed dark brown\"",
      "gender: \"woman\", age: 68-year-old, develop: face and how their age shows, ideas: \"a cobalt blue cotton sari with a golden yellow short-sleeved blouse\"",
-     "gender: \"man\", age: 82-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "gender: \"man\", age: 82-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "gender: \"man\", age: 45-year-old, develop: expression and face, ideas: \"coily\"; \"burly\"",
      "gender: \"man\", age: 77-year-old, develop: build and face, ideas: \"platinum blonde\"; \"small-framed\"",
-     "gender: \"man\", age: 36-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "gender: \"man\", age: 56-year-old, develop: bearing and posture and what they carry or hold, ideas: \"soft-bodied\"",
-     "gender: \"man\", age: 75-year-old, develop: what they carry or hold and how their age shows, ideas: \"stocky\"; \"a burgundy cotton T-shirt and straight blue jeans\"",
-     "gender: \"woman\", age: 73-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "gender: \"man\", age: 36-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "gender: \"man\", age: 56-year-old, develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"soft-bodied\"",
+     "gender: \"man\", age: 75-year-old, develop: jewelry, glasses and other things they wear and how their age shows, ideas: \"stocky\"; \"a burgundy cotton T-shirt and straight blue jeans\"",
+     "gender: \"woman\", age: 73-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "gender: \"man\", age: 24-year-old, develop: styling and grooming and what they wear, ideas: \"cropped\"; \"kinky-coily\"",
      "gender: \"man\", age: 54-year-old, develop: expression and build, ideas: \"wavy\"; \"plus-size\"",
-     "gender: \"woman\", age: 55-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "gender: \"man\", age: 83-year-old, develop: styling and grooming and what they carry or hold, ideas: \"straight\"",
-     "gender: \"man\", age: 82-year-old, develop: bearing and posture and expression, ideas: \"golden blonde\"; \"thinning\"",
-     "gender: \"man\", age: 72-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "gender: \"woman\", age: 55-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "gender: \"man\", age: 83-year-old, develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"straight\"",
+     "gender: \"man\", age: 82-year-old, develop: hair and how it is worn and expression, ideas: \"golden blonde\"; \"thinning\"",
+     "gender: \"man\", age: 72-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "gender: \"woman\", age: 33-year-old, develop: what they wear and how their age shows, ideas: \"a brick red abaya over a cream ankle-length dress\"",
-     "gender: \"man\", age: 43-year-old, develop: bearing and posture and how their age shows, ideas: \"broad-hipped\"",
-     "gender: \"man\", age: 38-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "gender: \"man\", age: 42-year-old, develop: what they wear and what they carry or hold, ideas: \"chin-length\"",
+     "gender: \"man\", age: 43-year-old, develop: hair and how it is worn and how their age shows, ideas: \"broad-hipped\"",
+     "gender: \"man\", age: 38-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "gender: \"man\", age: 42-year-old, develop: what they wear and jewelry, glasses and other things they wear, ideas: \"chin-length\"",
      "gender: \"man\", age: 39-year-old, develop: styling and grooming and build, ideas: \"a patched oatmeal canvas coat and faded cream cargo pants\"; \"mid-back\"",
-     "gender: \"man\", age: 37-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "gender: \"man\", age: 57-year-old, develop: bearing and posture and build, ideas: \"shoulder-length\"; \"muscular\"",
+     "gender: \"man\", age: 37-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "gender: \"man\", age: 57-year-old, develop: hair and how it is worn and build, ideas: \"shoulder-length\"; \"muscular\"",
      "gender: \"man\", age: 23-year-old, develop: expression and what they wear, ideas: \"slender\"; \"sparse\"",
-     "gender: \"man\", age: 24-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "gender: \"man\", age: 24-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "gender: \"woman\", age: 61-year-old, develop: build and how their age shows, ideas: \"short\"; \"gray\"",
-     "gender: \"woman\", age: 55-year-old, develop: face and what they carry or hold, ideas: \"a sand side-fastening seated-cut overshirt and white elastic-waist canvas pants\"",
-     "gender: \"woman\", age: 34-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "gender: \"man\", age: 49-year-old, develop: bearing and posture and face, ideas: \"ear-length\"; \"curvy\"",
-     "gender: \"man\", age: 51-year-old, develop: build and what they carry or hold, ideas: \"an embroidered jet black dashiki with charcoal stitching and slate gray pants\"; \"buzzed\"",
-     "gender: \"woman\", age: 30-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "gender: \"woman\", age: 29-year-old, develop: expression and what they carry or hold, ideas: \"fine\"; \"lean\"",
+     "gender: \"woman\", age: 55-year-old, develop: face and jewelry, glasses and other things they wear, ideas: \"a sand side-fastening seated-cut overshirt and white elastic-waist canvas pants\"",
+     "gender: \"woman\", age: 34-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "gender: \"man\", age: 49-year-old, develop: hair and how it is worn and face, ideas: \"ear-length\"; \"curvy\"",
+     "gender: \"man\", age: 51-year-old, develop: build and jewelry, glasses and other things they wear, ideas: \"an embroidered jet black dashiki with charcoal stitching and slate gray pants\"; \"buzzed\"",
+     "gender: \"woman\", age: 30-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "gender: \"woman\", age: 29-year-old, develop: expression and jewelry, glasses and other things they wear, ideas: \"fine\"; \"lean\"",
      "gender: \"man\", age: 46-year-old, develop: expression and face, ideas: \"curly\"",
-     "gender: \"woman\", age: 36-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
-     "gender: \"man\", age: 36-year-old, develop: bearing and posture and styling and grooming, ideas: \"heavyset\"; \"dark blonde\"",
-     "gender: \"man\", age: 51-year-old, develop: bearing and posture and what they carry or hold, ideas: \"a scarlet cable-knit sweater and white corduroy pants\"; \"hip-length\"",
-     "gender: \"man\", age: 55-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "gender: \"woman\", age: 36-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
+     "gender: \"man\", age: 36-year-old, develop: hair and how it is worn and styling and grooming, ideas: \"heavyset\"; \"dark blonde\"",
+     "gender: \"man\", age: 51-year-old, develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"a scarlet cable-knit sweater and white corduroy pants\"; \"hip-length\"",
+     "gender: \"man\", age: 55-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "gender: \"woman\", age: 64-year-old, develop: what they wear and face",
      "gender: \"man\", age: 77-year-old, develop: styling and grooming and what they wear, ideas: \"floor-length\"; \"athletic\"",
-     "gender: \"man\", age: 25-year-old, develop: how someone like them is typically dressed and equipped here, from any headwear they typically wear down to their feet",
+     "gender: \"man\", age: 25-year-old, develop: how someone like them is typically dressed here, from any headwear they typically wear down to their feet",
      "gender: \"man\", age: 29-year-old, develop: styling and grooming and how their age shows"
     ],
     "seeds": [
@@ -3654,13 +3654,13 @@
       "age": "29-year-old"
      }
     ],
-    "user": "f4a1be8107a2b177",
+    "user": "4f3ecfc175a8983f",
     "unseeded": "6980ca490e63328b"
    },
    {
-    "lines": "66bfada985394b64",
+    "lines": "08282811ffbe095b",
     "seeds": "83af993c85dc4279",
-    "user": "e637826be81f70b8",
+    "user": "e8a3cb604695bb77",
     "unseeded": "6980ca490e63328b"
    }
   ]
@@ -3902,46 +3902,46 @@
   "draws": [
    {
     "lines": [
-     "\"Ethiopian Jewish\", gender: \"woman\", age: 48-year-old, develop: what they carry or hold and how their age shows, ideas: \"wavy\"; \"plus-size\"",
+     "\"Ethiopian Jewish\", gender: \"woman\", age: 48-year-old, develop: jewelry, glasses and other things they wear and how their age shows, ideas: \"wavy\"; \"plus-size\"",
      "\"Pakistani\", gender: \"man\", age: 62-year-old, develop: build and how their age shows, ideas: \"kinky-coily\"",
      "\"Spanish\", gender: \"man\", age: 48-year-old, develop: face and how their age shows, ideas: \"dark blonde\"; \"coily\"",
      "\"Chinese\", gender: \"woman\", age: 31-year-old, develop: styling and grooming and build, ideas: \"curly\"",
-     "\"Iraqi\", gender: \"man\", age: 39-year-old, develop: bearing and posture and how their age shows, ideas: \"cropped\"; \"white-streaked black\"",
-     "\"Mongolian\", gender: \"woman\", age: 46-year-old, develop: expression and what they carry or hold, ideas: \"platinum blonde\"",
-     "\"Dutch\", gender: \"man\", age: 52-year-old, develop: bearing and posture and expression, ideas: \"buzzed\"",
+     "\"Iraqi\", gender: \"man\", age: 39-year-old, develop: hair and how it is worn and how their age shows, ideas: \"cropped\"; \"white-streaked black\"",
+     "\"Mongolian\", gender: \"woman\", age: 46-year-old, develop: expression and jewelry, glasses and other things they wear, ideas: \"platinum blonde\"",
+     "\"Dutch\", gender: \"man\", age: 52-year-old, develop: hair and how it is worn and expression, ideas: \"buzzed\"",
      "\"Taiwanese\", gender: \"woman\", age: 40-year-old, develop: styling and grooming and how their age shows, ideas: \"pear-shaped\"",
-     "\"Japanese\", gender: \"man\", age: 57-year-old, develop: bearing and posture and styling and grooming, ideas: \"salt-and-pepper\"",
-     "\"White Canadian\", gender: \"man\", age: 38-year-old, develop: build and what they carry or hold, ideas: \"mid-back\"; \"straight\"",
+     "\"Japanese\", gender: \"man\", age: 57-year-old, develop: hair and how it is worn and styling and grooming, ideas: \"salt-and-pepper\"",
+     "\"White Canadian\", gender: \"man\", age: 38-year-old, develop: build and jewelry, glasses and other things they wear, ideas: \"mid-back\"; \"straight\"",
      "\"Filipino\", gender: \"woman\", age: 20-year-old, develop: expression and styling and grooming, ideas: \"waist-length\"; \"muscular\"",
      "\"Thai\", gender: \"woman\", age: 53-year-old, develop: expression and how their age shows, ideas: \"sparse\"",
-     "\"Ukrainian\", gender: \"man\", age: 48-year-old, develop: styling and grooming and what they carry or hold, ideas: \"chin-length\"; \"dark brown\"",
+     "\"Ukrainian\", gender: \"man\", age: 48-year-old, develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"chin-length\"; \"dark brown\"",
      "\"Algerian\", gender: \"woman\", age: 27-year-old, develop: expression and build, ideas: \"floor-length\"",
      "\"Zimbabwean\", gender: \"man\", age: 84-year-old, develop: styling and grooming and face, ideas: \"shoulder-length\"; \"thinning\"",
      "\"Lao\", gender: \"man\", age: 45-year-old, develop: build and face, ideas: \"auburn\"",
-     "\"English\", gender: \"man\", age: 30-year-old, develop: bearing and posture and face, ideas: \"black\"; \"short\"",
+     "\"English\", gender: \"man\", age: 30-year-old, develop: hair and how it is worn and face, ideas: \"black\"; \"short\"",
      "\"Iranian\", gender: \"man\", age: 79-year-old, develop: expression and face, ideas: \"hip-length\"; \"sandy blonde\"",
-     "\"Ecuadorian\", gender: \"man\", age: 41-year-old, develop: bearing and posture and build, ideas: \"round-bellied\"",
-     "\"Malay\", gender: \"woman\", age: 46-year-old, develop: face and what they carry or hold, ideas: \"average-built\"; \"ear-length\"",
-     "\"African American\", gender: \"man\", age: 18-year-old, develop: bearing and posture and what they carry or hold, ideas: \"lean\"",
-     "\"Pashtun\", gender: \"man\", age: 59-year-old, develop: what they carry or hold and how their age shows",
+     "\"Ecuadorian\", gender: \"man\", age: 41-year-old, develop: hair and how it is worn and build, ideas: \"round-bellied\"",
+     "\"Malay\", gender: \"woman\", age: 46-year-old, develop: face and jewelry, glasses and other things they wear, ideas: \"average-built\"; \"ear-length\"",
+     "\"African American\", gender: \"man\", age: 18-year-old, develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"lean\"",
+     "\"Pashtun\", gender: \"man\", age: 59-year-old, develop: jewelry, glasses and other things they wear and how their age shows",
      "\"Punjabi\", gender: \"man\", age: 55-year-old, develop: build and how their age shows, ideas: \"narrow-hipped\"",
      "\"Navajo\", gender: \"man\", age: 44-year-old, develop: face and how their age shows",
      "\"Tajik\", gender: \"man\", age: 40-year-old, develop: styling and grooming and build, ideas: \"frizzy\"; \"white\"",
-     "\"Bengali\", gender: \"woman\", age: 66-year-old, develop: bearing and posture and how their age shows, ideas: \"golden blonde\"",
-     "\"White American\", gender: \"man\", age: 29-year-old, develop: expression and what they carry or hold, ideas: \"fine\"",
-     "\"Kenyan\", gender: \"man\", age: 43-year-old, develop: bearing and posture and expression, ideas: \"thick\"",
+     "\"Bengali\", gender: \"woman\", age: 66-year-old, develop: hair and how it is worn and how their age shows, ideas: \"golden blonde\"",
+     "\"White American\", gender: \"man\", age: 29-year-old, develop: expression and jewelry, glasses and other things they wear, ideas: \"fine\"",
+     "\"Kenyan\", gender: \"man\", age: 43-year-old, develop: hair and how it is worn and expression, ideas: \"thick\"",
      "\"Bangladeshi\", gender: \"woman\", age: 36-year-old, develop: styling and grooming and how their age shows, ideas: \"dark red\"",
-     "\"Fijian\", gender: \"man\", age: 49-year-old, develop: bearing and posture and styling and grooming, ideas: \"burly\"",
-     "\"Ghanaian\", gender: \"man\", age: 41-year-old, develop: build and what they carry or hold",
+     "\"Fijian\", gender: \"man\", age: 49-year-old, develop: hair and how it is worn and styling and grooming, ideas: \"burly\"",
+     "\"Ghanaian\", gender: \"man\", age: 41-year-old, develop: build and jewelry, glasses and other things they wear",
      "\"Congolese\", gender: \"woman\", age: 30-year-old, develop: expression and styling and grooming",
      "\"Korean\", gender: \"woman\", age: 47-year-old, develop: expression and how their age shows",
-     "\"Guatemalan\", gender: \"man\", age: 58-year-old, develop: styling and grooming and what they carry or hold, ideas: \"dark-rooted blonde\"",
+     "\"Guatemalan\", gender: \"man\", age: 58-year-old, develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"dark-rooted blonde\"",
      "\"Brazilian\", gender: \"man\", age: 59-year-old, develop: expression and build, ideas: \"curvy\"",
      "\"Korean\", gender: \"woman\", age: 61-year-old, develop: styling and grooming and face",
      "\"Yemeni\", gender: \"man\", age: 23-year-old, develop: build and face, ideas: \"light brown\"",
-     "\"Kazakh\", gender: \"woman\", age: 20-year-old, develop: bearing and posture and face, ideas: \"heavyset\"",
+     "\"Kazakh\", gender: \"woman\", age: 20-year-old, develop: hair and how it is worn and face, ideas: \"heavyset\"",
      "\"Argentinian\", gender: \"man\", age: 31-year-old, develop: expression and face",
-     "\"Nepali\", gender: \"woman\", age: 49-year-old, develop: bearing and posture and build, ideas: \"gray\""
+     "\"Nepali\", gender: \"woman\", age: 49-year-old, develop: hair and how it is worn and build, ideas: \"gray\""
     ],
     "seeds": [
      {
@@ -4145,13 +4145,13 @@
       "age": "49-year-old"
      }
     ],
-    "user": "fa5b3f7229e2d270",
+    "user": "8dc77f1b5a1de32e",
     "unseeded": "5156cb5af2a0206a"
    },
    {
-    "lines": "e6bc2e6e89cd7020",
+    "lines": "beb439bc5de407fc",
     "seeds": "828fdd95a4d93ea9",
-    "user": "6ebff62e90b6f44e",
+    "user": "845b2302c1a1e262",
     "unseeded": "5156cb5af2a0206a"
    }
   ]
@@ -4493,46 +4493,46 @@
   "draws": [
    {
     "lines": [
-     "\"Ethiopian Jewish\", gender: \"woman\", age: 48-year-old, develop: what they carry or hold and how their age shows, ideas: \"a side shave\"; \"short\"",
+     "\"Ethiopian Jewish\", gender: \"woman\", age: 48-year-old, develop: jewelry, glasses and other things they wear and how their age shows, ideas: \"a side shave\"; \"short\"",
      "\"Pakistani\", gender: \"man\", age: 62-year-old, develop: build and how their age shows, ideas: \"a high ponytail\"",
      "\"Spanish\", gender: \"man\", age: 48-year-old, develop: face and how their age shows, ideas: \"a loc ponytail\"; \"cropped\"",
      "\"Chinese\", gender: \"woman\", age: 31-year-old, develop: styling and grooming and build, ideas: \"two-strand twists\"; \"hip-length\"",
-     "\"Iraqi\", gender: \"man\", age: 39-year-old, develop: bearing and posture and how their age shows, ideas: \"side-swept bangs\"",
-     "\"Mongolian\", gender: \"woman\", age: 46-year-old, develop: expression and what they carry or hold, ideas: \"buzzed\"",
-     "\"Dutch\", gender: \"man\", age: 52-year-old, develop: bearing and posture and expression, ideas: \"shoulder-length\"",
+     "\"Iraqi\", gender: \"man\", age: 39-year-old, develop: hair and how it is worn and how their age shows, ideas: \"side-swept bangs\"",
+     "\"Mongolian\", gender: \"woman\", age: 46-year-old, develop: expression and jewelry, glasses and other things they wear, ideas: \"buzzed\"",
+     "\"Dutch\", gender: \"man\", age: 52-year-old, develop: hair and how it is worn and expression, ideas: \"shoulder-length\"",
      "\"Taiwanese\", gender: \"woman\", age: 40-year-old, develop: styling and grooming and how their age shows, ideas: \"beach waves\"",
-     "\"Japanese\", gender: \"man\", age: 57-year-old, develop: bearing and posture and styling and grooming, ideas: \"chin-length\"; \"a claw-clip updo\"",
-     "\"White Canadian\", gender: \"man\", age: 38-year-old, develop: build and what they carry or hold, ideas: \"curled-under ends\"",
+     "\"Japanese\", gender: \"man\", age: 57-year-old, develop: hair and how it is worn and styling and grooming, ideas: \"chin-length\"; \"a claw-clip updo\"",
+     "\"White Canadian\", gender: \"man\", age: 38-year-old, develop: build and jewelry, glasses and other things they wear, ideas: \"curled-under ends\"",
      "\"Filipino\", gender: \"woman\", age: 20-year-old, develop: expression and styling and grooming, ideas: \"waist-length\"; \"a rolled updo\"",
      "\"Thai\", gender: \"woman\", age: 53-year-old, develop: expression and how their age shows, ideas: \"a mullet\"",
-     "\"Ukrainian\", gender: \"man\", age: 48-year-old, develop: styling and grooming and what they carry or hold, ideas: \"a pompadour\"",
+     "\"Ukrainian\", gender: \"man\", age: 48-year-old, develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"a pompadour\"",
      "\"Algerian\", gender: \"woman\", age: 27-year-old, develop: expression and build",
      "\"Zimbabwean\", gender: \"man\", age: 84-year-old, develop: styling and grooming and face, ideas: \"a butch cut\"; \"mid-back\"",
      "\"Lao\", gender: \"man\", age: 45-year-old, develop: build and face, ideas: \"a loose side braid\"",
-     "\"English\", gender: \"man\", age: 30-year-old, develop: bearing and posture and face, ideas: \"a twist-out\"",
+     "\"English\", gender: \"man\", age: 30-year-old, develop: hair and how it is worn and face, ideas: \"a twist-out\"",
      "\"Iranian\", gender: \"man\", age: 79-year-old, develop: expression and face, ideas: \"an undercut\"; \"ear-length\"",
-     "\"Ecuadorian\", gender: \"man\", age: 41-year-old, develop: bearing and posture and build, ideas: \"box braids\"; \"floor-length\"",
-     "\"Malay\", gender: \"woman\", age: 46-year-old, develop: face and what they carry or hold, ideas: \"a chignon\"",
-     "\"African American\", gender: \"man\", age: 18-year-old, develop: bearing and posture and what they carry or hold, ideas: \"two French braids\"",
-     "\"Pashtun\", gender: \"man\", age: 59-year-old, develop: what they carry or hold and how their age shows, ideas: \"curtain bangs\"",
+     "\"Ecuadorian\", gender: \"man\", age: 41-year-old, develop: hair and how it is worn and build, ideas: \"box braids\"; \"floor-length\"",
+     "\"Malay\", gender: \"woman\", age: 46-year-old, develop: face and jewelry, glasses and other things they wear, ideas: \"a chignon\"",
+     "\"African American\", gender: \"man\", age: 18-year-old, develop: hair and how it is worn and jewelry, glasses and other things they wear, ideas: \"two French braids\"",
+     "\"Pashtun\", gender: \"man\", age: 59-year-old, develop: jewelry, glasses and other things they wear and how their age shows, ideas: \"curtain bangs\"",
      "\"Punjabi\", gender: \"man\", age: 55-year-old, develop: build and how their age shows",
      "\"Navajo\", gender: \"man\", age: 44-year-old, develop: face and how their age shows, ideas: \"a Dutch braid\"",
      "\"Tajik\", gender: \"man\", age: 40-year-old, develop: styling and grooming and build, ideas: \"a fountain ponytail\"",
-     "\"Bengali\", gender: \"woman\", age: 66-year-old, develop: bearing and posture and how their age shows, ideas: \"a half-up top knot\"",
-     "\"White American\", gender: \"man\", age: 29-year-old, develop: expression and what they carry or hold, ideas: \"a side part\"",
-     "\"Kenyan\", gender: \"man\", age: 43-year-old, develop: bearing and posture and expression, ideas: \"a feathered cut\"",
+     "\"Bengali\", gender: \"woman\", age: 66-year-old, develop: hair and how it is worn and how their age shows, ideas: \"a half-up top knot\"",
+     "\"White American\", gender: \"man\", age: 29-year-old, develop: expression and jewelry, glasses and other things they wear, ideas: \"a side part\"",
+     "\"Kenyan\", gender: \"man\", age: 43-year-old, develop: hair and how it is worn and expression, ideas: \"a feathered cut\"",
      "\"Bangladeshi\", gender: \"woman\", age: 36-year-old, develop: styling and grooming and how their age shows, ideas: \"a bouffant\"",
-     "\"Fijian\", gender: \"man\", age: 49-year-old, develop: bearing and posture and styling and grooming",
-     "\"Ghanaian\", gender: \"man\", age: 41-year-old, develop: build and what they carry or hold",
+     "\"Fijian\", gender: \"man\", age: 49-year-old, develop: hair and how it is worn and styling and grooming",
+     "\"Ghanaian\", gender: \"man\", age: 41-year-old, develop: build and jewelry, glasses and other things they wear",
      "\"Congolese\", gender: \"woman\", age: 30-year-old, develop: expression and styling and grooming",
      "\"Korean\", gender: \"woman\", age: 47-year-old, develop: expression and how their age shows",
-     "\"Guatemalan\", gender: \"man\", age: 58-year-old, develop: styling and grooming and what they carry or hold, ideas: \"bottleneck bangs\"",
+     "\"Guatemalan\", gender: \"man\", age: 58-year-old, develop: styling and grooming and jewelry, glasses and other things they wear, ideas: \"bottleneck bangs\"",
      "\"Brazilian\", gender: \"man\", age: 59-year-old, develop: expression and build, ideas: \"a French twist\"",
      "\"Korean\", gender: \"woman\", age: 61-year-old, develop: styling and grooming and face",
      "\"Yemeni\", gender: \"man\", age: 23-year-old, develop: build and face, ideas: \"a slicked-back style\"",
-     "\"Kazakh\", gender: \"woman\", age: 20-year-old, develop: bearing and posture and face",
+     "\"Kazakh\", gender: \"woman\", age: 20-year-old, develop: hair and how it is worn and face",
      "\"Argentinian\", gender: \"man\", age: 31-year-old, develop: expression and face, ideas: \"a wrapped ponytail\"",
-     "\"Nepali\", gender: \"woman\", age: 49-year-old, develop: bearing and posture and build"
+     "\"Nepali\", gender: \"woman\", age: 49-year-old, develop: hair and how it is worn and build"
     ],
     "seeds": [
      {
@@ -4736,14 +4736,489 @@
       "age": "49-year-old"
      }
     ],
-    "user": "fba4f0e0e92fc2fe",
+    "user": "02546b7f25192392",
     "unseeded": "a25f2f1e1e6de03c"
    },
    {
-    "lines": "e3f6ec572c853baa",
+    "lines": "d230de1d89614867",
     "seeds": "828fdd95a4d93ea9",
-    "user": "bfb9f8a353885651",
+    "user": "b32417bf373d7156",
     "unseeded": "a25f2f1e1e6de03c"
+   }
+  ]
+ },
+ "hidden": {
+  "plan": [
+   [
+    "descent",
+    "person.ethnicity",
+    ""
+   ],
+   [
+    "gender",
+    "person.gender",
+    "woman"
+   ],
+   [
+    "age",
+    "person.age_band",
+    "woman"
+   ],
+   [
+    "idea",
+    "person.hair_length",
+    ""
+   ],
+   [
+    "idea",
+    "person.hair_texture",
+    ""
+   ],
+   [
+    "idea",
+    "person.hair_color",
+    ""
+   ]
+  ],
+  "banks": [
+   {
+    "role": "descent",
+    "list": "person.ethnicity",
+    "phrase": "",
+    "narrowed": null
+   },
+   {
+    "role": "gender",
+    "list": "person.gender",
+    "phrase": "woman",
+    "where": {
+     "presentation": "feminine"
+    },
+    "narrowed": [
+     "woman"
+    ]
+   },
+   {
+    "role": "age",
+    "list": "person.age_band",
+    "phrase": "woman",
+    "age": true,
+    "narrowed": [
+     "18-year-old",
+     "19-year-old",
+     "20-year-old",
+     "21-year-old",
+     "22-year-old",
+     "23-year-old",
+     "24-year-old",
+     "25-year-old",
+     "26-year-old",
+     "27-year-old",
+     "28-year-old",
+     "29-year-old",
+     "30-year-old",
+     "31-year-old",
+     "32-year-old",
+     "33-year-old",
+     "34-year-old",
+     "35-year-old",
+     "36-year-old",
+     "37-year-old",
+     "38-year-old",
+     "39-year-old",
+     "40-year-old",
+     "41-year-old",
+     "42-year-old",
+     "43-year-old",
+     "44-year-old",
+     "45-year-old",
+     "46-year-old",
+     "47-year-old",
+     "48-year-old",
+     "49-year-old",
+     "50-year-old",
+     "51-year-old",
+     "52-year-old",
+     "53-year-old",
+     "54-year-old",
+     "55-year-old",
+     "56-year-old",
+     "57-year-old",
+     "58-year-old",
+     "59-year-old",
+     "60-year-old",
+     "61-year-old",
+     "62-year-old",
+     "63-year-old",
+     "64-year-old",
+     "65-year-old",
+     "66-year-old",
+     "67-year-old",
+     "68-year-old",
+     "69-year-old",
+     "70-year-old",
+     "71-year-old",
+     "72-year-old",
+     "73-year-old",
+     "74-year-old",
+     "75-year-old",
+     "76-year-old",
+     "77-year-old",
+     "78-year-old",
+     "79-year-old",
+     "80-year-old",
+     "81-year-old",
+     "82-year-old",
+     "83-year-old",
+     "84-year-old",
+     "85-year-old",
+     "86-year-old",
+     "87-year-old",
+     "88-year-old",
+     "89-year-old",
+     "90-year-old",
+     "91-year-old",
+     "92-year-old",
+     "93-year-old",
+     "94-year-old",
+     "95-year-old",
+     "96-year-old",
+     "97-year-old",
+     "98-year-old",
+     "99-year-old",
+     "100-year-old",
+     "101-year-old",
+     "102-year-old",
+     "103-year-old",
+     "104-year-old",
+     "105-year-old",
+     "106-year-old",
+     "107-year-old",
+     "108-year-old",
+     "109-year-old",
+     "110-year-old"
+    ]
+   },
+   {
+    "role": "idea",
+    "list": "person.hair_length",
+    "phrase": "",
+    "narrowed": null
+   },
+   {
+    "role": "idea",
+    "list": "person.hair_texture",
+    "phrase": "",
+    "narrowed": null
+   },
+   {
+    "role": "idea",
+    "list": "person.hair_color",
+    "phrase": "",
+    "narrowed": null
+   }
+  ],
+  "place": null,
+  "people": "",
+  "n": 40,
+  "descent": [
+   "person.ethnicity",
+   113,
+   "4e188f3598fb8508"
+  ],
+  "seeds": {
+   "descent": [
+    "person.ethnicity",
+    113,
+    "4e188f3598fb8508"
+   ],
+   "gender": [
+    "person.gender",
+    1,
+    "ea4ed0c6e53d28e1"
+   ],
+   "age": [
+    "person.age_band",
+    93,
+    "c8b42d088cd1a679"
+   ],
+   "core": null,
+   "spread": null,
+   "ideas": [
+    [
+     "person.hair_length",
+     10,
+     "5140bf2944122e08"
+    ],
+    [
+     "person.hair_texture",
+     10,
+     "7ddaa669e177a51c"
+    ],
+    [
+     "person.hair_color",
+     33,
+     "c6fd428aa244d864"
+    ]
+   ],
+   "minor": []
+  },
+  "person": true,
+  "early": "6fc579dfddc9f0d5",
+  "draws": [
+   {
+    "lines": [
+     "\"Taiwanese\", age: 98-year-old, develop: expression and how their age shows, ideas: \"cropped\"; \"black\"",
+     "\"Burmese\", age: 25-year-old, develop: styling and grooming and how their age shows, ideas: \"wavy\"",
+     "\"Māori\", age: 54-year-old, develop: face and how their age shows, ideas: \"medium brown\"",
+     "\"Sudanese\", age: 77-year-old, develop: styling and grooming and face, ideas: \"short\"; \"gray\"",
+     "\"Chinese\", age: 59-year-old, develop: expression and face, ideas: \"light brown\"",
+     "\"White Australian\", age: 34-year-old, develop: hair and how it is worn and how their age shows, ideas: \"coily\"; \"dark brown\"",
+     "\"Palestinian\", age: 68-year-old, develop: hair and how it is worn and expression, ideas: \"curly\"; \"white-streaked black\"",
+     "\"Indian\", age: 44-year-old, develop: expression and styling and grooming, ideas: \"auburn\"",
+     "\"Venezuelan\", age: 21-year-old, develop: hair and how it is worn and styling and grooming, ideas: \"buzzed\"",
+     "\"Tibetan\", age: 58-year-old, develop: hair and how it is worn and face, ideas: \"shoulder-length\"",
+     "\"Russian\", age: 27-year-old, develop: expression and how their age shows, ideas: \"kinky-coily\"",
+     "\"Cambodian\", age: 53-year-old, develop: styling and grooming and how their age shows, ideas: \"dark-rooted blonde\"; \"chin-length\"",
+     "\"Swedish\", age: 37-year-old, develop: face and how their age shows, ideas: \"thick\"",
+     "\"Tamil\", age: 44-year-old, develop: styling and grooming and face, ideas: \"hip-length\"; \"straight\"",
+     "\"Ugandan\", age: 44-year-old, develop: expression and face, ideas: \"platinum blonde\"",
+     "\"Vietnamese\", age: 43-year-old, develop: hair and how it is worn and how their age shows, ideas: \"ear-length\"; \"salt-and-pepper\"",
+     "\"Pashtun\", age: 21-year-old, develop: hair and how it is worn and expression, ideas: \"burgundy\"; \"waist-length\"",
+     "\"Ethiopian\", age: 84-year-old, develop: expression and styling and grooming, ideas: \"sparse\"",
+     "\"Sri Lankan\", age: 38-year-old, develop: hair and how it is worn and styling and grooming, ideas: \"dark blonde\"; \"floor-length\"",
+     "\"Inuit\", age: 43-year-old, develop: hair and how it is worn and face, ideas: \"blonde-highlighted brown\"",
+     "\"Pakistani\", age: 57-year-old, develop: expression and how their age shows, ideas: \"golden blonde\"",
+     "\"Bolivian\", age: 64-year-old, develop: styling and grooming and how their age shows, ideas: \"ash blonde\"",
+     "\"White American\", age: 44-year-old, develop: face and how their age shows, ideas: \"mid-back\"",
+     "\"Nigerian\", age: 47-year-old, develop: styling and grooming and face, ideas: \"pink-tipped black\"; \"frizzy\"",
+     "\"Moroccan\", age: 32-year-old, develop: expression and face",
+     "\"Egyptian\", age: 80-year-old, develop: hair and how it is worn and how their age shows, ideas: \"cherry red\"",
+     "\"Dominican\", age: 57-year-old, develop: hair and how it is worn and expression",
+     "\"Indonesian\", age: 69-year-old, develop: expression and styling and grooming",
+     "\"Mexican\", age: 58-year-old, develop: hair and how it is worn and styling and grooming, ideas: \"thinning\"; \"strawberry blonde\"",
+     "\"Chinese\", age: 46-year-old, develop: hair and how it is worn and face, ideas: \"fine\"",
+     "\"Turkish\", age: 22-year-old, develop: expression and how their age shows, ideas: \"warm copper\"",
+     "\"Nepali\", age: 47-year-old, develop: styling and grooming and how their age shows",
+     "\"Afghan\", age: 44-year-old, develop: face and how their age shows, ideas: \"dark red\"",
+     "\"Polish\", age: 36-year-old, develop: styling and grooming and face, ideas: \"sandy blonde\"",
+     "\"Korean\", age: 45-year-old, develop: expression and face",
+     "\"German\", age: 49-year-old, develop: hair and how it is worn and how their age shows, ideas: \"gray-templed dark brown\"",
+     "\"Angolan\", age: 20-year-old, develop: hair and how it is worn and expression, ideas: \"cobalt blue\"",
+     "\"Japanese\", age: 28-year-old, develop: expression and styling and grooming",
+     "\"African American\", age: 64-year-old, develop: hair and how it is worn and styling and grooming",
+     "\"Uzbek\", age: 58-year-old, develop: hair and how it is worn and face"
+    ],
+    "seeds": [
+     {
+      "descent": "Taiwanese",
+      "gender": "woman",
+      "age": "98-year-old"
+     },
+     {
+      "descent": "Burmese",
+      "gender": "woman",
+      "age": "25-year-old"
+     },
+     {
+      "descent": "Māori",
+      "gender": "woman",
+      "age": "54-year-old"
+     },
+     {
+      "descent": "Sudanese",
+      "gender": "woman",
+      "age": "77-year-old"
+     },
+     {
+      "descent": "Chinese",
+      "gender": "woman",
+      "age": "59-year-old"
+     },
+     {
+      "descent": "White Australian",
+      "gender": "woman",
+      "age": "34-year-old"
+     },
+     {
+      "descent": "Palestinian",
+      "gender": "woman",
+      "age": "68-year-old"
+     },
+     {
+      "descent": "Indian",
+      "gender": "woman",
+      "age": "44-year-old"
+     },
+     {
+      "descent": "Venezuelan",
+      "gender": "woman",
+      "age": "21-year-old"
+     },
+     {
+      "descent": "Tibetan",
+      "gender": "woman",
+      "age": "58-year-old"
+     },
+     {
+      "descent": "Russian",
+      "gender": "woman",
+      "age": "27-year-old"
+     },
+     {
+      "descent": "Cambodian",
+      "gender": "woman",
+      "age": "53-year-old"
+     },
+     {
+      "descent": "Swedish",
+      "gender": "woman",
+      "age": "37-year-old"
+     },
+     {
+      "descent": "Tamil",
+      "gender": "woman",
+      "age": "44-year-old"
+     },
+     {
+      "descent": "Ugandan",
+      "gender": "woman",
+      "age": "44-year-old"
+     },
+     {
+      "descent": "Vietnamese",
+      "gender": "woman",
+      "age": "43-year-old"
+     },
+     {
+      "descent": "Pashtun",
+      "gender": "woman",
+      "age": "21-year-old"
+     },
+     {
+      "descent": "Ethiopian",
+      "gender": "woman",
+      "age": "84-year-old"
+     },
+     {
+      "descent": "Sri Lankan",
+      "gender": "woman",
+      "age": "38-year-old"
+     },
+     {
+      "descent": "Inuit",
+      "gender": "woman",
+      "age": "43-year-old"
+     },
+     {
+      "descent": "Pakistani",
+      "gender": "woman",
+      "age": "57-year-old"
+     },
+     {
+      "descent": "Bolivian",
+      "gender": "woman",
+      "age": "64-year-old"
+     },
+     {
+      "descent": "White American",
+      "gender": "woman",
+      "age": "44-year-old"
+     },
+     {
+      "descent": "Nigerian",
+      "gender": "woman",
+      "age": "47-year-old"
+     },
+     {
+      "descent": "Moroccan",
+      "gender": "woman",
+      "age": "32-year-old"
+     },
+     {
+      "descent": "Egyptian",
+      "gender": "woman",
+      "age": "80-year-old"
+     },
+     {
+      "descent": "Dominican",
+      "gender": "woman",
+      "age": "57-year-old"
+     },
+     {
+      "descent": "Indonesian",
+      "gender": "woman",
+      "age": "69-year-old"
+     },
+     {
+      "descent": "Mexican",
+      "gender": "woman",
+      "age": "58-year-old"
+     },
+     {
+      "descent": "Chinese",
+      "gender": "woman",
+      "age": "46-year-old"
+     },
+     {
+      "descent": "Turkish",
+      "gender": "woman",
+      "age": "22-year-old"
+     },
+     {
+      "descent": "Nepali",
+      "gender": "woman",
+      "age": "47-year-old"
+     },
+     {
+      "descent": "Afghan",
+      "gender": "woman",
+      "age": "44-year-old"
+     },
+     {
+      "descent": "Polish",
+      "gender": "woman",
+      "age": "36-year-old"
+     },
+     {
+      "descent": "Korean",
+      "gender": "woman",
+      "age": "45-year-old"
+     },
+     {
+      "descent": "German",
+      "gender": "woman",
+      "age": "49-year-old"
+     },
+     {
+      "descent": "Angolan",
+      "gender": "woman",
+      "age": "20-year-old"
+     },
+     {
+      "descent": "Japanese",
+      "gender": "woman",
+      "age": "28-year-old"
+     },
+     {
+      "descent": "African American",
+      "gender": "woman",
+      "age": "64-year-old"
+     },
+     {
+      "descent": "Uzbek",
+      "gender": "woman",
+      "age": "58-year-old"
+     }
+    ],
+    "user": "66ebd3e5832a9f00",
+    "unseeded": "104a2d2c870afa74"
+   },
+   {
+    "lines": "c8e3fae509b26060",
+    "seeds": "11818275af5ce22b",
+    "user": "a662b250b1475fde",
+    "unseeded": "104a2d2c870afa74"
    }
   ]
  },
