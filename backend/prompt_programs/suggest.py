@@ -1,20 +1,20 @@
-"""Suggest: the editor's recommendations for a Fluent prompt, a few small separate ones.
+"""Suggest: the editor's recommendations for a Fluent prompt, in two kinds.
 
-vary   up to 3 phrases the user wrote that are worth changing from picture to picture, each
-       with how: "vary" (a kind of thing: a different one in each picture) or "one" (one
-       specific thing, flesh it out: the same thing shown different ways). The editor
-       underlines them and shows a chip ("Vary this", "Flesh out this"); a click wraps the
-       words in brackets, the slot set to that way.
-looks  3 complete descriptions of how the picture is shot or made (for a photo: the kind of
-       photo, framing and light together), unless the prompt already says so. A click adds
-       the fixed words.
-adds   up to 2 concrete things the picture lacks. A click adds the fixed words.
+phrases  up to 3 phrases the user wrote worth changing from picture to picture, each with a
+         way: "detail" (keep the words true and make each picture a specific, fully described
+         one of them: "dog", "boy", the Eiffel Tower seen new ways) or "any" (the words become one
+         of their kind and the others come in: "short bob" -> any hairstyle). Every phrase also
+         names its kind ("hairstyle") so the editor can offer both. The editor underlines them and
+         shows a chip ("Detail dog", "Any hairstyle"); Detail wraps the words in brackets, Any
+         writes the kind in their place, in brackets.
+adds     things good prompts of this kind state and this one leaves to the image model's habits,
+         each written in as a new slot: the camera of a photo, the face of a person. They come
+         from a fixed list (ADDS); the model only says which apply.
 
-The model decides meaning; code checks only structure: a vary phrase is an exact stretch of
-the prompt where a slot can stand, fixed words hold no marks, and the counts and lengths fit.
-[exact text] is never sent: the model reads [EXACT_1] tokens (`hidden`), and replies are
-checked against the prompt as typed. A reply that can't be read is asked once more, then
-gives nothing, quietly.
+The model decides meaning; code checks only structure: a phrase is an exact stretch of the
+prompt where a slot can stand, a kind is plain words, and the counts fit. [exact text] is never
+sent: the model reads [EXACT_1] tokens (`hidden`), and replies are checked against the prompt
+as typed. A reply that can't be read is asked once more, then gives nothing, quietly.
 """
 
 from __future__ import annotations
@@ -31,31 +31,37 @@ from prompt_programs.slots import _VERBATIM, _line_marks, _lines, find_slots, is
 
 log = get_logger(__name__)
 
-SUGGEST_VERSION = "suggest-7"   # suggest-7: "one" labels say flesh out ("flesh out the Eiffel Tower"), not "more of". suggest-6: vary phrases say how (vary a kind, or flesh out one specific thing), up to 3. suggest-5: vary, looks and adds; fixed words, no photography slots. suggest-4: photography per part
-MAX_VARY, MAX_LOOKS, MAX_ADDS = 3, 3, 2
+SUGGEST_VERSION = "suggest-10"   # suggest-10: people listed, faces described or not. suggest-9: the person a face is offered for may be a slot; phrases on screen stay. suggest-8: phrases say detail (more specific) or any (its kind), with their kind; adds are slots from a fixed list (camera, face), no fixed words. suggest-7: "one" labels say flesh out. suggest-6: vary phrases say how. suggest-5: vary, looks and adds.
+MAX_PHRASES, MAX_ANY = 3, 1
 SUGGEST_TOKENS = 400
+KIND_TOKENS = 40
 
 Span = Tuple[int, int]
 
-SUGGEST_SYSTEM = """You help someone make a better image prompt. Their prompt may mark parts that change from picture to picture with angle brackets: "a <young woman> in a kitchen". Curly braces hold choices. Square brackets hold exact words the user keeps hidden, shown as tokens like [EXACT_1]: never copy them, never touch them, never suggest anything inside them. Lines starting with # are their notes: follow them, never copy from them.
+SUGGEST_SYSTEM = """You help someone get more out of an image prompt that makes many pictures at once. Their prompt may mark parts that change from picture to picture with angle brackets: "a <young woman> in a kitchen". Curly braces hold choices. Square brackets hold exact words the user keeps hidden, shown as tokens like [EXACT_1]: never copy them, never touch them, never suggest anything inside them. Lines starting with # are their notes: follow them, never copy from them.
 
-Offer a few small, separate improvements. Each one is a single click and changes one thing.
+Image models fall into the same habits whenever a prompt leaves something open: "dog" gives the same golden retriever every time, "a boy" the same face. You find where that will happen.
 
-vary: the one to three phrases already written in the prompt that would be most rewarding to see change from picture to picture: usually who or what the picture is of, and the place. Copy each exactly as written, the shortest stretch that names the thing with its own describing words, without "a" or "the": "farmer", "rural Vietnam", not "a farmer in". One thing per phrase, without what it is doing. Never anything already inside brackets or braces, never the whole prompt. Each says how it would change, in "how":
-- "vary" when the phrase names a kind of thing, so each picture can show a different one of it: "farmer", "fox", "rural Vietnam" (other places in it), "old car".
-- "one" when it names one specific thing worth showing in different ways, the same thing in every picture while its state, angle, moment, details and surroundings change: a particular place, landmark, building, brand, work, character or real person ("Eiffel Tower", "Sherlock Holmes", "abandoned McDonald's", "Shinjuku"). Look for these too: they are often the most rewarding part of a prompt.
-Each gets a label of two to five plain words that keeps their words and says they would see more of them: "different farmers", "other places in rural Vietnam", "different foxes" (not "different animals": the words they wrote stay); for "one", that this same thing would be fleshed out: "flesh out the Eiffel Tower", "flesh out Sherlock Holmes". Give none when nothing is worth it.
+phrases: the one to three phrases already written in the prompt that would be most rewarding to change from picture to picture. Copy each exactly as written, the shortest stretch that names the thing with its own describing words, without "a" or "the": "farmer", "rural Vietnam", "short bob", not "a farmer in". One thing per phrase, without what it is doing. Never anything already inside brackets or braces, never the whole prompt. For each give:
+- way: "detail" or "any".
+  "detail" keeps their words true in every picture and makes each picture a specific, fully described one of them. Use it for broad, plain words the image model would fill the same way every time: people ("boy", "woman", "farmer"), animals ("dog", "fox"), places ("rural Vietnam", "a kitchen"), things ("old car", "house"). Also for one specific thing to show in different ways: a particular place, landmark, building, brand, work, character or real person ("Eiffel Tower", "Sherlock Holmes", "Shinjuku"). These come first: they matter most.
+  "any" is for a specific choice the user made that could open up to others of its kind: "short bob" (any hairstyle), "golden retriever" (any dog), "red dress" (any dress), "Paris" (any city). Give at most one "any", and only when a phrase like that is in the prompt.
+- kind: the plain word for what kind of thing it is, one or two words, singular, that could stand in the prompt in its place: "hairstyle" for "short bob", "dog" for "golden retriever", "animal" for "dog", "person" for "boy", "city" for "Paris", "landmark" for "Eiffel Tower".
+- names: "one" when it names one specific thing (a particular place, landmark, brand, character, person), else "kind".
+Give none when nothing is worth it.
 
 medium: "photo" when the picture should look like a photograph, as any prompt that names no other medium should; otherwise its medium in one to three words: "watercolor", "vector logo", "anime illustration". A prompt written as anime-style tags ("1girl, solo") is an anime illustration unless its tags ask for a photo.
 
-shot_stated: true when the prompt already says how it is shot or made: two or more of the kind of photo, film or format, the framing or lens, and the light. Otherwise false.
+camera_stated: true when the prompt already says how the photo is taken: the kind of photo, the film or format, the framing or lens, or the light. Otherwise false.
 
-looks: how the picture is shot or made, as three alternatives that suit this picture and differ plainly from each other. For a photo, each is one short phrase of 8 to 16 words that names the kind of photograph, the framing and the light together, in a photographer's words: "candid phone snapshot, slightly off-center, harsh midday sun"; "editorial portrait, 85mm lens, soft window light from the left"; "documentary photo, wide shot at eye level, flat overcast daylight". For another medium, the same for that medium: its technique, its composition and its palette or finish together, in that craft's words, never a camera's. Each gets a label of two to four words that names its style: "candid phone snapshot". Never contradict the prompt: when it names a time of day, the light fits it; when a part in angle brackets is the time of day or the light, say nothing about the time of day or where the light comes from. When shot_stated is true, give [].
+people: every human in the picture, each copied exactly as written, the shortest stretch that names them ("boy", "old fisherman"). Humans in angle brackets count too: give their words without the brackets ("woman" for "<woman>"). Never an animal or a thing. [] when there are none.
 
-adds: one or two concrete things you could see in the picture that it doesn't have yet and that would make it more complete or more believable: what the person or animal is doing, the time of day, the weather, a second subject, a telling detail of the place. Each is a short phrase of three to eight words that reads well added after a comma at the end of the prompt, written the way the prompt is written ("knee-deep in a flooded rice paddy", "steam rising from the broth"), never a category name ("activity", "weather"). Never anything the prompt already says in any words, and nothing about how it is shot or made. label: its two or three key words: "rice paddy".
+face_described: true when the prompt already says what any of their faces look like (features, expression, makeup), else false.
 
 Reply with JSON only, in this shape:
-{"vary": [{"phrase": "farmer", "how": "vary", "label": "different farmers"}], "medium": "photo", "shot_stated": false, "looks": [{"text": "...", "label": "..."}], "adds": [{"text": "...", "label": "..."}]}"""
+{"phrases": [{"phrase": "dog", "way": "detail", "kind": "animal", "names": "kind"}], "medium": "photo", "camera_stated": false, "people": ["boy"], "face_described": false}"""
+
+KIND_SYSTEM = """You name what kind of thing a phrase in an image prompt is. Reply with the plain word for its kind, one or two words, singular, that could stand in the prompt in its place, and nothing else: "hairstyle" for "short bob", "dog" for "golden retriever", "animal" for "dog", "city" for "Paris", "dress" for "red dress", "person" for "boy"."""
 
 
 def hidden(prompt: str) -> str:
@@ -143,118 +149,187 @@ def _body(prompt: str) -> str:
     return "\n".join(line for _, _, line in _lines(prompt) if not is_comment(line)).strip()
 
 
-def _label(item: Dict[str, Any], fallback: str) -> str:
-    lab = item.get("label")
-    lab = lab.strip() if isinstance(lab, str) else ""
-    return lab if lab and len(lab) <= 40 and not _MARKS.search(lab) else fallback
-
-
-# Marks a fixed suggestion may not hold: it would add a slot, a list, exact text or a note.
+# Marks a kind may not hold: it would add a slot, a list, exact text or a note.
 _MARKS = re.compile(r"[<>\[\]{}|#]")
 
 
-def _fixed(item: Any, words: Tuple[int, int]) -> Optional[Dict[str, str]]:
-    """{text, label} of a look or an add: plain words, one line, within `words` words."""
-    t = item.get("text") if isinstance(item, dict) else None
-    if not isinstance(t, str):
-        return None
-    t = t.strip().rstrip(".").strip()
-    if not (words[0] <= len(t.split()) <= words[1]) or _MARKS.search(t) or "\n" in t:
-        return None
-    return {"text": t, "label": _label(item, t)}
+def _kind(value: Any) -> str:
+    """A kind as the model gave it: plain words, one to three of them, else ""."""
+    k = value.strip().strip(".").strip() if isinstance(value, str) else ""
+    return k if k and len(k.split()) <= 3 and len(k) <= 30 and not _MARKS.search(k) and "\n" not in k else ""
 
 
-def check_suggestions(prompt: str, got: Dict[str, Any]) -> Dict[str, Any]:
-    """The reply's usable suggestions. A vary phrase is kept at its first stretch of the prompt
-    where a slot could stand, outside comment lines, verbatim, lists, names and slots, and not
-    over a phrase kept before it; the whole prompt is not a phrase. Looks are dropped when the
-    reply says the prompt already states how it is shot. Fixed words already in the prompt
-    as written add nothing and are dropped."""
-    blocked, _ = _blocked(prompt)
+# The things a prompt can be given as a new slot, each when the reply says it applies: what
+# chip it shows and the words it writes. `place` is "end" (after a comma at the end of the last
+# picture line) or "after_person" (right after the person the reply names).
+ADDS: List[Dict[str, str]] = [
+    {"key": "face", "label": "Face", "slot": "face", "join": " with ", "place": "after_person"},
+    {"key": "camera", "label": "Camera", "slot": "camera", "join": ", ", "place": "end"},
+]
+
+
+def _end_of_picture(prompt: str) -> Optional[int]:
+    """Where words go at the end of the last picture line (not a # note line), else None."""
+    best = None
+    for _, at, line in _lines(prompt):
+        if line.strip() and not is_comment(line):
+            best = at + len(line.rstrip())
+    return best
+
+
+def _find_phrase(prompt: str, text: str, blocked: List[Span], taken: List[Span]) -> Optional[Span]:
+    """The first stretch of the prompt that is `text`, outside blocked spans and the ones
+    already taken, where a slot could stand."""
+    at = prompt.find(text)
+    while at >= 0:
+        b = at + len(text)
+        if not _overlaps(at, b, blocked) and not _overlaps(at, b, taken) and _fits(prompt, at, b):
+            return at, b
+        at = prompt.find(text, at + 1)
+    return None
+
+
+def check_suggestions(prompt: str, got: Dict[str, Any], previous: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """The reply's usable suggestions. A phrase is kept at its first stretch of the prompt where
+    a slot could stand, outside comment lines, verbatim, lists, names and slots, and not over a
+    phrase kept before it; the whole prompt is not a phrase. "any" needs a kind (else it is
+    "detail"), and only one "any" is kept. A phrase the editor shows now (`previous`) stays
+    as it was while it can still become a slot, whatever the reply says. An add is kept when the reply says it applies and
+    the prompt has no slot of those words yet."""
+    blocked, slots = _blocked(prompt)
     body = _body(prompt)
-    vary: List[Dict[str, Any]] = []
-    for item in got.get("vary") if isinstance(got.get("vary"), list) else []:
-        text = item.get("phrase") if isinstance(item, dict) else item
-        if not isinstance(text, str):
+    phrases: List[Dict[str, Any]] = []
+    anys = 0
+    shown = [p for p in (previous or {}).get("phrases") or [] if isinstance(p, dict)]
+    kept = [{"phrase": p.get("text"), "way": p.get("way"), "kind": p.get("kind"), "names": p.get("mode")} for p in shown]
+    replied = got.get("phrases") if isinstance(got.get("phrases"), list) else []
+    shown_texts = {str(p.get("phrase") or "").strip() for p in kept}
+    for i, item in enumerate(kept + replied):
+        if not isinstance(item, dict) or not isinstance(item.get("phrase"), str):
             continue
-        text = text.strip()
+        text = item["phrase"].strip()
+        if i >= len(kept) and text in shown_texts:
+            continue   # the reply repeating a phrase on screen: it stays where it is, once
         if len(text) < 2 or text == body:
             continue
-        at = prompt.find(text)
-        while at >= 0:
-            b = at + len(text)
-            if not _overlaps(at, b, blocked) and not _overlaps(at, b, [(v["from"], v["to"]) for v in vary]) \
-                    and _fits(prompt, at, b):
-                # How it varies: "one" (flesh out one specific thing) only when the reply says so;
-                # anything else is a kind to vary, as every phrase was before.
-                how = item.get("how") if isinstance(item, dict) else None
-                vary.append({"from": at, "to": b, "text": text,
-                             "label": _label(item, text) if isinstance(item, dict) else text,
-                             "mode": "one" if isinstance(how, str) and how.strip().lower() == "one" else "kind"})
-                break
-            at = prompt.find(text, at + 1)
-        if len(vary) == MAX_VARY:
+        span = _find_phrase(prompt, text, blocked, [(v["from"], v["to"]) for v in phrases])
+        if not span:
+            continue
+        kind = _kind(item.get("kind"))
+        if kind.lower() == text.lower():
+            kind = ""
+        way = "any" if str(item.get("way") or "").strip().lower() == "any" and kind and anys < MAX_ANY else "detail"
+        anys += way == "any"
+        names = item.get("names")
+        phrases.append({"from": span[0], "to": span[1], "text": text, "kind": kind, "way": way,
+                        "mode": "one" if isinstance(names, str) and names.strip().lower() == "one" else "kind"})
+        if len(phrases) == MAX_PHRASES + 1:
             break
-    vary.sort(key=lambda v: v["from"])
+    phrases.sort(key=lambda v: v["from"])
 
-    looks: List[Dict[str, str]] = []
-    if got.get("shot_stated") is not True:
-        for item in got.get("looks") if isinstance(got.get("looks"), list) else []:
-            look = _fixed(item, (3, 24))
-            if look and look["text"] not in prompt and all(look["text"] != x["text"] for x in looks):
-                looks.append(look)
-            if len(looks) == MAX_LOOKS:
-                break
-    adds: List[Dict[str, str]] = []
-    for item in got.get("adds") if isinstance(got.get("adds"), list) else []:
-        add = _fixed(item, (2, 12))
-        if add and add["text"] not in prompt and all(add["text"] != x["text"] for x in adds + looks):
-            adds.append(add)
-        if len(adds) == MAX_ADDS:
-            break
-    return {"vary": vary, "looks": looks, "adds": adds}
+    slot_words = {prompt[a + 1:b - 1].strip().lower() for a, b in slots}
+    medium = got.get("medium") if isinstance(got.get("medium"), str) else ""
+    photo = medium.strip().lower() in ("", "photo", "photograph", "photography")
+    adds: List[Dict[str, Any]] = []
+    for add in ADDS:
+        if add["slot"] in slot_words:
+            continue
+        at: Optional[int] = None
+        if add["key"] == "camera":
+            if not photo or got.get("camera_stated") is not False:
+                continue
+            at = _end_of_picture(prompt)
+            if at is None:
+                continue
+        elif add["key"] == "face":
+            if got.get("face_described") is not False:
+                continue
+            people = [p.strip() for p in got.get("people") if isinstance(p, str) and len(p.strip()) >= 2] \
+                if isinstance(got.get("people"), list) else []
+            for who in people:
+                span = _find_phrase(prompt, who, blocked, [])
+                if span:
+                    at = span[1]
+                    break
+                # A person who is a slot ("a <woman> reading") takes the face after its bracket:
+                # the slot's words hold theirs as a whole run ("man" is not in "<woman>").
+                run = re.compile(rf"(?<!\w){re.escape(who)}(?!\w)")
+                inside = [b for a, b in slots if run.search(prompt[a + 1:b - 1])]
+                if inside:
+                    at = inside[0]
+                    break
+            if at is None:
+                continue
+        text = f"{add['join']}<{add['slot']}>"
+        # A person already described "with" something takes the face first: "a woman with
+        # <face> and a short bob", not "a woman with <face> with a short bob".
+        if add["place"] == "after_person" and at is not None and re.match(r"\s+with\s", prompt[at:]):
+            at = at + re.match(r"\s+with\s+", prompt[at:]).end()
+            text = f"<{add['slot']}> and "
+        if add["place"] == "end" and at is not None and prompt[:at].rstrip().endswith((",", ";")):
+            text = f" <{add['slot']}>"
+        adds.append({"key": add["key"], "label": add["label"], "at": at, "text": text})
+    return {"phrases": phrases, "adds": adds}
 
 
-def suggest_key(prompt: str, model: str) -> str:
-    blob = json.dumps([SUGGEST_VERSION, model, prompt], ensure_ascii=False)
+def suggest_key(prompt: str, model: str, previous: Optional[Dict[str, Any]] = None) -> str:
+    blob = json.dumps([SUGGEST_VERSION, model, prompt, _previous(previous)], ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
 
 
-def _turn(prompt: str) -> str:
-    """What the model reads: the prompt with exact text hidden, and the parts that already vary."""
+def _previous(previous: Optional[Dict[str, Any]]) -> List[str]:
+    """The phrases the editor shows now, as lines for the model ("dog: detail, kind animal")."""
+    out: List[str] = []
+    for p in (previous or {}).get("phrases") or []:
+        if isinstance(p, dict) and isinstance(p.get("text"), str) and p["text"].strip():
+            way = "any" if p.get("way") == "any" else "detail"
+            kind = _kind(p.get("kind"))
+            out.append(f'{p["text"].strip()}: {way}' + (f", kind {kind}" if kind else ""))
+    return out[:MAX_PHRASES + 2]
+
+
+def _turn(prompt: str, previous: Optional[Dict[str, Any]] = None) -> str:
+    """What the model reads: the prompt with exact text hidden, the parts that already vary, and
+    the phrases already offered (kept as they were wherever they still fit)."""
     shown = hidden(prompt)
     turn = f"The prompt:\n{shown}"
     marked = [shown[a:b] for a, b in find_slots(shown)]
     if marked:
         turn += ("\n\nAlready changing from picture to picture: " + ", ".join(marked)
                  + ". Nothing you suggest may pin down what they leave open.")
+    offered = _previous(previous)
+    if offered:
+        turn += ("\n\nOn screen now, from your last answer: " + "; ".join(offered)
+                 + ". List each of these in phrases again, with the same phrase, way and kind, unless the "
+                 "prompt no longer has it outside brackets. Then add any other phrase worth it.")
     return turn
 
 
-EMPTY: Dict[str, List[Dict[str, Any]]] = {"vary": [], "looks": [], "adds": []}
+EMPTY: Dict[str, List[Dict[str, Any]]] = {"phrases": [], "adds": []}
 
 
 async def suggest(prompt: str, ask: Optional[Ask] = None, cache: Optional[NarrowCache] = None,
-                  project_id: Optional[int] = None, model: str = "", raw: bool = False) -> Dict[str, List[Dict[str, Any]]]:
-    """{"vary": [{from, to, text, label, mode}], "looks": [{text, label}], "adds": [{text, label}]}
-    for the prompt as sent. No call for an empty prompt (or only comment lines) or Raw mode.
+                  project_id: Optional[int] = None, model: str = "", raw: bool = False,
+                  previous: Optional[Dict[str, Any]] = None) -> Dict[str, List[Dict[str, Any]]]:
+    """{"phrases": [{from, to, text, kind, way, mode}], "adds": [{key, label, at, text}]} for the
+    prompt as sent. No call for an empty prompt (or only comment lines) or Raw mode.
     The checked reply is cached by the exact prompt; a reply that can't be read twice gives
     nothing and isn't cached."""
     if raw or not _body(prompt):
         return {k: [] for k in EMPTY}
     ask = ask or ask_model
-    key = suggest_key(prompt, model)
+    key = suggest_key(prompt, model, previous)
     if cache is not None:
         hit = cache.get_raw(key)
         if isinstance(hit, dict) and all(isinstance(hit.get(k), list) for k in EMPTY):
             return {k: hit[k] for k in EMPTY}
     messages: List[Dict[str, Any]] = [{"role": "system", "content": SUGGEST_SYSTEM},
-                                      {"role": "user", "content": _turn(prompt)}]
+                                      {"role": "user", "content": _turn(prompt, previous)}]
     for attempt in range(2):
         reply = await ask(messages, project_id, SUGGEST_TOKENS)
         got = _json_object(reply)
         if got is not None:
-            checked = check_suggestions(prompt, got)
+            checked = check_suggestions(prompt, got, previous)
             if cache is not None:
                 cache.put_raw(key, checked)
             return checked
@@ -263,3 +338,29 @@ async def suggest(prompt: str, ask: Optional[Ask] = None, cache: Optional[Narrow
                                {"role": "user", "content": "That reply wasn't a JSON object, so none of it could be used. "
                                                            "Reply with only the JSON, in the shape shown."}]
     return {k: [] for k in EMPTY}
+
+
+async def kind_of(prompt: str, start: int, end: int, ask: Optional[Ask] = None, cache: Optional[NarrowCache] = None,
+                  project_id: Optional[int] = None, model: str = "") -> str:
+    """The kind of the words at prompt[start:end] ("hairstyle" for "short bob"), for "Any"
+    on words Suggest didn't name; "" when it can't be said. Cached by the prompt and the span."""
+    words = prompt[start:end].strip() if 0 <= start < end <= len(prompt) else ""
+    if not words or _MARKS.search(words):
+        return ""
+    ask = ask or ask_model
+    key = hashlib.sha256(json.dumps([SUGGEST_VERSION, "kind", model, prompt, start, end],
+                                    ensure_ascii=False).encode("utf-8")).hexdigest()[:32]
+    if cache is not None:
+        hit = cache.get_raw(key)
+        if isinstance(hit, dict) and isinstance(hit.get("kind"), str):
+            return hit["kind"]
+    turn = f"The prompt:\n{hidden(prompt)}\n\nThe phrase: {words}"
+    reply = await ask([{"role": "system", "content": KIND_SYSTEM}, {"role": "user", "content": turn}],
+                      project_id, KIND_TOKENS)
+    first = str(reply or "").strip().splitlines()[0] if str(reply or "").strip() else ""
+    kind = _kind(first.strip().strip('"\'').strip(".").strip('"\''))
+    if kind.lower() == words.lower():
+        kind = ""
+    if cache is not None and kind:
+        cache.put_raw(key, {"kind": kind})
+    return kind

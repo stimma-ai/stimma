@@ -22,14 +22,15 @@
           @focusout="offerFocusOut"
         >
           <button
-            v-for="(m, i) in offerModes"
+            v-for="(m, i) in offerWays"
             :key="m"
             type="button"
+            :disabled="m === 'any' && !offer.kind"
             :class="['flex items-center gap-1.5 px-2.5 py-1.5 coarse:px-3 coarse:py-2 coarse:min-h-11 text-xs coarse:text-[13px] whitespace-nowrap text-content hover:bg-surface-hover outline-none focus-visible:bg-surface-hover focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-selection/60 transition-colors', i ? 'border-l border-edge-subtle' : '']"
-            :data-vary="m"
+            :data-way="m"
             @mousedown.prevent
-            @click="varyOffer(m)"
-          ><template v-if="m === 'one'"><ArrowsPointingOutIcon class="w-3.5 h-3.5 text-selection" />Flesh out this</template><template v-else><ArrowsRightLeftIcon class="w-3.5 h-3.5 text-selection" />Vary this</template></button>
+            @click="takeOffer(m)"
+          ><template v-if="m === 'detail'"><MagnifyingGlassPlusIcon class="w-3.5 h-3.5 text-selection" />Detail</template><template v-else><SwatchIcon class="w-3.5 h-3.5 text-selection" />{{ offer.kind ? `Any ${offer.kind}` : 'Any…' }}</template></button>
         </div>
       </Teleport>
 
@@ -281,7 +282,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, useSlots } from 'vue'
 import { EditorView } from '@codemirror/view'
-import { ArrowsPointingOutIcon, ArrowsRightLeftIcon } from '@heroicons/vue/24/outline'
+import { MagnifyingGlassPlusIcon, SwatchIcon } from '@heroicons/vue/24/outline'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
 import Caret from '../ui/Caret.vue'
@@ -294,9 +295,9 @@ import type { PromptSyntaxMode } from '../../composables/useCodeMirrorPrompt'
 import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
-import { slotEditing, wrapSlot, unwrapSlot, replaceDocument, rangeRect, setVaryEffect } from '../../composables/promptSlotEditing'
+import { slotEditing, wrapSlot, unwrapSlot, replaceDocument, replaceWithSlot, rangeRect, setVaryEffect, setAddsEffect, shownSuggestions, usableAdds, type VaryPhrase } from '../../composables/promptSlotEditing'
 import { setSlotMarks, slotMarks as slotMarksExtension, type SlotMarks } from '../../composables/promptSlotMarks'
-import { appendWords, shownWords, usePromptSuggestions, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
+import { insertAdd, NO_SUGGESTIONS, usePromptSuggestions, type PhraseWay, type SuggestedAdd, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
 import { findSlots, slotAt, slotWrapRange, usableVaryPhrases } from '../../utils/promptSyntax'
 import type { SlotMode } from '../../utils/programWire'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
@@ -378,7 +379,7 @@ const emit = defineEmits<{
   (e: 'open-list', value: { n: number; rect: DOMRect }): void
   /** The caret left the slot just typed in (typed past it, or moved away): it's done. */
   (e: 'left-slot'): void
-  /** A slot was just made to start one way, Vary or Flesh out (n: its place among the slots). */
+  /** A slot was just made to start one way: a different one each picture, or the same one shown new ways (n: its place among the slots). */
   (e: 'slot-mode', value: { n: number; mode: SlotMode }): void
 }>()
 
@@ -497,9 +498,10 @@ function setTranslate(code: string | null) {
 }
 
 // --- Slots (Fluent): making one from written words, opening one ---
-// A phrase Fluent underlined was clicked, or words were selected: "Vary this" and "Flesh out
-// this" sit under them, the way Suggest would make it first (Vary for selected words).
-const offer = ref<{ from: number; to: number; rect: DOMRect; phrase: boolean; mode?: 'one' | 'kind' } | null>(null)
+// A phrase Fluent underlined was clicked, or words were selected: Detail and Any sit under
+// them, the way Suggest would take it first (Detail for selected words). Any names the words'
+// kind ("Any hairstyle"): Suggest's, or asked for when the offer opens on words it didn't name.
+const offer = ref<{ from: number; to: number; rect: DOMRect; phrase: boolean; mode?: 'one' | 'kind'; way?: PhraseWay; kind?: string } | null>(null)
 const { isCoarsePointer } = useViewport()
 const offerStyle = computed(() => {
   const r = offer.value?.rect
@@ -510,10 +512,16 @@ const offerStyle = computed(() => {
   const left = Math.max(8, Math.min(window.innerWidth - 250, r.left))
   return { left: `${Math.round(left)}px`, top: `${Math.round(top)}px` }
 })
-function showOffer(from: number, to: number, phrase: boolean, mode?: 'one' | 'kind') {
+function showOffer(from: number, to: number, phrase: boolean, p?: Pick<VaryPhrase, 'mode' | 'way' | 'kind'>) {
   const view = getView()
   const rect = view && rangeRect(view, from, to)
-  offer.value = rect ? { from, to, rect, phrase, mode } : null
+  offer.value = rect ? { from, to, rect, phrase, mode: p?.mode, way: p?.way, kind: p?.kind || undefined } : null
+  if (!rect || !view || offer.value?.kind) return
+  const text = view.state.doc.toString()
+  void kindOf(text, from, to).then(kind => {
+    const o = offer.value
+    if (kind && o && o.from === from && o.to === to && getView()?.state.doc.toString() === text) offer.value = { ...o, kind }
+  })
 }
 /** Tell the host to open the slot around `pos`. */
 function openSlotAt(pos: number) {
@@ -524,16 +532,22 @@ function openSlotAt(pos: number) {
   if (slot && rect) emit('open-slot', { n: slot.n, words: slot.words, rect })
 }
 const offerEl = ref<HTMLElement | null>(null)
-const offerModes = computed<SlotMode[]>(() => offer.value?.mode === 'one' ? ['one', 'kind'] : ['kind', 'one'])
-/** One of the offer's actions: the words become a slot that starts that way. Vary is a slot's
-    plain start, so it is only said over a phrase Suggest would flesh out. */
-function varyOffer(mode: SlotMode) {
+const offerWays = computed<PhraseWay[]>(() => offer.value?.way === 'any' ? ['any', 'detail'] : ['detail', 'any'])
+/** One of the offer's actions. Detail: the words become a slot (one specific thing starts as
+    one). Any: their kind, in brackets, takes their place. */
+function takeOffer(way: PhraseWay) {
   const view = getView()
   const o = offer.value
   offer.value = null
   if (!view || !o) return
-  const at = wrapSlot(view, o.from, o.to)
-  if (at != null) madeSlot(view, at, mode === 'one' || o.mode === 'one' ? mode : undefined)
+  if (way === 'any') {
+    if (!o.kind) return
+    const at = replaceWithSlot(view, o.from, o.to, o.kind)
+    if (at != null) madeSlot(view, at)
+  } else {
+    const at = wrapSlot(view, o.from, o.to)
+    if (at != null) madeSlot(view, at, o.mode === 'one' ? 'one' : undefined)
+  }
   view.focus()
 }
 /** Keys on the offer: arrows move between its actions, Escape goes back to the words. */
@@ -576,12 +590,12 @@ function removeSlot(t: { n: number; words: string }) {
 }
 function hideOffer() { offer.value = null }
 // The phone keyboard opening (or closing) moves the words: follow them.
-function placeOffer() { const o = offer.value; if (o) showOffer(o.from, o.to, o.phrase, o.mode) }
+function placeOffer() { const o = offer.value; if (o) showOffer(o.from, o.to, o.phrase, o) }
 const slotExtensions = [
   slotEditing({
     enabled: () => fluentSlots.value,
     onSlotClick: (pos) => { offer.value = null; openSlotAt(pos) },
-    onPhraseClick: (p) => showOffer(p.from, p.to, true, p.mode),
+    onPhraseClick: (p) => showOffer(p.from, p.to, true, p),
     onSelection: ({ from, to }) => {
       if (from === to) {
         // The click that offered an underlined phrase leaves the cursor in it.
@@ -651,42 +665,63 @@ function showMarks() {
 }
 watch([() => props.slotMarks, fluentSlots], showMarks, { flush: 'post' })
 
-// Suggest: phrases that could vary (underlined, and chips under the text), ways it could be
-// shot and things it could add (chips that write fixed words).
-const { answer, suggestNow } = usePromptSuggestions({
+// Suggest: phrases worth changing (underlined, and chips under the text: Detail or Any) and
+// slots it could add (chips: the camera, a face). What shows lives in the editor and moves with
+// the edits, so taking one chip leaves the others where they are; Suggest is told what shows
+// and keeps what still fits, and a fresh answer keeps the chips it shares in their places.
+const { answer, pending, suggestNow, kindOf } = usePromptSuggestions({
   prompt: () => props.modelValue,
   active: () => fluentSlots.value,
   context: () => props.suggestContext,
+  previous: () => suggestions.value,
 })
+const shownTick = ref(0)
 watch([answer, fluentSlots, () => props.modelValue], () => {
   const view = getView()
   if (!view) return
   const text = view.state.doc.toString()
-  if (!fluentSlots.value || !text.trim()) view.dispatch({ effects: setVaryEffect.of([]) })
-  // A fresh answer for the text as it stands; between answers the marks follow the edits.
-  else if (answer.value?.text === text) view.dispatch({ effects: setVaryEffect.of(usableVaryPhrases(text, answer.value.suggestions.vary)) })
+  if (!fluentSlots.value || !text.trim()) {
+    view.dispatch({ effects: [setVaryEffect.of([]), setAddsEffect.of([])] })
+  } else if (answer.value?.text === text) {
+    const before = shownSuggestions(view).adds.map(x => x.key)
+    const rank = (key: string, i: number) => { const k = before.indexOf(key); return k < 0 ? 1000 + i : k }
+    const adds = usableAdds(text, answer.value.suggestions.adds).map((x, i) => ({ x, r: rank(x.key, i) }))
+      .sort((p, q) => p.r - q.r).map(({ x }) => x)
+    view.dispatch({ effects: [setVaryEffect.of(usableVaryPhrases(text, answer.value.suggestions.phrases)), setAddsEffect.of(adds)] })
+  } else return
+  shownTick.value++
 }, { flush: 'post' })
 const suggestions = computed<Suggestions>(() => {
+  void shownTick.value
   const text = props.modelValue
-  if (!fluentSlots.value || !text.trim() || !answer.value) return { vary: [], looks: [], adds: [] }
-  // A phrase only for the exact text it was found in, and while it can still become a slot.
-  const vary = answer.value.text === text ? usableVaryPhrases(text, answer.value.suggestions.vary) : []
-  return { vary, ...shownWords(answer.value.suggestions, text) }
+  const view = getView()
+  if (!fluentSlots.value || !text.trim() || !view) return NO_SUGGESTIONS
+  const shown = shownSuggestions(view)
+  return { phrases: shown.phrases as SuggestedPhrase[], adds: shown.adds, loading: pending.value === text }
 })
-/** Wrap a suggested phrase in brackets, as "Vary this" does, then open it. */
-function varyPhrase(p: SuggestedPhrase) {
+/** Take a suggested phrase its way, as the offer's Detail or Any does, then open it. */
+function varyPhrase(p: SuggestedPhrase, way: PhraseWay = p.way) {
   const view = getView()
   if (!view || view.state.doc.sliceString(p.from, p.to) !== p.text) return
   offer.value = null
-  const at = wrapSlot(view, p.from, p.to)
-  if (at != null) madeSlot(view, at, p.mode === 'one' ? 'one' : undefined)
+  const at = way === 'any' && p.kind ? replaceWithSlot(view, p.from, p.to, p.kind) : wrapSlot(view, p.from, p.to)
+  if (at != null) madeSlot(view, at, way === 'detail' && p.mode === 'one' ? 'one' : undefined)
 }
-/** Write suggested words at the end of the prompt, as they are (one undo step). */
-function addWords(words: string) {
+/** Write a suggested slot in where Suggest placed it (one undo step), then open it. */
+function addSlot(add: SuggestedAdd) {
   const view = getView()
   if (!view) return
   offer.value = null
-  replaceDocument(view, appendWords(view.state.doc.toString(), words))
+  const { text, slotAt: at } = insertAdd(view.state.doc.toString(), add)
+  // Another add at the same place (a face after a person who ends the prompt, and the camera)
+  // stays before the words just written, with the person.
+  const stay = shownSuggestions(view).adds.filter(a => a.key !== add.key && a.at === add.at).map(a => a.key)
+  replaceDocument(view, text)
+  if (stay.length) {
+    view.dispatch({ effects: setAddsEffect.of(shownSuggestions(view).adds.map(a => (stay.includes(a.key) ? { ...a, at: add.at } : a))) })
+    shownTick.value++
+  }
+  void nextTick(() => openSlotAt(at + 1))
 }
 // The tips panel in Tool View: what you can type, slots first, in the user's words. Each kind
 // of mark wears its color in the editor (useCodeMirrorPrompt's theme).
@@ -855,7 +890,7 @@ watch(() => props.modelValue, (newVal) => {
 onMounted(() => {
   showMarks()
   document.addEventListener('click', handleClickOutside)
-  // "Vary this" floats over the text: anything scrolling moves the words out from under it.
+  // The Detail / Any offer floats over the text: anything scrolling moves the words out from under it.
   window.addEventListener('scroll', hideOffer, true)
   window.addEventListener('resize', placeOffer)
 })
@@ -872,7 +907,7 @@ defineExpose({
   suggestions,
   varyPhrase,
   removeSlot,
-  addWords,
+  addSlot,
   setPromptText,
   animateDiff,
   selectLine,

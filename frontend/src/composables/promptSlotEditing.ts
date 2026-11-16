@@ -14,8 +14,9 @@ import { StateEffect, StateField, RangeSetBuilder, type Extension } from '@codem
 import { isolateHistory } from '@codemirror/commands'
 import { findSlots, slotWrapRange, usableVaryPhrases } from '../utils/promptSyntax'
 
-/** A phrase Suggest underlined; `mode` 'one' when it would be fleshed out rather than varied. */
-export interface VaryPhrase { from: number; to: number; text: string; mode?: 'one' | 'kind' }
+/** A phrase Suggest underlined: its kind ("hairstyle"), which way Suggest would take it
+    (Detail or Any), and `mode` 'one' when it names one specific thing. */
+export interface VaryPhrase { from: number; to: number; text: string; kind?: string; way?: 'detail' | 'any'; mode?: 'one' | 'kind' }
 
 /** Replace the underlined phrases (offsets into the current document). */
 export const setVaryEffect = StateEffect.define<VaryPhrase[]>()
@@ -38,6 +39,39 @@ const varyField = StateField.define<VaryPhrase[]>({
     return b.finish()
   }),
 })
+
+/** A slot Suggest would write in: `text` (holding `<words>`) goes in at `at`. */
+export interface AddAt { key: string; label: string; at: number; text: string }
+
+/** Replace the slots Suggest would write in (offsets into the current document). */
+export const setAddsEffect = StateEffect.define<AddAt[]>()
+
+/** The slot words of an add's text: "face" in " with <face>". */
+const addWords = (a: AddAt) => /<([^<>]+)>/.exec(a.text)?.[1]?.trim().toLowerCase() ?? ''
+
+/** Of `adds`, those that still fit the text: their place outside any slot, and no slot of
+    their words in it yet. */
+export function usableAdds<T extends AddAt>(text: string, adds: readonly T[]): T[] {
+  const slots = findSlots(text)
+  const have = new Set(slots.map(([a, b]) => text.slice(a + 1, b - 1).trim().toLowerCase()))
+  return adds.filter(a => a.at >= 0 && a.at <= text.length && !have.has(addWords(a))
+    && !slots.some(([f, t]) => a.at > f && a.at < t))
+}
+
+/** The slots Suggest would write in, carried through edits like the underlines. */
+export const addsField = StateField.define<AddAt[]>({
+  create: () => [],
+  update(value, tr) {
+    for (const e of tr.effects) if (e.is(setAddsEffect)) value = e.value
+    if (!tr.docChanged || !value.length) return value
+    return usableAdds(tr.newDoc.toString(), value.map(a => ({ ...a, at: tr.changes.mapPos(a.at, 1) })))
+  },
+})
+
+/** What the editor shows now: the underlined phrases and the adds, as edits have moved them. */
+export function shownSuggestions(view: EditorView): { phrases: VaryPhrase[]; adds: AddAt[] } {
+  return { phrases: view.state.field(varyField, false) ?? [], adds: view.state.field(addsField, false) ?? [] }
+}
 
 export interface SlotEditingHandlers {
   /** Whether slots can be made and opened here (Fluent, not Direct or Raw). */
@@ -68,6 +102,20 @@ export function wrapSlot(view: EditorView, from: number, to: number): number | n
     annotations: isolateHistory.of('full'),
   })
   return a
+}
+
+/** Write `<words>` in place of [from, to) as one undo step ("Any hairstyle" over "short bob");
+    where the slot starts, or null when no slot could stand there. */
+export function replaceWithSlot(view: EditorView, from: number, to: number, words: string): number | null {
+  if (!slotWrapRange(view.state.doc.toString(), from, to)) return null
+  const insert = `<${words}>`
+  view.dispatch({
+    changes: { from, to, insert },
+    selection: { anchor: from + insert.length },
+    userEvent: 'input.slot',
+    annotations: isolateHistory.of('full'),
+  })
+  return from
 }
 
 /** Take the brackets off the slot spanning [from, to) (brackets included), its words staying,
@@ -124,6 +172,7 @@ export function slotEditing(h: SlotEditingHandlers): Extension {
   let edited: [number, number] | null = null
   return [
     varyField,
+    addsField,
     // With words selected, `<` wraps them, as a quote key wraps a selection in a code editor.
     EditorView.inputHandler.of((view, from, to, text) => {
       if (text !== '<' || from === to || !h.enabled() || view.state.selection.ranges.length > 1) return false

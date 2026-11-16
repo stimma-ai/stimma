@@ -98,6 +98,7 @@ class Question:
     except_: Tuple[str, ...] = ()
     tables: Tuple[str, ...] = ()   # a context answer's tables (none: every table)
     none: str = ""                 # a context question's closing words for no answer
+    note: str = ""                 # a line for the writer's turn when the question is answered (a part that is their face)
 
     def option(self, answer: str) -> Optional[Option]:
         return next((o for o in self.options if o.answer == answer), None)
@@ -263,7 +264,7 @@ def _question(d: Any, where: str) -> Question:
                     _str(d, "invalid", w), _str(d, "under", w), _strs(d, "exclude", w), _strs(d, "also", w),
                     _str(d, "only_if_varies", w), _str(d, "cleared_by", w), d.get("with_stated") is True,
                     _strs(d, "needs_one_of", w), _str(d, "needs_message", w), _strs(d, "except", w),
-                    _strs(d, "tables", w), _str(d, "none", w))
+                    _strs(d, "tables", w), _str(d, "none", w), _str(d, "note", w))
 
 
 _LIST_FORMS = ("answer", "option", "detail", "varied")

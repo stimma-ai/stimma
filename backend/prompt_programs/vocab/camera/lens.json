@@ -4,7 +4,7 @@
  "description": "Camera lenses by focal length and type, each named for what it does to the picture: how wide it sees, how it renders perspective and depth, and its optical character.",
  "pos": "noun phrase",
  "frame": "shot with ___",
- "notes": "Lenses belong here: focal lengths and lens types, each with a look that says what it does to the picture. Effects any lens can make (depth of field, shutter and motion treatments, filters, double exposures) belong in camera.effect. camera.shot_size owns framing, camera.angle owns viewpoint, and camera.film_look owns capture media and photographic processes. Perspective descriptions assume the camera is moved to keep similar subject framing. Values are noun phrases after “shot with”.",
+ "notes": "Lenses belong here: focal lengths and lens types, each with a look that says what it does to the picture. Effects any lens can make (depth of field, shutter and motion treatments, filters, double exposures) belong in camera.effect. camera.shot_size owns framing, camera.angle owns viewpoint, and camera.film_look owns capture media and photographic processes. Perspective descriptions assume the camera is moved to keep similar subject framing. Values are noun phrases after “shot with”. Focus: \"shallow\" for a lens whose look is a blurred or separated background or a narrow band of focus, \"deep\" for the rest. A whole camera's seeds draw only deep-focus lenses (vocab/kinds/camera.json), so a photo is not blurred behind its subject by default; a lens slot (\"<lens>\") draws them all.",
  "facets": [],
  "closed": true,
  "local_facets": {
@@ -15,6 +15,10 @@
    "macro",
    "specialty",
    "character"
+  ],
+  "focus": [
+   "deep",
+   "shallow"
   ]
  },
  "values": [
@@ -26,6 +30,9 @@
    "tags": {
     "kind": [
      "wide"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -37,6 +44,9 @@
    "tags": {
     "kind": [
      "wide"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -48,6 +58,9 @@
    "tags": {
     "kind": [
      "wide"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -59,6 +72,9 @@
    "tags": {
     "kind": [
      "wide"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -71,6 +87,9 @@
     "kind": [
      "wide",
      "normal"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -82,6 +101,9 @@
    "tags": {
     "kind": [
      "normal"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -93,6 +115,9 @@
    "tags": {
     "kind": [
      "normal"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -104,6 +129,9 @@
    "tags": {
     "kind": [
      "telephoto"
+    ],
+    "focus": [
+     "shallow"
     ]
    }
   },
@@ -115,6 +143,9 @@
    "tags": {
     "kind": [
      "telephoto"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -126,6 +157,9 @@
    "tags": {
     "kind": [
      "telephoto"
+    ],
+    "focus": [
+     "shallow"
     ]
    }
   },
@@ -137,6 +171,9 @@
    "tags": {
     "kind": [
      "telephoto"
+    ],
+    "focus": [
+     "shallow"
     ]
    }
   },
@@ -148,6 +185,9 @@
    "tags": {
     "kind": [
      "telephoto"
+    ],
+    "focus": [
+     "shallow"
     ]
    }
   },
@@ -159,6 +199,9 @@
    "tags": {
     "kind": [
      "telephoto"
+    ],
+    "focus": [
+     "shallow"
     ]
    }
   },
@@ -170,6 +213,9 @@
    "tags": {
     "kind": [
      "macro"
+    ],
+    "focus": [
+     "shallow"
     ]
    }
   },
@@ -182,6 +228,9 @@
     "kind": [
      "macro",
      "specialty"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -193,6 +242,9 @@
    "tags": {
     "kind": [
      "specialty"
+    ],
+    "focus": [
+     "shallow"
     ]
    }
   },
@@ -204,6 +256,9 @@
    "tags": {
     "kind": [
      "specialty"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -216,6 +271,9 @@
     "kind": [
      "specialty",
      "wide"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -228,6 +286,9 @@
     "kind": [
      "specialty",
      "wide"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -239,6 +300,9 @@
    "tags": {
     "kind": [
      "specialty"
+    ],
+    "focus": [
+     "shallow"
     ]
    }
   },
@@ -250,6 +314,9 @@
    "tags": {
     "kind": [
      "specialty"
+    ],
+    "focus": [
+     "shallow"
     ]
    }
   },
@@ -261,6 +328,9 @@
    "tags": {
     "kind": [
      "character"
+    ],
+    "focus": [
+     "shallow"
     ]
    }
   },
@@ -272,6 +342,9 @@
    "tags": {
     "kind": [
      "character"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -283,6 +356,9 @@
    "tags": {
     "kind": [
      "character"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   },
@@ -295,6 +371,9 @@
     "kind": [
      "character",
      "telephoto"
+    ],
+    "focus": [
+     "shallow"
     ]
    }
   },
@@ -306,6 +385,9 @@
    "tags": {
     "kind": [
      "character"
+    ],
+    "focus": [
+     "deep"
     ]
    }
   }

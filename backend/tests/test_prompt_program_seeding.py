@@ -55,7 +55,12 @@ def test_a_list_slot_is_one_list_with_a_core_and_a_light_its_ideas():
 
 def test_a_camera_an_animal_and_a_free_slot_seed_ideas():
     p = plan({"kind": "camera", "camera": {"vary": ["shot_size", "lens"]}}, "camera")
-    assert roles(p) == [("idea", "camera.shot_size", ""), ("idea", "camera.lens", "")]
+    # a whole camera: its kind of photo and its light per variant, read in the scene, beside ideas
+    # from what varies, the lenses only those that keep the background in focus
+    assert roles(p) == [("each", "camera.genre", "camera"), ("idea", "camera.shot_size", ""), ("idea", "camera.lens", ""),
+                        ("each", "lighting.scene", "camera")]
+    assert [b.get("scene") for b in p["banks"]] == [True, None, None, True]
+    assert [b.get("where") for b in p["banks"]] == [None, None, {"focus": "deep"}, None]
     p = plan({"kind": "animal", "animal": {"noun": "pet", "vary": ["species", "life_stage"], "type": "pet",
                                            "stated": {}}}, "pet")
     assert [b["list"] for b in p["banks"]] == ["animal.species", "animal.life_stage"]

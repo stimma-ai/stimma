@@ -104,8 +104,7 @@
 
     <!-- The variants -->
     <template v-else>
-      <!-- How the slot varies (Vary: a different one each time; Flesh out: the same thing shown
-           different ways), and taking the slot back out of the prompt, its words staying. -->
+      <!-- How the slot varies (a different one each time, or the same one shown new ways), and taking the slot back out of the prompt, its words staying. -->
       <div v-if="!isList" class="shrink-0 px-2 pt-0.5 pb-1.5 flex items-center gap-2" data-slot-head>
         <SegmentedControl v-if="slot?.state !== 'reading' || st?.mode" :model-value="mode" :options="modeOptions" aria-label="How it varies" data-slot-mode @update:model-value="setMode" />
         <button type="button" class="ml-auto px-2 py-1 coarse:py-2 rounded-md text-xs text-content-secondary hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60" data-remove-slot @click="removeSlot">Remove</button>
@@ -228,8 +227,9 @@ function set(next: ChoiceState | null) {
   props.program.setState(props.id, next)
 }
 
-// Vary or Flesh out: the slot's variants are written again that way.
-const modeOptions = [{ label: 'Vary', value: 'kind' }, { label: 'Flesh out', value: 'one' }]
+// Both keep the words: a different one of them in each picture, or one specific thing shown
+// new ways (the Eiffel Tower). The slot's variants are written again that way.
+const modeOptions = [{ label: 'A different one', value: 'kind' }, { label: 'The same one', value: 'one' }]
 const mode = computed(() => props.program.modeOf(props.id))
 function setMode(v: string | number) {
   if (v === 'one' || v === 'kind') props.program.setMode(props.id, v)

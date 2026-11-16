@@ -1816,3 +1816,29 @@ def test_vary_on_a_named_thing_keeps_none_of_its_words_and_drops_it_itself():
     assert t.dropped["names it itself"] == 1
     text = V.messages(sl, V.Drawn([V.Spec()], []), V.Seeds())[-1]["content"]
     assert 'another famous landmark' in text and "Every variant contains exactly" not in text
+
+
+def test_a_face_is_seeded_as_one_whole_face():
+    """A slot bound to the face (vocab "writer": {"pieces"}) gets pieces of three or four parts per
+    variant, its core and the rest as ideas, none held back (opt-in) beside the core; in a prompt
+    with a child in it those others fit a child's life stage. The writer is told it is one face."""
+    import random
+    from prompt_programs.vocab import vocabulary
+    face = vocabulary().get("person.face")
+    assert face.pieces and face.writer_note
+    held = {v.text for v in face.values if v.opt_in}
+    assert {"slightly narrow nostrils", "fine pores on the cheeks", "a shallow groove above the upper lip"} <= held
+    for young in ("", "child"):
+        seeds = V.list_seeds([("person.face", None)], single=True, young=young)
+        drawn = V.draw_seeds(random.Random(4), seeds, 30, "face")
+        for s in drawn.specs:
+            pieces = [s.core, *(t for t, _ in s.ideas)]
+            assert 3 <= len(pieces) <= 4, pieces
+            parts = [face.value(t).tags["piece"][0] for t in pieces]
+            assert len(set(parts)) == len(parts), pieces   # one piece per part
+            assert not held & {t for t, _ in s.ideas}
+            if young:
+                assert all("child" in face.value(t).tags.get("life_stage", ["child"]) for t, _ in s.ideas), s.ideas
+    prompt = "a boy with <face> and his dog"
+    slot = V.Slot(words="face", prompt=prompt, span=(11, 17), kind="list", category="face")
+    assert face.writer_note in V.messages(slot, drawn, seeds)[1]["content"]

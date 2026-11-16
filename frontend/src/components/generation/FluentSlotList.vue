@@ -59,34 +59,37 @@
       </Transition>
     </div>
 
-    <!-- Suggestions: one quiet row in three groups, gone when there's nothing to offer. A ↔ chip
-         makes the words vary (as "Vary this" does), a ⤢ chip fleshes out one specific thing (as
-         "Flesh out this" does); a + chip writes fixed words, the look of
-         the shot first, then something to add. -->
+    <!-- Suggestions: one quiet row, gone when there's nothing to offer. Phrases first: Detail
+         keeps the words and makes each picture a specific one ("Detail dog"), Any lets in others
+         of their kind ("Any hairstyle"); then + chips, each a slot to write in (the camera, a face). -->
     <div v-if="chips" class="mt-1 px-1 flex flex-wrap items-center gap-x-3 gap-y-0.5" data-slot-adds>
-      <div v-if="s.vary.length" class="flex flex-wrap items-center gap-0.5" data-suggest-group="vary">
+      <div v-if="s.phrases.length" class="flex flex-wrap items-center gap-0.5" data-suggest-group="phrases">
         <button
-          v-for="p in s.vary"
-          :key="`v${p.from}`"
+          v-for="p in s.phrases"
+          :key="`p${p.from}`"
           type="button"
-          class="shrink-0 inline-flex items-center gap-1 pl-1.5 pr-2 py-1 coarse:py-1.5 coarse:min-h-11 rounded-full text-[11px] coarse:text-xs text-content-muted hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60 transition-colors"
+          :class="chipClass"
           :data-slot-vary="p.text"
-          :data-slot-mode="p.mode"
+          :data-way="p.way"
           @mousedown.prevent
           @click="emit('vary', p)"
-        ><ArrowsPointingOutIcon v-if="p.mode === 'one'" class="w-3 h-3 text-selection" /><ArrowsRightLeftIcon v-else class="w-3 h-3 text-selection" />{{ p.label }}</button>
+        ><SwatchIcon v-if="p.way === 'any'" class="w-3 h-3 text-selection" /><MagnifyingGlassPlusIcon v-else class="w-3 h-3 text-selection" />{{ phraseLabel(p) }}</button>
       </div>
-      <div v-for="g in fixedGroups" :key="g.key" class="flex flex-wrap items-center gap-0.5" :data-suggest-group="g.key">
+      <div v-if="s.adds.length" class="flex flex-wrap items-center gap-0.5" data-suggest-group="adds">
         <button
-          v-for="w in g.items"
-          :key="w.text"
+          v-for="a in s.adds"
+          :key="a.key"
           type="button"
-          :title="w.text"
-          class="shrink-0 inline-flex items-center gap-1 pl-1.5 pr-2 py-1 coarse:py-1.5 coarse:min-h-11 rounded-full text-[11px] coarse:text-xs text-content-muted hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60 transition-colors"
-          :[g.attr]="w.label"
+          :class="chipClass"
+          :data-slot-add="a.key"
           @mousedown.prevent
-          @click="emit('words', w.text)"
-        ><PlusIcon class="w-3 h-3" />{{ w.label }}</button>
+          @click="emit('add', a)"
+        ><PlusIcon class="w-3 h-3" />{{ a.label }}</button>
+      </div>
+      <!-- An answer on its way: placeholders the first time, one quiet pill after the chips
+           that stay while it comes. -->
+      <div v-if="s.loading" class="flex items-center gap-1.5 py-1 coarse:py-1.5" data-suggest-loading aria-label="Finding suggestions">
+        <span v-for="w in (s.phrases.length + s.adds.length ? [40] : [64, 56, 44])" :key="w" class="inline-block h-3 rounded-full fluent-shimmer" :style="{ width: `${w}px` }" />
       </div>
     </div>
   </div>
@@ -94,26 +97,23 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ArrowsPointingOutIcon, ArrowsRightLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { ChevronRightIcon, MagnifyingGlassPlusIcon, PlusIcon, SwatchIcon } from '@heroicons/vue/24/outline'
 import FluentSlotPicker from './FluentSlotPicker.vue'
 import { inPlayCount, optionsOf, resetState, rowValue, type RowValue } from '../../utils/programChoices'
 import { slotFlash } from '../../composables/slotFlash'
 import type { PromptProgram } from '../../composables/usePromptProgram'
-import type { SuggestedPhrase, Suggestions } from '../../composables/usePromptSuggestions'
+import { phraseLabel, type SuggestedAdd, type SuggestedPhrase, type Suggestions } from '../../composables/usePromptSuggestions'
 
 const props = defineProps<{ program: PromptProgram; suggestions?: Suggestions | null }>()
 const emit = defineEmits<{
   (e: 'vary', phrase: SuggestedPhrase): void
-  (e: 'words', text: string): void
+  (e: 'add', add: SuggestedAdd): void
   (e: 'remove-slot', slot: { n: number; words: string }): void
 }>()
 
-const s = computed<Suggestions>(() => props.suggestions ?? { vary: [], looks: [], adds: [] })
-const fixedGroups = computed(() => [
-  { key: 'looks', attr: 'data-slot-look-chip', items: s.value.looks },
-  { key: 'adds', attr: 'data-slot-add', items: s.value.adds },
-].filter(g => g.items.length))
-const chips = computed(() => s.value.vary.length + s.value.looks.length + s.value.adds.length > 0)
+const s = computed<Suggestions>(() => props.suggestions ?? { phrases: [], adds: [] })
+const chips = computed(() => s.value.phrases.length + s.value.adds.length > 0 || !!s.value.loading)
+const chipClass = 'shrink-0 inline-flex items-center gap-1 pl-1.5 pr-2 py-1 coarse:py-1.5 coarse:min-h-11 rounded-full text-[11px] coarse:text-xs text-content-muted hover:text-content hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60 transition-colors'
 
 const rootRef = ref<HTMLElement | null>(null)
 const openId = computed(() => props.program.openId.value)

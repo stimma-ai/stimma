@@ -2,53 +2,50 @@
  * The shapes of Fluent's Suggest answer, and the pure checks on them (the composable that
  * asks is composables/usePromptSuggestions.ts).
  *
- * vary   phrases the user wrote that could change from picture to picture: underlined in the
- *        text, and a chip; a click wraps the words in brackets.
- * looks  complete descriptions of how the picture is shot or made; a click adds the words.
- * adds   concrete things the picture lacks; a click adds the words.
+ * phrases  words the user wrote worth changing from picture to picture: underlined in the
+ *          text, and a chip. Detail keeps the words and wraps them in brackets ("Detail dog");
+ *          Any writes their kind in their place, in brackets ("Any hairstyle").
+ * adds     something good prompts state and this one leaves to the image model's habits,
+ *          written in as a new slot ("+ Camera", "+ Face").
  */
 
-/** A phrase that could vary: `mode` 'one' fleshes out one specific thing (the same thing shown
-    different ways), 'kind' varies it (a different one of its kind). */
-export interface SuggestedPhrase { from: number; to: number; text: string; label: string; mode: 'one' | 'kind' }
-/** Fixed words a click writes into the prompt as they are, and the chip's label. */
-export interface SuggestedWords { text: string; label: string }
-export interface Suggestions { vary: SuggestedPhrase[]; looks: SuggestedWords[]; adds: SuggestedWords[] }
+/** Detail: every picture keeps the words, each a specific one of them. Any: the words become
+    one of their kind and the others come in. */
+export type PhraseWay = 'detail' | 'any'
 
-const words = (list: any): SuggestedWords[] => Array.isArray(list)
-  ? list.filter((w: any) => typeof w?.text === 'string' && w.text.trim())
-    .map((w: any) => ({ text: w.text, label: typeof w.label === 'string' && w.label.trim() ? w.label : w.text }))
-  : []
+/** A phrase worth changing. `kind` names what it is ("hairstyle" for "short bob"), "" when
+    unknown; `mode` 'one' when it names one specific thing (the Eiffel Tower, seen new ways). */
+export interface SuggestedPhrase { from: number; to: number; text: string; kind: string; way: PhraseWay; mode: 'one' | 'kind' }
+/** A slot to write in: `text` (holding the slot) goes in at `at`, an offset into the prompt the
+    answer is for. */
+export interface SuggestedAdd { key: string; label: string; at: number; text: string }
+/** `loading`: an answer is on its way for the text as it stands. */
+export interface Suggestions { phrases: SuggestedPhrase[]; adds: SuggestedAdd[]; loading?: boolean }
+
+export const NO_SUGGESTIONS: Suggestions = { phrases: [], adds: [] }
 
 /** A /suggest answer, keeping only well-formed parts. */
 export function cleanSuggestions(data: any): Suggestions {
-  const vary = Array.isArray(data?.vary) ? data.vary
+  const phrases = Array.isArray(data?.phrases) ? data.phrases
     .filter((p: any) => Number.isInteger(p?.from) && Number.isInteger(p?.to) && typeof p?.text === 'string')
-    .map((p: any): SuggestedPhrase => ({ from: p.from, to: p.to, text: p.text,
-      label: typeof p.label === 'string' && p.label.trim() ? p.label : p.text,
-      mode: p.mode === 'one' ? 'one' : 'kind' })) : []
-  return { vary, looks: words(data?.looks), adds: words(data?.adds) }
+    .map((p: any): SuggestedPhrase => {
+      const kind = typeof p.kind === 'string' ? p.kind.trim() : ''
+      return { from: p.from, to: p.to, text: p.text, kind,
+        way: p.way === 'any' && kind ? 'any' : 'detail', mode: p.mode === 'one' ? 'one' : 'kind' }
+    }) : []
+  const adds = Array.isArray(data?.adds) ? data.adds
+    .filter((a: any) => typeof a?.key === 'string' && typeof a?.text === 'string' && a.text.includes('<') && Number.isInteger(a?.at))
+    .map((a: any): SuggestedAdd => ({ key: a.key, label: typeof a.label === 'string' && a.label.trim() ? a.label : a.key, at: a.at, text: a.text })) : []
+  return { phrases, adds }
 }
 
-const isNote = (line: string) => /^\s*#/.test(line)
-
-/** The prompt with `words` added after a comma at the end of its last picture line (not a
-    # note line); just the words when there is none. */
-export function appendWords(prompt: string, words: string): string {
-  const lines = prompt.split('\n')
-  for (let i = lines.length - 1; i >= 0; i--) {
-    if (!lines[i].trim() || isNote(lines[i])) continue
-    const end = lines[i].trimEnd().length
-    const head = lines[i].slice(0, end)
-    lines[i] = `${head}${/[,;]$/.test(head) ? ' ' : ', '}${words}${lines[i].slice(end)}`
-    return lines.join('\n')
-  }
-  return prompt.trim() ? `${prompt.replace(/\n+$/, '')}\n${words}` : words
+/** A phrase chip's words: "Detail dog", "Any hairstyle". */
+export function phraseLabel(p: Pick<SuggestedPhrase, 'text' | 'kind' | 'way'>, way: PhraseWay = p.way): string {
+  return way === 'any' && p.kind ? `Any ${p.kind}` : `Detail ${p.text}`
 }
 
-/** The fixed words worth showing for the prompt as it stands: none of the looks once one is
-    in it, and no add that is already there. */
-export function shownWords(s: Suggestions, prompt: string): { looks: SuggestedWords[]; adds: SuggestedWords[] } {
-  const looks = s.looks.some(l => prompt.includes(l.text)) ? [] : s.looks
-  return { looks, adds: s.adds.filter(a => !prompt.includes(a.text)) }
+/** The prompt with an add written in, and where its slot's `<` lands. */
+export function insertAdd(prompt: string, add: SuggestedAdd): { text: string; slotAt: number } {
+  const at = Math.max(0, Math.min(prompt.length, add.at))
+  return { text: prompt.slice(0, at) + add.text + prompt.slice(at), slotAt: at + add.text.indexOf('<') }
 }

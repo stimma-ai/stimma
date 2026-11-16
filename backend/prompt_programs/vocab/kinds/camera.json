@@ -6,7 +6,7 @@
    "how the picture is taken: shot size, lens, angle, film look. Words that name only one of those (\"camera angle\", \"selfie angle\", \"lens\") are a \"list\" of it, not a camera."
   ],
   "heading": "For a camera:",
-  "text": "vary, the parts of it that change, from: shot_size, lens, angle, film_look. When the part's words name one of them, only that one changes: \"camera angle\" and \"selfie angle\" vary angle alone, \"lens\" lens alone, \"shot size\" or \"framing\" shot_size alone, \"film look\" or \"film stock\" film_look alone. Only words for the whole camera (\"camera\", \"camera work\", \"shot\") vary all four, unless the prompt or a note settles some.",
+  "text": "vary, the parts of it that change, from: shot_size, lens, angle, film_look. When the part's words name one of them, only that one changes: \"camera angle\" and \"selfie angle\" vary angle alone, \"lens\" lens alone, \"shot size\" or \"framing\" shot_size alone, \"film look\" or \"film stock\" film_look alone. Only words for the whole camera (\"camera\", \"camera work\", \"shot\") vary all four, unless the prompt or a note settles some. Its category is the words that name the camera as a whole, copied exactly: \"camera\" in \"camera\", \"camera work\" in \"camera work\", \"shot\" in \"shot\".",
   "example": {
    "vary": [
     "shot_size",
@@ -51,20 +51,47 @@
  },
  "draws": [
   {
+   "role": "each",
+   "list": "camera.genre",
+   "phrase": "words",
+   "about": "the kind of photograph taken of this scene, of just the people and things it has",
+   "scene": true,
+   "label": "kind of photo"
+  },
+  {
    "role": "idea",
    "list": {
     "varied": true
+   },
+   "where": {
+    "focus": "deep"
    }
+  },
+  {
+   "role": "each",
+   "list": "lighting.scene",
+   "phrase": "words",
+   "about": "the light this photograph is taken in",
+   "scene": true,
+   "label": "light"
   }
  ],
  "writer": {
   "examples": [
-   "\"a street, ⟦camera⟧\" (keep nothing; category \"camera\") -> \"a wide shot at eye level on a 35mm lens\", \"a low-angle close-up on Kodak Portra 400 film\", never \"a 35mm film camera\" or \"a vintage camera\": a camera part is how the picture is taken, never a camera in it",
+   "\"a boy and his dog, ⟦camera⟧\" (keep nothing; category \"camera\") -> \"candid phone snapshot, slightly off-center, harsh on-camera flash\", \"wide documentary shot at eye level on Kodak Tri-X, flat overcast light\", \"35mm family snapshot from knee height, faded color, late afternoon sun from the side\", never \"a 35mm film camera\" or \"a vintage camera\": a camera part is how the picture is taken, never a camera in it",
    "\"⟦selfie camera angle⟧\" (keep \"selfie\"; category \"camera angle\") -> \"a high-angle selfie, phone held above her head\", \"a low selfie angle from chest height\""
   ],
-  "whole": "The whole part is \"{cat}\", how the picture is taken: every variant is a specific way of taking it (a shot size, an angle, a lens, a film look), never a device in the picture and never \"by\" or \"with\" one."
+  "rules": [
+   "A whole camera (\"camera\", \"shot\") is one coherent description of how this photograph was taken, 8 to 16 words, combining several of: the kind of photograph (a candid snapshot, a phone photo, an editorial portrait, documentary work, a flash party photo), its capture (35mm film, Portra, a disposable camera, early digital), the lens or framing (a wide shot at eye level, a 50mm lens, a close-up) and the light's quality and direction (harsh midday sun, on-camera flash, overcast daylight, window light). The parts agree with each other and with the scene, as one real photographer's choices would. Avoid the stock looks of AI photos: no dust motes or light rays, no \"cinematic\", no \"masterpiece\" or quality words; a blurred background or golden hour only now and then, where the kind of photo calls for it, never as the default."
+  ],
+  "seed_rules": [
+   "kind of photo, light (a camera part): the kind of photograph and the light to build this variant around, with the lens, framing or film ideas beside them. Say what kind of photograph it is in plain words, never a genre's name (\"street photography\" -> \"a candid street snapshot\", \"documentary photography\" -> \"a documentary photo\"). One that doesn't fit this scene is replaced by one that does and listed under \"rejected\": a kind of photo with more people than the prompt has (a two-shot, a group portrait) or of a subject it doesn't have (landscape or wildlife photography of people), a light this place and time wouldn't have."
+  ],
+  "whole": "The whole part is \"{cat}\", how the picture is taken: every variant is one coherent description of how this photograph was taken (the kind of photo, its film or capture, its lens or framing and its light, several of them together), never a device in the picture and never \"by\" or \"with\" one.",
+  "note": "This part is how the photograph was taken. Each variant is one description of 8 to 16 words, combining the kind of photograph, its capture or film, its framing or lens, and the light's quality and direction, all fitting this scene."
  },
  "improve": [
   "A value that says how the picture is taken (a shot, a lens, an angle, a film stock) is never a thing in it, and alone it does not make the picture a photo: no one holds, uses or is framed by a camera because of it."
- ]
+ ],
+ "room": 22
 }

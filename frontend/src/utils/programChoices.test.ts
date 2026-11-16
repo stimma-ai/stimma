@@ -220,7 +220,7 @@ test('a removed variant leaves the picks, the user’s own and the pool shown', 
   assert.deepEqual(poolWithout({ options: ['a', 'b'] }, 'a'), { options: ['b'] })
 })
 
-test('Vary or Flesh out stays with the slot through its picks, and starts it over', () => {
+test('A different one or the same one stays with the slot through its picks, and starts it over', () => {
   assert.deepEqual(setMode({ values: ['a'], add: ['mine'], seeds: { gender: { values: ['woman'] } } }, 'one'), { add: ['mine'], mode: 'one' })
   assert.deepEqual(setMode(null, 'kind'), { mode: 'kind' })
   assert.deepEqual(cleanState({ mode: 'one' }), { mode: 'one' })

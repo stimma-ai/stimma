@@ -574,9 +574,10 @@ class TestCameraLists:
     def test_lens_values_are_lenses_and_effects_have_their_own_list(self):
         v = vocabulary()
         lens, effect = v.get("camera.lens"), v.get("camera.effect")
-        assert set(lens.local_facets) == {"kind"} and set(effect.local_facets) == {"kind"}
+        assert set(lens.local_facets) == {"kind", "focus"} and set(effect.local_facets) == {"kind"}
         for x in lens.values:
             assert x.tags.get("kind") and set(x.tags["kind"]) <= set(lens.local_facets["kind"]), x.text
+            assert len(x.tags.get("focus") or ()) == 1 and set(x.tags["focus"]) <= {"deep", "shallow"}, x.text
             assert x.look, x.text   # described by what it does to the picture
         for x in effect.values:
             assert x.tags.get("kind") and set(x.tags["kind"]) <= set(effect.local_facets["kind"]), x.text

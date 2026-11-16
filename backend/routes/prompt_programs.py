@@ -357,16 +357,41 @@ class SuggestRequest(BaseModel):
     project_id: Optional[int] = None
     # Raw mode sends the prompt as typed: nothing in it varies, so nothing is suggested.
     raw: bool = False
+    # What the editor shows now ({phrases: [{text, way, kind}], adds: [key]}): kept where it
+    # still fits, so chips stay put from one answer to the next.
+    previous: Optional[Dict[str, Any]] = None
 
 
 @router.post("/suggest")
 async def suggest_slots(req: SuggestRequest) -> Dict[str, Any]:
-    """Phrases in the prompt that could vary, ways it could be shot, and things it could add."""
+    """Phrases in the prompt worth varying (Detail or Any, with their kind) and slots to add."""
     from prompt_programs.suggest import cache_for, model_name, suggest
     try:
         model = await model_name(req.project_id) if req.prompt.strip() and not req.raw else ""
         return await suggest(req.prompt, cache=cache_for(get_current_profile()), project_id=req.project_id,
-                             model=model, raw=req.raw)
+                             model=model, raw=req.raw, previous=req.previous)
+    except Exception as e:
+        http = program_http_error(e, failed="suggest_failed")
+        if http is None:
+            raise
+        raise http from None
+
+
+class SuggestKindRequest(BaseModel):
+    prompt: str = Field(max_length=20000)
+    start: int
+    end: int
+    project_id: Optional[int] = None
+
+
+@router.post("/suggest-kind")
+async def suggest_kind(req: SuggestKindRequest) -> Dict[str, Any]:
+    """The kind of the words at [start, end) of the prompt, for "Any <kind>"."""
+    from prompt_programs.suggest import cache_for, kind_of, model_name
+    try:
+        model = await model_name(req.project_id)
+        return {"kind": await kind_of(req.prompt, req.start, req.end, cache=cache_for(get_current_profile()),
+                                      project_id=req.project_id, model=model)}
     except Exception as e:
         http = program_http_error(e, failed="suggest_failed")
         if http is None:

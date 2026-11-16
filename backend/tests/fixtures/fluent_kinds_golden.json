@@ -5655,6 +5655,11 @@
  "camera": {
   "plan": [
    [
+    "each",
+    "camera.genre",
+    "camera"
+   ],
+   [
     "idea",
     "camera.shot_size",
     ""
@@ -5673,9 +5678,57 @@
     "idea",
     "camera.film_look",
     ""
+   ],
+   [
+    "each",
+    "lighting.scene",
+    "camera"
    ]
   ],
   "banks": [
+   {
+    "role": "each",
+    "list": "camera.genre",
+    "phrase": "camera",
+    "scene": true,
+    "narrowed": [
+     "street photography",
+     "editorial fashion photography",
+     "food photography",
+     "wedding photography",
+     "sports action photography",
+     "architectural photography",
+     "a paparazzi shot",
+     "photojournalism",
+     "a studio portrait session",
+     "a school portrait",
+     "a mugshot",
+     "a yearbook photo",
+     "travel photography",
+     "wildlife photography",
+     "aerial photography",
+     "underwater photography",
+     "fine-art nude photography",
+     "boudoir photography",
+     "lookbook photography",
+     "catalog photography",
+     "influencer lifestyle photography",
+     "flat lay photography",
+     "crime scene photography",
+     "forensic evidence photography",
+     "scientific photomicrography",
+     "surveillance photography",
+     "a Polaroid party snapshot",
+     "a 1990s mall glamour shot",
+     "environmental portraiture",
+     "a corporate headshot",
+     "landscape photography",
+     "seascape photography",
+     "industrial photography",
+     "abstract photography",
+     "a group portrait"
+    ]
+   },
    {
     "role": "idea",
     "list": "camera.shot_size",
@@ -5686,7 +5739,26 @@
     "role": "idea",
     "list": "camera.lens",
     "phrase": "",
-    "narrowed": null
+    "where": {
+     "focus": "deep"
+    },
+    "narrowed": [
+     "a wide-angle lens",
+     "an ultra-wide-angle lens",
+     "a 14mm ultra-wide lens",
+     "a 24mm wide-angle lens",
+     "a 35mm lens",
+     "a normal lens",
+     "a 50mm lens",
+     "a telephoto lens with strong compression",
+     "a probe macro lens",
+     "a perspective-control lens",
+     "a full-frame fisheye lens",
+     "a circular fisheye lens",
+     "a soft-focus lens",
+     "a pinhole lens",
+     "a vintage lens with strong flare"
+    ]
    },
    {
     "role": "idea",
@@ -5699,6 +5771,36 @@
     "list": "camera.film_look",
     "phrase": "",
     "narrowed": null
+   },
+   {
+    "role": "each",
+    "list": "lighting.scene",
+    "phrase": "camera",
+    "scene": true,
+    "narrowed": [
+     "soft, even light",
+     "warm, low light from one side",
+     "bright, even daylight",
+     "cool, clear morning light",
+     "low late-afternoon sun with long shadows",
+     "the last warm light of sunset",
+     "blue twilight",
+     "cool moonlight",
+     "warm pools of light in a dark room",
+     "soft window light",
+     "flat, overcast light",
+     "hazy, diffused sunlight",
+     "dappled sunlight",
+     "soft gray light from a rainy sky",
+     "stormy light under heavy clouds",
+     "backlight that rims the edges in gold",
+     "soft top light",
+     "gentle, warm glow",
+     "bright, airy light",
+     "moody low light",
+     "soft lamplight",
+     "crisp light with clean shadows"
+    ]
    }
   ],
   "place": null,
@@ -5719,8 +5821,8 @@
     ],
     [
      "camera.lens",
-     26,
-     "f190858a93f98d7e"
+     15,
+     "c6dbabdfae48ab42"
     ],
     [
      "camera.angle",
@@ -5736,81 +5838,171 @@
    "minor": []
   },
   "person": false,
-  "early": "d06a6fe87aea3719",
+  "early": "c4ca70efecc06212",
   "draws": [
    {
     "lines": [
-     "ideas: \"a head-and-shoulders portrait\"",
-     "ideas: \"a phone with computational HDR\"; \"a macro lens\"",
-     "ideas: \"Kodak Portra 400 film\"",
-     "ideas: \"VHS home video\"; \"eye level\"",
-     "ideas: \"a three-quarter view\"; \"mirrorless digital\"",
-     "ideas: \"an overhead flat lay\"",
-     "ideas: \"a 200mm telephoto lens\"; \"early-2000s compact digital\"",
-     "ideas: \"Fujifilm Superia X-TRA 400 film\"; \"a low angle\"",
-     "ideas: \"a Holga\"",
-     "ideas: \"35mm film\"",
-     "ideas: \"an 85mm portrait lens\"",
-     "ideas: \"a full-length shot\"; \"a straight-on view\"",
-     "ideas: \"a normal lens\"; \"black-and-white infrared film\"",
-     "ideas: \"Instax Mini instant film\"; \"a high angle\"",
-     "ideas: \"a top-down bird's-eye view\"",
-     "ideas: \"Ilford HP5 Plus film\"",
-     "ideas: \"Kodak Portra 800 film\"",
-     "ideas: \"a short telephoto portrait lens\"; \"an establishing shot\"",
-     "ideas: \"a 50mm lens\"",
-     "ideas: \"a three-quarter rear view\"; \"a full-frame fisheye lens\"",
-     "ideas: \"a wide-angle lens\"",
-     "ideas: \"a selective-focus art lens\"; \"ground level\"",
-     "ideas: \"a telephoto lens with strong compression\"",
-     "ideas: \"a wide shot\"",
-     "ideas: \"a chest-up medium close-up\"",
-     "ideas: \"a 14mm ultra-wide lens\"; \"Kodak Portra 160 film\"",
-     "ideas: \"hip level\"",
-     "ideas: \"knee level\"; \"a 35mm lens\"",
-     "ideas: \"a mirror telephoto lens with donut bokeh\"; \"a view from behind\"",
-     "ideas: \"Lomography Redscale film\""
+     "kind of photo: \"food photography\", light: \"gentle, warm glow\", ideas: \"an overhead flat lay\"",
+     "kind of photo: \"catalog photography\", light: \"low late-afternoon sun with long shadows\", ideas: \"a three-quarter shot\"; \"a wide-angle lens\"",
+     "kind of photo: \"a school portrait\", light: \"warm pools of light in a dark room\", ideas: \"Ilford HP5 Plus film\"",
+     "kind of photo: \"wildlife photography\", light: \"soft top light\", ideas: \"Kodak Portra 800 film\"",
+     "kind of photo: \"editorial fashion photography\", light: \"soft, even light\", ideas: \"a normal lens\"; \"an establishing shot\"",
+     "kind of photo: \"environmental portraiture\", light: \"cool moonlight\", ideas: \"a 35mm lens\"",
+     "kind of photo: \"catalog photography\", light: \"soft, even light\", ideas: \"a three-quarter rear view\"; \"a 50mm lens\"",
+     "kind of photo: \"a studio portrait session\", light: \"stormy light under heavy clouds\", ideas: \"Kodak VISION3 500T cinema film\"",
+     "kind of photo: \"wedding photography\", light: \"moody low light\", ideas: \"a perspective-control lens\"",
+     "kind of photo: \"landscape photography\", light: \"soft, even light\", ideas: \"Instax Mini instant film\"",
+     "kind of photo: \"street photography\", light: \"flat, overcast light\", ideas: \"Kodak Portra 400 film\"; \"a telephoto lens with strong compression\"",
+     "kind of photo: \"seascape photography\", light: \"blue twilight\", ideas: \"Fujifilm Superia X-TRA 400 film\"; \"hip level\"",
+     "kind of photo: \"wedding photography\", light: \"cool moonlight\", ideas: \"a full-length shot\"",
+     "kind of photo: \"street photography\", light: \"cool, clear morning light\", ideas: \"a close-up\"; \"a profile view\"",
+     "kind of photo: \"a studio portrait session\", light: \"soft window light\", ideas: \"a head-and-shoulders portrait\"; \"an ultra-wide-angle lens\"",
+     "kind of photo: \"wedding photography\", light: \"low late-afternoon sun with long shadows\", ideas: \"a straight-on view\"",
+     "kind of photo: \"wedding photography\", light: \"warm pools of light in a dark room\", ideas: \"Kodak Ultramax 400 film\"; \"a high angle\"",
+     "kind of photo: \"sports action photography\", light: \"soft, even light\", ideas: \"a low angle\"",
+     "kind of photo: \"environmental portraiture\", light: \"flat, overcast light\", ideas: \"a top-down bird's-eye view\"",
+     "kind of photo: \"wildlife photography\", light: \"cool, clear morning light\", ideas: \"salted photographic paper\"",
+     "kind of photo: \"a group portrait\", light: \"bright, airy light\", ideas: \"a 24mm wide-angle lens\"",
+     "kind of photo: \"editorial fashion photography\", light: \"the last warm light of sunset\", ideas: \"a vintage lens with strong flare\"; \"ground level\"",
+     "kind of photo: \"boudoir photography\", light: \"stormy light under heavy clouds\", ideas: \"an aerial drone view\"",
+     "kind of photo: \"seascape photography\", light: \"cool moonlight\", ideas: \"a medium shot\"",
+     "kind of photo: \"environmental portraiture\", light: \"dappled sunlight\", ideas: \"a 14mm ultra-wide lens\"",
+     "kind of photo: \"sports action photography\", light: \"hazy, diffused sunlight\", ideas: \"Fujifilm Provia 100F film\"",
+     "kind of photo: \"landscape photography\", light: \"gentle, warm glow\", ideas: \"a full-frame fisheye lens\"",
+     "kind of photo: \"a school portrait\", light: \"hazy, diffused sunlight\", ideas: \"Kodak Gold 200 film\"",
+     "kind of photo: \"street photography\", light: \"low late-afternoon sun with long shadows\", ideas: \"eye level\"; \"cross-processed slide film\"",
+     "kind of photo: \"flat lay photography\", light: \"cool moonlight\", ideas: \"a three-quarter view\""
     ],
     "seeds": [
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {},
-     {}
+     {
+      "kind of photo": "food photography",
+      "light": "gentle, warm glow"
+     },
+     {
+      "kind of photo": "catalog photography",
+      "light": "low late-afternoon sun with long shadows"
+     },
+     {
+      "kind of photo": "a school portrait",
+      "light": "warm pools of light in a dark room"
+     },
+     {
+      "kind of photo": "wildlife photography",
+      "light": "soft top light"
+     },
+     {
+      "kind of photo": "editorial fashion photography",
+      "light": "soft, even light"
+     },
+     {
+      "kind of photo": "environmental portraiture",
+      "light": "cool moonlight"
+     },
+     {
+      "kind of photo": "catalog photography",
+      "light": "soft, even light"
+     },
+     {
+      "kind of photo": "a studio portrait session",
+      "light": "stormy light under heavy clouds"
+     },
+     {
+      "kind of photo": "wedding photography",
+      "light": "moody low light"
+     },
+     {
+      "kind of photo": "landscape photography",
+      "light": "soft, even light"
+     },
+     {
+      "kind of photo": "street photography",
+      "light": "flat, overcast light"
+     },
+     {
+      "kind of photo": "seascape photography",
+      "light": "blue twilight"
+     },
+     {
+      "kind of photo": "wedding photography",
+      "light": "cool moonlight"
+     },
+     {
+      "kind of photo": "street photography",
+      "light": "cool, clear morning light"
+     },
+     {
+      "kind of photo": "a studio portrait session",
+      "light": "soft window light"
+     },
+     {
+      "kind of photo": "wedding photography",
+      "light": "low late-afternoon sun with long shadows"
+     },
+     {
+      "kind of photo": "wedding photography",
+      "light": "warm pools of light in a dark room"
+     },
+     {
+      "kind of photo": "sports action photography",
+      "light": "soft, even light"
+     },
+     {
+      "kind of photo": "environmental portraiture",
+      "light": "flat, overcast light"
+     },
+     {
+      "kind of photo": "wildlife photography",
+      "light": "cool, clear morning light"
+     },
+     {
+      "kind of photo": "a group portrait",
+      "light": "bright, airy light"
+     },
+     {
+      "kind of photo": "editorial fashion photography",
+      "light": "the last warm light of sunset"
+     },
+     {
+      "kind of photo": "boudoir photography",
+      "light": "stormy light under heavy clouds"
+     },
+     {
+      "kind of photo": "seascape photography",
+      "light": "cool moonlight"
+     },
+     {
+      "kind of photo": "environmental portraiture",
+      "light": "dappled sunlight"
+     },
+     {
+      "kind of photo": "sports action photography",
+      "light": "hazy, diffused sunlight"
+     },
+     {
+      "kind of photo": "landscape photography",
+      "light": "gentle, warm glow"
+     },
+     {
+      "kind of photo": "a school portrait",
+      "light": "hazy, diffused sunlight"
+     },
+     {
+      "kind of photo": "street photography",
+      "light": "low late-afternoon sun with long shadows"
+     },
+     {
+      "kind of photo": "flat lay photography",
+      "light": "cool moonlight"
+     }
     ],
-    "user": "bb9f62d4ed695100",
-    "unseeded": "938ea6bd534ac473"
+    "user": "deb978d288b946f0",
+    "unseeded": "b69b5fa2c8220b62"
    },
    {
-    "lines": "2941767110abdddc",
-    "seeds": "a913b31fd283841e",
-    "user": "6216b276da810fa7",
-    "unseeded": "938ea6bd534ac473"
+    "lines": "4aa87ce91663b834",
+    "seeds": "8ff143ff1b6d58ef",
+    "user": "6111e3204b728a14",
+    "unseeded": "b69b5fa2c8220b62"
    }
   ]
  },

@@ -58,7 +58,7 @@ from core.logging import get_logger
 
 log = get_logger(__name__)
 
-VARIANTS_VERSION = "variants-26"   # variants-26: a kind part's variants stay members of the kind its words name, every word of them still true: a category word becomes a more specific kind of itself or stays with words of its own added, never a neighboring thing, every later turn is reminded so, and an idea that would make the part something else is rejected. variants-25: a named thing the user chose to vary is written as other real members of the kind the reader says it is one of (kind_of), each with a few words showing it, none of its words kept, one that still has its words as a run dropped, in a first write of 30; one specific thing is never a narrower kind its words don't name (a forced flesh-out of "fox" wrote "fennec fox"). variants-24: a person is only who they are and how they look: no action, pose, held thing or scene (posture and carried things are no longer aspects; hair and worn accessories are, typical dress has no gear), and a person whose clothes the picture hides is told to describe none. variants-23: one specific thing is told each variant adds words of its own (a bare name was written back 10 of 10). variants-22: a part naming one specific thing is written as that thing every time: its words kept as typed, capitals and all, no member seeds, its state, condition, angle, moment, details and surroundings varied. variants-21: trans and non-binary genders are drawn only when the words ask for them (gender shares 0); the writer's worked example seeds no gender. variants-20: a typical-dress variant develops its dress alone, from any headwear down, shown no list and no grooming aspect (a short list is dealt out across the other variants instead of shown whole), and is two thirds of a person whose role and place imply their dress; a session started again after a turn that left out gender is told so; a list shown whole has its colors filled in; a camera part whole is how the picture is taken, never a device. variants-19: a typical-dress variant puts on the headwear people like them typically wear and leaves their hair unsaid. variants-18: a young prompt's every slot drops adult-only seeds and is told a child is in the picture; a child is seeded with their age and child words. variants-17: the writer is told each kind's rules from its vocabulary data, in the kinds' order; a heritage may come with its look. variants-16: a couple, a family and a group are written as such (who a couple is drawn by its list, one shared heritage); a third of a person's variants wear what is typical for who and where they are; light is described as light; a camera part is how the picture is taken. variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
+VARIANTS_VERSION = "variants-33"   # variants-33: a person whose face is another part of the prompt (reader: face_part) develops no face and no age-showing aspect, and is told to describe none of their face; a kind's answered question may carry its own line for the writer (its "note"). variants-32 (variants-27 to -31 were unlanded drafts of it): a whole camera is one description of how the photograph was taken (its kind of photo and light drawn per variant beside a deep-focus lens, a framing or a film idea, 8 to 16 words, no stock AI-photo looks), and a face is one whole face (pieces of three or four parts per variant, said in plain words), as the lists bound to a slot may now say (vocab "writer": {"note", "pieces"}); a face's pieces no one notices (nostrils, pores) are drawn only when asked, and a young prompt's extra face pieces fit its life stage. variants-26: a kind part's variants stay members of the kind its words name, every word of them still true: a category word becomes a more specific kind of itself or stays with words of its own added, never a neighboring thing, every later turn is reminded so, and an idea that would make the part something else is rejected. variants-25: a named thing the user chose to vary is written as other real members of the kind the reader says it is one of (kind_of), each with a few words showing it, none of its words kept, one that still has its words as a run dropped, in a first write of 30; one specific thing is never a narrower kind its words don't name (a forced flesh-out of "fox" wrote "fennec fox"). variants-24: a person is only who they are and how they look: no action, pose, held thing or scene (posture and carried things are no longer aspects; hair and worn accessories are, typical dress has no gear), and a person whose clothes the picture hides is told to describe none. variants-23: one specific thing is told each variant adds words of its own (a bare name was written back 10 of 10). variants-22: a part naming one specific thing is written as that thing every time: its words kept as typed, capitals and all, no member seeds, its state, condition, angle, moment, details and surroundings varied. variants-21: trans and non-binary genders are drawn only when the words ask for them (gender shares 0); the writer's worked example seeds no gender. variants-20: a typical-dress variant develops its dress alone, from any headwear down, shown no list and no grooming aspect (a short list is dealt out across the other variants instead of shown whole), and is two thirds of a person whose role and place imply their dress; a session started again after a turn that left out gender is told so; a list shown whole has its colors filled in; a camera part whole is how the picture is taken, never a device. variants-19: a typical-dress variant puts on the headwear people like them typically wear and leaves their hair unsaid. variants-18: a young prompt's every slot drops adult-only seeds and is told a child is in the picture; a child is seeded with their age and child words. variants-17: the writer is told each kind's rules from its vocabulary data, in the kinds' order; a heritage may come with its look. variants-16: a couple, a family and a group are written as such (who a couple is drawn by its list, one shared heritage); a third of a person's variants wear what is typical for who and where they are; light is described as light; a camera part is how the picture is taken. variants-15: one streamed session per pool, a turn joins the log only when it kept half; a list too short for cores is shown whole; a fragment cut at markup is dropped; a variant's descent seed may stand inside the kept words. variants-14: a variant cut at the next slot's markup drops its copy of the words up to it ("grandmother with"). variants-13: a variant that is an article or determiner alone is dropped (stored pools hold "a"). variants-12: a free slot's idea lists are narrowed by its words (stored pools hold a tractor for "sports car"); a gender needs only the words that tell it from the others its words allow. variants-11: a descent is written in only where it can be true (a picked one still must be); look ideas come per variant on its seed line. variants-10: a/an set right when stored. variants-9: a person's look ideas fit their age. variants-8: light seeded by ideas, held to the place. variants-7: people vary their shape; age shows only where open. variants-6: worked person examples, fuller people. variants-5: a person is authored, two aspects per variant; gender must be stated; cores the pool has come last. variants-4: a variant drops its article after a determined phrase. variants-3: the writer is shown the words around the slot and continues the phrase. variants-2: an age seed only where the words leave age open; a copied single word is cut
 N_PERSON = 40          # the first write for a person
 N_OTHER = 30           # the first write for anything else
 TOPUP = 20             # a top-up, and More like these
@@ -378,7 +378,7 @@ class Seeds:
     who_list: str = ""                    # the list the who role draws from
     who_label: str = "gender"             # the who role's label on a seed line
     who_say: str = "short"                # "short": the value's short form; "value": the value
-    notes: Tuple[str, ...] = ()           # the chosen options' lines for the writer's turn (several people)
+    notes: Tuple[str, ...] = ()           # the chosen options' and answered questions' lines for the writer's turn (several people, a face elsewhere)
     room: int = 0                         # words a variant may add (0: MAX_ADDED_WORDS)
     second: float = 0.0                   # the share of variants whose second person gets a heritage of their own
     one: bool = False                     # the part names one specific thing: no member of its kind is seeded
@@ -472,6 +472,8 @@ def kind_seeds(kind: Any, *, heritage: Optional[Tuple[str, Optional[Sequence[str
             notes += [o.note] if o.note else []
             room = max(room, o.room)
             second = max(second, o.second_heritage)
+        elif q.note and _answered(answers.get(q.key)):
+            notes.append(q.note)   # an answered question's own line (another part is their face)
     who_rule = next((r for r in k.draws if r.role == "who" and isinstance(r.list, str)
                      and (who is None or r.list == who[0])), None)
     core = spread = None
@@ -791,6 +793,9 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_c
             s.each = tuple((label, _palette_fill(_weighted(rng, b.values), rng, b.list_id), show == "must")
                            for label, b, say, show in seeds.each)
         specs.append(s)
+    core_leaf = vocabulary().get(seeds.core.list_id) if seeds.core is not None else None
+    if core_leaf is not None and core_leaf.pieces:
+        _more_pieces(rng, specs, seeds.core, core_leaf, young=seeds.young)
     short_ideas = [b for b in seeds.ideas if len(b.values) <= SHORTLIST]
     long_ = [b for b in seeds.ideas if len(b.values) > SHORTLIST]
     if short_ideas and any(s.typical for s in specs):
@@ -821,6 +826,40 @@ def draw_seeds(rng: random.Random, seeds: Seeds, n: int, words: str = "", used_c
                 mine.append((_palette_fill(t, rng, b.list_id), b.list_id))
             s.ideas = (*s.ideas, *mine)
     return Drawn(specs, short)
+
+
+YOUNG_LIFE = {"child": ("baby", "child"), "teenager": ("teen",)}   # a young prompt's stage -> the age list's life stages
+
+
+def _more_pieces(rng: random.Random, specs: Sequence[Spec], b: Bank, leaf: Any, young: str = "") -> None:
+    """A list of pieces that gives each variant several (its "writer": {"pieces"}: a face): beside
+    its core, pieces of other parts as its ideas, from the same narrowed bank by their weights, one
+    per part, so each variant is one whole face rather than one feature of it. Only the core may be
+    a piece held for when it is asked for (opt-in: a marked one, or one no one notices): the
+    others were asked by no one. In a prompt with a child or a teenager in it (`young`), those others
+    are pieces tagged for that life stage, so a child's face draws no lines or age spots however the
+    narrowing read it (the minors rules hold every slot of a young prompt so)."""
+    def part(t: str) -> str:
+        v = leaf.value(t)
+        return str((v.tags.get("piece") or [""])[0]) if v is not None else ""
+    stages = set(YOUNG_LIFE.get(young, ()))
+
+    def fits(v: Any) -> bool:
+        life = v.tags.get(STAGE)
+        return not stages or life is None or life == "any" or bool(stages & {str(x) for x in life})
+    unasked = [(t, w) for t, w in b.values
+               if leaf.value(t) is not None and not leaf.value(t).opt_in and fits(leaf.value(t))]
+    for s in specs:
+        used = {part(s.core)}
+        mine: List[Tuple[str, str]] = []
+        for _ in range(int(_weighted(rng, leaf.pieces)) - 1):
+            pool = [(t, w) for t, w in unasked if part(t) not in used]
+            if not pool:
+                break
+            t = _weighted(rng, pool)
+            used.add(part(t))
+            mine.append((t, leaf.id))
+        s.ideas = (*s.ideas, *mine)
 
 
 def _filled(b: Bank, rng: random.Random) -> Bank:
@@ -1009,9 +1048,13 @@ def messages(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -
                      f'The whole part is the category "{cat}": every variant is one particular {cat}, its kind or its look '
                      f'described its own way, still a {cat}: never something else like it or found near it.')
     lines += minors_lines(seeds)
-    lines += [] if slot.one else list(seeds.notes)   # the chosen options' notes (several people)
+    lines += [] if slot.one else list(seeds.notes)   # the chosen options' and answered questions' notes (several people, a face elsewhere)
     if kind is not None and kind.note:
         lines.append(kind.note)   # the kind's own (a light part), in every first turn, seeded or not
+    bound = next((b for b in (seeds.core, seeds.spread) if b is not None), None)
+    leaf = vocabulary().get(bound.list_id) if bound is not None and not slot.one else None
+    if leaf is not None and leaf.writer_note:
+        lines.append(leaf.writer_note)   # the bound list's own (a face: one whole face, not one feature)
     lines.append("")
     for b in drawn.short:
         lines.append(f"Spread the variants across these {b.label.lower()} choices where they fit: "

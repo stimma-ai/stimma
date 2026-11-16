@@ -4,7 +4,7 @@
  "pos": "noun phrase",
  "frame": "a person with ___",
  "description": "One visible feature of a person's face: its shape, eyes, brows, nose, mouth, jaw, cheeks, forehead, ears or the marks and texture of the skin. Fits the person's drawn age.",
- "notes": "Every value of the person.feature lists but their plain ones, one piece at a time: one subtle piece reads as a face, while two or three named features stack and image models caricature them. Pieces rated strength 2 (marked) are drawn only when the user picks them. Never praise ('pretty', 'striking'): every piece says what is visible. A piece only one sex has is drawn only when the person's presentation says which (where={\"presentation\": ...}). The chooser shows the face as its parts, each part its own list (piece), in this list's order of parts.",
+ "notes": "Every value of the person.feature lists but their plain ones, one piece at a time. A slot bound to this list (\"a boy with <face>\") is one whole face: each variant gets pieces of three or four different parts (writer.pieces: its core and the rest as ideas) and the writer's note tells it to describe them as one plausible face in plain words. Named features stacked as a list caricature on some image models, so the pieces stay subtle and the writer says them the way a person describes someone, never as anatomy. Pieces rated strength 2 (marked), and pieces of the aspects compose.asked_only names (what no one notices of a face they saw: nostrils, the groove above the lip, pores and blemishes, earlobes, lashes, the face's proportions), are drawn only when the user picks them. Never praise ('pretty', 'striking'): every piece says what is visible. A piece only one sex has is drawn only when the person's presentation says which (where={\"presentation\": ...}). The chooser shows the face as its parts, each part its own list (piece), in this list's order of parts.",
  "facets": [],
  "closed": true,
  "strict": true,
@@ -57,7 +57,47 @@
     "feminine",
     "masculine"
    ]
+  },
+  "asked_only": {
+   "person.feature.shape": [
+    "proportion",
+    "symmetry"
+   ],
+   "person.feature.eyes": [
+    "lashes"
+   ],
+   "person.feature.nose": [
+    "nostrils"
+   ],
+   "person.feature.lips": [
+    "shape"
+   ],
+   "person.feature.jaw_chin": [
+    "neck"
+   ],
+   "person.feature.forehead": [
+    "hairline",
+    "profile"
+   ],
+   "person.feature.ears": [
+    "lobes",
+    "shape"
+   ],
+   "person.feature.skin_texture": [
+    "surface",
+    "pores",
+    "sheen",
+    "dryness",
+    "bumps_acne"
+   ]
   }
+ },
+ "writer": {
+  "pieces": {
+   "3": 0.7,
+   "4": 0.3
+  },
+  "note": "This part is the whole face of someone in the prompt: each variant is one plausible face in three or four features, said the way someone would describe a person they saw: \"freckled cheeks, a gap in his front teeth and thick dark brows\", \"deep-set gray eyes, a long, crooked nose and a weathered, lined face\". Its core and ideas are hints in clinical words: never copy them; keep what someone would notice and say it in plain everyday words (\"slightly close-set eyes\" -> \"close-set eyes\"), leave out what no one says of a face they saw, and use \"slightly\" or \"gently\" at most once. Every feature fits that person as the prompt has them: their age, sex and heritage. An older person's face shows their age in at least one feature (\"a weathered, deeply lined face\"). No anatomical terms, no praise; no expression, hair, makeup or anything they wear. Start with a feature that needs no \"a\" or \"the\" (\"freckled cheeks\", \"deep-set eyes\", \"weathered skin\"). 8 to 16 words."
  },
  "values": []
 }

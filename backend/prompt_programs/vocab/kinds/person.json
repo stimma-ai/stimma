@@ -69,6 +69,12 @@
     "ask": "when another numbered part is what they wear, or some of it, its number: 2 in \"⟨1: woman⟩ in a ⟨2: kimono⟩\" or \"⟨1: man⟩ in ⟨2: pajamas⟩\"; else 0."
    },
    {
+    "key": "face_part",
+    "type": "part",
+    "ask": "when another numbered part is their face, or features of it, its number: 2 in \"⟨1: woman⟩ with ⟨2: face⟩\" or \"⟨1: old man⟩ with ⟨2: weathered features⟩\"; else 0. A part that is only their expression (\"⟨2: shy smile⟩\") is not their face: 0.",
+    "note": "Another part of the prompt is this person's face: describe none of it (no face shape, eyes, brows, nose, lips, jaw, cheeks, skin marks or lines). Their expression may still show."
+   },
+   {
     "key": "clothes",
     "type": "words",
     "from": [
@@ -211,6 +217,7 @@
          "facial_hair"
         ],
         "clothes_part": 0,
+        "face_part": 0,
         "clothes": "",
         "shows": "",
         "dress": "",
@@ -305,6 +312,7 @@
          "hair_color"
         ],
         "clothes_part": 2,
+        "face_part": 0,
         "clothes": "",
         "shows": "",
         "dress": "",
@@ -360,6 +368,7 @@
         "stated": {},
         "vary": [],
         "clothes_part": 0,
+        "face_part": 0,
         "clothes": "",
         "shows": "",
         "dress": "",
@@ -662,7 +671,10 @@
     ]
    },
    "how their age shows": {
-    "no_draw": "age"
+    "no_draw": "age",
+    "answered": [
+     "face_part"
+    ]
    },
    "jewelry, glasses and other things they wear": {
     "answered": [
@@ -672,6 +684,11 @@
    "build": {
     "answered": [
      "shows"
+    ]
+   },
+   "face": {
+    "answered": [
+     "face_part"
     ]
    }
   },

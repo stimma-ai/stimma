@@ -196,6 +196,8 @@ class Leaf:
     parts: Tuple[str, ...] = ()   # a list of pieces ("compose": {"each": true}): its part lists, in order (a face's shape, eyes…)
     browse: str = ""           # the local facet the chooser is browsed by: a row per part (descent's regions)
     unstated: Tuple[str, ...] = ()   # taken facets a value tagged on needs stated (takes.<facet>.unstated: "opt_in")
+    writer_note: str = ""      # the writer's line for a slot bound to this list ("writer": {"note"}: a whole face, not one piece)
+    pieces: Tuple[Tuple[int, float], ...] = ()   # a list of pieces' pieces per variant, core included, with their shares ("writer": {"pieces"})
 
     def value(self, text: str) -> Optional[Value]:
         return self._by_text.get(text)
@@ -667,15 +669,21 @@ def _pieces(spec: Dict[str, Any], leaves: Dict[str, Leaf]) -> Tuple[Value, ...]:
     a piece with no tag on a facet counts as (a piece of either sex). The face is
     built this way: one piece reads as a face, three named features caricature. A part's plain
     value (nothing notable about it) is not a piece: it is drawn only when the part varies on its
-    own. A part's share is of what is drawn unasked (not its marked pieces)."""
+    own. A part's share is of what is drawn unasked (not its marked pieces). "asked_only": {part
+    list id: [its aspects]} holds a part's pieces of those aspects for when they are asked for too,
+    as marked ones are: what no one notices of a face they saw (nostrils, pores)."""
     total = sum(float(w) for w in spec["parts"].values()) or 1.0
+    quiet = {str(k): {str(a) for a in v} for k, v in (spec.get("asked_only") or {}).items()}
     out: Dict[str, Value] = {}
     for pid, share in spec["parts"].items():
         lf = leaves[pid]
+        if quiet.get(pid, set()) - set(lf.local_facets.get("aspect") or ()):
+            raise ValueError(f"vocabulary: asked_only names aspects {pid} doesn't have")
         pieces = [v for v in lf.values if v.text != lf.plain]
-        mass = sum(v.weight for v in pieces if not v.opt_in) or sum(v.weight for v in pieces) or 1.0
+        held = [v for v in pieces if quiet.get(pid, set()) & {str(a) for a in v.tags.get("aspect") or ()}]
+        mass = sum(v.weight for v in pieces if not v.opt_in and v not in held) or sum(v.weight for v in pieces) or 1.0
         for v in pieces:
-            marked = spec.get("marked") == "opt_in" and v.strength >= 2
+            marked = (spec.get("marked") == "opt_in" and v.strength >= 2) or v in held
             tags = {**{f: list(x) for f, x in (spec.get("tags") or {}).items()}, **v.tags, "piece": [pid.rsplit(".", 1)[-1]]}
             out.setdefault(v.text, replace(v, tags=tags, group="",
                                            scale=v.weight / mass * float(share) / total / (TIER_WEIGHTS.get(v.tier) or 1.0),
@@ -763,6 +771,14 @@ def _built(lid: str, d: Dict[str, Any]) -> Leaf:
         leaf = replace(leaf, plain=str(d["plain"]))
     if d.get("browse"):
         leaf = replace(leaf, browse=_browse(lid, leaf, str(d["browse"])))
+    w = d.get("writer")
+    if w is not None:
+        if not isinstance(w, dict) or not isinstance(w.get("note", ""), str) or not isinstance(w.get("pieces", {}), dict):
+            raise ValueError(f"vocabulary: {lid}'s writer is an object with a note and pieces ({{count: share}})")
+        pieces = tuple((int(k), float(v)) for k, v in (w.get("pieces") or {}).items())
+        if any(n < 1 or share < 0 for n, share in pieces) or (pieces and not (d.get("compose") or {}).get("each")):
+            raise ValueError(f"vocabulary: {lid}'s writer pieces need a list of pieces and counts of 1 or more")
+        leaf = replace(leaf, writer_note=str(w.get("note") or ""), pieces=pieces)
     return leaf
 
 

@@ -802,6 +802,34 @@ async def test_a_person_keeps_the_words_that_say_what_they_wear_and_draws_no_out
     assert '"clothes": "in a red raincoat"' in reader._read_as({"kind": "person", "person": person})
 
 
+async def test_a_person_whose_face_is_another_part_describes_no_face():
+    # "a <woman> with <face>": the reading names part 2 as her face, so her seeds develop no face
+    # (nor how her age shows) and the writer is told the face is another part's. Without it, both stand.
+    from prompt_programs.seeding import seeds_of
+    woman = {"n": 1, "kind": "person", "label": "Woman", "lead": "a",
+             "person": {"noun": "woman", "presentation": "feminine", "stated": {}, "vary": ["age", "build", "hair"],
+                        "face_part": 2, "outfit": "person.outfit.casual"}}
+    face = {"n": 2, "kind": "list", "label": "Face", "lead": " with",
+            "list": {"list": "person.face", "about": "the woman's face", "presentation": "feminine"}}
+    got = await reader.read(parse("a <woman> with <face> reading in a cafe"),
+                            ask=FakeModel(json.dumps({"slots": [woman, face]})), project_id=None, model="m")
+    person = got["slots"][0]["person"]
+    assert person["face_part"] == {"n": 2, "words": "face"} and person["outfit"] == "person.outfit.casual"
+
+    def seeds(slot):
+        p = plan(slot, "woman")
+        return seeds_of({"kind": "person", "banks": [{**b, "narrowed": None} for b in p["banks"]], "answers": p["answers"]})
+    with_face = seeds(got["slots"][0])
+    assert {"face", "how their age shows"} <= set(with_face.dropped)
+    assert any("describe none of it" in n for n in with_face.notes)
+    bare = await reader.read(parse("a <woman> reading in a cafe"),
+                             ask=FakeModel(json.dumps({"slots": [{**woman, "person": {**woman["person"], "face_part": 0}}]})),
+                             project_id=None, model="m")
+    assert "face_part" not in bare["slots"][0]["person"]
+    plain = seeds(bare["slots"][0])
+    assert "face" not in plain.dropped and not any("describe none of it" in n for n in plain.notes)
+
+
 def test_the_reader_no_longer_asks_for_kinds_instead_or_light_examples():
     text = reader.system_text()
     assert '"kinds"' not in text and '"instead"' not in text and '"examples"' not in text
@@ -839,7 +867,7 @@ async def test_a_camera_that_varies_one_detail_is_that_details_list():
     got = await reader.read(parse(prompt), ask=FakeModel(json.dumps({"slots": [two]})), project_id=None, model="m")
     assert got["slots"][0]["kind"] == "camera"
     assert [(b["role"], b["list"]) for b in plan(got["slots"][0], "selfie camera angle")["banks"]] == [
-        ("idea", "camera.angle"), ("idea", "camera.lens")]
+        ("each", "camera.genre"), ("idea", "camera.angle"), ("idea", "camera.lens"), ("each", "lighting.scene")]
     man = {"n": 1, "kind": "person", "label": "Young man", "lead": "",
            "person": {"noun": "man", "presentation": "masculine", "stated": {"age": "young"}, "vary": ["age"],
                       "outfit": "person.outfit.casual"}}

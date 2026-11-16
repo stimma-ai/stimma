@@ -218,8 +218,12 @@ class NarrowCache:
 
     @staticmethod
     def key(leaf: Leaf, phrase: str, values: Sequence[str], about: str = "", prompt: str = "") -> str:
-        blob = json.dumps([NARROW_VERSION, leaf.id, list(values), _norm(phrase), _norm(about), *([_norm(prompt)] if prompt else [])],
-                          ensure_ascii=False)
+        # The values kept only when called for are part of the question (messages_for), so a list
+        # that holds more of them back (the face's unnoticed pieces) is asked again.
+        shown = set(values)
+        held = [v.text for v in leaf.values if v.opt_in and v.text in shown]
+        blob = json.dumps([NARROW_VERSION, leaf.id, list(values), _norm(phrase), _norm(about), *([_norm(prompt)] if prompt else []),
+                           *([["opt_in", held]] if held else [])], ensure_ascii=False)
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
 
     def _path(self, key: str) -> Path:

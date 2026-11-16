@@ -19,7 +19,7 @@ export const fluentTips: Tip[] = [
   { title: 'Vary any part',
     line: { tone: 'slot', parts: [{ text: 'dorm room with a ' }, { text: '<young man>', tone: 'slot' }, { text: ', lit by ' }, { text: '<light>', tone: 'slot' }] },
     text: ['Words in angle brackets change with every image. Any words can be a slot.'],
-    steps: ['Select words and choose Vary this', 'Select words and press <', 'Click an underlined word, then Vary this', 'Click a + idea under your prompt, like + light'] },
+    steps: ['Select words and choose Detail or Any', 'Select words and press <', 'Click an underlined word, then Detail or Any', 'Click a + idea under your prompt, like + Camera'] },
   { title: 'Choose what it can be',
     text: ['Click a slot, or its row under your prompt, to pick one variant or several.',
       '<friend> and <friend> are two different people.'] },
