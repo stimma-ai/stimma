@@ -5535,6 +5535,7 @@ function backgroundNotice(item) {
   const task = getItemMetadata(item)?.background_task
   if (!task) return null
   const label = task.label && task.label !== 'Running code' ? `: ${task.label}` : ''
+  if (task.state === 'interrupted') return `Background work was interrupted by a restart${label}`
   return task.state === 'failed' ? `Background work ended with an error${label}` : `Background work finished${label}`
 }
 

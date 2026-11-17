@@ -1472,7 +1472,10 @@ class StimmaTasksAPI:
         from .background import get_run
         run = get_run(self._sdk.chat_id, task_id)
         if run is None:
-            raise ValueError(f"No background task {task_id!r} in this chat. stimma.tasks.list() shows them.")
+            raise ValueError(
+                f"No background task {task_id!r} is running in this chat; if one had that id, it "
+                "ended or a server restart stopped it. stimma.tasks.list() shows the tasks there are."
+            )
         return await run.snapshot()
 
     async def cancel(self, task_id: str, items: "Sequence[int] | None" = None) -> dict[str, Any]:
@@ -1486,7 +1489,10 @@ class StimmaTasksAPI:
         from .background import get_run
         run = get_run(self._sdk.chat_id, task_id)
         if run is None:
-            raise ValueError(f"No background task {task_id!r} in this chat. stimma.tasks.list() shows them.")
+            raise ValueError(
+                f"No background task {task_id!r} is running in this chat; if one had that id, it "
+                "ended or a server restart stopped it. stimma.tasks.list() shows the tasks there are."
+            )
         await run.control.cancel(list(items) if items is not None else None)
         return await run.snapshot()
 

@@ -211,7 +211,8 @@ def _items_to_messages(items: List["ChatItem"], system_prompt: str) -> List[Dict
 
 
 INTERRUPTED_TOOL_RESULT = (
-    "[Tool execution was interrupted before completing. No result was recorded.]"
+    "[Tool execution was interrupted before completing, by a stop or a server restart. "
+    "It is no longer running and no result was recorded.]"
 )
 
 

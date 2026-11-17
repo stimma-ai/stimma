@@ -180,6 +180,59 @@ async def _deliver_notifications(chat_id: int, session: AsyncSession, ws_manager
     return True
 
 
+async def _settle_lost_background_runs(chat_id: int, session: AsyncSession, ws_manager) -> bool:
+    """Tell the agent about background tasks a server restart killed.
+
+    A detached run_code lives only in this process. Its tool result told the
+    agent it's still running and a notification will follow; after a restart
+    neither is true, and the agent would wait for it forever. Any task the
+    history calls running, that has no notification and wasn't started by this
+    process, gets an "interrupted" notification now. Returns True if any did.
+    """
+    from . import background as bg
+    claims = (await session.execute(
+        select(ChatItem.tool_result).where(
+            ChatItem.chat_id == chat_id,
+            ChatItem.item_type == "tool_result",
+            ChatItem.tool_result.like("%in the background as task bg-%"),
+        ).order_by(ChatItem.id)
+    )).scalars().all()
+    started: dict[str, str] = {}
+    highest = 0
+    for text in claims:
+        for m in bg.DETACHED_CLAIM_RE.finditer(text or ""):
+            started.setdefault(m.group(1), m.group(3) or "")
+            highest = max(highest, int(m.group(2)))
+    if not started:
+        return False
+    bg.reserve_ids_through(chat_id, highest)
+    notified = set()
+    for meta in (await session.execute(
+        select(ChatItem.item_metadata).where(
+            ChatItem.chat_id == chat_id,
+            ChatItem.item_type == "user_message",
+            ChatItem.item_metadata.like('%"background_task"%'),
+        )
+    )).scalars().all():
+        try:
+            task = json.loads(meta or "{}").get("background_task") or {}
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if task.get("id"):
+            notified.add(task["id"])
+    lost = [
+        (run_id, label) for run_id, label in started.items()
+        if run_id not in notified and not bg.started_here(chat_id, run_id)
+    ]
+    for run_id, label in lost:
+        log.info(f"Chat {chat_id}: background task {run_id} was lost to a server restart")
+        await _persist_notification(chat_id, {
+            "text": bg.lost_notification_text(run_id, label),
+            "task": {"id": run_id, "label": label, "state": "interrupted"},
+        }, session, ws_manager)
+    return bool(lost)
+
+
 async def deliver_background_notification(chat_id: int, note: dict, ws_manager, *, wake: bool) -> None:
     """Hand a finished background task's receipt to the agent that owns it.
 
@@ -1724,6 +1777,8 @@ async def _run_agentic_loop_inner(
         # persisted, so the user's message follows them in history.
         steered = await _deliver_steers(chat, session, ws_manager)
         notified = await _deliver_notifications(chat.id, session, ws_manager)
+        if turn == start_turn:
+            notified = await _settle_lost_background_runs(chat.id, session, ws_manager) or notified
         if steered or notified:
             consecutive_textonly = 0
             repeated_batches = 0

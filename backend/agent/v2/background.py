@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
@@ -253,6 +254,13 @@ class BackgroundRun:
 _foreground: dict[tuple[str, int], ForegroundRun] = {}
 _runs: dict[tuple[str, int], dict[str, BackgroundRun]] = {}
 _next_id: dict[tuple[str, int], int] = {}
+# Every task id this process has started, kept after _runs prunes it. A task
+# the chat history calls running but that isn't here was started by an earlier
+# server process: a restart lost it, and its notification will never come.
+_started_here: set[tuple[str, int, str]] = set()
+
+# How describe_detached names a task in its tool result.
+DETACHED_CLAIM_RE = re.compile(r'in the background as task (bg-(\d+))(?: \("([^"]*)"\))?')
 
 
 def _key(chat_id: int) -> tuple[str, int]:
@@ -316,9 +324,21 @@ def detach(
     )
     fg.control.detached = True
     fg.detached_id = run.id
+    _started_here.add((key[0], chat_id, run.id))
     _runs.setdefault(key, {})[run.id] = run
     asyncio.create_task(_watch(run, on_finished))
     return run
+
+
+def started_here(chat_id: int, run_id: str) -> bool:
+    return (*_key(chat_id), run_id) in _started_here
+
+
+def reserve_ids_through(chat_id: int, n: int) -> None:
+    """Never hand out an id the chat's history already used, even after a restart."""
+    key = _key(chat_id)
+    if _next_id.get(key, 0) < n:
+        _next_id[key] = n
 
 
 def list_runs(chat_id: int, *, include_finished: bool = True) -> list[BackgroundRun]:
@@ -413,5 +433,18 @@ def notification_text(run: BackgroundRun, output: str) -> str:
         "<task-notification>\n"
         f"Background task {run.id}{_quoted(run.label)} {verb}.\n"
         f"{output}\n"
+        "</task-notification>"
+    )
+
+
+def lost_notification_text(run_id: str, label: str) -> str:
+    """For a task a server restart killed: its own notification never comes."""
+    return (
+        "<task-notification>\n"
+        f"Background task {run_id}{_quoted(label)} was interrupted: the Stimma server "
+        "restarted while it was running. Its code is no longer running and will not "
+        "resume, and no other notification will come for it. Generations it finished "
+        "before the restart are in the chat; anything it hadn't finished is not coming. "
+        "If that work is still wanted, start it again.\n"
         "</task-notification>"
     )
