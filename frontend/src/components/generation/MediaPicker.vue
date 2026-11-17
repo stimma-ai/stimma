@@ -35,6 +35,7 @@
             ]"
           >
             <div
+              data-slot-tile
               :class="[
                 'relative bg-matte overflow-hidden group flex-shrink-0 rounded-media mb-1.5',
                 reorderable
@@ -47,7 +48,7 @@
               @dragstart="dragMediaId(item) && !batchMode && onReorderDragStart($event, item)"
               @dragend="onReorderDragEnd()"
               @dragover.prevent.stop="onTileDragOver($event, index)"
-              @dragleave.stop="onDragLeave"
+              @dragleave.stop="onTileDragLeave(index)"
               @drop.prevent.stop="onTileDrop($event, index)"
             >
               <!-- Set preview with thumbnail -->
@@ -170,16 +171,41 @@
                 </svg>
               </button>
 
-              <!-- Remove button -->
-              <button
-                v-if="!batchMode"
-                @click.stop="removeItem(item.originalIndex)"
-                class="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              <!-- Drop intent on a filled tile: this one gets replaced, nothing else moves -->
+              <div
+                v-if="!batchMode && tileDropOver === index"
+                class="absolute inset-0 z-chrome bg-black/55 flex items-center justify-center pointer-events-none"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-white">
-                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-                </svg>
-              </button>
+                <span class="flex items-center gap-1.5 rounded-md bg-accent/90 px-2.5 py-1.5 text-xs font-medium text-white">
+                  <ArrowsRightLeftIcon class="w-4 h-4" />
+                  Replace {{ slotNoun(index) }}
+                </span>
+              </div>
+
+              <!-- Replace (opens the picker aimed at this slot) + Remove -->
+              <div
+                v-if="!batchMode"
+                class="absolute top-1 right-1 z-chrome flex items-center gap-1 opacity-0 group-hover:opacity-100 coarse:opacity-100 transition-opacity"
+              >
+                <button
+                  @click.stop="openReplacePicker(item.originalIndex as number, $event)"
+                  class="w-6 h-6 bg-black/60 hover:bg-accent/90 rounded-full flex items-center justify-center text-white transition-colors"
+                  :title="`Replace this ${kindNoun}`"
+                  :aria-label="`Replace ${slotNoun(index)}`"
+                >
+                  <ArrowsRightLeftIcon class="w-4 h-4" />
+                </button>
+                <button
+                  @click.stop="removeItem(item.originalIndex as number)"
+                  class="w-6 h-6 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center transition-colors"
+                  title="Remove"
+                  aria-label="Remove"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-white">
+                    <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                  </svg>
+                </button>
+              </div>
 
               <!-- Slot-label badge (named-slot mode, e.g. Start / End) -->
               <div v-if="!batchMode && useSlotLabels" class="absolute top-1 left-1 px-1.5 h-5 flex items-center justify-center bg-black/70 rounded pointer-events-none">
@@ -754,15 +780,15 @@
       @drop.prevent.stop="onDrop($event)"
       :class="[
         'mt-1.5 w-full flex items-center gap-1.5 rounded-md px-1 py-1.5 text-xs cursor-pointer transition-colors',
-        isDragging ? 'ring-1 ring-accent/50 bg-accent/10 text-accent-hi justify-center' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
+        addRowDropActive ? 'ring-1 ring-accent/50 bg-accent/10 text-accent-hi justify-center' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
       ]"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
         <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
       </svg>
-      {{ isDragging ? 'Drop here' : (useSlotLabels ? `Add ${slotName(items.length)}` : 'Add') }}
+      {{ addRowDropActive ? (useSlotLabels ? `Add ${slotName(items.length)}` : `Add as ${kindNoun} ${items.length + 1}`) : (useSlotLabels ? `Add ${slotName(items.length)}` : 'Add') }}
       <button
-        v-if="useSlotLabels && items.length >= 1 && !isDragging"
+        v-if="useSlotLabels && items.length >= 1 && !addRowDropActive"
         @click.stop="duplicateFirstToFill"
         class="ml-auto text-[10px] px-2 py-0.5 rounded text-content-muted bg-overlay-subtle hover:bg-accent/10 hover:text-accent-hi transition-colors"
         :title="`Use the same image as ${slotName(0)} (for loops)`"
@@ -803,10 +829,12 @@
       v-if="pickerPopoverOpen"
       :accept="accept"
       :anchor-el="pickerAnchor"
-      :exclude-ids="pickerExcludeIds"
+      :slot-ids="pickerSlotIds"
+      :target-index="pickerTarget"
+      :intent-label="pickerIntentLabel"
       @pick="onPopoverPick"
       @browse="onPopoverBrowse"
-      @close="pickerPopoverOpen = false"
+      @close="closePickerPopover"
     />
 
     <!-- Full-screen preview modal for preprocessed images -->
@@ -859,7 +887,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onBeforeUnmount, onMounted } from 'vue'
 import axios from 'axios'
-import { ArrowDownOnSquareIcon, Square3Stack3DIcon } from '@heroicons/vue/24/outline'
+import { ArrowDownOnSquareIcon, ArrowsRightLeftIcon, Square3Stack3DIcon } from '@heroicons/vue/24/outline'
 import ToolSectionHeader from './ToolSectionHeader.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { getCurrentProfileId } from '../../composables/useProfile'
@@ -1309,24 +1337,66 @@ const pickerPopoverOpen = ref(false)
 const addTileRef = ref<HTMLElement | null>(null)
 const headerRef = ref<InstanceType<typeof ToolSectionHeader> | null>(null)
 const collapsedEmpty = computed(() => !props.batchMode && items.value.length === 0 && props.minItems === 0 && props.maxItems > 0 && !useSlotLabels.value && !props.disabled)
-const pickerAnchor = computed<HTMLElement | null>(() => (collapsedEmpty.value ? headerRef.value?.addEl : addTileRef.value) ?? null)
 
-const pickerExcludeIds = computed(() =>
-  items.value.map(i => i.mediaId).filter((id): id is number => typeof id === 'number')
+// Slot the popover fills: null appends (the Add tile), a number replaces that
+// slot only (a tile's Replace button). Other slots keep their order and prep.
+const pickerTarget = ref<number | null>(null)
+const pickerTileAnchor = ref<HTMLElement | null>(null)
+const pickerAnchor = computed<HTMLElement | null>(() =>
+  pickerTileAnchor.value ?? (collapsedEmpty.value ? headerRef.value?.addEl : addTileRef.value) ?? null
 )
+// OS-dialog picks started from a Replace popover go into that slot too.
+let fileReplaceIndex: number | null = null
+
+// Media in each slot (by slot index), so the popover can mark them "In N".
+const pickerSlotIds = computed(() => items.value.map(i => dragMediaId(i) ?? null))
+
+const kindNoun = computed(() => (props.accept === 'audio' ? 'audio' : props.accept))
+function slotNoun(index: number): string {
+  return useSlotLabels.value ? slotName(index).toLowerCase() : `${kindNoun.value} ${index + 1}`
+}
+
+const pickerIntentLabel = computed(() => {
+  if (props.batchMode) return undefined
+  if (pickerTarget.value != null) return `Replaces ${slotNoun(pickerTarget.value)}`
+  if (items.value.length >= props.maxItems) return undefined
+  return useSlotLabels.value ? `Adds ${slotNoun(items.value.length)}` : `Adds ${kindNoun.value} ${items.value.length + 1}`
+})
 
 function onAddTileClick() {
   if (props.disabled) return
-  pickerPopoverOpen.value = !pickerPopoverOpen.value
+  const wasAdd = pickerPopoverOpen.value && pickerTarget.value == null
+  pickerTarget.value = null
+  pickerTileAnchor.value = null
+  pickerPopoverOpen.value = !wasAdd
+}
+
+function openReplacePicker(index: number, event: MouseEvent) {
+  if (props.disabled) return
+  const tile = (event.currentTarget as HTMLElement | null)?.closest('[data-slot-tile]') as HTMLElement | null
+  pickerTarget.value = index
+  pickerTileAnchor.value = tile
+  pickerPopoverOpen.value = true
+}
+
+function closePickerPopover() {
+  pickerPopoverOpen.value = false
+  pickerTarget.value = null
+  pickerTileAnchor.value = null
 }
 
 async function onPopoverPick(mediaId: number) {
-  pickerPopoverOpen.value = false
-  await addFromMediaId(mediaId)
+  const target = pickerTarget.value
+  closePickerPopover()
+  // A stale target (the slot was removed meanwhile) falls back to appending.
+  const replaceIndex = target != null && target < items.value.length ? target : undefined
+  if (replaceIndex === undefined && items.value.length >= props.maxItems) return
+  await addFromMediaId(mediaId, replaceIndex)
 }
 
 function onPopoverBrowse() {
-  pickerPopoverOpen.value = false
+  fileReplaceIndex = pickerTarget.value
+  closePickerPopover()
   openFilePicker()
 }
 
@@ -1382,15 +1452,30 @@ function onDragLeave() {
   isDragging.value = false
 }
 
+// Filled tile under an outside drag (library media or a file): the drop
+// replaces just that slot, and the tile says so while hovered.
+const tileDropOver = ref<number | null>(null)
+// The Add row/tile lights up only while the drag isn't over a filled tile.
+const addRowDropActive = computed(() => isDragging.value && tileDropOver.value === null)
+
 function onTileDragOver(event: DragEvent, index: number) {
   if (props.reorderable && dragIndex.value !== null) {
     onReorderDragOver(event, index)
     return
   }
   onDragOver()
+  if (props.disabled || props.batchMode) return
+  // Dragging a tile onto itself replaces nothing.
+  tileDropOver.value = dragIndex.value === index ? null : index
+}
+
+function onTileDragLeave(index: number) {
+  if (tileDropOver.value === index) tileDropOver.value = null
+  onDragLeave()
 }
 
 async function onTileDrop(event: DragEvent, index: number) {
+  tileDropOver.value = null
   // Internal reorder takes precedence only when a reorder drag is active.
   if (props.reorderable && dragIndex.value !== null) {
     onReorderDrop()
@@ -1401,6 +1486,7 @@ async function onTileDrop(event: DragEvent, index: number) {
 
 async function onDrop(event: DragEvent, replaceIndex?: number) {
   isDragging.value = false
+  tileDropOver.value = null
   if (props.disabled) return
 
   // Check for media ID from media library drag
@@ -1754,6 +1840,13 @@ async function handleFileSelect(event: Event) {
 
   // Clear the input so the same file can be selected again
   input.value = ''
+
+  const replaceIndex = fileReplaceIndex
+  fileReplaceIndex = null
+  if (replaceIndex != null && replaceIndex < items.value.length) {
+    await uploadFile(files[0], replaceIndex)
+    return
+  }
 
   // Upload files up to max
   const slotsAvailable = props.maxItems - items.value.length

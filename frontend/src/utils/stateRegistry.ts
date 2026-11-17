@@ -79,7 +79,7 @@ export const STATE_REGISTRY = {
     'stimma:export-combine-zip', 'stimma:export-bundle-as', 'terms_accepted', 'stimma_device_coachmark_seen',
     'browser_guid', 'pin_cache', 'profileId', 'stimma_bundle_id', 'stimma_sandbox', 'server_update_operation',
     'theme', 'stimma_install_theme', 'stimma_hide_prices', 'stimma_hide_account', 'stimma:flags', 'stimma-viewport-override',
-    'mask_editor:editor_height', 'media_picker_popover', 'stimma-roomy-agent-docked', 'workspace_outbox',
+    'mask_editor:editor_height', 'stimma-roomy-agent-docked', 'workspace_outbox',
     'workspace_migrated', 'workspace_blobs_migrated', 'workspace_client_id', 'tool:pending_input',
     'tool:pending_generation', 'tool:pending_generation_mask',
   ],

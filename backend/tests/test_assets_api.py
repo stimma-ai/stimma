@@ -80,6 +80,45 @@ async def test_asset_browse_ids_preserve_seeded_random_order(client, db_session)
 
 
 @pytest.mark.asyncio
+async def test_asset_browse_media_ids_combine_with_other_filters(client, db_session):
+    caption = f"media-ids-filter-{time.time_ns()}"
+    async with db_session() as session:
+        marker = Marker(name=caption, icon_svg="<svg/>", color="#123456")
+        session.add(marker)
+        await session.flush()
+        media_ids = []
+        for index in range(3):
+            media = await create_media_item(
+                session,
+                extracted_prompt=caption,
+                created_date=datetime(2025, 2, 1) + timedelta(days=index),
+            )
+            asset = await create_asset_from_media(session, media_id=media.id)
+            if index > 0:
+                session.add(AssetMarker(asset_id=asset.id, marker_id=marker.id, source="manual"))
+            media_ids.append(media.id)
+        marker_id = marker.id
+        await session.commit()
+
+    def listed(response):
+        assert response.status_code == 200, response.text
+        return [item["media_id"] for item in response.json()["items"]]
+
+    wanted = f"{media_ids[0]},{media_ids[2]}"
+    only_wanted = await client.get("/api/assets/browse", params={"media_ids": wanted})
+    assert sorted(listed(only_wanted)) == sorted([media_ids[0], media_ids[2]])
+
+    with_marker = await client.get(
+        "/api/assets/browse",
+        params={"media_ids": wanted, "marker_ids": str(marker_id), "prompt_query": caption},
+    )
+    assert listed(with_marker) == [media_ids[2]]
+
+    bad = await client.get("/api/assets/browse", params={"media_ids": "1,x"})
+    assert bad.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_media_compatibility_reads_project_only_canonical_asset_state(
     client, db_session
 ):

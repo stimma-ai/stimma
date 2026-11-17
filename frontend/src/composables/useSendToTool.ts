@@ -63,6 +63,8 @@ export function useSendToTool() {
    * @param opts.add - Add to the tool's existing inputs instead of replacing them
    *                   (shift-drag / shift-click). Default is replace: an untargeted
    *                   send means "this is the input now".
+   * @param opts.replaceIndex - Replace only this slot of the tool's inputs (the
+   *                   first item is used); the other slots keep their order and prep.
    * @returns Promise that resolves when navigation completes
    */
   async function sendToTool(
@@ -71,11 +73,14 @@ export function useSendToTool() {
     targetTaskType?: string,
     projectId?: number | null,
     instanceId?: string | null,
-    opts?: { add?: boolean }
+    opts?: { add?: boolean; replaceIndex?: number }
   ) {
     // Capture before fetching inputs; a picker change cannot retarget this handoff.
     projectId = projectId === undefined ? useWorkingContext().activeProjectId.value : projectId
-    const add = opts?.add === true
+    const replaceIndex = typeof opts?.replaceIndex === 'number' && opts.replaceIndex >= 0 ? opts.replaceIndex : undefined
+    const add = opts?.add === true && replaceIndex === undefined
+    // A slot target takes exactly one item.
+    if (replaceIndex !== undefined && Array.isArray(mediaIdOrItems)) mediaIdOrItems = mediaIdOrItems.slice(0, 1)
     // Use the target task type if provided, otherwise fall back to tool's primary task type
     let effectiveTaskType = targetTaskType || tool.task_type
     // Normalize to an array of full MediaItem records (fetching any bare IDs).
@@ -202,7 +207,8 @@ export function useSendToTool() {
       if (expanded.length > 0) mediaItems = expanded
     }
 
-    const wantBatch = canMediaBatch && mediaItems.length > 1
+    // Adding to (or swapping one of) the tool's inputs is never a batch.
+    const wantBatch = canMediaBatch && mediaItems.length > 1 && !add && replaceIndex === undefined
 
     // Existing library media is already a durable tool input. Preserve its
     // exact Media identity and path; copying it through upload/reference ingest
@@ -285,9 +291,9 @@ export function useSendToTool() {
     // image-to-video: use startImage if tool has videoFramePicker or start_image in schema
     // (hasStartImageSlot / hasVideoFramePicker computed above with batch detection)
     if (sendsAudio && hasAudioSlot) {
-      sessionStorage.setItem(storageKey, JSON.stringify({ inputAudios: mediaEntries, append: add }))
+      sessionStorage.setItem(storageKey, JSON.stringify({ inputAudios: mediaEntries, append: add, replaceIndex }))
     } else if (effectiveTaskType === 'image-to-video' && (hasStartImageSlot || hasVideoFramePicker)) {
-      sessionStorage.setItem(storageKey, JSON.stringify({ startImage: mediaEntries[0], append: add }))
+      sessionStorage.setItem(storageKey, JSON.stringify({ startImage: mediaEntries[0], append: add, replaceIndex }))
     } else if (multiInputInfo?.supportsMultiInput) {
       // Schema-driven: tool explicitly accepts arrays. The array shape is the
       // STP canonical form for ALL media slots — capacity lives in
@@ -295,11 +301,11 @@ export function useSendToTool() {
       const slotMax = multiInputInfo.maxItems
       const entries = Number.isFinite(slotMax) ? mediaEntries.slice(0, slotMax) : mediaEntries
       if (multiInputInfo.inputType === 'videos') {
-        sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: entries, append: add }))
+        sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: entries, append: add, replaceIndex }))
       } else if (multiInputInfo.inputType === 'audios') {
-        sessionStorage.setItem(storageKey, JSON.stringify({ inputAudios: entries, append: add }))
+        sessionStorage.setItem(storageKey, JSON.stringify({ inputAudios: entries, append: add, replaceIndex }))
       } else {
-        sessionStorage.setItem(storageKey, JSON.stringify({ inputImages: entries, append: add }))
+        sessionStorage.setItem(storageKey, JSON.stringify({ inputImages: entries, append: add, replaceIndex }))
       }
     } else {
       // Fall back to task_type based logic for single-input tools
@@ -307,11 +313,11 @@ export function useSendToTool() {
       const hasInputImage = tool.parameter_schema?.properties?.input_image
 
       if (['image-to-image', 'upscale-image', 'inpaint-image', 'erase-image', 'outpaint-image', 'remove-background'].includes(effectiveTaskType) || hasInputImage) {
-        sessionStorage.setItem(storageKey, JSON.stringify({ inputImages: mediaEntries, append: add }))
+        sessionStorage.setItem(storageKey, JSON.stringify({ inputImages: mediaEntries, append: add, replaceIndex }))
       } else if (effectiveTaskType === 'upscale-video' || effectiveTaskType === 'video-to-video' || effectiveTaskType === 'video-extend') {
-        sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: mediaEntries, append: add }))
+        sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: mediaEntries, append: add, replaceIndex }))
       } else if (effectiveTaskType === 'video-stitch') {
-        sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: mediaEntries, append: add }))
+        sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: mediaEntries, append: add, replaceIndex }))
       }
     }
 

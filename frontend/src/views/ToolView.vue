@@ -1346,6 +1346,7 @@ import type { MediaInputConfig } from '../composables/useToolSchemaFeatures'
 import { useVideoFrameExtraction, type FramePosition } from '../composables/useVideoFrameExtraction'
 import { useTelemetry } from '../composables/useTelemetry'
 import { makeGlobalKey, makeToolDbKey, makeToolProfileKey } from '../utils/storageKeys'
+import { mergeSlotItems } from '../utils/toolInputSlots'
 import { snapDimsToGrid as snapDimsToSchemaGrid } from '../utils/resolutionControls'
 import { getBlob, putBlob, deleteBlob } from '../utils/syncedBlobs'
 import { docKeyFor, isServerMode, onNamespaceChange, syncedStorage } from '../utils/workspaceStore'
@@ -4937,14 +4938,14 @@ function loadPendingInput() {
         setId: img.setId
       }))
       // Untargeted sends (sidebar drop, send-to-tool) replace by default —
-      // "this is the input now". Shift carries the add intent; adding keeps
-      // what's there and drops overflow past the slot's capacity.
-      const max = mediaInputConfig.value.max
-      if (config.append && max > 1) {
-        globalPrefs.value.inputImages = [...globalPrefs.value.inputImages, ...newImages].slice(0, max)
-      } else {
-        globalPrefs.value.inputImages = newImages.slice(0, max)
-      }
+      // "this is the input now". Add keeps what's there and drops overflow
+      // past the slot's capacity; a slot target swaps just that one item and
+      // leaves the others (and their prep) as they are.
+      globalPrefs.value.inputImages = mergeSlotItems(globalPrefs.value.inputImages, newImages, {
+        append: config.append,
+        replaceIndex: config.replaceIndex,
+        max: mediaInputConfig.value.max,
+      })
     }
 
     if (hasVideoFrames.value && config.startImage) {
@@ -4958,7 +4959,11 @@ function loadPendingInput() {
         width: config.startImage.width,
         height: config.startImage.height,
       }
-      if (config.append) {
+      if (config.replaceIndex === 0 || config.replaceIndex === 1) {
+        // Slot target: 0 is the start frame, 1 the end frame; the other stays.
+        if (config.replaceIndex === 0 || !videoImages.startImage) videoImages.startImage = newFrame
+        else videoImages.endImage = newFrame
+      } else if (config.append) {
         // Add intent: fill the first empty frame slot; if both are filled,
         // replace the end frame (the "appended" position).
         if (!videoImages.startImage) {
@@ -4989,13 +4994,12 @@ function loadPendingInput() {
       const videoMax = mediaInputConfig.value?.paramKey === 'input_videos'
         ? mediaInputConfig.value.max
         : Infinity
-      if (config.append && videoMax > 1) {
-        // Add to existing videos (for video-stitch), dropping overflow past
-        // capacity — same policy as the image path above.
-        globalPrefs.value.inputVideos = [...globalPrefs.value.inputVideos, ...newVideos].slice(0, videoMax)
-      } else {
-        globalPrefs.value.inputVideos = newVideos.slice(0, videoMax)
-      }
+      // Same replace / add / slot-target policy as the image path above.
+      globalPrefs.value.inputVideos = mergeSlotItems(globalPrefs.value.inputVideos, newVideos, {
+        append: config.append,
+        replaceIndex: config.replaceIndex,
+        max: videoMax,
+      })
     }
 
     // Audio handoff (send-to-tool of an audio asset → audio-conditioned tools)
@@ -5006,12 +5010,11 @@ function loadPendingInput() {
         hash: aud.hash,
         mediaId: aud.mediaId,
       }))
-      const max = audioInputConfig.value?.max ?? 1
-      if (config.append && max > 1) {
-        globalPrefs.value.inputAudios = [...globalPrefs.value.inputAudios, ...newAudios].slice(0, max)
-      } else {
-        globalPrefs.value.inputAudios = newAudios.slice(0, max)
-      }
+      globalPrefs.value.inputAudios = mergeSlotItems(globalPrefs.value.inputAudios, newAudios, {
+        append: config.append,
+        replaceIndex: config.replaceIndex,
+        max: audioInputConfig.value?.max ?? 1,
+      })
     }
 
     // Clear only the loadInput trigger; preserve project_id (and any other

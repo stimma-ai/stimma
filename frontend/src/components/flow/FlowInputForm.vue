@@ -414,7 +414,7 @@
       v-if="picker"
       :accept="picker.accept"
       :anchor-el="picker.anchor"
-      :exclude-ids="pickerExcludeIds"
+      :slot-ids="pickerSlotIds"
       @pick="onPickerPick"
       @browse="onPickerBrowse"
       @close="picker = null"
@@ -1033,7 +1033,7 @@ function openPicker(field: Field, multi: boolean, event: MouseEvent) {
   }
 }
 
-const pickerExcludeIds = computed<number[]>(() => {
+const pickerSlotIds = computed<number[]>(() => {
   if (!picker.value) return []
   const v = values[picker.value.field]
   if (Array.isArray(v)) return v.filter((x) => typeof x === 'number')

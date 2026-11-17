@@ -409,12 +409,15 @@ async def browse_assets(
     ),
     random_seed: int | None = None,
     scope: str | None = None,
+    media_ids: str | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
     """Asset browser projection; identity is Asset, payload fields are current Media.
 
     ``scope=unfiled`` (without ``project_id``) limits the browse to Assets in no
-    live project; the default ``all`` includes everything.
+    live project; the default ``all`` includes everything. ``media_ids`` (comma
+    separated) keeps only Assets whose current Media is one of those, so a
+    client-side history of picked media can be filtered and decorated.
     """
     effective_projects = project_ids
     if project_id is not None:
@@ -455,6 +458,12 @@ async def browse_assets(
     query = _apply_asset_scope(query, scope, project_id)
     if folders:
         query = query.where(StorageObject.kind == "external")
+    if media_ids is not None:
+        try:
+            wanted_media = [int(part) for part in media_ids.split(",") if part.strip()]
+        except ValueError:
+            raise HTTPException(status_code=422, detail="media_ids must be comma-separated integers")
+        query = query.where(MediaItem.id.in_(wanted_media))
 
     similarity_modes = sum(
         value is not None for value in (similar_to, similar_face_to, similar_to_text)

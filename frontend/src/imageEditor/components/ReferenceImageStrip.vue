@@ -308,7 +308,7 @@ async function uploadFiles(event: Event) {
       v-if="pickerOpen"
       accept="image"
       :anchor-el="addButton"
-      :exclude-ids="items.map(item => item.media_id)"
+      :slot-ids="items.map(item => item.media_id)"
       :allow-video-frames="false"
       :show-drop-hint="false"
       @pick="addFromMediaId"

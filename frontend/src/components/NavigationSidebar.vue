@@ -945,20 +945,6 @@
           </Tooltip>
         </div>
 
-        <!-- Drop-intent hint while media is dragged over a tool tab. Absolute
-             overlay (not flow) so appearing mid-drag can't shift tabs under
-             the cursor and flicker the hover state. -->
-        <div
-          v-if="dragHoverToolTab"
-          class="pointer-events-none absolute bottom-0 left-0 right-0 z-20 border-t border-edge-subtle bg-surface/95 px-3 py-2 text-[11px]"
-        >
-          <span v-if="dragAddModifier" class="text-green-400 font-medium">Add to inputs</span>
-          <template v-else>
-            <span class="text-content font-medium">Replace inputs</span>
-            <span class="text-content-muted"> · hold ⇧ to add</span>
-          </template>
-        </div>
-
         <!-- Resize handle (desktop only) -->
         <div
           v-if="!isMobile"
@@ -998,7 +984,7 @@
         <div
           data-zone="__chat__"
           class="flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-dashed text-[12.5px] font-medium transition-colors"
-          :class="flowTargetHover === '__chat__' ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
+          :class="dropTargetHover === '__chat__' ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
           @drop.stop.prevent="onFlowTargetDrop(null, $event)"
         >
           <ChatBubbleOvalLeftEllipsisIcon class="w-icon-nav h-icon-nav flex-shrink-0 pointer-events-none" />
@@ -1009,11 +995,77 @@
           :key="zone.name"
           :data-zone="zone.name"
           class="flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-dashed text-[12.5px] font-medium transition-colors"
-          :class="flowTargetHover === zone.name ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
+          :class="dropTargetHover === zone.name ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
           @drop.stop.prevent="onFlowTargetDrop(zone, $event)"
         >
           <PhotoIcon class="w-icon-nav h-icon-nav flex-shrink-0 pointer-events-none" />
           <span class="truncate pointer-events-none">{{ zone.label }}</span>
+        </div>
+      </div>
+
+      <!-- Tool-tab drop targets, same gesture as the flow panel: with two or
+           more inputs in, one thumbnail per filled slot (drop on one to swap
+           just that one), then Replace all, then Add while there's room. -->
+      <div
+        v-if="toolDropTargets"
+        data-tool-drop-targets
+        class="fixed z-menu w-56 bg-surface border border-edge rounded-lg shadow-xl p-1.5 space-y-1.5"
+        :style="{ left: toolDropTargets.left + 'px', top: toolDropTargets.top + 'px' }"
+        @dragenter.prevent="cancelFlowTargetsHide"
+        @dragover.prevent="onFlowTargetsPanelDragOver"
+        @dragleave="onFlowTargetsPanelDragLeave"
+      >
+        <div
+          v-if="toolDropTargets.slots.length > 1"
+          class="grid gap-1.5"
+          :style="{ gridTemplateColumns: `repeat(${toolDropTargets.columns}, minmax(0, 1fr))` }"
+        >
+          <div
+            v-for="(slot, i) in toolDropTargets.slots"
+            :key="i"
+            :data-zone="`slot:${i}`"
+            class="relative aspect-square rounded-md overflow-hidden border border-dashed bg-matte transition-colors"
+            :class="dropTargetHover === `slot:${i}` ? 'border-accent ring-2 ring-accent' : 'border-edge-strong'"
+            :title="`Replace ${toolDropTargets.slotName(i)}`"
+            @drop.stop.prevent="onToolTargetDrop({ slot: i }, $event)"
+          >
+            <MediaImage
+              v-if="slot.mediaId || slot.hash"
+              :media-id="slot.mediaId"
+              :file-hash="slot.hash"
+              :thumbnail="true"
+              :thumbnail-size="128"
+              :draggable="false"
+              :enable-context-menu="false"
+              container-class="w-full h-full pointer-events-none"
+              class="w-full h-full object-cover"
+            />
+            <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-black/70 rounded-full flex items-center justify-center pointer-events-none">
+              <span class="text-[10px] text-white font-medium leading-none">{{ i + 1 }}</span>
+            </div>
+            <div v-if="dropTargetHover === `slot:${i}`" class="absolute inset-0 bg-accent/40 flex items-center justify-center pointer-events-none">
+              <ArrowsRightLeftIcon class="w-5 h-5 text-white" />
+            </div>
+          </div>
+        </div>
+        <div
+          data-zone="__replace__"
+          class="flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-dashed text-[12.5px] font-medium transition-colors"
+          :class="dropTargetHover === '__replace__' ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
+          @drop.stop.prevent="onToolTargetDrop('replace', $event)"
+        >
+          <ArrowsRightLeftIcon class="w-icon-nav h-icon-nav flex-shrink-0 pointer-events-none" />
+          <span class="truncate pointer-events-none">{{ toolDropTargets.slots.length > 1 ? 'Replace all' : 'Replace' }}</span>
+        </div>
+        <div
+          v-if="toolDropTargets.addLabel"
+          data-zone="__add__"
+          class="flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-dashed text-[12.5px] font-medium transition-colors"
+          :class="dropTargetHover === '__add__' ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
+          @drop.stop.prevent="onToolTargetDrop('add', $event)"
+        >
+          <PlusIcon class="w-icon-nav h-icon-nav flex-shrink-0 pointer-events-none" />
+          <span class="truncate pointer-events-none">{{ toolDropTargets.addLabel }}</span>
         </div>
       </div>
     </Teleport>
@@ -1024,7 +1076,7 @@
 import ToolProviderBadge from './tools/ToolProviderBadge.vue'
 import { flowsEnabled } from '../composables/useExperimentalFlows'
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, h, nextTick } from 'vue'
-import { ArchiveBoxIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronLeftIcon, ChevronUpDownIcon, ClockIcon, ExclamationTriangleIcon, FunnelIcon, HeartIcon, HomeIcon, PhotoIcon, PlusIcon, Squares2X2Icon, TrashIcon, WrenchScrewdriverIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, ArrowsRightLeftIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronLeftIcon, ChevronUpDownIcon, ClockIcon, ExclamationTriangleIcon, FunnelIcon, HeartIcon, HomeIcon, PhotoIcon, PlusIcon, Squares2X2Icon, TrashIcon, WrenchScrewdriverIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useMarkers } from '../composables/useMarkers'
 import { EXPIRING_MARKER_ID } from '../constants/implicitMarkers'
 import { useRouter, useRoute } from 'vue-router'
@@ -1033,7 +1085,9 @@ import { useAuth } from '../composables/useAuth'
 import { useCloudAccount } from '../composables/useCloudAccount'
 import { hideAccountRef } from '../appConfig'
 import { setPendingMedia } from '../composables/usePendingMedia'
-import { makeProfileKey } from '../utils/storageKeys'
+import { makeProfileKey, makeToolDbKey, makeToolProfileKey } from '../utils/storageKeys'
+import { syncedStorage } from '../utils/workspaceStore'
+import { filledSlots, toolDropSlot, type SlotThumb, type ToolInputField } from '../utils/toolInputSlots'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { createTaskTypeIconComponent, getTaskTypeIconSvg } from '../utils/taskTypeIcons'
 import { planToolHandoff } from '../utils/toolHandoff'
@@ -1044,7 +1098,7 @@ import { useAgentActivity } from '../composables/useAgentActivity'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { useSendToTool } from '../composables/useSendToTool'
-import { useWorkspaceTabs, toolTabRoute, editorTabRoute, editorRouteTabId, type WorkspaceTab } from '../composables/useWorkspaceTabs'
+import { useWorkspaceTabs, toolTabRoute, toolInstanceScopedId, editorTabRoute, editorRouteTabId, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
 import { removeRecentEntity } from '../composables/useRecentEntities'
 import { useProjectRoute } from '../composables/useProjectRoute'
@@ -1287,15 +1341,10 @@ const editorTabs = computed(() => allEditorTabs.value.filter(isContextTab))
 const visibleTabIds = computed(() => allTabs.value.filter(isContextTab).map(t => t.id))
 // Drag-drop state
 const dragHoverTabId = ref<string | null>(null)
-// Live shift state while dragging over a tool tab: shift flips the drop from
-// replace-inputs to add-to-inputs; cursor, ring color, and hint bar track it.
+// Live shift state while dragging over a tool tab: shift flips a drop on the
+// tab itself from replace-inputs to add-to-inputs (a shortcut; the drop-target
+// panel beside the tab offers Add without it). Cursor and ring color track it.
 const dragAddModifier = ref(false)
-// Whether the currently drag-hovered tab is a tool tab (drives the hint bar).
-const dragHoverToolTab = computed(() => {
-  const id = dragHoverTabId.value
-  if (!id) return false
-  return [...pinnedTabs.value, ...openTabs.value].some(t => t.id === id && t.type === 'tool')
-})
 const dragHoverNewCollection = ref(false)
 const dragHoverNewChat = ref(false)
 const dragHoverNewFlow = ref(false)
@@ -1796,12 +1845,14 @@ function handleTabDragEnter(tab: WorkspaceTab, e: DragEvent) {
     // A different tab under the pointer usually means the drag moved on —
     // but a diagonal pull toward the panel can clip a neighbor, so hide on
     // a grace timer (entering the panel cancels it) instead of instantly.
-    if (flowDropTargets.value && flowDropTargets.value.tabId !== tab.id) scheduleFlowTargetsHide()
+    const panelTabId = flowDropTargets.value?.tabId ?? toolDropTargets.value?.tabId
+    if (panelTabId && panelTabId !== tab.id) scheduleFlowTargetsHide()
     if (tab.type === 'lineage') return // No drag-drop onto lineage tabs
     if (tab.type !== 'tool' || isToolCompatible(tab.entityId)) {
       dragHoverTabId.value = tab.id
     }
     if (tab.type === 'flow') void maybeShowFlowDropTargets(tab, e.currentTarget as HTMLElement)
+    if (tab.type === 'tool' && isToolCompatible(tab.entityId)) showToolDropTargets(tab, e.currentTarget as HTMLElement)
   }
 }
 
@@ -1814,7 +1865,7 @@ function handleTabDragLeave(tab: WorkspaceTab, e: DragEvent) {
   }
   // Toward the panel or away entirely — the grace timer covers both; the
   // panel's dragenter cancels it.
-  if (count <= 0 && flowDropTargets.value?.tabId === tab.id) scheduleFlowTargetsHide()
+  if (count <= 0 && (flowDropTargets.value?.tabId === tab.id || toolDropTargets.value?.tabId === tab.id)) scheduleFlowTargetsHide()
 }
 
 async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
@@ -1841,20 +1892,8 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
   const mediaId = mediaIds[0]
 
   if (tab.type === 'tool') {
-    const tool = allToolsMap.value.get(tab.entityId)
-    if (!tool) return
-
-    emit('media-dropped-on-tool', { fullToolId: tab.entityId, mediaId, instanceId: tab.instanceId })
-    try {
-      // Pass all dropped ids (multi-select drag) so they batch instead of only the first.
-      // Target THIS row's instance, not just the tool+project.
-      // Shift-drop adds to the tool's existing inputs; plain drop replaces them.
-      await sendToTool(mediaIds.length > 1 ? mediaIds : mediaId, tool, undefined, tab.projectId ?? null, tab.instanceId ?? null, { add })
-      if (props.isMobile) emit('close')
-    } catch (error) {
-      console.error('Failed to send media to tool:', error)
-      addToast(error instanceof Error ? error.message : 'Failed to send assets to tool', 'warning')
-    }
+    // Shift-drop adds to the tool's existing inputs; plain drop replaces them.
+    await sendDropToTool(tab, mediaIds, { add })
   } else if (tab.type === 'chat') {
     emit('media-dropped-on-chat', { chatId: parseInt(tab.entityId, 10), mediaId })
     setPendingMedia('chat', mediaIds, parseInt(tab.entityId, 10))
@@ -1910,7 +1949,7 @@ function handleShelfMediaDrop(e: DragEvent) {
 
 const flowsApi = useFlowsApi()
 const flowDropTargets = ref<{ tabId: string; flowId: number; left: number; top: number; zones: FlowMediaInputField[] } | null>(null)
-const flowTargetHover = ref<string | null>(null)
+const dropTargetHover = ref<string | null>(null)
 let flowTargetsHideTimer: ReturnType<typeof setTimeout> | null = null
 // Per-drag-session cache: schemas don't change mid-drag, but can between drags.
 const dragFlowFieldsCache = new Map<number, Promise<FlowMediaInputField[]>>()
@@ -1952,18 +1991,21 @@ function cancelFlowTargetsHide() {
   }
 }
 
+// The hide timer and hover tracking are shared with the tool-tab panel below.
 function scheduleFlowTargetsHide() {
   cancelFlowTargetsHide()
   flowTargetsHideTimer = setTimeout(() => {
     flowDropTargets.value = null
-    flowTargetHover.value = null
+    toolDropTargets.value = null
+    dropTargetHover.value = null
   }, 250)
 }
 
 function resetFlowDropTargets() {
   cancelFlowTargetsHide()
   flowDropTargets.value = null
-  flowTargetHover.value = null
+  toolDropTargets.value = null
+  dropTargetHover.value = null
   dragFlowFieldsCache.clear()
 }
 
@@ -1974,13 +2016,13 @@ function resetFlowDropTargets() {
 function onFlowTargetsPanelDragOver(e: DragEvent) {
   cancelFlowTargetsHide()
   const row = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-zone]') : null
-  flowTargetHover.value = row?.dataset.zone ?? null
+  dropTargetHover.value = row?.dataset.zone ?? null
 }
 
 function onFlowTargetsPanelDragLeave(e: DragEvent) {
   const next = e.relatedTarget
   if (next instanceof Node && (e.currentTarget as Node).contains(next)) return
-  flowTargetHover.value = null
+  dropTargetHover.value = null
   scheduleFlowTargetsHide()
 }
 
@@ -2019,6 +2061,110 @@ async function onFlowTargetDrop(zone: FlowMediaInputField | null, e: DragEvent) 
   } catch (error) {
     console.error('Failed to set flow input:', error)
     addToast('Failed to set flow input', 'warning')
+  }
+}
+
+// ==================== Tool-tab drop targets ====================
+// The same pop-out as flow tabs, for tool tabs: drop on a numbered thumbnail
+// to swap just that input, on Replace (all) for the tab's default, or on Add
+// to append. Releasing on the tab itself still replaces all, and Shift on the
+// tab still adds — the panel just doesn't depend on a modifier reaching the
+// drag (Chromium on Linux/Wayland doesn't report one reliably).
+
+interface ToolDropTargets {
+  tabId: string
+  tab: WorkspaceTab
+  left: number
+  top: number
+  slots: SlotThumb[]
+  columns: number
+  addLabel: string | null
+  slotName: (index: number) => string
+}
+
+const toolDropTargets = ref<ToolDropTargets | null>(null)
+
+/** The tab's saved working state, or null when it can't be read. */
+function readToolTabState(tab: WorkspaceTab, field: ToolInputField) {
+  const scoped = toolInstanceScopedId(tab.entityId, tab.projectId ?? null, tab.instanceId ?? null)
+  const parse = (raw: string | null) => {
+    if (!raw) return null
+    try { return JSON.parse(raw) } catch { return null }
+  }
+  const state = parse(syncedStorage.getItem(makeToolProfileKey(scoped, 'state')))
+  const frames = field === 'frames' ? parse(syncedStorage.getItem(makeToolDbKey(scoped, 'video_images'))) : null
+  return { state, frames }
+}
+
+function showToolDropTargets(tab: WorkspaceTab, el: HTMLElement) {
+  const tool = allToolsMap.value.get(tab.entityId)
+  if (!tool) return
+  const draggedType = draggedMediaType.value
+  const slot = toolDropSlot(tool, draggedType)
+  let slots: SlotThumb[] = []
+  let known = false
+  if (slot) {
+    const { state, frames } = readToolTabState(tab, slot.field)
+    const filled = filledSlots(slot.field, state, frames)
+    if (filled) {
+      slots = filled.slice(0, Number.isFinite(slot.max) ? slot.max : undefined)
+      known = true
+    }
+  }
+  const noun = slot?.field === 'inputVideos' ? 'video' : slot?.field === 'inputAudios' ? 'audio' : 'image'
+  const slotName = (i: number) => slot?.field === 'frames' ? (i === 0 ? 'start frame' : 'end frame') : `${noun} ${i + 1}`
+  // Add only where the slot takes more than one item and has room. When the
+  // tool's inputs can't be read, offer it on trust (the tool caps it).
+  const max = slot?.max ?? Infinity
+  let addLabel: string | null = null
+  if (!known) addLabel = max > 1 ? 'Add' : null
+  else if (max > 1 && slots.length < max) addLabel = `Add as ${slotName(slots.length)}`
+  const columns = Math.min(4, Math.max(2, slots.length))
+  const thumbRows = slots.length > 1 ? Math.ceil(slots.length / columns) : 0
+  const rect = el.getBoundingClientRect()
+  const thumbSize = (224 - 12 - (columns - 1) * 6) / columns
+  const approxHeight = thumbRows * (thumbSize + 6) + (addLabel ? 2 : 1) * 44 + 12
+  toolDropTargets.value = {
+    tabId: tab.id,
+    tab,
+    // Overlap the sidebar edge by 2px, like the flow panel.
+    left: rect.right - 2,
+    top: Math.max(8, Math.min(rect.top + rect.height / 2 - approxHeight / 2, window.innerHeight - approxHeight - 8)),
+    slots,
+    columns,
+    addLabel,
+    slotName,
+  }
+  cancelFlowTargetsHide()
+}
+
+async function onToolTargetDrop(zone: 'replace' | 'add' | { slot: number }, e: DragEvent) {
+  const mediaIds = getDroppedMediaIds(e.dataTransfer)
+  const targets = toolDropTargets.value
+  resetFlowDropTargets()
+  // The zone's .stop keeps this drop away from handleTabMediaDrop — do its
+  // hover cleanup here instead.
+  dragHoverTabId.value = null
+  dragAddModifier.value = false
+  if (targets) tabDragCounters.value.delete(targets.tabId)
+  if (!targets || mediaIds.length === 0) return
+  if (zone === 'add') await sendDropToTool(targets.tab, mediaIds, { add: true })
+  else if (zone === 'replace') await sendDropToTool(targets.tab, mediaIds, {})
+  else await sendDropToTool(targets.tab, mediaIds.slice(0, 1), { replaceIndex: zone.slot })
+}
+
+async function sendDropToTool(tab: WorkspaceTab, mediaIds: number[], opts: { add?: boolean; replaceIndex?: number }) {
+  const tool = allToolsMap.value.get(tab.entityId)
+  if (!tool) return
+  emit('media-dropped-on-tool', { fullToolId: tab.entityId, mediaId: mediaIds[0], instanceId: tab.instanceId })
+  try {
+    // Pass all dropped ids (multi-select drag) so they batch instead of only the first.
+    // Target THIS row's instance, not just the tool+project.
+    await sendToTool(mediaIds.length > 1 ? mediaIds : mediaIds[0], tool, undefined, tab.projectId ?? null, tab.instanceId ?? null, opts)
+    if (props.isMobile) emit('close')
+  } catch (error) {
+    console.error('Failed to send media to tool:', error)
+    addToast(error instanceof Error ? error.message : 'Failed to send assets to tool', 'warning')
   }
 }
 
