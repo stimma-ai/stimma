@@ -4,6 +4,8 @@ import { getApiBase } from '../apiConfig'
 import { useDesktopDownload } from './useDesktopDownload'
 import { useTheme } from './useTheme'
 import { addToast } from './useToasts'
+import { THUMB_LONG_SIDE, pickImageTier, tierServesOriginal } from '../utils/imageTiers'
+import { isRemoteBackend } from './useImageDelivery'
 
 // Use dynamic API base - will be '/api' in dev, 'http://127.0.0.1:PORT/api' in Tauri
 function getAPIBase() {
@@ -110,6 +112,33 @@ export function useMediaApi() {
       return `${getAPIBase()}/media/${fileHashOrMediaId}/file?profile=${profileId}`
     }
     return `${getAPIBase()}/media/by-hash/${fileHashOrMediaId}/file?profile=${profileId}`
+  }
+
+  // A named delivery variant ('screen' | 'full') of an image, by hash. The
+  // backend answers with the original bytes when the variant would not help;
+  // getImageTierUrl applies the same rule up front so the browser cache sees
+  // one URL per distinct set of pixels.
+  function getImageVariantUrl(fileHash, tier) {
+    const dbGuid = getCurrentDbGuid()
+    if (dbGuid) return `${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHash}/variant/${tier}`
+    return `${getAPIBase()}/media/by-hash/${fileHash}/variant/${tier}?profile=${getCurrentProfileId()}`
+  }
+
+  /**
+   * The URL for one delivery tier of `item` ('thumb' | 'screen' | 'full' |
+   * 'original'). `item` needs file_hash, file_format, width, height, file_size.
+   */
+  function getImageTierUrl(item, tier) {
+    const fileHash = item?.file_hash
+    if (!fileHash) return ''
+    if (tier === 'thumb') return getThumbnailUrl(fileHash, THUMB_LONG_SIDE, { mode: 'fit' })
+    if (tier === 'original' || tierServesOriginal(item, tier)) return getMediaFileUrl(fileHash)
+    return getImageVariantUrl(fileHash, tier)
+  }
+
+  /** URL of the smallest tier that covers `needed` device px. */
+  function getImageUrlFor(item, needed, options = {}) {
+    return getImageTierUrl(item, pickImageTier(item, needed, { remote: options.remote ?? isRemoteBackend() }))
   }
 
   // SVG documents render through an <img>, which cannot send the X-Profile-ID
@@ -584,6 +613,9 @@ export function useMediaApi() {
     getFilterCounts,
     getThumbnailUrl,
     getMediaFileUrl,
+    getImageVariantUrl,
+    getImageTierUrl,
+    getImageUrlFor,
     getSvgDocumentUrl,
     getMseLoopUrls,
     getProgressStream,
