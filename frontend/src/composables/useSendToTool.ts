@@ -10,6 +10,7 @@ import {
 import { makeToolDbKey } from '../utils/storageKeys'
 import { getMediaType } from '../utils/mediaTypes'
 import { planToolHandoff, ToolHandoffError } from '../utils/toolHandoff'
+import { targetedCount } from '../utils/toolInputSlots'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from './useWorkspaceTabs'
 import { useProvidersApi } from './useProvidersApi'
 
@@ -65,6 +66,10 @@ export function useSendToTool() {
    *                   send means "this is the input now".
    * @param opts.replaceIndex - Replace only this slot of the tool's inputs (the
    *                   first item is used); the other slots keep their order and prep.
+   * @param opts.resultingCount - For a targeted change (replaceIndex or add): how
+   *                   many items the slot holds afterwards. Item limits (e.g. a tool
+   *                   that needs two images) are checked against this, not against
+   *                   the one item being swapped in.
    * @returns Promise that resolves when navigation completes
    */
   async function sendToTool(
@@ -73,7 +78,7 @@ export function useSendToTool() {
     targetTaskType?: string,
     projectId?: number | null,
     instanceId?: string | null,
-    opts?: { add?: boolean; replaceIndex?: number }
+    opts?: { add?: boolean; replaceIndex?: number; resultingCount?: number }
   ) {
     // Capture before fetching inputs; a picker change cannot retarget this handoff.
     projectId = projectId === undefined ? useWorkingContext().activeProjectId.value : projectId
@@ -163,7 +168,7 @@ export function useSendToTool() {
     const plan = planToolHandoff({
       tool,
       items: planningItems,
-      count: mediaItems.length,
+      count: targetedCount(mediaItems.length, { add, replaceIndex, resultingCount: opts?.resultingCount }),
       requestedTaskType: targetTaskType,
     })
     if (!plan.eligible || !plan.taskType) {

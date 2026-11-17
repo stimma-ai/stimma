@@ -88,10 +88,10 @@
 
       <!-- Body: the whole library, paged in as you scroll -->
       <div ref="body" class="h-[396px] overflow-y-auto p-2.5 custom-scrollbar" @scroll="onScroll">
-        <div v-if="loading && visibleTiles.length === 0" class="h-full flex items-center justify-center">
+        <div v-if="loading && tiles.length === 0" class="h-full flex items-center justify-center">
           <Spinner size="md" />
         </div>
-        <div v-else-if="visibleTiles.length === 0" class="h-full flex flex-col items-center justify-center gap-2">
+        <div v-else-if="tiles.length === 0" class="h-full flex flex-col items-center justify-center gap-2">
           <template v-if="narrowed">
             <span class="text-xs text-content-muted">Nothing matches</span>
             <button type="button" class="text-[11.5px] text-accent-hi hover:text-accent cursor-pointer" @click="clearNarrowing">Show everything</button>
@@ -101,7 +101,7 @@
         <template v-else>
           <div class="grid grid-cols-6 gap-1.5">
             <button
-              v-for="tile in visibleTiles"
+              v-for="tile in tiles"
               :key="tile.mediaId"
               type="button"
               @click="onPick(tile)"
@@ -217,8 +217,6 @@ interface Props {
   targetIndex?: number | null
   /** What a pick does, for the footer ("Adds image 3", "Replaces image 1"). */
   intentLabel?: string
-  /** Older callers: mediaIds hidden from the feeds altogether. */
-  excludeIds?: Array<number | null | undefined>
   /** Image pickers normally accept a video frame too; strict image consumers can opt out. */
   allowVideoFrames?: boolean
   /** Parent actually exposes a drop target alongside this popover. */
@@ -229,7 +227,6 @@ const props = withDefaults(defineProps<Props>(), {
   slotIds: () => [],
   targetIndex: null,
   intentLabel: undefined,
-  excludeIds: () => [],
   allowVideoFrames: true,
   showDropHint: true,
 })
@@ -397,8 +394,6 @@ let generation = 0
 
 const hasMore = computed(() => state.feed !== 'used' && !exhausted.value && tiles.value.length > 0)
 
-const excluded = computed(() => new Set(props.excludeIds.filter((id): id is number => typeof id === 'number')))
-const visibleTiles = computed(() => tiles.value.filter(t => !excluded.value.has(t.mediaId)))
 
 function slotOf(mediaId: number): number | null {
   const index = props.slotIds.indexOf(mediaId)
@@ -555,7 +550,7 @@ const kindNoun = computed(() => {
 
 const countText = computed(() => {
   if (total.value == null || (loading.value && tiles.value.length === 0)) return ''
-  const n = Math.max(0, total.value - (state.feed === 'used' ? tiles.value.length - visibleTiles.value.length : 0))
+  const n = total.value
   const noun = n === 1 ? kindNoun.value[0] : kindNoun.value[1]
   return `${n.toLocaleString()} ${noun}${narrowed.value ? ' match' : ''}`
 })

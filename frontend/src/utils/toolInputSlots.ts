@@ -31,7 +31,11 @@ export function toolDropSlot(
   }
   const taskType = tool.task_type
   if (taskType === 'image-to-video' && (props.start_image || props.input_images?.['x-control'] === 'video_frame_picker')) {
-    return { field: 'frames', max: 2 }
+    // Same rule as useToolSchemaFeatures.hasEndFrame: an end frame exists only
+    // when the frame picker takes two items.
+    const frames = props.input_images
+    const frameMax = frames?.['x-control'] === 'video_frame_picker' ? (frames.maxItems ?? frames['x-max-items'] ?? 1) : 1
+    return { field: 'frames', max: frameMax >= 2 ? 2 : 1 }
   }
   const multi = analyzeToolMultiInputCapability(tool)
   if (multi.supportsMultiInput) {
@@ -80,6 +84,36 @@ export function filledSlots(
   const items = state[field]
   if (!Array.isArray(items)) return []
   return items.map(item => thumbOf(item) ?? {})
+}
+
+/** A saved batch: its slot isn't a set of individually replaceable items. */
+export function isSavedBatch(state: Record<string, any> | null): boolean {
+  return !!state?.batchMode
+}
+
+/**
+ * How many items a slot holds after a targeted change, for validating the
+ * handoff against the tool's item limits: a slot swap keeps the count, an
+ * add grows it (up to capacity).
+ */
+export function resultingSlotCount(filled: number, change: { replaceIndex?: number; add?: number }, max = Infinity): number {
+  if (typeof change.replaceIndex === 'number') {
+    return change.replaceIndex < filled ? filled : Math.min(filled + 1, max)
+  }
+  return Math.min(filled + (change.add ?? 0), max)
+}
+
+/**
+ * The item count a send-to-tool is validated against: the incoming count for
+ * a plain send (it becomes the whole input), the slot's resulting count for a
+ * targeted replace or add when the caller knows it.
+ */
+export function targetedCount(
+  incoming: number,
+  opts: { add?: boolean; replaceIndex?: number; resultingCount?: number },
+): number {
+  const targeted = opts.add === true || typeof opts.replaceIndex === 'number'
+  return targeted && typeof opts.resultingCount === 'number' && opts.resultingCount > 0 ? opts.resultingCount : incoming
 }
 
 export interface MergeOptions {

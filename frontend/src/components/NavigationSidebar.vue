@@ -1049,13 +1049,14 @@
           </div>
         </div>
         <div
+          v-if="toolDropTargets.replaceAll"
           data-zone="__replace__"
           class="flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-dashed text-[12.5px] font-medium transition-colors"
           :class="dropTargetHover === '__replace__' ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
           @drop.stop.prevent="onToolTargetDrop('replace', $event)"
         >
           <ArrowsRightLeftIcon class="w-icon-nav h-icon-nav flex-shrink-0 pointer-events-none" />
-          <span class="truncate pointer-events-none">{{ toolDropTargets.slots.length > 1 ? 'Replace all' : 'Replace' }}</span>
+          <span class="truncate pointer-events-none">{{ toolDropTargets.replaceLabel }}</span>
         </div>
         <div
           v-if="toolDropTargets.addLabel"
@@ -1087,7 +1088,7 @@ import { hideAccountRef } from '../appConfig'
 import { setPendingMedia } from '../composables/usePendingMedia'
 import { makeProfileKey, makeToolDbKey, makeToolProfileKey } from '../utils/storageKeys'
 import { syncedStorage } from '../utils/workspaceStore'
-import { filledSlots, toolDropSlot, type SlotThumb, type ToolInputField } from '../utils/toolInputSlots'
+import { filledSlots, isSavedBatch, resultingSlotCount, toolDropSlot, type SlotThumb, type ToolInputField } from '../utils/toolInputSlots'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { createTaskTypeIconComponent, getTaskTypeIconSvg } from '../utils/taskTypeIcons'
 import { planToolHandoff } from '../utils/toolHandoff'
@@ -1852,7 +1853,7 @@ function handleTabDragEnter(tab: WorkspaceTab, e: DragEvent) {
       dragHoverTabId.value = tab.id
     }
     if (tab.type === 'flow') void maybeShowFlowDropTargets(tab, e.currentTarget as HTMLElement)
-    if (tab.type === 'tool' && isToolCompatible(tab.entityId)) showToolDropTargets(tab, e.currentTarget as HTMLElement)
+    if (tab.type === 'tool') showToolDropTargets(tab, e.currentTarget as HTMLElement)
   }
 }
 
@@ -1973,6 +1974,7 @@ async function maybeShowFlowDropTargets(tab: WorkspaceTab, el: HTMLElement) {
   if (!zones.length) return
   const rect = el.getBoundingClientRect()
   const approxHeight = (zones.length + 1) * 44 + 12
+  toolDropTargets.value = null
   flowDropTargets.value = {
     tabId: tab.id,
     flowId,
@@ -2076,8 +2078,14 @@ interface ToolDropTargets {
   tab: WorkspaceTab
   left: number
   top: number
+  /** Thumbnails to swap one at a time (empty when that isn't offered). */
   slots: SlotThumb[]
+  /** Filled slot count, or null when the tab's inputs couldn't be read. */
+  filled: number | null
+  max: number
   columns: number
+  replaceAll: boolean
+  replaceLabel: string
   addLabel: string | null
   slotName: (index: number) => string
 }
@@ -2103,35 +2111,56 @@ function showToolDropTargets(tab: WorkspaceTab, el: HTMLElement) {
   const slot = toolDropSlot(tool, draggedType)
   let slots: SlotThumb[] = []
   let known = false
+  let batch = false
   if (slot) {
     const { state, frames } = readToolTabState(tab, slot.field)
-    const filled = filledSlots(slot.field, state, frames)
+    batch = isSavedBatch(state)
+    const filled = batch ? null : filledSlots(slot.field, state, frames)
     if (filled) {
       slots = filled.slice(0, Number.isFinite(slot.max) ? slot.max : undefined)
       known = true
     }
   }
+  const max = slot?.max ?? Infinity
+  // A targeted change is checked against the slot's count afterwards (a tool
+  // needing two images takes a one-image swap into a full pair). Without drag
+  // info (nothing to plan with), trust the tool to cap it.
+  const fitsWith = (count: number) => !draggedMediaInfo.value
+    || planToolHandoff({ tool, items: draggedMediaItems.value, count }).eligible
+  const replaceAll = isToolCompatible(tab.entityId)
+  const slotSwap = known && slots.length > 1 && fitsWith(slots.length)
+  const dragged = Math.max(1, draggedMediaCount.value || 1)
   const noun = slot?.field === 'inputVideos' ? 'video' : slot?.field === 'inputAudios' ? 'audio' : 'image'
   const slotName = (i: number) => slot?.field === 'frames' ? (i === 0 ? 'start frame' : 'end frame') : `${noun} ${i + 1}`
-  // Add only where the slot takes more than one item and has room. When the
-  // tool's inputs can't be read, offer it on trust (the tool caps it).
-  const max = slot?.max ?? Infinity
+  // Add only where the slot takes more than one item and has room. A saved
+  // batch offers only Replace. When the tool's inputs can't be read, offer Add
+  // on trust (the tool caps it).
   let addLabel: string | null = null
-  if (!known) addLabel = max > 1 ? 'Add' : null
-  else if (max > 1 && slots.length < max) addLabel = `Add as ${slotName(slots.length)}`
-  const columns = Math.min(4, Math.max(2, slots.length))
-  const thumbRows = slots.length > 1 ? Math.ceil(slots.length / columns) : 0
+  if (batch) addLabel = null
+  else if (!known) addLabel = max > 1 && replaceAll ? 'Add' : null
+  else if (max > 1 && slots.length < max && fitsWith(resultingSlotCount(slots.length, { add: dragged }, max))) {
+    addLabel = `Add as ${slotName(slots.length)}`
+  }
+  if (!replaceAll && !slotSwap && !addLabel) return
+  const shownSlots = slotSwap ? slots : []
+  const columns = Math.min(4, Math.max(2, shownSlots.length))
+  const thumbRows = shownSlots.length > 1 ? Math.ceil(shownSlots.length / columns) : 0
   const rect = el.getBoundingClientRect()
   const thumbSize = (224 - 12 - (columns - 1) * 6) / columns
-  const approxHeight = thumbRows * (thumbSize + 6) + (addLabel ? 2 : 1) * 44 + 12
+  const approxHeight = thumbRows * (thumbSize + 6) + ((addLabel ? 1 : 0) + (replaceAll ? 1 : 0)) * 44 + 12
+  flowDropTargets.value = null
   toolDropTargets.value = {
     tabId: tab.id,
     tab,
     // Overlap the sidebar edge by 2px, like the flow panel.
     left: rect.right - 2,
     top: Math.max(8, Math.min(rect.top + rect.height / 2 - approxHeight / 2, window.innerHeight - approxHeight - 8)),
-    slots,
+    slots: shownSlots,
+    filled: known ? slots.length : null,
+    max,
     columns,
+    replaceAll,
+    replaceLabel: slots.length > 1 ? 'Replace all' : 'Replace',
     addLabel,
     slotName,
   }
@@ -2148,12 +2177,19 @@ async function onToolTargetDrop(zone: 'replace' | 'add' | { slot: number }, e: D
   dragAddModifier.value = false
   if (targets) tabDragCounters.value.delete(targets.tabId)
   if (!targets || mediaIds.length === 0) return
-  if (zone === 'add') await sendDropToTool(targets.tab, mediaIds, { add: true })
-  else if (zone === 'replace') await sendDropToTool(targets.tab, mediaIds, {})
-  else await sendDropToTool(targets.tab, mediaIds.slice(0, 1), { replaceIndex: zone.slot })
+  const filled = targets.filled
+  if (zone === 'add') {
+    const resultingCount = filled == null ? undefined : resultingSlotCount(filled, { add: mediaIds.length }, targets.max)
+    await sendDropToTool(targets.tab, mediaIds, { add: true, resultingCount })
+  } else if (zone === 'replace') {
+    await sendDropToTool(targets.tab, mediaIds, {})
+  } else {
+    const resultingCount = filled == null ? undefined : resultingSlotCount(filled, { replaceIndex: zone.slot }, targets.max)
+    await sendDropToTool(targets.tab, mediaIds.slice(0, 1), { replaceIndex: zone.slot, resultingCount })
+  }
 }
 
-async function sendDropToTool(tab: WorkspaceTab, mediaIds: number[], opts: { add?: boolean; replaceIndex?: number }) {
+async function sendDropToTool(tab: WorkspaceTab, mediaIds: number[], opts: { add?: boolean; replaceIndex?: number; resultingCount?: number }) {
   const tool = allToolsMap.value.get(tab.entityId)
   if (!tool) return
   emit('media-dropped-on-tool', { fullToolId: tab.entityId, mediaId: mediaIds[0], instanceId: tab.instanceId })
