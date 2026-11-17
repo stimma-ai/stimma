@@ -38,7 +38,8 @@
     "key": "stated",
     "type": "stated",
     "store": "always",
-    "ask": "for each detail their words or the notes settle, the words that settle it, copied exactly: {\"age\": \"elderly\", \"descent\": \"African\"}. Only what is said; nothing guessed."
+    "ask": "how the prompt or the notes say this person looks, read anywhere in the prompt, not only in their own words: for each person detail below that is stated of them, the words that state it, copied exactly (\"elderly African man\": {\"age\": \"elderly\", \"descent\": \"African\"}; \"⟨1: woman⟩, long wavy red hair, pale skin, slim\": {\"hair\": \"long\", \"hair_texture\": \"wavy\", \"hair_color\": \"red\", \"skin\": \"pale skin\", \"build\": \"slim\"}). Each detail on its own: hair is only how long it is, hair_texture only its texture, hair_color only its color, hairstyle only how it is worn (a braid, a ponytail, bangs, a bun); words that state one of them leave the others unstated, and words that state two of them are split between them (\"braided platinum hair\": {\"hair_color\": \"platinum\", \"hairstyle\": \"braided\"}), never given whole to one. skin is only its tone or color, build only the shape and size of the body, eyes only their color, age only how old they are; words about anything else (body hair, fangs, sweat, a scar, makeup) state no detail. Only what is said of this very person, never of someone else in the prompt; nothing guessed, nothing implied by who they are, their role or the style of the picture. {} when nothing is said, which is common.",
+    "note": "The prompt already says how this person looks: {looks}. Every variant keeps all of that exactly as the prompt says it, never changing or contradicting any of it, and leaves it unsaid; the rest of how they look still varies from variant to variant, including what the prompt leaves open about their hair (its texture or style when only its length is said)."
    },
    {
     "key": "vary",
@@ -683,12 +684,18 @@
    },
    "build": {
     "answered": [
-     "shows"
+     "shows",
+     "stated_build"
     ]
    },
    "face": {
     "answered": [
      "face_part"
+    ]
+   },
+   "hair and how it is worn": {
+    "answered": [
+     "stated_hairstyle"
     ]
    }
   },

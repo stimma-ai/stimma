@@ -135,3 +135,48 @@ def test_what_a_person_wears_and_their_hairstyle_are_narrowed_in_the_scene():
     # only the details the reading varies: no hairstyle unless it says so, no build here
     lists = [b["list"] for b in plan(person(noun="farmer", vary=["age", "descent", "hair"]), "farmer")["banks"]]
     assert "person.hairstyle" not in lists and "person.build" not in lists and "person.hair_length" in lists
+
+
+def _person(**got):
+    base = {"noun": "woman", "presentation": "feminine", "vary": ["age", "descent", "build", "hair", "hair_texture", "hair_color"]}
+    return plan({"kind": "person", "person": {**base, **got}}, "woman")
+
+
+def test_a_stated_look_draws_no_seed_but_age_and_descent_narrow_as_before():
+    p = _person(stated={"hair": "long", "hair_color": "pink", "build": "slim", "age": "young", "descent": "Korean"})
+    ideas = [b["list"] for b in p["banks"] if b["role"] == "idea"]
+    assert "person.hair_texture" in ideas
+    assert not {"person.hair_length", "person.hair_color", "person.build"} & set(ideas)
+    assert ("descent", "person.ethnicity", "Korean") in roles(p) and p["stated_descent"] is True
+    assert next(b for b in p["banks"] if b["role"] == "age")["phrase"] == "young, woman"
+    assert p["answers"]["stated_hair"] == "long" and p["answers"]["stated_build"] == "slim"
+
+
+def test_a_person_whose_every_varied_detail_is_stated_still_draws_no_detail():
+    # vary is never left empty: an empty list would draw every detail
+    p = _person(vary=["hair", "build"], stated={"hair": "long", "build": "slim"})
+    assert not [b for b in p["banks"] if b["role"] == "idea" and not b["list"].startswith("person.outfit")]
+
+
+def test_stated_skin_with_no_stated_descent_narrows_the_heritage_list():
+    p = _person(stated={"skin": "pale skin"})
+    assert ("descent", "person.ethnicity", "pale skin") in roles(p)
+    assert p["stated_descent"] is False   # the heritage is narrowed by the skin, never named by it
+    p = _person(stated={"skin": "pale skin", "descent": "Irish"})
+    assert ("descent", "person.ethnicity", "Irish") in roles(p) and p["stated_descent"] is True
+
+
+def test_a_stated_build_or_hairstyle_drops_its_aspect_and_the_writer_is_told_the_stated_looks():
+    p = _person(stated={"hair": "long", "hair_color": "pink", "build": "slim", "hairstyle": "braided"})
+    s = seeds_of({"kind": "person", "banks": p["banks"], "answers": p["answers"]})
+    assert {"build", "hair and how it is worn"} <= set(s.dropped)
+    line = next(n for n in s.notes if n.startswith("The prompt already says how this person looks"))
+    assert line.startswith('The prompt already says how this person looks: hair length "long"; hair color "pink"; '
+                           'build "slim"; hairstyle "braided". Every variant keeps all of that')
+    assert line.endswith("the rest of how they look still varies from variant to variant, including what the prompt "
+                         "leaves open about their hair (its texture or style when only its length is said).")
+    plain = seeds_of({"kind": "person", "banks": _person()["banks"], "answers": _person()["answers"]})
+    assert not any("already says how this person looks" in n for n in plain.notes)
+    assert "build" not in plain.dropped and "hair and how it is worn" not in plain.dropped
+    one = seeds_of({"kind": "person", "banks": [], "answers": p["answers"], "one": True})
+    assert not any("already says how this person looks" in n for n in one.notes)   # one specific someone: no seeds, no line

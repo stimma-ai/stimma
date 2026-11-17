@@ -34,7 +34,7 @@ from prompt_programs import variants as V
 
 log = get_logger(__name__)
 
-SEEDS_VERSION = "seeds-8"   # seeds-8: a named thing the user chose to vary (reader: kind_of) seeds no member lists: its writer names other members of that kind. seeds-7: a part naming one specific thing seeds no member of its kind (a person: only their age, for the minors rules). seeds-6: a person carries whether their role and place imply their dress (the typical share). seeds-5: a person is pinned child, teenager or adult by the natural reading of the whole prompt (ages.py), and one young flag holds for every slot of the prompt; a child or teenager draws their stage's ages, child words and no build. seeds-4: ages under 18 count only after the model says yes, the prompt's own words make this person a child or a teenager. seeds-3: kinds and their draw rules are vocabulary data; a heritage's place is its table's. seeds-2: groups, heritage, scene-narrowed clothes, hairstyle and light
+SEEDS_VERSION = "seeds-9"   # seeds-9: a person's stated look draws no seed (but age and descent, which narrow their lists as before), and stated skin with no stated descent narrows the heritage list. seeds-8: a named thing the user chose to vary (reader: kind_of) seeds no member lists: its writer names other members of that kind. seeds-7: a part naming one specific thing seeds no member of its kind (a person: only their age, for the minors rules). seeds-6: a person carries whether their role and place imply their dress (the typical share). seeds-5: a person is pinned child, teenager or adult by the natural reading of the whole prompt (ages.py), and one young flag holds for every slot of the prompt; a child or teenager draws their stage's ages, child words and no build. seeds-4: ages under 18 count only after the model says yes, the prompt's own words make this person a child or a teenager. seeds-3: kinds and their draw rules are vocabulary data; a heritage's place is its table's. seeds-2: groups, heritage, scene-narrowed clothes, hairstyle and light
 
 # A draw rule's role as the bank records it (the roles' older names, which stored records and the picker use).
 BANK_ROLE = {"heritage": "descent", "who": "gender", "age": "age", "core": "core", "each": "each", "idea": "idea"}
@@ -122,6 +122,9 @@ def _rule_lists(rule: Any, kind: Any, got: Dict[str, Any], vary: Sequence[str]) 
     return []
 
 
+STATED_DRAWN = ("age", "descent")   # a person's stated details that still narrow their lists; any other stated look draws no seed
+
+
 def kind_plan(kind: Any, reading: Dict[str, Any], words: str) -> Dict[str, Any]:
     """A reading of a declared kind as banks, by the kind's draw rules in order. A part that names
     one specific someone or something (reader: names "one") draws no member of its kind: only its
@@ -130,6 +133,15 @@ def kind_plan(kind: Any, reading: Dict[str, Any], words: str) -> Dict[str, Any]:
     noun = str(got.get("noun") or kind.noun_default or words)
     stated = {str(k): str(v) for k, v in (got.get("stated") or {}).items() if str(v).strip()}
     vary = [str(d) for d in got.get("vary") or []]
+    looks = dict(stated) if kind.id == "person" else {}
+    skin_only = bool(looks.get("skin")) and not looks.get("descent")
+    if looks:
+        # What the prompt states of how a person looks draws no seed (a seed for it could only
+        # contradict it), except age and descent, which narrow their lists by the stated words.
+        # vary is never left empty: an empty list draws every detail (no rule draws "face").
+        vary = [d for d in vary or list(kind.details) if d not in looks or d in STATED_DRAWN] or ["face"]
+        if skin_only:
+            stated["descent"] = looks["skin"]   # the heritages that fit the stated skin, never named by it
     banks: List[Dict[str, Any]] = []
     heritage_key = ""
     one = is_one(reading)
@@ -156,7 +168,9 @@ def kind_plan(kind: Any, reading: Dict[str, Any], words: str) -> Dict[str, Any]:
                 heritage_key = str(rule.phrase.get("stated") or "")
     said = {q.key: str(got.get(q.key) or "").strip() for q in kind.questions if q.type == "context"}
     answers = {q.key: got[q.key] for q in kind.questions if q.key in got and q.type in ("choice", "words", "part", "list")}
-    return {"kind": kind.id, "banks": banks, "stated_descent": bool(heritage_key and stated.get(heritage_key)),
+    answers.update({f"stated_{d}": w for d, w in looks.items()})   # the aspects' conditions and the writer's note
+    return {"kind": kind.id, "banks": banks,
+            "stated_descent": bool(heritage_key and stated.get(heritage_key)) and not skin_only,
             "answers": answers, **({"one": True} if one else {}), **({"kind_of": True} if others else {}),
             **({"said": {k: v for k, v in said.items() if v}} if any(said.values()) else {}),
             **({"people": answers["people"]} if str(answers.get("people") or "") not in ("", "one") else {})}
