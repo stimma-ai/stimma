@@ -42,6 +42,18 @@ DELETE_BATCH_SIZE = 500
 ASSET_IDENTITY_BATCH_SIZE = 25
 ASSET_REFERENCE_BATCH_SIZE = 1000
 ASSET_FINALIZE_BATCH_SIZE = 100
+# Older SQLite builds cap bound parameters at 999 per statement (32766 since
+# 3.32). Queue-sized ``IN (...)`` lists, such as every Asset in a large Trash,
+# are split into slices that fit either limit.
+SQL_IN_CHUNK_SIZE = 900
+
+
+def sql_in_chunks(values: list) -> list[list]:
+    """Split ``values`` into slices small enough for one SQLite ``IN`` list."""
+    return [
+        values[start:start + SQL_IN_CHUNK_SIZE]
+        for start in range(0, len(values), SQL_IN_CHUNK_SIZE)
+    ]
 LEASE_SECONDS = 60
 WORKER_BUSY_YIELD_SECONDS = 0.01
 WORKER_RECOVERY_SECONDS = 300.0
@@ -435,16 +447,18 @@ async def enqueue_asset_delete_operations(
     if not ordered_ids:
         return []
     await prepare_asset_delete_queue(session, profile_id)
-    existing_operations = list(
-        await session.scalars(
-            select(DeleteOperation).where(
-                DeleteOperation.profile_id == profile_id,
-                DeleteOperation.kind == "asset",
-                DeleteOperation.asset_id.in_(ordered_ids),
-                DeleteOperation.status.in_(ASSET_QUEUE_ACTIVE_STATUSES),
+    existing_operations: list[DeleteOperation] = []
+    for chunk in sql_in_chunks(ordered_ids):
+        existing_operations.extend(
+            await session.scalars(
+                select(DeleteOperation).where(
+                    DeleteOperation.profile_id == profile_id,
+                    DeleteOperation.kind == "asset",
+                    DeleteOperation.asset_id.in_(chunk),
+                    DeleteOperation.status.in_(ASSET_QUEUE_ACTIVE_STATUSES),
+                )
             )
         )
-    )
     operation_by_asset = {
         operation.asset_id: operation for operation in existing_operations
     }
@@ -467,14 +481,15 @@ async def enqueue_asset_delete_operations(
         if asset_id not in operation_by_asset
     ]
     session.add_all(operations)
-    await session.execute(
-        update(Asset)
-        .where(
-            Asset.id.in_(ordered_ids),
-            Asset.state == "trashed",
+    for chunk in sql_in_chunks(ordered_ids):
+        await session.execute(
+            update(Asset)
+            .where(
+                Asset.id.in_(chunk),
+                Asset.state == "trashed",
+            )
+            .values(state="deleting", updated_at=now)
         )
-        .values(state="deleting", updated_at=now)
-    )
     await session.commit()
     operation_by_asset.update(
         {operation.asset_id: operation for operation in operations}
@@ -1222,16 +1237,18 @@ async def _checkpoint_asset_queue_if_drained(db, profile_id: str) -> bool:
         return False
 
     async with db.async_session_maker() as session:
-        operations = list(
-            await session.scalars(
-                select(DeleteOperation)
-                .where(
-                    DeleteOperation.id.in_(checkpoint_ids),
-                    DeleteOperation.status == "checkpointing",
+        operations: list[DeleteOperation] = []
+        for chunk in sql_in_chunks(checkpoint_ids):
+            operations.extend(
+                await session.scalars(
+                    select(DeleteOperation)
+                    .where(
+                        DeleteOperation.id.in_(chunk),
+                        DeleteOperation.status == "checkpointing",
+                    )
+                    .order_by(DeleteOperation.id.asc())
                 )
-                .order_by(DeleteOperation.id.asc())
             )
-        )
         if not operations:
             return False
         completed_at = _utcnow()

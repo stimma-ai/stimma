@@ -1610,15 +1610,18 @@ async def permanently_delete_assets(
         broadcast_asset_delete_queue_enqueued,
         enqueue_asset_delete_operations,
         ensure_delete_worker_started,
+        sql_in_chunks,
     )
 
     asset_ids = list(dict.fromkeys(request.asset_ids))
-    assets = {
-        asset.id: asset
-        for asset in await session.scalars(
-            select(Asset).where(Asset.id.in_(asset_ids))
+    assets: dict[int, Asset] = {}
+    for chunk in sql_in_chunks(asset_ids):
+        assets.update(
+            (asset.id, asset)
+            for asset in await session.scalars(
+                select(Asset).where(Asset.id.in_(chunk))
+            )
         )
-    }
     invalid_ids = [
         asset_id
         for asset_id in asset_ids
@@ -1632,9 +1635,13 @@ async def permanently_delete_assets(
         )
 
     profile_id = get_current_profile()
-    revisions = list(await session.scalars(
-        select(AssetRevision).where(AssetRevision.asset_id.in_(asset_ids))
-    ))
+    revisions: list[AssetRevision] = []
+    for chunk in sql_in_chunks(asset_ids):
+        revisions.extend(
+            await session.scalars(
+                select(AssetRevision).where(AssetRevision.asset_id.in_(chunk))
+            )
+        )
     all_media_ids = [revision.primary_media_id for revision in revisions]
     queued = await enqueue_asset_delete_operations(
         session,
@@ -1661,6 +1668,7 @@ async def empty_asset_trash(session: AsyncSession = Depends(get_db_session)):
         broadcast_asset_delete_queue_enqueued,
         enqueue_asset_delete_operations,
         ensure_delete_worker_started,
+        sql_in_chunks,
     )
 
     asset_ids = list(
@@ -1670,11 +1678,13 @@ async def empty_asset_trash(session: AsyncSession = Depends(get_db_session)):
             )
         )
     )
-    revisions = list(
-        await session.scalars(
-            select(AssetRevision).where(AssetRevision.asset_id.in_(asset_ids))
+    revisions: list[AssetRevision] = []
+    for chunk in sql_in_chunks(asset_ids):
+        revisions.extend(
+            await session.scalars(
+                select(AssetRevision).where(AssetRevision.asset_id.in_(chunk))
+            )
         )
-    ) if asset_ids else []
     revision_media_ids = [revision.primary_media_id for revision in revisions]
     profile_id = get_current_profile()
     queued = await enqueue_asset_delete_operations(

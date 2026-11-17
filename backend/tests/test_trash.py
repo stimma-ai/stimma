@@ -1790,3 +1790,150 @@ async def filtered_trash_media(db_session, client: AsyncClient):
         await client.delete(f"/api/media/{item.id}")
 
     yield items
+
+
+async def test_empty_trash_queues_more_assets_than_sqlite_bind_limit(
+    client: AsyncClient, db_session
+):
+    """Empty Trash must queue a Trash larger than SQLite's bound-parameter cap.
+
+    SQLite allows at most 32766 parameters per statement, so any single
+    ``IN (...)`` over every trashed Asset fails once Trash grows past that.
+    """
+    from sqlalchemy import insert
+
+    count = 40_000
+    now = datetime.utcnow()
+    async with db_session() as session:
+        await session.execute(
+            insert(Asset),
+            [
+                {
+                    "asset_type": "image",
+                    "state": "trashed",
+                    "created_at": now,
+                    "updated_at": now,
+                    "deleted_at": now,
+                }
+                for _ in range(count)
+            ],
+        )
+        await session.commit()
+        trashed = await session.scalar(
+            select(text("count(*)")).select_from(Asset).where(Asset.state == "trashed")
+        )
+        queued_before = await session.scalar(
+            select(text("count(*)"))
+            .select_from(DeleteOperation)
+            .where(DeleteOperation.kind == "asset", DeleteOperation.status == "queued")
+        )
+    assert trashed >= count
+
+    with patch("delete_operations.ensure_delete_worker_started"):
+        response = await client.delete("/api/trash")
+    assert response.status_code == 202, response.text
+    data = response.json()
+    assert data["accepted"] == trashed
+
+    async with db_session() as session:
+        remaining = await session.scalar(
+            select(text("count(*)")).select_from(Asset).where(Asset.state == "trashed")
+        )
+        queued = await session.scalar(
+            select(text("count(*)"))
+            .select_from(DeleteOperation)
+            .where(DeleteOperation.kind == "asset", DeleteOperation.status == "queued")
+        )
+    assert remaining == 0
+    assert queued - queued_before == trashed
+
+
+async def test_asset_queue_checkpoint_completes_more_operations_than_bind_limit(
+    test_app, db_session
+):
+    """The drained-queue checkpoint must finish a 40k-Asset Empty Trash run."""
+    from sqlalchemy import insert
+    from database_registry import get_database_registry
+    import delete_operations
+
+    count = 40_000
+    now = datetime.utcnow()
+    async with db_session() as session:
+        # Start from a drained queue; earlier tests share this database.
+        await session.execute(delete(DeleteOperation))
+        await session.execute(
+            insert(DeleteOperation),
+            [
+                {
+                    "kind": "asset",
+                    "profile_id": "default",
+                    "status": "checkpointing",
+                    "current_phase": "checkpointing",
+                    "total_items": 0,
+                    "claimed_items": 0,
+                    "processed_items": 0,
+                    "deleted_items": 0,
+                    "failed_items": 0,
+                    "updated_at": now,
+                }
+                for _ in range(count)
+            ],
+        )
+        await session.commit()
+
+    db = get_database_registry().get_database("default")
+
+    async def checkpoint_ok(_db):
+        return True
+
+    with patch.object(delete_operations, "_truncate_privacy_wal", checkpoint_ok):
+        assert await delete_operations._checkpoint_asset_queue_if_drained(
+            db, "default"
+        )
+
+    async with db_session() as session:
+        completed = await session.scalar(
+            select(text("count(*)"))
+            .select_from(DeleteOperation)
+            .where(DeleteOperation.status == "completed")
+        )
+    assert completed == count
+
+
+async def test_permanent_delete_of_selection_larger_than_bind_limit(
+    client: AsyncClient, db_session
+):
+    """Selecting all of a large Trash and deleting it permanently must queue."""
+    from sqlalchemy import insert
+
+    count = 40_000
+    now = datetime.utcnow()
+    async with db_session() as session:
+        first_id = (await session.scalar(select(text("max(id)")).select_from(Asset)) or 0) + 1
+        await session.execute(
+            insert(Asset),
+            [
+                {
+                    "asset_type": "image",
+                    "state": "trashed",
+                    "created_at": now,
+                    "updated_at": now,
+                    "deleted_at": now,
+                }
+                for _ in range(count)
+            ],
+        )
+        await session.commit()
+        asset_ids = list(
+            await session.scalars(
+                select(Asset.id).where(Asset.id >= first_id, Asset.state == "trashed")
+            )
+        )
+    assert len(asset_ids) == count
+
+    with patch("delete_operations.ensure_delete_worker_started"):
+        response = await client.post(
+            "/api/assets/batch/permanent", json={"asset_ids": asset_ids}
+        )
+    assert response.status_code == 202, response.text
+    assert response.json()["accepted"] == count
