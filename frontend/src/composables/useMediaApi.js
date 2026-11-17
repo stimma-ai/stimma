@@ -4,7 +4,7 @@ import { getApiBase } from '../apiConfig'
 import { useDesktopDownload } from './useDesktopDownload'
 import { useTheme } from './useTheme'
 import { addToast } from './useToasts'
-import { THUMB_LONG_SIDE, pickImageTier, tierServesOriginal } from '../utils/imageTiers'
+import { IMAGE_VARIANT_URL_VERSION, THUMB_LONG_SIDE, pickImageTier, tierServesOriginal } from '../utils/imageTiers'
 import { isRemoteBackend } from './useImageDelivery'
 
 // Use dynamic API base - will be '/api' in dev, 'http://127.0.0.1:PORT/api' in Tauri
@@ -120,8 +120,9 @@ export function useMediaApi() {
   // one URL per distinct set of pixels.
   function getImageVariantUrl(fileHash, tier) {
     const dbGuid = getCurrentDbGuid()
-    if (dbGuid) return `${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHash}/variant/${tier}`
-    return `${getAPIBase()}/media/by-hash/${fileHash}/variant/${tier}?profile=${getCurrentProfileId()}`
+    const version = `v=${IMAGE_VARIANT_URL_VERSION}`
+    if (dbGuid) return `${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHash}/variant/${tier}?${version}`
+    return `${getAPIBase()}/media/by-hash/${fileHash}/variant/${tier}?profile=${getCurrentProfileId()}&${version}`
   }
 
   /**

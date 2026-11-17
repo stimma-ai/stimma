@@ -16,6 +16,10 @@
  * the original URL directly so the same pixels are never fetched twice.
  */
 
+// Bump with VARIANT_VERSION in backend/utils/image_variants.py so browsers
+// drop variants cached under the old encoding.
+export const IMAGE_VARIANT_URL_VERSION = 1
+
 export const THUMB_LONG_SIDE = 1024
 export const SCREEN_LONG_SIDE = 2560
 export const SCREEN_SKIP_LONG_SIDE = SCREEN_LONG_SIDE * 1.25 // 3200

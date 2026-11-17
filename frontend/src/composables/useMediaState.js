@@ -149,7 +149,8 @@ export function useMediaState() {
     if (!mediaIds || mediaIds.length === 0) return
 
     // Filter out media IDs we already have state for
-    const missingIds = mediaIds.filter(id => !(id in mediaState.value))
+    // An entry without file_hash came from a partial update: still missing.
+    const missingIds = mediaIds.filter(id => !mediaState.value[id]?.file_hash)
     if (missingIds.length === 0) return
 
     // Fetch each media item (could optimize with batch endpoint later)
@@ -159,6 +160,7 @@ export function useMediaState() {
         try {
           const media = await getMediaItem(mediaId, { includeTrashed: true })
           updates[mediaId] = {
+            ...mediaState.value[mediaId],
             auto_delete_at: media.expires_at ?? media.auto_delete_at,
             deleted_at: media.deleted_at,
             file_format: media.file_format,

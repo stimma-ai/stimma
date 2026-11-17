@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 import {
+  IMAGE_VARIANT_URL_VERSION,
   SCREEN_LONG_SIDE,
   neededDevicePx,
   pickImageTier,
@@ -67,4 +69,12 @@ test('thumb placeholder only when it is meaningfully smaller than the original',
   assert.equal(placeholderTier(bigPng), 'thumb')
   assert.equal(placeholderTier({ file_format: 'png', width: 1024, height: 1024 }), null)
   assert.equal(placeholderTier({ file_format: 'png' }), 'thumb')
+})
+
+test('the variant URL version and skip thresholds match the backend', () => {
+  const backend = readFileSync(new URL('../../../backend/utils/image_variants.py', import.meta.url), 'utf8')
+  assert.equal(Number(backend.match(/^VARIANT_VERSION = (\d+)/m)[1]), IMAGE_VARIANT_URL_VERSION)
+  assert.equal(Number(backend.match(/^SCREEN_LONG_SIDE = (\d+)/m)[1]), SCREEN_LONG_SIDE)
+  assert.match(backend, /^SCREEN_SKIP_BYTES = 512 \* 1024$/m)
+  assert.match(backend, /^FULL_SKIP_BYTES = 3 \* 1024 \* 1024$/m)
 })

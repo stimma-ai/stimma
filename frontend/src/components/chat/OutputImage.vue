@@ -422,8 +422,9 @@ watch(
 const ATOMIC_IMAGE_TYPES = new Set(['image'])
 const effectiveThumbnail = computed(() => {
   if (props.useThumbnail || props.fitThumbnail) return true
-  // Only use full-res file when we've confirmed it's a regular image
-  if (outputMediaType.value && ATOMIC_IMAGE_TYPES.has(outputMediaType.value)) return false
+  // Leave the thumbnail only for a confirmed image whose hash is known, so the
+  // screen tier is fetched by hash instead of an original by ID first.
+  if (outputMediaType.value && ATOMIC_IMAGE_TYPES.has(outputMediaType.value) && currentMediaState.value?.file_hash) return false
   return true
 })
 

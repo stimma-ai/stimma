@@ -209,6 +209,7 @@ import SegmentedControl from './ui/SegmentedControl.vue'
 import Tooltip from './ui/Tooltip.vue'
 import Spinner from './ui/Spinner.vue'
 import { loadDecodedImage } from '../composables/useImageDelivery'
+import { tierServesOriginal } from '../utils/imageTiers'
 
 const props = defineProps({
   leftItem: {
@@ -281,7 +282,9 @@ const transformStyle = computed(() => ({
 // Both sides always show the same tier, so a difference on screen is in the
 // images, never in how they were delivered. They open at `screen`; both
 // originals then load in the background and swap in together, in one frame,
-// once both have decoded.
+// once both have decoded. When either side's `screen` would already be its
+// original, the pair opens on thumbnails instead and goes straight to
+// originals together.
 const compareTier = ref('screen')
 let originalLoads = []
 let compareEpoch = 0
@@ -296,13 +299,14 @@ watch(
   async ([leftHash, rightHash]) => {
     const epoch = ++compareEpoch
     cancelOriginalLoads()
-    compareTier.value = 'screen'
+    const pair = [props.leftItem, props.rightItem]
+    compareTier.value = pair.some(item => item && tierServesOriginal(item, 'screen')) ? 'thumb' : 'screen'
     if (!leftHash || !rightHash) return
-    const loads = [props.leftItem, props.rightItem].map(item => loadDecodedImage(getImageTierUrl(item, 'original'), { priority: 'low' }))
+    const loads = pair.map(item => loadDecodedImage(getImageTierUrl(item, 'original'), { priority: 'low' }))
     originalLoads = loads
     const results = await Promise.all(loads.map(load => load.promise))
     if (epoch !== compareEpoch) return
-    // A failed original leaves both sides on `screen`.
+    // A failed original leaves both sides where they are.
     if (results.every(Boolean)) compareTier.value = 'original'
   },
   { immediate: true },

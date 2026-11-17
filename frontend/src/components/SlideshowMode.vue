@@ -1431,7 +1431,7 @@ import SlideshowApprovalBar from './flow/SlideshowApprovalBar.vue'
 import { MediaContextMenu, MediaImage } from './media'
 import Spinner from './ui/Spinner.vue'
 import { useProgressiveImage, isRemoteBackend } from '../composables/useImageDelivery'
-import { neededDevicePx, pickImageTier } from '../utils/imageTiers'
+import { neededDevicePx, pickImageTier, tierServesOriginal } from '../utils/imageTiers'
 import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType, isVector as isVectorType, isSprite as isSpriteType, isPackage as isPackageType } from '../utils/mediaTypes'
 import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer, SpritePlayer, PackageViewer } from './viewers'
@@ -1917,6 +1917,10 @@ const mediaLoaded = ref(false) // Track whether current media has finished loadi
 // 26 MB against 64 MB for a 16 MP original, so ±3 neighbors fit.
 const MEDIA_PRELOAD_LIMIT = 6
 const DECODED_IMAGE_CACHE_LIMIT = 8
+// Neighbors too small for a `screen` variant preload their originals, on the
+// earlier budget: the nearest two, at most three decoded.
+const ORIGINAL_PRELOAD_LIMIT = 2
+const ORIGINAL_DECODED_CACHE_LIMIT = 3
 // Video warming keeps its earlier, smaller budget: the nearest two neighbors.
 const VIDEO_PRELOAD_LIMIT = 2
 const WARMED_VIDEO_CACHE_LIMIT = 3
@@ -1925,35 +1929,60 @@ const warmedVideoCache = new Map() // file hash -> preload promise
 let mediaPreloadEpoch = 0
 let preloadDirection = 1
 
+function evictDecodedImage(url) {
+  const entry = decodedImageCache.get(url)
+  decodedImageCache.delete(url)
+  // Abort a speculative load still in flight and let the bitmap go.
+  entry?.cancel()
+}
+
 function retainDecodedImage(url, entry) {
   decodedImageCache.delete(url)
   decodedImageCache.set(url, entry)
   while (decodedImageCache.size > DECODED_IMAGE_CACHE_LIMIT) {
-    const oldestUrl = decodedImageCache.keys().next().value
-    decodedImageCache.delete(oldestUrl)
+    evictDecodedImage(decodedImageCache.keys().next().value)
   }
+  // Originals (images too small for a `screen` variant) keep the old budget.
+  const heavy = [...decodedImageCache].filter(([, cached]) => cached.heavy)
+  for (let i = 0; i < heavy.length - ORIGINAL_DECODED_CACHE_LIMIT; i++) evictDecodedImage(heavy[i][0])
 }
 
-function preloadAndDecodeImage(url) {
+// `heavy`: the URL is an original rather than a `screen` variant.
+function preloadAndDecodeImage(url, { heavy = false } = {}) {
   const cached = decodedImageCache.get(url)
   if (cached) {
     retainDecodedImage(url, cached)
     return cached.promise
   }
 
-  const image = new Image()
+  let image = new Image()
   image.fetchPriority = 'low'
-  const entry = { image, promise: null, ready: false }
+  const entry = { image, promise: null, ready: false, heavy, cancel: null }
   entry.promise = new Promise((resolve) => {
+    let settled = false
     const finish = async (loaded) => {
+      if (settled) return
       image.onload = null
       image.onerror = null
       if (loaded && typeof image.decode === 'function') {
         try { await image.decode() } catch { /* load succeeded; decode may already be complete */ }
       }
-      if (!loaded) decodedImageCache.delete(url)
+      if (settled) return
+      settled = true
+      if (!loaded && decodedImageCache.get(url) === entry) decodedImageCache.delete(url)
       entry.ready = loaded
       resolve(loaded)
+    }
+    entry.cancel = () => {
+      image.onload = null
+      image.onerror = null
+      if (!settled) {
+        image.src = ''
+        settled = true
+        resolve(false)
+      }
+      entry.image = null
+      image = null
     }
     image.onload = () => void finish(true)
     image.onerror = () => void finish(false)
@@ -1980,7 +2009,7 @@ const {
   requestTier: requestHeroTier,
   prefetchTier: prefetchHeroTier,
 } = useProgressiveImage(heroImageItem, {
-  loadScreen: (url) => preloadAndDecodeImage(url),
+  loadScreen: (url) => preloadAndDecodeImage(url, { heavy: !url.includes('/variant/') }),
   isWarm: isDecodedImageReady,
 })
 const heroImageSrc = computed(() => heroProgressiveSrc.value || (displayItem.value?.file_hash ? getMediaFileUrl(displayItem.value.file_hash) : ''))
@@ -3338,7 +3367,9 @@ async function preloadNearbyMedia(displayIndex) {
       if (shouldPreloadVideoBytes(item.file_size)) await preloadSmallVideo(item.file_hash)
       return
     }
-    await preloadAndDecodeImage(getImageTierUrl(item, 'screen'))
+    const heavy = tierServesOriginal(item, 'screen')
+    if (heavy && order >= ORIGINAL_PRELOAD_LIMIT) return
+    await preloadAndDecodeImage(getImageTierUrl(item, 'screen'), { heavy })
   }))
 }
 
@@ -5828,7 +5859,7 @@ async function performFollowStep() {
     const preloads = [fetchAndCacheMetadata(target).catch(() => null)]
     if (target.file_hash && !isVideoType(target)) {
       // Decoded into the slideshow cache, so the hero shows `screen` at once.
-      preloads.push(Promise.race([preloadAndDecodeImage(getImageTierUrl(target, 'screen')), new Promise(resolve => setTimeout(resolve, 5000))]))
+      preloads.push(Promise.race([preloadAndDecodeImage(getImageTierUrl(target, 'screen'), { heavy: tierServesOriginal(target, 'screen') }), new Promise(resolve => setTimeout(resolve, 5000))]))
     }
     await Promise.all(preloads)
 
@@ -6144,6 +6175,7 @@ onUnmounted(() => {
   void updateNativeKeepAwake(false)
   if (singleTapTimer) { clearTimeout(singleTapTimer); singleTapTimer = null }
   mediaPreloadEpoch++
+  for (const entry of decodedImageCache.values()) entry.cancel?.()
   decodedImageCache.clear()
   warmedVideoCache.clear()
   destroyMsePlayback()
