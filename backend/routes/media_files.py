@@ -381,7 +381,20 @@ async def _generate_thumbnail_in_pool(
     mode: str,
     normalized_content,
 ) -> bool:
-    """Run _generate_thumbnail_sync in a worker pool with dedup + shedding.
+    """Run _generate_thumbnail_sync in a worker pool with dedup + shedding."""
+    pool = _heavy_thumbnail_pool if file_format.lower() in _HEAVY_THUMBNAIL_FORMATS else _light_thumbnail_pool
+    return await _run_pooled_job(
+        request,
+        cache_key,
+        pool,
+        _generate_thumbnail_sync,
+        (file_path, file_format, cache_path, size, faces_data, palette, mode, normalized_content),
+        file_path,
+    )
+
+
+async def _run_pooled_job(request: Request, cache_key: str, pool: "ThumbnailWorkerPool", fn, args, file_path: str):
+    """Run ``fn(*args)`` on ``pool``, sharing one job per cache_key.
 
     Coalesces concurrent requests for the same cache_key onto one job, and
     marks the job abandoned (skipped by workers) once every waiting client has
@@ -397,11 +410,7 @@ async def _generate_thumbnail_in_pool(
         # Client already gone before any work was queued — don't enqueue at all.
         if await request.is_disconnected():
             raise ThumbnailRequestAbandoned()
-        job = _ThumbnailJob(
-            loop,
-            _generate_thumbnail_sync,
-            (file_path, file_format, cache_path, size, faces_data, palette, mode, normalized_content),
-        )
+        job = _ThumbnailJob(loop, fn, args)
         _inflight_thumbnails[cache_key] = job
 
         def _clear_inflight(_f, key=cache_key, created=job):
@@ -411,7 +420,6 @@ async def _generate_thumbnail_in_pool(
                 _inflight_thumbnails.pop(key, None)
 
         job.future.add_done_callback(_clear_inflight)
-        pool = _heavy_thumbnail_pool if file_format.lower() in _HEAVY_THUMBNAIL_FORMATS else _light_thumbnail_pool
         pool.submit(job)
 
     job.waiters += 1
@@ -3273,6 +3281,148 @@ async def get_media_file_by_db_guid(
     }
     _ensure_readable(file_path)
     return FileResponse(file_path, media_type=media_type, headers=headers)
+
+
+_IMAGE_MEDIA_TYPES = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'bmp': 'image/bmp',
+}
+
+
+async def _serve_image_variant(
+    request: Request,
+    session: AsyncSession,
+    db_guid: str | None,
+    file_hash: str,
+    tier: str,
+    headers: dict,
+):
+    """Serve a named image variant, or the original when the variant would not help.
+
+    Answers with bytes, never a redirect: the mobile proxy refuses redirects.
+    """
+    from utils import image_variants as variants
+
+    if tier not in variants.VARIANT_TIERS:
+        raise HTTPException(status_code=404, detail="Unknown image variant")
+
+    result = await session.execute(
+        select(MediaItem)
+        .where(MediaItem.file_hash == file_hash, MediaItem.ephemeral_run_id.is_(None))
+        .order_by(
+            MediaItem.deleted_at.asc().nulls_first(),
+            MediaItem.file_unavailable.asc().nulls_first()
+        )
+        .limit(1)
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    fmt = (item.file_format or '').lower()
+    if not variants.is_image_format(fmt):
+        raise HTTPException(status_code=404, detail="Image variants exist only for images")
+
+    media_id = item.id
+    file_path = item.file_path
+    source = Path(file_path)
+    if not source.is_file():
+        raise HTTPException(status_code=404, detail="Asset file not found on disk")
+    if await _media_has_active_delete_operation(session, media_id):
+        raise HTTPException(status_code=404, detail="Asset is being permanently deleted")
+
+    def original():
+        _ensure_readable(source)
+        return FileResponse(
+            source,
+            media_type=_IMAGE_MEDIA_TYPES.get(fmt, 'application/octet-stream'),
+            headers={**headers, 'Content-Disposition': content_disposition('inline', source.name)},
+        )
+
+    if variants.variant_serves_original(tier, fmt, item.width, item.height, item.file_size):
+        return original()
+
+    cache_dir = get_settings().get_thumbnail_cache_dir()
+    cache_key = variants.variant_cache_key(db_guid, file_hash, tier)
+
+    def respond(path: Path):
+        ext = path.suffix.lstrip('.')
+        return FileResponse(path, media_type=variants.MEDIA_TYPES[ext], headers=headers)
+
+    cached = variants.existing_variant(cache_dir, cache_key, tier)
+    if cached is not None:
+        await _record_thumbnail_cache(session, media_id, cached)
+        return respond(cached)
+
+    # Index every candidate path before generating, so a permanent delete
+    # racing this request still purges whatever gets written.
+    for path in variants.variant_cache_paths(cache_dir, cache_key, tier):
+        await _record_thumbnail_cache(session, media_id, path)
+    await session.rollback()
+
+    try:
+        eager = variants.eager_jobs.get(cache_key)
+        if eager is not None:
+            # Eager generation for this image is already running: join it.
+            path = await asyncio.wrap_future(eager)
+        else:
+            path = await _run_pooled_job(
+                request,
+                f"variant:{cache_key}",
+                _heavy_thumbnail_pool,
+                variants.generate_variant_sync,
+                (file_path, tier, cache_dir, cache_key),
+                file_path,
+            )
+    except ThumbnailRequestAbandoned:
+        raise HTTPException(status_code=503, detail="Variant request abandoned", headers={"Retry-After": "1"})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # A source Pillow cannot re-encode is still a valid original.
+        log.warning(f"Image variant {tier} failed for media {media_id}; serving original: {type(exc).__name__}")
+        path = None
+
+    if path is None:
+        return original()
+    await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, fmt, path)
+    return respond(path)
+
+
+@router.get("/db/{db_guid}/media/by-hash/{file_hash}/variant/{tier}")
+async def get_image_variant_by_db_guid(
+    request: Request,
+    db_guid: str,
+    file_hash: str,
+    tier: str,
+    session: AsyncSession = Depends(get_db_session_by_guid),
+):
+    """Serve a delivery variant (`screen` or `full`) of an image by hash.
+
+    Content-addressed, so cached immutably like the by-hash original.
+    """
+    return await _serve_image_variant(request, session, db_guid, file_hash, tier, CACHE_HEADERS)
+
+
+@router.get("/media/by-hash/{file_hash}/variant/{tier}")
+async def get_image_variant(
+    request: Request,
+    file_hash: str,
+    tier: str,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Profile-scoped twin of the db_guid variant route (used before db_guid loads)."""
+    try:
+        db_guid = get_database_registry().get_db_guid(get_current_profile())
+    except Exception:
+        db_guid = None
+    return await _serve_image_variant(
+        request, session, db_guid, file_hash, tier,
+        {'X-Content-Type-Options': 'nosniff', 'Access-Control-Allow-Origin': '*'},
+    )
 
 
 @router.get("/db/{db_guid}/media/{media_id}/file")
