@@ -219,11 +219,13 @@
                     v-if="item.__placeholder"
                     class="pointer-events-none absolute inset-0 rounded-media ring-2 ring-inset ring-selection/70"
                   />
-                  <!-- Marker badges -->
+                  <!-- State glyphs sit on the picture's bottom-right corner, as in the
+                       browser, not on the matte around a contained picture. -->
                   <TileMarkers
                     v-if="!item.__placeholder && item.markers && item.markers.length > 0"
                     :markers="item.markers"
-                    class="absolute bottom-2 right-2 z-chrome"
+                    class="absolute z-chrome"
+                    :style="markerInset(item, item._layoutWidth, row.height)"
                   />
                   <!-- Selection checkbox - visible on hover or when selected -->
                   <div
@@ -559,6 +561,15 @@ function aspectRatio(item) {
   const width = Math.max(item.width || 1, 1)
   const height = Math.max(item.height || 1, 1)
   return width / height
+}
+
+// Offsets that put tile glyphs 8px inside the contained picture's own corner.
+function markerInset(item, width, height) {
+  const scale = Math.min(width / Math.max(item.width || 1, 1), height / Math.max(item.height || 1, 1))
+  const known = item.width && item.height
+  const x = known ? (width - item.width * scale) / 2 : 0
+  const y = known ? (height - item.height * scale) / 2 : 0
+  return { right: `${x + 8}px`, bottom: `${y + 8}px` }
 }
 
 // One contact sheet: the column count comes from the real content width, the

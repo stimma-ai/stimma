@@ -6,10 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import (
     Asset,
+    AssetMarker,
     AssetRevision,
     Collection,
     CollectionAssetItem,
     CollectionSection,
+    Marker,
     MediaItem,
 )
 from models.api_models import CollectionResponse, CollectionSectionResponse
@@ -50,6 +52,9 @@ async def serialize_collection(collection: Collection, session: AsyncSession) ->
         implicit_markers = await implicit_markers_by_media(
             session, [media.id for _, _, media, _ in asset_rows]
         )
+        user_markers = await _user_markers_by_asset(
+            session, [asset.id for asset, _, _, _ in asset_rows]
+        )
         projected_items = []
         for asset, revision, media, _ in asset_rows:
             item = media.to_dict()
@@ -58,7 +63,8 @@ async def serialize_collection(collection: Collection, session: AsyncSession) ->
                 "asset_id": asset.id,
                 "media_id": media.id,
                 "revision_id": revision.id,
-                "markers": implicit_markers[media.id],
+                # Same order as the other browser screens: user markers, then implicit.
+                "markers": [*user_markers.get(asset.id, []), *implicit_markers[media.id]],
             })
             projected_items.append(item)
         items = projected_items
@@ -76,6 +82,27 @@ async def serialize_collection(collection: Collection, session: AsyncSession) ->
         sections=payload_sections,
         asset_count=total_asset_count,
     )
+
+
+async def _user_markers_by_asset(session: AsyncSession, asset_ids: List[int]) -> dict[int, list[dict]]:
+    """Live user markers per Asset, shaped like the All Assets browser's."""
+    markers: dict[int, list[dict]] = {}
+    if not asset_ids:
+        return markers
+    rows = await session.execute(
+        select(AssetMarker, Marker)
+        .join(Marker, Marker.id == AssetMarker.marker_id)
+        .where(
+            AssetMarker.asset_id.in_(asset_ids),
+            AssetMarker.deleted_at.is_(None),
+            AssetMarker.source != "suppressed",
+        )
+    )
+    for association, marker in rows.all():
+        markers.setdefault(association.asset_id, []).append(
+            {**marker.to_dict(), "source": association.source}
+        )
+    return markers
 
 
 def _live_media_condition():

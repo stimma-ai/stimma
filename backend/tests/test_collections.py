@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import select
 
 from asset_service import create_asset_from_media
-from database import CollectionAssetItem, CollectionSection, MediaItem
+from database import AssetMarker, CollectionAssetItem, CollectionSection, Marker, MediaItem
 from tests.helpers.media import create_test_media
 from tests.helpers.ws import MockWebSocketManager
 
@@ -82,6 +82,31 @@ class TestCollectionsApi:
 
         updated = (await client.get(f"/api/collections/{collection_id}")).json()
         assert not any(item["id"] == section["id"] for item in updated["sections"])
+
+    async def test_collection_items_carry_user_markers(self, client, db_session, seeded_media):
+        async with db_session() as session:
+            marked = await create_asset_from_media(session, media_id=seeded_media[0].id)
+            suppressed = await create_asset_from_media(session, media_id=seeded_media[1].id)
+            marker = Marker(name="collection-tile-marker", icon_svg="<svg/>", color="#f59e0b")
+            session.add(marker)
+            await session.flush()
+            session.add(AssetMarker(asset_id=marked.id, marker_id=marker.id, source="manual"))
+            session.add(AssetMarker(asset_id=suppressed.id, marker_id=marker.id, source="suppressed"))
+            marked_id, suppressed_id, marker_id = marked.id, suppressed.id, marker.id
+            await session.commit()
+
+        collection = (await client.post("/api/collections", json={"name": "Marked"})).json()
+        added = await client.post(
+            f"/api/collections/{collection['id']}/items",
+            json={"asset_ids": [marked_id, suppressed_id]},
+        )
+        assert added.status_code == 200, added.text
+
+        payload = (await client.get(f"/api/collections/{collection['id']}")).json()
+        items = {item["asset_id"]: item for item in payload["sections"][0]["items"]}
+        assert [m["id"] for m in items[marked_id]["markers"]] == [marker_id]
+        assert items[marked_id]["markers"][0]["source"] == "manual"
+        assert items[suppressed_id]["markers"] == []
 
     async def test_asset_membership_projects_current_media(self, client, db_session, seeded_media):
         async with db_session() as session:
