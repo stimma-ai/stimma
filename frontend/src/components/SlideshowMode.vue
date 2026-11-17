@@ -1773,7 +1773,8 @@ const focusMode = ref(savedSettings.focusMode ?? false)
 const hasReview = computed(() => props.review)
 const reviewOpen = ref(false)
 function toggleReview() { reviewOpen.value = !reviewOpen.value }
-const reviewInTopBand = computed(() => hasReview.value && !slideshowCompact.value && !focusMode.value && !isViewingGrid.value && !isViewingSet.value && !isViewingSource.value)
+// Grid and set overviews and packages have their own title and actions in the band.
+const reviewInTopBand = computed(() => hasReview.value && !slideshowCompact.value && !focusMode.value && !isGrid.value && !isSet.value && !isPackage.value && !isViewingGrid.value && !isViewingSet.value && !isViewingSource.value)
 const reviewStripOverride = ref(null)
 const stripWanted = computed(() => (slideshowCompact.value && hasReview.value) ? (reviewStripOverride.value ?? false) : showImageStrip.value)
 function toggleImageStrip() {

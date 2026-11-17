@@ -28,6 +28,8 @@
   <!-- Bar: the whole review in one row in the slideshow's top band (desktop).
        Always open, so rating and commenting never take a click to get to. -->
   <div v-else-if="part === 'bar' && active" class="relative flex h-9 min-w-0 items-center gap-1 rounded-lg bg-overlay-subtle pl-1.5 pr-1">
+    <!-- In a narrow window the answers scroll sideways; the comment box keeps its room. -->
+    <div class="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
     <template v-for="field in fields" :key="field.key">
       <div v-if="field.kind === 'rating'" class="flex flex-none" :title="field.label">
         <button
@@ -53,12 +55,13 @@
         <CheckIcon v-if="isOn(field)" class="h-3.5 w-3.5 flex-none" stroke-width="2.5" /><span class="truncate">{{ field.label }}</span>
       </button>
     </template>
+    </div>
     <span v-if="fields.length" class="mx-1 h-5 w-px flex-none bg-edge-subtle" aria-hidden="true" />
     <input
       v-model="draft"
       type="text"
       placeholder="Comment for the agent"
-      class="h-7 w-72 min-w-24 flex-1 rounded-md border-0 bg-transparent px-2 text-[12.5px] text-content placeholder:text-content-muted focus:bg-field focus:outline-none focus:ring-1 focus:ring-accent/60"
+      class="h-7 w-72 min-w-40 flex-1 rounded-md border-0 bg-transparent px-2 text-[12.5px] text-content placeholder:text-content-muted focus:bg-field focus:outline-none focus:ring-1 focus:ring-accent/60"
       @keydown.enter.exact.prevent="post"
       @keydown.esc.stop="($event.target as HTMLInputElement).blur()"
       @keydown.stop
