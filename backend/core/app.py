@@ -1344,6 +1344,12 @@ async def lifespan(app: FastAPI):
     log.info("shutdown begin")
     from utils.video_playback import shutdown as shutdown_video_playback
     shutdown_video_playback()
+    # Drop queued eager image variants; let a running one finish its write.
+    try:
+        from utils.image_variants import shutdown as shutdown_image_variants
+        await shutdown_image_variants()
+    except Exception:
+        pass
 
     # Stop the serving listener before anything it depends on goes away.
     try:

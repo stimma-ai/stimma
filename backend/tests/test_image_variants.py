@@ -240,27 +240,47 @@ async def test_rgb_png_with_trns_keeps_alpha(client: AsyncClient, db_session, tm
 
 
 @pytest.mark.parametrize("kind", ["cmyk", "gray-icc"])
-async def test_sources_without_exact_rgb_conversion_serve_the_original(client: AsyncClient, db_session, tmp_path, kind):
+async def test_non_rgb_sources_convert_to_srgb(client: AsyncClient, db_session, tmp_path, kind):
+    """CMYK and non-RGB-profile sources get real variants, tagged sRGB."""
+    srgb = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB"))
     if kind == "cmyk":
         path = tmp_path / "cmyk.jpg"
-        Image.new("CMYK", (4000, 3000), (10, 80, 0, 20)).save(path, quality=95)
-        fmt = "jpg"
+        Image.new("CMYK", (4000, 3000), (0, 255, 255, 0)).save(path, quality=95)  # red
+        fmt, size, expected = "jpg", (4000, 3000), (2560, 1920)
     else:
         path = tmp_path / "gray-icc.png"
         gray = ImageCms.ImageCmsProfile(ImageCms.createProfile("LAB")).tobytes()
-        gray = gray[:16] + b"GRAY" + gray[20:]  # header says gray, which is all the check reads
+        gray = gray[:16] + b"GRAY" + gray[20:]  # a gray-tagged profile
         Image.linear_gradient("L").resize((3400, 3400)).save(path, icc_profile=gray)
-        fmt = "png"
+        fmt, size, expected = "png", (3400, 3400), (2560, 2560)
     file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
-    # Claim a big file so only the color mode can decide.
-    await _media(
-        db_session, path, file_hash, (4000, 3000) if kind == "cmyk" else (3400, 3400),
-        file_format=fmt, file_size=20 * 1024 * 1024,
-    )
+    await _media(db_session, path, file_hash, size, file_format=fmt, file_size=20 * 1024 * 1024)
 
     response = await client.get(_url(file_hash, "screen"))
     assert response.status_code == 200
-    assert response.content == path.read_bytes()
+    assert response.headers["content-type"] == "image/webp"
+    with Image.open(io.BytesIO(response.content)) as out:
+        assert out.mode == "RGB"
+        assert out.size == expected
+        # Compare descriptions: profile bytes carry a creation timestamp.
+        profile = ImageCms.ImageCmsProfile(io.BytesIO(out.info["icc_profile"]))
+        assert ImageCms.getProfileDescription(profile) == ImageCms.getProfileDescription(srgb)
+        if kind == "cmyk":
+            red, green, blue = out.getpixel((100, 100))
+            assert red > 200 and green < 60 and blue < 60
+
+
+async def test_shutdown_drops_queued_eager_jobs(monkeypatch, tmp_path):
+    import queue
+    from utils import image_variants as variants
+
+    pending = queue.Queue()
+    job = variants.EagerJob(str(tmp_path / "x.png"), tmp_path, "q" * 32)
+    pending.put(job)
+    monkeypatch.setattr(variants, "_eager_queue", pending)
+    await variants.shutdown(timeout=0.1)
+    assert pending.empty()
+    assert job.future.cancelled()
 
 
 async def test_failure_fallback_is_not_cacheable(client: AsyncClient, db_session, tmp_path):

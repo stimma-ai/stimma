@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import io
 import json
 import os
 import queue
@@ -36,7 +37,7 @@ import uuid
 from concurrent.futures import Future
 from pathlib import Path
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageCms, ImageOps
 
 from core.logging import get_logger
 
@@ -62,8 +63,6 @@ SCREEN_QUALITY = 90
 FULL_QUALITY = 92
 WEBP_MAX_SIDE = 16383
 
-# Source modes a variant reproduces exactly (after EXIF transpose).
-_VARIANT_MODES = {"RGB", "RGBA", "L", "LA", "P", "PA", "1"}
 _VARIANT_EXTENSIONS = {"screen": ("webp",), "full": ("jpg", "webp")}
 MEDIA_TYPES = {"webp": "image/webp", "jpg": "image/jpeg"}
 
@@ -128,6 +127,52 @@ def _rgb_icc_profile(img: Image.Image) -> bytes | None:
     return None
 
 
+_srgb_profile_bytes: bytes | None = None
+
+
+def _srgb_icc() -> bytes:
+    global _srgb_profile_bytes
+    if _srgb_profile_bytes is None:
+        _srgb_profile_bytes = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    return _srgb_profile_bytes
+
+
+def _to_display_rgb(img: Image.Image, icc: bytes | None, has_alpha: bool) -> tuple[Image.Image, bytes | None]:
+    """Return ``img`` as RGB/RGBA plus the ICC profile that describes it.
+
+    An RGB profile describes the pixels as they are, so it rides along
+    unchanged (converting, say, Display P3 to sRGB would shift colors against
+    the original). CMYK and gray or other non-RGB profiles are converted to
+    sRGB through ImageCms and tagged sRGB. High bit depth is reduced by
+    Pillow's plain conversion; the original stays the source for editing.
+    """
+    target = "RGBA" if has_alpha else "RGB"
+    rgb_profile = bool(icc) and len(icc) >= 20 and icc[16:20] == b"RGB "
+    if (icc and not rgb_profile) or (not icc and img.mode == "CMYK"):
+        alpha = img.convert("RGBA").getchannel("A") if has_alpha else None
+        base = img
+        if base.mode in ("LA", "La", "PA", "P", "1"):
+            base = base.convert("L" if base.mode in ("LA", "La") else "RGB")
+        elif base.mode in ("RGBA", "RGBa"):
+            base = base.convert("RGB")
+        try:
+            if icc is None:
+                raise ValueError("untagged CMYK")
+            rgb = ImageCms.profileToProfile(
+                base, ImageCms.ImageCmsProfile(io.BytesIO(icc)), ImageCms.createProfile("sRGB"),
+                outputMode="RGB",
+            )
+        except Exception:
+            # No usable profile (or an untagged CMYK file): a plain conversion.
+            rgb = base.convert("RGB")
+        if alpha is not None:
+            rgb.putalpha(alpha)
+        return rgb, _srgb_icc()
+    if img.mode != target:
+        img = img.convert(target)
+    return img, (icc if icc else None)
+
+
 def _atomic_write(img: Image.Image, path: Path, fmt: str, **kwargs) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.parent / f".tmp_{uuid.uuid4().hex}_{path.name}"
@@ -143,9 +188,8 @@ def generate_variant_sync(file_path: str, tier: str, cache_dir: Path, cache_key:
     """Write ``tier`` for ``file_path`` into the cache and return its path.
 
     Returns None when the original should be served instead (the decoded image
-    turned out small, animated, or in a color mode a variant cannot carry
-    exactly). Raises on unreadable sources so the caller can tell a failure
-    from a skip.
+    turned out small or animated). Raises on unreadable sources so the caller
+    can tell a failure from a skip.
     """
     if tier not in VARIANT_TIERS:
         raise ValueError(f"Unknown image variant: {tier}")
@@ -156,17 +200,9 @@ def generate_variant_sync(file_path: str, tier: str, cache_dir: Path, cache_key:
     with Image.open(file_path) as source:
         if getattr(source, "is_animated", False):
             return None
-        if source.mode not in _VARIANT_MODES:
-            # CMYK, high bit depth and other modes: converting would change
-            # colors or tones, so the original is the exact answer.
-            return None
-        if source.info.get("icc_profile") and _rgb_icc_profile(source) is None:
-            # A gray (or other non-RGB) profile cannot ride along on RGB pixels.
-            return None
         long_side = max(source.size)
         if long_side <= SCREEN_SKIP_LONG_SIDE:
             return None
-        icc = _rgb_icc_profile(source)
         if tier == "screen" and source.format == "JPEG":
             # Let libjpeg decode at a reduced DCT scale that still exceeds the target.
             scale = SCREEN_LONG_SIDE / long_side
@@ -174,11 +210,7 @@ def generate_variant_sync(file_path: str, tier: str, cache_dir: Path, cache_key:
         img = ImageOps.exif_transpose(source)
         # Covers alpha bands, palette transparency and RGB/L tRNS colors.
         has_alpha = img.has_transparency_data
-        if has_alpha:
-            if img.mode != "RGBA":
-                img = img.convert("RGBA")
-        elif img.mode != "RGB":
-            img = img.convert("RGB")
+        img, icc = _to_display_rgb(img, source.info.get("icc_profile"), has_alpha)
 
         extra = {"icc_profile": icc} if icc else {}
         if tier == "screen":
@@ -385,3 +417,17 @@ def schedule_eager_screen_for_media(db, media_ids) -> None:
         log.debug("Eager screen variants not scheduled", error=type(exc).__name__)
         return
     _track(task)
+
+
+async def shutdown(timeout: float = 3.0) -> None:
+    """Drop queued eager work; give a running encode and its liveness check
+    up to ``timeout`` seconds to finish before the event loop closes."""
+    while True:
+        try:
+            job = _eager_queue.get_nowait()
+        except queue.Empty:
+            break
+        job.future.cancel()
+    pending = [task for task in _background_tasks if not task.done()]
+    if pending:
+        await asyncio.wait(pending, timeout=timeout)
