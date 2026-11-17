@@ -1844,3 +1844,25 @@ def test_a_face_is_seeded_as_one_whole_face():
     prompt = "a boy with <face> and his dog"
     slot = V.Slot(words="face", prompt=prompt, span=(11, 17), kind="list", category="face")
     assert face.writer_note in V.messages(slot, drawn, seeds)[1]["content"]
+
+
+def test_the_writers_fixed_line_is_kept_and_quoted_back_in_later_turns(tmp_path):
+    """Each reply opens with what the prompt fixes ({"fixed"}); the session keeps the first one
+    and every later turn quotes it back. The line is never taken for a variant."""
+    class Fixed(FakeWriter):
+        def reply(self, messages, max_tokens, temperature):
+            said = "dusk" if not self.calls else "noon"
+            return json.dumps({"fixed": f"{said}, one sports car, low angle"}) + "\n" + \
+                super().reply(messages, max_tokens, temperature)
+
+    sl = slot_of("a <sports car> parked in <place>, low angle, golden hour", "free", "sports car")
+    assert '{"fixed": "..."}' in V.system_text() and "inside what the prompt fixes" in V.system_text()
+    fake = Fixed()
+    w = written(tmp_path, sl, V.Seeds(), fake)
+    assert len(fake.calls) > 1 and not fake.calls[0]["more"]
+    assert all('You said the prompt fixes: "dusk, one sports car, low angle".' in c["user"]
+               for c in fake.calls[1:])
+    key = "a" * 32
+    assert V.Session.of(w.store.session(key)).fixed == "dusk, one sports car, low angle"
+    assert not any("fixed" in v["text"] for v in w.store.variants(key))
+    assert "You said" not in V.more_turn(V.Drawn([V.Spec()], []), 2, V.Seeds())

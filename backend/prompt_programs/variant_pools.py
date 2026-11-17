@@ -883,7 +883,8 @@ class PoolWriter:
                 seen = {_norm(v["text"]) for v in pool} | set(removed)
                 a = len(session.texts) + 1
                 if session.open:
-                    user = {"role": "user", "content": more_turn(part, a, seeds, unseeded_start=not session.seeded)}
+                    user = {"role": "user", "content": more_turn(part, a, seeds, unseeded_start=not session.seeded,
+                                                                     fixed=session.fixed)}
                     sent = session.sent(user["content"], removed)
                 else:   # a session's opening, or a fresh one over a pool that has variants already
                     a = 1
@@ -918,6 +919,7 @@ class PoolWriter:
                         session = Session(messages=[dict(sent[0])], seeded=opened_seeded,
                                           restarts=session.restarts + int(restarted))
                     session.log(dict(user), reply_text(kept, a, turn.rejected), [v["text"] for v in kept])
+                    session.fixed = session.fixed or turn.fixed   # the writer's own first "fixed" line, quoted back later
                     if opened_seeded:
                         session.seeded = True   # what an unseeded opening lacked has been shown now
                     self.store.save_session(job.key, session.to_dict())
