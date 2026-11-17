@@ -202,5 +202,6 @@ export function relaunchApp(): void {
     return
   }
   app.relaunch()
+  shutdownBackend()
   app.exit(0)
 }

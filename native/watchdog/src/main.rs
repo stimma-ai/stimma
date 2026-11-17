@@ -14,6 +14,56 @@ use std::{
 /// Set to true when parent dies or we need to shut down.
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
+#[cfg(target_os = "linux")]
+extern "C" fn request_shutdown(_: libc::c_int) {
+    SHUTDOWN.store(true, Ordering::SeqCst);
+}
+
+/// Called synchronously by Electron before it releases the AppImage mount.
+/// A pidfd also becomes readable for a zombie, unlike kill(pid, 0): Electron
+/// cannot reap its watchdog while blocked waiting for this command to return.
+#[cfg(target_os = "linux")]
+fn shutdown_watchdog(pid: u32) -> io::Result<()> {
+    if pid <= 1 || pid > i32::MAX as u32 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Invalid watchdog PID",
+        ));
+    }
+    unsafe {
+        let fd = libc::syscall(libc::SYS_pidfd_open, pid, 0) as i32;
+        if fd < 0 {
+            let error = io::Error::last_os_error();
+            return if error.raw_os_error() == Some(libc::ESRCH) {
+                Ok(())
+            } else {
+                Err(error)
+            };
+        }
+        // Signal through the same handle so PID reuse cannot target another app.
+        let result = libc::syscall(libc::SYS_pidfd_send_signal, fd, libc::SIGTERM, 0usize, 0);
+        let outcome = if result < 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            let mut pollfd = libc::pollfd {
+                fd,
+                events: libc::POLLIN,
+                revents: 0,
+            };
+            match libc::poll(&mut pollfd, 1, 5000) {
+                0 => Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "Watchdog shutdown timed out",
+                )),
+                -1 => Err(io::Error::last_os_error()),
+                _ => Ok(()),
+            }
+        };
+        libc::close(fd);
+        outcome
+    }
+}
+
 /// The backend process PID (so parent monitor thread can kill it).
 static BACKEND_PID: AtomicU32 = AtomicU32::new(0);
 
@@ -45,7 +95,11 @@ fn log_path() -> PathBuf {
 }
 
 fn log(msg: &str) {
-    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(log_path()) {
+    if let Ok(mut f) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path())
+    {
         let _ = writeln!(f, "[{}] {}", process::id(), msg);
     }
 }
@@ -59,7 +113,9 @@ struct Args {
 
 fn parse_args(raw: &[String]) -> Result<Args, String> {
     if raw.is_empty() {
-        return Err("Usage: stimma-watchdog [--parent-pid PID] <backend-binary> [args...]".to_string());
+        return Err(
+            "Usage: stimma-watchdog [--parent-pid PID] <backend-binary> [args...]".to_string(),
+        );
     }
 
     let mut idx = 0;
@@ -94,9 +150,38 @@ fn main() {
         libc::signal(libc::SIGPIPE, libc::SIG_IGN);
     }
 
-    let _ = std::fs::remove_file(log_path());
-
     let raw_args: Vec<String> = env::args().skip(1).collect();
+    #[cfg(target_os = "linux")]
+    {
+        if raw_args.first().map(String::as_str) == Some("--shutdown-watchdog") {
+            let result = raw_args
+                .get(1)
+                .and_then(|pid| pid.parse().ok())
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Missing watchdog PID"))
+                .and_then(shutdown_watchdog);
+            if let Err(error) = result {
+                eprintln!("Unable to stop watchdog: {error}");
+                process::exit(1);
+            }
+            return;
+        }
+        unsafe {
+            libc::signal(
+                libc::SIGTERM,
+                request_shutdown as *const () as libc::sighandler_t,
+            );
+            // Adopt Python grandchildren so cleanup can wait for all of them,
+            // not just the backend leader, before acknowledging shutdown.
+            if libc::prctl(libc::PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) != 0 {
+                eprintln!(
+                    "Unable to supervise backend descendants: {}",
+                    io::Error::last_os_error()
+                );
+                process::exit(1);
+            }
+        }
+    }
+    let _ = std::fs::remove_file(log_path());
     let args = match parse_args(&raw_args) {
         Ok(v) => v,
         Err(e) => {
@@ -110,7 +195,11 @@ fn main() {
 
     log(&format!("Starting supervisor for: {:?}", backend_binary));
     log(&format!("Args: {:?}", args.backend_args));
-    log(&format!("My PID: {}, Parent PID: {}", process::id(), parent_pid));
+    log(&format!(
+        "My PID: {}, Parent PID: {}",
+        process::id(),
+        parent_pid
+    ));
 
     // The installer can terminate us before parent_monitor runs. A Windows
     // job owns the entire descendant tree, including cmd.exe, Python, and
@@ -152,6 +241,8 @@ fn main() {
                     if SHUTDOWN.load(Ordering::SeqCst) {
                         log("Shutdown during wait, killing backend tree");
                         kill_process_tree(pid);
+                        let _ = child.wait();
+                        reap_backend_descendants(pid);
                         process::exit(0);
                     }
 
@@ -162,6 +253,9 @@ fn main() {
                                 "Backend exited with status: {:?} (ran for {:?})",
                                 status, runtime
                             ));
+                            kill_process_tree(pid);
+                            reap_backend_descendants(pid);
+                            BACKEND_PID.store(0, Ordering::SeqCst);
 
                             if runtime >= STABILITY_THRESHOLD {
                                 restart_count = 0;
@@ -177,7 +271,10 @@ fn main() {
                             eprintln!("[watchdog] Backend crashed: {:?}", status);
                             restart_count += 1;
                             if restart_count >= MAX_RESTARTS {
-                                log(&format!("Max restarts ({}) exceeded, giving up", MAX_RESTARTS));
+                                log(&format!(
+                                    "Max restarts ({}) exceeded, giving up",
+                                    MAX_RESTARTS
+                                ));
                                 process::exit(2);
                             }
 
@@ -269,7 +366,10 @@ fn parent_monitor(original_parent_pid: u32) {
         return;
     }
 
-    log(&format!("Parent monitor started, watching PID {}", original_parent_pid));
+    log(&format!(
+        "Parent monitor started, watching PID {}",
+        original_parent_pid
+    ));
 
     let mut check_count = 0u64;
     loop {
@@ -299,17 +399,15 @@ fn parent_monitor(original_parent_pid: u32) {
         };
 
         if parent_dead {
-            log(&format!("PARENT DIED! parent={} no longer alive", original_parent_pid));
+            log(&format!(
+                "PARENT DIED! parent={} no longer alive",
+                original_parent_pid
+            ));
             SHUTDOWN.store(true, Ordering::SeqCst);
 
-            let pid = BACKEND_PID.load(Ordering::SeqCst);
-            log(&format!("Backend PID to kill: {}", pid));
-            if pid != 0 {
-                kill_process_tree(pid);
-            }
-
-            log("Cleanup complete, exiting");
-            process::exit(0);
+            // Let the supervisor thread kill and reap the whole tree. Exiting
+            // here would race it and abandon descendants before cleanup.
+            return;
         }
 
         thread::sleep(PARENT_CHECK_INTERVAL);
@@ -448,7 +546,10 @@ fn spawn_backend(binary: &PathBuf, args: &[String]) -> io::Result<process::Child
             cmd.current_dir(cwd);
         }
 
-        log(&format!("spawn_backend command: {:?} args: {:?}", binary, args));
+        log(&format!(
+            "spawn_backend command: {:?} args: {:?}",
+            binary, args
+        ));
         return cmd.spawn();
     }
 
@@ -480,7 +581,9 @@ fn kill_process_tree(pid: u32) {
 
     #[cfg(unix)]
     unsafe {
-        libc::kill(pid as i32, libc::SIGKILL);
+        // spawn_backend creates this group before exec. Killing just the
+        // leader strands multiprocessing workers and the resource tracker.
+        libc::kill(-(pid as i32), libc::SIGKILL);
     }
 
     #[cfg(windows)]
@@ -494,6 +597,24 @@ fn kill_process_tree(pid: u32) {
             .creation_flags(CREATE_NO_WINDOW)
             .status();
     }
+}
+
+fn reap_backend_descendants(pid: u32) {
+    #[cfg(target_os = "linux")]
+    unsafe {
+        // The group has received SIGKILL. Wait for adopted workers to release
+        // their mappings too; returning after only the leader exits is a race.
+        loop {
+            if libc::waitpid(-(pid as i32), std::ptr::null_mut(), 0) >= 0 {
+                continue;
+            }
+            if io::Error::last_os_error().raw_os_error() != Some(libc::EINTR) {
+                break;
+            }
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = pid;
 }
 
 #[cfg(windows)]

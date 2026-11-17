@@ -126,7 +126,12 @@ export async function startBackend(identity: AppIdentity, appVersion: string): P
 }
 
 /**
- * Stop the packaged backend before Windows replaces the installation tree.
+ * Stop the packaged backend before its installation tree disappears.
+ *
+ * Linux AppImages unmount when Electron exits. Waiting for parent-death cleanup
+ * is too late: Python workers can fault (SIGBUS) as their executable mappings
+ * disappear. The watchdog's synchronous stop command kills and reaps its whole
+ * backend group before returning, while Electron still holds the mount alive.
  *
  * Parent-death monitoring is normally sufficient, but on Windows the cmd.exe
  * launcher can disappear before the watchdog observes Electron's exit. That
@@ -136,7 +141,20 @@ export async function startBackend(identity: AppIdentity, appVersion: string): P
  */
 export function shutdownBackend(): void {
   backendPort = null
-  if (process.platform !== 'win32' || watchdogPid === null) return
+  if (watchdogPid === null) return
+  if (process.platform === 'linux') {
+    const pid = watchdogPid
+    watchdogPid = null
+    const result = spawnSync(watchdogPath(), ['--shutdown-watchdog', String(pid)], {
+      encoding: 'utf8',
+      timeout: 6000,
+    })
+    if (result.status !== 0) {
+      log.warn('backend', `Watchdog shutdown failed: ${result.error?.message || result.stderr?.trim() || result.status}`)
+    }
+    return
+  }
+  if (process.platform !== 'win32') return
 
   const pid = watchdogPid
   watchdogPid = null
