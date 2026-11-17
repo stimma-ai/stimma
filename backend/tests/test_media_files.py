@@ -555,3 +555,34 @@ class TestContainerMembersPending:
 
         assert response.status_code == 503
         assert response.headers.get("Retry-After") == "1"
+
+
+@pytest.mark.skipif(
+    shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
+    reason="ffmpeg/ffprobe not installed",
+)
+@pytest.mark.asyncio
+async def test_video_fit_thumbnail_preserves_first_frame_and_separate_cache(client, db_session, tmp_path):
+    """A cached square crop must never stand in for an uncropped video poster."""
+    video = tmp_path / "wide.mp4"
+    subprocess.run([
+        "ffmpeg", "-v", "error", "-y",
+        "-f", "lavfi", "-i", "color=c=red:s=160x80:r=1:d=1",
+        "-f", "lavfi", "-i", "color=c=blue:s=160x80:r=1:d=1",
+        "-filter_complex", "[0:v][1:v]concat=n=2:v=1:a=0",
+        "-c:v", "mpeg4", "-q:v", "2", str(video),
+    ], check=True, capture_output=True)
+    file_hash = hashlib.sha256(video.read_bytes()).hexdigest()
+    async with db_session() as session:
+        media = await create_media_item(session, file_path=video, file_hash=file_hash, file_format="mp4")
+        media_id = media.id
+    db_guid = get_database_registry().get_db_guid("default")
+    urls = [f"/api/db/{db_guid}/thumbnail/{file_hash}", f"/api/db/{db_guid}/media/{media_id}/thumbnail"]
+    for url in urls:
+        for mode, size in [("crop", (64, 64)), ("fit", (64, 32)), ("crop", (64, 64)), ("fit", (64, 32))]:
+            response = await client.get(url, params={"size": 64, "mode": mode})
+            assert response.status_code == 200, response.text
+            with Image.open(io.BytesIO(response.content)) as poster:
+                assert poster.size == size
+                red, green, blue = poster.convert("RGB").getpixel((32, 16))
+                assert red > 180 and green < 70 and blue < 70

@@ -64,7 +64,6 @@ const props = withDefaults(defineProps<Props>(), {
   index: undefined,
   thumbnail: true,
   thumbnailSize: 256,
-  thumbnailMode: 'crop',
   contain: false,
   stack: false,
   draggable: true,

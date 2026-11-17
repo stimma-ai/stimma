@@ -12,7 +12,6 @@ const built = await build({ ...base, configFile: false, logLevel: 'error',
   build: { write: false, minify: false, lib: { entry: fileURLToPath(new URL('./fixtures/chatVideo.ts', import.meta.url)), name: 'ChatVideoTest', formats: ['iife'] } },
 })
 const output = (Array.isArray(built) ? built : [built]).flatMap(result => result.output)
-const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=', 'base64')
 
 for (const phone of [false, true]) test(`chat video playback and toolbar (${phone ? 'touch' : 'mouse'})`, { timeout: 20000 }, async t => {
   const browser = await chromium.launch()
@@ -25,7 +24,10 @@ for (const phone of [false, true]) test(`chat video playback and toolbar (${phon
     const path = new URL(route.request().url()).pathname
     if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="app"></div></body></html>' })
     if (path.endsWith('/file')) return route.fulfill({ contentType: 'video/webm', body: video })
-    if (path.includes('thumbnail')) return route.fulfill({ contentType: 'image/png', body: png })
+    if (path.includes('thumbnail')) {
+      const fit = new URL(route.request().url()).searchParams.get('mode') === 'fit'
+      return route.fulfill({ contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${fit ? 320 : 180}" height="180"><rect width="100%" height="180" fill="teal"/><rect width="20" height="180" fill="red"/><rect x="${fit ? 300 : 160}" width="20" height="180" fill="blue"/></svg>` })
+    }
     if (path.includes('markers')) return route.fulfill({ json: [] })
     if (/\/media\/\d+$/.test(path)) return route.fulfill({ json: { id: Number(path.split('/').at(-1)), file_format: path.endsWith('/1') ? 'webm' : 'png', width: 320, height: 180 } })
     return route.fulfill({ json: {} })
@@ -46,10 +48,18 @@ for (const phone of [false, true]) test(`chat video playback and toolbar (${phon
   }))
   for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
+  await expect(page.getByTestId('shown-video').locator('img')).toHaveAttribute('src', /mode=fit/)
+  await expect(page.getByTestId('contained-video').locator('img')).toHaveAttribute('src', /mode=fit/)
+  await expect(page.getByTestId('flow-video').locator('img')).toHaveAttribute('src', /mode=fit/)
+  for (const id of ['covered-video', 'explicit-crop']) {
+    assert.notEqual(new URL(await page.getByTestId(id).locator('img').getAttribute('src'), page.url()).searchParams.get('mode'), 'fit')
+  }
   const hero = page.getByTestId('media-collection-hero')
   const play = hero.getByRole('button', { name: 'Play video', exact: true })
   await expect(play).toBeVisible()
   await expect(hero.locator('video')).toHaveCount(0)
+  const poster = hero.locator('img').first()
+  await expect(poster).toHaveAttribute('src', /mode=fit/)
   const surface = hero.locator('[data-video-surface]')
   const add = hero.getByRole('button', { name: 'Add to message' })
   await page.screenshot({ path: `/tmp/chat-video-${phone ? 'touch' : 'mouse'}.png` })
@@ -108,10 +118,23 @@ for (const phone of [false, true]) test(`chat video playback and toolbar (${phon
   if (!phone) {
     await page.getByRole('radio', { name: 'Grid' }).click()
     const tile = page.locator('[data-tile="0"]')
+    await expect(tile.locator('img').first()).toHaveAttribute('src', /mode=fit/)
     await tile.hover()
     await expect.poll(() => tile.locator('video').evaluate(v => !v.paused && v.muted)).toBe(true)
     await page.mouse.move(1100, 850)
     await expect(tile.locator('video')).toHaveCount(0)
+  }
+  if (!phone) {
+    const shown = page.getByTestId('shown-video')
+    await shown.scrollIntoViewIfNeeded()
+    await expect.poll(() => shown.locator('img').evaluate(img => img.naturalWidth / img.naturalHeight)).toBe(320 / 180)
+    await shown.screenshot({ path: '/tmp/chat-video-uncropped-poster.png' })
+    await shown.hover()
+    await expect.poll(() => shown.locator('video').evaluate(v => !v.paused)).toBe(true)
+    assert.equal(await shown.locator('video').evaluate(v => getComputedStyle(v).objectFit), 'contain')
+    await shown.screenshot({ path: '/tmp/chat-video-uncropped-hover.png' })
+    await page.mouse.move(0, 0)
+    await expect(shown.locator('video')).toHaveCount(0)
   }
   assert.deepEqual(errors, [])
 })

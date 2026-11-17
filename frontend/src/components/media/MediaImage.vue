@@ -56,7 +56,7 @@ interface Props {
   thumbnail?: boolean
   /** Thumbnail size hint (128, 256, etc). Only used when thumbnail=true */
   thumbnailSize?: number
-  /** Thumbnail generation mode. 'crop' is square-cropped, 'fit' preserves source aspect ratio. */
+  /** Thumbnail generation mode. Defaults to 'fit' when contain is true, otherwise 'crop'. */
   thumbnailMode?: 'crop' | 'fit'
   /** Alt text for image */
   alt?: string
@@ -105,7 +105,6 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   thumbnail: true,
-  thumbnailMode: 'crop',
   alt: '',
   contain: false,
   containerClass: '',
@@ -143,7 +142,7 @@ const imageSrc = computed(() => {
   // Audio: never load the raw file into an <img> — use the waveform thumbnail
   // regardless of fit/full mode (matches how the library renders audio).
   if (props.thumbnail || props.isAudio) {
-    return getThumbnailUrl(identifier, props.thumbnailSize, { mode: props.thumbnailMode })
+    return getThumbnailUrl(identifier, props.thumbnailSize, { mode: props.thumbnailMode ?? (props.contain ? 'fit' : 'crop') })
   }
   return getMediaFileUrl(identifier)
 })

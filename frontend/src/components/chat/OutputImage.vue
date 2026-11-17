@@ -76,7 +76,7 @@
           :media-id="row.output.media_id"
           :thumbnail="effectiveThumbnail"
           :thumbnail-size="effectiveThumbnail ? (fitThumbnail || 512) : undefined"
-          :thumbnail-mode="fitThumbnail ? 'fit' : 'crop'"
+          thumbnail-mode="fit"
           :background-class="isComposite ? 'bg-matte' : 'bg-matte'"
           :contain="true"
           container-class="w-full h-full"
