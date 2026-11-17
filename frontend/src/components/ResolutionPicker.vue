@@ -310,10 +310,9 @@ const explanation = computed(() => {
     if (p.followSize) return `When you add a reference image, the output will keep its pixel count at ${p.ratio}.`
     return ''
   }
-  const name = props.image?.name ?? 'the reference image'
-  if (p.followShape && p.followSize) return `Output is the same size as ${name}.`
-  if (p.followShape) return `Output takes ${name}’s aspect at ${size}.`
-  if (p.followSize) return `Output keeps ${name}’s pixel count at ${r.ratioLabel}.`
+  if (p.followShape && p.followSize) return 'Output is the same size as the reference image.'
+  if (p.followShape) return `Output takes the reference image’s aspect at ${size}.`
+  if (p.followSize) return `Output keeps the reference image’s pixel count at ${r.ratioLabel}.`
   return ''
 })
 

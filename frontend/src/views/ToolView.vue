@@ -112,33 +112,6 @@
         ]"
         :style="isCompact ? {} : { width: layoutMode === 'stage' ? stageControlsWidth + 'px' : studioControlsPct + '%' }"
       >
-       <!-- Resolution auto-change notice: a minor card matching the params
-            card's width and background, easing open above it (flow-expand)
-            so the params card gets nudged down for a moment. -->
-       <Transition name="flow-expand">
-       <div v-if="resChange" class="flex-none">
-       <div>
-       <div class="mx-3 mt-3 roomy:mr-0 rounded-lg border border-edge-subtle bg-surface px-3 py-2 flex items-center gap-3 text-[11px]">
-         <span class="text-content-secondary flex-1">
-           <span class="font-medium font-mono tabular-nums text-content">{{ resChange.width }}×{{ resChange.height }}</span>
-           · {{ resChange.reason }}
-         </span>
-         <button
-           v-for="alt in resChange.alts"
-           :key="alt.label"
-           @click="alt.apply(); resChange = null"
-           class="text-accent-hi hover:text-accent font-medium whitespace-nowrap"
-         >{{ alt.label }}</button>
-         <button
-           @click="resChange = null"
-           class="text-content-muted hover:text-content-secondary"
-         >
-           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-         </button>
-       </div>
-       </div>
-       </div>
-       </Transition>
        <!-- Controls are floating panels on the matte; content sits on the matte. -->
        <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-3 pb-6 roomy:mr-0 roomy:overscroll-contain">
         <!-- Header (teleported full-width to #tool-header-slot) -->
@@ -1381,8 +1354,6 @@ import {
   policyFromLegacyLocks,
   carriedPolicy,
   applyCarriedPolicy,
-  formatMegapixels,
-  formatTier,
   nearestRatio,
   tierGroups,
   type ResolutionPolicy,
@@ -4538,11 +4509,6 @@ const isMac = computed(() => navigator.platform.toUpperCase().indexOf('MAC') >= 
 // follow the first input image. applyResolutionPolicy() is the only writer of
 // modelParams.width/height from the picker side. See utils/resolutionPolicy.ts.
 
-interface ResChangeAlt { label: string; apply: () => void }
-const resChange = ref<{ width: number; height: number; reason: string; alts: ResChangeAlt[] } | null>(null)
-let resChangeTimer: ReturnType<typeof setTimeout> | null = null
-// Set by loadPendingGeneration so the announcement after a hop names the source tool.
-let pendingHopFrom: string | null = null
 
 const schemaPropsForResolution = computed(() => parameterSchema.value?.properties)
 
@@ -4573,63 +4539,18 @@ const drivingImage = computed<ImageDims | null>(() => {
 
 function setResolutionPolicy(p: ResolutionPolicy) {
   resolutionPolicy.value = p
-  resChange.value = null
-  applyResolutionPolicy('policy')
+  applyResolutionPolicy()
 }
 
-function sizeLabelFor(r: ReturnType<typeof resolveResolution>): string {
-  return allowedDimensions.value && outputsVideo.value ? formatTier(r.tier ?? 0) : formatMegapixels(r.mp)
-}
-
-/** Recompute width/height from the policy. 'image' and 'hop' announce the change. */
-function applyResolutionPolicy(trigger: 'policy' | 'image' | 'hop' | 'init') {
+/**
+ * Recompute width/height from the policy. The picker shows the result (dims,
+ * shape glyph, lock tag), so an image-driven change needs no announcement.
+ */
+function applyResolutionPolicy() {
   if (!hasWidthHeight.value && !allowedDimensions.value) return
-  const policy = resolutionPolicy.value
-  const image = drivingImage.value
-  const r = resolveResolution(policy, image, schemaPropsForResolution.value)
-  const oldW = Number(modelParams.value.width)
-  const oldH = Number(modelParams.value.height)
-  const changed = oldW !== r.width || oldH !== r.height
+  const r = resolveResolution(resolutionPolicy.value, drivingImage.value, schemaPropsForResolution.value)
   modelParams.value.width = r.width
   modelParams.value.height = r.height
-  if (trigger === 'policy' || trigger === 'init') return
-  const hopFrom = pendingHopFrom
-  pendingHopFrom = null
-  if (!changed && !hopFrom) return
-
-  const name = image?.name ?? 'the image'
-  const size = sizeLabelFor(r)
-  let reason: string
-  if (hopFrom) {
-    reason = r.shapeFromImage
-      ? `matches ${name}`
-      : `${r.ratioLabel} kept from ${hopFrom}, ${size} is this tool's usual`
-  } else if (r.shapeFromImage && r.sizeFromImage) reason = `same as ${name}`
-  else if (r.shapeFromImage) reason = `${name}'s shape at ${size}`
-  else if (r.sizeFromImage) reason = `${r.ratioLabel} at ${name}'s size`
-  else reason = `${r.ratioLabel} at ${size}`
-
-  const alts: ResChangeAlt[] = []
-  const before = resolveResolution({ ...policy, followShape: false, followSize: false }, null, schemaPropsForResolution.value)
-  if (changed && (policy.followShape || policy.followSize)) {
-    alts.push({
-      label: `Keep ${before.ratioLabel} · ${sizeLabelFor(before)}`,
-      apply: () => setResolutionPolicy({ ...policy, followShape: false, followSize: false }),
-    })
-  }
-  if (image && r.shapeFromImage && !r.sizeFromImage && !allowedDimensions.value) {
-    alts.push({ label: `Match ${name}`, apply: () => setResolutionPolicy({ ...policy, followSize: true }) })
-  }
-  if (image && !r.shapeFromImage) {
-    const choices = allowedDimensions.value ? tierGroups(allowedDimensions.value).map(g => g.ratio) : undefined
-    alts.push({
-      label: `Use ${name}'s ${nearestRatio(image.width, image.height, choices)}`,
-      apply: () => setResolutionPolicy({ ...policy, followShape: true }),
-    })
-  }
-  resChange.value = { width: r.width, height: r.height, reason, alts }
-  if (resChangeTimer) clearTimeout(resChangeTimer)
-  resChangeTimer = setTimeout(() => { resChange.value = null }, 12000)
 }
 
 // Width/height re-resolve whenever the driving image changes: a new first
@@ -4637,14 +4558,14 @@ function applyResolutionPolicy(trigger: 'policy' | 'image' | 'hop' | 'init') {
 watch(drivingImage, (img, prev) => {
   if (isInitialLoading.value) return
   if (!!img === !!prev && img?.width === prev?.width && img?.height === prev?.height && img?.name === prev?.name) return
-  applyResolutionPolicy('image')
+  applyResolutionPolicy()
 })
 // Once the tool has loaded its state, make width/height agree with the policy.
 // A handoff that landed an image during loading (send-to-tool) is announced
 // like a drop; a plain restore whose size already agrees stays quiet.
 watch(isInitialLoading, (loading) => {
   if (loading) return
-  applyResolutionPolicy(pendingHopFrom ? 'hop' : drivingImage.value ? 'image' : 'init')
+  applyResolutionPolicy()
 })
 
 // Width/height written by something other than the picker (preset, remix,
@@ -4685,7 +4606,7 @@ function onSuggestResolution(dims: { width: number; height: number } | null, opt
   drivingOverride.value = dims && dims.width > 0 && dims.height > 0
     ? { ...dims, name: drivingImage.value?.name }
     : null
-  applyResolutionPolicy('image')
+  applyResolutionPolicy()
 }
 
 function onSuggestAspect(dims: { width: number; height: number } | null) {
@@ -5215,12 +5136,9 @@ async function loadPendingGeneration() {
     }
 
     // Restore source inputs (reference images) from the hop. The input watcher
-    // re-resolves the size and announces it, naming the source tool.
+    // re-resolves the size.
     const sourceInputs: any[] = data.source_inputs || []
-    if (update.sizePolicy) {
-      pendingHopFrom = data.size_policy?.from || 'the previous tool'
-      if (sourceInputs.length === 0) applyResolutionPolicy('hop')
-    }
+    if (update.sizePolicy && sourceInputs.length === 0) applyResolutionPolicy()
     if (sourceInputs.length > 0) {
       if (hasVideoFrames.value) {
         // I2V tools: restore start/end frames

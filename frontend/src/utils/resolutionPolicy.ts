@@ -283,7 +283,7 @@ function cropWarning(image: ImageDims | null, ratio: number, label: string): str
   const d = Math.abs(Math.log(image.width / image.height) - Math.log(ratio))
   if (d < 0.08) return null
   const imgLabel = matchingRatio(image.width, image.height) ?? `~${nearestRatio(image.width, image.height)}`
-  return `${image.name ?? 'The image'} is ${imgLabel} and will be cropped to ${label}`
+  return `The reference image is ${imgLabel} and will be cropped to ${label}`
 }
 
 /** Default policy for a tool: its schema default size, following the image if it takes one. */

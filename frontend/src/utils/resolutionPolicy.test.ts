@@ -85,7 +85,7 @@ test('video: forced 16:9 from a 3:4 still warns about the crop', () => {
   const p: ResolutionPolicy = { ratio: '16:9', mp: 0.9, tier: 720, followShape: false, followSize: false }
   const r = resolveResolution(p, { width: 1536, height: 2048, name: 'still.png' }, videoProps)
   assert.deepEqual([r.width, r.height], [1280, 720])
-  assert.match(r.cropWarning!, /still.png is 3:4/)
+  assert.match(r.cropWarning!, /^The reference image is 3:4 and will be cropped to 16:9$/)
 })
 
 test('video: size from image picks the nearest tier by area', () => {
