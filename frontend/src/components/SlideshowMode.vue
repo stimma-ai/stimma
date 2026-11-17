@@ -105,7 +105,7 @@
     </button>
 
     <div
-      v-if="!slideshowCompact && !focusMode && currentLabel && !reviewInTopBand"
+      v-if="!slideshowCompact && !focusMode && currentLabel"
       class="app-no-drag absolute top-1.5 z-chrome flex h-9 max-w-[50%] -translate-x-1/2 items-center truncate text-[13px] text-content-secondary"
       :style="{ left: showSidebar ? 'calc(50% - 192px)' : '50%' }"
     ><span class="truncate">{{ currentLabel }}</span></div>
@@ -723,13 +723,12 @@
     </div>
 
     <!-- Review chrome a host adds in context (a contact sheet's review): on
-         desktop it lives in the top band, always open, off the picture. -->
+         desktop, small buttons in the top band beside Close, off the picture. -->
     <div
       v-if="reviewInTopBand"
-      class="absolute top-1.5 z-chrome flex h-9 -translate-x-1/2 items-center"
-      :style="{ left: (showSidebar && !focusMode) ? `calc(50% - ${SIDEBAR_WIDTH / 2}px)` : '50%', maxWidth: (showSidebar && !focusMode) ? `calc(100% - ${SIDEBAR_WIDTH}px - 120px)` : 'calc(100% - 120px)', WebkitAppRegion: 'no-drag' }"
+      class="absolute top-1.5 z-chrome flex h-9 items-center gap-0.5"
+      :style="{ right: (showSidebar && !focusMode) ? `${SIDEBAR_WIDTH + 56}px` : '52px', WebkitAppRegion: 'no-drag' }"
     >
-      <span v-if="currentLabel" class="mr-3 min-w-0 max-w-64 flex-shrink truncate text-[13px] text-content-secondary">{{ currentLabel }}</span>
       <slot name="review" :item="currentItem" :index="currentIndex" part="bar" :open="reviewOpen" :toggle="toggleReview" />
     </div>
 

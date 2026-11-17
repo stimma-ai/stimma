@@ -25,73 +25,62 @@
     <ChevronUpIcon class="h-4 w-4 flex-none text-content-muted transition-transform" :class="open ? 'rotate-180' : ''" />
   </button>
 
-  <!-- Bar: the whole review in one row in the slideshow's top band (desktop).
-       Always open, so rating and commenting never take a click to get to. -->
-  <div v-else-if="part === 'bar' && active" class="relative flex h-9 min-w-0 items-center gap-1 rounded-lg bg-overlay-subtle pl-1.5 pr-1">
-    <!-- In a narrow window the answers scroll sideways; the comment box keeps its room. -->
-    <div class="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
+  <!-- Bar: small buttons in the slideshow's top band (desktop), styled like
+       Close. A rating shows "3★" and opens a picker; Comment opens the same
+       comment menu as the sheet. -->
+  <template v-else-if="part === 'bar' && active">
     <template v-for="field in fields" :key="field.key">
-      <div v-if="field.kind === 'rating'" class="flex flex-none" :title="field.label">
+      <div v-if="field.kind === 'rating'" class="relative">
         <button
-          v-for="n in 5"
-          :key="n"
           type="button"
-          class="flex h-8 w-6 items-center justify-center"
-          :title="`${n} of 5`"
-          @click="setRating(field.id, n)"
+          :class="barButton"
+          :title="field.label"
+          :aria-expanded="ratingMenu === field.id"
+          @click="ratingMenu = ratingMenu === field.id ? null : field.id"
         >
-          <StarIcon class="h-4 w-4" :class="rating(field.id) >= n ? 'text-amber-400' : 'text-content-muted/40 hover:text-content-muted'" />
+          <span v-if="rating(field.id)" class="font-mono text-[12px] tabular-nums text-content">{{ rating(field.id) }}</span>
+          <StarIcon v-if="rating(field.id)" class="h-4 w-4 text-amber-400" />
+          <StarOutlineIcon v-else class="h-icon-canvas w-icon-canvas" />
         </button>
+        <template v-if="ratingMenu === field.id">
+          <div class="fixed inset-0 z-menu" @click="ratingMenu = null" />
+          <div class="absolute right-0 top-full z-menu mt-1 flex items-center rounded-lg border border-edge-subtle bg-surface p-1 shadow-lg" @mouseleave="hover = 0">
+            <button
+              v-for="n in 5"
+              :key="n"
+              type="button"
+              class="flex h-8 w-7 items-center justify-center"
+              :title="`${n} of 5`"
+              @mouseenter="hover = n"
+              @click="pickRating(field.id, n)"
+            >
+              <StarIcon class="h-4 w-4 transition-colors" :class="(hover || rating(field.id)) >= n ? 'text-amber-400' : 'text-content-muted/40'" />
+            </button>
+            <button v-if="rating(field.id)" type="button" class="ml-1 h-8 rounded-md px-2 text-[12px] text-content-tertiary hover:bg-overlay-subtle hover:text-content" @click="pickRating(field.id, 0)">Clear</button>
+          </div>
+        </template>
       </div>
       <button
         v-else
         type="button"
-        class="flex h-7 max-w-40 flex-none items-center gap-1 truncate rounded-full px-2.5 text-[12px] transition-colors"
-        :class="isOn(field) ? 'bg-accent/15 text-accent-hi ring-1 ring-inset ring-accent-hi/45' : 'text-content-secondary ring-1 ring-inset ring-edge-strong hover:text-content'"
+        :class="[barButton, isOn(field) ? 'text-accent-hi' : '']"
         :title="field.question ? `${field.question} ${field.label}` : field.label"
         :aria-pressed="isOn(field)"
         @click="toggleField(field)"
       >
-        <CheckIcon v-if="isOn(field)" class="h-3.5 w-3.5 flex-none" stroke-width="2.5" /><span class="truncate">{{ field.label }}</span>
+        <CheckIcon class="h-4 w-4" stroke-width="2.5" /><span class="max-w-32 truncate text-[12px]">{{ field.label }}</span>
       </button>
     </template>
-    </div>
-    <span v-if="fields.length" class="mx-1 h-5 w-px flex-none bg-edge-subtle" aria-hidden="true" />
-    <input
-      v-model="draft"
-      type="text"
-      placeholder="Comment for the agent"
-      class="h-7 w-72 min-w-40 flex-1 rounded-md border-0 bg-transparent px-2 text-[12.5px] text-content placeholder:text-content-muted focus:bg-field focus:outline-none focus:ring-1 focus:ring-accent/60"
-      @keydown.enter.exact.prevent="post"
-      @keydown.esc.stop="($event.target as HTMLInputElement).blur()"
-      @keydown.stop
-    />
     <button
-      v-if="thread.length"
       type="button"
-      class="flex h-7 flex-none items-center gap-1 rounded-md px-2 text-[12px] text-content-secondary hover:bg-overlay-hover"
-      :class="open ? 'bg-overlay-light' : ''"
-      :title="open ? 'Hide comments' : 'Show comments'"
-      :aria-expanded="open"
-      @click="$emit('toggle')"
+      :class="[barButton, thread.length ? 'text-content-secondary' : '']"
+      :title="thread.length ? `${thread.length} ${thread.length === 1 ? 'comment' : 'comments'}` : 'Comment'"
+      @click="openComments"
     >
-      <ChatBubbleLeftIcon class="h-3.5 w-3.5" /><span class="font-mono tabular-nums">{{ thread.length }}</span>
+      <ChatBubbleLeftIcon class="h-icon-canvas w-icon-canvas" />
+      <span v-if="thread.length" class="font-mono text-[12px] tabular-nums">{{ thread.length }}</span>
     </button>
-    <ul v-if="open && thread.length" class="absolute right-0 top-full z-10 m-0 mt-1.5 flex max-h-72 w-80 list-none flex-col gap-1.5 overflow-y-auto rounded-lg border border-edge-subtle bg-surface p-3 shadow-lg custom-scrollbar">
-      <li v-for="item in thread" :key="item.id" class="group/comment flex items-start gap-1.5 text-[12.5px] leading-snug">
-        <span class="min-w-0 flex-1 whitespace-pre-wrap break-words text-content-secondary">
-          <span class="text-content-muted">{{ item.author?.name || 'You' }}{{ item.sent ? '' : ' · not sent' }} · </span>{{ item.value }}
-        </span>
-        <button
-          v-if="!item.sent"
-          type="button"
-          class="flex h-5 w-5 flex-none items-center justify-center rounded text-content-muted opacity-0 hover:text-red-400 group-hover/comment:opacity-100"
-          title="Delete comment"
-          @click="sheet.deleteComment(item.id)"
-        ><TrashIcon class="h-3.5 w-3.5" /></button>
-      </li>
-    </ul>
-  </div>
+  </template>
 
   <!-- Panel: every field at full size, and the comments inline. -->
   <div v-else-if="part === 'panel' && active && open" class="flex flex-col gap-3 px-3 pb-2 pt-3">
@@ -158,6 +147,7 @@
 import { computed, ref, watch } from 'vue'
 import { ChatBubbleLeftIcon, CheckIcon, ChevronUpIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { StarIcon } from '@heroicons/vue/24/solid'
+import { StarIcon as StarOutlineIcon } from '@heroicons/vue/24/outline'
 import { mediaIdOfRef, type SheetMediaEntry } from './sheetHtml'
 import type { SheetContext } from './useContactSheet'
 
@@ -194,6 +184,13 @@ const fields = computed<Field[]>(() => {
       if (el.id) out.push({ key: `c-${el.id}`, kind: 'check', id: el.id, label: (el.textContent || '').trim() || 'Yes' })
     })
   }
+  // A rating or check with no for= belongs to the one picture it sits beside:
+  // the nearest enclosing element that holds exactly one tile.
+  root.querySelectorAll('stimma-rating:not([for]), stimma-check:not([for])').forEach(el => {
+    if (!el.id || !tileIds.value.includes(soleTileNear(el) ?? '')) return
+    if (el.tagName === 'STIMMA-RATING') out.push({ key: `r-${el.id}`, kind: 'rating', id: el.id, label: el.getAttribute('label') || 'Rating' })
+    else out.push({ key: `c-${el.id}`, kind: 'check', id: el.id, label: (el.textContent || '').trim() || 'Yes' })
+  })
   root.querySelectorAll('stimma-option').forEach(el => {
     if (mediaIdOfRef(el.getAttribute('ref')) !== props.entry!.mediaId) return
     const choice = el.closest('stimma-choice')
@@ -207,6 +204,15 @@ const fields = computed<Field[]>(() => {
   })
   return out
 })
+
+function soleTileNear(el: Element): string | null {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    const tiles = node.querySelectorAll('stimma-media, stimma-compare')
+    if (tiles.length === 1) return tiles[0].id || null
+    if (tiles.length > 1) return null
+  }
+  return null
+}
 
 const anchor = computed(() => tileIds.value[0] || props.entry?.id || '')
 const thread = computed(() => (anchor.value ? props.sheet.commentsFor(anchor.value) : []))
@@ -233,6 +239,22 @@ function toggleField(field: Field) {
   } else {
     props.sheet.setAnswer(field.id, isOn(field) ? null : field.value)
   }
+}
+
+// The top band's buttons share Close's look.
+const barButton = 'flex h-9 min-w-9 items-center justify-center gap-1 rounded-md px-2 text-content-tertiary transition-colors hover:bg-overlay-light hover:text-content'
+const ratingMenu = ref<string | null>(null)
+const hover = ref(0)
+watch(anchor, () => { ratingMenu.value = null })
+function pickRating(id: string, n: number) {
+  props.sheet.setAnswer(id, n)
+  ratingMenu.value = null
+  hover.value = 0
+}
+function openComments(event: MouseEvent) {
+  if (!anchor.value) return
+  const r = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  props.sheet.commentFor.value = { id: anchor.value, label: props.entry?.caption || 'this picture', x: r.right, y: r.bottom + 6, mediaId: props.entry?.mediaId ?? null }
 }
 
 // A draft belongs to the picture it was written about.
