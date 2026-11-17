@@ -107,7 +107,7 @@
     <div
       v-if="!slideshowCompact && !focusMode && currentLabel"
       class="app-no-drag absolute top-1.5 z-chrome flex h-9 max-w-[50%] -translate-x-1/2 items-center truncate text-[13px] text-content-secondary"
-      :style="{ left: showSidebar ? 'calc(50% - 192px)' : '50%', maxWidth: reviewInTopBand ? `min(50%, calc(100% - ${showSidebar ? SIDEBAR_WIDTH : 0}px - 480px))` : undefined }"
+      :style="{ left: showSidebar ? 'calc(50% - 192px)' : '50%', maxWidth: reviewInTopBand ? `min(50%, calc(100% - ${showSidebar ? SIDEBAR_WIDTH : 0}px - ${2 * (reviewBandWidth + 64)}px))` : undefined }"
     ><span class="truncate">{{ currentLabel }}</span></div>
 
     <!-- Grid view title indicator (centered over image area, accounting for sidebar) -->
@@ -726,6 +726,7 @@
          desktop, small buttons in the top band beside Close, off the picture. -->
     <div
       v-if="reviewInTopBand"
+      ref="reviewBand"
       class="absolute top-1.5 z-chrome flex h-9 items-center gap-0.5"
       :style="{ right: (showSidebar && !focusMode) ? `${SIDEBAR_WIDTH + 56}px` : '52px', WebkitAppRegion: 'no-drag' }"
     >
@@ -1772,6 +1773,19 @@ const focusMode = ref(savedSettings.focusMode ?? false)
 const hasReview = computed(() => props.review)
 const reviewOpen = ref(false)
 function toggleReview() { reviewOpen.value = !reviewOpen.value }
+// The centered caption keeps clear of the review buttons on both sides.
+const reviewBand = ref(null)
+const reviewBandWidth = ref(0)
+let reviewBandObserver = null
+watch(reviewBand, el => {
+  reviewBandObserver?.disconnect()
+  reviewBandObserver = null
+  reviewBandWidth.value = 0
+  if (!el) return
+  reviewBandObserver = new ResizeObserver(([entry]) => { reviewBandWidth.value = Math.ceil(entry.contentRect.width) })
+  reviewBandObserver.observe(el)
+})
+onUnmounted(() => reviewBandObserver?.disconnect())
 // Grid and set overviews and packages have their own title and actions in the band.
 const reviewInTopBand = computed(() => hasReview.value && !slideshowCompact.value && !focusMode.value && !isGrid.value && !isSet.value && !isPackage.value && !isViewingGrid.value && !isViewingSet.value && !isViewingSource.value)
 const reviewStripOverride = ref(null)
