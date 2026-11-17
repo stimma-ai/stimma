@@ -180,14 +180,11 @@ async def _deliver_notifications(chat_id: int, session: AsyncSession, ws_manager
     return True
 
 
-async def _settle_lost_background_runs(chat_id: int, session: AsyncSession, ws_manager) -> bool:
-    """Tell the agent about background tasks a server restart killed.
+async def _reserve_background_ids(chat_id: int, session: AsyncSession) -> dict[str, str]:
+    """Background tasks the chat history says were started: {id: label}.
 
-    A detached run_code lives only in this process. Its tool result told the
-    agent it's still running and a notification will follow; after a restart
-    neither is true, and the agent would wait for it forever. Any task the
-    history calls running, that has no notification and wasn't started by this
-    process, gets an "interrupted" notification now. Returns True if any did.
+    Also keeps new task ids past these, even after a restart, so a new bg-1
+    can't be taken for the one the agent already knows about.
     """
     from . import background as bg
     claims = (await session.execute(
@@ -203,9 +200,23 @@ async def _settle_lost_background_runs(chat_id: int, session: AsyncSession, ws_m
         for m in bg.DETACHED_CLAIM_RE.finditer(text or ""):
             started.setdefault(m.group(1), m.group(3) or "")
             highest = max(highest, int(m.group(2)))
+    bg.reserve_ids_through(chat_id, highest)
+    return started
+
+
+async def _settle_lost_background_runs(chat_id: int, session: AsyncSession, ws_manager) -> bool:
+    """Tell the agent about background tasks a server restart killed.
+
+    A detached run_code lives only in this process. Its tool result told the
+    agent it's still running and a notification will follow; after a restart
+    neither is true, and the agent would wait for it forever. Any task the
+    history calls running, that has no notification and wasn't started by this
+    process, gets an "interrupted" notification now. Returns True if any did.
+    """
+    from . import background as bg
+    started = await _reserve_background_ids(chat_id, session)
     if not started:
         return False
-    bg.reserve_ids_through(chat_id, highest)
     notified = set()
     for meta in (await session.execute(
         select(ChatItem.item_metadata).where(
@@ -1683,6 +1694,9 @@ async def _run_agentic_loop_inner(
 
     # If resuming with pending tool calls, execute them first
     if pending_tool_calls:
+        # A resumed run_code may go to the background before the first turn
+        # settles lost tasks; it must not take an id the history already used.
+        await _reserve_background_ids(chat_id, session)
         for index, tc_data in enumerate(pending_tool_calls):
             _raise_if_interrupted(chat_id)
             fn_name = tc_data["fn_name"]

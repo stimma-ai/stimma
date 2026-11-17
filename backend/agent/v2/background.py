@@ -443,8 +443,9 @@ def lost_notification_text(run_id: str, label: str) -> str:
         "<task-notification>\n"
         f"Background task {run_id}{_quoted(label)} was interrupted: the Stimma server "
         "restarted while it was running. Its code is no longer running and will not "
-        "resume, and no other notification will come for it. Generations it finished "
-        "before the restart are in the chat; anything it hadn't finished is not coming. "
-        "If that work is still wanted, start it again.\n"
+        "resume, and no other notification will come for it. Generations it had already "
+        "submitted may still finish on their own and appear in the chat; anything its "
+        "code hadn't submitted yet will not happen. Check what's in the chat before "
+        "starting any of it again.\n"
         "</task-notification>"
     )
