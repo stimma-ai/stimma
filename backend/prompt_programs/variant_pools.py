@@ -51,7 +51,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from core.logging import get_logger
 from prompt_programs.variants import (
-    AGE, CUT, HAVE_SHOWN, MIN_POOL, MORE_TURNS, STAGE, TOPUP, TURN, VARIANTS_VERSION, Ask, Pins, Seeds, Session, Slot, Turn,
+    AGE, CUT, HAVE_SHOWN, MIN_POOL, MORE_TURNS, TOPUP, TURN, VARIANTS_VERSION, Ask, Pins, Seeds, Session, Slot, Turn,
     age_stages, age_years, ask_writer, draw_seeds, first_turn, more_turn, reply_text, retry_note, split, stages_of, write_turn,
     year_ages,
 )
@@ -360,8 +360,9 @@ def matches(seeds: Dict[str, Any], pins: Pins) -> bool:
     if pins.gender and str(seeds.get("gender") or "") not in set(pins.gender):
         return False
     if pins.age or pins.years:
+        from prompt_programs.age_bands import bands_of
         age = seeds.get("age")
-        if not (set(stages_of(age)) & set(pins.age) or (pins.years and age in year_ages(pins.years))):
+        if not (set((*stages_of(age), *bands_of(age))) & set(pins.age) or (pins.years and age in year_ages(pins.years))):
             return False   # its recorded age is in none of the picked stages or years (or it has none)
     return True
 
@@ -454,12 +455,13 @@ def due(variants: Sequence[Dict[str, Any]], uses: Dict[str, int], choice: Choice
 
 def in_pool(variants: Sequence[Dict[str, Any]], seed: str) -> Dict[str, int]:
     """How many of a pool's variants carry each value of one seed (descent, gender); for age, by
-    life stage (a 35-year-old counts for young adult and middle-aged)."""
+    numeric age band (a 35-year-old counts only for 35-39)."""
+    from prompt_programs.age_bands import bands_of
     out: Dict[str, int] = {}
     for v in variants:
         s = (v.get("seeds") or {}).get(seed)
         if isinstance(s, str) and s:
-            for k in (stages_of(s) if seed == "age" else (s,)):
+            for k in (bands_of(s) if seed == "age" else (s,)):
                 out[k] = out.get(k, 0) + 1
     return out
 
@@ -498,9 +500,9 @@ def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: 
     """A person slot's descent, gender and age pickers for /pools (VARIANTS_IMPL.md section 4):
     descent browsed by its list's browse facet (Region > heritage), what the words allow of it
     (`fits`), what is picked and how many variants carry each value; the same for gender, a short
-    list shown whole (`gender_fits`: what the words allow of it); age by life stage, only the
-    stages the person may be (`ages`: variants.age_stages, their narrowed ages and the minors
-    rules; None: every adult stage), each with the span of years it holds for them. Several people
+    list shown whole (`gender_fits`: what the words allow of it); age by numeric bands, only the
+    bands the person may be (`ages`: seeding.age_choices, their narrowed ages and the minors
+    rules; None: every adult band), each with the span of years it holds for them. Several people
     seed differently (seeding.plan): a couple's gender row is who they are (`gender_list`, the
     couple list), a family or group has none (None), a group or a figure with no heritage no
     descent row (`descent`: the heritage list, an elf's clans; None for none), and a family or
@@ -532,9 +534,13 @@ def person_pickers(variants: Sequence[Dict[str, Any]], choice: Choice, *, fits: 
                          "picked": {"values": list(choice.pins.gender)}, "in_pool": in_pool(variants, "gender")}
     a = vocab.get(AGE) if age else None
     if a is not None:
-        stages = ages if ages is not None else age_stages()
-        out["age"] = {"list": a.id, "label": a.label, "browse": STAGE, "options": list(stages),
-                      "stages": [{"id": st, "label": st[:1].upper() + st[1:],
+        from prompt_programs.age_bands import bands
+        stages = ages if ages is not None else bands()
+        allowed = {t for ts in stages.values() for t in ts}
+        legacy = age_stages(sorted(allowed))
+        out["age"] = {"list": a.id, "label": a.label, "browse": "age_band", "options": list(stages),
+                      "legacy_stages": {st: [age_years(t) for t in ts] for st, ts in legacy.items()},
+                      "stages": [{"id": st, "label": st.replace("-", "–"),
                                   "span": [min(age_years(t) for t in ts), max(age_years(t) for t in ts)],
                                   "years": [age_years(t) for t in ts]}
                                  for st, ts in stages.items()],

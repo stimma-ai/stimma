@@ -328,11 +328,12 @@ class _Prompt:
 
 
 def _key(model: Optional[str], masked: str, exact: Dict[str, str], modes: Optional[Dict[int, str]] = None) -> str:
+    from prompt_programs.narrow import NARROW_VERSION
     from prompt_programs.reader import READER_VERSION
     from prompt_programs.store import program_key
     from prompt_programs.vocab import vocabulary
     parts: Dict[str, Any] = {"v": SLOTS_VERSION, "reader": READER_VERSION, "model": model, "vocab": vocabulary().version,
-                             "prompt": masked, "exact": exact}
+                             "prompt": masked, "exact": exact, "narrow": NARROW_VERSION}
     if modes:
         parts["modes"] = {str(n): m for n, m in sorted(modes.items())}
     return program_key(parts)

@@ -269,8 +269,9 @@ def age_basis(record: Optional[Dict[str, Any]]) -> Tuple[Optional[List[str]], Tu
 
 
 def age_choices(record: Optional[Dict[str, Any]]) -> Dict[str, List[str]]:
-    """The life stages a person's age may be picked from, with their ages (variants.age_stages)."""
-    return V.age_stages(*age_basis(record))
+    """Numeric age bands, restricted to the same ages the writer may seed."""
+    from prompt_programs.age_bands import bands
+    return bands(*age_basis(record))
 
 
 # --------------------------------------------------------------------------- narrowing, in the background

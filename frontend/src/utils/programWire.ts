@@ -131,13 +131,15 @@ export interface GenderPicker {
   in_pool?: Record<string, number>
 }
 
-/** Age: browsed by life stage; each stage's › opens its single years. */
+/** Age: numeric bands; each band's › opens its single years. */
 export interface AgePicker {
   list: string
   label: string
   /** The stage ids this person may be. */
   options: string[]
   stages: Array<{ id: string; label: string; span: [number, number]; years: number[] }>
+  /** Hidden compatibility mapping for saved choices made with the old life-stage picker. */
+  legacy_stages?: Record<string, number[]>
   fits?: string[]
   picked?: { values: string[]; years?: number[] }
   in_pool?: Record<string, number>

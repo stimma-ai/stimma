@@ -56,7 +56,7 @@ function readSlots(prompt, modes = {}) {
 }
 const variantsOf = (id, words) => (VARIANTS[id] || [`a ${words}`, `an old ${words}`, `a small ${words}`]).map(text => ({ text, seeds: {} }))
 
-async function open(t, { theme = 'dark', width = 900, height = 760, mobile = false, start = '', dev = false, run = null, failing = [], kindFails = [] } = {}) {
+async function open(t, { theme = 'dark', width = 900, height = 760, mobile = false, start = '', dev = false, run = null, failing = [], kindFails = [], age = null } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2, hasTouch: mobile, isMobile: mobile, colorScheme: theme })
@@ -119,7 +119,7 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
       const read = readSlots(body.prompt)
       return json({ choices: Object.fromEntries(read.slots.map((sl) => {
         const variants = failed.has(sl.words) ? [] : variantsOf(sl.id, sl.words).filter(v => !removed.has(v.text))
-        return [sl.id, { kind: 'variants', state: failed.has(sl.words) ? 'as_written' : 'ready', more: false, variants, options: variants.map(v => v.text), chosen: body.choices?.[sl.id] || null }]
+        return [sl.id, { kind: 'variants', state: failed.has(sl.words) ? 'as_written' : 'ready', more: false, variants, options: variants.map(v => v.text), chosen: body.choices?.[sl.id] || null, ...(age && sl.kind === 'person' ? { person: { age } } : {}) }]
       })), more: [] })
     }
     if (url.endsWith('/prompt-programs/preview')) return json({ prompt: 'A dorm room with a 21-year-old Irish man with a buzz cut', draws: [{ id: 'young_man', value: MEN[1] }] })
@@ -751,4 +751,35 @@ test('the prompt tips say what Direct and Raw do with the rest', async t => {
   tips = await openTips(page, 'Raw')
   await expect(tips.locator('[data-tips-way]')).toHaveText('Raw sends your prompt exactly as typed. Choose Fluent or Direct to use the rest.')
   await shot('tips-raw')
+})
+
+for (const width of [390, 900]) test(`numeric ages, custom ranges and presets at ${width}px`, async t => {
+  const age = {
+    list: 'person.age_band', label: 'Age', options: ['18-24', '25-29', '30-34', '35-39'],
+    stages: [[18, 24], [25, 29], [30, 34], [35, 39]].map(([lo, hi]) => ({
+      id: `${lo}-${hi}`, label: `${lo}–${hi}`, span: [lo, hi],
+      years: Array.from({ length: hi - lo + 1 }, (_, i) => lo + i),
+    })),
+    legacy_stages: { 'young adult': Array.from({ length: 22 }, (_, i) => i + 18) },
+  }
+  const { page, mark, card, shot } = await open(t, { width, start: 'a <young man>', age })
+  await mark(1).click()
+  await card.locator('[data-filter="age"]').click()
+  await expect(card.locator('[data-stage]')).toHaveText(['18–24', '25–29', '30–34', '35–39'])
+  await card.getByLabel('Minimum age').fill('28')
+  await card.getByLabel('Maximum age').fill('35')
+  await card.getByRole('button', { name: 'Apply', exact: true }).click()
+  const selected = () => page.evaluate(() => window.options().programChoices?.young_man?.seeds?.age)
+  await expect.poll(selected).toEqual({ years: [28, 29, 30, 31, 32, 33, 34, 35] })
+  await shot(`age-ranges-${width}`)
+  await card.getByLabel('Minimum age').fill('17')
+  await card.getByRole('button', { name: 'Apply', exact: true }).click()
+  await expect(card.getByRole('alert')).toBeVisible()
+  await expect.poll(selected).toEqual({ years: [28, 29, 30, 31, 32, 33, 34, 35] })
+  await card.getByLabel('Marketing age preset').selectOption('25-34')
+  await expect.poll(selected).toEqual({ years: Array.from({ length: 10 }, (_, i) => i + 25) })
+  await card.locator('[data-stage="30-34"]').click()
+  await expect.poll(selected).toEqual({ years: [25, 26, 27, 28, 29] })
+  const overflow = await card.evaluate(el => el.scrollWidth > el.clientWidth)
+  assert.equal(overflow, false)
 })

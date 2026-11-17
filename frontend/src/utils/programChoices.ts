@@ -220,7 +220,7 @@ export function yearOfAge(age: string | number | null | undefined): number | nul
 /** Every year the picked ages cover: the years of each picked stage, and the single years. */
 export function pickedYears(seeds: ChoiceSeeds | null | undefined, age: AgePicker | null | undefined): number[] {
   const out = new Set(seeds?.age?.years || [])
-  for (const id of seeds?.age?.values || []) for (const y of age?.stages.find(st => st.id === id)?.years || []) out.add(y)
+  for (const id of seeds?.age?.values || []) for (const y of age?.stages.find(st => st.id === id)?.years || age?.legacy_stages?.[id] || []) out.add(y)
   return [...out].sort((a, b) => a - b)
 }
 
@@ -291,18 +291,20 @@ export function clearSeed(s: ChoiceState | null | undefined, which: 'descent' | 
   return withSeeds(s, seeds, pool)
 }
 
-/** Pick a life stage whole, or un-pick it. Picked whole, its single years picked one by one go. */
+/** Pick an age band whole, or un-pick it, including when its years were selected individually. */
 export function toggleStage(s: ChoiceState | null | undefined, stage: string, pool: ChoicePool | null | undefined): ChoiceState | null {
+  s = numericAgeState(s, pool)
   const stages = s?.seeds?.age?.values || []
-  const on = !stages.includes(stage)
   const inStage = new Set(pool?.person?.age?.stages.find(st => st.id === stage)?.years || [])
-  const years = (s?.seeds?.age?.years || []).filter(y => !on || !inStage.has(y))
-  return withSeeds(s, { ...(s?.seeds || {}), age: { values: flip(stages, stage), years } }, pool)
+  const on = !stages.includes(stage) && ![...inStage].every(y => s?.seeds?.age?.years?.includes(y))
+  const years = (s?.seeds?.age?.years || []).filter(y => !inStage.has(y))
+  return withSeeds(s, { ...(s?.seeds || {}), age: { values: on ? [...stages, stage] : stages.filter(id => id !== stage), years } }, pool)
 }
 
 /** Pick a single year, or un-pick it. A year inside a stage picked whole narrows that stage
     to the year. */
 export function toggleYear(s: ChoiceState | null | undefined, year: number, pool: ChoicePool | null | undefined): ChoiceState | null {
+  s = numericAgeState(s, pool)
   const age = pool?.person?.age
   let stages = [...(s?.seeds?.age?.values || [])]
   let years = [...(s?.seeds?.age?.years || [])]
@@ -312,6 +314,26 @@ export function toggleYear(s: ChoiceState | null | undefined, year: number, pool
     if (!years.includes(year)) years.push(year)
   } else years = years.includes(year) ? years.filter(y => y !== year) : [...years, year]
   return withSeeds(s, { ...(s?.seeds || {}), age: { values: stages, years } }, pool)
+}
+
+/** Convert a legacy selection to its original years only when the user edits age. */
+function numericAgeState(s: ChoiceState | null | undefined, pool: ChoicePool | null | undefined): ChoiceState | null | undefined {
+  const age = pool?.person?.age
+  const old = (s?.seeds?.age?.values || []).filter(id => !age?.stages.some(st => st.id === id) && age?.legacy_stages?.[id])
+  if (!old.length) return s
+  return { ...s, seeds: { ...s?.seeds, age: {
+    values: (s?.seeds?.age?.values || []).filter(id => !old.includes(id)),
+    years: [...new Set([...(s?.seeds?.age?.years || []), ...old.flatMap(id => age!.legacy_stages![id])])],
+  } } }
+}
+
+/** Replace the age filter with an inclusive range. Reject partial or unavailable ranges. */
+export function setAgeRange(s: ChoiceState | null | undefined, lo: number, hi: number, pool: ChoicePool | null | undefined): ChoiceState | null | undefined {
+  if (!Number.isInteger(lo) || !Number.isInteger(hi) || lo < 0 || hi > 110 || lo > hi) return undefined
+  const allowed = new Set(pool?.person?.age?.stages.flatMap(st => st.years) || [])
+  const years = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
+  if (!years.every(y => allowed.has(y))) return undefined
+  return withSeeds(s, { ...(s?.seeds || {}), age: { years } }, pool)
 }
 
 // What the picker lists ------------------------------------------------------------------------
@@ -402,6 +424,16 @@ export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 /** A person's picks as items for a row: Age (its stages, then single years), Gender, Descent
     (regions, then heritages). */
 export function ageItems(s: ChoiceState | null | undefined, age: AgePicker | null | undefined): string[] {
+  if (age?.legacy_stages || s?.seeds?.age?.values?.some(id => /^\d/.test(id))) {
+    const years = pickedYears(s?.seeds, age)
+    const runs: string[] = []
+    for (let i = 0; i < years.length; i++) {
+      const lo = years[i]
+      while (i + 1 < years.length && years[i + 1] === years[i] + 1) i++
+      runs.push(lo === years[i] ? String(lo) : `${lo}–${years[i]}`)
+    }
+    return runs
+  }
   const stages = (s?.seeds?.age?.values || []).map(id => age?.stages.find(st => st.id === id)?.label || cap(id))
   return [...stages, ...[...(s?.seeds?.age?.years || [])].sort((a, b) => a - b).map(String)]
 }

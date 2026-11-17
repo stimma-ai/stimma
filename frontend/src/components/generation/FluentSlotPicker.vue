@@ -21,6 +21,24 @@
       </div>
       <div :style="{ maxHeight: listMax }" class="shrink-0 overflow-y-auto overscroll-contain px-1.5 pb-1.5 flex flex-col gap-px" data-list>
         <template v-if="filter === 'age'">
+          <form v-if="!stage" class="px-2 pb-2 flex flex-col gap-2" @submit.prevent="applyAgeRange">
+            <label v-if="agePresets.length" class="text-[11px] text-content-tertiary">Marketing preset
+              <select class="mt-1 w-full bg-surface text-content text-xs rounded-md px-2 py-1.5 coarse:min-h-11 outline-none focus-visible:ring-1 focus-visible:ring-selection/60" aria-label="Marketing age preset" :value="''" @change="applyPreset">
+                <option value="" disabled>Choose ages</option>
+                <option v-for="p in agePresets" :key="p[0]" :value="p.join('-')">{{ p[0] === 65 ? '65+' : `${p[0]}–${p[1]}` }}</option>
+              </select>
+            </label>
+            <div class="flex items-end gap-2">
+              <label class="min-w-0 flex-1 text-[11px] text-content-tertiary">From
+                <input v-model="rangeFrom" type="number" min="0" max="110" step="1" required aria-label="Minimum age" class="mt-1 w-full bg-surface text-content text-xs rounded-md px-2 py-1.5 coarse:min-h-11 outline-none focus-visible:ring-1 focus-visible:ring-selection/60" />
+              </label>
+              <label class="min-w-0 flex-1 text-[11px] text-content-tertiary">To
+                <input v-model="rangeTo" type="number" min="0" max="110" step="1" required aria-label="Maximum age" class="mt-1 w-full bg-surface text-content text-xs rounded-md px-2 py-1.5 coarse:min-h-11 outline-none focus-visible:ring-1 focus-visible:ring-selection/60" />
+              </label>
+              <button type="submit" class="px-2 py-1.5 coarse:min-h-11 rounded-md text-xs text-accent hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60">Apply</button>
+            </div>
+            <p v-if="rangeError" role="alert" class="text-[11px] text-content-secondary">{{ rangeError }}</p>
+          </form>
           <template v-if="stage || stages.length === 1">
             <button v-if="stage" type="button" :class="rowClass" :data-stage-all="stage.id" @click="set(toggleStage(st, stage.id, pool))">
               <span :class="tickClass"><CheckIcon v-if="stagePicked(stage.id)" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
@@ -31,7 +49,7 @@
                 <span :class="tickClass"><CheckIcon v-if="!ageText" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
                 <span class="flex-1 text-content-secondary">Any</span>
               </button>
-              <div class="px-2 pt-2 pb-1 text-[11px] font-semibold text-content-tertiary">{{ stages[0].label }} <span class="font-normal text-content-muted">{{ rangeOf(stages[0]) }}</span></div>
+              <div class="px-2 pt-2 pb-1 text-[11px] font-semibold text-content-tertiary">{{ rangeOf(stages[0]) }}</div>
             </template>
             <div class="grid grid-cols-6 gap-1 px-1 pt-1" data-years>
               <button
@@ -50,7 +68,7 @@
             <div v-for="a in stages" :key="a.id" class="flex items-stretch rounded-md hover:bg-overlay-subtle">
               <button type="button" :class="[rowClass, 'flex-1 min-w-0 hover:bg-transparent']" :data-stage="a.id" @click="set(toggleStage(st, a.id, pool))">
                 <span :class="tickClass"><CheckIcon v-if="stageOn(a)" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
-                <span class="flex-1 min-w-0 text-content">{{ a.label }} <span class="text-content-muted tabular-nums">{{ rangeOf(a) }}</span></span>
+                <span class="flex-1 min-w-0 text-content tabular-nums">{{ rangeOf(a) }}</span>
                 <span class="shrink-0 text-[11px] text-selection tabular-nums">{{ stageNote(a) }}</span>
               </button>
               <button type="button" class="shrink-0 px-2 rounded-md text-content-muted hover:text-content outline-none focus-visible:ring-1 focus-visible:ring-selection/60" :aria-label="`${a.label} by year`" :data-stage-open="a.id" @click="stage = a">
@@ -189,7 +207,7 @@ import { matchesQuery } from '../../utils/programVocab'
 import {
   ageItems, cap, clearSeed, descentItems, genderItems, hasSeeds, keptPieces, lineString, lookOf, optionsOf,
   pickedHeritages, pickedYears, setPicked, shownVariants, slotFailed, toggleGender, toggleHeritage, toggleRegion, toggleStage, toggleValue, toggleYear,
-  yearOfAge,
+  yearOfAge, setAgeRange,
 } from '../../utils/programChoices'
 import type { AgePicker, ChoiceState, Variant } from '../../utils/programWire'
 import type { PromptProgram } from '../../composables/usePromptProgram'
@@ -228,6 +246,10 @@ const filter = ref<'age' | 'gender' | 'descent' | null>(null)
 const region = ref<{ id: string; values: string[] } | null>(null)
 const stage = ref<Stage | null>(null)
 const query = ref('')
+const rangeFrom = ref<number | string>('')
+const rangeTo = ref<number | string>('')
+const rangeError = ref('')
+watch([() => props.id, filter], () => { rangeFrom.value = ''; rangeTo.value = ''; rangeError.value = '' })
 watch(() => props.id, () => { filter.value = null; region.value = null; stage.value = null; query.value = '' })
 watch(filter, () => { query.value = ''; region.value = null; stage.value = null; searching.value = false })
 
@@ -248,7 +270,7 @@ const filters = computed(() => [
 ])
 const backLabel = computed(() => {
   if (filter.value === 'descent') return region.value ? region.value.id : 'Descent'
-  if (filter.value === 'age') return stage.value ? `${stage.value.label} ${rangeOf(stage.value)}` : 'Age'
+  if (filter.value === 'age') return stage.value ? `Age ${rangeOf(stage.value)}` : 'Age'
   return 'Gender'
 })
 
@@ -390,11 +412,25 @@ const stages = computed<Stage[]>(() => {
   const ok = new Set(a?.options || [])
   return (a?.stages || []).filter(x => !ok.size || ok.has(x.id))
 })
-const rangeOf = (a: Stage) => (a.span[0] === a.span[1] ? `${a.span[0]}` : `${a.span[0]}–${a.span[1]}`)
-const stagePicked = (id: string) => !!st.value?.seeds?.age?.values?.includes(id)
-const pickedYearList = computed(() => st.value?.seeds?.age?.years || [])
-const stageOn = (a: Stage) => stagePicked(a.id) || pickedYearList.value.some(y => a.years.includes(y))
-const yearOn = (y: number) => pickedYearList.value.includes(y) || stages.value.some(a => stagePicked(a.id) && a.years.includes(y))
+const rangeOf = (a: Stage) => (a.id === '80+' && a.span[0] === 80 && a.span[1] === 110 ? '80+' : a.span[0] === a.span[1] ? `${a.span[0]}` : `${a.span[0]}–${a.span[1]}`)
+const pickedYearList = computed(() => pickedYears(st.value?.seeds, person.value?.age))
+const stagePicked = (id: string) => stages.value.find(a => a.id === id)?.years.every(y => pickedYearList.value.includes(y)) || false
+const stageOn = (a: Stage) => a.years.some(y => pickedYearList.value.includes(y))
+const yearOn = (y: number) => pickedYearList.value.includes(y)
+const agePresets = computed(() => [[18, 24], [25, 34], [35, 44], [45, 54], [55, 64], [65, 110]]
+  .filter(([lo, hi]) => setAgeRange(null, lo, hi, pool.value) !== undefined))
+function applyAgeRange() {
+  const next = rangeFrom.value === '' || rangeTo.value === '' ? undefined
+    : setAgeRange(st.value, Number(rangeFrom.value), Number(rangeTo.value), pool.value)
+  rangeError.value = next === undefined ? 'Choose a complete range allowed by this prompt.' : ''
+  if (next !== undefined) set(next)
+}
+function applyPreset(e: Event) {
+  const [lo, hi] = (e.target as HTMLSelectElement).value.split('-').map(Number)
+  rangeFrom.value = lo
+  rangeTo.value = hi
+  applyAgeRange()
+}
 function stageNote(a: Stage) {
   if (stagePicked(a.id)) return ''
   return pickedYearList.value.filter(y => a.years.includes(y)).sort((x, z) => x - z).join(', ')

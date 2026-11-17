@@ -326,7 +326,8 @@ class Pins:
         stages' ages and the picked years, in list order; [] when none is picked or none fits."""
         if not (self.age or self.years):
             return []
-        stages = age_stages(fits, minor)
+        from prompt_programs.age_bands import bands
+        stages = {**age_stages(fits, minor), **bands(fits, minor)}
         allowed = set(allowed_ages(fits, minor))
         want = {a for st in self.age for a in stages.get(st, ())} | {a for a in year_ages(self.years) if a in allowed}
         return [a for a in allowed_ages(fits, minor) if a in want]

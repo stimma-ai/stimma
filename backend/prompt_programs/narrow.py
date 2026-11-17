@@ -35,7 +35,7 @@ from prompt_programs.vocab import AGE_LIST, Leaf
 
 log = get_logger(__name__)
 
-NARROW_VERSION = "narrow-18"   # narrow-18: a list of things or places of the sort the words name keeps only the items that are one of what they name, every word true of them (no garden or harbor for a beach, no bread for a cake); a list of details (colors, patterns, weather) is not narrowed by what kind of thing the words name. narrow-17: words for a woman fit woman only; trans and non-binary genders are opt-in, kept only when the words say so. narrow-16: (asked afresh with the minors rules rebuilt; the question is unchanged). narrow-15: words naming a kind of being (an elf) leave gender open. narrow-14: a list may be read in its scene (what a person wears, the light). narrow-13: the gender list, whose description says words for a woman fit a trans woman too. narrow-12: "elderly" is 70 and over. narrow-11: an age is read in its own line and the notes; "young" is 18 to 29. narrow-10: a grouped list is answered as {"groups", "items"}; an empty answer stands. narrow-9: a list with declared groups (descent) is shown by group. narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
+NARROW_VERSION = "narrow-19"   # narrow-19: explicit ages win over vague adjectives; decade subdivisions; roles do not impose hard adult age limits. narrow-18: a list of things or places of the sort the words name keeps only the items that are one of what they name, every word true of them (no garden or harbor for a beach, no bread for a cake); a list of details (colors, patterns, weather) is not narrowed by what kind of thing the words name. narrow-17: words for a woman fit woman only; trans and non-binary genders are opt-in, kept only when the words say so. narrow-16: (asked afresh with the minors rules rebuilt; the question is unchanged). narrow-15: words naming a kind of being (an elf) leave gender open. narrow-14: a list may be read in its scene (what a person wears, the light). narrow-13: the gender list, whose description says words for a woman fit a trans woman too. narrow-12: "elderly" is 70 and over. narrow-11: an age is read in its own line and the notes; "young" is 18 to 29. narrow-10: a grouped list is answered as {"groups", "items"}; an empty answer stands. narrow-9: a list with declared groups (descent) is shown by group. narrow-8: ["ALL"] when every item fits; room to copy long items. narrow-7: the rule is stated without the cases it was tested on. narrow-6: a girl or a boy is a child or an adult, never a span of both. narrow-5: an age is read with the whole prompt, and "a girl" or "a boy" alone is what the prompt makes them. narrow-4: words narrow by what they imply ("a grandmother", "an old man"); narrow-3: "a girl" alone is 18 to 29, said as ages (narrow-2: under 18 only when asked)
 NARROW_SECONDS = 180.0   # all of a prompt's narrowing calls together; past it what hasn't answered seeds nothing
 WORDS_CHUNK = 80         # a list longer than this is asked in chunks of about this many, side by side
 
@@ -52,8 +52,7 @@ fits, reply []. If every item fits, reply ["ALL"] instead of copying them.
 Read the description whole, with what it is said of, the way a casting director would: which
 items would a reader of those words accept, and which would they call wrong? Keep the first and
 leave out the second. Words narrow by what they imply as well as by what they state: a life
-stage, a role or a kinship brings its usual range with it ("a grandmother" is not 25, "a
-college student" is not 60, "a veteran" is not 20, "retired" is not 30), and "old", "young" or
+stage brings its usual range with it, and "old", "young" or
 "little" narrow even where the noun alone would not ("an old man" is old, not any adult).
 Only when the description truly says nothing about an item either way, keep it, unless the
 list says that item is kept only when called for.
@@ -73,6 +72,12 @@ little girl", "a schoolboy". Such words call for the ages under 18 that match th
 those. A man or a woman is an adult, of whatever ages the rest of the description allows.
 A "teenage boy" is 13 to 19. "Young", said of an adult ("a young woman", "a young man"), is
 their twenties at most: 18 to 29. "Elderly" is 70 and over.
+An explicit age or numeric range takes precedence over a vague age adjective. Interpret
+"early twenties" as 20 to 23, "mid twenties" as 24 to 26, and "late twenties" as 27 to 29;
+use the same offsets for other adult decades. Preserve explicit range endpoints exactly.
+An occupation, parenthood or kinship alone does not set a hard adult age range: college
+students can be older adults, parents and grandparents vary in age, and retirees can be young.
+Use explicit age wording and the whole scene rather than excluding ages by a role stereotype.
 
 "A girl" or "a boy" alone says neither: people say it of a child and of a young woman or man
 alike. For an age you are also given the prompt it is said in, and the prompt decides:

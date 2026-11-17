@@ -45,10 +45,11 @@ def _offered_ages(entry: Dict[str, Any], slot: Dict[str, Any], c: Choice) -> Cho
         return c
     from prompt_programs.seeding import age_basis
     from prompt_programs.variants import age_stages, age_years, allowed_ages
+    from prompt_programs.age_bands import bands
     if slot.get("kind") != "person":
         return replace(c, pins=replace(c.pins, age=(), years=()))
     basis = age_basis((entry.get("seeds") or {}).get(str(slot.get("id"))))
-    offered = age_stages(*basis)
+    offered = {**age_stages(*basis), **bands(*basis)}
     years = {age_years(a) for a in allowed_ages(*basis)}
     return replace(c, pins=replace(c.pins, age=tuple(st for st in c.pins.age if st in offered),
                                    years=tuple(y for y in c.pins.years if y in years)))

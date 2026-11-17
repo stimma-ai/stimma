@@ -660,7 +660,7 @@ def test_a_picked_life_stage_filters_the_pool_by_each_variants_recorded_age():
     # nothing recorded in that stage yet: the words, and a top-up is due
     c = P.Choice(pins=V.Pins(age=("older",)))
     assert P.pick(pool, {}, c, rng, "w").text == "w" and P.due(pool, {}, c)
-    assert P.in_pool(pool, "age") == {"young adult": 2, "middle-aged": 1, "elderly": 1}
+    assert P.in_pool(pool, "age") == {"18-24": 1, "35-39": 1, "70-79": 1}
     # any of the picked stages or years
     c = P.Choice(pins=V.Pins(age=("elderly",), years=(24,)))
     assert {P.pick(pool, {}, c, rng, "w").text for _ in range(30)} == {"a", "c"}
@@ -745,14 +745,16 @@ def test_person_pickers():
     assert P.person_pickers(POOL, P.Choice(), gender_fits=["man"])["gender"]["fits"] == ["man", "trans man"]
     assert P.person_pickers(POOL, P.Choice(), gender_fits=["trans woman"])["gender"]["fits"] == ["trans woman"]
     a = got["age"]
-    assert a["label"] == "Age" and a["browse"] == "life_stage"
-    assert a["options"] == a["fits"] == ["young adult", "middle-aged", "older", "elderly"]   # an adult: no child or teen
-    assert a["stages"][0] == {"id": "young adult", "label": "Young adult", "span": [18, 39],
-                              "years": list(range(18, 40))}
-    assert a["stages"][-1]["span"] == [70, 110] and a["stages"][-1]["label"] == "Elderly"
+    assert a["label"] == "Age" and a["browse"] == "age_band"
+    assert a["options"] == a["fits"] == ["18-24", "25-29", "30-34", "35-39", "40-49", "50-59", "60-69", "70-79", "80+"]   # an adult: no child or teen
+    assert a["stages"][0] == {"id": "18-24", "label": "18–24", "span": [18, 24],
+                              "years": list(range(18, 25))}
+    assert a["stages"][-1]["span"] == [80, 110] and a["stages"][-1]["label"] == "80+"
     assert a["picked"] == {"values": [], "years": []} and a["in_pool_years"] == {}
-    young = P.person_pickers(POOL, P.Choice(pins=V.Pins(age=("young adult",))), ages=V.age_stages(YOUNG_AGES))["age"]
-    assert young["options"] == ["young adult"] and young["stages"][0]["span"] == [18, 29]
+    from prompt_programs.age_bands import bands
+    young = P.person_pickers(POOL, P.Choice(pins=V.Pins(age=("young adult",))), ages=bands(YOUNG_AGES))["age"]
+    assert young["options"] == ["18-24", "25-29"] and young["stages"][0]["span"] == [18, 24]
+    assert young["legacy_stages"]["young adult"] == list(range(18, 30))
     assert young["picked"] == {"values": ["young adult"], "years": []} and young["in_pool"] == {}
 
 

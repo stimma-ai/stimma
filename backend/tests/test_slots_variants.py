@@ -259,9 +259,10 @@ async def test_a_picked_life_stage_steers_a_person_whose_words_state_an_age(monk
     assert "dominant young woman" in r.prompt.lower()   # nothing matches yet: her words
     view = pool_view(entry, chosen, profile_id=profile)
     age = view["choices"]["dominant_young_woman"]["person"]["age"]
-    assert age["options"] == ["young adult"] and age["stages"][0]["span"] == [18, 29]
+    assert age["options"] == ["18-24", "25-29"] and age["stages"][0]["span"] == [18, 24]
     assert age["picked"] == {"values": ["young adult"], "years": []}
-    assert age["stages"][0]["years"] == list(range(18, 30))
+    assert age["stages"][0]["years"] == list(range(18, 25))
+    assert age["legacy_stages"]["young adult"] == list(range(18, 30))
     await P.writer_for(profile).drain()
     got = P.drawable(store.variants(person["pool"]), c)
     assert len(got) >= P.MIN_MATCH and all(v["seeds"]["age"] in YOUNG for v in got)

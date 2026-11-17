@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  slotWays, hasWayChoice, clearMode,
+  slotWays, hasWayChoice, clearMode, setAgeRange, ageItems,
   addOwn, addValue, dropVariant, inPlayCount, poolWithout, slotFailed, listChoiceAt, readChoices, setPicked, carriedIds, followId, carryChoices, cleanState, clearSeed, isChanged, keptPieces, lineOf, lookOf,
   numberRepeats, optionsOf, pickedYears, resetState, rowValue, shownVariants, toggleGender, toggleHeritage, toggleRegion, toggleStage,
   toggleValue, toggleYear, wireState, setMode, modeOf, chosenModes, slotIdsOf,
@@ -31,6 +31,46 @@ const pool: ChoicePool = {
   },
 }
 const [korean, swedish, japanese] = pool.variants!.map(v => v.text)
+
+const numericPool: ChoicePool = {
+  ...pool,
+  variants: [24, 25, 29, 30, 34, 35, 39, 40].map(y => ({ text: `age ${y}`, seeds: { age: `${y}-year-old` } })),
+  person: { ...pool.person, age: {
+    list: 'person.age_band', label: 'Age', options: ['18-24', '25-29', '30-34', '35-39'],
+    stages: [[18, 24], [25, 29], [30, 34], [35, 39]].map(([lo, hi]) => ({
+      id: `${lo}-${hi}`, label: `${lo}–${hi}`, span: [lo, hi] as [number, number],
+      years: Array.from({ length: hi - lo + 1 }, (_, i) => lo + i),
+    })),
+    legacy_stages: { 'young adult': Array.from({ length: 22 }, (_, i) => i + 18) },
+  } },
+}
+
+test('numeric bands and custom ranges filter both endpoints and preserve other filters', () => {
+  const s = setAgeRange({ seeds: { gender: { values: ['woman'] } }, add: ['mine'] }, 28, 35, numericPool)
+  assert.deepEqual(s?.seeds?.age, { years: [28, 29, 30, 31, 32, 33, 34, 35] })
+  assert.deepEqual(s?.seeds?.gender, { values: ['woman'] })
+  assert.deepEqual(s?.add, ['mine'])
+  const range = setAgeRange(null, 28, 35, numericPool)
+  assert.deepEqual(shownVariants(numericPool, range).map(v => v.text), ['age 29', 'age 30', 'age 34', 'age 35'])
+  assert.deepEqual(ageItems(range, numericPool.person?.age), ['28–35'])
+  for (const [lo, hi] of [[17, 25], [35, 40], [30, 29], [20.5, 24], [-1, 24], [80, 111]]) {
+    assert.equal(setAgeRange(null, lo, hi, numericPool), undefined)
+  }
+  const band = toggleStage(null, '30-34', numericPool)
+  assert.deepEqual(shownVariants(numericPool, band).map(v => v.text), ['age 30', 'age 34'])
+})
+
+test('legacy ages keep their exact coverage and can be edited with numeric bands', () => {
+  const saved = { seeds: { age: { values: ['young adult'] } } }
+  assert.deepEqual(ageItems(saved, numericPool.person?.age), ['18–39'])
+  assert.equal(shownVariants(numericPool, saved).length, 7)
+  const withoutBand = toggleStage(saved, '30-34', numericPool)
+  assert.deepEqual(pickedYears(withoutBand?.seeds, numericPool.person?.age),
+    Array.from({ length: 22 }, (_, i) => i + 18).filter(y => y < 30 || y > 34))
+  assert.deepEqual(toggleYear(saved, 30, numericPool)?.seeds?.age?.years,
+    Array.from({ length: 22 }, (_, i) => i + 18).filter(y => y !== 30))
+  assert.deepEqual(saved, { seeds: { age: { values: ['young adult'] } } })
+})
 
 test('a state is stored lean: empties dropped, off alone with the user’s own', () => {
   assert.equal(cleanState({ values: [], seeds: { descent: { values: [], groups: { region: [] } } } }), null)
