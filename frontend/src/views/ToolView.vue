@@ -4503,7 +4503,6 @@ const queuedJobsCount = computed(() => {
 const isMac = computed(() => navigator.platform.toUpperCase().indexOf('MAC') >= 0)
 
 // Methods
-// --- Resolution auto-change notification ---
 // --- Output size: policy → width/height ------------------------------------
 // The tool remembers a shape and size (uiState.resolutionPolicy); either may
 // follow the first input image. applyResolutionPolicy() is the only writer of
@@ -4560,9 +4559,8 @@ watch(drivingImage, (img, prev) => {
   if (!!img === !!prev && img?.width === prev?.width && img?.height === prev?.height && img?.name === prev?.name) return
   applyResolutionPolicy()
 })
-// Once the tool has loaded its state, make width/height agree with the policy.
-// A handoff that landed an image during loading (send-to-tool) is announced
-// like a drop; a plain restore whose size already agrees stays quiet.
+// Once the tool has loaded its state, make width/height agree with the policy,
+// including for an image a handoff (send-to-tool) landed during loading.
 watch(isInitialLoading, (loading) => {
   if (loading) return
   applyResolutionPolicy()
