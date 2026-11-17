@@ -61,6 +61,9 @@ LOSSY_FORMATS = {"jpg", "jpeg", "webp"}
 
 SCREEN_QUALITY = 90
 FULL_QUALITY = 92
+# libwebp effort. Method 2 matches method 4 on size for these images (446 vs
+# 449 KB on a 2560 px variant) at under half the encode time (103 vs 236 ms).
+WEBP_METHOD = 2
 WEBP_MAX_SIDE = 16383
 
 _VARIANT_EXTENSIONS = {"screen": ("webp",), "full": ("jpg", "webp")}
@@ -241,7 +244,7 @@ def generate_variant_sync(file_path: str, tier: str, cache_dir: Path, cache_key:
             size = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
             img = img.resize(size, Image.Resampling.LANCZOS, reducing_gap=3.0)
             path = variant_cache_paths(cache_dir, cache_key, tier)[0]
-            _atomic_write(img, path, "WEBP", quality=SCREEN_QUALITY, method=4, alpha_quality=100, **extra)
+            _atomic_write(img, path, "WEBP", quality=SCREEN_QUALITY, method=WEBP_METHOD, alpha_quality=100, **extra)
             return path
 
         # full: JPEG encodes about 8x faster than WebP at this size, and this
@@ -250,7 +253,7 @@ def generate_variant_sync(file_path: str, tier: str, cache_dir: Path, cache_key:
             if max(img.size) > WEBP_MAX_SIDE:
                 return None
             path = variant_cache_paths(cache_dir, cache_key, tier)[1]
-            _atomic_write(img, path, "WEBP", quality=FULL_QUALITY, method=4, alpha_quality=100, **extra)
+            _atomic_write(img, path, "WEBP", quality=FULL_QUALITY, method=WEBP_METHOD, alpha_quality=100, **extra)
         else:
             path = variant_cache_paths(cache_dir, cache_key, tier)[0]
             _atomic_write(img, path, "JPEG", quality=FULL_QUALITY, subsampling=0, optimize=True, **extra)
