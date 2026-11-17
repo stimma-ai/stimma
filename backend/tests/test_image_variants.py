@@ -328,3 +328,29 @@ async def test_eager_write_for_deleted_media_is_removed(tmp_path):
     db = get_database_registry().get_database("default")
     await variants._finish_eager(db, 987654321, job, "k" * 32)
     assert not written.exists()
+
+
+async def test_16_bit_grayscale_keeps_midtones(client: AsyncClient, db_session, tmp_path):
+    """16-bit gray samples scale to 8-bit instead of clipping to white."""
+    import numpy as np
+
+    width, height = 3600, 3400
+    samples = np.zeros((height, width), np.uint16)
+    for band, value in enumerate((16384, 32768, 49152)):  # quarter, half, three quarters
+        samples[:, band * 1200:(band + 1) * 1200] = value
+    path = tmp_path / "gray16.png"
+    Image.fromarray(samples).save(path)
+    with Image.open(path) as check:
+        assert check.mode.startswith("I")
+    file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+    await _media(db_session, path, file_hash, (width, height), file_size=20 * 1024 * 1024)
+
+    for tier in ("screen", "full"):
+        response = await client.get(_url(file_hash, tier))
+        assert response.status_code == 200
+        assert response.headers["content-type"] != "image/png", tier
+        with Image.open(io.BytesIO(response.content)) as out:
+            row = out.height // 2
+            for band, expected in enumerate((64, 128, 191)):
+                x = int((band + 0.5) * out.width / 3)
+                assert all(abs(channel - expected) <= 3 for channel in out.getpixel((x, row))[:3]), (tier, band)

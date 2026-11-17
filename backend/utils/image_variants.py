@@ -127,6 +127,27 @@ def _rgb_icc_profile(img: Image.Image) -> bytes | None:
     return None
 
 
+_WIDE_GRAY_MODES = {"I", "I;16", "I;16B", "I;16L"}
+
+
+def _wide_gray_to_8bit(img: Image.Image, has_alpha: bool) -> Image.Image:
+    """Scale 16-bit grayscale (0-65535) to 8-bit ``L``/``LA``.
+
+    Pillow's direct conversion clips every sample above 255, which turns
+    midtones white. A tRNS transparent gray is matched on the original
+    16-bit samples, before scaling merges neighboring values.
+    """
+    import numpy as np
+
+    samples = np.asarray(img).astype(np.int64)
+    gray = Image.fromarray((np.clip(samples, 0, 65535) / 257 + 0.5).astype(np.uint8), "L")
+    transparent = img.info.get("transparency")
+    if has_alpha and isinstance(transparent, int):
+        gray.putalpha(Image.fromarray(np.where(samples == transparent, 0, 255).astype(np.uint8), "L"))
+    gray.info = {key: value for key, value in img.info.items() if key != "transparency"}
+    return gray
+
+
 _srgb_profile_bytes: bytes | None = None
 
 
@@ -210,6 +231,8 @@ def generate_variant_sync(file_path: str, tier: str, cache_dir: Path, cache_key:
         img = ImageOps.exif_transpose(source)
         # Covers alpha bands, palette transparency and RGB/L tRNS colors.
         has_alpha = img.has_transparency_data
+        if img.mode in _WIDE_GRAY_MODES:
+            img = _wide_gray_to_8bit(img, has_alpha)
         img, icc = _to_display_rgb(img, source.info.get("icc_profile"), has_alpha)
 
         extra = {"icc_profile": icc} if icc else {}
