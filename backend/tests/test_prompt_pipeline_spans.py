@@ -204,3 +204,22 @@ async def test_classic_improve_still_fails_the_generation(generation_app, genera
     _fake_improve(monkeypatch, ["   "])
     with pytest.raises(HTTPException):
         await pp.run_prompt_pipeline(_db(generation_db_session), PROMPT, LATE, model="flux1-dev")
+
+
+async def test_input_references_come_back_exactly(generation_app, generation_db_session, monkeypatch):
+    # <Picture 1> names an input: the improver copies it like a drawn value, and one that
+    # rewords it is retried. One in [verbatim] or a # line is not marked.
+    prompt = "<Picture 1> walks a dog past [a sign for <image2>]\n# <Picture 1> is the woman"
+    requests = _fake_improve(monkeypatch, [
+        "The woman from picture one walks a dog past __VERBATIM_A__",
+        lambda r: r.prompt.split("\n")[0] + " at dusk",
+    ])
+    out = await pp.run_prompt_pipeline(
+        _db(generation_db_session), prompt, LATE, model="flux1-dev", level="expand")
+    assert requests[0].prompt.startswith("⟦<Picture 1>⟧ walks a dog past __VERBATIM_A__")
+    assert requests[0].marked and len(requests) == 2
+    assert out == "<Picture 1> walks a dog past a sign for <image2> at dusk"
+
+
+def test_unwrap_keeps_input_references():
+    assert pp.process_final_prompt("<Picture 1> holds <a cup> beside <image2>") == "<Picture 1> holds a cup beside <image2>"

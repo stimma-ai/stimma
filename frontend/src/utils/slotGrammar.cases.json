@@ -171,5 +171,40 @@
         40
       ]
     ]
+  },
+  {
+    "text": "<Picture 1> walks toward <Picture 2>, <a dog> beside her",
+    "slots": [
+      [
+        38,
+        45
+      ]
+    ]
+  },
+  {
+    "text": "<image1> and <image2> in a <quiet room>",
+    "slots": [
+      [
+        27,
+        39
+      ]
+    ]
+  },
+  {
+    "text": "<Video 1> with <Audio 1>, <video_2> and <IMAGE 10>",
+    "slots": []
+  },
+  {
+    "text": "<Picture one> is a slot",
+    "slots": [
+      [
+        0,
+        13
+      ]
+    ]
+  },
+  {
+    "text": "x<Picture 1> and [<Picture 2> verbatim]",
+    "slots": []
   }
 ]

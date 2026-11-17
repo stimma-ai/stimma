@@ -130,3 +130,12 @@ test('the user’s own lists, in order, with their options; not in comments or n
     ['{summer| autumn}', ['summer', 'autumn']], ['{x|{y|z}}', ['x', '{y|z}']], ['{red|blue}', ['red', 'blue']],
   ])
 })
+
+test('a model input reference is its own mark, never a slot', () => {
+  assert.deepEqual(marked('<Picture 1> holds <a cup>, [see <image2>]'), [
+    ['reference', '<Picture 1>'],
+    ['slot', '<a cup>'],
+    ['verbatim', '[see <image2>]'],
+    ['reference', '<image2>'],
+  ])
+})

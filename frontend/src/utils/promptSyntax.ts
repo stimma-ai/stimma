@@ -13,6 +13,8 @@
  *                (a name that is neither: nothing        unknown-name
  *                fills it, in any mode)
  *   [text]       sent exactly as written                 verbatim
+ *   <Picture 1>  a model's input reference: never a      reference
+ *                slot, sent exactly as written
  *   # a note     a line for the chat model               comment
  *                (plain mode: no model reads it)         comment-unread
  */
@@ -31,6 +33,7 @@ export type PromptSyntaxKind =
   | 'comment'
   | 'comment-unread'
   | 'verbatim'
+  | 'reference'
 
 /** A marked range within one line, in that line's offsets. */
 export interface PromptSyntaxRange { from: number; to: number; kind: PromptSyntaxKind }
@@ -51,6 +54,9 @@ export interface PromptSyntaxOptions {
  */
 const SLOT_RE = /<(?![/\s])([^<>{}[\]|#:=\n]{1,79}[^<>{}[\]|#:=\s])>/g
 const SLOT_GUARD = /[<\p{L}\p{N}_]/u
+/** An input reference as models write them: <Picture 1> (MiniMax H3), <image1> (Qwen-Image).
+    Same as REFERENCE_RE in slots.py; it takes the slot guard too. */
+const REFERENCE_RE = /<(?:picture|image|img|video|audio|frame|mask|ref|reference)[ _-]?\d{1,2}>/gi
 
 /** The marked ranges of one line, sorted by start (ranges may nest). */
 export function lineSyntaxRanges(text: string, options: PromptSyntaxOptions = {}): PromptSyntaxRange[] {
@@ -64,7 +70,8 @@ export function lineSyntaxRanges(text: string, options: PromptSyntaxOptions = {}
   const named = findNamedWildcards(text, known, out)
   const lists = findBraceGroups(text, out, named)
   const verbatim = findVerbatim(text, out)
-  for (const [from, to] of lineSlots(text, [...named, ...lists, ...verbatim])) out.push({ from, to, kind: 'slot' })
+  const references = findReferences(text, out)
+  for (const [from, to] of lineSlots(text, [...named, ...lists, ...verbatim, ...references])) out.push({ from, to, kind: 'slot' })
   return out.sort((a, b) => a.from - b.from)
 }
 
@@ -159,7 +166,8 @@ export function findSlots(text: string): [number, number][] {
       const named = findNamedWildcards(line, undefined, marks)
       const lists = findBraceGroups(line, marks, named)
       const verbatim = findVerbatim(line, marks)
-      for (const [from, to] of lineSlots(line, [...named, ...lists, ...verbatim])) out.push([at + from, at + to])
+      const references = findReferences(line, marks)
+      for (const [from, to] of lineSlots(line, [...named, ...lists, ...verbatim, ...references])) out.push([at + from, at + to])
     }
     at += line.length + 1
   }
@@ -241,6 +249,18 @@ function findVerbatim(text: string, out: PromptSyntaxRange[]) {
   return found
 }
 
+function findReferences(text: string, out: PromptSyntaxRange[]) {
+  const found: Span[] = []
+  const re = new RegExp(REFERENCE_RE.source, 'gi')
+  let match
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > 0 && SLOT_GUARD.test(text[match.index - 1])) continue
+    out.push({ from: match.index, to: match.index + match[0].length, kind: 'reference' })
+    found.push({ from: match.index, to: match.index + match[0].length })
+  }
+  return found
+}
+
 /** A run of text with one look: `kind` is the innermost mark over it, or null. */
 export interface PromptSyntaxSpan { text: string; kind: PromptSyntaxKind | null }
 
@@ -286,4 +306,5 @@ export const PROMPT_SYNTAX_CLASS: Record<PromptSyntaxKind, string> = {
   'comment': 'text-gray-500 italic',
   'comment-unread': 'text-gray-500 italic',
   'verbatim': 'text-blue-500 bg-blue-500/10 rounded-[2px] px-px',
+  'reference': 'text-cyan-600 font-semibold bg-cyan-500/10 rounded-[2px] px-px',
 }

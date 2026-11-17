@@ -5,7 +5,8 @@
 A slot is `<` + 2 to 80 characters + `>` on one line, with none of `< > { } [ ] | # : =`,
 not starting with `/` or a space and not ending with a space, and not right after a letter,
 digit or `<`. Slots are not looked for on comment lines, inside [verbatim], or inside
-{a|b} lists and {{name}}s. frontend/src/utils/promptSyntax.ts finds them the same way;
+{a|b} lists and {{name}}s. A model's input reference (<Picture 1>, <image2>, <Video 1>,
+<Audio 1>) is not a slot: it names an input, so it is sent exactly as written. frontend/src/utils/promptSyntax.ts finds them the same way;
 both sides are tested against frontend/src/utils/slotGrammar.cases.json.
 """
 
@@ -20,6 +21,9 @@ from core.logging import get_logger
 log = get_logger(__name__)
 
 SLOT_RE = re.compile(r"(?<![<\w])<(?![/\s])([^<>{}\[\]|#:=\n]{2,80})(?<!\s)>")
+
+# An input reference as models write them: <Picture 1> (MiniMax H3), <image1> (Qwen-Image).
+REFERENCE_RE = re.compile(r"(?<![<\w])<(?:picture|image|img|video|audio|frame|mask|ref|reference)[ _-]?\d{1,2}>", re.IGNORECASE)
 
 _NAME = re.compile(r"\{\{[^{}]+\}\}")
 _VERBATIM = re.compile(r"\[[^\]]+\]")
@@ -63,7 +67,7 @@ def _line_marks(line: str) -> Tuple[List[Span], List[Span], List[Span]]:
     """A non-comment line's slots, lists and {{names}}, in line offsets."""
     names = [m.span() for m in _NAME.finditer(line)]
     lists = _list_spans(line, names)
-    skip = names + lists + [m.span() for m in _VERBATIM.finditer(line)]
+    skip = names + lists + [m.span() for m in _VERBATIM.finditer(line)] + [m.span() for m in REFERENCE_RE.finditer(line)]
     slots = [m.span() for m in SLOT_RE.finditer(line) if not any(a <= m.start() < b for a, b in skip)]
     return slots, lists, names
 

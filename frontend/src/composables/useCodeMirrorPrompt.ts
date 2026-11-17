@@ -113,6 +113,8 @@ const unreadCommentDeco = Decoration.mark({ class: 'cm-comment-line', attributes
 const unknownNameDeco = Decoration.mark({ class: 'cm-unknown-name', attributes: { title: 'Not a saved wildcard or segment, so nothing fills it.' } })
 const slotDeco = Decoration.mark({ class: 'cm-slot' })
 const verbatimDeco = Decoration.mark({ class: 'cm-verbatim' })
+// <Picture 1>, <image2>: names one of the model's inputs, so nothing rewrites or varies it.
+const referenceDeco = Decoration.mark({ class: 'cm-reference', attributes: { title: 'An input reference, sent as written.' } })
 const SYNTAX_DECO: Record<PromptSyntaxKind, Decoration> = {
   'wildcard': wildcardDeco,
   'named-wildcard': namedWildcardDeco,
@@ -121,6 +123,7 @@ const SYNTAX_DECO: Record<PromptSyntaxKind, Decoration> = {
   'comment': commentDeco,
   'comment-unread': unreadCommentDeco,
   'verbatim': verbatimDeco,
+  'reference': referenceDeco,
 }
 
 // --- Theme ---
@@ -261,6 +264,13 @@ const stimmaTheme = EditorView.theme({
   '.cm-verbatim': {
     color: '#3b82f6', // blue-500
     backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: '2px',
+    padding: '0 1px',
+  },
+  '.cm-reference': {
+    color: '#0891b2', // cyan-600
+    fontWeight: '600',
+    backgroundColor: 'rgba(6, 182, 212, 0.1)',
     borderRadius: '2px',
     padding: '0 1px',
   },

@@ -106,6 +106,16 @@ def mark_values(prompt: str, spans: Sequence[Sequence[Any]]) -> str:
     return "".join(out)
 
 
+def _reference_spans(prompt: str, taken: Optional[Sequence[Sequence[Any]]]) -> List[Tuple[int, int]]:
+    """Where the prompt's input references sit, leaving those inside a span already taken,
+    a [verbatim] (kept already) or a # comment line."""
+    from prompt_programs.slots import REFERENCE_RE
+    taken = [(int(s[0]), int(s[1])) for s in taken or []]
+    taken += [m.span() for m in re.finditer(r"\[[^\[\]]+\]|^[ \t]*#.*$", prompt, re.MULTILINE)]
+    return [m.span() for m in REFERENCE_RE.finditer(prompt)
+            if not any(a < m.end() and m.start() < b for a, b in taken)]
+
+
 def marked_values(text: str) -> List[str]:
     """The values inside ⟦ ⟧ marks, in order."""
     return _MARKED_RE.findall(text)
@@ -402,7 +412,10 @@ async def _improve_with_verbatim_protection(
     from prompt_stage import say
     await say("writing")
 
-    source = mark_values(prompt, fixed_spans) if fixed_spans else prompt
+    # Input references (<Picture 1>, <image2>) name the model's inputs: kept exactly, like
+    # a drawn value. H3 video checks its own tags in the Context-IR.
+    spans = list(fixed_spans or []) + ([] if h3_task is not None else _reference_spans(prompt, fixed_spans))
+    source = mark_values(prompt, spans) if spans else prompt
     prompt_with_placeholders, segments = extract_verbatim(
         source,
         preserve_h3_structure=(
