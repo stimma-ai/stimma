@@ -772,13 +772,18 @@
         class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden narrow:justify-center compact:order-1 compact:flex-1 compact:min-h-[96px] compact:!p-0 roomy:col-start-2 roomy:row-start-1 roomy:min-h-0 roomy:!px-page roomy:!pt-4 roomy:!pb-3"
         :class="layoutMode === 'stage' ? 'pt-3 px-4 pb-3' : 'p-0'"
         :style="agentReserve ? { paddingBottom: `${agentReserve + 24}px` } : undefined"
+        data-no-drawer-swipe
+        @touchstart="heroSwipe.start($event)"
+        @touchmove="heroSwipe.move($event)"
+        @touchend="heroSwipe.end($event)"
+        @touchcancel="heroSwipe.cancel()"
       >
         <!-- Live generation preview: the in-flight frames at full hero size.
              Presentation-only (raw <img> over an ephemeral blob: URL — never a
              slideshow item, no zoom/slideshow click). Chrome is just the
              hairline progress on the bottom edge; name/percent/cancel live on
              the strip's live tile. -->
-        <div v-if="stageLiveShowing" class="relative flex-1 min-h-0 rounded-media overflow-hidden">
+        <div v-if="stageLiveShowing" class="relative flex-1 min-h-0 rounded-media overflow-hidden" :style="heroSwipeStyle">
           <LivePreviewImage :url="stageLiveProgress?.previewUrl || ''" contain />
           <div class="absolute inset-x-0 bottom-0 h-[2.5px] bg-white/10">
             <div
@@ -843,6 +848,7 @@
           ref="heroColRef"
           class="min-h-0 flex flex-col items-center"
           :class="heroArt ? 'flex-none' : 'flex-1'"
+          :style="heroSwipeStyle"
           @load.capture="onHeroMediaMeasure"
           @loadedmetadata.capture="onHeroMediaMeasure"
         >
@@ -850,7 +856,7 @@
           class="relative min-h-0 rounded-media overflow-hidden cursor-zoom-in"
           :class="heroArt ? 'flex-none' : 'flex-1 w-full'"
           :style="heroArt ? { width: `${heroArt.w}px`, height: `${heroArt.h}px` } : undefined"
-          @click="openSlideshow(stageCurrentJob)"
+          @click="!heroSwipe.suppressClick() && openSlideshow(stageCurrentJob)"
           title="Open in slideshow"
         >
           <!-- Video hero. Looping runs through MseLoopPlayback (same as the
@@ -1353,6 +1359,8 @@ import { docKeyFor, isServerMode, onNamespaceChange, syncedStorage } from '../ut
 import { whenWorkspaceReady } from '../utils/workspaceBoot'
 import { convertMaskDataUrl } from '../utils/maskFormat'
 import { getToolDefaults } from '../utils/generationDefaults'
+import { createSlideshowSwipe } from '../utils/slideshowSwipe'
+import { isDrawerEdgeTouch } from '../utils/drawerGesture'
 import { parseGenerationConfig, type GenerationConfigUpdate } from '../utils/parseGenerationConfig'
 import type { PromptMetadata } from '../types/generationMetadata'
 import { STIMMA_TOOL_PROVIDER_DISPLAY_NAME, isStimmaCloudTool as isStimmaCloud } from '../utils/stimmaCloud'
@@ -2125,6 +2133,38 @@ function stageNav(delta: number) {
     stagePinnedMediaId.value = next - live.length === 0 ? null : target.result_media_id
   }
 }
+
+// Touch: swipe the hero left/right to page through results, the same gesture
+// (and thresholds) as the slideshow; data-no-drawer-swipe keeps the app's
+// swipe-to-open navigation drawer off it. Left = older, matching → and the strip.
+// The picture follows the finger, then snaps back as the next one lands.
+const heroDragX = ref(0)
+const heroDragSettling = ref(false)
+const heroSwipeStyle = computed(() => (heroDragX.value || heroDragSettling.value)
+  ? { transform: `translateX(${heroDragX.value}px)`, transition: heroDragSettling.value ? 'transform 180ms ease-out' : 'none' }
+  : undefined)
+let heroSettleTimer: ReturnType<typeof setTimeout> | null = null
+const heroSwipe = createSlideshowSwipe({
+  // The left edge still opens the navigation drawer, as over the slideshow.
+  reserveGesture: (event: TouchEvent) => isCompact.value && isDrawerEdgeTouch(event),
+  // Not gated on layoutMode: phones show the hero in Studio too, and a
+  // refused gesture would also swallow the tap that opens the slideshow.
+  canNavigate: () => !slideshowState.active,
+  navigate: (direction: string) => {
+    if (direction === 'next') stageNav(1)
+    else if (direction === 'previous') stageNav(-1)
+  },
+  // Damped so the picture reads as draggable without leaving the hero.
+  drag: (dx: number) => { heroDragSettling.value = false; heroDragX.value = dx * 0.35 },
+  release: () => {
+    if (!heroDragX.value) return
+    heroDragSettling.value = true
+    heroDragX.value = 0
+    if (heroSettleTimer) clearTimeout(heroSettleTimer)
+    heroSettleTimer = setTimeout(() => { heroDragSettling.value = false }, 200)
+  },
+})
+onBeforeUnmount(() => { if (heroSettleTimer) clearTimeout(heroSettleTimer) })
 
 // "Jump to newest" is a deliberate staging too — it earns the audible pass.
 function stageJumpToNewest() {
