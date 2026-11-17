@@ -55,12 +55,15 @@ export function planToolHandoff({
   mediaTypes,
   count,
   requestedTaskType,
+  targeted,
 }: {
   tool: Pick<ProviderTool, 'task_type'> & Partial<ProviderTool>
   items?: HandoffMediaItem[]
   mediaTypes?: MediaType[]
   count?: number
   requestedTaskType?: string
+  /** `count` is what a slot will hold after a targeted swap/add, not a batch. */
+  targeted?: boolean
 }): ToolHandoffPlan {
   const resolvedTypes = uniqueMediaTypes(mediaTypes ?? items.map(mediaTypeForItem))
   const selectionCount = count ?? items.length
@@ -133,7 +136,7 @@ export function planToolHandoff({
   const validationType: MediaType = hasAudio
     ? 'audio'
     : resolvedTypes.some(type => type === 'image' || type === 'set') ? 'image' : 'video'
-  const validation = isSelectionValidForTool(tool as ProviderTool, selectionCount, validationType)
+  const validation = isSelectionValidForTool(tool as ProviderTool, selectionCount, validationType, { targeted })
   if (!validation.valid) {
     return { eligible: false, reason: validation.reason, taskType, mediaTypes: resolvedTypes, count: selectionCount }
   }

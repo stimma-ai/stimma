@@ -134,13 +134,17 @@ export function getSingleInputMediaType(tool: ToolSchemaSource): 'image' | 'vide
 export function isSelectionValidForTool(
   tool: ToolSchemaSource,
   selectedCount: number,
-  mediaType: MediaType
+  mediaType: MediaType,
+  opts: { targeted?: boolean } = {},
 ): { valid: boolean; reason?: string } {
   const info = analyzeToolMultiInputCapability(tool)
+  // Targeted: selectedCount is what the slot will hold after swapping or adding
+  // into it — one run's input, never a batch. Only the slot's limits apply.
+  const targeted = opts.targeted === true
 
   // Single-input tools: 1 item = normal reference input; >1 = batch (run per item).
   if (!info.supportsMultiInput) {
-    if (selectedCount === 1) {
+    if (selectedCount === 1 || (targeted && selectedCount <= 1)) {
       return { valid: true }
     }
     // Batch mode (selectedCount > 1)
@@ -168,7 +172,7 @@ export function isSelectionValidForTool(
   // selected (run once per item) — slot maxItems does not cap the batch. Only a
   // slot that *requires* multiple inputs (minItems > 1, e.g. a 2-image blend)
   // enforces the count constraints for a single multi-reference run.
-  if (selectedCount > 1 && info.minItems <= 1) {
+  if (!targeted && selectedCount > 1 && info.minItems <= 1) {
     if (toolRequiresMask(tool)) {
       return { valid: false, reason: 'Mask tools are not supported in batch mode' }
     }

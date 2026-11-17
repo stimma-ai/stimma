@@ -2126,7 +2126,7 @@ function showToolDropTargets(tab: WorkspaceTab, el: HTMLElement) {
   // needing two images takes a one-image swap into a full pair). Without drag
   // info (nothing to plan with), trust the tool to cap it.
   const fitsWith = (count: number) => !draggedMediaInfo.value
-    || planToolHandoff({ tool, items: draggedMediaItems.value, count }).eligible
+    || planToolHandoff({ tool, items: draggedMediaItems.value, count, targeted: true }).eligible
   const replaceAll = isToolCompatible(tab.entityId)
   const slotSwap = known && slots.length > 1 && fitsWith(slots.length)
   const dragged = Math.max(1, draggedMediaCount.value || 1)

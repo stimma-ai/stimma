@@ -35,6 +35,29 @@ test('a targeted swap or add is validated against the slot count it leaves', () 
   assert.equal(targetedCount(1, { replaceIndex: 0 }), 1)
 })
 
+test('a targeted count fills a frame picker; it is not a batch', () => {
+  const frames = {
+    full_tool_id: 'test:i2v',
+    tool_id: 'i2v',
+    name: 'I2V',
+    task_type: 'image-to-video',
+    task_types: ['image-to-video'],
+    provider_id: 'test',
+    provider_name: 'Test',
+    availability: 'available' as const,
+    parameter_schema: { properties: { input_images: { type: 'array', 'x-control': 'video_frame_picker', minItems: 1, maxItems: 2 } } },
+    output_schema: {},
+    metadata: {},
+  }
+  const one = [{ id: 1, file_format: 'png' }]
+  // Swapping one of two filled frames, or adding the end frame, leaves two.
+  assert.equal(planToolHandoff({ tool: frames, items: one, count: 2, targeted: true }).eligible, true)
+  // Past the slot's capacity is still refused.
+  assert.equal(planToolHandoff({ tool: frames, items: one, count: 3, targeted: true }).eligible, false)
+  // Untargeted, two items into a frame picker is a batch, which it can't run.
+  assert.equal(planToolHandoff({ tool: frames, items: one, count: 2 }).eligible, false)
+})
+
 test('resulting slot counts', () => {
   assert.equal(resultingSlotCount(2, { replaceIndex: 1 }), 2)
   assert.equal(resultingSlotCount(2, { replaceIndex: 2 }, 3), 3)

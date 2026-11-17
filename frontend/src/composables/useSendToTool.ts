@@ -169,6 +169,8 @@ export function useSendToTool() {
       tool,
       items: planningItems,
       count: targetedCount(mediaItems.length, { add, replaceIndex, resultingCount: opts?.resultingCount }),
+      // A known resulting count is one slot's content, not a batch.
+      targeted: (add || replaceIndex !== undefined) && typeof opts?.resultingCount === 'number',
       requestedTaskType: targetTaskType,
     })
     if (!plan.eligible || !plan.taskType) {
