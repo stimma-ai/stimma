@@ -67,7 +67,6 @@ def no_fluent_background_generation():
     async def no_model(*args, **kwargs):
         raise RuntimeError("no chat model in tests")
     was_ask, variant_pools.ASK = variant_pools.ASK, no_model   # a profile's pool writes fail: slots stand as written
-    was_check, variant_pools.CHECK = variant_pools.CHECK, None   # written batches stand unchecked (tests of the check pass their own)
     pinned = {"STIMMA_FLUENT_JUDGE": "none",
               # the pinned pick judge (fix_model: default) is never fetched from settings()
               "STIMMA_FLUENT_FIX_MODEL": "off"}
@@ -77,7 +76,6 @@ def no_fluent_background_generation():
     yield
     pick_judge.ENABLED = was_enabled
     variant_pools.ASK = was_ask
-    variant_pools.CHECK = was_check
     for k, v in old.items():
         if v is None:
             os.environ.pop(k, None)
