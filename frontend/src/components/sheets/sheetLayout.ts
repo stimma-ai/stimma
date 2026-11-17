@@ -79,12 +79,16 @@ export function placeTiles(
     let row: LayoutItem[] = []
     let ratioSum = 0
     let y = 0
+    let previous = 0
     const flush = (last: boolean) => {
       if (!row.length) return
       const available = W - gap * (row.length - 1)
       let h = available / ratioSum
-      // A short last row keeps the target height rather than blowing up.
+      // A short last row keeps the target height rather than blowing up, and
+      // never stands taller than the row above it.
       if (last && h > target * 1.25) h = target
+      if (last && previous) h = Math.min(h, previous)
+      previous = h
       const cap = Math.max(0, ...row.map(captionOf))
       let x = 0
       for (const item of row) {
@@ -96,11 +100,11 @@ export function placeTiles(
       row = []
       ratioSum = 0
     }
-    for (const item of items) {
+    items.forEach((item, index) => {
       row.push(item)
       ratioSum += item.ratio
-      if ((W - gap * (row.length - 1)) / ratioSum <= target) flush(false)
-    }
+      if ((W - gap * (row.length - 1)) / ratioSum <= target) flush(index === items.length - 1)
+    })
     flush(true)
     return { rects, height: Math.max(0, y - gap) }
   }

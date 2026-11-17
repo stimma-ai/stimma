@@ -30,6 +30,19 @@ test('a short last row keeps the target height instead of blowing up', () => {
   assert.ok(last.h <= 190 + 1)
 })
 
+test('a straggler is never taller than the row above it', () => {
+  // Two landscape tiles fill the first row well under the target height; the
+  // third wraps alone and used to come out at the full target, half as tall again.
+  for (const last of [0.5625, 1, 1.78]) {
+    const { rects } = placeTiles(items([1.333, 1.78, last]), 360, 'rows', 'm')
+    assert.ok(rects.t2.y > 0, 'the third tile wraps')
+    assert.ok(rects.t2.h <= rects.t0.h + 1e-6, `ratio ${last}: ${rects.t2.h} vs ${rects.t0.h}`)
+  }
+  // Even when the last tile is wide enough to fill a row on its own.
+  const { rects } = placeTiles(items([0.667, 1.78, 1.5]), 360, 'rows', 'l')
+  assert.ok(rects.t2.y > 0 && rects.t2.h <= rects.t0.h + 1e-6)
+})
+
 test('captions reserve a line under their row', () => {
   const { rects, height } = placeTiles(items([1, 1], true), 400, 'rows', 'm')
   assert.equal(rects.t0.cap, CAPTION)
