@@ -26,12 +26,14 @@ use it for eager generation.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
+import queue
 import threading
 import uuid
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future
 from pathlib import Path
 
 from PIL import Image, ImageOps
@@ -60,6 +62,8 @@ SCREEN_QUALITY = 90
 FULL_QUALITY = 92
 WEBP_MAX_SIDE = 16383
 
+# Source modes a variant reproduces exactly (after EXIF transpose).
+_VARIANT_MODES = {"RGB", "RGBA", "L", "LA", "P", "PA", "1"}
 _VARIANT_EXTENSIONS = {"screen": ("webp",), "full": ("jpg", "webp")}
 MEDIA_TYPES = {"webp": "image/webp", "jpg": "image/jpeg"}
 
@@ -139,8 +143,9 @@ def generate_variant_sync(file_path: str, tier: str, cache_dir: Path, cache_key:
     """Write ``tier`` for ``file_path`` into the cache and return its path.
 
     Returns None when the original should be served instead (the decoded image
-    turned out small, animated, or in a mode a variant cannot carry). Raises on
-    unreadable sources so the caller can tell a failure from a skip.
+    turned out small, animated, or in a color mode a variant cannot carry
+    exactly). Raises on unreadable sources so the caller can tell a failure
+    from a skip.
     """
     if tier not in VARIANT_TIERS:
         raise ValueError(f"Unknown image variant: {tier}")
@@ -151,8 +156,12 @@ def generate_variant_sync(file_path: str, tier: str, cache_dir: Path, cache_key:
     with Image.open(file_path) as source:
         if getattr(source, "is_animated", False):
             return None
-        if source.mode in ("I", "I;16", "I;16B", "I;16L", "F"):
-            # High bit depth: leave tone mapping to the browser and the original.
+        if source.mode not in _VARIANT_MODES:
+            # CMYK, high bit depth and other modes: converting would change
+            # colors or tones, so the original is the exact answer.
+            return None
+        if source.info.get("icc_profile") and _rgb_icc_profile(source) is None:
+            # A gray (or other non-RGB) profile cannot ride along on RGB pixels.
             return None
         long_side = max(source.size)
         if long_side <= SCREEN_SKIP_LONG_SIDE:
@@ -161,17 +170,14 @@ def generate_variant_sync(file_path: str, tier: str, cache_dir: Path, cache_key:
         if tier == "screen" and source.format == "JPEG":
             # Let libjpeg decode at a reduced DCT scale that still exceeds the target.
             scale = SCREEN_LONG_SIDE / long_side
-            source.draft("RGB", (int(source.width * scale) + 1, int(source.height * scale) + 1))
+            source.draft(source.mode, (int(source.width * scale) + 1, int(source.height * scale) + 1))
         img = ImageOps.exif_transpose(source)
-        has_alpha = img.mode in ("RGBA", "LA", "PA", "RGBa", "La") or (
-            img.mode == "P" and "transparency" in img.info
-        )
+        # Covers alpha bands, palette transparency and RGB/L tRNS colors.
+        has_alpha = img.has_transparency_data
         if has_alpha:
             if img.mode != "RGBA":
                 img = img.convert("RGBA")
         elif img.mode != "RGB":
-            if img.mode not in ("L", "P", "1", "CMYK", "YCbCr", "LAB", "HSV"):
-                return None
             img = img.convert("RGB")
 
         extra = {"icc_profile": icc} if icc else {}
@@ -196,26 +202,82 @@ def generate_variant_sync(file_path: str, tier: str, cache_dir: Path, cache_key:
         return path
 
 
+async def media_is_live(session, media_id: int) -> bool:
+    """The media row exists and no permanent delete is queued or running for it."""
+    from sqlalchemy import select
+    from database import DeleteOperation, DeleteOperationItem, MediaItem
+
+    exists = await session.scalar(select(MediaItem.id).where(MediaItem.id == media_id).limit(1))
+    if exists is None:
+        return False
+    deleting = await session.scalar(
+        select(DeleteOperationItem.media_id)
+        .join(DeleteOperation, DeleteOperation.id == DeleteOperationItem.operation_id)
+        .where(
+            DeleteOperationItem.media_id == media_id,
+            DeleteOperation.status.in_(["queued", "running"]),
+            DeleteOperationItem.state.not_in(["done", "failed"]),
+        )
+        .limit(1)
+    )
+    return deleting is None
+
+
 # ---------------------------------------------------------------------------
 # Eager `screen` generation
 #
-# After a generation saves or ingest reads a large image, its `screen` variant
-# is built in the background so the slideshow finds it on disk. One low
-# priority thread keeps this from competing with interactive thumbnail work;
-# a failure only means the first viewer generates it lazily.
+# After a generation saves, an upload lands or ingest reads a large image, its
+# `screen` variant is built in the background so the slideshow finds it on
+# disk. One daemon thread works a bounded queue: it never competes with
+# interactive work for more than one core, never holds up shutdown, and drops
+# new work past the bound (those images are generated on first view). A viewer
+# who asks before a queued job has started generates it on the interactive
+# pool instead of waiting; the eager job then finds the file and returns.
 
-_eager_executor: ThreadPoolExecutor | None = None
+EAGER_MAX_PENDING = 64
+
+
+class EagerJob:
+    def __init__(self, file_path: str, cache_dir: Path, cache_key: str):
+        self.args = (file_path, "screen", cache_dir, cache_key)
+        self.future: Future = Future()
+        self.started = threading.Event()
+
+
+_eager_queue: "queue.Queue[EagerJob]" = queue.Queue(maxsize=EAGER_MAX_PENDING)
+_eager_thread: threading.Thread | None = None
 _eager_lock = threading.Lock()
-# cache_key -> running eager job, so an interactive request can join it.
-eager_jobs: dict[str, Future] = {}
+# cache_key -> queued or running eager job.
+eager_jobs: dict[str, EagerJob] = {}
 
 
-def _eager_pool() -> ThreadPoolExecutor:
-    global _eager_executor
+def _eager_worker() -> None:
+    while True:
+        job = _eager_queue.get()
+        if not job.future.set_running_or_notify_cancel():
+            continue
+        job.started.set()
+        try:
+            file_path = job.args[0]
+            # Permanently deleted while queued: nothing to build.
+            result = generate_variant_sync(*job.args) if Path(file_path).is_file() else None
+        except BaseException as exc:  # noqa: BLE001 - reported through the future
+            job.future.set_exception(exc)
+        else:
+            job.future.set_result(result)
+
+
+def _submit_eager(job: EagerJob) -> bool:
+    global _eager_thread
     with _eager_lock:
-        if _eager_executor is None:
-            _eager_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="image-variant-eager")
-        return _eager_executor
+        if _eager_thread is None:
+            _eager_thread = threading.Thread(target=_eager_worker, name="image-variant-eager", daemon=True)
+            _eager_thread.start()
+    try:
+        _eager_queue.put_nowait(job)
+    except queue.Full:
+        return False
+    return True
 
 
 def wants_eager_screen(item) -> bool:
@@ -232,92 +294,94 @@ def wants_eager_screen(item) -> bool:
     )
 
 
-async def queue_eager_screen_variants(session, db_guid: str | None, items) -> int:
-    """Record and queue `screen` variants for the large images in ``items``.
-
-    Never raises: this runs after a save has already committed, and a failure
-    here must not turn that save into an error. Returns how many were queued.
-    """
-    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-    from config import get_settings
-    from database import MediaThumbnailCache
-
-    queued = 0
+async def _finish_eager(db, media_id: int, job: EagerJob, cache_key: str) -> None:
+    """After an eager write, drop the file if its media was deleted meanwhile."""
     try:
-        cache_dir = get_settings().get_thumbnail_cache_dir()
-        jobs = []
-        for item in items:
-            if not wants_eager_screen(item):
-                continue
-            cache_key = variant_cache_key(db_guid, item.file_hash, "screen")
-            if existing_variant(cache_dir, cache_key, "screen") is not None or cache_key in eager_jobs:
-                continue
-            path = variant_cache_paths(cache_dir, cache_key, "screen")[0]
-            # Index the derived file before it exists so a permanent delete
-            # that races generation still purges it.
-            await session.execute(
-                sqlite_insert(MediaThumbnailCache)
-                .values(media_id=item.id, cache_path=str(path))
-                .on_conflict_do_nothing(index_elements=["media_id", "cache_path"])
-            )
-            jobs.append((str(item.file_path), cache_key, item.id))
-        if not jobs:
-            return 0
-        await session.commit()
-        pool = _eager_pool()
-        for file_path, cache_key, media_id in jobs:
-            future = pool.submit(generate_variant_sync, file_path, "screen", cache_dir, cache_key)
-            eager_jobs[cache_key] = future
-
-            def _done(f: Future, key=cache_key, media_id=media_id):
-                if eager_jobs.get(key) is f:
-                    eager_jobs.pop(key, None)
-                exc = f.exception()
-                if exc is not None:
-                    log.info("Eager screen variant deferred to first view", media_id=media_id, error=type(exc).__name__)
-
-            future.add_done_callback(_done)
-            queued += 1
+        path = await asyncio.wrap_future(job.future)
     except Exception as exc:
-        try:
-            await session.rollback()
-        except Exception:
-            pass
-        log.warning("Eager screen variants skipped", error=type(exc).__name__)
-    return queued
+        log.info("Eager screen variant deferred to first view", media_id=media_id, error=type(exc).__name__)
+        return
+    finally:
+        if eager_jobs.get(cache_key) is job:
+            eager_jobs.pop(cache_key, None)
+    if path is None:
+        return
+    try:
+        async with db.async_session_maker() as session:
+            live = await media_is_live(session, media_id)
+    except Exception:
+        return
+    if not live:
+        Path(path).unlink(missing_ok=True)
 
 
 async def queue_eager_screen_for_media(db, media_ids) -> int:
-    """Queue eager `screen` variants for ``media_ids`` in profile database ``db``.
+    """Record and queue `screen` variants for the large images in ``media_ids``.
 
-    Opens its own session so it can run after the caller's commit. Never raises.
+    ``db`` is the profile database. Opens its own session so it can run after
+    the caller's commit, and never raises: a failure here must not turn a save
+    into an error. Returns how many were queued.
     """
+    from sqlalchemy import select
+    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+    from config import get_settings
+    from database import MediaItem, MediaThumbnailCache
+
     ids = [media_id for media_id in media_ids if media_id is not None]
     if not ids:
         return 0
+    queued = 0
     try:
-        from sqlalchemy import select
-        from database import MediaItem
-
+        db_guid = getattr(db, "db_guid", None)
+        cache_dir = get_settings().get_thumbnail_cache_dir()
         async with db.async_session_maker() as session:
             rows = list(await session.scalars(select(MediaItem).where(MediaItem.id.in_(ids))))
-            return await queue_eager_screen_variants(session, getattr(db, "db_guid", None), rows)
+            jobs = []
+            for item in rows:
+                if not wants_eager_screen(item):
+                    continue
+                cache_key = variant_cache_key(db_guid, item.file_hash, "screen")
+                if existing_variant(cache_dir, cache_key, "screen") is not None or cache_key in eager_jobs:
+                    continue
+                if len(eager_jobs) + len(jobs) >= EAGER_MAX_PENDING:
+                    break
+                path = variant_cache_paths(cache_dir, cache_key, "screen")[0]
+                # Index the derived file before it exists so a permanent delete
+                # that races generation still purges it.
+                await session.execute(
+                    sqlite_insert(MediaThumbnailCache)
+                    .values(media_id=item.id, cache_path=str(path))
+                    .on_conflict_do_nothing(index_elements=["media_id", "cache_path"])
+                )
+                jobs.append((str(item.file_path), cache_key, item.id))
+            if not jobs:
+                return 0
+            await session.commit()
+        for file_path, cache_key, media_id in jobs:
+            job = EagerJob(file_path, cache_dir, cache_key)
+            if not _submit_eager(job):
+                break
+            eager_jobs[cache_key] = job
+            _track(asyncio.get_running_loop().create_task(_finish_eager(db, media_id, job, cache_key)))
+            queued += 1
     except Exception as exc:
         log.warning("Eager screen variants skipped", error=type(exc).__name__)
-        return 0
+    return queued
 
 
 _background_tasks: set = set()
 
 
+def _track(task) -> None:
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
 def schedule_eager_screen_for_media(db, media_ids) -> None:
     """Fire-and-forget form of queue_eager_screen_for_media for save paths."""
-    import asyncio
-
     try:
         task = asyncio.get_running_loop().create_task(queue_eager_screen_for_media(db, list(media_ids)))
     except Exception as exc:
         log.debug("Eager screen variants not scheduled", error=type(exc).__name__)
         return
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
+    _track(task)

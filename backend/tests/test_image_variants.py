@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import io
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from httpx import AsyncClient
@@ -190,7 +191,7 @@ async def test_eager_screen_generation_records_and_writes(db_session, tmp_path):
     key = variants.variant_cache_key(db.db_guid, large_hash, "screen")
     job = variants.eager_jobs.get(key)
     if job is not None:
-        await asyncio.wrap_future(job)
+        await asyncio.wrap_future(job.future)
     cached = variants.existing_variant(get_settings().get_thumbnail_cache_dir(), key, "screen")
     assert cached is not None
     with Image.open(cached) as img:
@@ -218,3 +219,92 @@ def test_skip_rule(tier, fmt, size, file_size, expected):
     from utils.image_variants import variant_serves_original
 
     assert variant_serves_original(tier, fmt, size[0], size[1], file_size) is expected
+
+
+async def test_rgb_png_with_trns_keeps_alpha(client: AsyncClient, db_session, tmp_path):
+    """An RGB PNG whose tRNS color marks transparency takes the alpha path."""
+    path = tmp_path / "trns.png"
+    img = Image.new("RGB", (3400, 3400), (10, 200, 30))
+    img.paste((255, 0, 255), (0, 0, 1700, 1700))
+    img.save(path, transparency=(255, 0, 255))
+    file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+    await _media(db_session, path, file_hash, (3400, 3400), file_size=20 * 1024 * 1024)
+
+    screen = await client.get(_url(file_hash, "screen"))
+    with Image.open(io.BytesIO(screen.content)) as out:
+        assert out.mode == "RGBA"
+        assert out.getpixel((10, 10))[3] == 0
+        assert out.getpixel((2500, 2500))[3] == 255
+    full = await client.get(_url(file_hash, "full"))
+    assert full.headers["content-type"] == "image/webp"
+
+
+@pytest.mark.parametrize("kind", ["cmyk", "gray-icc"])
+async def test_sources_without_exact_rgb_conversion_serve_the_original(client: AsyncClient, db_session, tmp_path, kind):
+    if kind == "cmyk":
+        path = tmp_path / "cmyk.jpg"
+        Image.new("CMYK", (4000, 3000), (10, 80, 0, 20)).save(path, quality=95)
+        fmt = "jpg"
+    else:
+        path = tmp_path / "gray-icc.png"
+        gray = ImageCms.ImageCmsProfile(ImageCms.createProfile("LAB")).tobytes()
+        gray = gray[:16] + b"GRAY" + gray[20:]  # header says gray, which is all the check reads
+        Image.linear_gradient("L").resize((3400, 3400)).save(path, icc_profile=gray)
+        fmt = "png"
+    file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+    # Claim a big file so only the color mode can decide.
+    await _media(
+        db_session, path, file_hash, (4000, 3000) if kind == "cmyk" else (3400, 3400),
+        file_format=fmt, file_size=20 * 1024 * 1024,
+    )
+
+    response = await client.get(_url(file_hash, "screen"))
+    assert response.status_code == 200
+    assert response.content == path.read_bytes()
+
+
+async def test_failure_fallback_is_not_cacheable(client: AsyncClient, db_session, tmp_path):
+    from utils import image_variants as variants
+
+    path = tmp_path / "broken-encode.png"
+    file_hash = _write_image(path, (3400, 3400))
+    await _media(db_session, path, file_hash, (3400, 3400))
+
+    def boom(*_args):
+        raise OSError("encoder failed")
+
+    with patch.object(variants, "generate_variant_sync", boom):
+        response = await client.get(_url(file_hash, "screen"))
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.headers["cache-control"] == "no-store"
+
+
+async def test_viewer_does_not_wait_for_a_queued_eager_job(client: AsyncClient, db_session, tmp_path):
+    from config import get_settings
+    from utils import image_variants as variants
+
+    path = tmp_path / "queued.png"
+    file_hash = _write_image(path, (3400, 3400))
+    await _media(db_session, path, file_hash, (3400, 3400))
+    key = variants.variant_cache_key(get_database_registry().get_db_guid("default"), file_hash, "screen")
+    queued = variants.EagerJob(str(path), get_settings().get_thumbnail_cache_dir(), key)
+    variants.eager_jobs[key] = queued  # queued behind a backlog, never started
+    try:
+        response = await asyncio.wait_for(client.get(_url(file_hash, "screen")), timeout=30)
+    finally:
+        variants.eager_jobs.pop(key, None)
+    assert response.headers["content-type"] == "image/webp"
+    assert not queued.future.done()
+
+
+async def test_eager_write_for_deleted_media_is_removed(tmp_path):
+    from utils import image_variants as variants
+
+    written = tmp_path / "orphan.screen.webp"
+    written.write_bytes(b"x")
+    job = variants.EagerJob(str(tmp_path / "gone.png"), tmp_path, "k" * 32)
+    job.future.set_result(written)
+    db = get_database_registry().get_database("default")
+    await variants._finish_eager(db, 987654321, job, "k" * 32)
+    assert not written.exists()

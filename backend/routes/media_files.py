@@ -3334,12 +3334,16 @@ async def _serve_image_variant(
     if await _media_has_active_delete_operation(session, media_id):
         raise HTTPException(status_code=404, detail="Asset is being permanently deleted")
 
-    def original():
+    def original(transient: bool = False):
         _ensure_readable(source)
+        response_headers = {**headers, 'Content-Disposition': content_disposition('inline', source.name)}
+        if transient:
+            # A fallback after a failure must not be cached as the variant.
+            response_headers['Cache-Control'] = 'no-store'
         return FileResponse(
             source,
             media_type=_IMAGE_MEDIA_TYPES.get(fmt, 'application/octet-stream'),
-            headers={**headers, 'Content-Disposition': content_disposition('inline', source.name)},
+            headers=response_headers,
         )
 
     if variants.variant_serves_original(tier, fmt, item.width, item.height, item.file_size):
@@ -3363,11 +3367,14 @@ async def _serve_image_variant(
         await _record_thumbnail_cache(session, media_id, path)
     await session.rollback()
 
+    failed = False
     try:
         eager = variants.eager_jobs.get(cache_key)
-        if eager is not None:
+        if eager is not None and eager.started.is_set() and not eager.future.done():
             # Eager generation for this image is already running: join it.
-            path = await asyncio.wrap_future(eager)
+            # One still queued is not waited for; this request builds it now
+            # and the eager job then finds the file.
+            path = await asyncio.wrap_future(eager.future)
         else:
             path = await _run_pooled_job(
                 request,
@@ -3385,9 +3392,10 @@ async def _serve_image_variant(
         # A source Pillow cannot re-encode is still a valid original.
         log.warning(f"Image variant {tier} failed for media {media_id}; serving original: {type(exc).__name__}")
         path = None
+        failed = True
 
     if path is None:
-        return original()
+        return original(transient=failed)
     await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, fmt, path)
     return respond(path)
 
