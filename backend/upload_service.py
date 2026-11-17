@@ -331,6 +331,10 @@ class UploadService:
                     except Exception as exc:
                         log.warning(f"Deferred upload-source cleanup: {type(exc).__name__}")
                     log.info(f"Created media item {media_item.id} for upload: {dest_path}")
+                    # Large uploads get their `screen` delivery variant built in
+                    # the background; never blocks or fails the upload.
+                    from utils.image_variants import schedule_eager_screen_for_media
+                    schedule_eager_screen_for_media(db, [media_item.id])
                 except IntegrityError:
                     # File already exists - fetch existing record
                     await session.rollback()

@@ -4103,6 +4103,16 @@ class GenerationQueue:
                     f"Job {job.id}: deferred managed ingest-source cleanup: {type(exc).__name__}"
                 )
 
+        if not ephemeral_run_id:
+            # Large images get their `screen` delivery variant built in the
+            # background so the slideshow finds it on disk. Never blocks or
+            # fails the save; a miss is generated on first view instead.
+            from utils.image_variants import schedule_eager_screen_for_media
+            schedule_eager_screen_for_media(
+                self._get_db(profile_id),
+                [media_item.id, *(m.id for m, _ in additional_media)],
+            )
+
         log.debug(f"Job {job.id}: TIMING - total post-gen DB ops: {(_time.time() - _t0)*1000:.0f}ms")
 
         # Update the generation_grid chat item with the media_id

@@ -1364,6 +1364,17 @@ class MediaIngestion:
 
             await session.commit()
 
+            # Large images get their `screen` delivery variant built at low
+            # priority so the first slideshow view is fast. Optional work: it
+            # never fails ingestion, and a miss is generated on first view.
+            from utils.image_variants import schedule_eager_screen_for_media, wants_eager_screen
+            large_images = [
+                item.id for item in media_by_id.values()
+                if item.metadata_status == 'completed' and wants_eager_screen(item)
+            ]
+            if large_images:
+                schedule_eager_screen_for_media(db, large_images)
+
             from utils.video_playback import prewarm
             from types import SimpleNamespace
             # A failed optional prewarm rolls back its own index transaction.
