@@ -5857,7 +5857,8 @@ async function performFollowStep() {
 
     // Preload image file (for images) + metadata. Videos stream via the element.
     const preloads = [fetchAndCacheMetadata(target).catch(() => null)]
-    if (target.file_hash && !isVideoType(target)) {
+    // The awaits above may outlive the view or this follow step.
+    if (target.file_hash && !isVideoType(target) && slideshowViewActive && stepEpoch === liveAdvanceEpoch) {
       // Decoded into the slideshow cache, so the hero shows `screen` at once.
       preloads.push(Promise.race([preloadAndDecodeImage(getImageTierUrl(target, 'screen'), { heavy: tierServesOriginal(target, 'screen') }), new Promise(resolve => setTimeout(resolve, 5000))]))
     }
@@ -6175,6 +6176,8 @@ onUnmounted(() => {
   void updateNativeKeepAwake(false)
   if (singleTapTimer) { clearTimeout(singleTapTimer); singleTapTimer = null }
   mediaPreloadEpoch++
+  // Late preloads (live follow, neighbors) check this before starting.
+  slideshowViewActive = false
   for (const entry of decodedImageCache.values()) entry.cancel?.()
   decodedImageCache.clear()
   warmedVideoCache.clear()
