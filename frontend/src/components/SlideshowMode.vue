@@ -107,7 +107,7 @@
     <div
       v-if="!slideshowCompact && !focusMode && currentLabel"
       class="app-no-drag absolute top-1.5 z-chrome flex h-9 max-w-[50%] -translate-x-1/2 items-center truncate text-[13px] text-content-secondary"
-      :style="{ left: showSidebar ? 'calc(50% - 192px)' : '50%' }"
+      :style="{ left: showSidebar ? 'calc(50% - 192px)' : '50%', maxWidth: reviewInTopBand ? `min(50%, calc(100% - ${showSidebar ? SIDEBAR_WIDTH : 0}px - 480px))` : undefined }"
     ><span class="truncate">{{ currentLabel }}</span></div>
 
     <!-- Grid view title indicator (centered over image area, accounting for sidebar) -->

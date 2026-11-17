@@ -144,7 +144,7 @@
 // part goes and whether the review is open. It carries only what the agent
 // tied to the picture on screen (a rating or check with for=, a choice option
 // that refs it) plus comments, which every picture takes.
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ChatBubbleLeftIcon, CheckIcon, ChevronUpIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { StarIcon } from '@heroicons/vue/24/solid'
 import { StarIcon as StarOutlineIcon } from '@heroicons/vue/24/outline'
@@ -205,8 +205,12 @@ const fields = computed<Field[]>(() => {
   return out
 })
 
+// Only a close container counts (a card holding the picture and its rating):
+// at most two levels up, never past a section or the sheet itself.
 function soleTileNear(el: Element): string | null {
-  for (let node = el.parentElement; node; node = node.parentElement) {
+  let node = el.parentElement
+  for (let depth = 0; node && depth < 2; depth++, node = node.parentElement) {
+    if (node === props.sheet.root.value || node.tagName === 'STIMMA-SECTION') return null
     const tiles = node.querySelectorAll('stimma-media, stimma-compare')
     if (tiles.length === 1) return tiles[0].id || null
     if (tiles.length > 1) return null
@@ -246,6 +250,15 @@ const barButton = 'flex h-9 min-w-9 items-center justify-center gap-1 rounded-md
 const ratingMenu = ref<string | null>(null)
 const hover = ref(0)
 watch(anchor, () => { ratingMenu.value = null })
+// Escape closes the picker, not the slideshow behind it.
+function onKey(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || !ratingMenu.value) return
+  event.stopImmediatePropagation()
+  event.preventDefault()
+  ratingMenu.value = null
+}
+onMounted(() => window.addEventListener('keydown', onKey, true))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
 function pickRating(id: string, n: number) {
   props.sheet.setAnswer(id, n)
   ratingMenu.value = null
