@@ -1,6 +1,6 @@
 {
  "name": "pick-judge",
- "version": "2026-11-16.2",
+ "version": "2026-11-17.1",
  "contract": 1,
  "kind": "enc",
  "maxlen": 512,
@@ -11,13 +11,13 @@
   "wrong"
  ],
  "wrong": "wrong",
- "cut": 0.6144,
+ "cut": 0.4677,
  "model": "model.int8.onnx",
  "files": [
   {
    "path": "model.int8.onnx",
-   "size": 248464788,
-   "sha256": "8735219c71c7db1c2cc4a4e328c3e9de7626fb1c0fd626299200ff93f81f935d"
+   "size": 655893542,
+   "sha256": "cc517481ad0a519121bdd783a40c350ce13dac0dacb4774e620929435ff9210c"
   },
   {
    "path": "tokenizer.json",
@@ -26,25 +26,25 @@
   },
   {
    "path": "tokenizer_config.json",
-   "size": 691,
-   "sha256": "487bcdd7ab992b12b5ad430634c3b2bfa0f3354cf6431f7df402860ff95cecb6"
+   "size": 690,
+   "sha256": "42d76dd86966ec41f940a1f4dcf3875ad885d198e9d1195f071b3f10af4dac2c"
   },
   {
    "path": "io.json",
    "size": 161,
-   "sha256": "2ff3049230d7945ecb41cab3ee71d0257d2ace0bd4a674c463551098d9dff641"
+   "sha256": "e1d126191bf8496b72889563c8a0243057c27840df74bd73b6ad5a2dab66f18f"
   },
   {
    "path": "LICENSE",
-   "size": 1455,
-   "sha256": "b6ddea99947af2266586a78bd75d4c7ba7f201b0106910f46692d5525e7ad52a"
+   "size": 1457,
+   "sha256": "0493b74d4a7c8a8048a588736d75e415c848a59bfe7a212afabd2ef8b71e527b"
   }
  ],
- "base_model": "microsoft/deberta-v3-base",
+ "base_model": "microsoft/deberta-v3-large",
  "license": "MIT",
  "metrics": {
-  "gold_auroc": 0.872,
-  "test_auroc": 0.862
+  "gold_auroc": 0.877,
+  "test_auroc": 0.88
  },
  "selftest": {
   "items": [
@@ -92,12 +92,12 @@
    }
   ],
   "p_wrong": [
-   0.0011,
-   0.1187,
-   0.0477,
-   0.9014,
-   0.009,
-   0.5028
+   0.0007,
+   0.4167,
+   0.0014,
+   0.9976,
+   0.0061,
+   0.1213
   ]
  }
 }
