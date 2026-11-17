@@ -105,7 +105,7 @@
     </button>
 
     <div
-      v-if="!slideshowCompact && !focusMode && currentLabel"
+      v-if="!slideshowCompact && !focusMode && currentLabel && !reviewInTopBand"
       class="app-no-drag absolute top-1.5 z-chrome flex h-9 max-w-[50%] -translate-x-1/2 items-center truncate text-[13px] text-content-secondary"
       :style="{ left: showSidebar ? 'calc(50% - 192px)' : '50%' }"
     ><span class="truncate">{{ currentLabel }}</span></div>
@@ -405,7 +405,7 @@
       @touchcancel.capture="cancelSlideshowTouch"
       @click.capture="suppressSlideshowSwipeClick"
       @contextmenu="handleStageContextMenu"
-      :style="{ marginBottom: slideshowCompact ? '0px' : `${(visibleImageStrip ? STRIP_HEIGHT : 0) + (barDocked ? DOCK_BAR_HEIGHT : 0)}px`, marginTop: (!slideshowCompact && !focusMode) ? `${TOP_BAND_HEIGHT}px` : '0px', marginRight: `${reviewRailWidth}px`, paddingTop: '0px' }"
+      :style="{ marginBottom: slideshowCompact ? '0px' : `${(visibleImageStrip ? STRIP_HEIGHT : 0) + (barDocked ? DOCK_BAR_HEIGHT : 0)}px`, marginTop: (!slideshowCompact && !focusMode) ? `${TOP_BAND_HEIGHT}px` : '0px', paddingTop: '0px' }"
     >
       <div v-if="!displayItem" class="text-content">Loading...</div>
       <!-- Placeholder for deleted/trashed items (rare edge case) -->
@@ -722,14 +722,15 @@
       />
     </div>
 
-    <!-- Review chrome a host adds in context (a contact sheet's review), beside
-         the picture on desktop: a rail of answers that opens into a panel. -->
+    <!-- Review chrome a host adds in context (a contact sheet's review): on
+         desktop it lives in the top band, always open, off the picture. -->
     <div
-      v-if="reviewRailWidth"
-      class="absolute z-chrome overflow-y-auto overflow-x-hidden border-l border-edge-subtle bg-slideshow-matt transition-[width] duration-300 custom-scrollbar"
-      :style="{ top: `${TOP_BAND_HEIGHT}px`, bottom: `${(visibleImageStrip ? STRIP_HEIGHT : 0) + (barDocked ? DOCK_BAR_HEIGHT : 0)}px`, right: showSidebar ? `${SIDEBAR_WIDTH}px` : '0px', width: `${reviewRailWidth}px` }"
+      v-if="reviewInTopBand"
+      class="absolute top-1.5 z-chrome flex h-9 -translate-x-1/2 items-center"
+      :style="{ left: (showSidebar && !focusMode) ? `calc(50% - ${SIDEBAR_WIDTH / 2}px)` : '50%', maxWidth: (showSidebar && !focusMode) ? `calc(100% - ${SIDEBAR_WIDTH}px - 120px)` : 'calc(100% - 120px)', WebkitAppRegion: 'no-drag' }"
     >
-      <slot name="review" :item="currentItem" :index="currentIndex" part="rail" :open="reviewOpen" :toggle="toggleReview" />
+      <span v-if="currentLabel" class="mr-3 min-w-0 max-w-64 flex-shrink truncate text-[13px] text-content-secondary">{{ currentLabel }}</span>
+      <slot name="review" :item="currentItem" :index="currentIndex" part="bar" :open="reviewOpen" :toggle="toggleReview" />
     </div>
 
     <!-- Image Strip (shows thumbnails from current dataset, or single source image when viewing source) -->
@@ -1765,18 +1766,14 @@ const STRIP_HEIGHT = slideshowCompact.value ? 74 : 136
 const STRIP_ROW = slideshowCompact.value ? STRIP_TILE.sm + 8 : STRIP_TILE.lg + 8
 const SIDEBAR_WIDTH = slideshowCompact.value ? 0 : 384
 const focusMode = ref(savedSettings.focusMode ?? false)
-// A host's review (a contact sheet) puts its chrome beside or below the
-// picture, never on it. Reviewing on a compact screen starts without the
+// A host's review (a contact sheet) puts its chrome in the top band on desktop
+// and below the picture on compact screens, never on it. Reviewing on a compact screen starts without the
 // filmstrip: the sheet is the overview, and More brings the strip back for
 // this slideshow without changing the saved setting.
 const hasReview = computed(() => props.review)
 const reviewOpen = ref(false)
 function toggleReview() { reviewOpen.value = !reviewOpen.value }
-const REVIEW_RAIL_WIDTH = 44
-const REVIEW_PANEL_WIDTH = 264
-const reviewRailWidth = computed(() => (hasReview.value && !slideshowCompact.value && !focusMode.value && !isViewingGrid.value && !isViewingSet.value && !isViewingSource.value)
-  ? (reviewOpen.value ? REVIEW_PANEL_WIDTH : REVIEW_RAIL_WIDTH)
-  : 0)
+const reviewInTopBand = computed(() => hasReview.value && !slideshowCompact.value && !focusMode.value && !isViewingGrid.value && !isViewingSet.value && !isViewingSource.value)
 const reviewStripOverride = ref(null)
 const stripWanted = computed(() => (slideshowCompact.value && hasReview.value) ? (reviewStripOverride.value ?? false) : showImageStrip.value)
 function toggleImageStrip() {
@@ -2781,7 +2778,7 @@ const controlBarStyle = computed(() => {
     }
   }
   if (barDocked.value) {
-    const dockSidebar = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0) + reviewRailWidth.value
+    const dockSidebar = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0)
     return {
       left: `calc((100% - ${dockSidebar}px) / 2)`,
       right: 'auto',
@@ -2792,7 +2789,7 @@ const controlBarStyle = computed(() => {
   }
   const anchors = controlBarEdgeAnchors.value
   // In focus mode, treat sidebar as if it's not there
-  const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0) + reviewRailWidth.value
+  const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0)
   // Account for image strip height when visible
   const relatedStripOffset = (showImageStrip.value && !focusMode.value) ? STRIP_HEIGHT : 0
 
@@ -2847,7 +2844,7 @@ const controlBarStyle = computed(() => {
 // above the image strip. Sits low (near the viewer bottom) — the control bar is
 // user-draggable, so we don't reserve space for its default spot.
 const transportBarStyle = computed(() => {
-  const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0) + reviewRailWidth.value
+  const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0)
   const relatedStripOffset = (showImageStrip.value && !focusMode.value) ? STRIP_HEIGHT : 0
   return {
     left: `calc((100% - ${sidebarWidth}px) / 2)`,
@@ -4138,7 +4135,7 @@ function startDrag(event) {
   // If no edge anchors are set yet, initialize them based on current visual position
   // This prevents the "hop" when transitioning from centered to edge-anchored positioning
   if (controlBarEdgeAnchors.value.horizontal === null || controlBarEdgeAnchors.value.vertical === null) {
-    const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0) + reviewRailWidth.value
+    const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0)
     const containerRect = overlay.value.getBoundingClientRect()
     const containerWidth = containerRect.width
     const containerHeight = containerRect.height
@@ -4194,7 +4191,7 @@ function onDrag(event) {
       const y = event.clientY - containerRect.top - dragStart.value.y
 
       // In focus mode, treat sidebar/strip as if they're not there
-      const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0) + reviewRailWidth.value
+      const sidebarWidth = ((showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0)
       const relatedStripOffset = (showImageStrip.value && !focusMode.value) ? STRIP_HEIGHT : 0
       const containerWidth = containerRect.width
       const containerHeight = containerRect.height

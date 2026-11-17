@@ -25,33 +25,73 @@
     <ChevronUpIcon class="h-4 w-4 flex-none text-content-muted transition-transform" :class="open ? 'rotate-180' : ''" />
   </button>
 
-  <!-- Rail: a column of the same answers beside the picture on desktop. -->
-  <div v-else-if="part === 'rail' && active && !open" class="flex flex-col items-center gap-0.5 pt-2">
+  <!-- Bar: the whole review in one row in the slideshow's top band (desktop).
+       Always open, so rating and commenting never take a click to get to. -->
+  <div v-else-if="part === 'bar' && active" class="relative flex h-9 min-w-0 items-center gap-1 rounded-lg bg-overlay-subtle pl-1.5 pr-1">
+    <template v-for="field in fields" :key="field.key">
+      <div v-if="field.kind === 'rating'" class="flex flex-none" :title="field.label">
+        <button
+          v-for="n in 5"
+          :key="n"
+          type="button"
+          class="flex h-8 w-6 items-center justify-center"
+          :title="`${n} of 5`"
+          @click="setRating(field.id, n)"
+        >
+          <StarIcon class="h-4 w-4" :class="rating(field.id) >= n ? 'text-amber-400' : 'text-content-muted/40 hover:text-content-muted'" />
+        </button>
+      </div>
+      <button
+        v-else
+        type="button"
+        class="flex h-7 max-w-40 flex-none items-center gap-1 truncate rounded-full px-2.5 text-[12px] transition-colors"
+        :class="isOn(field) ? 'bg-accent/15 text-accent-hi ring-1 ring-inset ring-accent-hi/45' : 'text-content-secondary ring-1 ring-inset ring-edge-strong hover:text-content'"
+        :title="field.question ? `${field.question} ${field.label}` : field.label"
+        :aria-pressed="isOn(field)"
+        @click="toggleField(field)"
+      >
+        <CheckIcon v-if="isOn(field)" class="h-3.5 w-3.5 flex-none" stroke-width="2.5" /><span class="truncate">{{ field.label }}</span>
+      </button>
+    </template>
+    <span v-if="fields.length" class="mx-1 h-5 w-px flex-none bg-edge-subtle" aria-hidden="true" />
+    <input
+      v-model="draft"
+      type="text"
+      placeholder="Comment for the agent"
+      class="h-7 w-72 min-w-24 flex-1 rounded-md border-0 bg-transparent px-2 text-[12.5px] text-content placeholder:text-content-muted focus:bg-field focus:outline-none focus:ring-1 focus:ring-accent/60"
+      @keydown.enter.exact.prevent="post"
+      @keydown.esc.stop="($event.target as HTMLInputElement).blur()"
+      @keydown.stop
+    />
     <button
-      v-for="field in fields"
-      :key="field.key"
+      v-if="thread.length"
       type="button"
-      class="flex h-11 w-11 flex-col items-center justify-center gap-px rounded-md text-[10px] hover:bg-overlay-subtle"
-      :class="field.kind === 'rating' ? (rating(field.id) ? 'text-amber-400' : 'text-content-muted') : isOn(field) ? 'text-accent-hi' : 'text-content-muted'"
-      :title="field.question ? `${field.question} ${field.label}` : field.label"
+      class="flex h-7 flex-none items-center gap-1 rounded-md px-2 text-[12px] text-content-secondary hover:bg-overlay-hover"
+      :class="open ? 'bg-overlay-light' : ''"
+      :title="open ? 'Hide comments' : 'Show comments'"
+      :aria-expanded="open"
       @click="$emit('toggle')"
     >
-      <template v-if="field.kind === 'rating'"><StarIcon class="h-4 w-4" /><span class="font-mono tabular-nums">{{ rating(field.id) || '–' }}</span></template>
-      <template v-else><CheckIcon class="h-4 w-4" stroke-width="2.5" /><span class="max-w-10 truncate">{{ field.label }}</span></template>
+      <ChatBubbleLeftIcon class="h-3.5 w-3.5" /><span class="font-mono tabular-nums">{{ thread.length }}</span>
     </button>
-    <button type="button" class="flex h-11 w-11 flex-col items-center justify-center gap-px rounded-md text-[10px] text-content-muted hover:bg-overlay-subtle" title="Comments" @click="$emit('toggle')">
-      <ChatBubbleLeftIcon class="h-4 w-4" /><span class="font-mono tabular-nums">{{ thread.length || '' }}</span>
-    </button>
+    <ul v-if="open && thread.length" class="absolute right-0 top-full z-10 m-0 mt-1.5 flex max-h-72 w-80 list-none flex-col gap-1.5 overflow-y-auto rounded-lg border border-edge-subtle bg-surface p-3 shadow-lg custom-scrollbar">
+      <li v-for="item in thread" :key="item.id" class="group/comment flex items-start gap-1.5 text-[12.5px] leading-snug">
+        <span class="min-w-0 flex-1 whitespace-pre-wrap break-words text-content-secondary">
+          <span class="text-content-muted">{{ item.author?.name || 'You' }}{{ item.sent ? '' : ' · not sent' }} · </span>{{ item.value }}
+        </span>
+        <button
+          v-if="!item.sent"
+          type="button"
+          class="flex h-5 w-5 flex-none items-center justify-center rounded text-content-muted opacity-0 hover:text-red-400 group-hover/comment:opacity-100"
+          title="Delete comment"
+          @click="sheet.deleteComment(item.id)"
+        ><TrashIcon class="h-3.5 w-3.5" /></button>
+      </li>
+    </ul>
   </div>
 
   <!-- Panel: every field at full size, and the comments inline. -->
-  <div v-else-if="(part === 'panel' || part === 'rail') && active && open" class="flex flex-col gap-3" :class="part === 'rail' ? 'p-3.5' : 'px-3 pb-2 pt-3'">
-    <div v-if="part === 'rail'" class="flex items-center justify-between">
-      <span class="text-xs font-semibold text-content-secondary">Review</span>
-      <button type="button" class="flex h-7 w-7 items-center justify-center rounded-md text-content-tertiary hover:bg-overlay-subtle hover:text-content" title="Close review" @click="$emit('toggle')">
-        <ChevronRightIcon class="h-4 w-4" />
-      </button>
-    </div>
+  <div v-else-if="part === 'panel' && active && open" class="flex flex-col gap-3 px-3 pb-2 pt-3">
     <div v-for="field in fields" :key="field.key" :class="rowClass">
       <span :class="keyClass">{{ field.kind === 'rating' ? field.label : field.question || field.label }}</span>
       <div v-if="field.kind === 'rating'" class="flex">
@@ -77,7 +117,7 @@
         <CheckIcon v-if="isOn(field)" class="h-3.5 w-3.5" stroke-width="2.5" />{{ field.label }}
       </button>
     </div>
-    <ul v-if="thread.length" class="m-0 flex list-none flex-col gap-1.5 p-0" :class="part === 'panel' ? 'pl-[76px] compact:pl-0' : ''">
+    <ul v-if="thread.length" class="m-0 flex list-none flex-col gap-1.5 p-0 pl-[76px] compact:pl-0">
       <li v-for="item in thread" :key="item.id" class="group/comment flex items-start gap-1.5 text-[12.5px] leading-snug">
         <span class="min-w-0 flex-1 whitespace-pre-wrap break-words text-content-secondary">
           <span class="text-content-muted">{{ item.author?.name || 'You' }}{{ item.sent ? '' : ' · not sent' }} · </span>{{ item.value }}
@@ -98,7 +138,6 @@
         rows="1"
         placeholder="Comment for the agent"
         class="block min-h-9 w-full flex-1 resize-none rounded-lg border-0 bg-field px-2.5 py-2 text-[12.5px] text-content placeholder:text-content-muted focus:outline-none focus:ring-1 focus:ring-accent/60"
-        :class="part === 'rail' ? 'min-h-16' : ''"
         @keydown.enter.exact.prevent="post"
         @keydown.stop
       />
@@ -108,13 +147,13 @@
 
 <script setup lang="ts">
 // Review chrome for the app's slideshow. It never sits on the picture: on
-// compact screens a pill in the dock opens a panel above it, and on desktop a
-// rail beside the picture opens into a panel. The slideshow owns where each
+// compact screens a pill in the dock opens a panel above it, and on desktop the
+// whole review sits in one row in the top band, always open. The slideshow owns where each
 // part goes and whether the review is open. It carries only what the agent
 // tied to the picture on screen (a rating or check with for=, a choice option
 // that refs it) plus comments, which every picture takes.
 import { computed, ref, watch } from 'vue'
-import { ChatBubbleLeftIcon, CheckIcon, ChevronRightIcon, ChevronUpIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ChatBubbleLeftIcon, CheckIcon, ChevronUpIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { StarIcon } from '@heroicons/vue/24/solid'
 import { mediaIdOfRef, type SheetMediaEntry } from './sheetHtml'
 import type { SheetContext } from './useContactSheet'
@@ -122,7 +161,7 @@ import type { SheetContext } from './useContactSheet'
 const props = withDefaults(defineProps<{
   sheet: SheetContext
   entry: SheetMediaEntry | null
-  part?: 'pill' | 'panel' | 'rail'
+  part?: 'pill' | 'panel' | 'bar'
   open?: boolean
 }>(), { part: 'pill', open: false })
 defineEmits<{ toggle: [] }>()
@@ -169,8 +208,8 @@ const fields = computed<Field[]>(() => {
 const anchor = computed(() => tileIds.value[0] || props.entry?.id || '')
 const thread = computed(() => (anchor.value ? props.sheet.commentsFor(anchor.value) : []))
 
-const rowClass = computed(() => (props.part === 'rail' ? 'flex flex-col gap-1' : 'flex items-center gap-3 compact:flex-col compact:items-start compact:gap-1'))
-const keyClass = computed(() => (props.part === 'rail' ? 'text-[11px] text-content-muted' : 'w-16 flex-none truncate text-[11px] text-content-muted compact:w-auto'))
+const rowClass = 'flex items-center gap-3 compact:flex-col compact:items-start compact:gap-1'
+const keyClass = 'w-16 flex-none truncate text-[11px] text-content-muted compact:w-auto'
 
 function answer(id: string) { return props.sheet.answers.value[id]?.value }
 function rating(id: string) { return Number(answer(id) || 0) }
