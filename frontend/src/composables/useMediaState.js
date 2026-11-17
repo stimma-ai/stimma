@@ -162,7 +162,12 @@ export function useMediaState() {
             auto_delete_at: media.expires_at ?? media.auto_delete_at,
             deleted_at: media.deleted_at,
             file_format: media.file_format,
-            asset_id: media.asset_id
+            asset_id: media.asset_id,
+            // Pixel facts let chat pick a delivery tier (see utils/imageTiers).
+            file_hash: media.file_hash,
+            width: media.width,
+            height: media.height,
+            file_size: media.file_size,
           }
         } catch (error) {
           console.error(`Error fetching media state for ${mediaId}:`, error)

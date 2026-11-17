@@ -108,6 +108,17 @@
           </div>
         </div>
 
+        <!-- Zoomed in before the originals arrived: quiet, no text. -->
+        <div
+          v-if="upgradingToOriginals && leftItem && rightItem"
+          class="pointer-events-none absolute bottom-4 right-4 z-chrome rounded-full bg-black/55 p-1.5 backdrop-blur"
+          role="status"
+          aria-label="Loading originals"
+          data-compare-upgrading
+        >
+          <Spinner size="sm" />
+        </div>
+
         <!-- Toolbar (top right of comparison area) -->
         <div class="absolute top-4 right-4 flex items-center gap-2 z-chrome">
           <Tooltip text="Toggle between fit and 200% zoom"><button type="button" aria-label="Toggle zoom" @click="toggleZoom" class="min-h-11 min-w-11 rounded-full bg-overlay-backdrop px-3 font-mono text-xs text-white focus-visible:outline-none focus-visible:ring-2 ring-accent/60">{{ Math.round(zoomScale * 100) }}%</button></Tooltip>
@@ -196,6 +207,8 @@ import { useViewport } from '../composables/useViewport'
 import Sheet from './ui/Sheet.vue'
 import SegmentedControl from './ui/SegmentedControl.vue'
 import Tooltip from './ui/Tooltip.vue'
+import Spinner from './ui/Spinner.vue'
+import { loadDecodedImage } from '../composables/useImageDelivery'
 
 const props = defineProps({
   leftItem: {
@@ -231,7 +244,7 @@ const emit = defineEmits([
 // compare actions (Browse); elsewhere the panels omit the button.
 const hostHandlesActions = !!getCurrentInstance()?.vnode.props?.onAction
 
-const { getMediaFileUrl } = useMediaApi()
+const { getImageTierUrl } = useMediaApi()
 
 // Refs
 const overlay = ref(null)
@@ -265,15 +278,47 @@ const transformStyle = computed(() => ({
   transformOrigin: 'center center'
 }))
 
+// Both sides always show the same tier, so a difference on screen is in the
+// images, never in how they were delivered. They open at `screen`; both
+// originals then load in the background and swap in together, in one frame,
+// once both have decoded.
+const compareTier = ref('screen')
+let originalLoads = []
+let compareEpoch = 0
+
+function cancelOriginalLoads() {
+  for (const load of originalLoads) load.cancel()
+  originalLoads = []
+}
+
+watch(
+  () => [props.leftItem?.file_hash, props.rightItem?.file_hash],
+  async ([leftHash, rightHash]) => {
+    const epoch = ++compareEpoch
+    cancelOriginalLoads()
+    compareTier.value = 'screen'
+    if (!leftHash || !rightHash) return
+    const loads = [props.leftItem, props.rightItem].map(item => loadDecodedImage(getImageTierUrl(item, 'original'), { priority: 'low' }))
+    originalLoads = loads
+    const results = await Promise.all(loads.map(load => load.promise))
+    if (epoch !== compareEpoch) return
+    // A failed original leaves both sides on `screen`.
+    if (results.every(Boolean)) compareTier.value = 'original'
+  },
+  { immediate: true },
+)
+
+const upgradingToOriginals = computed(() => compareTier.value !== 'original' && zoomScale.value > 1)
+
 // Compute image URLs
 const leftImageUrl = computed(() => {
   if (!props.leftItem) return ''
-  return getMediaFileUrl(props.leftItem.file_hash)
+  return getImageTierUrl(props.leftItem, compareTier.value)
 })
 
 const rightImageUrl = computed(() => {
   if (!props.rightItem) return ''
-  return getMediaFileUrl(props.rightItem.file_hash)
+  return getImageTierUrl(props.rightItem, compareTier.value)
 })
 
 // Image load handlers
@@ -489,6 +534,8 @@ onMounted(() => {
 // Cleanup on unmount
 onUnmounted(() => {
   pointers.clear()
+  compareEpoch++
+  cancelOriginalLoads()
 })
 
 // Watch for external slider position changes

@@ -455,6 +455,10 @@
             :file-format="galleryPreview.file_format"
             :thumbnail="getMediaType(galleryPreview) === 'video'"
             :thumbnail-size="1024"
+            tier="screen"
+            :pixel-width="galleryPreview.width"
+            :pixel-height="galleryPreview.height"
+            :file-size="galleryPreview.file_size"
             thumbnail-mode="fit"
             contain
             background-class="bg-slideshow-matt"
@@ -605,7 +609,7 @@
           <img
             v-else
             :key="`img-${displayItem?.id}-${refreshKey}`"
-            :src="recoveredImageUrl(getMediaFileUrl(displayItem.file_hash), imageRecoveryRevision)"
+            :src="recoveredImageUrl(heroImageSrc, imageRecoveryRevision)"
             :alt="displayItem.original_filename"
             fetchpriority="high"
             :class="['w-full h-full select-none', hasExactDimensions ? '' : 'object-contain']"
@@ -615,6 +619,16 @@
             @load="handleMediaLoad"
             @error="imageLoadFailed = true"
           />
+        </div>
+        <!-- A sharper tier is on its way for the zoom; quiet, no text. -->
+        <div
+          v-if="heroUpgrading"
+          class="pointer-events-none absolute bottom-3 right-3 z-chrome rounded-full bg-black/55 p-1.5 backdrop-blur"
+          role="status"
+          aria-label="Loading full resolution"
+          data-hero-upgrading
+        >
+          <Spinner size="sm" />
         </div>
       </div>
 
@@ -1415,6 +1429,9 @@ import { XMarkIcon, ArrowLeftIcon, InformationCircleIcon, EllipsisHorizontalIcon
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import SlideshowApprovalBar from './flow/SlideshowApprovalBar.vue'
 import { MediaContextMenu, MediaImage } from './media'
+import Spinner from './ui/Spinner.vue'
+import { useProgressiveImage, isRemoteBackend } from '../composables/useImageDelivery'
+import { neededDevicePx, pickImageTier } from '../utils/imageTiers'
 import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType, isVector as isVectorType, isSprite as isSpriteType, isPackage as isPackageType } from '../utils/mediaTypes'
 import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer, SpritePlayer, PackageViewer } from './viewers'
@@ -1532,7 +1549,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'findSimilar', 'update:index', 'update:currentMediaId', 'update:randomized', 'update:randomSeed', 'navigate-to-media', 'compare-with-source', 'approve', 'reject', 'unapprove'])
 
-const { getThumbnailUrl, getMediaFileUrl, getMseLoopUrls, getMediaItem, fetchMedia, deleteMedia, findMediaIndex, restoreFromTrash, permanentlyDeleteMedia, getMediaFaces, downloadMedia: downloadMediaApi, getProjects, addMediaToProject, removeMediaFromProject } = useMediaApi()
+const { getThumbnailUrl, getMediaFileUrl, getImageTierUrl, getMseLoopUrls, getMediaItem, fetchMedia, deleteMedia, findMediaIndex, restoreFromTrash, permanentlyDeleteMedia, getMediaFaces, downloadMedia: downloadMediaApi, getProjects, addMediaToProject, removeMediaFromProject } = useMediaApi()
 const {
   restore: restoreAsset,
   permanentlyDelete: permanentlyDeleteAsset,
@@ -1893,12 +1910,16 @@ const displayItem = ref(null) // Item to display (stays visible while loading ne
 const displayIndex = ref(null)
 const mediaLoaded = ref(false) // Track whether current media has finished loading
 
-// Keep a few neighboring full-resolution images decoded in memory. Chromium's
-// immutable HTTP cache already avoids a second network transfer; retaining the
-// Image objects also avoids paying decode time again when the slideshow swaps.
-// The budget is intentionally small because source images can be very large.
-const MEDIA_PRELOAD_LIMIT = 2
-const DECODED_IMAGE_CACHE_LIMIT = 3
+// Keep neighboring images decoded in memory at the `screen` tier (2560 px
+// long side, never the original). Chromium's immutable HTTP cache already
+// avoids a second network transfer; retaining the Image objects also avoids
+// paying decode time again when the slideshow swaps. A screen bitmap is about
+// 26 MB against 64 MB for a 16 MP original, so ±3 neighbors fit.
+const MEDIA_PRELOAD_LIMIT = 6
+const DECODED_IMAGE_CACHE_LIMIT = 8
+// Video warming keeps its earlier, smaller budget: the nearest two neighbors.
+const VIDEO_PRELOAD_LIMIT = 2
+const WARMED_VIDEO_CACHE_LIMIT = 3
 const decodedImageCache = new Map() // url -> { image, promise }
 const warmedVideoCache = new Map() // file hash -> preload promise
 let mediaPreloadEpoch = 0
@@ -1922,7 +1943,7 @@ function preloadAndDecodeImage(url) {
 
   const image = new Image()
   image.fetchPriority = 'low'
-  const entry = { image, promise: null }
+  const entry = { image, promise: null, ready: false }
   entry.promise = new Promise((resolve) => {
     const finish = async (loaded) => {
       image.onload = null
@@ -1931,6 +1952,7 @@ function preloadAndDecodeImage(url) {
         try { await image.decode() } catch { /* load succeeded; decode may already be complete */ }
       }
       if (!loaded) decodedImageCache.delete(url)
+      entry.ready = loaded
       resolve(loaded)
     }
     image.onload = () => void finish(true)
@@ -1939,6 +1961,43 @@ function preloadAndDecodeImage(url) {
   })
   retainDecodedImage(url, entry)
   return entry.promise
+}
+
+function isDecodedImageReady(url) {
+  return decodedImageCache.get(url)?.ready === true
+}
+
+// The hero image: thumb (instant, same box) → screen → full/original on zoom.
+const heroImageItem = computed(() => {
+  const item = displayItem.value
+  if (!item?.file_hash || item._placeholder || getMediaType(item) !== 'image') return null
+  return item
+})
+const {
+  src: heroProgressiveSrc,
+  tier: heroTier,
+  upgrading: heroUpgrading,
+  requestTier: requestHeroTier,
+  prefetchTier: prefetchHeroTier,
+} = useProgressiveImage(heroImageItem, {
+  loadScreen: (url) => preloadAndDecodeImage(url),
+  isWarm: isDecodedImageReady,
+})
+const heroImageSrc = computed(() => heroProgressiveSrc.value || (displayItem.value?.file_hash ? getMediaFileUrl(displayItem.value.file_hash) : ''))
+
+// Resolves once the hero has left its thumbnail, so neighbor preloads never
+// compete with the current slide's own sharp tier.
+function heroSharpSettled(timeoutMs = 4000) {
+  if (!heroImageItem.value || heroTier.value !== 'thumb') return Promise.resolve()
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, timeoutMs)
+    const stopWatch = watch(heroTier, (tier) => { if (tier !== 'thumb') done() })
+    function done() {
+      clearTimeout(timer)
+      stopWatch()
+      resolve()
+    }
+  })
 }
 
 function preloadSmallVideo(fileHash) {
@@ -1966,7 +2025,7 @@ function preloadSmallVideo(fileHash) {
   })
 
   warmedVideoCache.set(fileHash, promise)
-  while (warmedVideoCache.size > DECODED_IMAGE_CACHE_LIMIT) {
+  while (warmedVideoCache.size > WARMED_VIDEO_CACHE_LIMIT) {
     warmedVideoCache.delete(warmedVideoCache.keys().next().value)
   }
   return promise
@@ -3255,6 +3314,8 @@ function itemAtDisplayIndex(displayIndex) {
 // creates the next media element before Chromium has fetched its source.
 async function preloadNearbyMedia(displayIndex) {
   const epoch = ++mediaPreloadEpoch
+  await heroSharpSettled()
+  if (epoch !== mediaPreloadEpoch || !slideshowViewActive) return
   const indices = nearbyPreloadIndices(
     isViewingSet.value ? setViewIndex.value : displayIndex,
     isViewingSet.value ? currentSetView.value.items.length : localTotalCount.value,
@@ -3262,7 +3323,7 @@ async function preloadNearbyMedia(displayIndex) {
     MEDIA_PRELOAD_LIMIT,
   )
 
-  await Promise.all(indices.map(async (nearbyIndex) => {
+  await Promise.all(indices.map(async (nearbyIndex, order) => {
     if (epoch !== mediaPreloadEpoch || !slideshowViewActive) return
     const actualIndex = getActualIndex(nearbyIndex)
     if (!props.items && !isViewingSet.value) await ensureItemLoaded(actualIndex).catch(() => {})
@@ -3271,12 +3332,13 @@ async function preloadNearbyMedia(displayIndex) {
     const item = isViewingSet.value ? currentSetView.value.items[nearbyIndex] : itemAtDisplayIndex(nearbyIndex)
     if (!item?.file_hash || isAudioType(item) || isStructuredType(item)) return
     if (isVideoType(item)) {
+      if (order >= VIDEO_PRELOAD_LIMIT) return
       await preloadAndDecodeImage(getThumbnailUrl(item.file_hash, 1024, { mode: 'fit' }))
       if (epoch !== mediaPreloadEpoch || !slideshowViewActive) return
       if (shouldPreloadVideoBytes(item.file_size)) await preloadSmallVideo(item.file_hash)
       return
     }
-    await preloadAndDecodeImage(getMediaFileUrl(item.file_hash))
+    await preloadAndDecodeImage(getImageTierUrl(item, 'screen'))
   }))
 }
 
@@ -4548,6 +4610,44 @@ function resetZoom() {
   panY.value = 0
 }
 
+// Upgrade the hero past `screen` when the device pixels it needs at `scale`
+// exceed it: the original when the server is on this machine, `full` when
+// the bytes cross a network. Called as a zoom starts, not when it ends.
+function ensureHeroTier(scale = zoomScale.value) {
+  const item = heroImageItem.value
+  if (!item || currentEditorFrame.value) return
+  const { width, height } = containerSize.value
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  const needed = neededDevicePx(item, width, height, { dpr, zoom: scale })
+  const tier = pickImageTier(item, needed, { remote: isRemoteBackend() })
+  if (tier === 'full' || tier === 'original') void requestHeroTier(tier)
+}
+
+watch(zoomScale, (scale, previous) => {
+  if (scale > previous) ensureHeroTier(scale)
+})
+
+// At fit the hero may already need more than `screen` (a very large display).
+// Locally, also decode the original once the slide settles so zoom is instant;
+// remote links never prefetch full-resolution bytes.
+let heroPrefetchTimer = null
+watch(heroTier, (tier) => {
+  clearTimeout(heroPrefetchTimer)
+  if (tier !== 'screen') return
+  ensureHeroTier()
+  if (isRemoteBackend()) return
+  const item = heroImageItem.value
+  heroPrefetchTimer = setTimeout(() => {
+    const idle = typeof window !== 'undefined' && window.requestIdleCallback
+      ? (callback) => window.requestIdleCallback(callback, { timeout: 2000 })
+      : (callback) => setTimeout(callback, 0)
+    idle(() => {
+      if (heroImageItem.value === item && heroTier.value === 'screen') prefetchHeroTier('original')
+    })
+  }, 800)
+})
+onUnmounted(() => clearTimeout(heroPrefetchTimer))
+
 function clampPan() {
   // Clamp pan values to prevent image from going too far off-screen
   if (zoomScale.value <= 1) {
@@ -4649,8 +4749,9 @@ function handleTouchStart(event) {
   if (drawerEdgeGesture) return
   if (!pictureGesturesEnabled()) return
   if (event.touches.length === 2) {
-    // Pinch start
+    // Pinch start: fetch the sharper tier now, before the fingers spread.
     event.preventDefault()
+    ensureHeroTier(Math.max(2, zoomScale.value * 2))
     touchStartDistance.value = getTouchDistance(event.touches)
     touchStartScale.value = zoomScale.value
     touchStartCenter.value = getTouchCenter(event.touches)
@@ -5668,17 +5769,6 @@ function handleNativeVideoEnded() {
 
 // --- advance actions --------------------------------------------------------
 
-// Resolve an image URL into a load promise (best-effort, never rejects).
-function preloadImage(url) {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => resolve()
-    img.onerror = () => resolve()
-    img.src = url
-    setTimeout(resolve, 5000)
-  })
-}
-
 // Push cached metadata for `item` into the info-panel refs (extracted from the old
 // atomic transition).
 function applyMetadataFromCache(item) {
@@ -5737,7 +5827,8 @@ async function performFollowStep() {
     // Preload image file (for images) + metadata. Videos stream via the element.
     const preloads = [fetchAndCacheMetadata(target).catch(() => null)]
     if (target.file_hash && !isVideoType(target)) {
-      preloads.push(preloadImage(getMediaFileUrl(target.file_hash)))
+      // Decoded into the slideshow cache, so the hero shows `screen` at once.
+      preloads.push(Promise.race([preloadAndDecodeImage(getImageTierUrl(target, 'screen')), new Promise(resolve => setTimeout(resolve, 5000))]))
     }
     await Promise.all(preloads)
 

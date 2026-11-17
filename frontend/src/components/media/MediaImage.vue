@@ -101,6 +101,19 @@ interface Props {
    * loads; full-file loads stay unqueued.
    */
   queued?: boolean
+  /**
+   * Delivery tier for a full (non-thumbnail) image load. 'screen' fetches the
+   * 2560 px variant instead of the original when that is smaller; it needs
+   * fileHash, fileFormat, pixelWidth, pixelHeight and fileSize to decide.
+   * Drag-out, download and export keep using the original regardless.
+   */
+  tier?: 'original' | 'screen'
+  /** Pixel width of the original (media_items.width), for tier selection. */
+  pixelWidth?: number | null
+  /** Pixel height of the original (media_items.height), for tier selection. */
+  pixelHeight?: number | null
+  /** Byte size of the original (media_items.file_size), for tier selection. */
+  fileSize?: number | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -122,7 +135,7 @@ const emit = defineEmits<{
   (e: 'contextmenu', payload: { event: MouseEvent; mediaId?: number; fileHash?: string }): void
 }>()
 
-const { getThumbnailUrl, getMediaFileUrl } = useMediaApi()
+const { getThumbnailUrl, getMediaFileUrl, getImageTierUrl } = useMediaApi()
 
 // Thumbnail loads go through the admission queue unless explicitly opted out;
 // full-file loads (fit mode heroes etc.) are never queued behind thumbnails.
@@ -143,6 +156,15 @@ const imageSrc = computed(() => {
   // regardless of fit/full mode (matches how the library renders audio).
   if (props.thumbnail || props.isAudio) {
     return getThumbnailUrl(identifier, props.thumbnailSize, { mode: props.thumbnailMode ?? (props.contain ? 'fit' : 'crop') })
+  }
+  if (props.tier === 'screen' && props.fileHash) {
+    return getImageTierUrl({
+      file_hash: props.fileHash,
+      file_format: props.fileFormat,
+      width: props.pixelWidth,
+      height: props.pixelHeight,
+      file_size: props.fileSize,
+    }, 'screen')
   }
   return getMediaFileUrl(identifier)
 })
