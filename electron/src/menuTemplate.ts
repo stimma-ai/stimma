@@ -4,7 +4,11 @@ export function applicationMenuTemplate(
   dev: boolean,
   platform: NodeJS.Platform,
   exportLogs: () => void,
-): MenuItemConstructorOptions[] {
+): MenuItemConstructorOptions[] | null {
+  // Linux uses the in-app chrome; even a Help-only native menu takes a full row.
+  // A null application menu removes the bar entirely, including Alt activation.
+  if (platform === 'linux') return null
+
   const isMac = platform === 'darwin'
   const template: MenuItemConstructorOptions[] = isMac ? [
     { role: 'appMenu' },

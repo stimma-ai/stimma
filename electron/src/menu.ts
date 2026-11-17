@@ -19,5 +19,5 @@ export function installApplicationMenu(dev: boolean, dataDir: string): void {
     identities.push(getProxyTarget()?.host ?? '')
     void promptLogExport(dataDir, app.getVersion(), dialog, identities)
   })
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+  Menu.setApplicationMenu(template === null ? null : Menu.buildFromTemplate(template))
 }

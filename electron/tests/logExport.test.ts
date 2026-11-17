@@ -140,11 +140,18 @@ test('export bounds legacy logs, tolerates missing rotations and never changes s
   assert.equal((await fs.stat(filename)).size, before)
 })
 
-test('Help export item works in packaged and dev menus on every desktop platform', () => {
-  for (const platform of ['darwin', 'linux', 'win32'] as const) {
+test('Linux has no application menu in packaged or dev builds', () => {
+  for (const dev of [true, false]) {
+    assert.equal(applicationMenuTemplate(dev, 'linux', () => {}), null)
+  }
+})
+
+test('Help export item works in packaged and dev menus on macOS and Windows', () => {
+  for (const platform of ['darwin', 'win32'] as const) {
     for (const dev of [true, false]) {
       let clicks = 0
       const template = applicationMenuTemplate(dev, platform, () => { clicks++ })
+      assert.ok(template)
       const help = template.find((item) => item.role === 'help')!
       assert.ok(Array.isArray(help.submenu))
       const item = help.submenu.find((item) => item.label === 'Export Logs…')!
