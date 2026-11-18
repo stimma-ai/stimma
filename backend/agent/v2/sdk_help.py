@@ -43,7 +43,7 @@ Parallel execution:
     "contact_sheets.new": SDKMethodHelp(
         name="contact_sheets.new",
         signature="stimma.contact_sheets.new(title) -> ContactSheet; sheet.set_html(html_or_path); sheet.add_section(id, label, note=None, layout='rows', size='m', position='end') -> group_id; sheet.add(group_id, items, captions=None) -> tile ids; await sheet.publish(note=None) -> {asset_id, version, warnings}",
-        summary="Present work for the user to review: an organized sheet they read in the chat's panel, with questions they can answer.",
+        summary="Present work for the user to review: an organized sheet they read in the chat's panel and rate, label and comment on.",
         details="""\
 A contact sheet is your organized presentation of what the user should look
 at: sections, notes, comparisons, and the questions you need answered, next to
@@ -62,9 +62,15 @@ for review; everything else (headings, prose, layout, CSS) is yours:
   <stimma-compare a="810" b="812" caption="Before and after"></stimma-compare>
   <stimma-choice id="direction" label="Which direction should I develop?">
     <stimma-option value="a" ref="801">Evergreen</stimma-option> ...</stimma-choice>
-  <stimma-check id="ok-hero" for="hero">Approved</stimma-check>     for = a stimma-media id
-  <stimma-rating id="rate-hero" for="hero"></stimma-rating>
-  <stimma-field id="notes" label="Anything else?"></stimma-field>
+  <stimma-review rating="stars" labels="Hero, Needs retouch"></stimma-review>   rating style and labels
+  <stimma-check id="ok-hero" for="hero">Approved</stimma-check>     for = a stimma-media id; shows on that picture
+  <stimma-field id="brief" label="What should the next round explore?"></stimma-field>
+
+Every sheet already has, without you adding it: a rating under each picture
+(thumbs up/down, or 1-5 stars with rating="stars"), comments, your labels, and
+an overall feedback box at the end. Compose on top of that. Anything about one
+picture goes on that picture (labels, or a check with for=); never ask the user
+to type which picture they mean, and don't add an "anything else?" field.
 
 Pictures are never cropped. No scripts or external URLs. Give components ids
 you'll keep: the user's answers and comments are tied to them.
@@ -100,11 +106,11 @@ review is open, and give an item a new id to start it fresh once you've acted on
     "contact_sheets.review": SDKMethodHelp(
         name="contact_sheets.review",
         signature="await stimma.contact_sheets.review(asset_id=None) -> {answers, comments, unsent}",
-        summary="Read the user's answers and comments on a sheet.",
+        summary="Read the user's ratings, answers and comments on a sheet.",
         details="""\
 When the user sends their review it arrives as a chat message. This returns the
-whole review at any time: every answer (question, text, the media it's about)
-and comment, each marked unsent if they haven't sent it yet. Markers on the
+whole review at any time: every answer (a picture's rating and labels, a
+choice, overall feedback; with its text and the media it's about) and comment, each marked unsent if they haven't sent it yet. Markers on the
 media are the user's own library marks; read them with the library if useful.""",
         group="contact_sheets",
         is_async=True,

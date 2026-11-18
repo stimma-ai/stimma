@@ -21,8 +21,8 @@
             :draggable="false"
           />
           <span v-else class="flex h-full w-full items-center justify-center bg-overlay-subtle text-content-muted">
-            <ChatBubbleLeftIcon v-if="item.kind === 'comment' || item.kind === 'field'" class="h-3.5 w-3.5" />
-            <StarIcon v-else-if="item.kind === 'rating'" class="h-3.5 w-3.5" />
+            <ChatBubbleLeftIcon v-if="item.kind === 'comment' || item.kind === 'field' || item.kind === 'feedback'" class="h-3.5 w-3.5" />
+            <StarIcon v-else-if="item.kind === 'rating' || item.kind === 'stars'" class="h-3.5 w-3.5" />
             <CheckIcon v-else class="h-3.5 w-3.5" />
           </span>
         </span>
@@ -56,10 +56,11 @@ defineEmits<{ open: [] }>()
 function primary(item: ReviewItem) {
   if (item.kind === 'comment') return `“${item.text}”`
   if (item.kind === 'check') return `${item.question}: ${item.text}`
-  return item.kind === 'field' ? `“${item.text}”` : item.text || ''
+  return item.kind === 'field' || item.kind === 'feedback' ? `“${item.text}”` : item.text || ''
 }
 function secondary(item: ReviewItem) {
   if (item.kind === 'comment' || item.kind === 'check') return item.about || ''
+  if (item.kind === 'feedback') return 'Overall feedback'
   return [item.question, item.about].filter(Boolean).join(' · ')
 }
 </script>

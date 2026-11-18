@@ -7,13 +7,17 @@
  * rewrite of the HTML because it is keyed by component id.
  */
 import axios from 'axios'
-import { computed, inject, onBeforeUnmount, provide, ref, shallowRef, watch, type ComputedRef, type InjectionKey, type Ref } from 'vue'
+import { computed, inject, onBeforeUnmount, provide, ref, shallowRef, watch, type ComputedRef, type InjectionKey, type Ref, type WritableComputedRef } from 'vue'
 import { getApiBase } from '../../apiConfig'
 import { useWebSocket } from '../../composables/useWebSocket'
 import { addToast } from '../../composables/useToasts'
 import { makeProfileKey } from '../../utils/storageKeys'
 import { syncedStorage } from '../../utils/workspaceStore'
 import { mediaIdOfRef, sheetMediaList, type SheetContent, type SheetMediaEntry, type SheetMember } from './sheetHtml'
+import {
+  SHEET_ANCHOR, isEmptyAnswer, parseLabels, parseRatingStyle, patchMediaReview, readMediaReview,
+  type MediaReview, type RatingStyle,
+} from './sheetReview'
 
 export interface SheetComment {
   id: number
@@ -91,9 +95,23 @@ export interface SheetContext {
   hasTile(mediaId: number | null | undefined): boolean
   addComment(anchor: string, text: string): Promise<void>
   deleteComment(id: number): Promise<void>
+  // What every picture takes without the agent adding anything.
+  /** Where a picture's review is kept: the first tile that shows it. */
+  anchorOf(mediaId: number | null | undefined): string | null
+  ratingStyle(anchor: string): RatingStyle
+  labelsFor(anchor: string): string[]
+  /** Yes/no checks the agent tied to this picture with for=. */
+  checksFor(anchor: string): Array<{ id: string; label: string }>
+  /** Whether an id names a picture on the sheet. */
+  isTile(id: unknown): boolean
+  reviewOf(anchor: string): MediaReview
+  setReview(anchor: string, patch: Parameters<typeof patchMediaReview>[1]): void
+  toggleLabel(anchor: string, label: string): void
+  /** Feedback on the sheet as a whole, sent with the review. */
+  feedback: WritableComputedRef<string>
   pendingCount: ComputedRef<number>
-  pendingAnswerCount: ComputedRef<number>
-  pendingCommentCount: ComputedRef<number>
+  /** What is waiting to be sent, by kind. */
+  pending: ComputedRef<{ ratings: number; answers: number; comments: number; feedback: number }>
   send(): Promise<void>
   sending: Ref<boolean>
   commentFor: Ref<CommentTarget | null>
@@ -337,6 +355,58 @@ export function provideContactSheet(options: {
     }
   }
 
+  // -- every picture's own review ---------------------------------------------
+  const anchorsByMedia = computed(() => {
+    const out = new Map<number, string>()
+    root.value?.querySelectorAll('stimma-media, stimma-compare').forEach(el => {
+      const mediaId = mediaIdOfRef(el.getAttribute('ref') || el.getAttribute('b'))
+      if (mediaId != null && el.id && !out.has(mediaId)) out.set(mediaId, el.id)
+    })
+    return out
+  })
+  // A section's own rating= or labels= wins over the sheet's <stimma-review>.
+  function setting(anchor: string, name: 'rating' | 'labels'): string | null {
+    const body = root.value
+    if (!body) return null
+    const own = anchor ? body.querySelector(`[id="${CSS.escape(anchor)}"]`)?.closest(`stimma-section[${name}]`) : null
+    return (own ?? body.querySelector(`stimma-review[${name}]`))?.getAttribute(name) ?? null
+  }
+  const tileIds = computed(() => {
+    const out = new Set<string>()
+    root.value?.querySelectorAll('stimma-media, stimma-compare').forEach(el => { if (el.id) out.add(el.id) })
+    return out
+  })
+  // Checks and ratings tied to a picture, keyed by where that picture's review is kept.
+  const tied = computed(() => {
+    const checks = new Map<string, Array<{ id: string; label: string }>>()
+    const stars = new Set<string>()
+    root.value?.querySelectorAll('stimma-check[for], stimma-rating[for]').forEach(el => {
+      const target = root.value!.querySelector(`[id="${CSS.escape(el.getAttribute('for') || '')}"]`)
+      if (!target || !tileIds.value.has(target.id)) return
+      const anchor = anchorsByMedia.value.get(mediaIdOfRef(target.getAttribute('ref') || target.getAttribute('b')) ?? -1) ?? target.id
+      if (el.tagName === 'STIMMA-RATING') stars.add(anchor)
+      else if (el.id) checks.set(anchor, [...(checks.get(anchor) || []), { id: el.id, label: (el.textContent || '').trim() || 'Yes' }])
+    })
+    return { checks, stars }
+  })
+  function reviewOf(anchor: string) {
+    return readMediaReview(answers.value[anchor]?.value)
+  }
+  function setReview(anchor: string, patch: Parameters<typeof patchMediaReview>[1]) {
+    if (anchor) setAnswer(anchor, patchMediaReview(reviewOf(anchor), patch))
+  }
+  function toggleLabel(anchor: string, label: string) {
+    const current = reviewOf(anchor).labels ?? []
+    setReview(anchor, { labels: current.includes(label) ? current.filter(l => l !== label) : [...current, label] })
+  }
+  const feedback = computed({
+    get: () => {
+      const value = answers.value[SHEET_ANCHOR]?.value
+      return typeof value === 'string' ? value : ''
+    },
+    set: text => setAnswer(SHEET_ANCHOR, text),
+  })
+
   // -- choices, from the picture's side ----------------------------------------
   const picksByMedia = computed(() => {
     const out = new Map<number, SheetPick[]>()
@@ -377,14 +447,20 @@ export function provideContactSheet(options: {
     }
   }
 
-  const isEmpty = (value: unknown) => value == null || value === false || value === '' || value === 0
-    || (Array.isArray(value) && value.length === 0)
   // An unsent answer is news if it says something, or if it takes back one
   // the agent already has.
-  const pendingAnswerCount = computed(() =>
-    Object.values(answers.value).filter(a => !a.sent && (!isEmpty(a.value) || a.wasSent)).length)
-  const pendingCommentCount = computed(() => comments.value.filter(c => !c.sent).length)
-  const pendingCount = computed(() => pendingAnswerCount.value + pendingCommentCount.value)
+  const pending = computed(() => {
+    const out = { ratings: 0, answers: 0, comments: comments.value.filter(c => !c.sent).length, feedback: 0 }
+    const tiles = tileIds.value
+    for (const [anchor, answer] of Object.entries(answers.value)) {
+      if (answer.sent || (isEmptyAnswer(answer.value) && !answer.wasSent)) continue
+      if (anchor === SHEET_ANCHOR) out.feedback++
+      else if (tiles.has(anchor)) out.ratings++
+      else out.answers++
+    }
+    return out
+  })
+  const pendingCount = computed(() => pending.value.ratings + pending.value.answers + pending.value.comments + pending.value.feedback)
 
   async function send() {
     if (readonly.value || chatId.value == null || sending.value) return
@@ -418,7 +494,13 @@ export function provideContactSheet(options: {
     picksFor: mediaId => (mediaId == null ? [] : picksByMedia.value.get(mediaId) ?? []),
     isPicked, togglePick,
     hasTile: mediaId => mediaId != null && tileMedia.value.has(mediaId),
-    pendingCount, pendingAnswerCount, pendingCommentCount, send, sending,
+    anchorOf: mediaId => (mediaId == null ? null : anchorsByMedia.value.get(mediaId) ?? null),
+    ratingStyle: anchor => (tied.value.stars.has(anchor) ? 'stars' : parseRatingStyle(setting(anchor, 'rating'))),
+    checksFor: anchor => tied.value.checks.get(anchor) ?? [],
+    isTile: id => typeof id === 'string' && tileIds.value.has(id),
+    labelsFor: anchor => parseLabels(setting(anchor, 'labels')),
+    reviewOf, setReview, toggleLabel, feedback,
+    pendingCount, pending, send, sending,
     commentFor,
     openSlideshow(componentId: string) {
       if (!openSheetSlideshow) return

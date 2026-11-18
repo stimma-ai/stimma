@@ -12,8 +12,16 @@ which the app renders as a live component:
     stimma-compare       a, b, caption
     stimma-check         for            (review: yes/no)
     stimma-choice        label, multiple; children stimma-option value, ref
-    stimma-rating        for            (review: 1-5)
+    stimma-rating        for, label     (review: 1-5)
     stimma-field         label, placeholder   (review: free text)
+    stimma-review        rating = thumbs | stars, labels = "A, B"   (settings, shows nothing)
+
+The agent composes the review from these, on top of what every sheet has
+without asking: each picture takes a quick rating (thumbs by default), the
+sheet's labels and comments, and the sheet ends with overall feedback.
+``stimma-review`` (or the same attributes on a ``stimma-section``) chooses the
+rating style and labels. A check or rating tied to a picture with ``for``
+shows on that picture, wherever the agent wrote it.
 
 Refs name library media. The agent may write a media id (``ref="812"``),
 ``media:812``, ``asset:45`` (that Asset's current payload) or a workspace path;
@@ -51,17 +59,26 @@ SHEET_DOCUMENT_TYPE = "contact_sheet"
 KIT_TAGS = frozenset({
     "stimma-section", "stimma-media-group", "stimma-media", "stimma-columns", "stimma-column",
     "stimma-compare", "stimma-check", "stimma-choice", "stimma-option", "stimma-rating", "stimma-field",
+    "stimma-review",
 })
 # Components that carry an id: review and comments anchor on it.
 ANCHORED_TAGS = frozenset({
     "stimma-section", "stimma-media", "stimma-compare",
     "stimma-check", "stimma-choice", "stimma-rating", "stimma-field",
 })
-REVIEW_TAGS = frozenset({"stimma-check", "stimma-choice", "stimma-rating", "stimma-field"})
 ID_PREFIX = {
     "stimma-section": "section", "stimma-media": "media", "stimma-compare": "compare",
     "stimma-check": "check", "stimma-choice": "choice", "stimma-rating": "rating", "stimma-field": "field",
 }
+# This many yes/no checks with no picture is a list of questions, not a review.
+LOOSE_CHECK_LIMIT = 3
+# Where rating= and labels= may be set: the sheet, or one section.
+REVIEW_SETTING_TAGS = frozenset({"stimma-review", "stimma-section"})
+RATING_STYLES = ("thumbs", "stars")
+MAX_LABELS = 8
+MAX_LABEL_LENGTH = 32
+# The overall feedback answer's anchor: the sheet itself, not a component.
+SHEET_ANCHOR = "sheet"
 # Attributes that hold a media ref, per tag.
 REF_ATTRS = {"stimma-media": ("ref",), "stimma-option": ("ref",), "stimma-compare": ("a", "b")}
 
@@ -74,6 +91,16 @@ _ATTR_RE = re.compile(
 _SCRIPT_RE = re.compile(r"<script\b[^>]*>.*?</script\s*>", re.IGNORECASE | re.DOTALL)
 _EXTERNAL_RE = re.compile(r"""(?:\b(?:src|href)\s*=\s*["']?\s*(?:https?:)?//|url\(\s*["']?\s*(?:https?:)?//)""", re.IGNORECASE)
 _HANDLER_RE = re.compile(r"""<[a-z][^<>]*\son[a-z]+\s*=""", re.IGNORECASE)
+
+
+def parse_labels(raw: Optional[str]) -> list[str]:
+    """The labels a labels="A, B" attribute defines, in order, without repeats."""
+    out: list[str] = []
+    for part in (raw or "").split(","):
+        label = " ".join(part.split())
+        if label and label not in out:
+            out.append(label)
+    return out
 
 
 class SheetError(ValueError):
@@ -164,6 +191,16 @@ async def normalize_sheet_html(html: str, resolve_ref: RefResolver) -> Normalize
                 errors.append(f"<{tag}> needs {attr}=\"...\" naming the media to show")
         if attrs.get("id"):
             used_ids.add(attrs["id"])
+        if tag in REVIEW_SETTING_TAGS:
+            rating = attrs.get("rating")
+            if rating is not None and rating.strip().lower() not in RATING_STYLES:
+                warnings.append(f'rating="{rating}" isn\'t a rating style; use thumbs or stars. Showing thumbs.')
+            labels = parse_labels(attrs.get("labels"))
+            if len(labels) > MAX_LABELS:
+                warnings.append(f"A picture shows at most {MAX_LABELS} labels; the rest of labels=\"...\" are left out.")
+            long = [label for label in labels if len(label) > MAX_LABEL_LENGTH]
+            if long:
+                warnings.append("Labels are a word or two; these are cut short: " + ", ".join(long[:4]))
     if unknown:
         warnings.append("Unknown elements render as plain markup: " + ", ".join(f"<{t}>" for t in sorted(unknown)))
 
@@ -234,12 +271,21 @@ async def normalize_sheet_html(html: str, resolve_ref: RefResolver) -> Normalize
     normalized = "".join(out)
 
     # A rating or check tied to a picture must name a component that exists.
+    loose_checks = 0
     for match in _OPEN_TAG_RE.finditer(normalized):
         tag = match.group(1).lower()
         if tag in {"stimma-rating", "stimma-check"}:
             target = dict(_parse_attrs(match.group(2) or "")).get("for")
             if target and components.get(target) not in {"stimma-media", "stimma-compare"}:
                 warnings.append(f'<{tag} for="{target}"> doesn\'t name a stimma-media or stimma-compare id on this sheet')
+            if tag == "stimma-check" and not target:
+                loose_checks += 1
+    if loose_checks >= LOOSE_CHECK_LIMIT and media_ids:
+        warnings.append(
+            f"{loose_checks} checks aren't tied to a picture. A yes/no about a picture goes on the picture: "
+            'give the check for="<its stimma-media id>", or define labels the user can put on any picture '
+            '(<stimma-review labels="A, B">). Every picture already has a thumbs up/down.'
+        )
     if not components and not media_ids:
         warnings.append("This sheet has no kit elements, so there's nothing to review. Show media with <stimma-media ref=...>.")
     return NormalizedSheet(html=normalized, media_ids=media_ids, components=components, warnings=warnings)
@@ -501,7 +547,28 @@ async def require_sheet_asset(session: AsyncSession, asset_id: int) -> Asset:
 # -- review -------------------------------------------------------------------
 
 def _is_empty_answer(value: Any) -> bool:
+    if isinstance(value, dict):
+        return all(_is_empty_answer(v) for v in value.values())
     return value is None or value is False or value == "" or value == [] or value == 0
+
+
+def media_review_text(value: Any) -> str:
+    """A picture's quick review ({thumb, stars, labels}) in words."""
+    if not isinstance(value, dict):
+        return ""
+    parts: list[str] = []
+    if value.get("thumb") in ("up", "down"):
+        parts.append(f"thumbs {value['thumb']}")
+    try:
+        stars = int(value.get("stars") or 0)
+    except (TypeError, ValueError):
+        stars = 0
+    if stars:
+        parts.append(f"{min(stars, 5)} of 5 stars")
+    labels = [str(label) for label in value.get("labels") or [] if label]
+    if labels:
+        parts.append("labeled " + ", ".join(labels))
+    return "; ".join(parts)
 
 
 async def review_rows(session: AsyncSession, asset_id: int) -> list[ContactSheetReview]:
@@ -539,6 +606,8 @@ async def set_answer(session: AsyncSession, asset_id: int, anchor: str, value: A
                      *, author_kind: str = "owner", author_name: Optional[str] = None) -> ContactSheetReview:
     if not _ID_RE.match(anchor or ""):
         raise SheetError("invalid component id")
+    if isinstance(value, str):
+        value = value[:4000]
     row = await session.scalar(select(ContactSheetReview).where(
         ContactSheetReview.asset_id == asset_id,
         ContactSheetReview.anchor == anchor,
@@ -614,16 +683,22 @@ def describe_review_rows(rows: Iterable[ContactSheetReview], components: dict[st
             elif row.anchor == "sheet":
                 item["about"] = "the whole sheet"
             item["text"] = str(value or "")
+        elif tag in {"stimma-media", "stimma-compare"}:
+            caption, media_id = _media_label(component)
+            item.update(kind="rating", text=media_review_text(value) or "rating cleared",
+                        about=caption or None, media_id=media_id)
+        elif row.anchor == SHEET_ANCHOR:
+            item.update(kind="feedback", text=str(value or "") or "(cleared)")
         elif tag == "stimma-check":
             target = components.get(attrs.get("for", ""))
             caption, media_id = _media_label(target)
             item.update(kind="check", question=component.get("text") or row.anchor,
                         text="yes" if value else "no", about=caption or None, media_id=media_id)
         elif tag == "stimma-rating":
-            target = components.get(attrs.get("for", ""))
-            caption, media_id = _media_label(target)
-            item.update(kind="rating", question=attrs.get("label") or "Rating",
-                        text=f"{int(value or 0)} of 5" if value else "no rating", about=caption or None, media_id=media_id)
+            item.update(kind="stars", question=attrs.get("label") or "Rating",
+                        text=f"{int(value or 0)} of 5" if value else "no rating")
+        elif tag == "stimma-field":
+            item.update(kind="field", question=attrs.get("label") or row.anchor, text=str(value or "") or "(cleared)")
         elif tag == "stimma-choice":
             chosen = [value] if isinstance(value, str) else list(value or [])
             options = {o["value"]: o for o in component.get("options") or []}
@@ -632,8 +707,6 @@ def describe_review_rows(rows: Iterable[ContactSheetReview], components: dict[st
             item.update(kind="choice", question=attrs.get("label") or row.anchor,
                         text=", ".join(labels) if labels else "no choice",
                         media_id=media_id_of_ref(first["ref"]) if first else None)
-        elif tag == "stimma-field":
-            item.update(kind="field", question=attrs.get("label") or row.anchor, text=str(value or "") or "(cleared)")
         else:
             item.update(kind="answer", question=row.anchor, text=json.dumps(value))
         items.append(item)
@@ -655,6 +728,10 @@ def format_review_message(*, title: str, asset_id: int, revision_number: Optiona
             target = f"media {item['media_id']}"
         if item["kind"] == "comment":
             lines.append(f'- Comment on {target or "the sheet"} [{item["id"]}]: {item["text"]}')
+        elif item["kind"] == "rating":
+            lines.append(f'- {target or "A picture"} [{item["id"]}]: {item["text"]}')
+        elif item["kind"] == "feedback":
+            lines.append(f'- Overall feedback: {item["text"]}')
         elif item["kind"] == "choice":
             chosen = f'{item["text"]} (media {item["media_id"]})' if item.get("media_id") else item["text"]
             lines.append(f'- {item["question"]} [{item["id"]}]: {chosen}')
@@ -685,6 +762,10 @@ async def take_pending_review(session: AsyncSession, asset_id: int) -> tuple[lis
     for row in rows:
         row.sent_at = now
         row.sent_value = row.value
+        if row.kind == "answer" and row.anchor == SHEET_ANCHOR:
+            # Overall feedback is said once per send: the box starts empty next time.
+            row.value = row.sent_value = json.dumps("")
+            row.updated_at = now
     await session.flush()
     return items, message
 

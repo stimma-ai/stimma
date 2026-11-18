@@ -13,11 +13,12 @@ import { h, type Component, type VNode } from 'vue'
 export const KIT_TAGS = [
   'stimma-section', 'stimma-media-group', 'stimma-media', 'stimma-columns', 'stimma-column',
   'stimma-compare', 'stimma-check', 'stimma-choice', 'stimma-option', 'stimma-rating', 'stimma-field',
+  'stimma-review',
 ]
 
 const KIT_ATTRS = [
   'ref', 'caption', 'label', 'note', 'collapsible', 'collapsed', 'layout', 'size', 'aspect',
-  'for', 'value', 'a', 'b', 'placeholder', 'multiple',
+  'for', 'value', 'a', 'b', 'placeholder', 'multiple', 'rating', 'labels',
 ]
 
 export interface SheetMember {

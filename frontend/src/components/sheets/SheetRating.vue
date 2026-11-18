@@ -1,5 +1,5 @@
 <template>
-  <div class="my-1.5 flex items-center gap-2">
+  <div v-if="!onTile" class="my-1.5 flex items-center gap-2">
     <span class="text-[12px] text-content-secondary">{{ at.label || 'Your rating' }}</span>
     <div class="flex" @mouseleave="hover = 0">
       <button
@@ -19,13 +19,15 @@
 </template>
 
 <script setup lang="ts">
-// <stimma-rating id for label>: 1-5 the agent can steer by.
+// <stimma-rating id label>: 1-5 on something that isn't one picture (a direction,
+// a section). Tied to a picture with for=, it makes that picture's own rating stars.
 import { computed, ref } from 'vue'
 import { StarIcon } from '@heroicons/vue/24/solid'
 import { useSheetContext } from './useContactSheet'
 
 const props = defineProps<{ kid?: string; at: Record<string, any>; node: Element }>()
 const sheet = useSheetContext()
+const onTile = computed(() => sheet.isTile(props.at.for))
 const hover = ref(0)
 const value = computed(() => Number(props.kid ? sheet.answers.value[props.kid]?.value || 0 : 0))
 function set(n: number) {

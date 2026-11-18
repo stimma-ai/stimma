@@ -49,6 +49,7 @@ async def test_normalize_canonicalizes_refs_and_assigns_ids():
         <stimma-media id="hero" ref="media:13"></stimma-media>
       </stimma-media-group>
     </stimma-section>
+    <stimma-review rating="hearts" labels="Hero, Needs retouch"></stimma-review>
     <stimma-rating for="hero"></stimma-rating>
     <stimma-check for="nope">Approved</stimma-check>
     <stimma-choice id="pick" label="Which?"><stimma-option value="a" ref="12">A</stimma-option></stimma-choice>
@@ -63,11 +64,24 @@ async def test_normalize_canonicalizes_refs_and_assigns_ids():
     assert sheet.components["hero"] == "stimma-media"
     assert sheet.components["pick"] == "stimma-choice"
     assert {"section-1", "rating-1", "check-1"} <= set(sheet.components)
+    assert '<stimma-review rating="hearts" labels="Hero, Needs retouch">' in sheet.html
     assert "<script" not in sheet.html
     joined = " ".join(sheet.warnings)
     assert "Removed <script>" in joined
     assert "<stimma-sparkle>" in joined
     assert 'for="nope"' in joined
+    assert "aren't tied to a picture" not in joined
+    assert 'rating="hearts"' in joined
+
+
+async def test_normalize_sends_a_list_of_loose_checks_back_to_the_pictures():
+    tiles = "".join(f'<stimma-media id="m{i}" ref="{i}"></stimma-media>' for i in range(1, 4))
+    loose = "".join(f"<stimma-check>Keep image {i}</stimma-check>" for i in range(1, 4))
+    sheet = await normalize_sheet_html(tiles + loose, _resolve_digits)
+    assert any("3 checks aren't tied to a picture" in w for w in sheet.warnings)
+    tied = "".join(f'<stimma-check for="m{i}">Keep</stimma-check>' for i in range(1, 4))
+    sheet = await normalize_sheet_html(tiles + tied + "<stimma-check>Ready to publish</stimma-check>", _resolve_digits)
+    assert not sheet.warnings
 
 
 async def test_normalize_renames_duplicate_ids_and_rejects_bad_refs():
@@ -145,7 +159,8 @@ async def test_publish_open_revise_and_review(client, db_session, tmp_path, no_a
   <stimma-option value="a" ref="{a.id}">Evergreen</stimma-option>
   <stimma-option value="b" ref="{b.id}">Tide line</stimma-option>
 </stimma-choice>
-<stimma-rating id="rate-hero" for="hero"></stimma-rating>
+<stimma-review rating="stars" labels="Hero, Needs retouch"></stimma-review>
+<stimma-check id="ok-hero" for="hero">Approved for the shop</stimma-check>
 """)
         first = await sheet.publish("Round 1")
         assert first["version"] == 1 and first["media_count"] == 2
@@ -178,7 +193,8 @@ async def test_publish_open_revise_and_review(client, db_session, tmp_path, no_a
         # Review: an answer and a comment, then send.
         r = await client.put(f"/api/contact-sheets/{asset.id}/review/answers/direction", json={"value": "b"})
         assert r.status_code == 200, r.text
-        r = await client.put(f"/api/contact-sheets/{asset.id}/review/answers/rate-hero", json={"value": 4})
+        r = await client.put(f"/api/contact-sheets/{asset.id}/review/answers/hero",
+                             json={"value": {"stars": 4, "labels": ["Hero"]}})
         assert r.status_code == 200
         r = await client.post(f"/api/contact-sheets/{asset.id}/review/comments",
                               json={"anchor": "hero", "text": "Love this grey."})
@@ -186,22 +202,38 @@ async def test_publish_open_revise_and_review(client, db_session, tmp_path, no_a
         review = (await client.get(f"/api/contact-sheets/{asset.id}/review")).json()
         assert review["answers"]["direction"]["value"] == "b"
         assert review["pending"] == 3
+        r = await client.put(f"/api/contact-sheets/{asset.id}/review/answers/ok-hero", json={"value": True})
+        assert r.status_code == 200
+        r = await client.put(f"/api/contact-sheets/{asset.id}/review/answers/sheet",
+                             json={"value": "Cooler overall."})
+        assert r.status_code == 200
 
         sdk_review = await api.review()
-        assert sdk_review["unsent"] == 3
-        assert {item["text"] for item in sdk_review["answers"]} == {"Tide line", "4 of 5"}
+        assert sdk_review["unsent"] == 5
+        assert {item["text"] for item in sdk_review["answers"]} == {
+            "Tide line", "4 of 5 stars; labeled Hero", "Cooler overall.", "yes"}
 
         sent = await client.post(f"/api/contact-sheets/{asset.id}/review/send", json={"chat_id": chat.id})
-        assert sent.json() == {"sent": 3, "delivery": "message"}
+        assert sent.json() == {"sent": 5, "delivery": "message"}
         assert len(no_agent) == 1
         message = await session.scalar(select(ChatItem).where(
             ChatItem.chat_id == chat.id, ChatItem.item_type == "user_message").order_by(ChatItem.id.desc()))
         assert f'- Which direction should I develop? [direction]: Tide line (media {b.id})' in message.message_text
-        assert f'- Rating, for "Ridge" (media {a.id}) [rate-hero]: 4 of 5' in message.message_text
+        assert f'- "Ridge" (media {a.id}) [hero]: 4 of 5 stars; labeled Hero' in message.message_text
+        assert "- Overall feedback: Cooler overall." in message.message_text
+        assert f'- Approved for the shop, for "Ridge" (media {a.id}) [ok-hero]: yes' in message.message_text
         assert f'- Comment on "Ridge" (media {a.id}) [hero]: Love this grey.' in message.message_text
         assert json.loads(message.item_metadata)["contact_sheet_review"]["asset_id"] == asset.id
         again = await client.post(f"/api/contact-sheets/{asset.id}/review/send", json={"chat_id": chat.id})
         assert again.json() == {"sent": 0, "delivery": None}
+        # Overall feedback is said once: the box is empty for the next round.
+        review = (await client.get(f"/api/contact-sheets/{asset.id}/review")).json()
+        assert review["answers"]["sheet"]["value"] == "" and review["pending"] == 0
+        # A thumb set and taken back before sending is nothing to send.
+        both = {"stars": 4, "labels": ["Hero"]}
+        await client.put(f"/api/contact-sheets/{asset.id}/review/answers/hero", json={"value": {**both, "thumb": "down"}})
+        await client.put(f"/api/contact-sheets/{asset.id}/review/answers/hero", json={"value": both})
+        assert (await client.get(f"/api/contact-sheets/{asset.id}/review")).json()["pending"] == 0
         # Taking back a sent answer is news the agent needs.
         await client.put(f"/api/contact-sheets/{asset.id}/review/answers/direction", json={"value": None})
         review = (await client.get(f"/api/contact-sheets/{asset.id}/review")).json()

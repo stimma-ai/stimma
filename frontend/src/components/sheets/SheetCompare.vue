@@ -27,7 +27,11 @@
         <span v-if="commentCount" class="font-mono text-[11px] tabular-nums">{{ commentCount }}</span>
       </button>
     </div>
-    <figcaption v-if="at.caption" class="pt-1 text-[12px] text-content-secondary">{{ at.caption }}</figcaption>
+    <figcaption v-if="at.caption || (kid && !sheet.readonly.value)" class="flex flex-wrap items-start gap-x-1.5 pt-0.5 text-[12px] leading-snug text-content-secondary">
+      <span v-if="at.caption" class="min-w-[50%] flex-1 break-words py-[3px]">{{ at.caption }}</span>
+      <SheetRate v-if="kid && !sheet.readonly.value" class="ml-auto" :sheet="sheet" :anchor="anchor" :rating="sheet.ratingStyle(anchor)" />
+      <SheetLabels v-if="kid && (labels.length || checks.length) && !sheet.readonly.value" class="basis-full pb-1 pt-0.5" :sheet="sheet" :anchor="anchor" :labels="labels" :checks="checks" />
+    </figcaption>
   </figure>
 </template>
 
@@ -37,6 +41,8 @@ import { computed, ref } from 'vue'
 import { ChatBubbleLeftIcon } from '@heroicons/vue/24/outline'
 import { MediaImage } from '../media'
 import { mediaIdOfRef } from './sheetHtml'
+import SheetLabels from './SheetLabels.vue'
+import SheetRate from './SheetRate.vue'
 import { useSheetContext } from './useContactSheet'
 
 const props = defineProps<{ kid?: string; at: Record<string, any>; node: Element }>()
@@ -47,6 +53,9 @@ const aspectRatio = computed(() => {
   const m = sheet.member(b.value)
   return m?.width && m?.height ? `${m.width} / ${m.height}` : '4 / 3'
 })
+const anchor = computed(() => sheet.anchorOf(b.value) ?? props.kid ?? '')
+const labels = computed(() => sheet.labelsFor(anchor.value))
+const checks = computed(() => sheet.checksFor(anchor.value))
 const split = ref(50)
 const box = ref<HTMLElement | null>(null)
 const commentCount = computed(() => (props.kid ? sheet.commentsFor(props.kid).length : 0))

@@ -10,16 +10,19 @@
     @click="$emit('toggle')"
   >
     <span class="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+      <span v-if="style === 'stars'" class="flex flex-none gap-px">
+        <StarIcon v-for="n in 5" :key="n" class="h-3 w-3" :class="(review.stars || 0) >= n ? 'text-amber-400' : 'text-content-muted/40'" />
+      </span>
+      <HandThumbUpSolid v-else-if="review.thumb === 'up'" class="h-4 w-4 flex-none text-accent-hi" />
+      <HandThumbDownSolid v-else-if="review.thumb === 'down'" class="h-4 w-4 flex-none text-red-400" />
+      <HandThumbUpIcon v-else class="h-4 w-4 flex-none text-content-muted" />
+      <span v-for="label in review.labels || []" :key="label" class="flex flex-none items-center gap-1 text-accent-hi"><CheckIcon class="h-3.5 w-3.5" stroke-width="2.5" />{{ label }}</span>
       <template v-for="field in fields" :key="field.key">
-        <span v-if="field.kind === 'rating'" class="flex flex-none gap-px">
-          <StarIcon v-for="n in 5" :key="n" class="h-3 w-3" :class="rating(field.id) >= n ? 'text-amber-400' : 'text-content-muted/40'" />
-        </span>
-        <span v-else-if="isOn(field)" class="flex flex-none items-center gap-1 text-accent-hi"><CheckIcon class="h-3.5 w-3.5" stroke-width="2.5" />{{ field.label }}</span>
+        <span v-if="isOn(field)" class="flex flex-none items-center gap-1 text-accent-hi"><CheckIcon class="h-3.5 w-3.5" stroke-width="2.5" />{{ field.label }}</span>
         <span v-else class="flex-none text-content-muted">{{ field.label }}?</span>
       </template>
       <span class="flex flex-none items-center gap-1 text-content-secondary">
         <ChatBubbleLeftIcon class="h-3.5 w-3.5" /><span v-if="thread.length" class="font-mono tabular-nums">{{ thread.length }}</span>
-        <span v-else-if="!fields.length">Comment</span>
       </span>
     </span>
     <ChevronUpIcon class="h-4 w-4 flex-none text-content-muted transition-transform" :class="open ? 'rotate-180' : ''" />
@@ -29,48 +32,48 @@
        Close. A rating shows "3★" and opens a picker; Comment opens the same
        comment menu as the sheet. -->
   <template v-else-if="part === 'bar' && active">
-    <template v-for="field in fields" :key="field.key">
-      <div v-if="field.kind === 'rating'" class="relative">
-        <button
-          type="button"
-          :class="barButton"
-          :title="field.label"
-          :aria-expanded="ratingMenu === field.id"
-          @click="ratingMenu = ratingMenu === field.id ? null : field.id"
-        >
-          <span v-if="rating(field.id)" class="font-mono text-[12px] tabular-nums text-content">{{ rating(field.id) }}</span>
-          <StarIcon v-if="rating(field.id)" class="h-4 w-4 text-amber-400" />
-          <StarOutlineIcon v-else class="h-icon-canvas w-icon-canvas" />
-        </button>
-        <template v-if="ratingMenu === field.id">
-          <div class="fixed inset-0 z-menu" @click="ratingMenu = null" />
-          <div class="absolute right-0 top-full z-menu mt-1 flex items-center rounded-lg border border-edge-subtle bg-surface p-1 shadow-lg" @mouseleave="hover = 0">
-            <button
-              v-for="n in 5"
-              :key="n"
-              type="button"
-              class="flex h-8 w-7 items-center justify-center"
-              :title="`${n} of 5`"
-              @mouseenter="hover = n"
-              @click="pickRating(field.id, n)"
-            >
-              <StarIcon class="h-4 w-4 transition-colors" :class="(hover || rating(field.id)) >= n ? 'text-amber-400' : 'text-content-muted/40'" />
-            </button>
-            <button v-if="rating(field.id)" type="button" class="ml-1 h-8 rounded-md px-2 text-[12px] text-content-tertiary hover:bg-overlay-subtle hover:text-content" @click="pickRating(field.id, 0)">Clear</button>
-          </div>
-        </template>
-      </div>
+    <div v-if="style === 'stars'" class="relative">
       <button
-        v-else
         type="button"
-        :class="[barButton, isOn(field) ? 'text-accent-hi' : '']"
-        :title="field.question ? `${field.question} ${field.label}` : field.label"
-        :aria-pressed="isOn(field)"
-        @click="toggleField(field)"
+        :class="barButton"
+        title="Rating"
+        :aria-expanded="ratingMenu"
+        @click="ratingMenu = !ratingMenu"
       >
-        <CheckIcon class="h-4 w-4" stroke-width="2.5" /><span class="max-w-32 truncate text-[12px]">{{ field.label }}</span>
+        <span v-if="review.stars" class="font-mono text-[12px] tabular-nums text-content">{{ review.stars }}</span>
+        <StarIcon v-if="review.stars" class="h-4 w-4 text-amber-400" />
+        <StarOutlineIcon v-else class="h-icon-canvas w-icon-canvas" />
       </button>
-    </template>
+      <template v-if="ratingMenu">
+        <div class="fixed inset-0 z-menu" @click="ratingMenu = false" />
+        <div class="absolute right-0 top-full z-menu mt-1 flex items-center rounded-lg border border-edge-subtle bg-surface p-1 shadow-lg">
+          <SheetRate :sheet="sheet" :anchor="anchor" rating="stars" large />
+        </div>
+      </template>
+    </div>
+    <SheetRate v-else :sheet="sheet" :anchor="anchor" rating="thumbs" large />
+    <button
+      v-for="label in labels"
+      :key="label"
+      type="button"
+      :class="[barButton, hasLabel(label) ? 'text-accent-hi' : '']"
+      :title="label"
+      :aria-pressed="hasLabel(label)"
+      @click="sheet.toggleLabel(anchor, label)"
+    >
+      <CheckIcon v-if="hasLabel(label)" class="h-4 w-4" stroke-width="2.5" /><span class="max-w-32 truncate text-[12px]">{{ label }}</span>
+    </button>
+    <button
+      v-for="field in fields"
+      :key="field.key"
+      type="button"
+      :class="[barButton, isOn(field) ? 'text-accent-hi' : '']"
+      :title="field.question ? `${field.question} ${field.label}` : field.label"
+      :aria-pressed="isOn(field)"
+      @click="toggleField(field)"
+    >
+      <CheckIcon class="h-4 w-4" stroke-width="2.5" /><span class="max-w-32 truncate text-[12px]">{{ field.label }}</span>
+    </button>
     <button
       type="button"
       :class="[barButton, thread.length ? 'text-content-secondary' : '']"
@@ -84,22 +87,17 @@
 
   <!-- Panel: every field at full size, and the comments inline. -->
   <div v-else-if="part === 'panel' && active && open" class="flex flex-col gap-3 px-3 pb-2 pt-3">
+    <div :class="rowClass">
+      <span :class="keyClass">Rating</span>
+      <SheetRate :sheet="sheet" :anchor="anchor" :rating="style" large />
+    </div>
+    <div v-if="labels.length" :class="rowClass">
+      <span :class="keyClass">Labels</span>
+      <SheetLabels :sheet="sheet" :anchor="anchor" :labels="labels" large />
+    </div>
     <div v-for="field in fields" :key="field.key" :class="rowClass">
-      <span :class="keyClass">{{ field.kind === 'rating' ? field.label : field.question || field.label }}</span>
-      <div v-if="field.kind === 'rating'" class="flex">
-        <button
-          v-for="n in 5"
-          :key="n"
-          type="button"
-          class="flex h-9 w-9 items-center justify-center"
-          :title="`${n} of 5`"
-          @click="setRating(field.id, n)"
-        >
-          <StarIcon class="h-5 w-5" :class="rating(field.id) >= n ? 'text-amber-400' : 'text-content-muted/40'" />
-        </button>
-      </div>
+      <span :class="keyClass">{{ field.question || field.label }}</span>
       <button
-        v-else
         type="button"
         class="flex h-9 w-fit items-center gap-1.5 rounded-full px-3 text-[12px] transition-colors"
         :class="isOn(field) ? 'bg-accent/15 text-accent-hi ring-1 ring-inset ring-accent-hi/45' : 'text-content-secondary ring-1 ring-inset ring-edge-strong hover:text-content'"
@@ -141,12 +139,14 @@
 // Review chrome for the app's slideshow. It never sits on the picture: on
 // compact screens a pill in the dock opens a panel above it, and on desktop the
 // whole review sits in one row in the top band, always open. The slideshow owns where each
-// part goes and whether the review is open. It carries only what the agent
-// tied to the picture on screen (a rating or check with for=, a choice option
-// that refs it) plus comments, which every picture takes.
+// part goes and whether the review is open. It carries what every picture
+// takes (the rating, the sheet's labels, comments) plus what the agent tied
+// to the picture on screen: a check with for=, a choice option that refs it.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ChatBubbleLeftIcon, CheckIcon, ChevronUpIcon, TrashIcon } from '@heroicons/vue/24/outline'
-import { StarIcon } from '@heroicons/vue/24/solid'
+import { ChatBubbleLeftIcon, CheckIcon, ChevronUpIcon, HandThumbUpIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { HandThumbDownIcon as HandThumbDownSolid, HandThumbUpIcon as HandThumbUpSolid, StarIcon } from '@heroicons/vue/24/solid'
+import SheetLabels from './SheetLabels.vue'
+import SheetRate from './SheetRate.vue'
 import { StarIcon as StarOutlineIcon } from '@heroicons/vue/24/outline'
 import { mediaIdOfRef, type SheetMediaEntry } from './sheetHtml'
 import type { SheetContext } from './useContactSheet'
@@ -159,7 +159,7 @@ const props = withDefaults(defineProps<{
 }>(), { part: 'pill', open: false })
 defineEmits<{ toggle: [] }>()
 
-interface Field { key: string; kind: 'rating' | 'check' | 'choice'; id: string; label: string; question?: string; value?: string; multiple?: boolean }
+interface Field { key: string; kind: 'check' | 'choice'; id: string; label: string; question?: string; value?: string; multiple?: boolean }
 
 const active = computed(() => !!props.entry && !props.sheet.readonly.value)
 
@@ -176,21 +176,7 @@ const fields = computed<Field[]>(() => {
   const root = props.sheet.root.value
   if (!root || !props.entry) return []
   const out: Field[] = []
-  for (const tile of tileIds.value) {
-    root.querySelectorAll(`stimma-rating[for="${CSS.escape(tile)}"]`).forEach(el => {
-      if (el.id) out.push({ key: `r-${el.id}`, kind: 'rating', id: el.id, label: el.getAttribute('label') || 'Rating' })
-    })
-    root.querySelectorAll(`stimma-check[for="${CSS.escape(tile)}"]`).forEach(el => {
-      if (el.id) out.push({ key: `c-${el.id}`, kind: 'check', id: el.id, label: (el.textContent || '').trim() || 'Yes' })
-    })
-  }
-  // A rating or check with no for= belongs to the one picture it sits beside:
-  // the nearest enclosing element that holds exactly one tile.
-  root.querySelectorAll('stimma-rating:not([for]), stimma-check:not([for])').forEach(el => {
-    if (!el.id || !tileIds.value.includes(soleTileNear(el) ?? '')) return
-    if (el.tagName === 'STIMMA-RATING') out.push({ key: `r-${el.id}`, kind: 'rating', id: el.id, label: el.getAttribute('label') || 'Rating' })
-    else out.push({ key: `c-${el.id}`, kind: 'check', id: el.id, label: (el.textContent || '').trim() || 'Yes' })
-  })
+  for (const check of props.sheet.checksFor(anchor.value)) out.push({ key: `c-${check.id}`, kind: 'check', id: check.id, label: check.label })
   root.querySelectorAll('stimma-option').forEach(el => {
     if (mediaIdOfRef(el.getAttribute('ref')) !== props.entry!.mediaId) return
     const choice = el.closest('stimma-choice')
@@ -205,28 +191,17 @@ const fields = computed<Field[]>(() => {
   return out
 })
 
-// Only a close container counts (a card holding the picture and its rating):
-// at most two levels up, never past a section or the sheet itself.
-function soleTileNear(el: Element): string | null {
-  let node = el.parentElement
-  for (let depth = 0; node && depth < 2; depth++, node = node.parentElement) {
-    if (node === props.sheet.root.value || node.tagName === 'STIMMA-SECTION') return null
-    const tiles = node.querySelectorAll('stimma-media, stimma-compare')
-    if (tiles.length === 1) return tiles[0].id || null
-    if (tiles.length > 1) return null
-  }
-  return null
-}
-
 const anchor = computed(() => tileIds.value[0] || props.entry?.id || '')
 const thread = computed(() => (anchor.value ? props.sheet.commentsFor(anchor.value) : []))
+const style = computed(() => props.sheet.ratingStyle(anchor.value))
+const labels = computed(() => props.sheet.labelsFor(anchor.value))
+const review = computed(() => props.sheet.reviewOf(anchor.value))
+const hasLabel = (label: string) => !!review.value.labels?.includes(label)
 
 const rowClass = 'flex items-center gap-3 compact:flex-col compact:items-start compact:gap-1'
 const keyClass = 'w-16 flex-none truncate text-[11px] text-content-muted compact:w-auto'
 
 function answer(id: string) { return props.sheet.answers.value[id]?.value }
-function rating(id: string) { return Number(answer(id) || 0) }
-function setRating(id: string, n: number) { props.sheet.setAnswer(id, rating(id) === n ? 0 : n) }
 function isOn(field: Field) {
   const value = answer(field.id)
   if (field.kind === 'check') return !!value
@@ -247,23 +222,17 @@ function toggleField(field: Field) {
 
 // The top band's buttons share Close's look.
 const barButton = 'flex h-9 min-w-9 items-center justify-center gap-1 rounded-md px-2 text-content-tertiary transition-colors hover:bg-overlay-light hover:text-content'
-const ratingMenu = ref<string | null>(null)
-const hover = ref(0)
-watch(anchor, () => { ratingMenu.value = null })
+const ratingMenu = ref(false)
+watch(anchor, () => { ratingMenu.value = false })
 // Escape closes the picker, not the slideshow behind it.
 function onKey(event: KeyboardEvent) {
   if (event.key !== 'Escape' || !ratingMenu.value) return
   event.stopImmediatePropagation()
   event.preventDefault()
-  ratingMenu.value = null
+  ratingMenu.value = false
 }
 onMounted(() => window.addEventListener('keydown', onKey, true))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
-function pickRating(id: string, n: number) {
-  props.sheet.setAnswer(id, n)
-  ratingMenu.value = null
-  hover.value = 0
-}
 function openComments(event: MouseEvent) {
   if (!anchor.value) return
   const r = (event.currentTarget as HTMLElement).getBoundingClientRect()

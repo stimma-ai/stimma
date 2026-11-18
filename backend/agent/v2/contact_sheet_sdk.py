@@ -117,7 +117,8 @@ class ContactSheetDraft:
         """Put media into the element with this id (usually a stimma-media-group).
 
         ``items`` is one item or a list: ToolResults, media ids, or workspace
-        paths. Returns the new tiles' ids, for ratings or checks tied to them.
+        paths. Returns the new tiles' ids; the user's review of each picture
+        comes back keyed by its id.
         """
         values = list(items) if isinstance(items, (list, tuple)) else [items]
         caption_list = list(captions) if captions is not None else []
@@ -309,7 +310,7 @@ class ContactSheetDraft:
         return result
 
     async def review(self) -> dict[str, Any]:
-        """The user's review of this sheet so far (answers and comments)."""
+        """The user's review of this sheet so far (ratings, answers and comments)."""
         if self._asset_id is None:
             return {"answers": [], "comments": [], "unsent": 0}
         return await sheet_review(self._sdk, self._asset_id)

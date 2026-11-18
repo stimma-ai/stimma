@@ -11,7 +11,19 @@
       <div ref="scroller" class="absolute inset-0 overflow-y-auto custom-scrollbar" @scroll.passive="placeNewPill">
         <div v-if="error" class="flex h-full items-center justify-center px-8 text-center text-sm text-content-muted">{{ error }}</div>
         <div v-else-if="!sheet.content.value" class="flex h-full items-center justify-center text-sm text-content-muted">Loading…</div>
-        <SheetDocument v-else :key="mediaId ?? 0" :scope="scope" :css="css" class="mx-auto max-w-[1120px] px-8 pb-28 pt-7 compact:px-4 compact:pt-5" />
+        <template v-else>
+          <SheetDocument :key="mediaId ?? 0" :scope="scope" :css="css" class="mx-auto max-w-[1120px] px-8 pt-7 compact:px-4 compact:pt-5" :class="sheet.readonly.value ? 'pb-28' : 'pb-4'" />
+          <!-- Every sheet ends the same way: say something about the whole of it. -->
+          <label v-if="!sheet.readonly.value" class="mx-auto block max-w-[1120px] px-8 pb-28 compact:px-4">
+            <span class="mb-1.5 block text-[13px] font-semibold text-content">Overall feedback</span>
+            <textarea
+              v-model="sheet.feedback.value"
+              rows="3"
+              placeholder="Anything about the sheet as a whole"
+              class="block w-full resize-y rounded-lg border-0 bg-field px-3 py-2 text-[13px] text-content placeholder:text-content-muted focus:outline-none focus:ring-1 focus:ring-accent/60"
+            />
+          </label>
+        </template>
       </div>
 
       <!-- New work you haven't had on screen yet, and which way it is. -->
@@ -100,11 +112,12 @@ watch(() => props.mediaId, async mediaId => {
 }, { immediate: true })
 
 const pendingSummary = computed(() => {
-  const answers = sheet.pendingAnswerCount.value
-  const comments = sheet.pendingCommentCount.value
+  const { ratings, answers, comments, feedback } = sheet.pending.value
   const parts = []
+  if (ratings) parts.push(`${ratings} rated`)
   if (answers) parts.push(`${answers} ${answers === 1 ? 'answer' : 'answers'}`)
   if (comments) parts.push(`${comments} ${comments === 1 ? 'comment' : 'comments'}`)
+  if (feedback) parts.push('overall feedback')
   return parts.join(' · ')
 })
 

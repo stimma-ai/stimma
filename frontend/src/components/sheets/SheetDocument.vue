@@ -17,6 +17,9 @@ import SheetChoice from './SheetChoice.vue'
 import SheetRating from './SheetRating.vue'
 import SheetField from './SheetField.vue'
 
+// Settings take no space.
+const Nothing = () => null
+
 const COMPONENTS = {
   'stimma-section': SheetSection,
   'stimma-media-group': SheetMediaGroup,
@@ -28,6 +31,7 @@ const COMPONENTS = {
   'stimma-choice': SheetChoice,
   'stimma-rating': SheetRating,
   'stimma-field': SheetField,
+  'stimma-review': Nothing,
 }
 
 const THEME = {

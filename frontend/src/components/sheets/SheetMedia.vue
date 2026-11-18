@@ -79,7 +79,7 @@
       <!-- A picture a choice is asking about is picked here, where it is seen
            whole, with the browser's checkbox: a small mark in a hit area big
            enough for a finger. -->
-      <div v-if="picks.length || (isNew && !showCaption)" class="absolute left-0 top-0 z-chrome flex items-start">
+      <div v-if="picks.length || (isNew && !showFooter)" class="absolute left-0 top-0 z-chrome flex items-start">
         <button
           v-for="pick in picks"
           :key="`${pick.choiceId}:${pick.value}`"
@@ -102,25 +102,15 @@
           ><CheckIcon :class="small ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5'" stroke-width="3" /></span>
         </button>
         <Transition leave-active-class="transition-opacity duration-700" leave-to-class="opacity-0">
-          <span v-if="isNew && !showCaption" class="ml-1.5 mt-1.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-base" title="New" />
+          <span v-if="isNew && !showFooter" class="ml-1.5 mt-1.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-base" title="New" />
         </Transition>
       </div>
-      <!-- With a caption, Comment sits at the end of it, off the picture.
-           Without one it waits for hover, or shows a quiet count on touch. -->
-      <div v-if="!small && !showCaption && !sheet.readonly.value && (commentCount || !coarse)" class="absolute right-0 top-0 z-chrome">
-        <button
-          type="button"
-          class="flex items-start justify-end p-1.5 transition-opacity coarse:pb-3 coarse:pl-3"
-          :class="commentCount ? 'opacity-100' : 'opacity-0 group-hover/tile:opacity-100'"
-          title="Comment"
-          @click.stop="comment"
-        >
-          <span class="flex h-5 items-center gap-0.5 rounded bg-black/55 px-1 text-white/90 backdrop-blur-md">
-            <ChatBubbleLeftIcon class="h-3 w-3" />
-            <span v-if="commentCount" class="font-mono text-[10px] tabular-nums">{{ commentCount }}</span>
-          </span>
-        </button>
-      </div>
+      <!-- A small tile only shows what's been said; it is rated in the slideshow. -->
+      <span v-if="small && (review.thumb || review.stars)" class="pointer-events-none absolute right-1 top-1 flex items-center gap-px rounded bg-black/55 px-1 py-0.5 font-mono text-[9px] text-white">
+        <template v-if="rating === 'stars' && review.stars">{{ review.stars }}<StarIcon class="h-2.5 w-2.5 text-amber-400" /></template>
+        <HandThumbUpIcon v-else-if="review.thumb === 'up'" class="h-2.5 w-2.5" />
+        <HandThumbDownIcon v-else-if="review.thumb === 'down'" class="h-2.5 w-2.5" />
+      </span>
       <span v-if="small && commentCount" class="pointer-events-none absolute bottom-1 right-1 flex items-center gap-0.5 rounded bg-black/55 px-1 font-mono text-[9px] text-white">
         <ChatBubbleLeftIcon class="h-2.5 w-2.5" />{{ commentCount }}
       </span>
@@ -131,27 +121,32 @@
         <PlayIcon class="h-2.5 w-2.5" />{{ formatDuration(member.duration) }}
       </span>
     </div>
+    <!-- Under every picture: its caption, then the same review in the same
+         place on every sheet. Rating, comment, and the sheet's labels. -->
     <figcaption
-      v-if="showCaption"
+      v-if="showFooter"
       ref="captionEl"
-      class="flex items-start gap-1.5 pt-1 text-[12px] leading-snug text-content-secondary"
+      class="flex flex-wrap items-start gap-x-1.5 pt-0.5 text-[12px] leading-snug text-content-secondary"
     >
-      <span class="min-w-0 flex-1 break-words">
+      <span v-if="at.caption || isNew" class="min-w-[50%] flex-1 break-words py-[3px]">
         <Transition leave-active-class="transition-opacity duration-700" leave-to-class="opacity-0">
           <span v-if="isNew" class="mb-px mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent align-middle" title="New" />
         </Transition>{{ at.caption }}
       </span>
-      <button
-        v-if="!sheet.readonly.value"
-        type="button"
-        class="-my-1 -mr-1 flex flex-none items-center gap-0.5 rounded p-1 transition-opacity hover:text-content coarse:-my-2.5 coarse:py-2.5 coarse:pl-2.5"
-        :class="commentCount ? 'text-content-secondary' : 'text-content-muted opacity-60 hover:opacity-100'"
-        :title="commentCount ? `${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}` : 'Comment'"
-        @click.stop="comment"
-      >
-        <ChatBubbleLeftIcon class="h-3.5 w-3.5" />
-        <span v-if="commentCount" class="font-mono text-[11px] tabular-nums">{{ commentCount }}</span>
-      </button>
+      <span v-if="!sheet.readonly.value" class="ml-auto flex max-w-full flex-none flex-wrap items-center justify-end">
+        <SheetRate :sheet="sheet" :anchor="anchor" :rating="rating" />
+        <button
+          type="button"
+          class="ml-0.5 flex h-6 min-w-6 coarse:ml-0 items-center justify-center gap-0.5 rounded-md px-1 transition-colors hover:bg-overlay-subtle hover:text-content coarse:h-9 coarse:min-w-7"
+          :class="commentCount ? 'text-content-secondary' : 'text-content-muted'"
+          :title="commentCount ? `${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}` : 'Comment'"
+          @click.stop="comment"
+        >
+          <ChatBubbleLeftIcon class="h-4 w-4" />
+          <span v-if="commentCount" class="font-mono text-[11px] tabular-nums">{{ commentCount }}</span>
+        </button>
+      </span>
+      <SheetLabels v-if="(labels.length || checks.length) && !sheet.readonly.value" class="basis-full pb-1 pt-0.5" :sheet="sheet" :anchor="anchor" :labels="labels" :checks="checks" />
     </figcaption>
   </figure>
 </template>
@@ -159,6 +154,9 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 import { ChatBubbleLeftIcon, CheckIcon, PlayIcon } from '@heroicons/vue/24/outline'
+import { HandThumbDownIcon, HandThumbUpIcon, StarIcon } from '@heroicons/vue/24/solid'
+import SheetLabels from './SheetLabels.vue'
+import SheetRate from './SheetRate.vue'
 import { MediaImage } from '../media'
 import { useMarkers } from '../../composables/useMarkers'
 import { useViewport } from '../../composables/useViewport'
@@ -211,7 +209,13 @@ const selected = computed(() => sheet.selected.value.has(kid.value))
 const flashing = computed(() => sheet.flashIds.value.includes(kid.value))
 const picks = computed(() => sheet.picksFor(mediaId.value))
 const picked = computed(() => picks.value.some(pick => sheet.isPicked(pick.choiceId, pick.value)))
-const showCaption = computed(() => !!props.at.caption && !small.value)
+// The review belongs to the picture, wherever else on the sheet it shows.
+const anchor = computed(() => sheet.anchorOf(mediaId.value) ?? kid.value)
+const rating = computed(() => sheet.ratingStyle(anchor.value))
+const labels = computed(() => sheet.labelsFor(anchor.value))
+const checks = computed(() => sheet.checksFor(anchor.value))
+const review = computed(() => sheet.reviewOf(anchor.value))
+const showFooter = computed(() => !small.value && (!!props.at.caption || !sheet.readonly.value))
 
 // New until it has actually been on screen.
 const pictureEl = ref<HTMLElement | null>(null)
@@ -221,7 +225,7 @@ watch([isNew, pictureEl], ([fresh, el]) => {
   stopSeen = fresh && el && mediaId.value != null ? sheet.watchSeen(el, () => [mediaId.value!]) : null
 }, { immediate: true })
 
-// A group places its tiles itself, so it needs to know how tall each wrapped caption is.
+// A group places its tiles itself, so it needs to know how tall each caption and review row is.
 const captionEl = ref<HTMLElement | null>(null)
 let captionObserver: ResizeObserver | null = null
 watch(captionEl, el => {

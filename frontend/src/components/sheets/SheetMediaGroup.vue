@@ -17,7 +17,7 @@ const props = defineProps<{ kid?: string; at: Record<string, any>; node: Element
 const sheet = useSheetContext()
 const root = ref<HTMLElement | null>(null)
 const width = ref(0)
-// Captions wrap; each tile reports its caption's height and its row makes room.
+// Under each picture sit its caption and review; each tile reports that height and its row makes room.
 const captionHeights = ref<Record<string, number>>({})
 provide('sheetCaptionHeight', (id: string, height: number) => {
   if (id && captionHeights.value[id] !== height) captionHeights.value = { ...captionHeights.value, [id]: height }
@@ -30,7 +30,7 @@ const items = computed(() => Array.from(props.node?.children || [])
   .map(el => {
     const member = sheet.member(mediaIdOfRef(el.getAttribute('ref')))
     const ratio = member?.width && member?.height ? member.width / member.height : 4 / 3
-    const caption = size.value !== 's' && !!el.getAttribute('caption')
+    const caption = size.value !== 's' && (!!el.getAttribute('caption') || !sheet.readonly.value)
     return { id: el.id, ratio, caption: caption ? captionHeights.value[el.id] ?? true : false }
   }))
 const placement = computed(() => placeTiles(items.value, width.value, layout.value, size.value, parseAspect(props.at.aspect || '1')))
