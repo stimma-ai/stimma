@@ -17,7 +17,7 @@
     <Transition :name="isMobile ? '' : ''">
       <div
         v-if="true"
-        class="navigation-sidebar h-screen bg-surface border-r border-edge-subtle flex flex-col flex-shrink-0"
+        class="navigation-sidebar group/sidebar h-screen bg-surface border-r border-edge-subtle flex flex-col flex-shrink-0"
         :class="isMobile ? 'compact-drawer relative w-[276px] !h-full pt-safe' : focusCollapsed ? ['absolute inset-y-0 left-0 z-modal', peeking ? 'is-peeking translate-x-0 shadow-lg' : '-translate-x-full invisible pointer-events-none'] : 'relative'"
         :style="!isMobile ? { width: `${sidebarWidth}px` } : undefined"
         :aria-hidden="(isMobile && !isOpen) || (focusCollapsed && !peeking) ? 'true' : undefined"
@@ -30,9 +30,16 @@
         </div>
 
         <!-- Nav Menu - only show when we have data -->
-        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-0.5 coarse:gap-0 flex-1 overflow-y-auto custom-scrollbar" :class="isDesktopMac ? 'pt-10' : 'pt-3'">
+        <!-- Wide: the library links stay put and only the projects and tabs
+             below them scroll. The phone drawer is short, so there the whole
+             nav scrolls as one list. -->
+        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="flex min-h-0 flex-1 flex-col" :class="isMobile ? ['gap-0.5 overflow-y-auto p-3 custom-scrollbar coarse:gap-0', isDesktopMac ? 'pt-10' : ''] : 'overflow-hidden'">
 
           <!-- ==================== ZONE 1: Library Links ==================== -->
+          <!-- The bottom hairline shows only while the list below is scrolled
+               under it. On a window too short for both zones this one gives
+               way and scrolls too, so the tabs always keep some room. -->
+          <div data-nav-zone :class="isMobile ? 'contents' : ['flex min-h-0 shrink flex-col gap-0.5 overflow-y-auto border-b px-3 pb-1 transition-colors coarse:gap-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', isDesktopMac ? 'pt-10' : 'pt-3', tabsScrolledAbove ? 'border-edge-subtle' : 'border-transparent']">
 
           <!-- Everything: the brand row goes home and takes drops. Inside a
                project the sidebar drills in: a way back, then the project as
@@ -249,8 +256,9 @@
             <TrashIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
             <span>Trash</span>
           </button>
+          </div>
 
-
+          <SidebarScrollArea :flat="isMobile" @edges="onTabsEdges">
           <SidebarProjects v-if="activeProjectId == null" @selected="props.isMobile && emit('close')" />
 
           <!-- ==================== ZONE 2: Workspace Tabs ==================== -->
@@ -889,6 +897,7 @@
             </div>
             </template>
           </div>
+          </SidebarScrollArea>
 
         </nav>
 
@@ -1111,6 +1120,7 @@ import { useProjectActivity } from '../composables/useProjectActivity'
 import { handleProjectDeletedBroadcast } from '../composables/useProjectDeletion'
 import { useDragHoverOpen } from '../composables/useProjectDrop'
 import SidebarSectionHeader from './sidebar/SidebarSectionHeader.vue'
+import SidebarScrollArea from './sidebar/SidebarScrollArea.vue'
 import { displaySavedViewName } from '../utils/savedViewName'
 import { useSidebarSections } from '../composables/useSidebarSections'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
@@ -1219,8 +1229,17 @@ function openSettingsFromFooter() {
 // content is scrolled under it, and disappears at scroll-bottom.
 const navEl = ref<HTMLElement | null>(null)
 const navScrolledUnder = ref(false)
+const tabsScrolledAbove = ref(false)
 
+// Wide: the scroll area below the library links reports both of its edges.
+function onTabsEdges(edges: { above: boolean; below: boolean }) {
+  tabsScrolledAbove.value = edges.above
+  navScrolledUnder.value = edges.below
+}
+
+// Phones: the nav itself is the scroller.
 function updateNavEdge() {
+  if (!props.isMobile) return
   const el = navEl.value
   navScrolledUnder.value = !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 1
 }
