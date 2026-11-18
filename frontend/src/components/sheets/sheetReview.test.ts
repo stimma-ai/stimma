@@ -7,6 +7,9 @@ test('thumbs unless the sheet asks for stars', () => {
   assert.equal(parseRatingStyle(undefined), 'thumbs')
   assert.equal(parseRatingStyle('hearts'), 'thumbs')
   assert.equal(parseRatingStyle(' Stars '), 'stars')
+  // Off is a section's choice, never the whole sheet's.
+  assert.equal(parseRatingStyle('none'), 'thumbs')
+  assert.equal(parseRatingStyle('none', true), 'none')
 })
 
 test('labels are trimmed, unique and capped', () => {

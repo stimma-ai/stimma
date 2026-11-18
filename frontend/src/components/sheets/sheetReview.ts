@@ -6,7 +6,8 @@
  * The sheet only chooses the style and the labels: once for the sheet with
  * <stimma-review rating labels>, or for one section with the same attributes.
  */
-export type RatingStyle = 'thumbs' | 'stars'
+/** 'none' is a section's off switch: its pictures aren't up for judgment. */
+export type RatingStyle = 'thumbs' | 'stars' | 'none'
 
 export interface MediaReview {
   thumb?: 'up' | 'down'
@@ -19,8 +20,10 @@ export const SHEET_ANCHOR = 'sheet'
 export const MAX_LABELS = 8
 export const MAX_LABEL_LENGTH = 32
 
-export function parseRatingStyle(value: unknown): RatingStyle {
-  return String(value ?? '').trim().toLowerCase() === 'stars' ? 'stars' : 'thumbs'
+export function parseRatingStyle(value: unknown, allowNone = false): RatingStyle {
+  const style = String(value ?? '').trim().toLowerCase()
+  if (style === 'none' && allowNone) return 'none'
+  return style === 'stars' ? 'stars' : 'thumbs'
 }
 
 export function parseLabels(value: unknown): string[] {

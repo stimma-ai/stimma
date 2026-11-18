@@ -365,11 +365,17 @@ export function provideContactSheet(options: {
     return out
   })
   // A section's own rating= or labels= wins over the sheet's <stimma-review>.
-  function setting(anchor: string, name: 'rating' | 'labels'): string | null {
+  function setting(anchor: string, name: 'rating' | 'labels'): { value: string | null; section: boolean } {
     const body = root.value
-    if (!body) return null
+    if (!body) return { value: null, section: false }
     const own = anchor ? body.querySelector(`[id="${CSS.escape(anchor)}"]`)?.closest(`stimma-section[${name}]`) : null
-    return (own ?? body.querySelector(`stimma-review[${name}]`))?.getAttribute(name) ?? null
+    return { value: (own ?? body.querySelector(`stimma-review[${name}]`))?.getAttribute(name) ?? null, section: !!own }
+  }
+  function ratingStyle(anchor: string): RatingStyle {
+    // A rating the agent tied to this picture asks for stars, whatever its section says.
+    if (tied.value.stars.has(anchor)) return 'stars'
+    const { value, section } = setting(anchor, 'rating')
+    return parseRatingStyle(value, section)
   }
   const tileIds = computed(() => {
     const out = new Set<string>()
@@ -495,10 +501,10 @@ export function provideContactSheet(options: {
     isPicked, togglePick,
     hasTile: mediaId => mediaId != null && tileMedia.value.has(mediaId),
     anchorOf: mediaId => (mediaId == null ? null : anchorsByMedia.value.get(mediaId) ?? null),
-    ratingStyle: anchor => (tied.value.stars.has(anchor) ? 'stars' : parseRatingStyle(setting(anchor, 'rating'))),
+    ratingStyle,
     checksFor: anchor => tied.value.checks.get(anchor) ?? [],
     isTile: id => typeof id === 'string' && tileIds.value.has(id),
-    labelsFor: anchor => parseLabels(setting(anchor, 'labels')),
+    labelsFor: anchor => parseLabels(setting(anchor, 'labels').value),
     reviewOf, setReview, toggleLabel, feedback,
     pendingCount, pending, send, sending,
     commentFor,

@@ -13,9 +13,9 @@
       <span v-if="style === 'stars'" class="flex flex-none gap-px">
         <StarIcon v-for="n in 5" :key="n" class="h-3 w-3" :class="(review.stars || 0) >= n ? 'text-amber-400' : 'text-content-muted/40'" />
       </span>
-      <HandThumbUpSolid v-else-if="review.thumb === 'up'" class="h-4 w-4 flex-none text-accent-hi" />
-      <HandThumbDownSolid v-else-if="review.thumb === 'down'" class="h-4 w-4 flex-none text-red-400" />
-      <HandThumbUpIcon v-else class="h-4 w-4 flex-none text-content-muted" />
+      <HandThumbUpSolid v-else-if="style === 'thumbs' && review.thumb === 'up'" class="h-4 w-4 flex-none text-accent-hi" />
+      <HandThumbDownSolid v-else-if="style === 'thumbs' && review.thumb === 'down'" class="h-4 w-4 flex-none text-red-400" />
+      <HandThumbUpIcon v-else-if="style === 'thumbs'" class="h-4 w-4 flex-none text-content-muted" />
       <span v-for="label in review.labels || []" :key="label" class="flex flex-none items-center gap-1 text-accent-hi"><CheckIcon class="h-3.5 w-3.5" stroke-width="2.5" />{{ label }}</span>
       <template v-for="field in fields" :key="field.key">
         <span v-if="isOn(field)" class="flex flex-none items-center gap-1 text-accent-hi"><CheckIcon class="h-3.5 w-3.5" stroke-width="2.5" />{{ field.label }}</span>
@@ -51,7 +51,7 @@
         </div>
       </template>
     </div>
-    <SheetRate v-else :sheet="sheet" :anchor="anchor" rating="thumbs" large />
+    <SheetRate v-else-if="style === 'thumbs'" :sheet="sheet" :anchor="anchor" rating="thumbs" large />
     <button
       v-for="label in labels"
       :key="label"
@@ -87,7 +87,7 @@
 
   <!-- Panel: every field at full size, and the comments inline. -->
   <div v-else-if="part === 'panel' && active && open" class="flex flex-col gap-3 px-3 pb-2 pt-3">
-    <div :class="rowClass">
+    <div v-if="style !== 'none'" :class="rowClass">
       <span :class="keyClass">Rating</span>
       <SheetRate :sheet="sheet" :anchor="anchor" :rating="style" large />
     </div>

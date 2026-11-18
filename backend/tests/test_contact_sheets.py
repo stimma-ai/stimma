@@ -74,6 +74,16 @@ async def test_normalize_canonicalizes_refs_and_assigns_ids():
     assert 'rating="hearts"' in joined
 
 
+async def test_normalize_lets_a_section_turn_the_rating_off_but_not_the_sheet():
+    sheet = await normalize_sheet_html(
+        '<stimma-section label="References" rating="none"><stimma-media ref="1"></stimma-media></stimma-section>',
+        _resolve_digits)
+    assert not sheet.warnings
+    sheet = await normalize_sheet_html(
+        '<stimma-review rating="none"></stimma-review><stimma-media ref="1"></stimma-media>', _resolve_digits)
+    assert any("always has one" in w for w in sheet.warnings)
+
+
 async def test_normalize_sends_a_list_of_loose_checks_back_to_the_pictures():
     tiles = "".join(f'<stimma-media id="m{i}" ref="{i}"></stimma-media>' for i in range(1, 4))
     loose = "".join(f"<stimma-check>Keep image {i}</stimma-check>" for i in range(1, 4))

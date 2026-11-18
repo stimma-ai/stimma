@@ -29,7 +29,7 @@
     </div>
     <figcaption v-if="at.caption || (kid && !sheet.readonly.value)" class="flex flex-wrap items-start gap-x-1.5 pt-0.5 text-[12px] leading-snug text-content-secondary">
       <span v-if="at.caption" class="min-w-[50%] flex-1 break-words py-[3px]">{{ at.caption }}</span>
-      <SheetRate v-if="kid && !sheet.readonly.value" class="ml-auto" :sheet="sheet" :anchor="anchor" :rating="sheet.ratingStyle(anchor)" />
+      <SheetRate v-if="kid && !sheet.readonly.value && sheet.ratingStyle(anchor) !== 'none'" class="ml-auto" :sheet="sheet" :anchor="anchor" :rating="sheet.ratingStyle(anchor)" />
       <SheetLabels v-if="kid && (labels.length || checks.length) && !sheet.readonly.value" class="basis-full pb-1 pt-0.5" :sheet="sheet" :anchor="anchor" :labels="labels" :checks="checks" />
     </figcaption>
   </figure>

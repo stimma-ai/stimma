@@ -15,6 +15,7 @@ which the app renders as a live component:
     stimma-rating        for, label     (review: 1-5)
     stimma-field         label, placeholder   (review: free text)
     stimma-review        rating = thumbs | stars, labels = "A, B"   (settings, shows nothing)
+                         a stimma-section takes both too, and rating = none
 
 The agent composes the review from these, on top of what every sheet has
 without asking: each picture takes a quick rating (thumbs by default), the
@@ -193,7 +194,12 @@ async def normalize_sheet_html(html: str, resolve_ref: RefResolver) -> Normalize
             used_ids.add(attrs["id"])
         if tag in REVIEW_SETTING_TAGS:
             rating = attrs.get("rating")
-            if rating is not None and rating.strip().lower() not in RATING_STYLES:
+            style = (rating or "").strip().lower()
+            if style == "none" and tag == "stimma-review":
+                warnings.append(
+                    'rating="none" turns the rating off for one section, on its <stimma-section>. A whole sheet '
+                    "always has one; showing thumbs.")
+            elif rating is not None and style not in RATING_STYLES and style != "none":
                 warnings.append(f'rating="{rating}" isn\'t a rating style; use thumbs or stars. Showing thumbs.')
             labels = parse_labels(attrs.get("labels"))
             if len(labels) > MAX_LABELS:

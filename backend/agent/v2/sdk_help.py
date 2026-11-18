@@ -63,12 +63,16 @@ for review; everything else (headings, prose, layout, CSS) is yours:
   <stimma-choice id="direction" label="Which direction should I develop?">
     <stimma-option value="a" ref="801">Evergreen</stimma-option> ...</stimma-choice>
   <stimma-review rating="stars" labels="Hero, Needs retouch"></stimma-review>   rating style and labels
+  <stimma-section label="References" rating="none">...</stimma-section>   pictures that aren't up for judgment
   <stimma-check id="ok-hero" for="hero">Approved</stimma-check>     for = a stimma-media id; shows on that picture
   <stimma-field id="brief" label="What should the next round explore?"></stimma-field>
 
 Every sheet already has, without you adding it: a rating under each picture
-(thumbs up/down, or 1-5 stars with rating="stars"), comments, your labels, and
-an overall feedback box at the end. Compose on top of that. Anything about one
+(thumbs up/down), comments, your labels, and an overall feedback box at the
+end. Thumbs when each picture gets a decision (keep or drop, approve or redo):
+nearly every sheet. rating="stars" only when the pictures are variations of
+one thing along a variable and how much better one is changes what you do
+next. Compose on top of that. Anything about one
 picture goes on that picture (labels, or a check with for=); never ask the user
 to type which picture they mean, and don't add an "anything else?" field.
 

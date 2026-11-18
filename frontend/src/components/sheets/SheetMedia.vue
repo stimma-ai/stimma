@@ -134,7 +134,7 @@
         </Transition>{{ at.caption }}
       </span>
       <span v-if="!sheet.readonly.value" class="ml-auto flex max-w-full flex-none flex-wrap items-center justify-end">
-        <SheetRate :sheet="sheet" :anchor="anchor" :rating="rating" />
+        <SheetRate v-if="rating !== 'none'" :sheet="sheet" :anchor="anchor" :rating="rating" />
         <button
           type="button"
           class="ml-0.5 flex h-6 min-w-6 coarse:ml-0 items-center justify-center gap-0.5 rounded-md px-1 transition-colors hover:bg-overlay-subtle hover:text-content coarse:h-9 coarse:min-w-7"
