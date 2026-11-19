@@ -211,3 +211,90 @@ async def test_non_builtin_stp_tool_still_asks(monkeypatch):
 
     chat = Chat(agent_tool_config=None)
     assert await get_stp_permission_decision("comfyui:ltx23-loop", chat, None) == "ask"
+
+
+def _settings_with(*, allowed_providers=(), allowed_tools=(), denied_tools=()):
+    class _Cfg:
+        v2_permissions = {}
+
+    _Cfg.allowed_tools = list(allowed_tools)
+    _Cfg.denied_tools = list(denied_tools)
+    _Cfg.allowed_providers = list(allowed_providers)
+
+    class _Agent:
+        tool_config = _Cfg()
+
+    class _Settings:
+        def get_agent_for_profile(self, _profile_id):
+            return _Agent()
+
+    return _Settings()
+
+
+@pytest.mark.asyncio
+async def test_provider_grant_allows_every_local_tool(monkeypatch):
+    monkeypatch.setattr("config.get_settings", lambda: _settings_with(allowed_providers=["comfyui"]))
+    monkeypatch.setattr("core.profile_context.get_current_profile", lambda: "default")
+
+    chat = Chat(agent_tool_config=None)
+    assert await get_stp_permission_decision("comfyui:ltx23-loop", chat, None) == "allow"
+    assert await get_stp_permission_decision("comfyui:a-new-workflow", chat, None) == "allow"
+    assert await get_stp_permission_decision("drawthings:sdxl", chat, None) == "ask"
+
+
+@pytest.mark.asyncio
+async def test_tool_deny_beats_provider_grant(monkeypatch):
+    monkeypatch.setattr(
+        "config.get_settings",
+        lambda: _settings_with(allowed_providers=["comfyui"], denied_tools=["comfyui:ltx23-loop"]),
+    )
+    monkeypatch.setattr("core.profile_context.get_current_profile", lambda: "default")
+
+    chat = Chat(agent_tool_config=None)
+    assert await get_stp_permission_decision("comfyui:ltx23-loop", chat, None) == "deny"
+
+
+@pytest.mark.asyncio
+async def test_paid_provider_grant_is_ignored(monkeypatch):
+    # A stale or hand-edited config can't wave through every paid tool.
+    monkeypatch.setattr(
+        "config.get_settings",
+        lambda: _settings_with(allowed_providers=["stimma-cloud", "user-tools"]),
+    )
+    monkeypatch.setattr("core.profile_context.get_current_profile", lambda: "default")
+
+    chat = Chat(agent_tool_config=None)
+    assert await get_stp_permission_decision("stimma-cloud:nano-banana-pro", chat, None) == "ask"
+    assert await get_stp_permission_decision("user-tools:my-flow", chat, None) == "ask"
+
+
+def test_only_local_providers_are_grantable():
+    from agent.v2.permissions import can_allow_whole_provider
+
+    assert can_allow_whole_provider("comfyui")
+    assert can_allow_whole_provider("local-bd650c6bd9")
+    assert not can_allow_whole_provider("stimma-cloud")
+    assert not can_allow_whole_provider("user-tools")
+    assert not can_allow_whole_provider("builtin:media")
+    assert not can_allow_whole_provider("")
+
+
+@pytest.mark.asyncio
+async def test_provider_scope_on_paid_tool_falls_back_to_the_tool(monkeypatch):
+    from agent.v2 import permissions
+
+    calls = []
+
+    async def fake_tool(tool_id, approved):
+        calls.append(("tool", tool_id, approved))
+
+    async def fake_provider(provider_id):
+        calls.append(("provider", provider_id))
+
+    monkeypatch.setattr(permissions, "_add_to_global_stp_permission", fake_tool)
+    monkeypatch.setattr(permissions, "_add_global_provider_permission", fake_provider)
+
+    chat = Chat(agent_tool_config=None)
+    await permissions.apply_stp_permission("stimma-cloud:nano-banana-pro", "provider", True, chat)
+    await permissions.apply_stp_permission("comfyui:flux-dev", "provider", True, chat)
+    assert calls == [("tool", "stimma-cloud:nano-banana-pro", True), ("provider", "comfyui")]

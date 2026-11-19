@@ -451,6 +451,17 @@ async def get_stp_permission_decision(
     if stp_tool_id in (agent_config.tool_config.denied_tools or []):
         return "deny"
 
+    # A whole local provider allowed at once ("Always allow ComfyUI"). Checked
+    # after every per-tool entry, so a tool denied on its own stays denied. Paid
+    # providers never match, even if a stale config lists one.
+    provider_id = tool_provider_id(stp_tool_id)
+    if (
+        provider_id
+        and provider_id in (getattr(agent_config.tool_config, "allowed_providers", None) or [])
+        and can_allow_whole_provider(provider_id)
+    ):
+        return "allow"
+
     # Built-in tools (reverse, resize, crop, ...) run in-process, cost nothing,
     # and only touch library/workspace media — the same surface the ungated
     # run_code already has. Prompting for them reads as noise, so they default
@@ -460,6 +471,36 @@ async def get_stp_permission_decision(
 
     # Not found — needs prompt
     return "ask"
+
+
+# Providers whose tools can spend money: Stimma's own cloud tools, and user tools
+# (a saved flow can call a cloud tool inside it). These are approved one tool at
+# a time; everything else runs on the user's own hardware.
+PAID_PROVIDER_IDS = frozenset({"stimma-cloud", "user-tools"})
+
+
+def tool_provider_id(stp_tool_id: str) -> str:
+    """The provider id of a full tool id (``provider_id:tool_id``)."""
+    try:
+        from providers.registry import ProviderRegistry
+
+        pt = ProviderRegistry.get_instance().get_tool(stp_tool_id)
+        if pt:
+            provider, _descriptor = pt
+            pid = getattr(provider, "provider_id", None)
+            if isinstance(pid, str) and pid:
+                return pid
+    except Exception:
+        pass
+    return stp_tool_id.split(":", 1)[0] if ":" in stp_tool_id else ""
+
+
+def can_allow_whole_provider(provider_id: str) -> bool:
+    """True for a local provider, whose tools may be allowed all at once."""
+    pid = (provider_id or "").lower()
+    if not pid or pid.startswith("builtin"):
+        return False
+    return pid not in PAID_PROVIDER_IDS and "stimma-cloud" not in pid
 
 
 def _is_builtin_tool(stp_tool_id: str) -> bool:
@@ -530,6 +571,16 @@ async def apply_stp_permission(
     if scope == "once":
         return
 
+    if scope == "provider":
+        # "Always allow ComfyUI": every tool from a local provider. A paid
+        # provider can't be granted wholesale, so it falls back to this one tool.
+        provider_id = tool_provider_id(stp_tool_id)
+        if approved and can_allow_whole_provider(provider_id):
+            await _add_global_provider_permission(provider_id)
+            log.info(f"Set global allowed_providers += {provider_id}")
+            return
+        scope = "always"
+
     list_key = "allowed_tools" if approved else "denied_tools"
     opposite_key = "denied_tools" if approved else "allowed_tools"
 
@@ -558,6 +609,26 @@ async def apply_stp_permission(
     elif scope == "always":
         await _add_to_global_stp_permission(stp_tool_id, approved)
         log.info(f"Set global {list_key} += {stp_tool_id}")
+
+
+async def _add_global_provider_permission(provider_id: str) -> None:
+    """Write a whole-provider grant to profile-level config.yaml."""
+    from config import get_settings, reload_settings
+    from config_writer import patch_profile_section
+    from core.profile_context import get_current_profile
+
+    settings = get_settings()
+    profile_id = get_current_profile()
+    agent_config = settings.get_agent_for_profile(profile_id)
+    providers = list(agent_config.tool_config.allowed_providers or [])
+    if provider_id in providers:
+        return
+    providers.append(provider_id)
+
+    agent_data = agent_config.model_dump()
+    agent_data["tool_config"]["allowed_providers"] = providers
+    patch_profile_section(profile_id, "agent", agent_data)
+    reload_settings()
 
 
 async def _add_to_global_stp_permission(stp_tool_id: str, approved: bool) -> None:

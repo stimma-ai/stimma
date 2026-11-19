@@ -77,6 +77,7 @@ async def _create_permission_card(
     request_id: str,
     display_name: str,
     provider_name: str | None,
+    provider_id: str | None,
     task_type: str | None,
     inputs: dict,
 ) -> None:
@@ -89,6 +90,7 @@ async def _create_permission_card(
         "_v2_tool_name": "call_tool",
         "_display_name": display_name,
         "_provider_name": provider_name,
+        **_provider_grant_meta(provider_id),
         "_task_type": task_type,
         "inputs": inputs,
         "_inprocess_request_id": request_id,
@@ -113,10 +115,19 @@ async def _create_permission_card(
     await ws_manager.broadcast("chat_item_created", {"chat_id": chat_id, "item": item_dict})
 
 
+def _provider_grant_meta(provider_id: str | None) -> dict:
+    """Card fields that let the user allow a whole local provider at once."""
+    from .permissions import can_allow_whole_provider
+
+    pid = provider_id or ""
+    return {"_provider_id": pid, "_provider_grantable": can_allow_whole_provider(pid)}
+
+
 def _resolve_display_meta(tool_id: str, kwargs: dict, task_type: str | None) -> dict:
     """Best-effort tool name / provider / task type for the card. Never raises."""
     display_name = tool_id
     provider_name = None
+    provider_id = tool_id.split(":", 1)[0] if ":" in tool_id else None
     try:
         from providers.registry import ProviderRegistry
 
@@ -125,6 +136,7 @@ def _resolve_display_meta(tool_id: str, kwargs: dict, task_type: str | None) -> 
             provider, descriptor = pt
             display_name = descriptor.name or tool_id
             provider_name = provider.provider_name
+            provider_id = provider.provider_id
     except Exception:
         pass
 
@@ -138,6 +150,7 @@ def _resolve_display_meta(tool_id: str, kwargs: dict, task_type: str | None) -> 
     return {
         "display_name": display_name,
         "provider_name": provider_name,
+        "provider_id": provider_id,
         "task_type": task_type if isinstance(task_type, str) else None,
         "inputs": inputs,
     }
@@ -229,6 +242,7 @@ async def ensure_tool_permission(
             request_id=request_id,
             display_name=meta["display_name"],
             provider_name=meta["provider_name"],
+            provider_id=meta["provider_id"],
             task_type=meta["task_type"],
             inputs=meta["inputs"],
         )

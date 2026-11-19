@@ -4,30 +4,37 @@
     <div
       :class="[
         'flex rounded-lg overflow-hidden',
-        isActive ? 'bg-pink-500' : 'bg-surface-raised'
+        isActive ? 'bg-live' : 'bg-surface-raised'
       ]"
     >
       <!-- Main button (start/stop) -->
       <button
         @click="handleMainClick"
         :class="[
-          'px-3 py-2 text-sm font-semibold cursor-pointer transition-colors',
-          isActive ? 'text-white hover:bg-pink-600' : 'text-content hover:bg-surface-hover'
+          'px-3 py-2 text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5',
+          isActive ? 'text-accent-on hover:bg-black/10' : 'text-content hover:bg-surface-hover'
         ]"
-        :title="isActive ? 'Stop forever mode' : 'Start forever mode'"
+        :title="isActive ? (limitShown ? `Stop forever mode (stops by itself after ${remaining} more with no changes)` : 'Stop forever mode') : 'Start forever mode'"
       >
         ∞
+        <template v-if="limitShown">
+          <svg class="w-3.5 h-3.5 -rotate-90" viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-opacity="0.3" stroke-width="2.4" />
+            <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" :stroke-dasharray="`${ringLength} 37.7`" />
+          </svg>
+          <span class="font-mono text-[11px] tabular-nums">{{ idleCount }}/{{ idleLimit }}</span>
+        </template>
       </button>
 
       <!-- Divider -->
-      <div :class="['w-px', isActive ? 'bg-pink-400' : 'bg-surface-hover']"></div>
+      <div :class="['w-px', isActive ? 'bg-black/15' : 'bg-surface-hover']"></div>
 
       <!-- Dropdown chevron (settings) -->
       <button
         @click.stop="handleChevronClick"
         :class="[
           'px-2 py-2 cursor-pointer transition-colors flex items-center',
-          isActive ? 'text-white hover:bg-pink-600' : 'text-content hover:bg-surface-hover'
+          isActive ? 'text-accent-on hover:bg-black/10' : 'text-content hover:bg-surface-hover'
         ]"
         title="Forever mode settings"
       >
@@ -52,11 +59,11 @@
       </div>
 
       <!-- Stimma Cloud Credits Warning -->
-      <div v-if="isStimmaCloud" class="px-4 py-3 bg-indigo-500/10 border-b border-surface-raised flex gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-indigo-600 dark:text-violet-500 flex-shrink-0 mt-0.5">
+      <div v-if="isStimmaCloud" class="px-4 py-3 bg-amber-500/10 border-b border-surface-raised flex gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
         </svg>
-        <p class="text-xs text-indigo-700 dark:text-indigo-300">
+        <p class="text-xs text-content-secondary">
           This can use significant <span class="stimma-cloud-text font-medium">Stimma credits</span> if left running. Monitor your usage.
         </p>
       </div>
@@ -88,7 +95,7 @@
           </option>
         </select>
         <p class="text-xs text-content-muted mt-2">
-          Auto-stops if no changes are made to the prompt or settings.
+          Stops if the prompt and settings don't change.<template v-if="limitShown"> {{ remaining }} to go.</template>
         </p>
       </div>
 
@@ -112,6 +119,8 @@ interface Props {
   isActive: boolean
   concurrency: number
   idleLimit: number
+  /** Images since the last change, while running. */
+  idleCount?: number
   isStimmaCloud?: boolean
 }
 
@@ -146,6 +155,13 @@ const concurrencyOptions = computed(() => {
   }
   return options
 })
+
+const limitShown = computed(() => props.isActive && props.idleLimit > 0)
+const remaining = computed(() => Math.max(0, props.idleLimit - (props.idleCount ?? 0)))
+// Circumference of r=6 is ~37.7.
+const ringLength = computed(() => props.idleLimit > 0
+  ? Math.min(1, (props.idleCount ?? 0) / props.idleLimit) * 37.7
+  : 0)
 
 const idleLimitOptions = [
   { label: '10 images', value: 10 },

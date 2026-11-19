@@ -10,7 +10,7 @@
     <div class="min-w-0">
       <div class="text-sm leading-snug truncate">
         <span class="text-content-muted">{{ response?.approved ? 'Allowed' : 'Denied' }}</span>
-        <span class="text-content ml-1.5">{{ displayName }}</span>
+        <span class="text-content ml-1.5">{{ response?.approved && response?.scope === 'provider' ? `all ${providerName} tools` : displayName }}</span>
       </div>
       <div
         v-if="providerName"
@@ -23,7 +23,13 @@
   <!-- Active interactive state -->
   <div v-else class="space-y-3">
     <!-- Header -->
-    <div class="flex items-center gap-2">
+    <div v-if="providerGrantable" class="flex items-center gap-2">
+      <svg class="w-4 h-4 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+      </svg>
+      <span class="text-sm font-medium text-content-secondary">First time using {{ providerName }}</span>
+    </div>
+    <div v-else class="flex items-center gap-2">
       <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285zm0 13.036h.008v.008H12v-.008z" />
       </svg>
@@ -46,7 +52,7 @@
         class="text-[11px] leading-tight"
         :class="isStimmaCloud ? 'stimma-cloud-text' : 'text-content-muted'"
       >
-        {{ providerName }}
+        {{ providerName }}<span v-if="isCallTool" class="text-content-muted">{{ isStimmaCloud ? ' · uses credits' : providerGrantable ? ' · runs on your computer' : '' }}</span>
       </div>
     </div>
 
@@ -76,33 +82,62 @@
     <div v-else-if="!hasCodeReview && toolArgsPreview" class="bg-surface rounded-lg px-3 py-2 text-xs font-mono text-content-muted overflow-x-auto whitespace-pre-wrap break-all">{{ toolArgsPreview }}</div>
 
     <!-- Actions -->
-    <div class="flex justify-end gap-3">
+    <div class="flex flex-wrap justify-end gap-3">
       <button
         @click="handleDeny"
         class="px-4 py-2 text-sm text-content-tertiary hover:text-content transition-colors"
       >
         Deny
       </button>
-      <div class="relative flex" ref="allowMenuRef">
+      <button
+        v-if="providerGrantable"
+        @click="handleAllow('once')"
+        class="px-3 py-2 text-sm text-content border border-edge rounded-md hover:bg-overlay-light transition-colors whitespace-nowrap"
+      >
+        Allow once
+      </button>
+      <div class="relative flex min-w-0" ref="allowMenuRef">
         <button
           @click="handleAllow(defaultScope)"
-          class="px-4 py-2 bg-accent hover:bg-accent/90 text-accent-on text-sm font-medium rounded-l-md transition-colors"
+          class="px-4 py-2 bg-accent hover:bg-accent/90 text-accent-on text-sm font-medium rounded-l-md transition-colors whitespace-nowrap"
         >
-          Allow
+          {{ providerGrantable ? `Always allow ${providerName}` : 'Allow' }}
         </button>
         <button
-          @click.stop="allowMenuOpen = !allowMenuOpen"
+          @click.stop="toggleAllowMenu"
           class="px-2 py-2 bg-accent hover:bg-accent/90 text-accent-on rounded-r-md border-l border-overlay-medium transition-colors"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
           </svg>
         </button>
+        <!-- Teleported: chat items use content-visibility:auto, which clips
+             anything painted outside the card. -->
+        <Teleport to="body">
         <div
           v-if="allowMenuOpen"
-          class="absolute right-0 top-full mt-1 w-44 bg-surface border border-edge-subtle rounded-lg shadow-lg overflow-hidden z-menu"
+          ref="allowMenuPanelRef"
+          data-escape-layer
+          class="fixed w-60 bg-surface border border-edge-subtle rounded-lg shadow-lg overflow-hidden z-menu"
+          :style="allowMenuStyle"
         >
           <button
+            v-if="providerGrantable"
+            @click="handleAllow('provider')"
+            class="w-full px-3 py-2 text-left text-sm text-content bg-accent/20 hover:bg-accent/30 transition-colors flex items-center justify-between gap-3"
+          >
+            <span class="truncate">Always allow {{ providerName }}</span>
+            <span class="text-[10px] text-accent flex-none">Default</span>
+          </button>
+          <button
+            v-if="providerGrantable"
+            @click="handleAllow('always')"
+            class="w-full px-3 py-2 text-left text-sm text-content hover:bg-overlay-light transition-colors"
+          >
+            Always allow this tool
+          </button>
+          <button
+            v-if="!providerGrantable"
             @click="handleAllow('once')"
             class="w-full px-3 py-2 text-left text-sm text-content hover:bg-overlay-light transition-colors"
           >
@@ -117,14 +152,15 @@
             <span v-if="defaultScope === 'chat'" class="text-[10px] text-accent">Default</span>
           </button>
           <button
-            v-if="allowGlobal"
+            v-if="allowGlobal && !providerGrantable"
             @click="handleAllow('always')"
             class="w-full px-3 py-2 text-left text-sm text-content bg-accent/20 hover:bg-accent/30 transition-colors flex items-center justify-between"
           >
-            Always Allow
+            Always allow this tool
             <span class="text-[10px] text-accent">Default</span>
           </button>
         </div>
+        </Teleport>
       </div>
     </div>
   </div>
@@ -169,6 +205,7 @@ import { MediaImage } from '../media'
 import Modal from '../ui/Modal.vue'
 import IconButton from '../ui/IconButton.vue'
 import { useTheme } from '../../composables/useTheme'
+import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 
 const props = defineProps<{
   action: {
@@ -182,7 +219,10 @@ const props = defineProps<{
   response?: { approved: boolean; scope?: string } | null
 }>()
 
-type PermissionScope = 'once' | 'chat' | 'always'
+// 'provider' allows every tool from a local provider (ComfyUI, Draw Things).
+// The backend only offers it (_provider_grantable) for providers that can't
+// spend money; Stimma's own tools are approved one at a time.
+type PermissionScope = 'once' | 'chat' | 'always' | 'provider'
 
 const emit = defineEmits<{
   (e: 'respond', response: { approved: boolean; scope?: PermissionScope }): void
@@ -190,6 +230,37 @@ const emit = defineEmits<{
 
 const allowMenuOpen = ref(false)
 const allowMenuRef = ref<HTMLElement | null>(null)
+const allowMenuPanelRef = ref<HTMLElement | null>(null)
+const allowMenuStyle = ref<Record<string, string>>({})
+
+// Place the teleported menu under the Allow button, or above it when the
+// window has no room below.
+function toggleAllowMenu() {
+  if (allowMenuOpen.value) {
+    allowMenuOpen.value = false
+    return
+  }
+  const rect = allowMenuRef.value?.getBoundingClientRect()
+  if (rect) {
+    const right = `${Math.max(8, window.innerWidth - rect.right)}px`
+    const roomBelow = window.innerHeight - rect.bottom
+    allowMenuStyle.value = roomBelow >= 180
+      ? { top: `${rect.bottom + 4}px`, right }
+      : { bottom: `${window.innerHeight - rect.top + 4}px`, right }
+  }
+  allowMenuOpen.value = true
+}
+
+function closeAllowMenu() {
+  allowMenuOpen.value = false
+}
+
+function handleEscape(event: KeyboardEvent) {
+  if (!event.defaultPrevented && event.key === 'Escape' && allowMenuOpen.value && isTopmostEscapeLayer(allowMenuPanelRef.value)) {
+    consumeEscape(event)
+    closeAllowMenu()
+  }
+}
 const reviewModalOpen = ref(false)
 const { resolvedTheme } = useTheme()
 const isLight = computed(() => resolvedTheme.value === 'light')
@@ -202,7 +273,10 @@ const isCallTool = computed(() => !!args.value.tool_id)
 // Shell (bash) tops out at chat scope — there is no persistent global shell grant — so its
 // default and broadest option is "For this Chat".
 const allowGlobal = computed(() => isCallTool.value)
-const defaultScope = computed<PermissionScope>(() => (isCallTool.value ? 'always' : 'chat'))
+const providerGrantable = computed(() => isCallTool.value && args.value._provider_grantable === true)
+const defaultScope = computed<PermissionScope>(() => (
+  providerGrantable.value ? 'provider' : isCallTool.value ? 'always' : 'chat'
+))
 
 const v2ToolLabels: Record<string, string> = {
   bash: 'Running Command',
@@ -391,9 +465,9 @@ const highlightedCodeHtml = computed(() => {
 })
 
 function handleClickOutside(e: MouseEvent) {
-  if (allowMenuRef.value && !allowMenuRef.value.contains(e.target as Node)) {
-    allowMenuOpen.value = false
-  }
+  const target = e.target as Node
+  if (allowMenuRef.value?.contains(target) || allowMenuPanelRef.value?.contains(target)) return
+  allowMenuOpen.value = false
 }
 
 function handleAllow(scope: PermissionScope) {
@@ -407,9 +481,16 @@ function handleDeny() {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  // A fixed menu would drift from its button as the chat scrolls.
+  window.addEventListener('scroll', closeAllowMenu, true)
+  window.addEventListener('resize', closeAllowMenu)
+  document.addEventListener('keydown', handleEscape)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('scroll', closeAllowMenu, true)
+  window.removeEventListener('resize', closeAllowMenu)
+  document.removeEventListener('keydown', handleEscape)
 })
 </script>

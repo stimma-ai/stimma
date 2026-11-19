@@ -2537,6 +2537,9 @@ class AgentToolConfigResponse(BaseModel):
     """Tool configuration for agent settings."""
     allowed_tools: List[str] = []
     denied_tools: List[str] = []
+    # Providers allowed wholesale. None on an update means "leave as is", so a
+    # client that only edits the tool lists never drops provider grants.
+    allowed_providers: Optional[List[str]] = None
     v2_permissions: Dict[str, str] = {}  # V2 tool permissions: tool_name -> "allow" | "deny"
 
 
@@ -2587,6 +2590,7 @@ async def get_agent_settings():
         tool_config=AgentToolConfigResponse(
             allowed_tools=agent_config.tool_config.allowed_tools,
             denied_tools=agent_config.tool_config.denied_tools,
+            allowed_providers=agent_config.tool_config.allowed_providers,
             v2_permissions=agent_config.tool_config.v2_permissions,
         ),
         models=AgentModelsResponse(**agent_config.models.model_dump()),
@@ -2615,6 +2619,11 @@ async def update_agent_settings(request: AgentSettingsUpdate):
         agent_data["tool_config"] = {
             "allowed_tools": request.tool_config.allowed_tools,
             "denied_tools": request.tool_config.denied_tools,
+            "allowed_providers": (
+                request.tool_config.allowed_providers
+                if request.tool_config.allowed_providers is not None
+                else agent_config.tool_config.allowed_providers
+            ),
             "v2_permissions": request.tool_config.v2_permissions,
         }
     if request.models is not None:
@@ -2651,6 +2660,7 @@ async def update_agent_settings(request: AgentSettingsUpdate):
         tool_config=AgentToolConfigResponse(
             allowed_tools=agent_data["tool_config"]["allowed_tools"],
             denied_tools=agent_data["tool_config"]["denied_tools"],
+            allowed_providers=agent_data["tool_config"].get("allowed_providers", []),
             v2_permissions=agent_data["tool_config"].get("v2_permissions", {}),
         ),
     )

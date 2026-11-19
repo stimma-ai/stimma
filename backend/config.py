@@ -571,6 +571,9 @@ class AgentToolConfig(BaseModel):
     """Tool configuration for the agent."""
     allowed_tools: List[str] = []  # Tools explicitly allowed (no permission prompt)
     denied_tools: List[str] = []  # Tools hidden from agent
+    # Providers whose every tool is allowed (local providers only; a paid
+    # provider is never granted wholesale — see agent/v2/permissions.py).
+    allowed_providers: List[str] = []
     v2_permissions: Dict[str, str] = {}  # V2 tool permissions: tool_name -> "allow" | "deny"
 
 
@@ -1445,6 +1448,7 @@ class Settings(BaseSettings):
                         tool_config = AgentToolConfig(
                             allowed_tools=tc.get('allowed_tools', []),
                             denied_tools=tc.get('denied_tools', []),
+                            allowed_providers=tc.get('allowed_providers', []),
                             v2_permissions=tc.get('v2_permissions', {}),
                         )
                     elif 'allowed_tools' in agent_data or 'denied_tools' in agent_data:

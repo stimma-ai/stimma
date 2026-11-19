@@ -2399,7 +2399,7 @@ class HITLResponseRequest(PydanticBaseModel):
     refinement: Optional[str] = None  # For retry/plan_approval refinement
     text: Optional[str] = None  # Natural language input to be interpreted
     selected_tool_id: Optional[str] = None  # For tool permission: user-selected tool
-    scope: Optional[str] = None  # Permission scope: 'once' | 'chat' | 'always'
+    scope: Optional[str] = None  # Permission scope: 'once' | 'chat' | 'always' | 'provider'
 
 
 async def _interpret_plan_response(text: str) -> dict:
@@ -2558,7 +2558,7 @@ async def submit_human_response(
             # Persist chat/always grants using this request's session (the parked
             # coroutine never holds a write txn across the wait).
             tool_id = v2_args.get("tool_id")
-            if tool_id and scope in ("chat", "always"):
+            if tool_id and scope in ("chat", "always", "provider"):
                 from agent.v2.permissions import apply_stp_permission
                 await apply_stp_permission(tool_id, scope, approved, chat)
                 await session.commit()

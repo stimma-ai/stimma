@@ -75,7 +75,24 @@
         <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">The agent asks the first time it uses a tool. Tools you allow or block appear here.</p>
         <!-- -mx-3 cancels the rows' own px-3 so their text aligns with the
              section headings; hairlines between rows only (divide-y). -->
-        <div v-if="configuredTools.length > 0" class="mt-3 -mx-3 divide-y divide-edge-subtle">
+        <div v-if="configuredTools.length > 0 || allowedProviders.length > 0" class="mt-3 -mx-3 divide-y divide-edge-subtle">
+          <div
+            v-for="provider in allowedProviders"
+            :key="`provider:${provider.id}`"
+            class="flex items-center justify-between gap-3 px-3 py-2"
+          >
+            <div class="min-w-0 text-sm text-content truncate">
+              {{ provider.name }}<span class="text-xs text-content-muted"> · all tools</span>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <span class="text-[11px] font-medium text-green-500">Allowed</span>
+              <button
+                class="h-6 px-2 rounded-md text-[11px] text-content-muted hover:text-content hover:bg-overlay-subtle transition-colors"
+                :title="`Ask again before using ${provider.name} tools`"
+                @click="handleRemoveProvider(provider.id)"
+              >Remove</button>
+            </div>
+          </div>
           <ToolConfigRow
             v-for="tool in configuredTools"
             :key="tool.full_tool_id"
@@ -160,6 +177,19 @@ const configuredToolIds = computed(() => {
 const configuredTools = computed(() => {
   return allTools.value.filter(tool => configuredToolIds.value.has(tool.full_tool_id))
 })
+
+// Whole providers allowed from the chat card ("Always allow ComfyUI").
+const allowedProviders = computed(() => (localToolConfig.value?.allowed_providers || []).map(id => {
+  const tool = allTools.value.find(t => t.provider_id === id)
+  return { id, name: tool?.provider_name || id }
+}))
+
+async function handleRemoveProvider(providerId: string) {
+  await handleToolConfigUpdate({
+    ...localToolConfig.value,
+    allowed_providers: (localToolConfig.value?.allowed_providers || []).filter(id => id !== providerId),
+  })
+}
 
 async function handleRemoveTool(toolId: string) {
   // Remove from both allowed and denied lists
@@ -280,6 +310,10 @@ async function resetModels() {
 }
 
 async function handleToolConfigUpdate(config: ToolConfig) {
+  // Tool rows edit only the tool lists; keep the provider grants alongside.
+  if (config.allowed_providers === undefined) {
+    config = { ...config, allowed_providers: localToolConfig.value?.allowed_providers || [] }
+  }
   localToolConfig.value = config
   try {
     await axios.patch(`${getApiBase()}/settings/agent`, {

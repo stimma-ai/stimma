@@ -26,7 +26,7 @@ from .conversation import build_messages, max_output_tokens
 from .agent_config import resolve_agent_config
 from .llm_options import agent_llm_options
 from ..hitl import HumanActionRequired
-from .permissions import get_permission_decision, check_permission_for_call, check_stp_permission, apply_permission, apply_stp_permission
+from .permissions import get_permission_decision, check_permission_for_call, check_stp_permission, apply_permission, apply_stp_permission, can_allow_whole_provider
 from .prompts import get_system_prompt
 from .tools.bash import get_shell_runtime_name
 from .tools_registry import get_tools_schema, get_tool, get_all_tools
@@ -1057,6 +1057,8 @@ async def _pause_for_permission(
                         **kwargs,
                         "_display_name": descriptor.name,
                         "_provider_name": provider.provider_name,
+                        "_provider_id": provider.provider_id,
+                        "_provider_grantable": can_allow_whole_provider(provider.provider_id),
                         "_task_type": task_type,
                     }
             except Exception:
@@ -2422,7 +2424,7 @@ async def resume_after_hitl(
     await session.refresh(chat)
 
     # Broadcast settings update so the permissions panel reflects the change
-    if scope in ("chat", "always"):
+    if scope in ("chat", "always", "provider"):
         tool_config = {}
         if chat.agent_tool_config:
             try:

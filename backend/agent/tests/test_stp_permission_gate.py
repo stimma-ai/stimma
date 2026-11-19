@@ -268,3 +268,53 @@ async def test_human_response_restores_running_before_resuming_turn(
         if not task.done():
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_human_response_provider_scope_allows_the_whole_local_provider(
+    monkeypatch, session, test_chat,
+):
+    """"Always allow ComfyUI" resumes the parked call and grants every ComfyUI tool."""
+    from routes import chats
+    from agent.v2 import permissions
+
+    granted: list[str] = []
+
+    async def record_grant(provider_id):
+        granted.append(provider_id)
+        _FakeToolConfig.allowed_providers = list(granted)
+
+    monkeypatch.setattr(permissions, "_add_global_provider_permission", record_grant)
+    monkeypatch.setattr(_FakeToolConfig, "allowed_providers", [], raising=False)
+
+    request_id = gate._request_id(test_chat.id, "comfyui:flux-dev")
+    future = asyncio.get_running_loop().create_future()
+    monkeypatch.setattr(gate, "_PENDING", {request_id: future})
+    session.add(ChatItem(
+        chat_id=test_chat.id,
+        item_type="hitl_request",
+        item_metadata=json.dumps({
+            "type": "v2_tool_permission",
+            "v2_tool_args": {"tool_id": "comfyui:flux-dev", "_inprocess_request_id": request_id},
+        }),
+    ))
+    await session.commit()
+
+    class _Quiet:
+        async def broadcast(self, *_a, **_k):
+            pass
+
+    monkeypatch.setattr(chats, "ws_manager", _Quiet())
+
+    result = await chats.submit_human_response(
+        test_chat.id,
+        chats.HITLResponseRequest(approved=True, scope="provider"),
+        session,
+    )
+    assert result == {"success": True}
+    assert future.result() == {"approved": True, "scope": "provider"}
+    assert granted == ["comfyui"]
+
+    # A different ComfyUI workflow, never seen before, no longer asks.
+    chat = Chat(agent_tool_config=None)
+    assert await get_stp_permission_decision("comfyui:wan-video", chat, None) == "allow"

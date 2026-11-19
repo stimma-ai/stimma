@@ -112,7 +112,13 @@ export interface UIState {
   promptSettingsExpanded: boolean
   generateForeverMode: boolean
   generateForeverConcurrency: number
-  generateForeverIdleLimit: number  // 0 = no limit, default 50
+  // Generate Forever auto-stop: images with no user changes. 0 = no limit;
+  // null = the tool's default (50 for paid tools, none for local ones — see
+  // foreverIdleLimitDefault in ToolView).
+  generateForeverIdleLimit: number | null
+  // True once the user picks a limit themselves. Before this existed every
+  // tool saved the old blanket default of 50; an unpicked 50 reads as null.
+  generateForeverIdleLimitChosen?: boolean
   batchSize: number  // Images queued per Run click (1-8). 1 = single generation.
   imageMode: string
   layoutMode: 'studio' | 'stage'  // 'stage' = image primary (default), 'studio' = controls primary
@@ -172,7 +178,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     promptSettingsExpanded: false,
     generateForeverMode: false,
     generateForeverConcurrency: 2,
-    generateForeverIdleLimit: 50,  // Default: auto-stop after 50 images with no user changes
+    generateForeverIdleLimit: null,  // The tool's default; resolved in ToolView
     batchSize: 1,
     imageMode: 'fit',
     layoutMode: 'stage',
@@ -200,7 +206,11 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
           // it's running here or it isn't.
           generateForeverMode: uiState.value.generateForeverMode,
           generateForeverConcurrency: data.generateForeverConcurrency ?? 2,
-          generateForeverIdleLimit: data.generateForeverIdleLimit ?? 50,
+          generateForeverIdleLimit: (
+            typeof data.generateForeverIdleLimit === 'number'
+            && (data.generateForeverIdleLimitChosen || data.generateForeverIdleLimit !== 50)
+          ) ? data.generateForeverIdleLimit : null,
+          generateForeverIdleLimitChosen: data.generateForeverIdleLimitChosen === true,
           batchSize: Math.min(8, Math.max(1, data.batchSize ?? 1)),
           imageMode: data.imageMode ?? 'fit',
           layoutMode: data.layoutMode === 'studio' ? 'studio' : 'stage',
@@ -360,7 +370,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
       promptSettingsExpanded: false,
       generateForeverMode: false,
       generateForeverConcurrency: 2,
-      generateForeverIdleLimit: 50,
+      generateForeverIdleLimit: null,
       batchSize: 1,
       imageMode: 'fit',
       layoutMode: 'stage',

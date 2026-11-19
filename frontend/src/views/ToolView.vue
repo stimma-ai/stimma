@@ -219,12 +219,13 @@
             <ForeverModeButton
               :is-active="uiState.generateForeverMode"
               :concurrency="uiState.generateForeverConcurrency"
-              :idle-limit="uiState.generateForeverIdleLimit"
+              :idle-limit="foreverIdleLimit"
+              :idle-count="foreverModeIdleCount"
               :is-stimma-cloud="isStimmaCloudTool"
               @toggle="stopForeverMode"
               @start="startForeverMode"
               @update:concurrency="uiState.generateForeverConcurrency = $event"
-              @update:idle-limit="uiState.generateForeverIdleLimit = $event"
+              @update:idle-limit="setForeverIdleLimit($event)"
             />
             <div v-if="jobsManager && isFromScratch" class="relative flex items-center">
               <OverflowButton size="lg" label="Queue options" :active="stageMenuOpen" @click="stageMenuOpen = !stageMenuOpen" />
@@ -1119,14 +1120,14 @@
             :can-submit="canSubmit"
             :forever-active="uiState.generateForeverMode"
             :concurrency="uiState.generateForeverConcurrency"
-            :idle-limit="uiState.generateForeverIdleLimit"
+            :idle-limit="foreverIdleLimit"
             :is-mac="isMac"
             @run="submitJob()"
             @update:batch-size="uiState.batchSize = $event"
             @start-forever="startForeverMode"
             @stop-forever="stopForeverMode"
             @update:concurrency="uiState.generateForeverConcurrency = $event"
-            @update:idle-limit="uiState.generateForeverIdleLimit = $event"
+            @update:idle-limit="setForeverIdleLimit($event)"
             :output-settings="isCompact"
             :markers="jobsManager?.availableMarkers.value || []"
             :auto-marker-ids="globalPrefs.autoMarkerIds"
@@ -1342,7 +1343,7 @@ import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
 import { validateTaskType } from '../utils/taskTypeValidation'
 import { isMiniMaxH3VideoModel } from '../utils/promptModel'
-import { addToast } from '../composables/useToasts'
+import { addToast, removeToast } from '../composables/useToasts'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import CompareMode from '../components/CompareMode.vue'
 import { useCompare } from '../composables/useCompare'
@@ -2312,6 +2313,21 @@ async function openAttributionUrl() {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 const isStimmaCloudTool = computed(() => isStimmaCloud(tool.value))
+
+// Tools that can spend money: Stimma's own, and saved tools (one can call a
+// Stimma tool inside it). Matches PAID_PROVIDER_IDS in agent/v2/permissions.py.
+const isPaidTool = computed(() => isStimmaCloudTool.value || tool.value?.provider_id === 'user-tools')
+
+// Generate Forever's auto-stop guards against running up a bill, so it is on
+// by default only for paid tools; local tools (ComfyUI, Draw Things) run free.
+const FOREVER_PAID_IDLE_LIMIT = 50
+const foreverIdleLimit = computed(() =>
+  uiState.value.generateForeverIdleLimit ?? (isPaidTool.value ? FOREVER_PAID_IDLE_LIMIT : 0))
+
+function setForeverIdleLimit(limit: number) {
+  uiState.value.generateForeverIdleLimit = limit
+  uiState.value.generateForeverIdleLimitChosen = true
+}
 
 // True when the selected tool is Ideogram 4 — gates the prompt editor's JSON
 // mode (Ideogram 4 is trained on structured JSON captions). The Ideogram 4 tool
@@ -6041,6 +6057,10 @@ async function startForeverMode(concurrency: number) {
   if (uiState.value.generateForeverMode) {
     await stopForeverMode()
   }
+  if (foreverLimitToastId != null) {
+    removeToast(foreverLimitToastId)
+    foreverLimitToastId = null
+  }
   foreverModeSessionId.value++
   uiState.value.generateForeverMode = true
   modelParams.value.randomizeSeed = true
@@ -6060,6 +6080,20 @@ async function startForeverMode(concurrency: number) {
   } catch (err) {
     console.error('Failed to register forever mode:', err)
   }
+}
+
+// The auto-stop fired. Say so, and offer to carry on: the run may have ended
+// hours ago while nobody watched, so the notice stays until dismissed.
+let foreverLimitToastId: number | null = null
+async function stopForeverModeAtLimit() {
+  const limit = foreverIdleLimit.value
+  await stopForeverMode()
+  foreverLimitToastId = addToast(
+    `Forever stopped at ${limit} images`,
+    'info',
+    0,
+    { label: 'Keep going', onClick: () => { void startForeverMode(uiState.value.generateForeverConcurrency) } },
+  )
 }
 
 async function stopForeverMode() {
@@ -6640,7 +6674,7 @@ function getStateContext(): Record<string, any> {
   ctx.forever = {
     active: uiState.value.generateForeverMode ?? false,
     concurrency: uiState.value.generateForeverConcurrency ?? 1,
-    idle_limit: uiState.value.generateForeverIdleLimit ?? null,
+    idle_limit: foreverIdleLimit.value,
   }
 
   // Presets.
@@ -7437,10 +7471,10 @@ async function handleForeverModeJobCompleted(data: any) {
   consecutiveFailures.value = 0
 
   // Check idle limit for auto-stop
-  if (uiState.value.generateForeverMode && uiState.value.generateForeverIdleLimit > 0) {
+  if (uiState.value.generateForeverMode && foreverIdleLimit.value > 0) {
     foreverModeIdleCount.value++
-    if (foreverModeIdleCount.value >= uiState.value.generateForeverIdleLimit) {
-      await stopForeverMode()
+    if (foreverModeIdleCount.value >= foreverIdleLimit.value) {
+      await stopForeverModeAtLimit()
     }
   }
 }
@@ -7489,10 +7523,10 @@ async function maybeResumeForeverModeBatch() {
   consecutiveFailures.value = 0
 
   // Check idle limit for auto-stop
-  if (uiState.value.generateForeverMode && uiState.value.generateForeverIdleLimit > 0) {
+  if (uiState.value.generateForeverMode && foreverIdleLimit.value > 0) {
     foreverModeIdleCount.value++
-    if (foreverModeIdleCount.value >= uiState.value.generateForeverIdleLimit) {
-      await stopForeverMode()
+    if (foreverModeIdleCount.value >= foreverIdleLimit.value) {
+      await stopForeverModeAtLimit()
       return
     }
   }
