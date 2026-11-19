@@ -2277,11 +2277,14 @@ async def get_asset_deletion_preview(
 
 @router.delete("/{asset_id}")
 async def delete_asset(asset_id: int, session: AsyncSession = Depends(get_db_session)):
+    before = await session.get(Asset, asset_id)
+    was_trashed = before is not None and before.state == "trashed"
     try:
         asset = await trash_asset(session, asset_id=asset_id)
     except AssetServiceError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    await record_media_action(session, media_actions.TRASHED, asset_id=asset_id)
+    if not was_trashed:
+        await record_media_action(session, media_actions.TRASHED, asset_id=asset_id)
     await session.commit()
     await ws_manager.broadcast("asset_deleted", {"asset_id": asset_id})
     return {"asset": asset.to_dict()}

@@ -284,12 +284,12 @@ async def export_svg(
     base_name = _base_name(item, media_id)
     width, height = intrinsic_size(parse_svg(svg_text))
     fmt = request.format.lower()
-    # "html" also feeds the export dialog's code preview, so it isn't an export.
-    if fmt != "html":
+
+    async def _attachment(payload: bytes, filename: str, media_type: str):
+        # Recorded only for downloads: "html" also feeds the export dialog's
+        # code preview, so it isn't an export.
         from media_actions import EXPORTED, record_and_commit
         await record_and_commit(session, EXPORTED, [media_id])
-
-    def _attachment(payload: bytes, filename: str, media_type: str):
         return StreamingResponse(
             io.BytesIO(payload),
             media_type=media_type,
@@ -301,7 +301,7 @@ async def export_svg(
 
     if fmt == "svg":
         text = _optimize(svg_text)
-        return _attachment(text.encode("utf-8"), f"{base_name}.svg", "image/svg+xml")
+        return await _attachment(text.encode("utf-8"), f"{base_name}.svg", "image/svg+xml")
 
     if fmt == "html":
         source = _optimize(svg_text)
@@ -317,7 +317,7 @@ async def export_svg(
     if fmt == "png":
         target_w, target_h = _resolve_raster_size(width, height, request)
         img = await _rasterize(svg_text, target_w, target_h)
-        return _attachment(_png_bytes(img), f"{base_name}-{target_w}x{target_h}.png", "image/png")
+        return await _attachment(_png_bytes(img), f"{base_name}-{target_w}x{target_h}.png", "image/png")
 
     if fmt == "png-set":
         sizes = sorted({s for s in (request.sizes or [16, 32, 64, 128, 256, 512, 1024]) if s > 0})
@@ -337,10 +337,10 @@ async def export_svg(
                 target_h = max(1, int(round(size * height / width)))
                 img = await _rasterize(svg_text, size, target_h)
                 zf.writestr(f"{base_name}-{size}.png", _png_bytes(img))
-        return _attachment(buf.getvalue(), f"{base_name}-png.zip", "application/zip")
+        return await _attachment(buf.getvalue(), f"{base_name}-png.zip", "application/zip")
 
     if fmt == "pdf":
-        return _attachment(
+        return await _attachment(
             _svg_to_pdf(svg_text, width, height), f"{base_name}.pdf", "application/pdf"
         )
 

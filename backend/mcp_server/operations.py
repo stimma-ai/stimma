@@ -452,7 +452,12 @@ class Binding:
         kwargs = {name: getattr(parsed, name) for name in type(parsed).model_fields}
         if "session" in inspect.signature(self._fn).parameters:
             kwargs["session"] = session
-        return present(caller, await self._fn(**kwargs), self.kind)
+        # An agent is acting, not the user: the routes record nothing.
+        from media_actions import not_user_initiated
+
+        with not_user_initiated():
+            result = await self._fn(**kwargs)
+        return present(caller, result, self.kind)
 
 
 # Each action is explicitly selected and independently schema-validated. Settings,

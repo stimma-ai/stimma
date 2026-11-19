@@ -2318,7 +2318,6 @@ async def export_layout(
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="Layout index.html not found")
     from media_actions import EXPORTED, record_and_commit
-    await record_and_commit(session, EXPORTED, [media_id])
 
     html_content = index_path.read_text(encoding='utf-8')
 
@@ -2339,6 +2338,7 @@ async def export_layout(
     if fmt == "html":
         from utils.local_render import inline_bundle_html
         inlined = inline_bundle_html(bundle_dir)
+        await record_and_commit(session, EXPORTED, [media_id])
 
         filename = f"{base_name}.html"
         return StreamingResponse(
@@ -2390,6 +2390,7 @@ async def export_layout(
                 presentational_hints=True,
             )
             filename = f"{base_name}.pdf"
+            await record_and_commit(session, EXPORTED, [media_id])
             return StreamingResponse(
                 io.BytesIO(pdf_bytes),
                 media_type='application/pdf',
@@ -2424,6 +2425,7 @@ async def export_layout(
             buf.seek(0)
 
             filename = f"{base_name}.png"
+            await record_and_commit(session, EXPORTED, [media_id])
             return StreamingResponse(
                 buf,
                 media_type='image/png',
@@ -3731,9 +3733,7 @@ async def bulk_download_media(
 
     if not valid_items:
         raise HTTPException(status_code=404, detail="No media files found on disk")
-
     from media_actions import EXPORTED, record_and_commit
-    await record_and_commit(session, EXPORTED, [item.id for item in valid_items])
 
     # Single file: return directly; directory payloads use the zip path below.
     single_directory = len(valid_items) == 1 and Path(valid_items[0].file_path).is_dir()
@@ -3757,6 +3757,7 @@ async def bulk_download_media(
             media_type = format_map.get(item.file_format.lower(), 'application/octet-stream')
 
         filename = file_path.name
+        await record_and_commit(session, EXPORTED, [item.id])
         return FileResponse(
             file_path,
             media_type=media_type,
@@ -3770,6 +3771,8 @@ async def bulk_download_media(
     tmp_dir = tempfile.mkdtemp(prefix='stimma-download-')
     zip_path = Path(tmp_dir) / 'download.zip'
 
+    zipped_ids = []
+
     def generate_zip():
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
             seen_names = {}  # Track filenames to handle duplicates
@@ -3778,6 +3781,7 @@ async def bulk_download_media(
                 file_path = Path(item.file_path)
                 if not file_path.exists():
                     continue
+                zipped_ids.append(item.id)
 
                 # Handle duplicate filenames by adding a suffix
                 base_name = file_path.name
@@ -3799,6 +3803,7 @@ async def bulk_download_media(
 
     try:
         await asyncio.to_thread(generate_zip)
+        await record_and_commit(session, EXPORTED, zipped_ids)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_filename = (f"{Path(valid_items[0].file_path).name}.zip" if single_directory
                         else f"stimma-download-{timestamp}.zip")
@@ -4120,7 +4125,6 @@ async def export_media(
     from telemetry import get_telemetry_client
     get_telemetry_client().track("media_exported", {"count": len(valid_items)})
     from media_actions import EXPORTED, record_and_commit
-    await record_and_commit(session, EXPORTED, [item.id for item in valid_items])
 
     opts = request.options
     tmp_dir = None
@@ -4137,6 +4141,7 @@ async def export_media(
                 buf, filename, media_type = await asyncio.to_thread(
                     _convert_image, file_path, opts, item.generation_metadata, input_hashes
                 )
+                await record_and_commit(session, EXPORTED, [item.id])
                 return StreamingResponse(
                     buf,
                     media_type=media_type,
@@ -4148,6 +4153,7 @@ async def export_media(
             elif fmt in VIDEO_EXPORT_FORMATS:
                 tmp_dir = tempfile.mkdtemp(prefix='stimma-export-')
                 output_path, filename, media_type = await asyncio.to_thread(_convert_video, file_path, opts, tmp_dir)
+                await record_and_commit(session, EXPORTED, [item.id])
                 return TemporaryFileResponse(
                     output_path,
                     media_type=media_type,
@@ -4160,6 +4166,7 @@ async def export_media(
             elif fmt in AUDIO_EXPORT_FORMATS:
                 tmp_dir = tempfile.mkdtemp(prefix='stimma-export-')
                 output_path, filename, media_type = await asyncio.to_thread(_convert_audio, file_path, opts, tmp_dir)
+                await record_and_commit(session, EXPORTED, [item.id])
                 return TemporaryFileResponse(
                     output_path,
                     media_type=media_type,
@@ -4173,6 +4180,7 @@ async def export_media(
         # Multiple files: export to zip
         tmp_dir = tempfile.mkdtemp(prefix='stimma-export-')
         zip_path = Path(tmp_dir) / 'export.zip'
+        exported_ids = []
 
         def generate_zip():
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -4226,8 +4234,10 @@ async def export_media(
                         zf.write(file_path, filename)
                     else:
                         zf.writestr(filename, data)
+                    exported_ids.append(item.id)
 
         await asyncio.to_thread(generate_zip)
+        await record_and_commit(session, EXPORTED, exported_ids)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_filename = f"stimma-export-{timestamp}.zip"
 

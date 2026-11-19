@@ -98,7 +98,8 @@ def add_steer(chat_id: int, steer: dict) -> bool:
     # The client re-posts a steer it believes the server dropped; a retry
     # racing the original must not deliver the message twice.
     if not any(p.get("steer_id") == steer.get("steer_id") for p in pending):
-        pending.append(steer)
+        # The note on what the user did to media ends when they sent this.
+        pending.append({**steer, "accepted_at": datetime.utcnow()})
     return True
 
 
@@ -140,17 +141,18 @@ async def _deliver_steers(
             copied = await _copy_media_to_workspace(media_ids, chat.id, session, chat.project_id)
             if copied:
                 metadata["workspace_files"] = copied
-        from media_actions import note_for_next_message
-        now = datetime.utcnow()
-        note = await note_for_next_message(session, chat, now)
+        from media_actions import WINDOW_END_KEY, note_for_next_message
+        until = steer.get("accepted_at") or datetime.utcnow()
+        note = await note_for_next_message(session, chat.id, chat.created_at, until)
         if note:
             metadata["media_actions"] = note
+        # Delivered later than sent: the next message's window starts here.
+        metadata[WINDOW_END_KEY] = until.isoformat()
         item = ChatItem(
             chat_id=chat.id,
             item_type="user_message",
             message_text=steer.get("message_text"),
             item_metadata=json.dumps(metadata),
-            created_at=now,
         )
         session.add(item)
         await session.commit()

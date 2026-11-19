@@ -4,20 +4,24 @@ User-initiated routes (marking, collections, trash, export, edit, share) record
 a ``MediaAction``. When the user next writes to a chat, the actions on that
 chat's media since their previous message become one short factual note on the
 message (see ``note_for_next_message``). Agent tools and background work never
-record here: the note is about the user.
+record here: the note is about the user. The MCP server calls some of the same
+route functions on an agent's behalf; it runs them under ``not_user_initiated``.
 """
 
 from __future__ import annotations
 
 import json
+import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any, Iterable, Optional
 
 from sqlalchemy import or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.logging import get_logger
-from database import Asset, AssetRevision, Chat, ChatItem, MediaAction
+from database import Asset, AssetRevision, ChatItem, MediaAction
 
 log = get_logger(__name__)
 
@@ -47,6 +51,22 @@ _KINDS: dict[str, tuple[str, int]] = {
 
 MAX_LINES = 30
 MAX_IDS_PER_LINE = 20
+MAX_NAME_CHARS = 60
+# Message metadata: where the note's window ended, when that isn't the
+# message's own created_at (a steer's note ends when the steer was accepted).
+WINDOW_END_KEY = "media_actions_until"
+
+_not_user = ContextVar("media_actions_not_user", default=False)
+
+
+@contextmanager
+def not_user_initiated():
+    """Run route code on someone else's behalf (an agent): nothing is recorded."""
+    token = _not_user.set(True)
+    try:
+        yield
+    finally:
+        _not_user.reset(token)
 
 
 def marker_detail(marker) -> dict:
@@ -70,6 +90,8 @@ async def record_media_actions(
     """
     if action not in _KINDS:
         raise ValueError(f"Unknown media action: {action}")
+    if _not_user.get():
+        return
     pairs = [(m, a) for m, a in items if m is not None or a is not None]
     if not pairs:
         return
@@ -118,8 +140,9 @@ async def record_and_commit(
     loaded are untouched. Never raises: the user's export or share matters
     more than the record.
     """
-    from sqlalchemy.ext.asyncio import async_sessionmaker
-
+    media_ids = list(media_ids)
+    if _not_user.get() or not media_ids:
+        return
     try:
         async with async_sessionmaker(session.bind, expire_on_commit=False)() as own:
             await record_media_actions(own, action, [(m, None) for m in media_ids], detail)
@@ -144,14 +167,23 @@ def _parse_detail(raw: Optional[str]) -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def _quote(name: Any) -> Optional[str]:
+    """A user-chosen name as one bounded, quoted line."""
+    text = re.sub(r"[\s\x00-\x1f\x7f]+", " ", str(name or "")).strip()
+    if not text:
+        return None
+    if len(text) > MAX_NAME_CHARS:
+        text = text[:MAX_NAME_CHARS - 1].rstrip() + "\u2026"
+    return json.dumps(text, ensure_ascii=False)
+
+
 def _phrase(action: str, detail: dict) -> str:
     if action in (MARKED, UNMARKED):
-        name = detail.get("marker_name")
-        target = f'"{name}"' if name else "a marker"
+        target = _quote(detail.get("marker_name")) or "a marker"
         return f"marked {target}" if action == MARKED else f"unmarked {target}"
     if action in (ADDED_TO_COLLECTION, REMOVED_FROM_COLLECTION):
-        name = detail.get("collection_name")
-        target = f'collection "{name}"' if name else "an untitled collection"
+        name = _quote(detail.get("collection_name"))
+        target = f"collection {name}" if name else "an untitled collection"
         return f"added to {target}" if action == ADDED_TO_COLLECTION else f"removed from {target}"
     if action == TRASHED:
         return "moved to trash"
@@ -178,7 +210,8 @@ def _target(action: str, detail: dict) -> Any:
     if kind == "collection":
         return detail.get("collection_id")
     if kind == "edit":
-        return bool(detail.get("save_as_new"))
+        # Each Save As New is its own new media; in-place saves are one edit.
+        return detail.get("result_media_id") if detail.get("save_as_new") else None
     return None
 
 
@@ -238,7 +271,12 @@ async def describe_media_actions_since(
     for row in actions:
         if row.action not in _KINDS:
             continue
-        if row.asset_id is not None:
+        kind, sign = _KINDS[row.action]
+        if kind in ("export", "share") and row.media_id is not None:
+            # Exactly what left the app: told by the media acted on.
+            item = ("media", row.media_id)
+            label = row.media_id
+        elif row.asset_id is not None:
             item = ("asset", row.asset_id)
             label = asset_label.get(row.asset_id)
             if label is None:
@@ -248,7 +286,6 @@ async def describe_media_actions_since(
             label = row.media_id
         if label is None:
             continue
-        kind, sign = _KINDS[row.action]
         detail = _parse_detail(row.detail)
         key = (item, kind, _target(row.action, detail))
         entry = net.setdefault(key, [label, 0, row.action, detail])
@@ -274,29 +311,40 @@ async def describe_media_actions_since(
     )
 
 
-def _is_boundary(item: ChatItem) -> bool:
-    """A user message the user wrote (not a stop marker or a task notice)."""
+def _window_start(item: ChatItem) -> Optional[datetime]:
+    """Where a user message's window ended, or None for a message the user
+    didn't write (a stop marker or a task notice)."""
     metadata = _parse_detail(item.item_metadata)
-    return not (metadata.get("stop_event") or metadata.get("background_task"))
+    if metadata.get("stop_event") or metadata.get("background_task"):
+        return None
+    try:
+        return datetime.fromisoformat(metadata[WINDOW_END_KEY])
+    except (KeyError, TypeError, ValueError):
+        return item.created_at
 
 
 async def note_for_next_message(
-    session: AsyncSession, chat: Chat, until: datetime
+    session: AsyncSession, chat_id: int, chat_created_at: datetime, until: datetime
 ) -> Optional[str]:
-    """The note for a user message about to be added to ``chat`` at ``until``.
+    """The note for a user message about to be added to a chat, as of ``until``.
 
     Covers the time since the user's previous message (or since the chat
-    began). Never raises: a failure here must not stop the message.
+    began). Reads in a session of its own, so a failure can't spoil the
+    caller's; never raises: a failure here must not stop the message.
     """
     try:
-        recent = (await session.scalars(
-            select(ChatItem)
-            .where(ChatItem.chat_id == chat.id, ChatItem.item_type == "user_message")
-            .order_by(ChatItem.created_at.desc(), ChatItem.id.desc())
-            .limit(50)
-        )).all()
-        since = next((i.created_at for i in recent if _is_boundary(i)), chat.created_at)
-        return await describe_media_actions_since(session, chat.id, since, until)
+        async with async_sessionmaker(session.bind, expire_on_commit=False)() as own:
+            recent = (await own.scalars(
+                select(ChatItem)
+                .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "user_message")
+                .order_by(ChatItem.created_at.desc(), ChatItem.id.desc())
+                .limit(50)
+            )).all()
+            since = next(
+                (start for start in map(_window_start, recent) if start is not None),
+                chat_created_at,
+            )
+            return await describe_media_actions_since(own, chat_id, since, until)
     except Exception as exc:  # noqa: BLE001
-        log.warning(f"Skipped the media actions note for chat {chat.id}: {type(exc).__name__}: {exc}")
+        log.warning(f"Skipped the media actions note for chat {chat_id}: {type(exc).__name__}: {exc}")
         return None

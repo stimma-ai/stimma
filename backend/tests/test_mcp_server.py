@@ -499,6 +499,32 @@ async def test_marker_assignment_accepts_refs(mcp_http):
     assert not result.get("isError"), (result, schema)
 
 
+async def test_agent_marking_is_not_recorded_as_the_user(mcp_http):
+    from database import MediaAction
+    from database_registry import get_database_registry
+
+    async def recorded():
+        db = get_database_registry().get_database("default")
+        async with db.async_session_maker() as session:
+            return await session.scalar(select(func.count(MediaAction.id)))
+
+    await rpc(mcp_http, "access_open")
+    asset = body(await rpc(mcp_http, "assets_query"))["items"][0]
+    marker = body(await rpc(mcp_http, "catalog_get", {"kind": "markers"}))["items"][0]
+    before = await recorded()
+    # Off then on: at least one of the two changes the asset.
+    for add in (False, True):
+        result = await rpc(mcp_http, "assets_update", {
+            "action": "markers",
+            "asset_refs": [asset["asset_ref"] if "asset_ref" in asset else asset["id"]],
+            "marker_ref": marker["id"],
+            "add": add,
+            "request_key": f"agent-mark-{add}",
+        })
+        assert not result.get("isError"), result
+    assert await recorded() == before
+
+
 async def test_sdk_debug_logs_never_record_pin(mcp_http, caplog):
     import logging
 

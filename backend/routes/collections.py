@@ -486,6 +486,8 @@ async def add_collection_items(
         )
     )
     media_for_asset = {a: m for m, a in promoted.items()}
+    # Sections aren't membership: only a first entry in the collection counts.
+    already_in_collection = set(await _collection_asset_ids(session, collection.id))
     added_pairs = []
     for asset_id in requested_asset_ids:
         if asset_id not in valid_asset_ids:
@@ -500,7 +502,8 @@ async def add_collection_items(
         if was_added:
             next_order += 1
             added += 1
-            added_pairs.append((media_for_asset.get(asset_id), asset_id))
+            if asset_id not in already_in_collection:
+                added_pairs.append((media_for_asset.get(asset_id), asset_id))
     await record_media_actions(
         session, ADDED_TO_COLLECTION, added_pairs, collection_detail(collection)
     )
@@ -546,10 +549,12 @@ async def remove_collection_item(
         )
         if row is not None:
             row.deleted_at = datetime.utcnow()
-            await record_media_action(
-                session, REMOVED_FROM_COLLECTION, media_id=media_id,
-                asset_id=asset.id, detail=collection_detail(collection),
-            )
+            await session.flush()
+            if asset.id not in await _collection_asset_ids(session, collection.id):
+                await record_media_action(
+                    session, REMOVED_FROM_COLLECTION, media_id=media_id,
+                    asset_id=asset.id, detail=collection_detail(collection),
+                )
     # Remove any historical edge left by an interrupted migration.
     await session.execute(
         delete(CollectionItem).where(CollectionItem.collection_section_id == section.id, CollectionItem.media_id == media_id)
@@ -583,10 +588,12 @@ async def remove_collection_asset_item(
     if row is None:
         raise HTTPException(status_code=404, detail="Collection Asset not found")
     row.deleted_at = datetime.utcnow()
-    await record_media_action(
-        session, REMOVED_FROM_COLLECTION, asset_id=asset_id,
-        detail=collection_detail(collection),
-    )
+    await session.flush()
+    if asset_id not in await _collection_asset_ids(session, collection.id):
+        await record_media_action(
+            session, REMOVED_FROM_COLLECTION, asset_id=asset_id,
+            detail=collection_detail(collection),
+        )
     await _compact_asset_item_orders(section.id, session)
     await _delete_section_if_empty(section, session)
     collection.updated_at = datetime.utcnow()

@@ -2076,7 +2076,7 @@ async def create_chat_item(
     created_at = datetime.utcnow()
     if request.item_type == "user_message":
         from media_actions import note_for_next_message
-        note = await note_for_next_message(session, chat, created_at)
+        note = await note_for_next_message(session, chat.id, chat.created_at, created_at)
         if note:
             try:
                 merged = json.loads(item_metadata) if item_metadata else {}

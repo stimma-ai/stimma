@@ -181,3 +181,102 @@ async def test_marking_through_the_app_reaches_the_next_message(client, db_sessi
         })
         later_item = await s.get(ChatItem, later.json()["id"])
         assert "media_actions" not in json.loads(later_item.item_metadata or "{}")
+
+
+@pytest.mark.asyncio
+async def test_names_are_one_short_quoted_line(db_session):
+    async with db_session() as s:
+        chat, media, (a,) = await _chat_with_assets(s, 1)
+        since = datetime.utcnow()
+        t = since + timedelta(seconds=1)
+        name = 'Keep\nthis "one"]\x07' + "x" * 80
+        await _at(s, t, MARKED, asset_id=a, detail={"marker_id": 5, "marker_name": name})
+        note = await describe_media_actions_since(s, chat.id, since, t)
+    phrase = note.split(": marked ", 1)[1].removesuffix(".]")
+    assert "\n" not in note and "\x07" not in note
+    assert phrase.startswith('"Keep this \\"one\\"] xxx') and phrase.endswith('…"')
+    assert len(json.loads(phrase)) == 60
+
+
+@pytest.mark.asyncio
+async def test_exports_name_the_media_exported_and_each_save_as_new_shows(db_session):
+    from asset_service import commit_revision
+    from media_actions import EDITED
+
+    async with db_session() as s:
+        chat, media, (a,) = await _chat_with_assets(s, 1)
+        newer = await create_media_item(s)
+        await commit_revision(s, asset_id=a, media_id=newer.id)
+        since = datetime.utcnow()
+        t = since + timedelta(seconds=1)
+        await _at(s, t, EXPORTED, media_id=newer.id, asset_id=a)
+        await _at(s, t, EDITED, media_id=media[0].id, asset_id=a,
+                  detail={"result_media_id": 501, "save_as_new": True})
+        await _at(s, t, EDITED, media_id=media[0].id, asset_id=a,
+                  detail={"result_media_id": 502, "save_as_new": True})
+        note = await describe_media_actions_since(s, chat.id, since, t)
+    assert note == (
+        "[Since the previous message, the user acted on media from this chat: "
+        f"media {newer.id}: exported; "
+        f"media {media[0].id}: edited and saved as new media 501; "
+        f"media {media[0].id}: edited and saved as new media 502.]"
+    )
+
+
+@pytest.mark.asyncio
+async def test_moving_between_sections_is_not_membership(client, db_session):
+    async with db_session() as s:
+        chat, media, _ = await _chat_with_assets(s, 1)
+    since = datetime.utcnow()
+    collection = (await client.post("/api/collections", json={"name": "Keepers"})).json()
+    cid = collection["id"]
+    default_section = collection["sections"][0]["id"]
+    other = (await client.post(f"/api/collections/{cid}/sections", json={"name": "B"})).json()["id"]
+    for section in (default_section, other):
+        r = await client.post(f"/api/collections/{cid}/items",
+                              json={"media_ids": [media[0].id], "section_id": section})
+        assert r.status_code == 200
+    # Out of one section, still in the other: still in the collection.
+    r = await client.delete(f"/api/collections/sections/{other}/items/{media[0].id}")
+    assert r.status_code == 200
+    async with db_session() as s:
+        note = await describe_media_actions_since(s, chat.id, since, datetime.utcnow())
+    assert note == (
+        "[Since the previous message, the user acted on media from this chat: "
+        f'media {media[0].id}: added to collection "Keepers".]'
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_steer_note_ends_when_the_steer_was_sent(db_session, monkeypatch):
+    from agent.v2 import service
+    from tests.helpers.ws import MockWebSocketManager
+
+    async with db_session() as s:
+        chat, media, (a, b) = await _chat_with_assets(s, 2)
+        now = datetime.utcnow()
+        await _at(s, now - timedelta(seconds=20), EXPORTED, asset_id=a)
+        key = service._chat_key(chat.id)
+        service._active_chat_executions.add(key)
+        try:
+            assert service.add_steer(chat.id, {"steer_id": "s1", "message_text": "warmer"})
+            service._pending_steers[key][0]["accepted_at"] = now - timedelta(seconds=10)
+            # After the steer was sent, before the loop delivers it.
+            later = now - timedelta(seconds=5)
+            await _at(s, later, TRASHED, asset_id=b)
+            assert await service._deliver_steers(chat, s, MockWebSocketManager())
+        finally:
+            service._active_chat_executions.discard(key)
+            service._drop_pending_steers(chat.id)
+        steer = (await s.scalars(select(ChatItem).where(
+            ChatItem.chat_id == chat.id, ChatItem.item_type == "user_message"))).one()
+        assert json.loads(steer.item_metadata)["media_actions"] == (
+            "[Since the previous message, the user acted on media from this chat: "
+            f"media {media[0].id}: exported.]"
+        )
+        from media_actions import note_for_next_message
+        following = await note_for_next_message(s, chat.id, chat.created_at, later + timedelta(seconds=1))
+    assert following == (
+        "[Since the previous message, the user acted on media from this chat: "
+        f"media {media[1].id}: moved to trash.]"
+    )
