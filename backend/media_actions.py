@@ -340,9 +340,12 @@ async def note_for_next_message(
                 .order_by(ChatItem.created_at.desc(), ChatItem.id.desc())
                 .limit(50)
             )).all()
-            since = next(
+            # The latest boundary, not the newest message's: a steer delivered
+            # late ends its window when it was accepted, which can be earlier
+            # than a message sent meanwhile.
+            since = max(
                 (start for start in map(_window_start, recent) if start is not None),
-                chat_created_at,
+                default=chat_created_at,
             )
             return await describe_media_actions_since(own, chat_id, since, until)
     except Exception as exc:  # noqa: BLE001

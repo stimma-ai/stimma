@@ -280,3 +280,23 @@ async def test_a_steer_note_ends_when_the_steer_was_sent(db_session, monkeypatch
         "[Since the previous message, the user acted on media from this chat: "
         f"media {media[1].id}: moved to trash.]"
     )
+
+
+@pytest.mark.asyncio
+async def test_a_late_steer_does_not_move_the_window_back(db_session):
+    """A message sent while a steer waited ends a later window than the steer's."""
+    from media_actions import WINDOW_END_KEY, note_for_next_message
+
+    async with db_session() as s:
+        chat, media, (a,) = await _chat_with_assets(s, 1)
+        now = datetime.utcnow()
+        await _at(s, now - timedelta(seconds=20), EXPORTED, asset_id=a)
+        # A plain message at -10s already told the export; the steer accepted
+        # at -30s is delivered afterwards with its earlier cutoff.
+        s.add(ChatItem(chat_id=chat.id, item_type="user_message", created_at=now - timedelta(seconds=10)))
+        s.add(ChatItem(
+            chat_id=chat.id, item_type="user_message", created_at=now - timedelta(seconds=5),
+            item_metadata=json.dumps({WINDOW_END_KEY: (now - timedelta(seconds=30)).isoformat()}),
+        ))
+        await s.commit()
+        assert await note_for_next_message(s, chat.id, chat.created_at, now) is None
