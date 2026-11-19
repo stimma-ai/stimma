@@ -648,6 +648,17 @@ class AVToolResult:
 _progress_slots: ContextVar[tuple] = ContextVar("progress_slots", default=())
 
 
+# Progress batches whose code is still running in this process, as (profile,
+# item id). The stale-item cleanup must leave these alone: a backgrounded run
+# keeps filling its batch after the agent's turn ends. A restart empties this,
+# so batches it orphaned are still marked interrupted.
+_live_progress_items: set[tuple[str, int]] = set()
+
+
+def is_progress_live(item_id: int) -> bool:
+    return (get_current_profile(), item_id) in _live_progress_items
+
+
 class ProgressTracker:
     """tqdm-compatible progress tracker that streams to the frontend.
 
@@ -2365,6 +2376,7 @@ class StimmaSDK:
             session.add(chat_item)
             await session.commit()
             tracker._item_id = chat_item.id
+            _live_progress_items.add((get_current_profile(), chat_item.id))
             item_dict = chat_item.to_dict()
 
         await ws_manager.broadcast("chat_item_created", {
@@ -2424,8 +2436,12 @@ class StimmaSDK:
             tracker._mark_completed(reason)
             state = tracker._take_pending()
             if state is None:
+                _live_progress_items.discard((get_current_profile(), tracker._item_id))
                 continue
-            await self._persist_progress(tracker, state["display_data"])
+            try:
+                await self._persist_progress(tracker, state["display_data"])
+            finally:
+                _live_progress_items.discard((get_current_profile(), tracker._item_id))
 
             await ws_manager.broadcast("chat_item_updated", {
                 "chat_id": self.chat_id,

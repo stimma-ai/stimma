@@ -2849,8 +2849,10 @@ async def _cleanup_stale_v2_items(
             })
             cleaned = True
 
-    # 2. Find progress batches still marked "in_progress" — their run is gone,
-    #    so pending tiles will never fill.
+    # 2. Find progress batches still marked "in_progress" whose run is gone,
+    #    so pending tiles will never fill. A backgrounded run outlives the
+    #    agent's turn and is still filling its batch: leave that one alone.
+    from agent.v2.code_runtime import is_progress_live
     progress_result = await session.execute(
         select(ChatItem)
         .where(ChatItem.chat_id == chat_id)
@@ -2862,6 +2864,8 @@ async def _cleanup_stale_v2_items(
         except (json.JSONDecodeError, TypeError):
             meta = {}
         display_data = meta.get("display_data")
+        if is_progress_live(item.id):
+            continue
         if isinstance(display_data, dict) and display_data.get("status", "in_progress") == "in_progress":
             display_data["status"] = "interrupted"
             item.item_metadata = json.dumps({**meta, "display_data": display_data})

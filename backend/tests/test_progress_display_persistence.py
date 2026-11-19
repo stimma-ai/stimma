@@ -81,6 +81,27 @@ async def test_plan_status_interrupts_stale_progress(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_plan_status_leaves_a_backgrounded_batch_running(client, db_session):
+    """A backgrounded run keeps filling its batch after the agent's turn ends.
+    plan-status then reports the agent idle, but must not call the batch
+    interrupted while its code is still running."""
+    chat_id = await _make_chat(db_session)
+    sdk = object.__new__(StimmaSDK)
+    sdk.chat_id = chat_id
+    sdk._progress_trackers = []
+    tracker = ProgressTracker(total=10, desc="Generating", _chat_id=chat_id, _sdk=sdk)
+    await sdk._flush_progress()
+
+    response = await client.get(f"/api/chats/{chat_id}/plan-status")
+    assert response.status_code == 200
+    assert response.json()["is_stale"] is False
+    assert (await _display_data(db_session, tracker._item_id))["status"] == "in_progress"
+
+    await sdk._finalize_progress("completed")
+    assert (await _display_data(db_session, tracker._item_id))["status"] == "completed"
+
+
+@pytest.mark.asyncio
 async def test_stale_tool_recovery_does_not_invent_a_server_restart(client, db_session):
     chat_id = await _make_chat(db_session)
     async with db_session() as session:
