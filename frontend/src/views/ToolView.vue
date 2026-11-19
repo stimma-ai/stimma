@@ -6057,10 +6057,7 @@ async function startForeverMode(concurrency: number) {
   if (uiState.value.generateForeverMode) {
     await stopForeverMode()
   }
-  if (foreverLimitToastId != null) {
-    removeToast(foreverLimitToastId)
-    foreverLimitToastId = null
-  }
+  clearForeverLimitToast()
   foreverModeSessionId.value++
   uiState.value.generateForeverMode = true
   modelParams.value.randomizeSeed = true
@@ -6084,12 +6081,27 @@ async function startForeverMode(concurrency: number) {
 
 // The auto-stop fired. Say so, and offer to carry on: the run may have ended
 // hours ago while nobody watched, so the notice stays until dismissed.
+// Named for its tool, so two tools stopping at once each keep their own
+// notice (identical toasts merge). It goes away with its tool page: a closed
+// tab stays cached (KeepAlive), so watch the tab as well as unmount.
 let foreverLimitToastId: number | null = null
+let toolViewUnmounted = false
+const ownTabClosed = computed(() => !!instanceScopeId && !ownTab.value)
+function clearForeverLimitToast() {
+  if (foreverLimitToastId != null) removeToast(foreverLimitToastId)
+  foreverLimitToastId = null
+}
+watch(ownTabClosed, closed => { if (closed) clearForeverLimitToast() })
+onBeforeUnmount(() => {
+  toolViewUnmounted = true
+  clearForeverLimitToast()
+})
 async function stopForeverModeAtLimit() {
   const limit = foreverIdleLimit.value
   await stopForeverMode()
+  if (toolViewUnmounted || ownTabClosed.value) return
   foreverLimitToastId = addToast(
-    `Forever stopped at ${limit} images`,
+    `Forever stopped at ${limit}: ${toolDisplayName.value}`,
     'info',
     0,
     { label: 'Keep going', onClick: () => { void startForeverMode(uiState.value.generateForeverConcurrency) } },
