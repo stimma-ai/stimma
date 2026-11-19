@@ -140,11 +140,17 @@ async def _deliver_steers(
             copied = await _copy_media_to_workspace(media_ids, chat.id, session, chat.project_id)
             if copied:
                 metadata["workspace_files"] = copied
+        from media_actions import note_for_next_message
+        now = datetime.utcnow()
+        note = await note_for_next_message(session, chat, now)
+        if note:
+            metadata["media_actions"] = note
         item = ChatItem(
             chat_id=chat.id,
             item_type="user_message",
             message_text=steer.get("message_text"),
             item_metadata=json.dumps(metadata),
+            created_at=now,
         )
         session.add(item)
         await session.commit()

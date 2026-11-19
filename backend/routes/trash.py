@@ -74,6 +74,10 @@ async def delete_media(
             await trash_asset(session, asset_id=asset_revision.asset_id)
         except AssetServiceError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        from media_actions import TRASHED, record_media_action
+        await record_media_action(
+            session, TRASHED, media_id=media_id, asset_id=asset_revision.asset_id
+        )
         await session.commit()
         await ws_manager.broadcast(
             "asset_trashed", {"asset_id": asset_revision.asset_id}
@@ -98,6 +102,7 @@ async def bulk_delete_media(
     """Compatibility bulk soft-delete without implicit containment cascades."""
     all_deleted_ids = []
     trashed_asset_ids = set()
+    trashed_pairs = []
     errors = []
     BATCH_SIZE = 500
 
@@ -141,6 +146,7 @@ async def bulk_delete_media(
                     all_deleted_ids.pop()
                     continue
                 trashed_asset_ids.add(asset_revision.asset_id)
+                trashed_pairs.append((media_id, asset_revision.asset_id))
         else:
             errors.append({
                 "media_id": media_id,
@@ -148,6 +154,8 @@ async def bulk_delete_media(
             })
             all_deleted_ids.pop()
 
+    from media_actions import TRASHED, record_media_actions
+    await record_media_actions(session, TRASHED, trashed_pairs)
     await session.commit()
 
     if trashed_asset_ids:
@@ -682,6 +690,7 @@ async def bulk_restore_from_trash(
     """Restore multiple items from trash."""
     restored_count = 0
     restored_asset_ids: list[int] = []
+    restored_pairs = []
     errors = []
     BATCH_SIZE = 500
 
@@ -719,7 +728,10 @@ async def bulk_restore_from_trash(
         await restore_asset(session, asset_id=asset_revision.asset_id)
         restored_count += 1
         restored_asset_ids.append(asset_revision.asset_id)
+        restored_pairs.append((media_id, asset_revision.asset_id))
 
+    from media_actions import RESTORED, record_media_actions
+    await record_media_actions(session, RESTORED, restored_pairs)
     await session.commit()
 
     # Broadcast bulk restore event
@@ -848,6 +860,10 @@ async def restore_from_trash(
         raise HTTPException(status_code=400, detail="Asset is not deleted")
     from asset_service import restore_asset
     await restore_asset(session, asset_id=asset_revision.asset_id)
+    from media_actions import RESTORED, record_media_action
+    await record_media_action(
+        session, RESTORED, media_id=media_id, asset_id=asset_revision.asset_id
+    )
     await session.commit()
 
     # Broadcast restore event

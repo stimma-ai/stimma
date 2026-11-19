@@ -220,6 +220,9 @@ async def export_package(media_id: int, body: PackageExportRequest, session: Asy
     manifest = await manifest_for_media(session, media)
     if manifest is None:
         raise HTTPException(status_code=500, detail="Package manifest is unreadable")
+    if body.format in ("zip", "pdf", "html"):
+        from media_actions import EXPORTED, record_and_commit
+        await record_and_commit(session, EXPORTED, [media_id])
     slug = manifest.get("slug") or slugify(manifest.get("title") or "package")
     if body.format == "zip":
         data = await asyncio.to_thread(export_zip, Path(media.file_path), manifest, folder_name=slug)

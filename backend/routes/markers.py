@@ -191,6 +191,12 @@ async def add_marker_to_media(
     changed = await set_asset_marker(
         session, asset_id=asset.id, marker_id=marker_id, add=True
     )
+    if changed:
+        from media_actions import MARKED, marker_detail, record_media_action
+        await record_media_action(
+            session, MARKED, media_id=media_id, asset_id=asset.id,
+            detail=marker_detail(marker),
+        )
     await session.commit()
     markers = await _get_active_markers(session, media_id)
     await _broadcast_marker_update(session, media_id, asset.id, markers)
@@ -242,6 +248,11 @@ async def remove_marker_from_media(
         session, asset_id=asset.id, marker_id=marker_id, add=False
     ):
         raise HTTPException(status_code=404, detail="Marker not found on Asset")
+    from media_actions import UNMARKED, marker_detail, record_media_action
+    await record_media_action(
+        session, UNMARKED, media_id=media_id, asset_id=asset.id,
+        detail=marker_detail(marker),
+    )
     await session.commit()
     markers = await _get_active_markers(session, media_id)
     await _broadcast_marker_update(session, media_id, asset.id, markers)
@@ -272,19 +283,24 @@ async def bulk_marker_operation(
         promote=request.add,
         origin_type="marker_promotion",
     )
-    changed = 0
+    changed_pairs = []
     for media_id, asset_id in mapping.items():
         await mirror_media_associations_to_asset(
             session, media_id=media_id, asset_id=asset_id
         )
-        changed += int(
-            await set_asset_marker(
-                session,
-                asset_id=asset_id,
-                marker_id=request.marker_id,
-                add=request.add,
-            )
-        )
+        if await set_asset_marker(
+            session,
+            asset_id=asset_id,
+            marker_id=request.marker_id,
+            add=request.add,
+        ):
+            changed_pairs.append((media_id, asset_id))
+    changed = len(changed_pairs)
+    from media_actions import MARKED, UNMARKED, marker_detail, record_media_actions
+    await record_media_actions(
+        session, MARKED if request.add else UNMARKED, changed_pairs,
+        marker_detail(marker),
+    )
     await session.commit()
     for media_id, asset_id in mapping.items():
         markers = await _get_active_markers(session, media_id)

@@ -284,6 +284,10 @@ async def export_svg(
     base_name = _base_name(item, media_id)
     width, height = intrinsic_size(parse_svg(svg_text))
     fmt = request.format.lower()
+    # "html" also feeds the export dialog's code preview, so it isn't an export.
+    if fmt != "html":
+        from media_actions import EXPORTED, record_and_commit
+        await record_and_commit(session, EXPORTED, [media_id])
 
     def _attachment(payload: bytes, filename: str, media_type: str):
         return StreamingResponse(

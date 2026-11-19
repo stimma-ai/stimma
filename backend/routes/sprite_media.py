@@ -82,6 +82,8 @@ async def export_sprite(
         result = await asyncio.to_thread(run_sprite_export, source, request)
     except SpriteExportError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    from media_actions import EXPORTED, record_and_commit
+    await record_and_commit(session, EXPORTED, [media_id])
     return StreamingResponse(
         io.BytesIO(result.payload),
         media_type=result.media_type,

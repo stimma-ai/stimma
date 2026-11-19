@@ -419,6 +419,8 @@ def _item_to_message(item: ChatItem) -> Dict[str, Any] | None:
         if metadata and metadata.get('workspace_refs'):
             refs = json.dumps(metadata['workspace_refs'], ensure_ascii=False)
             text += f"\n\n[Attached workspace files: {refs}. Chat paths are relative to your workspace; project paths are relative to stimma.project_path(). Read these files for context.]"
+        if metadata and metadata.get("media_actions"):
+            text += f"\n\n{metadata['media_actions']}"
         if metadata and metadata.get("prompt_timestamp"):
             text = f"{metadata['prompt_timestamp']}\n\n{text}"
         return {"role": "user", "content": text}

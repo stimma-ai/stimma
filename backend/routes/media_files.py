@@ -2317,6 +2317,8 @@ async def export_layout(
     index_path = bundle_dir / 'index.html'
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="Layout index.html not found")
+    from media_actions import EXPORTED, record_and_commit
+    await record_and_commit(session, EXPORTED, [media_id])
 
     html_content = index_path.read_text(encoding='utf-8')
 
@@ -3730,6 +3732,9 @@ async def bulk_download_media(
     if not valid_items:
         raise HTTPException(status_code=404, detail="No media files found on disk")
 
+    from media_actions import EXPORTED, record_and_commit
+    await record_and_commit(session, EXPORTED, [item.id for item in valid_items])
+
     # Single file: return directly; directory payloads use the zip path below.
     single_directory = len(valid_items) == 1 and Path(valid_items[0].file_path).is_dir()
     if len(valid_items) == 1 and not single_directory:
@@ -4114,6 +4119,8 @@ async def export_media(
 
     from telemetry import get_telemetry_client
     get_telemetry_client().track("media_exported", {"count": len(valid_items)})
+    from media_actions import EXPORTED, record_and_commit
+    await record_and_commit(session, EXPORTED, [item.id for item in valid_items])
 
     opts = request.options
     tmp_dir = None

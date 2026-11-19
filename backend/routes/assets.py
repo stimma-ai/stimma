@@ -45,6 +45,8 @@ from database import (
     Project,
     ProjectAsset,
 )
+import media_actions
+from media_actions import record_media_action, record_media_actions
 from tool_display import resolve_tool_display_metadata
 from implicit_markers import (
     EDITED_MARKER,
@@ -1323,12 +1325,20 @@ async def _markable_asset_or_404(
 async def add_asset_marker(
     asset_id: int, marker_id: int, session: AsyncSession = Depends(get_db_session)
 ):
-    if await session.get(Marker, marker_id) is None:
+    marker = await session.get(Marker, marker_id)
+    if marker is None:
         raise HTTPException(status_code=404, detail="Marker not found")
     asset, restored = await _markable_asset_or_404(session, asset_id)
-    await set_asset_marker(
+    changed = await set_asset_marker(
         session, asset_id=asset_id, marker_id=marker_id, add=True
     )
+    if restored:
+        await record_media_action(session, media_actions.RESTORED, asset_id=asset_id)
+    if changed:
+        await record_media_action(
+            session, media_actions.MARKED, asset_id=asset_id,
+            detail=media_actions.marker_detail(marker),
+        )
     await session.commit()
     markers = await _asset_markers(session, asset_id)
     if restored:
@@ -1348,11 +1358,17 @@ async def remove_asset_marker(
     asset_id: int, marker_id: int, session: AsyncSession = Depends(get_db_session)
 ):
     await _live_asset_or_404(session, asset_id)
+    marker = await session.get(Marker, marker_id)
     changed = await set_asset_marker(
         session, asset_id=asset_id, marker_id=marker_id, add=False
     )
     if not changed:
         raise HTTPException(status_code=404, detail="Marker not found on Asset")
+    if marker is not None:
+        await record_media_action(
+            session, media_actions.UNMARKED, asset_id=asset_id,
+            detail=media_actions.marker_detail(marker),
+        )
     await session.commit()
     markers = await _asset_markers(session, asset_id)
     await broadcast_asset_organization_updated(session, [asset_id], ws_manager)
@@ -1364,7 +1380,8 @@ async def bulk_asset_markers(
     request: AssetMarkerBatchRequest,
     session: AsyncSession = Depends(get_db_session),
 ):
-    if await session.get(Marker, request.marker_id) is None:
+    marker = await session.get(Marker, request.marker_id)
+    if marker is None:
         raise HTTPException(status_code=404, detail="Marker not found")
     # Adding a marker rescues trashed Assets (see _markable_asset_or_404);
     # removing one only applies to live Assets.
@@ -1388,16 +1405,25 @@ async def bulk_asset_markers(
             )
         )
     )
-    changed = 0
+    changed_ids = []
     for asset_id in valid_ids:
-        changed += int(
-            await set_asset_marker(
-                session,
-                asset_id=asset_id,
-                marker_id=request.marker_id,
-                add=request.add,
-            )
-        )
+        if await set_asset_marker(
+            session,
+            asset_id=asset_id,
+            marker_id=request.marker_id,
+            add=request.add,
+        ):
+            changed_ids.append(asset_id)
+    changed = len(changed_ids)
+    await record_media_actions(
+        session, media_actions.RESTORED, [(None, a) for a in restored_ids]
+    )
+    await record_media_actions(
+        session,
+        media_actions.MARKED if request.add else media_actions.UNMARKED,
+        [(None, a) for a in changed_ids],
+        media_actions.marker_detail(marker),
+    )
     await session.commit()
     if changed or request.add:
         await broadcast_asset_organization_updated(
@@ -1578,6 +1604,7 @@ async def trash_assets(
             changed.append(asset_id)
         except AssetServiceError:
             continue
+    await record_media_actions(session, media_actions.TRASHED, [(None, a) for a in changed])
     await session.commit()
     if changed:
         await ws_manager.broadcast("assets_trashed", {"asset_ids": changed})
@@ -1595,6 +1622,7 @@ async def restore_assets(
             changed.append(asset_id)
         except AssetServiceError:
             continue
+    await record_media_actions(session, media_actions.RESTORED, [(None, a) for a in changed])
     await session.commit()
     if changed:
         await ws_manager.broadcast("assets_restored", {"asset_ids": changed})
@@ -2253,6 +2281,7 @@ async def delete_asset(asset_id: int, session: AsyncSession = Depends(get_db_ses
         asset = await trash_asset(session, asset_id=asset_id)
     except AssetServiceError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    await record_media_action(session, media_actions.TRASHED, asset_id=asset_id)
     await session.commit()
     await ws_manager.broadcast("asset_deleted", {"asset_id": asset_id})
     return {"asset": asset.to_dict()}
@@ -2266,6 +2295,7 @@ async def restore_asset_route(
         asset = await restore_asset(session, asset_id=asset_id)
     except AssetServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await record_media_action(session, media_actions.RESTORED, asset_id=asset_id)
     await session.commit()
     # Carry asset_id at top level: lifecycle listeners key on asset_id/asset_ids
     # (useMediaState.updateAssetLifecycle) and never unwrap the full dict.

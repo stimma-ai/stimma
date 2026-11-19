@@ -2224,6 +2224,11 @@ async def save_edited_image(
         ))
         for owner in provisional_owners:
             await session.delete(owner)
+        from media_actions import EDITED, record_media_action
+        await record_media_action(
+            session, EDITED, media_id=source_media_id, asset_id=source_asset.id,
+            detail={"result_media_id": db_media_item.id, "save_as_new": save_as_new},
+        )
         await session.commit()
         if snapshot_media_id != source_media_id:
             try:

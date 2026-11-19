@@ -2072,6 +2072,20 @@ async def create_chat_item(
             session, chat_id, request.attachments, item_metadata,
         ))
 
+    # What the user did to this chat's media since their previous message.
+    created_at = datetime.utcnow()
+    if request.item_type == "user_message":
+        from media_actions import note_for_next_message
+        note = await note_for_next_message(session, chat, created_at)
+        if note:
+            try:
+                merged = json.loads(item_metadata) if item_metadata else {}
+            except (json.JSONDecodeError, TypeError):
+                merged = None
+            if isinstance(merged, dict):
+                merged["media_actions"] = note
+                item_metadata = json.dumps(merged)
+
     # Create chat item
     item = ChatItem(
         chat_id=chat_id,
@@ -2086,7 +2100,8 @@ async def create_chat_item(
         media_ids=request.media_ids,
         grid_layout=request.grid_layout,
         parent_item_id=request.parent_item_id,
-        item_metadata=item_metadata
+        item_metadata=item_metadata,
+        created_at=created_at,
     )
 
     session.add(item)

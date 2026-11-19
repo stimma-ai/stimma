@@ -541,6 +541,27 @@ class ContactSheetReview(Base):
     )
 
 
+class MediaAction(Base):
+    """Something the user did to media through the app: marked it, changed a
+    collection, trashed or restored it, exported, edited or shared it.
+
+    The chat agent's next message reports the ones on its media. ``detail``
+    carries names (marker, collection) so the report never depends on those
+    rows still existing.
+    """
+    __tablename__ = "media_actions"
+
+    id = Column(Integer, primary_key=True)
+    media_id = Column(Integer, nullable=True, index=True)
+    asset_id = Column(Integer, nullable=True, index=True)
+    action = Column(String, nullable=False)
+    detail = Column(Text, nullable=True)  # JSON
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = {'sqlite_autoincrement': True}
+
+
 class AssetMigrationMap(Base):
     """Recoverable explanation of how one legacy MediaItem was classified."""
     __tablename__ = "asset_migration_map"

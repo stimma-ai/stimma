@@ -7,6 +7,13 @@ from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from collection_service import collection_summaries_query, serialize_collection
+from media_actions import (
+    ADDED_TO_COLLECTION,
+    REMOVED_FROM_COLLECTION,
+    collection_detail,
+    record_media_action,
+    record_media_actions,
+)
 from core.dependencies import get_db_session
 from core.logging import get_logger
 from database import (
@@ -478,6 +485,8 @@ async def add_collection_items(
             )
         )
     )
+    media_for_asset = {a: m for m, a in promoted.items()}
+    added_pairs = []
     for asset_id in requested_asset_ids:
         if asset_id not in valid_asset_ids:
             continue
@@ -491,6 +500,10 @@ async def add_collection_items(
         if was_added:
             next_order += 1
             added += 1
+            added_pairs.append((media_for_asset.get(asset_id), asset_id))
+    await record_media_actions(
+        session, ADDED_TO_COLLECTION, added_pairs, collection_detail(collection)
+    )
     collection.updated_at = datetime.utcnow()
     await session.commit()
     if valid_asset_ids:
@@ -533,6 +546,10 @@ async def remove_collection_item(
         )
         if row is not None:
             row.deleted_at = datetime.utcnow()
+            await record_media_action(
+                session, REMOVED_FROM_COLLECTION, media_id=media_id,
+                asset_id=asset.id, detail=collection_detail(collection),
+            )
     # Remove any historical edge left by an interrupted migration.
     await session.execute(
         delete(CollectionItem).where(CollectionItem.collection_section_id == section.id, CollectionItem.media_id == media_id)
@@ -566,6 +583,10 @@ async def remove_collection_asset_item(
     if row is None:
         raise HTTPException(status_code=404, detail="Collection Asset not found")
     row.deleted_at = datetime.utcnow()
+    await record_media_action(
+        session, REMOVED_FROM_COLLECTION, asset_id=asset_id,
+        detail=collection_detail(collection),
+    )
     await _compact_asset_item_orders(section.id, session)
     await _delete_section_if_empty(section, session)
     collection.updated_at = datetime.utcnow()
@@ -689,6 +710,7 @@ async def bulk_remove_collection_items(
         )
     )
     sections = sections_result.scalars().all()
+    removed_asset_ids: list[int] = []
 
     for section in sections:
         await session.execute(
@@ -709,9 +731,17 @@ async def bulk_remove_collection_items(
             )
             for row in rows:
                 row.deleted_at = datetime.utcnow()
+                removed_asset_ids.append(row.asset_id)
         await _compact_asset_item_orders(section.id, session)
         await _delete_section_if_empty(section, session)
 
+    media_for_asset = {a: m for m, a in mapped.items()}
+    await record_media_actions(
+        session,
+        REMOVED_FROM_COLLECTION,
+        [(media_for_asset.get(a), a) for a in dict.fromkeys(removed_asset_ids)],
+        collection_detail(collection),
+    )
     collection.updated_at = datetime.utcnow()
     await session.commit()
     _track_collection_event(
@@ -752,6 +782,7 @@ async def bulk_move_collection_items(
         )
     media_ids_set = set(request.media_ids)
     asset_ids_set = set(request.asset_ids) | set(mapped.values())
+    already_in_collection = set(await _collection_asset_ids(session, collection.id))
 
     sections_result = await session.execute(
         select(CollectionSection).where(
@@ -812,6 +843,13 @@ async def bulk_move_collection_items(
             )
         )
         next_asset_order += 1
+    media_for_asset = {a: m for m, a in mapped.items()}
+    await record_media_actions(
+        session,
+        ADDED_TO_COLLECTION,
+        [(media_for_asset.get(a), a) for a in asset_ids_set if a not in already_in_collection],
+        collection_detail(collection),
+    )
 
     attached_asset_ids = await _attach_assets_to_collection_project(
         session, collection, asset_ids_set

@@ -614,6 +614,8 @@ async def share_media(request: ShareRequest, session: AsyncSession = Depends(get
 
     from telemetry import get_telemetry_client
     get_telemetry_client().track("media_shared_to_cloud", {"count": 1}, category="share")
+    from media_actions import SHARED, record_and_commit
+    await record_and_commit(session, SHARED, [request.media_id])
 
     return ShareResponse(
         success=True,
