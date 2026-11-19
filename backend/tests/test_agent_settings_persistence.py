@@ -45,6 +45,8 @@ async def test_agent_writes_preserve_local_models(tmp_path, monkeypatch, operati
     monkeypatch.setattr(config, "settings", None)
     monkeypatch.setattr(config_writer, "_app_initiated_write", False)
     expected = deepcopy(agent)
+    # The model writes its full shape back, including the (empty) provider grants.
+    expected["tool_config"]["allowed_providers"] = []
 
     with ProfileScope("test-profile"):
         config.reload_settings()
