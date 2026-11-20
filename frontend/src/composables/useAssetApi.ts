@@ -152,6 +152,16 @@ export function useAssetApi() {
     return (await axios.post(`${api()}/assets/item/${assetId}/container-members/promote`)).data
   }
 
+  /** Take one member out of a set or grid; its Asset stays in the library. */
+  async function removeContainerMember(assetId: number, memberId: number, expectedRevisionId: number | null = null) {
+    return (await axios.post(`${api()}/assets/item/${assetId}/container-members/${memberId}/remove`, { expected_revision_id: expectedRevisionId })).data
+  }
+
+  /** Undo a member removal: bring back the Revision it replaced. */
+  async function revertContainerMembers(assetId: number, revisionId: number, expectedRevisionId: number) {
+    return (await axios.post(`${api()}/assets/item/${assetId}/container-members/revert`, { revision_id: revisionId, expected_revision_id: expectedRevisionId })).data
+  }
+
   async function trash(assetId: number) {
     return (await axios.delete(`${api()}/assets/${assetId}`)).data
   }
@@ -261,6 +271,8 @@ export function useAssetApi() {
     getCollections,
     getContainers,
     promoteContainerMembers,
+    removeContainerMember,
+    revertContainerMembers,
     trash,
     trashMany,
     restore,

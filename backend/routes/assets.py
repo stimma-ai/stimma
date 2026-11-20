@@ -1896,6 +1896,90 @@ async def promote_container_members(
     return {"asset_ids": promoted_ids, "count": len(promoted_ids)}
 
 
+class ContainerMemberRemoveRequest(BaseModel):
+    expected_revision_id: int | None = None
+
+
+class ContainerMemberRevertRequest(BaseModel):
+    revision_id: int
+    expected_revision_id: int
+
+
+async def _broadcast_container_revision(session, asset_id: int, revision, media_id: int):
+    item = await get_asset_browser_item(asset_id, session=session)
+    await ws_manager.broadcast(
+        "asset_current_revision_changed",
+        {"asset_id": asset_id, "revision_id": revision.id, "media_id": media_id, "asset": item},
+    )
+    return item
+
+
+@router.post("/item/{asset_id}/container-members/{member_id}/remove")
+async def remove_container_member_route(
+    asset_id: int,
+    member_id: int,
+    request: ContainerMemberRemoveRequest | None = None,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Take one member out of a set or grid; the member's Asset is untouched."""
+    from container_service import ContainerRevisionConflict, remove_container_member
+    from storage_service import cleanup_staged_source
+
+    try:
+        revision, previous_revision_id, media = await remove_container_member(
+            session,
+            asset_id=asset_id,
+            member_id=member_id,
+            expected_revision_id=request.expected_revision_id if request else None,
+        )
+    except ContainerRevisionConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AssetServiceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    await cleanup_staged_source(session, media_id=media.id)
+    item = await _broadcast_container_revision(session, asset_id, revision, media.id)
+    return {
+        "asset_id": asset_id,
+        "revision_id": revision.id,
+        "media_id": media.id,
+        "previous_revision_id": previous_revision_id,
+        "asset": item,
+    }
+
+
+@router.post("/item/{asset_id}/container-members/revert")
+async def revert_container_members_route(
+    asset_id: int,
+    request: ContainerMemberRevertRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Undo a member removal by restoring the earlier Revision's members."""
+    from container_service import ContainerRevisionConflict, revert_container_members
+
+    try:
+        revision = await revert_container_members(
+            session,
+            asset_id=asset_id,
+            revision_id=request.revision_id,
+            expected_revision_id=request.expected_revision_id,
+        )
+    except ContainerRevisionConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AssetServiceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    item = await _broadcast_container_revision(
+        session, asset_id, revision, revision.primary_media_id
+    )
+    return {
+        "asset_id": asset_id,
+        "revision_id": revision.id,
+        "media_id": revision.primary_media_id,
+        "asset": item,
+    }
+
+
 @router.get("/item/{asset_id}/container-members/summary")
 async def container_member_summary(
     asset_id: int,

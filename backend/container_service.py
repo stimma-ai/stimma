@@ -101,6 +101,7 @@ async def _populate_revision_members(
     container_asset_id: int,
     revision_id: int,
     members: Iterable[dict[str, Any]],
+    check_links: bool = True,
 ) -> list[ContainerMember]:
     desired = list(members)
     existing = list(
@@ -138,7 +139,9 @@ async def _populate_revision_members(
         linked_asset_id, embedded_media_id, missing_linked_asset = _member_target(
             member_data
         )
-        if linked_asset_id is not None:
+        # Members carried over from this container's own history were valid
+        # links when made; a trashed one stays a hole, not an error.
+        if linked_asset_id is not None and check_links:
             await _assert_no_link_cycle(
                 session,
                 container_asset_id=container_asset_id,
@@ -535,6 +538,7 @@ async def get_normalized_container_content(
     if container_media.file_format == "stimmaset.json":
         result["items"] = [
             {
+                "member_id": entry["member_id"],
                 "path": media_by_id[entry["media_id"]].file_path
                 if entry["media_id"] in media_by_id
                 else None,
@@ -547,6 +551,7 @@ async def get_normalized_container_content(
     else:
         result["cells"] = [
             {
+                "member_id": entry["member_id"],
                 "row": entry["row_index"],
                 "col": entry["column_index"],
                 "path": media_by_id[entry["media_id"]].file_path
@@ -812,3 +817,233 @@ async def infer_structured_member_specs(
             spec['column_index'] = record.get('col', 0)
         specs.append(spec)
     return specs
+
+
+# Member removal --------------------------------------------------------------
+#
+# Delete acts on the image, never on the layout. Sets and grids take a member
+# out by committing a new Revision without it; contact sheets, sprites and
+# packages are built documents whose members are parts, so they refuse.
+
+EDITABLE_CONTAINER_TYPES = {"set", "grid"}
+
+
+class ContainerRevisionConflict(AssetServiceError):
+    """The container moved on since the caller looked at it."""
+
+
+def _carried_member(member: ContainerMember) -> dict[str, Any]:
+    return {
+        "linked_asset_id": member.linked_asset_id,
+        "embedded_media_id": member.embedded_media_id,
+        "missing_linked_asset": member.missing_linked_asset,
+        "row_index": member.row_index,
+        "column_index": member.column_index,
+        "caption": member.caption,
+        "title": member.title,
+        "member_metadata": member.member_metadata,
+    }
+
+
+async def _revision_members(
+    session: AsyncSession, revision_id: int
+) -> list[ContainerMember]:
+    return list(
+        await session.scalars(
+            select(ContainerMember)
+            .where(
+                ContainerMember.container_revision_id == revision_id,
+                ContainerMember.deleted_at.is_(None),
+            )
+            .order_by(ContainerMember.member_order, ContainerMember.id)
+        )
+    )
+
+
+async def _editable_container(
+    session: AsyncSession, *, asset_id: int, expected_revision_id: int | None
+) -> Asset:
+    asset = await session.get(Asset, asset_id)
+    if (
+        asset is None
+        or asset.deleted_at is not None
+        or asset.state != "active"
+        or asset.current_revision_id is None
+    ):
+        raise AssetServiceError("Container Asset is unavailable")
+    if asset.asset_type not in CONTAINER_TYPES:
+        raise AssetServiceError("Asset is not a container")
+    if asset.asset_type not in EDITABLE_CONTAINER_TYPES:
+        raise AssetServiceError(
+            f"Members of a {asset.asset_type} are part of the built document"
+        )
+    if expected_revision_id is not None and asset.current_revision_id != expected_revision_id:
+        raise ContainerRevisionConflict("The container changed")
+    return asset
+
+
+async def _write_container_manifest(
+    session: AsyncSession,
+    *,
+    source_media: MediaItem,
+    manifest: dict[str, Any],
+) -> MediaItem:
+    """Stage a new manifest payload; the caller commits, then cleans the source."""
+    import hashlib
+    import uuid
+
+    import app_dirs
+    from core.profile_context import get_current_profile
+    from storage_service import stage_managed_media
+
+    profile_id = get_current_profile()
+    staging = app_dirs.get_managed_staging_dir(profile_id, "generated")
+    staging.mkdir(parents=True, exist_ok=True)
+    stem = "set" if source_media.file_format == "stimmaset.json" else "grid"
+    path = staging / f"{stem}_{uuid.uuid4().hex[:12]}.{source_media.file_format}"
+    data = json.dumps(manifest, indent=2).encode("utf-8")
+    path.write_bytes(data)
+    now = datetime.utcnow()
+    media = MediaItem(
+        file_path=str(path),
+        file_hash=hashlib.sha256(data).hexdigest(),
+        file_size=len(data),
+        file_format=source_media.file_format,
+        original_filename=path.name,
+        created_date=now,
+        modified_date=now,
+        indexed_date=now,
+        metadata_status="completed",
+        metadata_processed_at=now,
+        metadata_config_version=source_media.metadata_config_version,
+        width=0,
+        height=0,
+        megapixels=0,
+        raw_metadata=json.dumps(manifest),
+        generation_metadata=source_media.generation_metadata,
+    )
+    session.add(media)
+    await session.flush()
+    await stage_managed_media(
+        session, media=media, profile_id=profile_id, remove_source=True
+    )
+    return media
+
+
+def _manifest_without(
+    manifest: dict[str, Any],
+    *,
+    file_format: str,
+    members: list[ContainerMember],
+    removed: ContainerMember,
+) -> dict[str, Any]:
+    """Keep the payload manifest in step with normalized membership."""
+    result = json.loads(json.dumps(manifest))
+    if file_format == "stimmaset.json":
+        items = result.get("items")
+        # Only an aligned manifest maps index to member; otherwise the
+        # normalized rows stay the authority and the manifest is left alone.
+        if isinstance(items, list) and len(items) == len(members):
+            items.pop(members.index(removed))
+    elif removed.row_index is not None and removed.column_index is not None:
+        cells = result.get("cells")
+        if isinstance(cells, list):
+            result["cells"] = [
+                cell
+                for cell in cells
+                if not (
+                    isinstance(cell, dict)
+                    and cell.get("row") == removed.row_index
+                    and cell.get("col") == removed.column_index
+                )
+            ]
+    return result
+
+
+async def remove_container_member(
+    session: AsyncSession,
+    *,
+    asset_id: int,
+    member_id: int,
+    expected_revision_id: int | None = None,
+) -> tuple[AssetRevision, int, MediaItem]:
+    """Commit a set/grid Revision without one member.
+
+    Returns the new Revision, the Revision it replaced (the undo target) and
+    its new payload. A grid keeps its rows, columns and headers: the cell is
+    simply empty.
+    """
+    async with session.begin_nested():
+        asset = await _editable_container(
+            session, asset_id=asset_id, expected_revision_id=expected_revision_id
+        )
+        head = await session.get(AssetRevision, asset.current_revision_id)
+        members = await _revision_members(session, head.id)
+        removed = next((member for member in members if member.id == member_id), None)
+        if removed is None:
+            raise ContainerRevisionConflict("The member is no longer in this container")
+        source_media = await session.get(MediaItem, head.primary_media_id)
+        if source_media is None:
+            raise AssetServiceError("Container payload is unavailable")
+        try:
+            manifest = json.loads(source_media.raw_metadata or "{}")
+        except (json.JSONDecodeError, TypeError):
+            manifest = {}
+        if not isinstance(manifest, dict):
+            manifest = {}
+        new_media = await _write_container_manifest(
+            session,
+            source_media=source_media,
+            manifest=_manifest_without(
+                manifest,
+                file_format=source_media.file_format,
+                members=members,
+                removed=removed,
+            ),
+        )
+        revision = await commit_revision(
+            session,
+            asset_id=asset_id,
+            media_id=new_media.id,
+            parent_revision_id=head.id,
+            note="Removed a member",
+        )
+        await _populate_revision_members(
+            session,
+            container_asset_id=asset_id,
+            revision_id=revision.id,
+            members=[_carried_member(m) for m in members if m.id != removed.id],
+            check_links=False,
+        )
+        return revision, head.id, new_media
+
+
+async def revert_container_members(
+    session: AsyncSession,
+    *,
+    asset_id: int,
+    revision_id: int,
+    expected_revision_id: int,
+) -> AssetRevision:
+    """Undo a member removal: bring an earlier Revision's members back as latest."""
+    from asset_service import restore_revision_as_latest
+
+    async with session.begin_nested():
+        asset = await _editable_container(
+            session, asset_id=asset_id, expected_revision_id=expected_revision_id
+        )
+        source = await session.get(AssetRevision, revision_id)
+        if source is None or source.deleted_at is not None or source.asset_id != asset.id:
+            raise AssetServiceError("Revision does not belong to this Asset")
+        members = await _revision_members(session, source.id)
+        revision = await restore_revision_as_latest(
+            session, asset_id=asset_id, revision_id=revision_id
+        )
+        await _populate_revision_members(
+            session,
+            container_asset_id=asset_id,
+            revision_id=revision.id,
+            members=[_carried_member(m) for m in members],
+            check_links=False,
+        )
+        return revision

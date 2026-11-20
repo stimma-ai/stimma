@@ -15,6 +15,20 @@ export interface MediaContextMenuState {
   collectionSectionId?: number // The current collection section ID if viewing a collection section
   inProject?: boolean     // Whether viewing a project
   projectId?: number | null // The caller's project; null = explicit top level, omitted = active project
+  memberOf?: ContainerMemberMenu | null // The item is shown as a member of a set, grid or built document
+}
+
+/**
+ * The menu opened on a container member. Delete acts on the image, never on the
+ * layout: the container's view decides what Delete means (onDelete), Remove from
+ * set takes a linked member out of this set only, and a built document's parts
+ * (contact sheet, sprite, package) have no delete at all.
+ */
+export interface ContainerMemberMenu {
+  type: 'set' | 'grid' | 'sheet' | 'sprite' | 'package' | string
+  embedded: boolean
+  onDelete?: () => void
+  onRemove?: () => void
 }
 
 // Singleton state for the context menu
@@ -41,8 +55,9 @@ export function useMediaContextMenu() {
     collectionSectionId?: number
     inProject?: boolean
     projectId?: number | null
+    memberOf?: ContainerMemberMenu | null
   }) {
-    const { event, mediaId, assetId, fileHash, mediaIds, assetIds, selectedItems, inCollection, collectionSectionId, inProject, projectId } = options
+    const { event, mediaId, assetId, fileHash, mediaIds, assetIds, selectedItems, inCollection, collectionSectionId, inProject, projectId, memberOf } = options
 
     // Prevent default browser context menu
     event.preventDefault()
@@ -65,7 +80,8 @@ export function useMediaContextMenu() {
       inCollection: inCollection || false,
       collectionSectionId,
       inProject: inProject || false,
-      projectId
+      projectId,
+      memberOf: memberOf || null
     }
   }
 

@@ -430,3 +430,26 @@ def test_auto_cover_counts_input_bytes_when_nothing_was_produced():
     manifest["extras"] = [{"size": 10}]
     assert _total_files(manifest) == 1
     assert _total_size(manifest) == 10
+
+
+@pytest.mark.asyncio
+async def test_trashed_member_keeps_the_package_and_is_missing_at_rebuild(db_session, tmp_path):
+    from asset_service import trash_asset
+    from packages.bundle import PackageError
+
+    _write_icon(tmp_path / "master.png")
+    async with db_session() as session:
+        master = await _media(session, tmp_path / "master.png", materialize_asset=True)
+        master_rev = await session.scalar(select(AssetRevision).where(AssetRevision.primary_media_id == master.id))
+        async with PackageBuilder(session, profile_id="default", title="Acme icons") as builder:
+            await builder.run("tiles", {"master": await builder.add_member(master.id, role="master")}, {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["web"]})
+            media, asset = await builder.save(materialize_asset=True)
+        await trash_asset(session, asset_id=master_rev.asset_id)
+        await session.commit()
+
+        # The built bundle is untouched; the member reads as missing.
+        assert (Path(media.file_path) / "members/master.png").is_file()
+        status = await package_status(session, media)
+        assert status["members"][0]["unavailable"] is True
+        with pytest.raises(PackageError, match="no longer available"):
+            await rebuild_package(session, profile_id="default", asset_id=asset.id)

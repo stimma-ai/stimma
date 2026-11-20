@@ -1377,6 +1377,7 @@
       @update:index="onSlideshowIndex"
       @close="closeSlideshow"
       :review="sheetReviewing"
+      :container-type="sheetSlideshow ? 'sheet' : null"
       @compare-with-source="handleCompareFromSlideshow"
     >
       <template v-if="sheetReviewing" #review="{ index, part, open, toggle }">

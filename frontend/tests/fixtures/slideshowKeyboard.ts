@@ -9,9 +9,11 @@ import '../../src/style.css'
 const show = ref(false), index = ref(0)
 const grid: string[] = []
 const kinds: string[] | undefined = (window as any).slideshowKinds
-const items = kinds
+const fixedItems: any[] | undefined = (window as any).slideshowItems
+const containerType: string | undefined = (window as any).slideshowContainerType
+const items = fixedItems ?? (kinds
   ? kinds.map((file_format, i) => ({ id: i + 1, file_format, file_hash: `kind-${i + 1}`, width: 32, height: 32 }))
-  : [1, 2, 3].map(id => ({ id, file_format: 'png', file_hash: `image-${id}`, width: 32, height: 32 }))
+  : [1, 2, 3].map(id => ({ id, file_format: 'png', file_hash: `image-${id}`, width: 32, height: 32 })))
 const chatMode = Boolean((window as any).slideshowChatTest)
 // Two chat images whose page can be held, to step while the next is loading.
 const navMode = Boolean((window as any).slideshowNavTest)
@@ -40,6 +42,7 @@ const app = createApp({
       h('output', { 'data-current-index': '' }, String(index.value)),
       h(SlideshowMode, {
         ...(chatMode || navMode ? { totalCount: liveIds.value.length, liveItemIds: liveIds.value, pageProvider } : { items }),
+        ...(containerType ? { containerType } : {}),
         'onUpdate:index': (value: number) => { index.value = value },
       }),
       h(Modal, { show: show.value, onClose: () => { show.value = false } }, () => h('button', {}, 'Modal action')),

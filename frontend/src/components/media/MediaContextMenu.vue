@@ -309,6 +309,16 @@
           </button>
         </template>
 
+        <!-- Set member: this set only; the asset stays in the library -->
+        <button
+          v-if="memberOf?.type === 'set' && !memberOf.embedded && memberOf.onRemove && !isMultiple"
+          @click="handleRemoveFromSet"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <Square3Stack3DIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>Remove from set</span>
+        </button>
+
         <!-- Collection-specific section -->
         <template v-if="inCollection">
           <button
@@ -914,15 +924,17 @@
         </div>
         </Teleport>
 
-        <div class="border-t border-edge-subtle my-1"></div>
+        <div v-if="!memberIsPart" class="border-t border-edge-subtle my-1"></div>
 
-        <!-- Move to Trash -->
+        <!-- Move to Trash. A built document's parts have none; an embedded
+             set or grid member is deleted from that container. -->
         <button
+          v-if="!memberIsPart"
           @click="handleMoveToTrash"
           class="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-overlay-subtle flex items-center gap-2"
         >
           <TrashIcon class="w-4 h-4 flex-shrink-0" :stroke-width="1.75" />
-          <span>{{ isMultiple ? `Move ${targetCount} to trash` : 'Move to trash' }}</span>
+          <span>{{ isMultiple ? `Move ${targetCount} to trash` : memberOf?.embedded ? 'Delete' : 'Move to trash' }}</span>
         </button>
         </template>
       </template>
@@ -1342,6 +1354,15 @@ const targetCount = computed(() => targetIds.value.length)
 const isVideo = computed(() => mediaItem.value ? isVideoType(mediaItem.value) : false)
 const isImage = computed(() => mediaItem.value ? isImageType(mediaItem.value) : false)
 const isTrashed = computed(() => !!mediaItem.value?.deleted_at)
+// The item is shown as a member of a set, grid or built document.
+const memberOf = computed(() => contextMenu.state.value.memberOf || null)
+const memberIsPart = computed(() => !!memberOf.value && memberOf.value.type !== 'set' && memberOf.value.type !== 'grid')
+
+function handleRemoveFromSet() {
+  const onRemove = memberOf.value?.onRemove
+  contextMenu.hide()
+  onRemove?.()
+}
 const hasClipEmbedding = computed(() => mediaItem.value?.has_clip_embedding || false)
 // Videos are face-detected on their first frame, so they qualify too. Browser
 // items carry the flag; bare Media falls back to a background faces lookup.
@@ -2531,8 +2552,13 @@ async function handleKeepInAllAssets() {
 async function handleMoveToTrash() {
   const ids = [...targetIds.value]
   const assetIds = [...targetAssetIds.value]
+  const member = memberOf.value
   contextMenu.hide()
   if (ids.length === 0) return
+  if (member?.onDelete && ids.length === 1) {
+    member.onDelete()
+    return
+  }
 
   try {
     if (assetIds.length > 0) {

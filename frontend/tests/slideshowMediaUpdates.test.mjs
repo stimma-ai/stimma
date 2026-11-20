@@ -122,3 +122,126 @@ test('refreshing the displayed payload publishes metadata without restarting its
   assert.deepEqual(displayItem.value.markers, [{ id: 3 }])
   assert.equal(mediaLoaded.value, true)
 })
+
+// Delete acts on the image, never on the layout: a set drops the member and
+// moves on, a grid keeps the empty cell.
+function containerHarness({ items = [], index = 0, cells = null, row = 0, col = 0, viewingGrid = false, content = null } = {}) {
+  const setViewStack = ref(items.length ? [{ items, setMediaId: 1 }] : [])
+  const setViewIndex = ref(index)
+  const gridViewStack = ref(cells ? [{ cellMap: new Map(cells), rows: 2, cols: 2, gridMediaId: 1 }] : [])
+  const gridViewRow = ref(row)
+  const gridViewCol = ref(col)
+  const exits = { set: 0, grid: 0 }
+  const state = {
+    setViewStack, setViewIndex, gridViewStack, gridViewRow, gridViewCol,
+    currentSetView: computed(() => setViewStack.value[setViewStack.value.length - 1] || null),
+    currentGridView: computed(() => gridViewStack.value[gridViewStack.value.length - 1] || null),
+    isViewingGrid: computed(() => viewingGrid && gridViewStack.value.length > 0),
+    exitSetView: () => { exits.set++; setViewStack.value.pop() },
+    exitGridView: () => { exits.grid++; gridViewStack.value.pop() },
+    hasAssetIdentity: item => item.asset_id != null,
+    itemIdentity: item => item?.asset_id ?? item?.id ?? null,
+    itemPayloadId: item => item?.media_id ?? item?.id ?? null,
+    // The reply lands after the stack entries were replaced by a head update.
+    axios: { get: async () => {
+      setViewStack.value = setViewStack.value.map(entry => ({ ...entry }))
+      gridViewStack.value = gridViewStack.value.map(entry => ({ ...entry }))
+      return { data: content }
+    } },
+  }
+  const functions = new Function(...Object.keys(state), `
+    ${componentFunction('getGridCellContent')}
+    ${componentFunction('containerMemberKey')}
+    ${componentFunction('setMembersFromContent')}
+    ${componentFunction('dropSetMembers')}
+    ${componentFunction('clearGridCells')}
+    ${componentFunction('pruneContainerViewsForAssets')}
+    async ${componentFunction('refreshContainerViews')}
+    return { dropSetMembers, clearGridCells, prune: pruneContainerViewsForAssets, key: containerMemberKey, refresh: refreshContainerViews }
+  `)(...Object.values(state))
+  return { ...state, ...functions, exits }
+}
+
+const member = (id, linked = true) => (linked ? { id, asset_id: id, media_id: id + 100 } : { id: id + 100, media_id: id + 100, asset_id: null })
+
+test('deleting the set member on screen shows the next one', () => {
+  const h = containerHarness({ items: [member(1), member(2), member(3)], index: 1 })
+  h.prune([2])
+  assert.deepEqual(h.currentSetView.value.items.map(item => item.asset_id), [1, 3])
+  assert.equal(h.setViewIndex.value, 1)
+})
+
+test('deleting the last set member shows the previous one, and an emptied set closes', () => {
+  const h = containerHarness({ items: [member(1), member(2)], index: 1 })
+  h.prune([2])
+  assert.equal(h.setViewIndex.value, 0)
+  assert.equal(h.currentSetView.value.items[0].asset_id, 1)
+  h.prune([1])
+  assert.equal(h.exits.set, 1)
+  assert.equal(h.currentSetView.value, null)
+})
+
+test('a member removed elsewhere keeps the slide on screen', () => {
+  const h = containerHarness({ items: [member(1), member(2), member(3)], index: 2 })
+  h.prune([1])
+  assert.equal(h.currentSetView.value.items[h.setViewIndex.value].asset_id, 3)
+})
+
+test('an embedded set member leaves by its payload, not an Asset id', () => {
+  const embedded = member(5, false)
+  const h = containerHarness({ items: [member(1), embedded, member(3)], index: 1 })
+  h.prune([105])
+  assert.equal(h.currentSetView.value.items.length, 3)
+  h.dropSetMembers(item => h.key(item) === h.key(embedded))
+  assert.deepEqual(h.currentSetView.value.items.map(item => item.asset_id), [1, 3])
+  assert.equal(h.setViewIndex.value, 1)
+})
+
+test('a trashed grid cell empties without moving other cells, and the open cell returns to the grid', () => {
+  const cells = [['0-0', { row: 0, col: 0, resolved: member(1) }], ['0-1', { row: 0, col: 1, resolved: member(2) }]]
+  const h = containerHarness({ cells, row: 0, col: 1, viewingGrid: true })
+  const original = h.currentGridView.value.cellMap
+  h.prune([2])
+  assert.equal(h.exits.grid, 1)
+  const h2 = containerHarness({ cells, row: 0, col: 0, viewingGrid: true })
+  h2.prune([2])
+  assert.equal(h2.exits.grid, 0)
+  const cellMap = h2.currentGridView.value.cellMap
+  assert.equal(cellMap.get('0-1').resolved, null)
+  assert.equal(cellMap.get('0-1').col, 1)
+  assert.equal(cellMap.get('0-0').resolved.asset_id, 1)
+  assert.equal(original.get('0-1').resolved.asset_id, 2, 'the grid overview’s own map is not mutated')
+})
+
+test('a refresh lands even after a head update replaced the set entry, keeping the slide on screen', async () => {
+  const h = containerHarness({ items: [member(1), member(3)], index: 1, content: { items: [
+    { member_id: 21, resolved: member(1) }, { member_id: 22, resolved: member(2) }, { member_id: 23, resolved: member(3) },
+  ] } })
+  await h.refresh()
+  assert.deepEqual(h.currentSetView.value.items.map(item => item.member_id), [21, 22, 23])
+  assert.equal(h.currentSetView.value.items[h.setViewIndex.value].asset_id, 3)
+})
+
+test('a grid refresh that empties the open cell returns to the grid', async () => {
+  const cells = [['0-0', { row: 0, col: 0, resolved: member(1) }], ['0-1', { row: 0, col: 1, resolved: member(2) }]]
+  const h = containerHarness({ cells, row: 0, col: 1, viewingGrid: true, content: { cells: [{ row: 0, col: 0, resolved: member(1) }] } })
+  await h.refresh()
+  assert.equal(h.exits.grid, 1)
+})
+
+test('trashing the last member of an open set does not count against a list that only holds the set', () => {
+  const h = containerHarness({ items: [member(1)], index: 0 })
+  const counted = []
+  const props = { isTrashView: false, mediaList: { findIndex: id => (id === 50 ? 0 : -1), removeItems: ids => counted.push(...ids) } }
+  const deps = {
+    props, getCurrentProfileId: () => 'default', deletingItemIds: ref(new Set()), localRemovedIds: ref(new Set()),
+    containerMemberRemovals: new Set(), pruneContainerViewsForAssets: h.prune,
+    applyRemovalToCount: n => counted.push(`count:${n}`), handleRemovedMediaIdsLocally: () => {},
+  }
+  const handle = new Function(...Object.keys(deps), `${componentFunction('handleAssetsRemovedWs')}; return handleAssetsRemovedWs`)(...Object.values(deps))
+  handle({ asset_id: 1 })
+  assert.equal(h.exits.set, 1)
+  assert.deepEqual(counted, [])
+  handle({ asset_id: 50 })
+  assert.deepEqual(counted, [50, 'count:1'])
+})

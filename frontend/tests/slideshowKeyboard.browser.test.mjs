@@ -13,7 +13,7 @@ const built = await build({ ...base, configFile: false, logLevel: 'error',
 })
 const output = (Array.isArray(built) ? built : [built]).flatMap(result => result.output)
 
-async function fixture(t, { chat = false, nav = false, kinds = null, routes = null } = {}) {
+async function fixture(t, { chat = false, nav = false, kinds = null, routes = null, items = null, containerType = null } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage()
@@ -31,6 +31,8 @@ async function fixture(t, { chat = false, nav = false, kinds = null, routes = nu
   if (chat) await page.evaluate(() => { window.slideshowChatTest = true })
   if (nav) await page.evaluate(() => { window.slideshowNavTest = true })
   if (kinds) await page.evaluate(list => { window.slideshowKinds = list }, kinds)
+  if (items) await page.evaluate(list => { window.slideshowItems = list }, items)
+  if (containerType) await page.evaluate(type => { window.slideshowContainerType = type }, containerType)
   if (routes) await routes(page)
   for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
@@ -203,4 +205,59 @@ test('Slideshow owns navigation, playback and viewer keys while a Modal blocks b
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.keyboard.press('ArrowRight')
   await expect(page.locator('[data-current-index]')).toHaveText('1')
+})
+
+const slide = (id, hash, assetId) => ({ id, media_id: id, asset_id: assetId, file_format: 'png', file_hash: hash, width: 32, height: 32 })
+
+test('Delete inside a set trashes a linked member, removes an embedded one, and never parks on a broken image', async t => {
+  const calls = []
+  const setItem = { id: 50, asset_id: 50, media_id: 1, file_format: 'stimmaset.json', file_hash: 'set-1', width: 0, height: 0 }
+  const page = await fixture(t, { items: [setItem], routes: async page => {
+    await page.route('**/media/1/content', route => route.fulfill({ json: { version: 1, items: [
+      { member_id: 11, resolved: slide(101, 'member-a', 201) },
+      { member_id: 12, resolved: slide(102, 'member-b', null) },
+      { member_id: 13, resolved: slide(103, 'member-c', 203) },
+    ] } }))
+    await page.route('**/media/2/content', route => route.fulfill({ json: { version: 1, items: [
+      { member_id: 23, resolved: slide(103, 'member-c', 203) },
+    ] } }))
+    await page.route('**/assets/batch/trash', route => { calls.push(['trash', route.request().postDataJSON()]); return route.fulfill({ json: { asset_ids: [201] } }) })
+    await page.route('**/assets/item/50/container-members/12/remove', route => { calls.push(['remove', 12]); return route.fulfill({ json: { asset_id: 50, revision_id: 2, media_id: 2, previous_revision_id: 1 } }) })
+    await page.route('**/media/102', route => { calls.push(['delete-media', 102]); return route.fulfill({ status: 409, json: {} }) })
+  } })
+  await page.locator('img[src*="member-a"]').first().click()
+  await expect(page.getByTitle('Exit set and return to main slideshow')).toBeVisible()
+  await expect(page.locator('img[src*="member-a"]').first()).toBeVisible()
+
+  await page.keyboard.press('Delete')
+  await expect.poll(() => calls.length).toBe(1)
+  assert.deepEqual(calls[0], ['trash', { asset_ids: [201] }])
+  await expect(page.locator('img[src*="member-a"]')).toHaveCount(0)
+  await expect(page.locator('img[src*="member-b"]').first()).toBeVisible()
+  await expect(page.getByText('Image no longer available')).toHaveCount(0)
+
+  // An embedded member exists only in the set: Delete takes it out of the set.
+  await page.keyboard.press('Delete')
+  await expect.poll(() => calls.length).toBe(2)
+  assert.deepEqual(calls[1], ['remove', 12])
+  await expect(page.locator('img[src*="member-c"]').first()).toBeVisible()
+  await expect(page.locator('img[src*="member-b"]')).toHaveCount(0)
+})
+
+test('Delete does nothing to the parts of a contact sheet', async t => {
+  const deletes = []
+  const page = await fixture(t, { items: [slide(7, 'sheet-part', 70)], containerType: 'sheet' })
+  await page.route('**/api/**', route => {
+    if (route.request().method() !== 'GET') deletes.push(route.request().url())
+    return route.fallback()
+  })
+  const image = page.locator('img[src*="sheet-part"]').first()
+  await expect(image).toBeVisible()
+  await page.keyboard.press('Delete')
+  await page.keyboard.press('Backspace')
+  await image.click({ button: 'right' })
+  const memberOf = await page.evaluate(() => window.slideshowKeys.menu.state.value.memberOf)
+  assert.equal(memberOf?.type, 'sheet')
+  await expect(page.getByText('Move to trash')).toHaveCount(0)
+  assert.deepEqual(deletes, [])
 })

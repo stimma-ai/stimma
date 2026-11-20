@@ -1521,6 +1521,12 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  // The slides are parts of a built document of this container type (a contact
+  // sheet's media). Delete never reaches them: the document decides its parts.
+  containerType: {
+    type: String,
+    default: null
+  },
   // For nested slideshow (viewing source images)
   items: {
     type: Array,
@@ -1561,6 +1567,8 @@ const {
   getProjects: getAssetProjects,
   getCollections: getAssetCollections,
   getAssetBrowserItem,
+  removeContainerMember,
+  revertContainerMembers,
 } = useAssetApi()
 const { on: onWebSocketEvent } = useWebSocket()
 const { cachedTools, fetchProvidersAndTools } = useProvidersApi()
@@ -2800,6 +2808,7 @@ async function refreshAssetHead(assetId, { force = false } = {}) {
 function handleAssetCurrentRevisionChanged(data) {
   const assetId = Number(data?.asset_id ?? data?.asset?.asset_id ?? data?.asset?.id)
   if (!assetId) return
+  followContainerRevision(assetId, Number(data?.media_id ?? data?.asset?.media_id) || null)
   const isKnown = itemIdentity(currentItem.value) === assetId
     || itemIdentity(displayItem.value) === assetId
     || props.mediaList?.findIndex?.(assetId) >= 0
@@ -3532,9 +3541,7 @@ async function enterSetView(mediaId, startIndex = 0) {
     console.log('[enterSetView] Got response:', { items: data.items?.length, title: data.title })
 
     // Filter to only resolved items (items that exist in the library)
-    const resolvedItems = (data.items || [])
-      .filter(item => item.resolved)
-      .map(item => item.resolved)
+    const resolvedItems = setMembersFromContent(data)
 
     console.log('[enterSetView] Resolved items:', resolvedItems.length)
     if (resolvedItems.length === 0) {
@@ -3547,7 +3554,11 @@ async function enterSetView(mediaId, startIndex = 0) {
       items: resolvedItems,
       title: data.title || '',
       returnToIndex: currentIndex.value,
-      setMediaId: mediaId  // Store the set's media ID for title editing
+      setMediaId: mediaId,  // Store the set's media ID for title editing
+      // The set's own Asset, for removing members. A bare set payload has none.
+      setAssetId: displayItem.value && hasAssetIdentity(displayItem.value) && itemPayloadId(displayItem.value) === mediaId
+        ? itemIdentity(displayItem.value)
+        : null,
     })
     setViewIndex.value = startIndex // Start at specified item
     setOverviewData.value = null // Clear overview data since we're now inside the set
@@ -3784,7 +3795,10 @@ function enterGridView(gridData, row, col, gridMediaId) {
     cellMap: gridData.cellMap,
     rowHeaders: gridData.rowHeaders,
     colHeaders: gridData.colHeaders,
-    gridMediaId: gridMediaId  // Store the grid's media ID for title editing
+    gridMediaId: gridMediaId,  // Store the grid's media ID for title editing
+    gridAssetId: displayItem.value && hasAssetIdentity(displayItem.value) && itemPayloadId(displayItem.value) === gridMediaId
+      ? itemIdentity(displayItem.value)
+      : null,
   })
   gridViewRow.value = row
   gridViewCol.value = col
@@ -5004,7 +5018,9 @@ function pruneLiveQueueForRemovedMediaIds(removedIds) {
 }
 
 async function replaceDisplayedItemAfterRemoval(removedIds) {
-  if (!displayItem.value || !removedIds.has(itemIdentity(displayItem.value))) {
+  // Inside a set or grid the screen shows a member; the container views decide
+  // what replaces it (pruneContainerViewsForAssets), not the list behind them.
+  if (!displayItem.value || !removedIds.has(itemIdentity(displayItem.value)) || isViewingSet.value || isViewingGrid.value) {
     scheduleAdvance()
     return
   }
@@ -5039,8 +5055,240 @@ function handleRemovedMediaIdsLocally(removedIds) {
   void replaceDisplayedItemAfterRemoval(removedIds)
 }
 
+// --- Container members -------------------------------------------------------
+//
+// Delete acts on the image, never on the layout; each container shows the hole
+// its own way. A set drops the member and moves on, a grid keeps an empty cell,
+// and a built document (contact sheet, sprite, package) keeps its parts.
+
+// Set members carry their membership row so Delete and Remove from set can
+// name it. Linked members keep their Asset identity; embedded ones have none.
+function setMembersFromContent(data) {
+  return (data?.items || [])
+    .filter(item => item.resolved)
+    .map(item => ({ ...item.resolved, member_id: item.member_id ?? null }))
+}
+
+function containerMemberKey(item) {
+  if (!item) return null
+  return hasAssetIdentity(item) ? `asset:${itemIdentity(item)}` : `media:${itemPayloadId(item)}`
+}
+
+// Drop members from the open set. The slide on screen stays unless it went:
+// then the next one shows (the previous when it was last), and a set left
+// empty closes.
+function dropSetMembers(shouldDrop) {
+  const view = currentSetView.value
+  if (!view) return false
+  const before = view.items
+  const kept = before.filter(item => !shouldDrop(item))
+  if (kept.length === before.length) return false
+  const droppedBefore = before.slice(0, setViewIndex.value).filter(shouldDrop).length
+  view.items = kept
+  if (kept.length === 0) {
+    exitSetView()
+    return true
+  }
+  setViewIndex.value = Math.min(Math.max(setViewIndex.value - droppedBefore, 0), kept.length - 1)
+  return true
+}
+
+// A grid keeps its layout: the cell empties, rows, columns and headers stay.
+// An open cell that empties goes back to the grid, which shows the hole.
+function clearGridCells(shouldClear) {
+  let changed = false
+  gridViewStack.value = gridViewStack.value.map(entry => {
+    if (!entry.cellMap) return entry
+    const cellMap = new Map(entry.cellMap)
+    let hit = false
+    for (const [key, cell] of cellMap.entries()) {
+      if (cell?.resolved && shouldClear(cell.resolved)) {
+        cellMap.set(key, { ...cell, resolved: null })
+        hit = true
+      }
+    }
+    if (!hit) return entry
+    changed = true
+    return { ...entry, cellMap }
+  })
+  if (changed && isViewingGrid.value && !getGridCellContent(gridViewRow.value, gridViewCol.value)?.resolved) {
+    exitGridView()
+  }
+  return changed
+}
+
+// Returns the ids that were members of an open set or grid.
+function pruneContainerViewsForAssets(assetIds) {
+  const ids = new Set(assetIds)
+  const gone = item => hasAssetIdentity(item) && ids.has(itemIdentity(item))
+  const members = new Set()
+  for (const item of currentSetView.value?.items || []) if (gone(item)) members.add(itemIdentity(item))
+  for (const entry of gridViewStack.value) {
+    for (const cell of entry.cellMap?.values() || []) if (cell?.resolved && gone(cell.resolved)) members.add(itemIdentity(cell.resolved))
+  }
+  dropSetMembers(gone)
+  clearGridCells(gone)
+  return members
+}
+
+// Members trashed from inside a set or grid, briefly, so their asset_trashed
+// event is not taken for a slide leaving the list behind the container.
+const containerMemberRemovals = new Set()
+
+// Re-read the open set or grid (a restore can bring a member back into its slot).
+// Stack entries are replaced whenever an Asset head changes, so a reply is
+// matched to the view by the payload it was asked for, not by object identity.
+async function refreshContainerViews() {
+  const setMediaId = currentSetView.value?.setMediaId
+  if (setMediaId) {
+    try {
+      const { data } = await axios.get(`/api/media/${setMediaId}/content`)
+      const setView = currentSetView.value
+      if (setView?.setMediaId !== setMediaId) return
+      const onScreen = containerMemberKey(setView.items[setViewIndex.value])
+      const items = setMembersFromContent(data)
+      if (items.length === 0) {
+        exitSetView()
+      } else {
+        setView.items = items
+        const index = items.findIndex(item => containerMemberKey(item) === onScreen)
+        setViewIndex.value = index >= 0 ? index : Math.min(setViewIndex.value, items.length - 1)
+      }
+    } catch (error) {
+      console.error('Failed to refresh set content:', error)
+    }
+  }
+  const gridMediaId = currentGridView.value?.gridMediaId
+  if (gridMediaId) {
+    try {
+      const { data } = await axios.get(`/api/media/${gridMediaId}/content`)
+      const index = gridViewStack.value.length - 1
+      const gridView = gridViewStack.value[index]
+      if (gridView?.gridMediaId !== gridMediaId) return
+      const cellMap = new Map((data.cells || []).map(cell => [`${cell.row}-${cell.col}`, cell]))
+      const next = [...gridViewStack.value]
+      next[index] = { ...gridView, cells: data.cells || [], cellMap }
+      gridViewStack.value = next
+      // The open cell may be the one that emptied: show the grid's hole instead.
+      if (isViewingGrid.value && !getGridCellContent(gridViewRow.value, gridViewCol.value)?.resolved) exitGridView()
+    } catch (error) {
+      console.error('Failed to refresh grid content:', error)
+    }
+  }
+}
+
+// The set or grid itself moved to a new Revision (a member removed or put back
+// here or elsewhere): follow its new payload.
+function followContainerRevision(assetId, mediaId) {
+  if (!assetId || !mediaId) return
+  let changed = false
+  for (const entry of setViewStack.value) {
+    if (entry.setAssetId === assetId && entry.setMediaId !== mediaId) {
+      entry.setMediaId = mediaId
+      changed = true
+    }
+  }
+  gridViewStack.value = gridViewStack.value.map(entry => {
+    if (entry.gridAssetId !== assetId || entry.gridMediaId === mediaId) return entry
+    changed = true
+    return { ...entry, gridMediaId: mediaId }
+  })
+  if (changed) void refreshContainerViews()
+}
+
+// Which container the item is a member of, from this slideshow's point of view.
+function containerMemberContext(item) {
+  if (!item) return null
+  if (props.containerType) return { type: props.containerType, embedded: false }
+  if (isViewingGrid.value && currentGridView.value) {
+    const cell = getGridCellContent(gridViewRow.value, gridViewCol.value)
+    if (cell?.resolved && itemPayloadId(cell.resolved) === itemPayloadId(item)) {
+      return { type: 'grid', embedded: !hasAssetIdentity(cell.resolved), assetId: currentGridView.value.gridAssetId, memberId: cell.member_id ?? null, member: cell.resolved }
+    }
+    return null
+  }
+  if (isViewingSet.value && currentSetView.value) {
+    const member = currentSetView.value.items.find(entry => itemPayloadId(entry) === itemPayloadId(item))
+    if (member) {
+      return { type: 'set', embedded: !hasAssetIdentity(member), assetId: currentSetView.value.setAssetId, memberId: member.member_id ?? null, member }
+    }
+  }
+  return null
+}
+
+// Take a member out of the set or grid by committing a Revision without it,
+// with an Undo that brings that Revision's members back.
+async function removeMemberFromContainer(context, { label }) {
+  if (!context?.assetId || !context.memberId) {
+    addToast('This item can’t be removed here', 'error')
+    return
+  }
+  const memberKey = containerMemberKey(context.member)
+  let result
+  try {
+    result = await removeContainerMember(context.assetId, context.memberId)
+  } catch (error) {
+    console.error('Failed to remove member:', error)
+    addToast(error?.response?.data?.detail || 'Could not remove it', 'error')
+    return
+  }
+  if (context.type === 'set') dropSetMembers(item => containerMemberKey(item) === memberKey)
+  else clearGridCells(item => containerMemberKey(item) === memberKey)
+  followContainerRevision(context.assetId, result.media_id)
+  let undoing = false
+  addToast(label, 'info', 8000, {
+    label: 'Undo',
+    onClick: async () => {
+      if (undoing) return
+      undoing = true
+      try {
+        const reverted = await revertContainerMembers(context.assetId, result.previous_revision_id, result.revision_id)
+        followContainerRevision(context.assetId, reverted.media_id)
+      } catch (error) {
+        undoing = false
+        addToast(error?.response?.status === 409 ? 'It changed since; can’t undo' : 'Could not undo', 'error')
+      }
+    },
+  })
+}
+
+// Remove from set: this set only; the Asset stays in the library.
+function removeFromCurrentSet(item) {
+  const context = containerMemberContext(item)
+  if (context?.type !== 'set' || context.embedded) return
+  void removeMemberFromContainer(context, { label: 'Removed from set' })
+}
+
+async function deleteContainerMember(context) {
+  if (context.type !== 'set' && context.type !== 'grid') return // parts of a built document
+  if (context.embedded) {
+    await removeMemberFromContainer(context, { label: context.type === 'set' ? 'Removed from set' : 'Cleared cell' })
+    return
+  }
+  // A linked member is an Asset of its own: it goes to Trash (with Undo) and
+  // leaves a hole. It leaves the view at once, so a second Delete acts on the
+  // next slide; the asset_trashed event updates the list behind the set.
+  const assetId = itemIdentity(context.member)
+  containerMemberRemovals.add(assetId)
+  setTimeout(() => containerMemberRemovals.delete(assetId), 10000)
+  pruneContainerViewsForAssets([assetId])
+  try {
+    await trashAsset(assetId)
+  } catch (error) {
+    console.error('Failed to delete media:', error)
+    addToast('Failed to move item to trash', 'error')
+    void refreshContainerViews()
+  }
+}
+
 async function handleDeleteCurrentItem() {
   if (!currentItem.value) return
+  if (props.containerType) return
+  const memberContext = containerMemberContext(currentItem.value)
+  if (memberContext) {
+    await deleteContainerMember(memberContext)
+    return
+  }
 
   const deletedId = itemIdentity(currentItem.value)
   const removedIds = new Set([deletedId])
@@ -6029,12 +6277,28 @@ function handleMediaBulkDeletedWs(data) {
 function handleAssetsRemovedWs(data) {
   if (data.profile_id && data.profile_id !== getCurrentProfileId()) return
   const ids = data.asset_ids || [data.asset_id || data.asset?.id].filter(Boolean)
-  const externalIds = ids.filter((id) => !deletingItemIds.value.has(id))
+  // Trashed or deleted elsewhere: a set member leaves, a grid cell empties.
+  const members = props.isTrashView ? new Set() : pruneContainerViewsForAssets(ids)
+  let externalIds = ids.filter((id) => !deletingItemIds.value.has(id))
+  // A set or grid member is usually not in the list behind the container (a
+  // list of sets, say); it counts against that list only when the list holds it.
+  if (props.mediaList) {
+    externalIds = externalIds.filter(id => (
+      !(members.has(id) || containerMemberRemovals.has(id)) || props.mediaList.findIndex?.(id) >= 0
+    ))
+  }
   if (externalIds.length === 0) return
   localRemovedIds.value = new Set([...localRemovedIds.value, ...externalIds])
   if (props.mediaList) props.mediaList.removeItems(externalIds)
   applyRemovalToCount(externalIds.length)
   handleRemovedMediaIdsLocally(new Set(externalIds))
+}
+
+function handleAssetsRestoredWs(data) {
+  if (data.profile_id && data.profile_id !== getCurrentProfileId()) return
+  if (isViewingSet.value || isViewingGrid.value) void refreshContainerViews()
+  // A set or grid overview reads its content once; reload it to refill the slot.
+  else if (isSet.value || isGrid.value) refreshKey.value++
 }
 
 // WebSocket handler: auto_delete_removed
@@ -6086,6 +6350,10 @@ onMounted(async () => {
   if (props.isTrashView) {
     wsUnsubscribers.push(onWebSocketEvent('asset_restored', handleAssetsRemovedWs))
     wsUnsubscribers.push(onWebSocketEvent('assets_restored', handleAssetsRemovedWs))
+  } else {
+    // A restored member comes back into its slot in an open set or grid.
+    wsUnsubscribers.push(onWebSocketEvent('asset_restored', handleAssetsRestoredWs))
+    wsUnsubscribers.push(onWebSocketEvent('assets_restored', handleAssetsRestoredWs))
   }
 
   // Ensure tools cache is populated for displaying tool names in history
@@ -6395,7 +6663,20 @@ function handleContextMenu(event, item) {
     assetIds: assetId ? [assetId] : [],
     selectedItems: item ? [item] : [],
     fileHash: item?.file_hash,
+    memberOf: containerMemberMenu(item),
   })
+}
+
+function containerMemberMenu(item) {
+  const context = containerMemberContext(item)
+  if (!context) return null
+  if (context.type !== 'set' && context.type !== 'grid') return { type: context.type, embedded: false }
+  return {
+    type: context.type,
+    embedded: context.embedded,
+    onDelete: () => { void deleteContainerMember(containerMemberContext(item) || context) },
+    onRemove: context.type === 'set' && !context.embedded ? () => removeFromCurrentSet(item) : undefined,
+  }
 }
 
 // Watch for randomization changes from parent (URL restore)

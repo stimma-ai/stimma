@@ -925,7 +925,9 @@ async def package_status(session: AsyncSession, media: MediaItem) -> dict[str, A
                 else None
             )
             head_media = await session.get(MediaItem, head.primary_media_id) if head is not None else None
-            if head_media is None or head_media.deleted_at is not None:
+            # A trashed member is missing for the next rebuild; the built
+            # package keeps its own copy and still works as it is.
+            if head_media is None or head_media.deleted_at is not None or asset.deleted_at is not None:
                 entry["unavailable"] = True
             else:
                 entry["current_hash"] = head_media.file_hash
