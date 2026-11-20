@@ -284,7 +284,7 @@ const editingChatId = ref(null)
 const editingName = ref('')
 
 // Chat generation tracking (primed on load/reconnect, cleared on disconnect)
-const { isChatGenerating } = useAgentActivity()
+const { isChatWorking: isChatGenerating } = useAgentActivity()
 
 // Selection state
 const selectedIds = ref(new Set())

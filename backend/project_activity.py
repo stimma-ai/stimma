@@ -35,6 +35,8 @@ ACTIVITY_TRIGGER_EVENTS = frozenset({
     "batch_completed",
     "agent_started",
     "agent_stopped",
+    "background_task_updated",
+    "background_task_finished",
     "flow_updated",
     "flow_deleted",
     "flow_equation_updated",
@@ -67,9 +69,11 @@ def _running_flow_ids() -> list[int]:
 def _active_chat_ids() -> list[int]:
     try:
         from agent.v2.service import get_active_chat_ids
+        from agent.v2.background import running_task_ids_by_chat
     except Exception:  # pragma: no cover - agent module unavailable
         return []
-    return get_active_chat_ids()
+    # A chat whose turn ended but whose background task still runs is busy too.
+    return sorted(set(get_active_chat_ids()) | set(running_task_ids_by_chat()))
 
 
 async def compute_project_activity(session: AsyncSession) -> list[dict]:

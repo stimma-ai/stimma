@@ -152,6 +152,37 @@ async def test_stop_can_keep_the_code_running(session, test_chat, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_chat_shows_working_while_its_background_task_runs(session, test_chat, tmp_path):
+    """The turn ends when code moves to the background; the sidebar spinner
+    must keep following the task until it finishes."""
+    import project_activity
+    from agent.v2 import service
+
+    finished = asyncio.get_running_loop().create_future()
+
+    async def on_finished(run, output):
+        finished.set_result(run)
+
+    turn = asyncio.create_task(run_code_detachable(
+        "import asyncio\nawait asyncio.sleep(0.6)\nprint('kept going')",
+        session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+        _on_background_finished=on_finished,
+    ))
+    await _until(lambda: bg.get_foreground(test_chat.id) is not None)
+    run_id = await bg.request_detach(test_chat.id, wake=False)
+    await asyncio.wait_for(turn, 2)
+
+    # No turn is running, yet the chat is still working.
+    assert test_chat.id not in service.get_active_chat_ids()
+    assert bg.running_task_ids_by_chat() == {test_chat.id: [run_id]}
+    assert test_chat.id in project_activity._active_chat_ids()
+
+    await asyncio.wait_for(finished, 3)
+    assert test_chat.id not in bg.running_task_ids_by_chat()
+    assert test_chat.id not in project_activity._active_chat_ids()
+
+
+@pytest.mark.asyncio
 async def test_hard_stop_still_ends_the_code(session, test_chat, tmp_path):
     turn = asyncio.create_task(run_code_detachable(
         "import asyncio\nawait asyncio.sleep(30)",

@@ -1269,7 +1269,7 @@ const { isToolActive: isToolGenerating, isFeedScopeActive } = useGenerationStatu
 const { unseenKindFor } = useUnseenActivity()
 
 // Chat agent activity (primed on load/reconnect, cleared on disconnect)
-const { isChatGenerating } = useAgentActivity()
+const { isChatWorking } = useAgentActivity()
 
 // Send to tool
 const { sendToTool } = useSendToTool()
@@ -1778,7 +1778,7 @@ function isTabGenerating(tab: WorkspaceTab): boolean {
   if (tab.type === 'tool') {
     return tab.feedScope ? isFeedScopeActive(tab.feedScope) : isToolGenerating(tab.entityId, tab.projectId ?? null)
   }
-  if (tab.type === 'chat') return isChatGenerating(tab.entityId)
+  if (tab.type === 'chat') return isChatWorking(tab.entityId)
   return false
 }
 

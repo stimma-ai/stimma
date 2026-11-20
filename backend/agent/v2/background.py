@@ -348,6 +348,24 @@ def list_runs(chat_id: int, *, include_finished: bool = True) -> list[Background
     return runs
 
 
+def running_task_ids_by_chat() -> dict[int, list[str]]:
+    """Background tasks still running, by chat (current profile).
+
+    The agent's turn has ended for these chats, but work it started goes on,
+    so they still show as working.
+    """
+    from core.profile_context import get_current_profile
+    profile_id = get_current_profile()
+    out: dict[int, list[str]] = {}
+    for (profile, chat_id), runs in list(_runs.items()):
+        if profile != profile_id:
+            continue
+        ids = [r.id for r in runs.values() if r.state == "running"]
+        if ids:
+            out[chat_id] = ids
+    return out
+
+
 def get_run(chat_id: int, run_id: str) -> Optional[BackgroundRun]:
     return _runs.get(_key(chat_id), {}).get(run_id)
 

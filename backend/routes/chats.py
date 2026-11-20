@@ -853,7 +853,11 @@ async def get_running_agent_chats():
     agent_started/agent_stopped WebSocket events. Must stay declared
     before the /{chat_id} routes."""
     from agent.v2.service import get_active_chat_ids
-    return {"chat_ids": get_active_chat_ids()}
+    from agent.v2.background import running_task_ids_by_chat
+    # chat_ids: a turn is running. background: chats whose turn may have
+    # ended but whose background tasks (ids listed) are still running.
+    background = [{"chat_id": c, "task_ids": ids} for c, ids in sorted(running_task_ids_by_chat().items())]
+    return {"chat_ids": get_active_chat_ids(), "background": background}
 
 
 @router.get("/{chat_id}", response_model=ChatResponse)
