@@ -279,6 +279,8 @@ async def show(
         artifact_info=artifact_info,
         asset_by_media=asset_by_media,
         artifact_is_new_asset=bool(artifact),
+        append_to=None if artifact_info else kwargs.get("_append_to_item"),
+        created=kwargs.get("_created_item"),
     )
     if artifact_info:
         result = (
@@ -619,30 +621,57 @@ async def _auto_save_path(
 async def _create_display_item(
     session, chat_id, rows, title, role, media_ids, asset_ids, ws_manager,
     artifact_info=None, asset_by_media=None, artifact_is_new_asset=False,
+    append_to=None, created=None,
 ):
     from database import ChatItem
 
-    display_title = title or (f"Showing {len(rows)} items" if len(rows) > 1 else None)
-    display_data = {
-        "title": display_title,
-        "status": "complete",
-        "rows": rows,
-    }
-    if artifact_info:
-        display_data["artifact"] = artifact_info
+    # A run that shows results under one title as they finish grows one card
+    # (append_to: that card's id) rather than stacking a card per batch.
+    existing = await session.get(ChatItem, append_to) if append_to is not None else None
+    if existing is not None and existing.item_type == "media_display" and existing.show_role == role:
+        try:
+            old_data = json.loads(existing.item_metadata or "{}").get("display_data") or {}
+        except (TypeError, ValueError):
+            old_data = {}
+        merged_rows = list(old_data.get("rows") or []) + rows
+        merged_media = list(json.loads(existing.media_ids) if existing.media_ids else
+                            ([existing.media_id] if existing.media_id else [])) + list(media_ids)
+        merged_assets = list(json.loads(existing.asset_ids) if existing.asset_ids else
+                             ([existing.asset_id] if existing.asset_id else [])) + list(asset_ids)
+        display_data = {**old_data, "title": title or old_data.get("title"), "rows": merged_rows}
+        existing.media_id = merged_media[0] if len(merged_media) == 1 else None
+        existing.media_ids = json.dumps(merged_media) if merged_media else None
+        existing.asset_id = merged_assets[0] if len(merged_assets) == 1 else None
+        existing.asset_ids = json.dumps(merged_assets) if merged_assets else None
+        existing.item_metadata = json.dumps({"display_data": display_data})
+        await session.commit()
+        display_item = existing
+        item_event = "chat_item_updated"
+    else:
+        display_title = title or (f"Showing {len(rows)} items" if len(rows) > 1 else None)
+        display_data = {
+            "title": display_title,
+            "status": "complete",
+            "rows": rows,
+        }
+        if artifact_info:
+            display_data["artifact"] = artifact_info
 
-    display_item = ChatItem(
-        chat_id=chat_id,
-        item_type="media_display",
-        media_id=media_ids[0] if len(media_ids) == 1 else None,
-        media_ids=json.dumps(media_ids) if media_ids else None,
-        asset_id=asset_ids[0] if len(asset_ids) == 1 else None,
-        asset_ids=json.dumps(asset_ids) if asset_ids else None,
-        show_role=role,
-        item_metadata=json.dumps({"display_data": display_data}),
-    )
-    session.add(display_item)
-    await session.commit()
+        display_item = ChatItem(
+            chat_id=chat_id,
+            item_type="media_display",
+            media_id=media_ids[0] if len(media_ids) == 1 else None,
+            media_ids=json.dumps(media_ids) if media_ids else None,
+            asset_id=asset_ids[0] if len(asset_ids) == 1 else None,
+            asset_ids=json.dumps(asset_ids) if asset_ids else None,
+            show_role=role,
+            item_metadata=json.dumps({"display_data": display_data}),
+        )
+        session.add(display_item)
+        await session.commit()
+        item_event = "chat_item_created"
+    if created is not None:
+        created["id"] = display_item.id
     if asset_ids:
         from database import Asset
 
@@ -659,7 +688,7 @@ async def _create_display_item(
 
             notify_asset_expiration_changed()
 
-    await ws_manager.broadcast("chat_item_created", {
+    await ws_manager.broadcast(item_event, {
         "chat_id": chat_id,
         "item": display_item.to_dict(),
     })

@@ -2578,10 +2578,15 @@ async def submit_human_response(
                 "chat_id": chat_id,
                 "item": resp_item.to_dict(),
             })
-            # Both decisions resume the parked turn. Restore the running controls
-            # before releasing it, so a fast completion cannot be followed by a
-            # stale agent_started event that leaves the UI running forever.
-            await ws_manager.broadcast("agent_started", {"chat_id": chat_id})
+            # Both decisions resume the parked call. When it belongs to a turn,
+            # restore the running controls before releasing it, so a fast
+            # completion cannot be followed by a stale agent_started event that
+            # leaves the UI running forever. A call parked by background work
+            # has no turn to resume: announcing one would leave the composer
+            # running, steering every message into a turn that isn't there.
+            from agent.v2.service import is_execution_active
+            if is_execution_active(chat_id):
+                await ws_manager.broadcast("agent_started", {"chat_id": chat_id})
             resolve_pending_permission(inprocess_id, {"approved": approved, "scope": scope})
             return {"success": True}
 
@@ -2661,8 +2666,13 @@ async def cancel_background_task(chat_id: int, task_id: str, request: Optional[C
     run = bg.get_run(chat_id, task_id)
     if run is None:
         raise HTTPException(status_code=404, detail="Background task not found")
+    items = request.items if request else None
+    if items is None:
+        # The user stopped the whole task: they know it ended, so its receipt
+        # waits for their next message instead of starting a turn.
+        run.wake = False
     try:
-        await run.control.cancel(request.items if request else None)
+        await run.control.cancel(items)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return await run.snapshot()

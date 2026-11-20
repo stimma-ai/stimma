@@ -1717,6 +1717,7 @@ let queueWatchdogTimer = null // Interval that reconciles state while messages a
 let reconcilingQueue = false // A view that just took the queue is catching up; nothing drains meanwhile
 let queueReconciled = true // This view has read the transcript since taking the queue
 let steerRetryTimer = null // Retries steers the server refused because its run hadn't registered yet
+let steerRefusals = 0 // Consecutive 409s: past a few, the running state is stale
 // uploadInput is now managed by ChatInputBox
 
 // WebSocket - use shared singleton composable
@@ -3976,10 +3977,17 @@ async function postSteer(msg: QueuedMessage) {
         attachments: msg.attachments.length > 0 ? msg.attachments : null,
       }),
     })
-    if (response.ok) return
+    if (response.ok) { steerRefusals = 0; return }
     // 409: no run is registered. Either the turn just ended (the queue drain
     // sends it) or the one just started hasn't registered yet — retry shortly.
     msg.steering = false
+    // Refused again and again: this view's "running" is stale (no turn will
+    // ever register). Ask the server; once idle, the queue drain sends it.
+    if (response.status === 409 && ++steerRefusals >= 3) {
+      steerRefusals = 0
+      await syncAgentStatus()
+      if (!agentRunning.value && !agentPlanning.value) return
+    }
   } catch (error) {
     console.error('Error steering message:', error)
     msg.steering = false

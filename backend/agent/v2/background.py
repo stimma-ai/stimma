@@ -73,6 +73,9 @@ class RunControl:
         self.waiting = 0
         # No new generation call may start (cancel without an item list).
         self.cancel_new = False
+        # Cancelling a whole task stops its code too: a loop that keeps
+        # generating would otherwise go on forever, each call canceled.
+        self.stop_requested = False
         self.detached = False
         self.session_maker = session_maker
         # Job ids are profile-local; cancels must stay in the owning profile.
@@ -111,11 +114,13 @@ class RunControl:
     async def cancel(self, items: Optional[list[int]] = None) -> list[int]:
         """Cancel the given items, or everything left when ``items`` is None.
 
-        Works on queued and generating items alike. Returns the item numbers
-        that were asked to stop.
+        Works on queued and generating items alike. With ``items`` None the
+        run's code is stopped as well. Returns the item numbers that were
+        asked to stop.
         """
         if items is None:
             self.cancel_new = True
+            self.stop_requested = True
             targets = [i for i in self.items if not i.final]
         else:
             wanted = {int(n) for n in items}
@@ -159,7 +164,9 @@ class RunControl:
             if not item.final:
                 if job is not None:
                     entry["state"] = "generating" if job.status == "processing" else "queued"
-                    entry["runs_on"] = job.generator_type or job.backend_name
+                    runs_on = [v for v in (job.backend_name, job.generator_type) if v and v != "unknown"]
+                    if runs_on:
+                        entry["runs_on"] = runs_on[0]
                     if job.status == "processing" and job.started_at is not None:
                         from datetime import datetime
                         entry["generating_for_s"] = max(0, int((datetime.utcnow() - job.started_at).total_seconds()))
@@ -196,6 +203,20 @@ def _media_kind(task: Optional[str]) -> Optional[str]:
     if task in _AUDIO_TASKS:
         return "audio"
     return "image"
+
+
+# A task that keeps generating makes items without end; listing every one
+# would flood the agent's context and every status broadcast.
+RECENT_FINISHED_ITEMS = 20
+
+
+def _recent(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every unfinished item, and only the latest finished ones."""
+    finished = [i for i in items if i["state"] in _FINAL_ITEM_STATES]
+    if len(finished) <= RECENT_FINISHED_ITEMS:
+        return items
+    keep = {id(i) for i in finished[-RECENT_FINISHED_ITEMS:]}
+    return [i for i in items if i["state"] not in _FINAL_ITEM_STATES or id(i) in keep]
 
 
 def _counts(items: list[dict[str, Any]], waiting: int) -> dict[str, int]:
@@ -241,14 +262,17 @@ class BackgroundRun:
 
     async def snapshot(self) -> dict[str, Any]:
         items = await self.control.snapshot_items()
-        return {
+        snap = {
             "id": self.id,
             "label": self.label,
             "state": self.state,
             "elapsed_s": int((self.finished_at or time.monotonic()) - self.started_at),
             "counts": _counts(items, self.control.waiting),
-            "items": items,
+            "items": _recent(items),
         }
+        if len(snap["items"]) < len(items):
+            snap["earlier_items_finished"] = len(items) - len(snap["items"])
+        return snap
 
 
 _foreground: dict[tuple[str, int], ForegroundRun] = {}

@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
 import Spinner from '../ui/Spinner.vue'
 
 export interface BackgroundTaskCounts {
@@ -47,10 +47,28 @@ export interface BackgroundTask {
   items?: { kind?: string }[]
 }
 
-defineProps<{ tasks: BackgroundTask[] }>()
+const props = defineProps<{ tasks: BackgroundTask[] }>()
 const emit = defineEmits<{ stop: [id: string] }>()
 
 const stopping = reactive(new Set<string>())
+
+// A task whose total has grown since we first saw it is open-ended (code that
+// keeps generating): "36 of 37" and "Generating 37 items" would read as a
+// fixed batch, so it gets counts without a total.
+const firstTotals = new Map<string, number>()
+const growing = reactive(new Set<string>())
+watch(() => props.tasks, (tasks) => {
+  for (const task of tasks) {
+    const n = total(task)
+    if (!n) continue
+    const first = firstTotals.get(task.id)
+    if (first === undefined) firstTotals.set(task.id, n)
+    else if (n > first) growing.add(task.id)
+  }
+}, { immediate: true, deep: true })
+function isGrowing(task: BackgroundTask): boolean {
+  return growing.has(task.id)
+}
 
 function total(task: BackgroundTask): number {
   const c = task.counts
@@ -72,6 +90,7 @@ function title(task: BackgroundTask): string {
   const kinds = new Set((task.items || []).map(i => i.kind))
   const nouns = kinds.size === 1 ? NOUNS[[...kinds][0] ?? ''] : undefined
   const [one, many] = nouns ?? ['item', 'items']
+  if (isGrowing(task)) return `Generating ${many}`
   return `Generating ${n} ${n === 1 ? one : many}`
 }
 
@@ -79,7 +98,7 @@ function summary(task: BackgroundTask): string {
   const c = task.counts
   const n = total(task)
   if (!n) return ''
-  const parts = task.label ? [`${c.done} of ${n} done`] : [`${c.done} done`]
+  const parts = task.label && !isGrowing(task) ? [`${c.done} of ${n} done`] : [`${c.done} done`]
   if (c.generating) parts.push(`${c.generating} in progress`)
   const queued = c.queued + c.preparing + c.waiting
   if (queued) parts.push(`${queued} queued`)

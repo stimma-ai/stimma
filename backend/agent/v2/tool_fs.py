@@ -821,6 +821,7 @@ def _make_bound_tool(sdk, binding: ToolBinding):
     _bound.__name__ = binding.func_name
     _bound.__qualname__ = f"stimma.tools.{binding.module}.{binding.func_name}"
     _bound.__doc__ = f'{binding.tool_id} ({binding.task_type})'
+    _bound.tool_id = binding.tool_id
     return _bound
 
 

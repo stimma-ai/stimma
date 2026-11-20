@@ -1480,6 +1480,8 @@ class StimmaTasksAPI:
         (the backend: e.g. a local ComfyUI or a cloud provider),
         ``generating_for_s``, ``elapsed_s``, and ``media_id`` once done.
         ``counts.waiting`` is calls in the code that haven't been made yet.
+        A long task lists every unfinished item but only its latest finished
+        ones; ``earlier_items_finished`` counts the rest, and ``counts`` covers all.
         """
         from .background import get_run
         run = get_run(self._sdk.chat_id, task_id)
@@ -1507,6 +1509,23 @@ class StimmaTasksAPI:
             )
         await run.control.cancel(list(items) if items is not None else None)
         return await run.snapshot()
+
+    async def capacity(self, tool) -> int:
+        """How many calls of ``tool`` generate at the same time; more wait in its queue.
+
+        ``tool`` is a tool function from ``stimma.tools`` or its id. Keep this
+        many calls in flight, plus one waiting, to keep its GPUs busy.
+        """
+        tool_id = tool if isinstance(tool, str) else getattr(tool, "tool_id", None)
+        if not tool_id:
+            raise ValueError("Pass a tool function from stimma.tools, or a tool id.")
+        from backend_registry import get_backend_registry
+        backends = await get_backend_registry().list_backends()
+        provider = tool_id.split(":", 1)[0]
+        state = backends.get(provider)
+        if state is None or not state.get("max_concurrent"):
+            return 1
+        return max(1, int(state["max_concurrent"]))
 
 
 class StimmaTimersAPI:
@@ -1616,7 +1635,12 @@ class StimmaSDK:
         self._session_media_ids: list[int] = session_media_ids if session_media_ids is not None else []
         self._shown_media_ids: list[int] = []
         self._shown_labels: list[str] = []  # "path→media_id" / "media_id" per shown item, for the result receipt
+        # (title, role) -> the card this run showed it in; later shows with the
+        # same title grow that card.
+        self._show_cards: dict[tuple[str, str], int] = {}
         self._progress_trackers: list[ProgressTracker] = []
+        # The card untitled batches share, so a loop of batches grows one card.
+        self._auto_tracker: ProgressTracker | None = None
         # Per-run STP tool permission decisions (tool_id -> allowed). Populated by
         # the in-run permission gate so repeat calls in this run don't re-prompt.
         self._tool_perm_cache: dict[str, bool] = {}
@@ -2170,13 +2194,30 @@ class StimmaSDK:
 
         # Auto-create progress tracker for batches so the user always sees progress
         tracker = None
-        effective_desc = desc if desc is not None else (f"Generating ({len(coros)})" if len(coros) > 1 else None)
-        if effective_desc is not None:
-            tracker = self.progress(len(coros), desc=effective_desc)
-            tracker._preview_slots = [
-                {"media_ids": [], "status": "pending"} for _ in coros
-            ]
+        base = 0
+        auto = desc is None and len(coros) > 1
+        reuse = self._auto_tracker if auto else None
+        if reuse is not None and reuse._completed and reuse._item_id is not None:
+            # Batch after batch (a loop that keeps generating): one card that
+            # grows, not a card per batch.
+            tracker = reuse
+            base = tracker._total
+            tracker._total += len(coros)
+            tracker._title = f"Generating ({tracker._total})"
+            tracker._preview_slots.extend({"media_ids": [], "status": "pending"} for _ in coros)
+            tracker._completed = False
+            tracker._status = "in_progress"
             tracker._pending_update = tracker._build_state()
+        else:
+            effective_desc = desc if desc is not None else (f"Generating ({len(coros)})" if len(coros) > 1 else None)
+            if effective_desc is not None:
+                tracker = self.progress(len(coros), desc=effective_desc)
+                tracker._preview_slots = [
+                    {"media_ids": [], "status": "pending"} for _ in coros
+                ]
+                tracker._pending_update = tracker._build_state()
+                if auto:
+                    self._auto_tracker = tracker
 
         sem = asyncio.Semaphore(max_concurrent)
         from .background import GenerationCancelled
@@ -2185,6 +2226,7 @@ class StimmaSDK:
         control.waiting += len(coros)
 
         async def _limited(idx, coro):
+            idx += base
             token = _progress_slots.set(
                 (*_progress_slots.get(), (tracker, idx)) if tracker else _progress_slots.get()
             )
@@ -2863,6 +2905,7 @@ class StimmaSDK:
             saved_media_ids = await self._auto_save_paths(payload.get("paths") or [])
             # Merge saved media_ids with any existing ones, drop the paths
             all_media_ids = list(payload.get("media_ids") or []) + saved_media_ids
+            created: dict[str, int] = {}
             receipt = await show_tool(
                 role=payload["role"],
                 media_ids=all_media_ids or None,
@@ -2871,8 +2914,10 @@ class StimmaSDK:
                 session=self.session,
                 chat_id=self.chat_id,
                 workspace_dir=self.workspace_dir,
+                **self._card_kwargs(payload, created),
                 **payload.get("revision", {}),
             )
+            self._remember_card(payload, created)
             if isinstance(receipt, str) and receipt.startswith("Error:"):
                 raise ValueError(receipt)
             self._shown_media_ids.extend(all_media_ids)
@@ -2884,6 +2929,72 @@ class StimmaSDK:
                 self._shown_labels.extend(str(mid) for mid in saved_media_ids)
             if payload["role"] == "final" and receipt:
                 self._display_receipts.append(str(receipt))
+
+    def _card_key(self, payload: dict) -> tuple[str, str] | None:
+        # Only titled, plain shows collect: revisions and artifacts are their own.
+        if not payload.get("title") or payload.get("revision"):
+            return None
+        return (payload["title"], payload["role"])
+
+    def _card_kwargs(self, payload: dict, created: dict) -> dict:
+        key = self._card_key(payload)
+        if key is None:
+            return {}
+        return {"_append_to_item": self._show_cards.get(key), "_created_item": created}
+
+    def _remember_card(self, payload: dict, created: dict) -> None:
+        key = self._card_key(payload)
+        if key is not None and created.get("id") is not None:
+            self._show_cards[key] = created["id"]
+
+    async def _flush_display_live(self, *, all_pending: bool = False) -> None:
+        """Put what the code has shown so far into the chat while it runs.
+
+        A run that loops (generate until told to stop) never reaches its final
+        flush, so without this nothing it shows would ever appear. Uses a fresh
+        session: the script uses self.session concurrently. Shown workspace
+        paths need self.session to be saved, so they wait for the final flush,
+        and so does everything after them, to keep the order. ``all_pending``
+        (the run has stopped) flushes those too.
+        """
+        if all_pending:
+            await self.flush()
+            return
+        with self._display_lock:
+            ready = []
+            for payload in self._pending_display_calls:
+                if payload.get("paths"):
+                    break
+                ready.append(payload)
+            if not ready:
+                return
+            del self._pending_display_calls[:len(ready)]
+        from database_registry import get_database_registry
+        db = get_database_registry().get_database(get_current_profile())
+        async with db.async_session_maker() as session:
+            for payload in ready:
+                media_ids = list(payload.get("media_ids") or [])
+                created: dict[str, int] = {}
+                receipt = await show_tool(
+                    role=payload["role"],
+                    media_ids=media_ids or None,
+                    paths=None,
+                    title=payload["title"],
+                    session=session,
+                    chat_id=self.chat_id,
+                    workspace_dir=self.workspace_dir,
+                    **self._card_kwargs(payload, created),
+                    **payload.get("revision", {}),
+                )
+                self._remember_card(payload, created)
+                if isinstance(receipt, str) and receipt.startswith("Error:"):
+                    # The code goes on; tell it on its own output, not by raising.
+                    (self._stdout_print or print)(f"[show] {receipt}")
+                    continue
+                self._shown_media_ids.extend(media_ids)
+                self._shown_labels.extend(str(mid) for mid in media_ids)
+                if payload["role"] == "final" and receipt:
+                    self._display_receipts.append(str(receipt))
 
     async def _auto_save_paths(self, paths: list[str]) -> list[int]:
         """Save workspace paths to library with lineage from tracked tool results."""
@@ -3169,6 +3280,50 @@ _LLM_PUNCT_FIXUPS = {
 }
 
 
+def _globals_to_nonlocals(run_fn) -> None:
+    """Make ``global x`` in the agent's functions mean its top-level ``x``.
+
+    The agent writes code as a module, but it runs inside ``__stimma_run__``,
+    so its top-level names are that function's locals and ``global x`` in a
+    worker function finds nothing (NameError). ``nonlocal`` is what it means.
+    """
+    import ast
+
+    def bound_here(stmts) -> set[str]:
+        names: set[str] = set()
+        todo = list(stmts)
+        while todo:
+            node = todo.pop()
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                names.add(node.name)
+                continue  # its body is its own scope
+            if isinstance(node, ast.Lambda):
+                continue
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                names.add(node.id)
+            elif isinstance(node, ast.alias):
+                names.add((node.asname or node.name).split(".")[0])
+            todo.extend(ast.iter_child_nodes(node))
+        return names
+
+    top = bound_here(run_fn.body) - {"stimma"}
+    if not top:
+        return
+    for node in ast.walk(run_fn):
+        if node is run_fn or not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for i, stmt in enumerate(node.body):
+            if isinstance(stmt, ast.Global):
+                outer = [n for n in stmt.names if n in top]
+                if not outer:
+                    continue
+                rest = [n for n in stmt.names if n not in top]
+                replacement = [ast.copy_location(ast.Nonlocal(names=outer), stmt)]
+                if rest:
+                    replacement.append(ast.copy_location(ast.Global(names=rest), stmt))
+                node.body[i:i + 1] = replacement
+
+
 def _wrap_run_code(code: str) -> str:
     """Indent agent code into the `async def __stimma_run__()` wrapper."""
     wrapper = "async def __stimma_run__():\n"
@@ -3366,6 +3521,7 @@ async def run_code_in_sandbox(
         # block must not make earlier SDK calls unbound locals in our wrapper.
         declaration = ast.Global(names=["stimma"])
         ast.copy_location(declaration, tree.body[0])
+        _globals_to_nonlocals(tree.body[0])
         tree.body[0].body.insert(0, declaration)
         ast.fix_missing_locations(tree)
         exec(compile(tree, "<stimma_run_code>", "exec"), globals_dict, globals_dict)
@@ -3384,7 +3540,9 @@ async def run_code_in_sandbox(
                     if done:
                         break
                     await sdk._flush_progress()
-                    if callable(interrupt_checker) and interrupt_checker():
+                    await sdk._flush_display_live()
+                    stop_requested = sdk._control.stop_requested
+                    if stop_requested or (callable(interrupt_checker) and interrupt_checker()):
                         interrupted = True
                         worker.stop()
                         break
@@ -3395,7 +3553,15 @@ async def run_code_in_sandbox(
                         if owner_task.cancelling() > initial_cancels or not task.done():
                             raise  # Owner cancellation, not worker completion.
                     await sdk._finalize_progress("cancelled")
-                    msg = "Error: execution interrupted by user"
+                    # What the code had already shown still reaches the chat.
+                    try:
+                        await sdk._flush_display_live(all_pending=True)
+                    except Exception as e:
+                        log.warning(f"run_code: showing results after a stop failed: {e}")
+                    msg = (
+                        "Stopped: the task was canceled, so its code stopped too."
+                        if stop_requested else "Error: execution interrupted by user"
+                    )
                     receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures, workspace_dir=sdk.workspace_dir, cancelled=sdk._tool_cancellations)
                     if receipt:
                         msg = f"{msg}\n\n{receipt}"
@@ -3429,9 +3595,22 @@ async def run_code_in_sandbox(
             pass
         raise
     except Exception as e:
+        sdk_ref = sdk_instance
+        if sdk_ref is not None and sdk_ref._control.stop_requested:
+            # The task was stopped: its in-flight calls ended canceled,
+            # which can surface here before the run loop sees the stop.
+            try:
+                await sdk_ref._finalize_progress("cancelled")
+                await sdk_ref._flush_display_live(all_pending=True)
+            except Exception as flush_error:
+                log.warning(f"run_code: finishing a stopped task: {flush_error}")
+            msg = "Stopped: the task was canceled, so its code stopped too."
+            receipt = _format_run_code_receipt(sdk_ref._tool_results, sdk_ref._tool_failures, workspace_dir=sdk_ref.workspace_dir, cancelled=sdk_ref._tool_cancellations)
+            if receipt:
+                msg = f"{msg}\n\n{receipt}"
+            return msg, sdk_ref.get_llm_usage()
         # Finalize any active progress trackers so they don't stay stuck
         try:
-            sdk_ref = sdk_instance
             if sdk_ref is not None:
                 await sdk_ref._finalize_progress("error")
         except Exception:
@@ -3442,6 +3621,22 @@ async def run_code_in_sandbox(
         if relevant:
             location = f" (line {max(relevant, key=lambda f: f.lineno).lineno - 1})"
         error_msg = f"Error{location}: {type(e).__name__}: {e}"
+        if isinstance(e, BaseExceptionGroup):
+            # "3 sub-exceptions" says nothing; name what actually failed.
+            seen: list[str] = []
+            todo = list(e.exceptions)
+            while todo:
+                sub = todo.pop(0)
+                if isinstance(sub, BaseExceptionGroup):
+                    todo[:0] = list(sub.exceptions)
+                    continue
+                line = f"{type(sub).__name__}: {sub}"
+                if line not in seen:
+                    seen.append(line)
+            if seen:
+                error_msg += "\nInside it: " + "; ".join(seen[:3])
+                if len(seen) > 3:
+                    error_msg += f" (and {len(seen) - 3} more)"
         has_specific_hint = False
         if "coroutine" in str(e).lower():
             error_msg += (

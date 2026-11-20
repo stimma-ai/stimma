@@ -218,6 +218,9 @@ async def test_human_response_restores_running_before_resuming_turn(
 ):
     """Allow and Deny must restore Stop, even when the resumed turn finishes immediately."""
     from routes import chats
+    from agent.v2 import service
+
+    monkeypatch.setattr(service, "is_execution_active", lambda chat_id: chat_id == test_chat.id)
 
     request_id = gate._request_id(test_chat.id, "p:t")
     future = asyncio.get_running_loop().create_future()
@@ -318,3 +321,44 @@ async def test_human_response_provider_scope_allows_the_whole_local_provider(
     # A different ComfyUI workflow, never seen before, no longer asks.
     chat = Chat(agent_tool_config=None)
     assert await get_stp_permission_decision("comfyui:wan-video", chat, None) == "allow"
+
+
+@pytest.mark.asyncio
+async def test_human_response_for_background_work_does_not_announce_a_turn(
+    monkeypatch, session, test_chat,
+):
+    """A call parked by background code has no turn: answering it must not
+    flip the chat to running, or every message after it is steered into
+    a turn that isn't there."""
+    from routes import chats
+    from agent.v2 import service
+
+    monkeypatch.setattr(service, "is_execution_active", lambda chat_id: False)
+    request_id = gate._request_id(test_chat.id, "p:bg")
+    future = asyncio.get_running_loop().create_future()
+    monkeypatch.setattr(gate, "_PENDING", {request_id: future})
+    session.add(ChatItem(
+        chat_id=test_chat.id,
+        item_type="hitl_request",
+        item_metadata=json.dumps({
+            "type": "v2_tool_permission",
+            "v2_tool_args": {"tool_id": "p:bg", "_inprocess_request_id": request_id},
+        }),
+    ))
+    await session.commit()
+
+    events = []
+
+    class WebSocketRecorder:
+        async def broadcast(self, event, data):
+            events.append(event)
+
+    monkeypatch.setattr(chats, "ws_manager", WebSocketRecorder())
+    result = await chats.submit_human_response(
+        test_chat.id,
+        chats.HITLResponseRequest(approved=True, scope="once"),
+        session,
+    )
+    assert result == {"success": True}
+    assert future.result() == {"approved": True, "scope": "once"}
+    assert events == ["chat_item_created"]

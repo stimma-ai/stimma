@@ -82,7 +82,23 @@ you back with your note, so the note should carry the goal and the end time. One
 shows what's set. Cancel it (`await stimma.timers.cancel(id)`) when the work is done or the user says stop. A one-shot timer is \
 the way to check back on something later.
 
-**Batch delivery**: Call `stimma.show(results, role="final")` at the end of `run_code` to display committed results. Use `role="intermediate"` when showing work only for inspection; viewing it does not add it to Assets. \
+**Generating until the user says stop**: keep every GPU busy. `await stimma.tasks.capacity(tool)` says how many calls of a tool generate \
+at once; run that many plus one workers, each starting its next call as soon as its last one finishes, instead of batches that wait for \
+their slowest item, and never sleep between calls. Show each result as it lands with the same `title` every time: shows with one title \
+grow one card. Run it with `background=true`. To change course, `stimma.tasks.cancel(task_id)` stops the task's code and whatever it \
+has queued; then start the new version. A loop like this keeps going on its own, so it needs no timer.
+```python
+n = await stimma.tasks.capacity(flux_klein_9b) + 1
+async def worker():
+    while True:
+        r = await flux_klein_9b(prompt=next_prompt())
+        stimma.show(r, role="final", title="Noir portraits")
+async with asyncio.TaskGroup() as group:
+    for _ in range(n):
+        group.create_task(worker())
+```
+
+**Batch delivery**: Call `stimma.show(results, role="final")` at the end of `run_code` to display committed results; code that runs for long shows as it goes. Use `role="intermediate"` when showing work only for inspection; viewing it does not add it to Assets. \
 Keep generation and display in the same `run_code` call.
 
 **Assets are immutable**: You can freely read, copy, and edit files in the workspace — it's your sandbox. In project chats, use the shared project workspace for durable processes and shared intermediate files, and keep the chat workspace as the task-local workbench. \

@@ -251,3 +251,109 @@ def test_unlabeled_runs_read_cleanly_to_the_model():
     assert bg.notification_text(run, "ok").splitlines()[1] == "Background task bg-1 finished."
     assert 'task bg-2 ("Upscaling"):' in bg.describe_detached("bg-2", "Upscaling", [], 0)
     assert "task bg-2: no generation calls yet" in bg.describe_detached("bg-2", "", [], 0)
+
+
+@pytest.mark.asyncio
+async def test_cancelling_a_whole_task_stops_its_code(session, test_chat, tmp_path):
+    # A loop that keeps generating never ends on its own; cancelling the task
+    # must end it, not leave it spinning with every new call canceled.
+    finished = asyncio.get_running_loop().create_future()
+
+    async def on_finished(run, output):
+        finished.set_result((run, output))
+
+    message = await asyncio.wait_for(run_code_detachable(
+        "import asyncio\nwhile True:\n    await asyncio.sleep(0.05)",
+        session=session, chat_id=test_chat.id, workspace_dir=tmp_path, background=True,
+        _on_background_finished=on_finished,
+    ), 5)
+    assert "in the background as task bg-" in message
+    (run,) = bg.list_runs(test_chat.id, include_finished=False)
+    await run.control.cancel()
+    run, output = await asyncio.wait_for(finished, 3)
+    assert output.startswith("Stopped:")
+    assert run.state == "completed"
+
+
+@pytest.mark.asyncio
+async def test_consecutive_untitled_batches_share_one_progress_card(session, test_chat, tmp_path, fake_generation):
+    _, releases = fake_generation
+    sdk = StimmaSDK(session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+                    project_workspace_dir=None, interrupt_checker=lambda: False, control=RunControl())
+    for batch in range(2):
+        task = asyncio.create_task(sdk._gather(
+            *[sdk._dispatch_tool("mock:gen", prompt=f"shot {batch}-{n}") for n in range(3)]
+        ))
+        await _until(lambda: sum(1 for e in releases.values() if not e.is_set()) == 3)
+        for event in releases.values():
+            event.set()
+        await asyncio.wait_for(task, 3)
+        # The run loop has flushed the card by now: it has a chat item.
+        for tracker in sdk._progress_trackers:
+            tracker._item_id = tracker._item_id or 1
+
+    (tracker,) = sdk._progress_trackers
+    state = tracker._build_state()["display_data"]
+    assert state["total"] == 6 and state["current"] == 6
+    assert state["title"] == "Generating (6)"
+    assert sorted(state["previews"]) == [101, 102, 103, 104, 105, 106]
+
+
+@pytest.mark.asyncio
+async def test_global_in_a_worker_means_the_top_level_name(session, test_chat, tmp_path):
+    # Agent code is written as a module but runs inside a function; `global`
+    # must still reach its top-level variables.
+    message = await asyncio.wait_for(run_code_detachable(
+        "import asyncio\n"
+        "count = 0\n"
+        "async def worker():\n"
+        "    global count\n"
+        "    count += 1\n"
+        "async with asyncio.TaskGroup() as group:\n"
+        "    for _ in range(3):\n"
+        "        group.create_task(worker())\n"
+        "print('count', count)",
+        session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+    ), 5)
+    assert "count 3" in message
+
+
+@pytest.mark.asyncio
+async def test_a_failed_task_group_names_what_failed(session, test_chat, tmp_path):
+    message = await asyncio.wait_for(run_code_detachable(
+        "import asyncio\n"
+        "async def worker():\n"
+        "    raise ValueError('no such style')\n"
+        "async with asyncio.TaskGroup() as group:\n"
+        "    group.create_task(worker())",
+        session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+    ), 5)
+    assert "Inside it: ValueError: no such style" in message
+
+
+@pytest.mark.asyncio
+async def test_stopping_a_whole_task_from_the_bar_does_not_wake_the_agent(session, test_chat, tmp_path):
+    from routes import chats
+
+    finished = asyncio.get_running_loop().create_future()
+
+    async def on_finished(run, output):
+        finished.set_result((run, output))
+
+    await asyncio.wait_for(run_code_detachable(
+        "import asyncio\nwhile True:\n    await asyncio.sleep(0.05)",
+        session=session, chat_id=test_chat.id, workspace_dir=tmp_path, background=True,
+        _on_background_finished=on_finished,
+    ), 5)
+    (run,) = bg.list_runs(test_chat.id, include_finished=False)
+    assert run.wake is True
+    await chats.cancel_background_task(test_chat.id, run.id, None)
+    run, output = await asyncio.wait_for(finished, 3)
+    assert run.wake is False and output.startswith("Stopped:")
+
+
+def test_a_long_task_lists_only_its_latest_finished_items():
+    items = [{"item": n, "state": "done"} for n in range(1, 101)] + [{"item": 101, "state": "generating"}]
+    kept = bg._recent(items)
+    assert [i["item"] for i in kept] == list(range(81, 102))
+    assert bg._counts(items, 0)["done"] == 100
