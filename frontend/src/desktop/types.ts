@@ -175,6 +175,11 @@ export interface DesktopBridge {
   closeCurrentWindow(): Promise<void>
   /** Set the current window's title. */
   setWindowTitle(title: string): Promise<void>
+  /**
+   * Keep the screen awake for this window where the standard wake lock can't
+   * reach the OS (Hyprland). A no-op everywhere else.
+   */
+  setKeepScreenAwake(active: boolean): Promise<void>
   /** Resize the current window (dev tooling). */
   setWindowSize(width: number, height: number): Promise<void>
   /** Show, unminimize, and focus the current window. */

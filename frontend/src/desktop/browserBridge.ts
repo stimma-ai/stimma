@@ -119,6 +119,8 @@ export const browserBridge: DesktopBridge = {
     document.title = title
   },
 
+  async setKeepScreenAwake() {},
+
   async setWindowSize() {},
 
   async focusCurrentWindow() {

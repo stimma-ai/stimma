@@ -106,6 +106,7 @@ const stimmaDesktop = {
   closeDeletedProfileWindow: () => invoke<boolean>('stimma:close-deleted-profile-window'),
   closeCurrentWindow: () => invoke<void>('stimma:close-current-window'),
   setWindowTitle: (title: string) => invoke<void>('stimma:set-window-title', title),
+  setKeepScreenAwake: (active: boolean) => invoke<void>('stimma:set-keep-screen-awake', active),
   setWindowSize: (width: number, height: number) =>
     invoke<void>('stimma:set-window-size', width, height),
   focusCurrentWindow: () => invoke<void>('stimma:focus-current-window'),

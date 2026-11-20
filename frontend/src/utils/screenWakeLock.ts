@@ -6,6 +6,8 @@
  * hidden, so it is taken again each time the page becomes visible.
  * Unsupported or insecure contexts simply do nothing.
  */
+import { desktop } from '../desktop'
+
 type Sentinel = { release(): Promise<void>; addEventListener(type: 'release', fn: () => void): void }
 type WakeLockApi = { request(type: 'screen'): Promise<Sentinel> }
 
@@ -42,6 +44,9 @@ export function createScreenWakeLock(): (active: boolean) => void {
   return (active: boolean) => {
     if (active === wanted) return
     wanted = active
+    // Where the wake lock can't reach the OS (Hyprland), the desktop shell
+    // marks the window itself. Older shells lack the method.
+    void desktop.setKeepScreenAwake?.(active)?.catch(() => {})
     if (active) {
       document.addEventListener('visibilitychange', onVisibility)
       void acquire()

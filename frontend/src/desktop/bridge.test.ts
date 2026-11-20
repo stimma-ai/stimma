@@ -33,6 +33,7 @@ const CONTRACT_METHODS = [
   'closeDeletedProfileWindow',
   'closeCurrentWindow',
   'setWindowTitle',
+  'setKeepScreenAwake',
   'setWindowSize',
   'focusCurrentWindow',
   // shell

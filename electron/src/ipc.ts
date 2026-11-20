@@ -17,6 +17,7 @@ import path from 'node:path'
 import { waitForBackendPort } from './backend'
 import { cacheDragFile, pruneDragCache } from './dragCache'
 import { waitForProxyPort } from './proxy'
+import { createHyprlandIdleInhibitor, onHyprland } from './hyprlandIdle'
 import {
   LOCAL_DEVICE,
   connect as connectDevice,
@@ -265,6 +266,11 @@ export function registerIpcHandlers(): void {
 
   handle('stimma:set-window-title', (event, title: unknown) => {
     senderWindow(event).setTitle(requireString(title, 'title'))
+  })
+
+  const hyprlandKeepAwake = onHyprland() ? createHyprlandIdleInhibitor() : null
+  handle('stimma:set-keep-screen-awake', async (event, active: unknown) => {
+    await hyprlandKeepAwake?.(senderWindow(event), active === true)
   })
 
   handle('stimma:set-window-size', (event, width: unknown, height: unknown) => {
