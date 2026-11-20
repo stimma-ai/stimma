@@ -1536,6 +1536,12 @@ class StimmaTimersAPI:
         if stopped_since(self._sdk.chat_id, self._began):
             raise RuntimeError("The user pressed Stop after this code started, so no timer was set.")
         timer = await create_timer(self._sdk.session, self._sdk.chat_id, minutes=minutes, note=note, repeat=repeat)
+        # Stop records its time before it ends the chat's timers, so a Stop that
+        # swept while this insert waited on the database shows up here.
+        if stopped_since(self._sdk.chat_id, self._began):
+            from .timers import end_timers
+            await end_timers(self._sdk.session, self._sdk.chat_id, timer_id=timer.id, reason="stopped")
+            raise RuntimeError("The user pressed Stop after this code started, so no timer was set.")
         return describe(timer)
 
     async def list(self) -> list[dict[str, Any]]:

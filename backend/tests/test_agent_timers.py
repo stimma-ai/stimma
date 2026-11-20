@@ -281,3 +281,27 @@ def test_image_results_carry_the_clock_in_their_text_block():
     clock.observe(ChatItem(item_type="tool_result", created_at=t0 + timedelta(minutes=40)), msg)
     assert "40 min since the user's last message" in msg["content"][0]["text"]
     assert msg["content"][1]["type"] == "image_url"
+
+
+@pytest.mark.asyncio
+async def test_stop_that_sweeps_while_set_waits_on_the_database_still_wins(db_session, tmp_path, monkeypatch):
+    from agent.v2 import timers
+    from agent.v2.code_runtime import StimmaSDK
+    from database import AgentTimer
+    chat_id = await _chat(db_session)
+    real_create = timers.create_timer
+
+    async def slow_create(session, cid, **kw):
+        # The check passed; Stop lands while the insert waits for the write lock.
+        timers.note_stop(cid)
+        return await real_create(session, cid, **kw)
+
+    monkeypatch.setattr(timers, "create_timer", slow_create)
+    async with db_session() as session:
+        sdk = StimmaSDK(session=session, chat_id=chat_id, workspace_dir=tmp_path,
+                        project_workspace_dir=None, interrupt_checker=lambda: False)
+        with pytest.raises(RuntimeError, match="Stop"):
+            await sdk.timers.set(10, "Keep going.", repeat=True)
+    async with db_session() as s:
+        rows = (await s.execute(select(AgentTimer).where(AgentTimer.chat_id == chat_id))).scalars().all()
+    assert [r.end_reason for r in rows] == ["stopped"]
