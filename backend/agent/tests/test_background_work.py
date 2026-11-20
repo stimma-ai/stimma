@@ -357,3 +357,30 @@ def test_a_long_task_lists_only_its_latest_finished_items():
     kept = bg._recent(items)
     assert [i["item"] for i in kept] == list(range(81, 102))
     assert bg._counts(items, 0)["done"] == 100
+
+
+@pytest.mark.asyncio
+async def test_a_gather_of_workers_counts_generations_not_workers(session, test_chat, tmp_path, fake_generation):
+    _, releases = fake_generation
+    sdk = StimmaSDK(session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+                    project_workspace_dir=None, interrupt_checker=lambda: False, control=RunControl())
+    prompts = [f"shot {n}" for n in range(5)]
+
+    async def worker():
+        while prompts:
+            await sdk._dispatch_tool("mock:gen", prompt=prompts.pop())
+
+    task = asyncio.create_task(sdk._gather(worker(), worker()))
+    await _until(lambda: sdk._progress_trackers)
+    seen = []
+    while not task.done():
+        for event in releases.values():
+            event.set()
+        (tracker,) = sdk._progress_trackers
+        seen.append(tracker._build_state()["display_data"])
+        await asyncio.sleep(0.01)
+    await task
+    final = sdk._progress_trackers[0]._build_state()["display_data"]
+    assert (final["title"], final["current"], final["total"]) == ("Generating", 5, 5)
+    # While it ran, the bar moved with each finished image, not with each worker.
+    assert any(0 < s["current"] < 5 and s["total"] >= 3 for s in seen)

@@ -704,6 +704,11 @@ class ProgressTracker:
         self._pending_state: dict | None = None
         self._completed = False
         self._status = "in_progress"
+        # Generation calls made in each gather slot. A slot that makes several
+        # (a worker looping over a queue) means slots aren't images: the card
+        # then counts calls instead.
+        self._slot_calls: list[int] = []
+        self._calls_done = 0
 
         # Auto-register with SDK
         if _sdk is not None:
@@ -768,14 +773,42 @@ class ProgressTracker:
         """Accept tqdm close() calls silently."""
         pass
 
+    def _note_call(self, index: int) -> None:
+        if self._preview_slots is None:
+            return
+        while len(self._slot_calls) <= index:
+            self._slot_calls.append(0)
+        self._slot_calls[index] += 1
+        self._pending_update = self._build_state()
+
+    def _note_call_end(self) -> None:
+        if self._preview_slots is None:
+            return
+        self._calls_done += 1
+        self._pending_update = self._build_state()
+
+    @property
+    def _per_call(self) -> bool:
+        return any(n > 1 for n in self._slot_calls)
+
     def _build_state(self) -> dict:
+        title, current, total = self._title, self._current, self._total
+        if self._per_call:
+            idle = sum(
+                1 for i, slot in enumerate(self._preview_slots or [])
+                if slot["status"] == "pending" and (i >= len(self._slot_calls) or not self._slot_calls[i])
+            )
+            total = sum(self._slot_calls) + idle
+            current = min(self._calls_done, total)
+            if title and re.fullmatch(r"Generating \(\d+\)", title):
+                title = "Generating"
         return {
             "item_id": self._item_id,
             "display_data": {
-                "title": self._title,
+                "title": title,
                 "status": self._status,
-                "current": self._current,
-                "total": self._total,
+                "current": current,
+                "total": total,
                 "previews": list(self._previews),
                 **({"preview_slots": copy.deepcopy(self._preview_slots)}
                    if self._preview_slots is not None else {}),
@@ -2107,6 +2140,9 @@ class StimmaSDK:
         prompt_for_record = prompt_val if isinstance(prompt_val, str) else None
         control = self._control
         call_item = control.begin_call(tool_id, prompt_for_record, _task_type)
+        slots = _progress_slots.get()
+        for tracker, index in slots:
+            tracker._note_call(index)
 
         def _on_job_submitted(job_id: int) -> None:
             call_item.job_id = job_id
@@ -2128,6 +2164,8 @@ class StimmaSDK:
             )
         except BaseException as e:
             control.end_call(call_item, error=e)
+            for tracker, _ in slots:
+                tracker._note_call_end()
             if not isinstance(e, Exception):
                 raise
             from .background import GenerationCancelled
@@ -2141,6 +2179,8 @@ class StimmaSDK:
             })
             raise
         control.end_call(call_item, media_id=result.get("media_id"))
+        for tracker, _ in slots:
+            tracker._note_call_end()
         if result.get("metadata_only"):
             # Data tool (e.g. detect-objects): no media output — hand the raw
             # result dict (detections, image_size, ...) straight back.
