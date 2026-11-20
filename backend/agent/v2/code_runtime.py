@@ -2265,6 +2265,8 @@ class StimmaSDK:
                         # Cancelled on purpose: leave it out of the results
                         # rather than failing the whole batch.
                         return cancelled_marker
+                if card is not None and isinstance(result, ToolResult) and result.media_id is not None:
+                    card.adopt(branch_base + idx, result.media_id, str(result.path))
                 return result
             finally:
                 if not entered:
@@ -3023,8 +3025,6 @@ class StimmaSDK:
                 session.add(item)
                 await session.commit()
                 card.item_id = item.id
-                if card.status == "in_progress":
-                    _live_progress_items.add((get_current_profile(), item.id))
                 event = "chat_item_created"
             else:
                 item = await session.get(ChatItem, card.item_id)
@@ -3035,6 +3035,12 @@ class StimmaSDK:
                 await session.commit()
                 event = "chat_item_updated"
             data = item.to_dict()
+        # Live while it runs (a reopened card too), so stale cleanup leaves it be.
+        live_key = (get_current_profile(), card.item_id)
+        if card.status == "in_progress":
+            _live_progress_items.add(live_key)
+        else:
+            _live_progress_items.discard(live_key)
         await ws_manager.broadcast(event, {"chat_id": self.chat_id, "item": data})
 
     async def _flush_cards(self, finish: str | None = None) -> None:

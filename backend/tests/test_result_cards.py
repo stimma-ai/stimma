@@ -212,3 +212,52 @@ async def test_shows_as_results_land_grow_the_same_card(db_session, generation, 
     (_, role, data), = await _cards_in_chat(db_session, chat_id)
     assert role == "final" and data["mode"] == "stream"
     assert sorted(row["output"]["media_id"] for row in data["rows"]) == sorted(media[:2])
+
+
+@pytest.mark.asyncio
+async def test_a_result_landing_during_the_job_check_stays_finished():
+    from agent.v2.background import CallItem
+    from agent.v2.result_cards import ResultCard
+
+    card = ResultCard(total=1)
+    slot = card.begin(None, CallItem(item=1, tool="t", prompt=None, job_id=7), None)
+
+    class _Result:
+        def all(self):
+            return [(7, "processing")]
+
+    class _Session:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def execute(self, query):
+            card.done(slot, 42, "out.png")  # the call finishes while the queue is asked
+            return _Result()
+
+    await card.refresh_job_states(lambda: _Session())
+    assert slot.status == "complete" and slot.media_id == 42
+
+
+@pytest.mark.asyncio
+async def test_a_failed_slot_offers_retry_only_once_the_run_ends(db_session, generation, tmp_path):
+    sdk, _, _ = await _setup(db_session, generation, tmp_path)
+    generation["failing"] = {"b"}
+    await sdk._gather(*[sdk._dispatch_tool("mock:gen", prompt=p) for p in "ab"], return_exceptions=True)
+    (card,) = sdk._cards
+    card.status = "in_progress"  # still running: the run owns the card
+    assert "job_id" not in card.display_data()["rows"][1]["output"]
+    card.finish("completed")
+    assert card.display_data()["rows"][1]["output"]["job_id"]
+
+
+@pytest.mark.asyncio
+async def test_tasks_made_before_the_gather_still_fill_its_card(db_session, generation, tmp_path):
+    sdk, _, media = await _setup(db_session, generation, tmp_path)
+    tasks = [asyncio.create_task(sdk._dispatch_tool("mock:gen", prompt=p)) for p in "ab"]
+    await sdk._gather(*tasks)
+    (card,) = sdk._cards
+    assert sorted(row["output"]["media_id"] for row in card.display_data()["rows"]) == sorted(media[:2])
+    assert card.live

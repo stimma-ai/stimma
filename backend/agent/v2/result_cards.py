@@ -56,7 +56,7 @@ class Slot:
     asset_id: Optional[int] = None
     error: Optional[str] = None
 
-    def row(self) -> dict[str, Any]:
+    def row(self, ended: bool = False) -> dict[str, Any]:
         output: dict[str, Any] = {"status": self.status}
         if self.media_id is not None:
             output["media_id"] = self.media_id
@@ -66,9 +66,9 @@ class Slot:
             output["asset_id"] = self.asset_id
         if self.error:
             output["error"] = self.error
-        if self.status == "failed" and self.call is not None and self.call.job_id is not None:
-            # Retry re-runs the job. Unfinished rows carry no job id: the card
-            # would poll it and race the run's own updates.
+        if ended and self.status == "failed" and self.call is not None and self.call.job_id is not None:
+            # Retry re-runs the job, and the card then follows it itself. While
+            # the run goes on the run writes the card, so no handle until it ends.
             output["job_id"] = self.call.job_id
         return {"id": f"slot_{self.key}", "input": {"type": "output_only"}, "output": output}
 
@@ -173,6 +173,16 @@ class ResultCard:
             slot.error = f"{type(error).__name__}: {error}"[:300]
         self.dirty = True
 
+    def adopt(self, branch: int, media_id: int, path: Optional[str]) -> None:
+        """A branch returned a result its slot never saw: a Task created before
+        the gather keeps the context it was made in, so its call wasn't ours."""
+        if self.holds(media_id):
+            return
+        slot = self._branch_slot.get(branch)
+        if slot is None or slot.media_id is not None:
+            slot = self.add_slots(1)[0]
+        self.done(slot, media_id, path)
+
     def finish_batch(self) -> None:
         """A gather ended: branches that never generated hold no slot."""
         for slot in self.slots:
@@ -222,7 +232,7 @@ class ResultCard:
             "title": self.title or self.default_title(),
             "status": self.status,
             "mode": "stream" if self.stream else "batch",
-            "rows": [s.row() for s in self._visible()],
+            "rows": [s.row(ended=self.status != "in_progress") for s in self._visible()],
         }
         if not self.stream:
             data["total"] = len(self._visible())
@@ -268,6 +278,8 @@ class ResultCard:
             return
         for job_id, status in rows:
             slot = waiting[job_id]
+            if slot.status not in ("pending", "generating"):
+                continue  # it finished while the queue was asked
             state = "generating" if status == "processing" else "pending"
             if slot.status != state:
                 slot.status = state
