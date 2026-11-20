@@ -1,14 +1,13 @@
 <script setup>
-// An agent's output images in chat: one collection, two views (Grid, Preview),
+// An agent's output media in chat: one collection, two views (Grid, Preview),
 // two homes (inline, or teleported into the artifact panel). State lives in
 // useChatMediaCollections so it survives a transcript remount and the move.
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
-  ArrowsPointingOutIcon, CheckCircleIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon,
-  EllipsisHorizontalIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PlusIcon, Square3Stack3DIcon, Squares2X2Icon, XMarkIcon,
+  ArrowsPointingOutIcon, CheckCircleIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon,
+  EllipsisHorizontalIcon, InformationCircleIcon, Squares2X2Icon, XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import IconButton from '../ui/IconButton.vue'
-import Button from '../ui/Button.vue'
 import SegmentedControl from '../ui/SegmentedControl.vue'
 import Sheet from '../ui/Sheet.vue'
 import Tooltip from '../ui/Tooltip.vue'
@@ -16,15 +15,18 @@ import ArtifactPanelIcon from './ArtifactPanelIcon.vue'
 import MediaCollectionTile from './MediaCollectionTile.vue'
 import MediaSelectionBar from './MediaSelectionBar.vue'
 import OutputImage from './OutputImage.vue'
+import ChatAddIcon from './ChatAddIcon.vue'
+import VideoAuditionControl from '../viewers/VideoAuditionControl.vue'
+import { useMarkers } from '../../composables/useMarkers'
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import { MediaImage } from '../media'
 import { CHAT_MEDIA_COLLECTIONS } from '../../composables/useChatMediaCollections'
-import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { useMediaState } from '../../composables/useMediaState'
 import { useViewport } from '../../composables/useViewport'
 import { getMediaType } from '../../utils/mediaTypes'
 import { consumeEscape, hasEscapeLayer } from '../../utils/escapeLayers'
-import { COLLECTION_SIZES, gridColumns, heroHeight, startingView, stripTileSize, visibleTiles } from '../../utils/mediaCollectionLayout'
+import { gridColumns, heroHeight, placeGrid, startingView, stripTileSize, visibleTiles } from '../../utils/mediaCollectionLayout'
 
 const props = defineProps({
   rows: { type: Array, required: true },
@@ -36,14 +38,12 @@ const props = defineProps({
 const emit = defineEmits(['view-image', 'retry', 'cancel', 'retry-all', 'show-job-info'])
 
 const VIEWS = [{ label: 'Grid', value: 'grid' }, { label: 'Preview', value: 'preview' }]
-const SIZES = [{ label: 'Small', value: 's' }, { label: 'Medium', value: 'm' }, { label: 'Large', value: 'l' }]
 
 const collections = inject(CHAT_MEDIA_COLLECTIONS)
 const { selection, panel } = collections
 const { isCompact, isCoarsePointer } = useViewport()
-const { getMediaItem } = useMediaApi()
 const contextMenu = useMediaContextMenu()
-const { mediaState } = useMediaState()
+const { mediaState, loadStateForMedia } = useMediaState()
 
 const state = collections.viewState(props.itemId, () => startingView(props.rows.length, isCompact.value))
 
@@ -52,11 +52,8 @@ const stripRef = ref(null)
 const width = ref(0)
 const chatHeight = ref(700)
 const moreOpen = ref(false)
-const jumping = ref(false)
-const jumpValue = ref('')
 const stripEdges = ref({ left: false, right: false })
 const swipeX = ref(0)
-const heroInfo = ref(null)
 
 const count = computed(() => props.rows.length)
 const hasHeader = computed(() => !!props.title || count.value > 1 || props.showRole === 'intermediate' || props.failedCount > 0)
@@ -81,14 +78,27 @@ const hasLabels = computed(() => props.rows.some(row => row.input?.label))
 const runningCount = computed(() => props.rows.filter(row => ['pending', 'generating'].includes(row.output?.status)).length)
 const doneCount = computed(() => props.rows.filter(row => row.output?.status === 'complete').length)
 
-const columns = computed(() => gridColumns({ count: count.value, width: width.value || 600, size: state.size, compact: isCompact.value }))
-const visible = computed(() => visibleTiles({ count: count.value, columns: columns.value, expanded: state.expanded || inPanel.value }))
+const columns = computed(() => gridColumns({ count: count.value, width: width.value || 600 }))
+// Each picture's own aspect, from the media facts chat already loads.
+// Until they arrive (or while a picture is still generating) a tile is square.
+const ratioOf = row => {
+  const known = mediaState.value[row.output?.media_id]
+  return known?.width && known?.height ? known.width / known.height : 1
+}
+const LABEL_HEIGHT = 20
+const placement = computed(() => placeGrid({
+  ratios: props.rows.map(ratioOf),
+  width: width.value || 600,
+  columns: columns.value,
+  caption: hasLabels.value ? LABEL_HEIGHT : 0,
+}))
+const visible = computed(() => visibleTiles({ placement: placement.value, count: count.value, expanded: state.expanded || inPanel.value }))
+const gridHeight = computed(() => Math.max(0, ...placement.value.rects.slice(0, visible.value).map(r => r.y + r.h)))
 const canCollapse = computed(() => state.expanded && !inPanel.value)
 // A collapsed grid can hide the active image (Preview had moved past the
 // first rows); the last tile shown keeps the grid reachable by Tab.
 const gridFocusIndex = computed(() => Math.min(activeIndex.value, visible.value - 1))
-const stripSize = computed(() => stripTileSize(state.size, isCompact.value))
-const canResize = computed(() => !isSingle.value && (count.value > 4 || view.value === 'preview'))
+const stripSize = computed(() => stripTileSize({ width: width.value || 600, count: count.value }))
 // A set or grid is drawn on its own backdrop, so its hero shares one surface.
 const activeIsComposite = computed(() => {
   const format = mediaState.value[activeMediaId.value]?.file_format || activeRow.value?.output?.file_format
@@ -116,10 +126,7 @@ const STACK_KEEP = 12
 const HERO_GUTTER_TOP = 40
 const HERO_GUTTER_BOTTOM = 48
 const heroGutters = computed(() => activeIsComposite.value && isCompact.value && width.value > 0 && width.value < 560)
-// Too narrow for the facts to share the bottom row with the markers and Add.
-const factsTop = computed(() => width.value > 0 && width.value < 560)
-const hostsHeroMenu = computed(() => isSingle.value && hasHeader.value && !!activeMediaId.value)
-const topBand = computed(() => heroGutters.value && (!hostsHeroMenu.value || !!heroFacts.value))
+const topBand = heroGutters
 const heroSquare = computed(() => Math.min(width.value || 560, Math.max(200, Math.round(chatHeight.value * 0.7) - gutterBottom.value)))
 const stackTrim = computed(() => (isSingle.value && activeIsSet.value && !topBand.value
   ? Math.max(0, Math.round(heroSquare.value * STACK_MARGIN) - STACK_KEEP)
@@ -140,7 +147,7 @@ const inlineHeroHeight = computed(() => {
   // Bands and picture together take at most 70% of the visible conversation.
   const room = Math.round(chatHeight.value * 0.7) - extra
   if (isSingle.value) return Math.min(width.value || 560, Math.max(200, room)) + extra - stackTrim.value
-  return Math.min(heroHeight({ chatHeight: chatHeight.value - extra, width: width.value, size: state.size, stripSize: stripSize.value }), Math.max(200, room)) + extra
+  return Math.min(heroHeight({ chatHeight: chatHeight.value - extra, width: width.value, stripSize: stripSize.value }), Math.max(200, room)) + extra
 })
 const rootWidthClass = computed(() => {
   if (inPanel.value) return 'h-full w-full bg-matte'
@@ -153,13 +160,23 @@ const rootWidthClass = computed(() => {
 const ctl = computed(() => (activeIsComposite.value
   ? 'bg-overlay-light text-content hover:bg-overlay-medium'
   : 'bg-black/55 text-white backdrop-blur hover:bg-black/75'))
-const memberCount = computed(() => (heroInfo.value?.id === activeMediaId.value ? heroInfo.value.members : 0))
-const heroFacts = computed(() => {
-  const label = activeRow.value?.input?.label
-  if (label) return label
-  const info = heroInfo.value
-  return info?.id === activeMediaId.value && info.width && info.height ? `${info.width} × ${info.height}` : ''
+// The agent's label for the picture, if it gave one.
+const heroLabel = computed(() => activeRow.value?.input?.label || '')
+const activeIsVideo = computed(() => {
+  const format = mediaState.value[activeMediaId.value]?.file_format || activeRow.value?.output?.file_format
+  return !!format && getMediaType({ file_format: format }) === 'video'
 })
+const heroRef = ref(null)
+const activeHasAudio = computed(() => activeIsVideo.value && !!mediaState.value[activeMediaId.value]?.has_audio)
+const canAdd = computed(() => activePickable.value && collections.canAttach.value)
+const hasToolbar = computed(() => !!activeMediaId.value || !!heroLabel.value)
+const { loadMarkersForMedia, availableMarkers, hasMarker, toggleMarker } = useMarkers()
+// The strip shows markers, and the grid needs every picture's size.
+watch(universe, ids => {
+  if (!ids.length) return
+  loadMarkersForMedia(ids)
+  loadStateForMedia(ids)
+}, { immediate: true })
 
 // Keeps the picked point of the conversation still while the card changes height.
 function keepAnchored(change) {
@@ -188,10 +205,6 @@ function inspect(index) {
 function move(delta) {
   show(activeIndex.value + delta)
 }
-function changeSize(delta) {
-  const next = COLLECTION_SIZES[COLLECTION_SIZES.indexOf(state.size) + delta]
-  if (next) keepAnchored(() => { state.size = next })
-}
 function collapse() {
   state.expanded = false
   nextTick(() => rootRef.value?.scrollIntoView({ block: 'nearest' }))
@@ -203,16 +216,6 @@ function togglePickActive(event) {
   selection.toggle(props.itemId, activeMediaId.value, universe.value, event?.shiftKey)
 }
 
-function jumpStart() {
-  jumpValue.value = String(activeIndex.value + 1)
-  jumping.value = true
-  nextTick(() => rootRef.value?.querySelector('[data-collection-jump]')?.select())
-}
-function jumpCommit() {
-  const n = parseInt(jumpValue.value, 10)
-  if (!Number.isNaN(n)) show(n - 1)
-  jumping.value = false
-}
 
 // The hero's ⋯ and its right-click open one menu: the picks when the picture
 // is one of them, else the picture, in the chat's project.
@@ -329,23 +332,12 @@ function onHeroDragStart(event) {
   event.dataTransfer?.setData('application/x-stimma-assets', JSON.stringify({ items }))
 }
 
-watch(activeIndex, () => {
-  jumping.value = false
-  nextTick(centerActiveInStrip)
-})
+watch(activeIndex, () => nextTick(centerActiveInStrip))
 watch(view, () => nextTick(() => { centerActiveInStrip(); updateStripEdges() }))
 // The button that opened the panel is gone; keep Escape and the arrows working.
 watch(inPanel, entered => { if (entered) nextTick(() => rootRef.value?.focus()) })
-watch(() => [state.size, count.value, inPanel.value], () => nextTick(() => { centerActiveInStrip(); updateStripEdges() }), { flush: 'post' })
+watch(() => [stripSize.value, count.value, inPanel.value], () => nextTick(() => { centerActiveInStrip(); updateStripEdges() }), { flush: 'post' })
 
-// Dimensions are a fact of the picture on screen, so they load with it.
-watch([activeMediaId, view], async ([id, nextView]) => {
-  if (!id || nextView !== 'preview') return
-  try {
-    const item = await getMediaItem(id, { includeTrashed: true })
-    if (id === activeMediaId.value) heroInfo.value = { id, width: item.width, height: item.height, members: item.member_count || 0 }
-  } catch { /* the chip just omits what it can't read */ }
-}, { immediate: true })
 
 // A panel the collection has left, or a transcript that dropped it, shouldn't stay claimed.
 onBeforeUnmount(() => {
@@ -435,14 +427,6 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="flex flex-none items-center gap-1">
-          <template v-if="hostsHeroMenu">
-            <span v-if="activeIsComposite && memberCount" class="flex flex-none items-center gap-1 px-1 font-mono text-xs tabular-nums text-content-muted" :title="`${memberCount} items`">
-              <Square3Stack3DIcon class="h-3.5 w-3.5" :stroke-width="1.75" />{{ memberCount }}
-            </span>
-            <IconButton aria-label="More actions" class="coarse:!h-11 coarse:!w-11" @click="openHeroMenu">
-              <EllipsisHorizontalIcon class="h-4 w-4" />
-            </IconButton>
-          </template>
           <Tooltip v-if="canCollapse && !isCoarsePointer" text="Back to three rows">
             <button type="button" class="flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content" @click="collapse">
               <ChevronUpIcon class="h-3.5 w-3.5" />Show fewer
@@ -457,18 +441,6 @@ onBeforeUnmount(() => {
             @update:model-value="setView"
           />
           <template v-if="!isCoarsePointer && !isCompact">
-            <div v-if="canResize" class="ml-1 flex items-center">
-              <Tooltip text="Smaller images">
-                <IconButton :disabled="state.size === 's'" aria-label="Smaller images" @click="changeSize(-1)">
-                  <MagnifyingGlassMinusIcon class="h-4 w-4" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip text="Larger images">
-                <IconButton :disabled="state.size === 'l'" aria-label="Larger images" @click="changeSize(1)">
-                  <MagnifyingGlassPlusIcon class="h-4 w-4" />
-                </IconButton>
-              </Tooltip>
-            </div>
             <Tooltip v-if="panel.available && !inPanel && count > 4" text="Open in panel">
               <IconButton aria-label="Open in panel" @click="panel.open(itemId)">
                 <ArtifactPanelIcon />
@@ -489,7 +461,7 @@ onBeforeUnmount(() => {
       <div class="flex min-h-0 flex-1 flex-col" :class="inPanel ? '' : ['overflow-hidden rounded-b-lg', hasHeader ? '' : 'rounded-t-lg']">
         <!-- Grid: one matte wall with 2px gutters -->
         <div v-if="view === 'grid'" class="min-h-0 flex-1 bg-matte" :class="inPanel ? 'custom-scrollbar overflow-y-auto' : ''">
-          <div class="grid gap-0.5" :style="{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }">
+          <div class="relative" :style="{ height: gridHeight + 'px' }">
             <MediaCollectionTile
               v-for="(row, index) in rows.slice(0, visible)"
               :key="row.id ?? index"
@@ -498,8 +470,9 @@ onBeforeUnmount(() => {
               :item-id="itemId"
               :total="count"
               :universe="universe"
-              :show-label="hasLabels"
+              :rect="placement.rects[index]"
               :tabbable="gridFocusIndex === index"
+              :show-label="hasLabels"
               :overflow="index === visible - 1 && visible < count ? count - visible + 1 : 0"
               @view-image="inspect(index)"
               @expand="state.expanded = true"
@@ -538,8 +511,11 @@ onBeforeUnmount(() => {
               >
                 <OutputImage
                   :key="activeRow.id ?? activeIndex"
+                  ref="heroRef"
                   :row="activeRow"
                   fill
+                  bare
+                  hide-type-chip
                   :use-thumbnail="false"
                   playable
                   :fit-thumbnail="isSingle ? null : 1024"
@@ -548,7 +524,6 @@ onBeforeUnmount(() => {
                   :inset-bottom="heroGutters ? 2 : 8"
                   :gutter-top="gutterTop"
                   :gutter-bottom="gutterBottom"
-                  :hide-count-chip="hostsHeroMenu && activeIsComposite"
                   :class="activeIsGrid ? '!rounded-media !bg-surface dark:!bg-[#181818]' : '!rounded-media !bg-matte'"
                   style="aspect-ratio: auto; height: 100%"
                   @view-image="openFullView"
@@ -560,36 +535,22 @@ onBeforeUnmount(() => {
 
               <span v-if="activeSelected && !isSingle" class="pointer-events-none absolute inset-0 ring-2 ring-inset ring-selection"></span>
 
-              <template v-if="activePickable">
-                <button
-                  type="button"
-                  role="checkbox"
-                  :aria-checked="activeSelected"
-                  aria-label="Select this image"
-                  class="absolute left-2 top-2 z-chrome flex transition-opacity duration-150 coarse:left-0 coarse:top-0 coarse:h-11 coarse:w-11 coarse:p-2"
-                  :class="activeSelected || selecting ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover/hero:opacity-100 [[data-pointer=coarse]_&]:opacity-100'"
-                  @click.stop="togglePickActive"
-                >
-                  <span class="flex h-6 w-6 items-center justify-center rounded-md border-2 backdrop-blur-md transition-colors duration-150" :class="activeSelected ? 'border-selection bg-selection' : activeIsComposite ? 'border-edge-strong bg-overlay-subtle hover:border-content-secondary' : 'border-edge-strong bg-black/60 hover:border-content-secondary'">
-                    <svg v-if="activeSelected" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                  </span>
-                </button>
-              </template>
-
-              <div
-                v-if="activeMediaId"
-                class="absolute right-2 top-2 z-chrome flex items-center gap-1 transition-opacity duration-150 coarse:right-1 coarse:top-1"
-                :class="isCoarsePointer ? 'opacity-100' : 'opacity-0 focus-within:opacity-100 group-hover/hero:opacity-100'"
+              <!-- Pick: on hover, top left. Touch picks with a long press, so the box shows only once picking. -->
+              <button
+                v-if="activePickable"
+                type="button"
+                role="checkbox"
+                :aria-checked="activeSelected"
+                aria-label="Select this image"
+                class="absolute left-2 top-2 z-chrome flex transition-opacity duration-150 coarse:left-0 coarse:top-0 coarse:h-11 coarse:w-11 coarse:p-2"
+                :class="activeSelected || selecting ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover/hero:opacity-100 [[data-pointer=coarse]_&]:hidden'"
+                @click.stop="togglePickActive"
               >
-                <Tooltip v-if="!isCoarsePointer" text="Open slideshow">
-                  <button type="button" aria-label="Open slideshow" class="flex h-7 w-7 items-center justify-center rounded-md transition-colors" :class="ctl" @click.stop="openFullView">
-                    <ArrowsPointingOutIcon class="h-4 w-4" />
-                  </button>
-                </Tooltip>
-                <button v-if="!hostsHeroMenu" type="button" aria-label="More actions" class="flex h-7 w-7 items-center justify-center rounded-md transition-colors coarse:h-11 coarse:w-11" :class="ctl" @click="openHeroMenu">
-                  <EllipsisHorizontalIcon class="h-4 w-4" />
-                </button>
-              </div>
+                <span class="flex h-6 w-6 items-center justify-center rounded-md border-2 backdrop-blur-md transition-colors duration-150" :class="activeSelected ? 'border-selection bg-selection' : 'border-edge-strong bg-black/60 hover:border-content-secondary'">
+                  <svg v-if="activeSelected" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" data-stroke="own"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                </span>
+              </button>
+
 
               <!-- Edge paging. Touch swipes the picture instead. -->
               <template v-if="!isSingle && !isCoarsePointer">
@@ -602,38 +563,48 @@ onBeforeUnmount(() => {
               </template>
 
             </div>
-            <div class="flex flex-none items-center justify-between gap-2 bg-surface px-2 py-1.5" data-testid="media-collection-toolbar">
-              <!-- Facts. The position is editable, which matters at 200. -->
-              <div v-if="!isSingle || heroFacts" class="flex min-w-0 items-center gap-1.5 font-mono text-xs tabular-nums text-content-tertiary">
-                <template v-if="!isSingle">
-                  <input
-                    v-if="jumping"
-                    v-model="jumpValue"
-                    data-collection-jump
-                    inputmode="numeric"
-                    aria-label="Go to image number"
-                    class="w-10 rounded-sm bg-transparent px-1 text-center outline-none ring-1 ring-white/50 focus:ring-white"
-                    @keydown.enter.prevent.stop="jumpCommit"
-                    @keydown.escape.stop="jumping = false"
-                    @blur="jumpCommit"
-                  >
-                  <button v-else type="button" class="whitespace-nowrap rounded-sm hover:underline disabled:hover:no-underline coarse:min-h-11 coarse:min-w-11" :title="count > 8 ? 'Go to image number' : undefined" :disabled="count <= 8" @click.stop="jumpStart">{{ activeIndex + 1 }} / {{ count }}</button>
-                  <span v-if="heroFacts" class="opacity-50">·</span>
-                </template>
-                <span v-if="heroFacts" class="truncate">{{ heroFacts }}</span>
-              </div>
-
-              <Button
-                v-if="activePickable && collections.canAttach.value"
-                variant="ghost"
-                size="sm"
-                class="ml-auto flex-none coarse:min-h-11"
-                @click.stop="collections.isAttached(activeMediaId) ? collections.detach(activeMediaId) : collections.attach([activeMediaId])"
-              >
-                <CheckIcon v-if="collections.isAttached(activeMediaId)" class="h-3.5 w-3.5 text-accent-hi" />
-                <PlusIcon v-else class="h-3.5 w-3.5" />
-                {{ collections.isAttached(activeMediaId) ? 'In message' : 'Add to message' }}
-              </Button>
+            <!-- One row for the picture's controls: markers on the left, actions on the right. A click on the picture opens the slideshow. -->
+            <div v-if="hasToolbar" class="flex h-10 flex-none items-center gap-0.5 bg-surface px-1.5 coarse:h-12" data-testid="media-collection-toolbar">
+              <template v-if="activeMediaId && !activeRow.output?.deleted && !isTrashed(activeRow)">
+                <button
+                  v-for="marker in availableMarkers"
+                  :key="marker.id"
+                  type="button"
+                  class="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-overlay-subtle coarse:h-11 coarse:w-11"
+                  :class="hasMarker(activeMediaId, marker.id) ? '' : 'text-content-tertiary hover:text-content'"
+                  :style="hasMarker(activeMediaId, marker.id) ? { color: marker.color } : null"
+                  :title="hasMarker(activeMediaId, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
+                  @click.stop="toggleMarker(activeMediaId, marker)"
+                >
+                  <span class="icon-container flex h-4 w-4 items-center justify-center" :class="hasMarker(activeMediaId, marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
+                </button>
+              </template>
+              <span v-if="heroLabel" class="ml-1.5 min-w-0 truncate text-xs text-content-tertiary">{{ heroLabel }}</span>
+              <span class="flex-1"></span>
+              <VideoAuditionControl
+                v-if="activeHasAudio && heroRef"
+                quiet
+                :active="heroRef.auditionActive"
+                :progress="heroRef.auditionProgress"
+                @toggle="heroRef.audition()"
+              />
+              <Tooltip v-if="canAdd" :text="collections.isAttached(activeMediaId) ? 'In your message' : 'Add to message'">
+                <IconButton
+                  :aria-label="collections.isAttached(activeMediaId) ? 'Remove from message' : 'Add to message'"
+                  :class="collections.isAttached(activeMediaId) ? '!text-accent-hi' : ''"
+                  @click.stop="collections.isAttached(activeMediaId) ? collections.detach(activeMediaId) : collections.attach([activeMediaId])"
+                >
+                  <ChatAddIcon :checked="collections.isAttached(activeMediaId)" class="h-[18px] w-[18px]" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip v-if="activeRow.output?.job_id" text="Generation details">
+                <IconButton aria-label="Generation details" @click.stop="$emit('show-job-info', activeRow.output.job_id)">
+                  <InformationCircleIcon class="h-4 w-4" />
+                </IconButton>
+              </Tooltip>
+              <IconButton v-if="activeMediaId" aria-label="More actions" @click="openHeroMenu">
+                <EllipsisHorizontalIcon class="h-4 w-4" />
+              </IconButton>
             </div>
           </div>
 
@@ -671,10 +642,6 @@ onBeforeUnmount(() => {
       <MediaSelectionBar v-if="inPanel && isCompact && selecting" class="flex-none rounded-none border-x-0 border-t" />
 
       <Sheet v-if="isCoarsePointer || isCompact" :show="moreOpen" @close="moreOpen = false">
-        <div class="sheet-section">Image size</div>
-        <div class="px-4 pb-2">
-          <SegmentedControl v-model="state.size" :options="SIZES" aria-label="Image size" class="coarse:[&_button]:min-h-11 coarse:[&_button]:px-4" />
-        </div>
         <button type="button" class="sheet-row" @click="selection.start(itemId, universe); moreOpen = false"><CheckCircleIcon class="sheet-row-icon" /><span class="flex-1">Select images</span></button>
         <button type="button" class="sheet-row" @click="selection.selectAll(itemId, universe); moreOpen = false"><Squares2X2Icon class="sheet-row-icon" /><span class="flex-1">Select all</span><span class="sheet-row-detail">{{ universe.length }}</span></button>
         <button v-if="panel.available && !inPanel" type="button" class="sheet-row" @click="panel.open(itemId); moreOpen = false"><ArrowsPointingOutIcon class="sheet-row-icon" /><span class="flex-1">{{ isCompact ? 'Open full screen' : 'Open in panel' }}</span></button>

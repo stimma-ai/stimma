@@ -25,7 +25,8 @@ test('a chat collection works by touch on a phone', async ({ page, context }) =>
 
   const collection = page.getByTestId('media-collection');
   const hero = page.getByTestId('media-collection-hero');
-  await expect(hero.getByRole('button', { name: '1 / 12' })).toBeVisible();
+  const current = collection.locator('[data-tile][aria-current="true"]');
+  await expect(current).toHaveAttribute('data-tile', '0');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 
   // Every visible control in the card is a real touch target.
@@ -45,7 +46,7 @@ test('a chat collection works by touch on a phone', async ({ page, context }) =>
   await touch('touchStart', box.x + box.width - 40, y);
   for (const x of [box.width - 80, box.width - 160, box.width - 260]) await touch('touchMove', box.x + x, y);
   await touch('touchEnd');
-  await expect(hero.getByRole('button', { name: '2 / 12' })).toBeVisible();
+  await expect(current).toHaveAttribute('data-tile', '1');
 
   const tile = (await collection.locator('[data-tile="4"]').boundingBox())!;
   await touch('touchStart', tile.x + tile.width / 2, tile.y + tile.height / 2);

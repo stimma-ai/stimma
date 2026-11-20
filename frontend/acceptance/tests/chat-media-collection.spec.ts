@@ -34,24 +34,23 @@ test('a chat collection browses in place and sends picks to the composer', async
   const collection = page.locator(`[data-item-id="${response.id}"]`);
   const panelCollection = page.getByTestId('media-collection');
   const hero = page.getByTestId('media-collection-hero');
-  const position = hero.getByRole('button', { name: /^\d+ \/ 16$/ });
+  // The strip marks the picture on show.
+  const current = collection.locator('[data-tile][aria-current="true"]');
   const bar = page.getByTestId('media-selection-bar');
   const attachments = page.locator('.chat-attachments > div');
 
   // More than fits opens in Preview, whose height leaves the composer in view.
-  await expect(position).toHaveText('1 / 16');
+  await expect(current).toHaveAttribute('data-tile', '0');
   await expect(collection.locator('[data-tile]')).toHaveCount(16);
   const messages = page.locator('[data-chat-scroller]');
   expect((await panelCollection.boundingBox())!.height).toBeLessThanOrEqual((await messages.boundingBox())!.height);
 
   await collection.locator('[data-tile="3"]').click();
-  await expect(position).toHaveText('4 / 16');
+  await expect(current).toHaveAttribute('data-tile', '3');
   await page.keyboard.press('ArrowRight');
-  await expect(position).toHaveText('5 / 16');
-  await position.click();
-  await hero.getByLabel('Go to image number').fill('12');
-  await page.keyboard.press('Enter');
-  await expect(hero.getByRole('button', { name: '12 / 16' })).toBeVisible();
+  await expect(current).toHaveAttribute('data-tile', '4');
+  await collection.locator('[data-tile="11"]').click();
+  await expect(current).toHaveAttribute('data-tile', '11');
 
   // The picture opens the slideshow, and Escape comes straight back.
   await hero.locator('.group.cursor-pointer').click();
@@ -68,21 +67,22 @@ test('a chat collection browses in place and sends picks to the composer', async
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Escape');
   await expect(slideshowPicture).toHaveCount(0);
-  await expect(hero.getByRole('button', { name: '14 / 16' })).toBeVisible();
+  await expect(current).toHaveAttribute('data-tile', '13');
   await expect(collection.locator('[data-tile="13"]')).toBeFocused();
-  await hero.getByRole('button', { name: '14 / 16' }).click();
-  await hero.getByLabel('Go to image number').fill('12');
-  await page.keyboard.press('Enter');
-  await expect(hero.getByRole('button', { name: '12 / 16' })).toBeVisible();
+  await collection.locator('[data-tile="11"]').click();
+  await expect(current).toHaveAttribute('data-tile', '11');
 
   // Picks carry between views and dock on the composer.
   await hero.hover();
   await hero.getByRole('checkbox', { name: 'Select this image' }).click();
   await expect(bar).toContainText('1 selected');
   await collection.getByRole('radio', { name: 'Grid' }).click();
+  // Collapsed, the grid shows three rows (how many columns depends on the width).
   await expect(collection.locator('[data-tile="15"]')).toHaveCount(0);
-  await expect(collection.locator('[data-tile="14"]')).toContainText('+2');
-  await collection.locator('[data-tile="14"]').click();
+  const shown = await collection.locator('[data-tile]').count();
+  const last = collection.locator(`[data-tile="${shown - 1}"]`);
+  await expect(last).toContainText(`+${16 - shown + 1}`);
+  await last.click();
   await expect(collection.locator('[data-tile="15"]')).toBeVisible();
   await expect(collection.locator('[data-tile="11"]').getByRole('checkbox')).toHaveAttribute('aria-checked', 'true');
   await collection.locator('[data-tile="2"]').click();
@@ -114,7 +114,7 @@ test('a chat collection browses in place and sends picks to the composer', async
   const add = hero.getByRole('button', { name: 'Add to message' });
   await add.focus();
   await page.keyboard.press('Space');
-  await expect(hero.getByRole('button', { name: 'In message' })).toBeVisible();
+  await expect(hero.getByRole('button', { name: 'Remove from message' })).toBeVisible();
   await expect(bar).toHaveCount(0);
 });
 
@@ -142,7 +142,7 @@ test('single results and short sets need no paging', async ({ page }) => {
 });
 
 
-test('chat videos preview silently on hover and play on click', async ({ page }, testInfo) => {
+test('chat videos loop silently and play their sound once on request', async ({ page }, testInfo) => {
   const source = testInfo.outputPath('chat-video.mp4');
   execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i',
     'testsrc2=duration=8:size=320x180:rate=25', '-f', 'lavfi', '-i',
@@ -165,19 +165,17 @@ test('chat videos preview silently on hover and play on click', async ({ page },
   } as any);
   await page.goto(`/chat/${chat.id}`);
   const hero = page.getByTestId('media-collection-hero');
-  const play = hero.getByRole('button', { name: 'Play video', exact: true });
-  await expect(play).toBeVisible();
-  await play.hover();
-  await expect.poll(() => hero.locator('video').evaluate(v => !v.paused && v.muted)).toBe(true);
-  await page.mouse.move(1400, 50);
-  await expect(hero.locator('video')).toHaveCount(0);
-  await play.click();
-  await expect.poll(() => hero.locator('video').evaluate(v => !v.paused && !v.muted && v.currentTime > 0)).toBe(true);
-  await hero.getByRole('button', { name: 'Pause video' }).click();
-  await expect.poll(() => hero.locator('video').evaluate(v => v.paused)).toBe(true);
+  // No hover, no play button: the video just loops without sound.
+  await expect(hero.getByRole('button', { name: 'Play video' })).toHaveCount(0);
+  await expect.poll(() => hero.locator('video').evaluate(v => !v.paused && v.muted && v.loop)).toBe(true);
   const toolbar = hero.getByTestId('media-collection-toolbar');
+  // The speaker plays one pass with sound from the top.
+  await toolbar.getByRole('button', { name: /Play sound once/ }).click();
+  await expect.poll(() => hero.locator('video').evaluate(v => !v.paused && !v.muted && !v.loop)).toBe(true);
+  await toolbar.getByRole('button', { name: 'Stop sound' }).click();
+  await expect.poll(() => hero.locator('video').evaluate(v => !v.paused && v.muted && v.loop)).toBe(true);
   await toolbar.getByRole('button', { name: 'Add to message' }).click();
-  await expect(toolbar.getByRole('button', { name: 'In message' })).toBeVisible();
+  await expect(toolbar.getByRole('button', { name: 'Remove from message' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('chat-video.png') });
   await hero.locator('[data-video-surface]').click();
   await expect(page.locator('video[data-gallery-picture]')).toBeVisible();

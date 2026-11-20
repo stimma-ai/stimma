@@ -1,6 +1,7 @@
 <template>
   <!-- Output image container: always square with letterboxing (v2) -->
   <div
+    ref="rootEl"
     class="rounded overflow-hidden flex-shrink-0 relative group"
     :style="containerStyle"
     :class="{
@@ -97,11 +98,12 @@
         playsinline
         :muted="videoPreview"
         :loop="videoPreview"
+        @timeupdate="onVideoTime"
         preload="metadata"
         class="pointer-events-none absolute inset-0 h-full w-full bg-matte object-contain"
         @play="videoPlaying = true"
         @pause="videoPlaying = false"
-        @ended="videoPlaying = false"
+        @ended="onVideoEnded"
         @error="videoError = !videoPreview; videoPlaying = false"
         @contextmenu.prevent="openVideoMenu"
       />
@@ -115,22 +117,10 @@
         @dragend="handleDragEnd"
         @contextmenu.prevent="openVideoMenu"
       />
-      <IconButton
-        v-if="canPlayVideo"
-        data-video-playback
-        :aria-label="videoPlaying && !videoPreview ? 'Pause video' : 'Play video'"
-        :title="videoPlaying && !videoPreview ? 'Pause video' : 'Play video'"
-        class="absolute bottom-2 left-1/2 z-chrome -translate-x-1/2 !bg-black/55 backdrop-blur transition-opacity duration-150 hover:!bg-black/75 focus-visible:opacity-100 group-hover:opacity-100 coarse:opacity-100"
-        :class="videoPlaying && !videoPreview ? 'opacity-100 !text-live' : 'opacity-0 !text-white'"
-        @click.stop="toggleVideo"
-      >
-        <PauseIcon v-if="videoPlaying && !videoPreview" class="h-4 w-4" />
-        <PlayIcon v-else class="h-4 w-4" />
-      </IconButton>
       <span v-if="videoError" role="status" class="pointer-events-none absolute inset-x-2 bottom-2 bg-matte/90 p-2 text-center text-xs text-content-secondary">Unable to play this video. Try opening it in the slideshow.</span>
 
       <!-- Type chip (upper right): the browse TileChip, monochrome glyph, mono member count for sets and grids -->
-      <div v-if="outputMediaType && outputMediaType !== 'image' && !(hideCountChip && isComposite)" class="absolute top-1.5 right-1.5 z-chrome" :style="insetRight ? { right: `${insetRight}px` } : null">
+      <div v-if="outputMediaType && outputMediaType !== 'image' && !(hideCountChip && isComposite) && !(hideTypeChip && outputMediaType !== 'set' && outputMediaType !== 'grid')" class="absolute top-1.5 right-1.5 z-chrome" :style="insetRight ? { right: `${insetRight}px` } : null">
         <TileChip>
           <!-- Audio icon (music note) -->
           <svg v-if="outputMediaType === 'audio'" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -181,7 +171,7 @@
       </div>
 
       <!-- Marker toggle buttons (bottom left) -->
-      <div v-if="!isTrashed && availableMarkers.length > 0" class="absolute bottom-2 left-2 z-chrome flex gap-0.5" :style="insetBottom ? { bottom: `${insetBottom}px` } : null">
+      <div v-if="!bare && !isTrashed && availableMarkers.length > 0" class="absolute bottom-2 left-2 z-chrome flex gap-0.5" :style="insetBottom ? { bottom: `${insetBottom}px` } : null">
         <button
           v-for="marker in availableMarkers"
           :key="marker.id"
@@ -191,7 +181,8 @@
             hasMarker(row.output.media_id, marker.id)
               ? (isComposite ? 'bg-overlay-light' : 'bg-black/70')
               : (isComposite ? 'text-content-tertiary hover:bg-overlay-light hover:text-content' : 'text-white/85 [filter:drop-shadow(0_1px_2px_rgb(0_0_0/0.7))] hover:bg-black/55 hover:text-white hover:[filter:none]'),
-            quietMarkers && !hasMarker(row.output.media_id, marker.id) ? 'opacity-0 group-hover:opacity-100 [[data-pointer=coarse]_&]:hidden' : ''
+            // Quiet (grid tiles): on touch the set markers are status only; the menu changes them.
+            quietMarkers ? (hasMarker(row.output.media_id, marker.id) ? '[[data-pointer=coarse]_&]:pointer-events-none' : 'opacity-0 group-hover:opacity-100 [[data-pointer=coarse]_&]:hidden') : ''
           ]"
           :style="hasMarker(row.output.media_id, marker.id) ? { color: marker.color } : {}"
           :title="hasMarker(row.output.media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
@@ -201,7 +192,7 @@
       </div>
 
       <!-- Bottom right controls: info button -->
-      <div class="absolute bottom-2 right-2 z-chrome flex gap-1 items-center" :style="insetBottom ? { bottom: `${insetBottom}px` } : null">
+      <div v-if="!bare" class="absolute bottom-2 right-2 z-chrome flex gap-1 items-center" :style="insetBottom ? { bottom: `${insetBottom}px` } : null">
         <!-- Info button (visible on hover) -->
         <button
           v-if="row.output.job_id"
@@ -247,9 +238,8 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
-import { useManagedMediaElement } from '../../composables/useMediaPlayback'
-import IconButton from '../ui/IconButton.vue'
-import { FilmIcon, PauseIcon, PlayIcon } from '@heroicons/vue/24/outline'
+import { useManagedMediaElement, useMediaPlayback } from '../../composables/useMediaPlayback'
+import { FilmIcon } from '@heroicons/vue/24/outline'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
 import { useViewport } from '../../composables/useViewport'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
@@ -301,6 +291,10 @@ const props = defineProps({
   gutterTop: { type: Number, default: 0 },
   // The parent shows a set's or grid's member count itself.
   hideCountChip: { type: Boolean, default: false },
+  // The parent says what the picture is (a looping video needs no "video" chip).
+  hideTypeChip: { type: Boolean, default: false },
+  // The parent draws the picture's controls in its own row: no chips on the artwork.
+  bare: { type: Boolean, default: false },
   gutterBottom: { type: Number, default: 0 }
 })
 
@@ -440,8 +434,8 @@ const videoMenu = useMediaContextMenu()
 const isPlayableVideo = computed(() => outputMediaType.value === 'video' && !isTrashed.value && !props.row.output.deleted && props.row.output.status === 'complete')
 const canPlayVideo = computed(() => props.playable && isPlayableVideo.value)
 const videoSrc = computed(() => getMediaFileUrl(props.row.output.media_id))
-let hoverTimer
 let playbackRequest = 0
+let hoverTimer
 async function playVideo(preview) {
   const request = ++playbackRequest
   videoPreview.value = preview
@@ -455,28 +449,54 @@ async function playVideo(preview) {
     if (request === playbackRequest && !preview) videoError.value = true
   }
 }
-function toggleVideo() {
-  clearTimeout(hoverTimer)
-  if (videoPlaying.value && !videoPreview.value) {
-    ++playbackRequest
-    videoRef.value?.pause()
-  } else {
-    void playVideo(false)
-  }
+// A playable video loops quietly while it is on screen. Sound is an audition:
+// one pass from the top, then back to the quiet loop (Tool View's speaker).
+const auditionActive = ref(false)
+const auditionProgress = ref(0)
+// The audition plays at the slideshow's video volume (the speaker's hover slider).
+const { videoVolume } = useMediaPlayback()
+function startAmbient() {
+  if (!canPlayVideo.value) return
+  auditionActive.value = false
+  auditionProgress.value = 0
+  void playVideo(true)
 }
+async function audition() {
+  if (auditionActive.value) { startAmbient(); return }
+  await playVideo(false)
+  const video = videoRef.value
+  if (!video) return
+  video.volume = videoVolume.value
+  video.currentTime = 0
+  auditionActive.value = true
+}
+function onVideoTime(event) {
+  if (!auditionActive.value) return
+  const video = event.target
+  auditionProgress.value = video.duration ? video.currentTime / video.duration : 0
+}
+function onVideoEnded() {
+  videoPlaying.value = false
+  if (auditionActive.value) startAmbient()
+}
+defineExpose({ audition, auditionActive, auditionProgress })
+// Outside a collection a video stays a still until the pointer rests on it.
 function startHoverVideo() {
-  if (isCoarsePointer.value || !isPlayableVideo.value || videoStarted.value) return
+  if (props.playable || !isPlayableVideo.value || videoStarted.value) return
+  if (isCoarsePointer.value) return
   // Same dwell as the browser: passing across a tile never opens a decoder.
   hoverTimer = setTimeout(() => { void playVideo(true) }, 150)
 }
 function stopHoverVideo() {
   clearTimeout(hoverTimer)
-  if (!videoPreview.value) return
+  if (props.playable || !videoPreview.value) return
   resetVideo()
 }
 function resetVideo() {
   clearTimeout(hoverTimer)
   ++playbackRequest
+  auditionActive.value = false
+  auditionProgress.value = 0
   videoRef.value?.pause()
   videoStarted.value = false
   videoPlaying.value = false
@@ -493,18 +513,32 @@ function onVideoDragStart(event) {
 function openVideoMenu(event) {
   videoMenu.show({ event, mediaId: props.row.output.media_id, assetId: props.row.output.asset_id })
 }
-watch(() => props.row.output.media_id, resetVideo)
+watch(() => props.row.output.media_id, () => { resetVideo(); if (onScreen.value) startAmbient() })
 onBeforeUnmount(resetVideo)
 onDeactivated(resetVideo)
 
 watch(isPlayableVideo, playable => { if (!playable) resetVideo() })
+// The loop runs only while the picture is on screen, so a long chat of videos
+// never decodes more than it shows.
+// It starts as on screen: the observer's first report, which comes at once,
+// stops one that isn't, and a throttled observer never leaves a video still.
+const rootEl = ref(null)
+const onScreen = ref(true)
+let screenObserver
+onMounted(() => {
+  if (typeof IntersectionObserver === 'undefined') return
+  screenObserver = new IntersectionObserver(([entry]) => { onScreen.value = entry.isIntersecting }, { rootMargin: '200px' })
+  if (rootEl.value) screenObserver.observe(rootEl.value)
+})
+onBeforeUnmount(() => screenObserver?.disconnect())
+watch(() => canPlayVideo.value && onScreen.value, play => (play ? startAmbient() : resetVideo()), { immediate: true })
 
 function handleClick() {
   // Don't allow clicking on deleted or trashed images
   if (props.row.output.deleted || isTrashed.value) return
   // Allow clicking on complete images
   if ((props.row.output.status === 'complete' || props.row.output.status === 'trashed') && props.row.output.media_id) {
-    resetVideo()
+    if (auditionActive.value) startAmbient()
     emit('view-image', props.row.output.media_id)
   }
 }

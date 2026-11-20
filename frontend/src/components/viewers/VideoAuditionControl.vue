@@ -9,13 +9,16 @@
     <button
       @click.stop="emit('toggle')"
       :class="[
-        'relative w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 transition-all',
-        active ? 'text-accent hover:text-accent/80' : 'text-white/50 hover:bg-black/70 hover:text-white'
+        'relative flex items-center justify-center rounded-md transition-colors duration-150',
+        quiet ? 'h-7 w-7 coarse:h-11 coarse:w-11' : 'w-8 h-8 backdrop-blur-sm bg-black/55',
+        quiet
+          ? (active ? 'text-accent hover:bg-overlay-subtle' : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content')
+          : (active ? 'text-accent hover:text-accent/80' : 'text-white/50 hover:bg-black/70 hover:text-white')
       ]"
       :title="active ? 'Stop sound' : 'Play sound once — hover for volume'"
     >
-      <SpeakerWaveIcon class="w-icon-canvas h-icon-canvas" />
-      <svg v-if="active" class="absolute inset-0 w-8 h-8 -rotate-90 pointer-events-none" viewBox="0 0 32 32">
+      <SpeakerWaveIcon :class="quiet ? 'h-4 w-4' : 'w-icon-canvas h-icon-canvas'" />
+      <svg v-if="active" class="absolute inset-0 h-full w-full -rotate-90 pointer-events-none" viewBox="0 0 32 32">
         <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="2" />
         <circle
           cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -56,7 +59,7 @@ const CIRCUMFERENCE = 2 * Math.PI * 14.5
 // scope: name of an independent persisted volume channel (useScopedVideoPlayback);
 // omit to use the default video channel shared with the slideshow.
 // active/progress: whether an audible pass is playing and how far along it is (0..1).
-const props = defineProps<{ scope?: string; active: boolean; progress: number }>()
+const props = defineProps<{ scope?: string; active: boolean; progress: number; quiet?: boolean }>()
 const emit = defineEmits<{ (e: 'toggle'): void }>()
 
 const { volume } = props.scope

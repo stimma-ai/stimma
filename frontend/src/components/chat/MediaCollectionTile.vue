@@ -3,7 +3,11 @@
 // info and the media menu all live there) with selection on top; the strip tile
 // is the slideshow strip's cropped thumbnail.
 import { computed, inject } from 'vue'
-import { ExclamationCircleIcon, PaperClipIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ExclamationCircleIcon, FilmIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import ChatAddIcon from './ChatAddIcon.vue'
+import { useMarkers } from '../../composables/useMarkers'
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
+import { getMediaType } from '../../utils/mediaTypes'
 import { MediaImage, AppImage } from '../media'
 import OutputImage from './OutputImage.vue'
 import { CHAT_MEDIA_COLLECTIONS } from '../../composables/useChatMediaCollections'
@@ -22,12 +26,20 @@ const props = defineProps({
   showLabel: { type: Boolean, default: false },
   pixelSize: { type: Number, default: null },
   tabbable: { type: Boolean, default: false },
+  // Grid: where the tile sits, at its picture's own aspect.
+  rect: { type: Object, default: null },
 })
 const emit = defineEmits(['activate', 'expand', 'view-image', 'retry', 'cancel', 'show-job-info'])
 
 const collections = inject(CHAT_MEDIA_COLLECTIONS)
 const { selection } = collections
 const contextMenu = useMediaContextMenu()
+const { availableMarkers, hasMarker } = useMarkers()
+
+// Status only: the strip shows which pictures carry a marker, so a marked one is
+// easy to find again. Setting markers stays on the picture itself.
+const setMarkers = computed(() => (mediaId.value == null ? [] : availableMarkers.value.filter(m => hasMarker(mediaId.value, m.id))))
+const isVideo = computed(() => getMediaType({ file_format: props.row.output?.file_format }) === 'video')
 
 const mediaId = computed(() => props.row.output?.media_id ?? null)
 const status = computed(() => props.row.output?.status)
@@ -108,7 +120,7 @@ function onDragStart(event) {
   <div
     class="group relative min-w-0 rounded-media outline-2 -outline-offset-2 focus-visible:outline focus-visible:outline-accent/60"
     :class="variant === 'strip' ? 'flex-none' : ''"
-    :style="pixelSize ? { width: pixelSize + 'px' } : null"
+    :style="rect ? { position: 'absolute', left: rect.x + 'px', top: rect.y + 'px', width: rect.w + 'px', height: rect.h + 'px' } : pixelSize ? { width: pixelSize + 'px' } : null"
     :data-tile="index"
     role="button"
     :tabindex="tabbable ? 0 : -1"
@@ -132,6 +144,16 @@ function onDragStart(event) {
       </span>
       <span v-else class="absolute inset-0 flex items-center justify-center text-red-400"><ExclamationCircleIcon class="h-icon-nav w-icon-nav" /></span>
       <span v-if="status === 'trashed'" class="absolute inset-0 flex items-center justify-center text-amber-500"><TrashIcon class="h-icon-nav w-icon-nav" /></span>
+      <span v-if="setMarkers.length" class="pointer-events-none absolute bottom-0.5 left-0.5 flex gap-px">
+        <span
+          v-for="marker in setMarkers"
+          :key="marker.id"
+          class="icon-container flex h-3.5 w-3.5 items-center justify-center [filter:drop-shadow(0_1px_1.5px_rgb(0_0_0/0.9))]"
+          :style="{ color: marker.color }"
+          v-html="sanitizeSvg(marker.icon_svg)"
+        />
+      </span>
+      <FilmIcon v-if="isVideo" class="pointer-events-none absolute bottom-0.5 right-0.5 h-3.5 w-3.5 text-white [filter:drop-shadow(0_1px_1.5px_rgb(0_0_0/0.9))]" :stroke-width="2" />
     </div>
 
     <!-- Grid -->
@@ -141,8 +163,11 @@ function onDragStart(event) {
         fill
         :fit-thumbnail="512"
         :inset-left="selecting || pickable ? 32 : 0"
-        :inset-right="pickable ? 28 : 0"
+        :inset-right="0"
         quiet-markers
+        playable
+        hide-type-chip
+        :style="showLabel ? { height: 'calc(100% - 20px)' } : null"
         class="!rounded-media !bg-matte"
         @view-image="id => $emit('view-image', id)"
         @retry="id => $emit('retry', id)"
@@ -150,7 +175,7 @@ function onDragStart(event) {
         @show-job-info="id => $emit('show-job-info', id)"
       />
       <span v-if="overflow" class="pointer-events-none absolute inset-0 flex items-center justify-center bg-matte/75 font-mono text-sm tabular-nums text-white">+{{ overflow }}</span>
-      <p v-if="showLabel" class="truncate bg-matte px-1 pb-1 pt-0.5 text-[11px] text-content-tertiary">{{ row.input?.label || ' ' }}</p>
+      <p v-if="showLabel" class="h-5 truncate bg-matte px-1 pb-1 pt-0.5 text-[11px] text-content-tertiary">{{ row.input?.label || ' ' }}</p>
     </template>
 
     <span v-if="selected || current" class="pointer-events-none absolute inset-0 z-10 rounded-media ring-2 ring-inset ring-selection"></span>
@@ -189,18 +214,19 @@ function onDragStart(event) {
       type="button"
       tabindex="-1"
       title="Add to message"
-      class="absolute right-1 top-1 z-chrome flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white opacity-0 backdrop-blur transition-opacity duration-150 hover:bg-black/75 group-hover:opacity-100 [[data-pointer=coarse]_&]:hidden"
+      aria-label="Add to message"
+      class="absolute right-1 top-1 z-chrome flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white opacity-0 backdrop-blur transition-opacity duration-150 hover:bg-black/75 group-hover:opacity-100 coarse:h-9 coarse:w-9 [[data-pointer=coarse]_&]:opacity-100"
       @click.stop="collections.attach([mediaId])"
     >
-      <PlusIcon class="h-3.5 w-3.5" />
+      <ChatAddIcon class="h-4 w-4" />
     </button>
 
     <span
       v-if="attached && !overflow"
-      class="pointer-events-none absolute right-1 top-1 z-chrome flex h-5 w-5 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur"
+      class="pointer-events-none absolute right-1 top-1 z-chrome flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur"
       title="In your message"
     >
-      <PaperClipIcon class="h-3 w-3" />
+      <ChatAddIcon checked class="h-3.5 w-3.5" />
     </span>
   </div>
 </template>

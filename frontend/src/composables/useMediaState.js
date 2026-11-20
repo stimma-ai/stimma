@@ -170,6 +170,8 @@ export function useMediaState() {
             width: media.width,
             height: media.height,
             file_size: media.file_size,
+            // Chat offers a sound pass only for a video that has a track.
+            has_audio: Boolean(media.audio_channels || media.audio_codec),
           }
         } catch (error) {
           console.error(`Error fetching media state for ${mediaId}:`, error)
