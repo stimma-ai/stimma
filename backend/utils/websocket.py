@@ -270,6 +270,7 @@ _CHAT_DETAIL_EVENTS = frozenset({
     "llm_usage",
     "background_task_updated",
     "background_task_finished",
+    "agent_timers_changed",
 })
 
 
