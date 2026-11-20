@@ -1523,7 +1523,6 @@ class StimmaTimersAPI:
     def __init__(self, sdk: "StimmaSDK"):
         self._sdk = sdk
         self._began = time.monotonic()
-        self._began_utc = datetime.datetime.utcnow()
 
     async def set(self, minutes: float, note: str, repeat: bool = False) -> dict[str, Any]:
         """Fire in ``minutes`` (1 to 10080), or every ``minutes`` with ``repeat=True``.
@@ -1536,15 +1535,17 @@ class StimmaTimersAPI:
         from .timers import create_timer, describe, stopped_since
         if stopped_since(self._sdk.chat_id, self._began):
             raise RuntimeError("The user pressed Stop after this code started, so no timer was set.")
+        created: dict = {}
         try:
-            timer = await create_timer(self._sdk.session, self._sdk.chat_id, minutes=minutes, note=note, repeat=repeat)
+            timer = await create_timer(self._sdk.session, self._sdk.chat_id, minutes=minutes, note=note,
+                                       repeat=repeat, created=created)
         finally:
             # Stop records its time before it ends the chat's timers, so a Stop
             # that swept while this insert waited on the database shows up here,
             # even when Stop also cancelled this code mid-call.
-            if stopped_since(self._sdk.chat_id, self._began):
-                from .timers import end_timers_created_since
-                await asyncio.shield(end_timers_created_since(self._sdk.chat_id, self._began_utc))
+            if "id" in created and stopped_since(self._sdk.chat_id, self._began):
+                from .timers import end_timer_after_stop
+                await asyncio.shield(end_timer_after_stop(self._sdk.chat_id, created["id"]))
         if stopped_since(self._sdk.chat_id, self._began):
             raise RuntimeError("The user pressed Stop after this code started, so no timer was set.")
         return describe(timer)

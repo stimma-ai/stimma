@@ -111,7 +111,10 @@ def describe(timer) -> dict[str, Any]:
 
 async def create_timer(
     session: AsyncSession, chat_id: int, *, minutes: float, note: str, repeat: bool,
+    created: Optional[dict] = None,
 ):
+    """Add a timer. ``created["id"]`` is filled in before the commit, so a
+    caller cancelled mid-commit still knows which row it made."""
     from database import AgentTimer
     try:
         minutes = float(minutes)
@@ -146,6 +149,9 @@ async def create_timer(
         created_at=now,
     )
     session.add(timer)
+    await session.flush()
+    if created is not None:
+        created["id"] = timer.id
     await session.commit()
     await session.refresh(timer)
     await _broadcast_changed(chat_id)
@@ -180,27 +186,16 @@ async def end_timers(
     return rows
 
 
-async def end_timers_created_since(chat_id: int, since: datetime) -> None:
-    """End the chat's active timers set at or after ``since``, as stopped.
+async def end_timer_after_stop(chat_id: int, timer_id: int) -> None:
+    """End a timer set while the user was pressing Stop.
 
-    For code that set a timer while the user was pressing Stop. Uses a
-    session of its own, since the caller's may be mid-cancellation.
+    Uses a session of its own, since the caller's may be mid-cancellation.
     """
-    from database import AgentTimer
     from database_registry import get_database_registry
     from core.profile_context import get_current_profile
     db = get_database_registry().get_database(get_current_profile())
     async with db.async_session_maker() as session:
-        rows = (await session.execute(select(AgentTimer).where(
-            AgentTimer.chat_id == chat_id, AgentTimer.ended_at.is_(None), AgentTimer.created_at >= since,
-        ))).scalars().all()
-        now = datetime.utcnow()
-        for t in rows:
-            t.ended_at = now
-            t.end_reason = "stopped"
-        if rows:
-            await session.commit()
-            await _broadcast_changed(chat_id)
+        await end_timers(session, chat_id, timer_id=timer_id, reason="stopped")
 
 
 async def _broadcast_changed(chat_id: int) -> None:
