@@ -176,7 +176,7 @@ def test_snapshot_keeps_databases_and_settings_but_skips_bulk_data(monkeypatch, 
         (state / name).parent.mkdir(parents=True, exist_ok=True)
         (state / name).write_text(text)
     for name in ('work/stimma_v1.db', 'work/flows/1/state.db', 'work.backup/stimma_v1.db',
-                 'work/media/cache.db'):
+                 'work/media/cache.db', 'objects/stimma_v1.db'):
         (state / name).parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(state / name) as connection:
             connection.execute('CREATE TABLE t (v TEXT)')
@@ -185,7 +185,24 @@ def test_snapshot_keeps_databases_and_settings_but_skips_bulk_data(monkeypatch, 
     monkeypatch.setattr(supervisor, 'ROOT', tmp_path)
     dest = supervisor.Supervisor().snapshot()
     copied = sorted(str(p.relative_to(dest)) for p in dest.rglob('*') if p.is_file())
-    assert copied == ['cloud_auth.json', 'config.yaml', 'work/flows/1/state.db',
+    assert copied == ['cloud_auth.json', 'config.yaml', 'objects/stimma_v1.db', 'work/flows/1/state.db',
                       'work/settings.json', 'work/stimma_v1.db']
     with sqlite3.connect(dest / 'work/stimma_v1.db') as connection:
         assert connection.execute('SELECT v FROM t').fetchall() == [('kept',)]
+
+
+def test_failed_snapshot_restarts_previous_release(monkeypatch, tmp_path):
+    monkeypatch.setattr(supervisor, 'APP', tmp_path)
+    previous, release = tmp_path / 'releases/old', tmp_path / 'releases/new'
+    release.mkdir(parents=True)
+    instance = supervisor.Supervisor()
+    instance.child = Mock(poll=Mock(return_value=None))
+    monkeypatch.setattr(instance, 'current', lambda: previous)
+    monkeypatch.setattr(instance, 'stop_child', Mock())
+    monkeypatch.setattr(instance, 'snapshot', Mock(side_effect=PermissionError('unreadable')))
+    start = Mock()
+    monkeypatch.setattr(instance, 'start_child', start)
+    with pytest.raises(PermissionError):
+        instance.activate(release)
+    start.assert_called_once_with(previous)
+    assert not (tmp_path / 'activation.json').exists()

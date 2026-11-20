@@ -288,6 +288,8 @@ if __name__ == "__main__":
         host="127.0.0.1",
         port=port,
         reload=False,
-        timeout_graceful_shutdown=90 if HEADLESS else 0,  # No graceful shutdown wait
+        # Shutdown is prompt everywhere: an update, restart or container stop
+        # cancels in-flight requests rather than waiting on long generations.
+        timeout_graceful_shutdown=0,
         log_config=None,  # Disable uvicorn's logging config - we use our own
     )

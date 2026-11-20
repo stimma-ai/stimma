@@ -155,9 +155,13 @@ SNAPSHOT_SKIPPED_DIRS = frozenset({
 })
 
 
-def snapshot_skips(name: str) -> bool:
+def snapshot_skips(name: str, at_root: bool) -> bool:
     # Hidden trees are receipts/indexes; *.backup trees are already copies.
-    return name in SNAPSHOT_SKIPPED_DIRS or name.startswith('.') or name.endswith(('.backup', '.bak'))
+    # Named payload trees live inside profiles; a profile may itself be named
+    # like one, so the state root's children are never skipped by name.
+    if name.startswith('.') or name.endswith(('.backup', '.bak')):
+        return True
+    return not at_root and name in SNAPSHOT_SKIPPED_DIRS
 
 
 def control(action: str, **payload):
@@ -298,9 +302,13 @@ class Supervisor:
         """
         state = Path(os.environ.get('STIMMA_DATA_DIR', str(ROOT / 'state')))
         dest = ROOT / 'backups' / str(time.time_ns())
-        for directory, subdirs, files in os.walk(state):
+        def unreadable(error):
+            # An incomplete backup must stop activation, not pass silently.
+            raise error
+
+        for directory, subdirs, files in os.walk(state, onerror=unreadable):
             relative = Path(directory).relative_to(state)
-            subdirs[:] = [name for name in subdirs if not snapshot_skips(name)]
+            subdirs[:] = [name for name in subdirs if not snapshot_skips(name, not relative.parts)]
             for name in files:
                 suffix = Path(name).suffix
                 is_db = suffix in SNAPSHOT_DB_SUFFIXES
@@ -349,8 +357,16 @@ class Supervisor:
         previous = self.current()
         if previous == release:
             return
+        serving = bool(self.child and self.child.poll() is None)
         self.stop_child()
-        backup = self.snapshot() if previous else None
+        try:
+            backup = self.snapshot() if previous else None
+        except Exception:
+            # Nothing has switched yet: a live update keeps serving the old
+            # release. At startup the caller starts the current release itself.
+            if serving:
+                self.start_child(previous)
+            raise
         # Persist before switching: after interrupted migrations, fail closed on next startup.
         atomic_json(APP / 'activation.json', {'previous': str(previous) if previous else None,
                                             'candidate': str(release), 'backup': str(backup) if backup else None})

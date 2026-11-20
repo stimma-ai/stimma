@@ -19,6 +19,7 @@ the browser issues itself.
 from __future__ import annotations
 
 import asyncio
+from contextlib import contextmanager
 import json
 import os
 import socket
@@ -307,6 +308,8 @@ def serving_config(gate, **ssl):
         log_config=None,
         lifespan="on",
         timeout_keep_alive=KEEP_ALIVE_SECONDS,
+        # Shutdown is prompt: in-flight requests are cancelled, not awaited.
+        timeout_graceful_shutdown=0,
         **ssl,
     )
 
@@ -327,9 +330,14 @@ async def start_serving(app, cert_pem: str, key_pem: str, port: int, device_id: 
     bound = sock.getsockname()[1]
 
     gate = ServingGate(app, lambda: device_id)
-    _server = uvicorn.Server(serving_config(gate, ssl_certfile=str(cert_path), ssl_keyfile=str(key_path)))
-    # install_signal_handlers would steal SIGINT/SIGTERM from the main server.
-    _server.install_signal_handlers = lambda: None
+    class Server(uvicorn.Server):
+        # The main server owns SIGINT/SIGTERM; capturing them here would hold
+        # the process up until this listener's requests finish.
+        @contextmanager
+        def capture_signals(self):
+            yield
+
+    _server = Server(serving_config(gate, ssl_certfile=str(cert_path), ssl_keyfile=str(key_path)))
 
     _server_task = asyncio.create_task(_server.serve(sockets=[sock]))
 
