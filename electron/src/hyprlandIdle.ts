@@ -27,13 +27,11 @@ const runHyprctl: Run = (args) =>
   })
 
 /**
- * This process's toplevel for the requesting window: the one whose title
- * matches, or, when the sender is our only visible window, our only client.
- * Ambiguous matches return null so another Stimma window is never marked.
+ * This process's toplevel whose title matches the requesting window. Anything
+ * but exactly one match returns null, so another Stimma window is never marked.
  */
-export function pickWindowAddress(clients: HyprClient[], pid: number, title: string, senderIsSole = false): string | null {
-  const ours = clients.filter((c) => c.pid === pid)
-  const candidates = senderIsSole && ours.length === 1 ? ours : ours.filter((c) => c.title === title)
+export function pickWindowAddress(clients: HyprClient[], pid: number, title: string): string | null {
+  const candidates = clients.filter((c) => c.pid === pid && c.title === title)
   const only = candidates.length === 1 ? candidates[0] : null
   return only && /^0x[0-9a-f]+$/i.test(only.address) ? only.address : null
 }
@@ -44,11 +42,7 @@ function idleInhibitScript(address: string, active: boolean): string {
 
 type WindowState = { wanted: boolean; applied: boolean; address: string | null; chain: Promise<void> }
 
-export function createHyprlandIdleInhibitor(
-  run: Run = runHyprctl,
-  pid = process.pid,
-  visibleWindowCount: () => number = () => 1,
-) {
+export function createHyprlandIdleInhibitor(run: Run = runHyprctl, pid = process.pid) {
   const states = new WeakMap<BrowserWindow, WindowState>()
 
   async function apply(win: BrowserWindow, state: WindowState): Promise<void> {
@@ -58,8 +52,7 @@ export function createHyprlandIdleInhibitor(
     const target = state.wanted
     try {
       if (!state.address) {
-        const senderIsSole = win.isVisible() && visibleWindowCount() === 1
-        state.address = pickWindowAddress(JSON.parse(await run(['-j', 'clients'])), pid, win.getTitle(), senderIsSole)
+        state.address = pickWindowAddress(JSON.parse(await run(['-j', 'clients'])), pid, win.getTitle())
       }
       if (!state.address) return
       const ok = (await run(['repl', idleInhibitScript(state.address, target)])).trim() === 'true'

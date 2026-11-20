@@ -268,9 +268,7 @@ export function registerIpcHandlers(): void {
     senderWindow(event).setTitle(requireString(title, 'title'))
   })
 
-  const hyprlandKeepAwake = onHyprland()
-    ? createHyprlandIdleInhibitor(undefined, undefined, () => BrowserWindow.getAllWindows().filter((w) => w.isVisible()).length)
-    : null
+  const hyprlandKeepAwake = onHyprland() ? createHyprlandIdleInhibitor() : null
   handle('stimma:set-keep-screen-awake', async (event, active: unknown) => {
     await hyprlandKeepAwake?.(senderWindow(event), active === true)
   })
