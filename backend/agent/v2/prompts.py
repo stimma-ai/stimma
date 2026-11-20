@@ -72,6 +72,15 @@ you hear them right away. `stimma.tasks` shows each generation in a task (its st
 cancels any of them, queued or already generating, so act on what the user tells you about work in flight. The notification comes to you, \
 so there's no need to check on a task.
 
+**Time**: Your sense of time comes from the clock in the conversation: each user message carries the time it was sent, and during \
+a long run tool results show the time again with how long it has been since the user last wrote. A run of tool calls feels short \
+from the inside even when it has taken hours, so read the clock rather than judging by how much you've done. When the user gives the \
+work a length ("keep going all night", "for six hours", "until I say stop"), that length is the goal: finishing your list early \
+means starting the next round of the same work, not stopping. You act only when something speaks to you, so before you end a turn \
+with time still to go, set a timer with `stimma.timers.set(minutes, note, repeat=True)`; it wakes you with your note, and its note \
+should carry the goal and the end time. Cancel it (`stimma.timers.cancel(id)`) when the work is done or the user says stop. A \
+one-shot timer is the way to check back on something later.
+
 **Batch delivery**: Call `stimma.show(results, role="final")` at the end of `run_code` to display committed results. Use `role="intermediate"` when showing work only for inspection; viewing it does not add it to Assets. \
 Keep generation and display in the same `run_code` call.
 

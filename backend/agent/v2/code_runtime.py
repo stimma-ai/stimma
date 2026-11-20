@@ -1508,6 +1508,50 @@ class StimmaTasksAPI:
         return await run.snapshot()
 
 
+class StimmaTimersAPI:
+    """``stimma.timers``: wake yourself up later.
+
+    You only act when something speaks to you. A timer does that: when it
+    fires, a ``<timer>`` message with your note starts a new turn (or reaches
+    the one running). Use one to check back on long work, or to keep going on a
+    task the user asked you to run for hours: a repeating timer brings you back
+    every few minutes until you cancel it. Timers survive a server restart.
+    The user's Stop ends them.
+    """
+
+    def __init__(self, sdk: "StimmaSDK"):
+        self._sdk = sdk
+
+    async def set(self, minutes: float, note: str, repeat: bool = False) -> dict[str, Any]:
+        """Fire in ``minutes`` (1 to 10080), or every ``minutes`` with ``repeat=True``.
+
+        ``note`` is what you'll read when it fires; it's all you'll have to go
+        on, so say what to do next, the overall goal, and how long the user
+        wants it to run (e.g. "until 7 AM"). Returns the timer: ``id``
+        ("timer-3"), ``next_fires_at`` and the rest.
+        """
+        from .timers import create_timer, describe
+        timer = await create_timer(self._sdk.session, self._sdk.chat_id, minutes=minutes, note=note, repeat=repeat)
+        return describe(timer)
+
+    async def list(self) -> list[dict[str, Any]]:
+        """This chat's active timers: id, note, repeats, next_fires_at, fires_in."""
+        from .timers import describe, list_timers
+        return [describe(t) for t in await list_timers(self._sdk.session, self._sdk.chat_id)]
+
+    async def cancel(self, timer_id: "str | None" = None) -> list[str]:
+        """Cancel a timer by id ("timer-3"), or all of this chat's timers when left out.
+
+        Returns the ids cancelled.
+        """
+        from .timers import end_timers, parse_ref, timer_ref
+        tid = parse_ref(timer_id) if timer_id is not None else None
+        ended = await end_timers(self._sdk.session, self._sdk.chat_id, timer_id=tid)
+        if tid is not None and not ended:
+            raise ValueError(f"No active timer {timer_id!r} in this chat; stimma.timers.list() shows them.")
+        return [timer_ref(t.id) for t in ended]
+
+
 class StimmaSDK:
     # Sub-API namespaces reachable as ``stimma.<name>``. Declared here because
     # they are instance attributes, which introspection of the class cannot
@@ -1544,6 +1588,7 @@ class StimmaSDK:
         self.library = StimmaLibraryAPI(self)
         self.packages = StimmaPackagesAPI(self)
         self.tasks = StimmaTasksAPI(self)
+        self.timers = StimmaTimersAPI(self)
         from .contact_sheet_sdk import StimmaContactSheetsAPI
         self.contact_sheets = StimmaContactSheetsAPI(self)
         self._display_lock = threading.Lock()
@@ -3456,4 +3501,5 @@ def compute_file_hash(path: Path) -> str:
 from .contact_sheet_sdk import ContactSheetDraft, StimmaContactSheetsAPI  # noqa: E402
 
 StimmaSDK.NAMESPACES = {"library": StimmaLibraryAPI, "packages": StimmaPackagesAPI,
-                        "contact_sheets": StimmaContactSheetsAPI, "tasks": StimmaTasksAPI}
+                        "contact_sheets": StimmaContactSheetsAPI, "tasks": StimmaTasksAPI,
+                        "timers": StimmaTimersAPI}

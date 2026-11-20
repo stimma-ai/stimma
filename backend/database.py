@@ -562,6 +562,32 @@ class MediaAction(Base):
     __table_args__ = {'sqlite_autoincrement': True}
 
 
+class AgentTimer(Base):
+    """A wake-up the chat agent set for itself.
+
+    When ``fire_at`` comes, the chat gets a timer message that starts a turn
+    (see agent/v2/timers.py). A repeating timer moves ``fire_at`` on by
+    ``interval_s`` each time; a one-shot one is finished once it fires. Kept in
+    the database so a server restart doesn't lose an overnight timer.
+    """
+    __tablename__ = "agent_timers"
+
+    id = Column(Integer, primary_key=True)
+    chat_id = Column(Integer, ForeignKey('chats.id', ondelete='CASCADE'), nullable=False, index=True)
+    note = Column(Text, nullable=False, default="")
+    interval_s = Column(Integer, nullable=False)
+    repeat = Column(Boolean, nullable=False, default=False)
+    fire_at = Column(DateTime, nullable=False, index=True)  # UTC
+    fire_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_fired_at = Column(DateTime, nullable=True)
+    # Set when the timer is over: a one-shot fired, or it was cancelled.
+    ended_at = Column(DateTime, nullable=True, index=True)
+    end_reason = Column(String, nullable=True)  # fired | cancelled | stopped | chat_deleted
+
+    __table_args__ = {'sqlite_autoincrement': True}
+
+
 class AssetMigrationMap(Base):
     """Recoverable explanation of how one legacy MediaItem was classified."""
     __tablename__ = "asset_migration_map"

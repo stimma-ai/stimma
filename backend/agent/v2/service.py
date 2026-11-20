@@ -169,7 +169,7 @@ async def _persist_notification(chat_id: int, note: dict, session: AsyncSession,
         chat_id=chat_id,
         item_type="user_message",
         message_text=note["text"],
-        item_metadata=json.dumps({"background_task": note["task"]}),
+        item_metadata=json.dumps(note.get("metadata") or {"background_task": note["task"]}),
     )
     session.add(item)
     await session.commit()

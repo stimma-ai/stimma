@@ -3,9 +3,9 @@
 import base64
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -181,6 +181,7 @@ def _items_to_messages(items: List["ChatItem"], system_prompt: str) -> List[Dict
     ]
 
     seen_provider_batches: set[str] = set()
+    clock = _RunClock()
     for item in items:
         # A single assistant response can request several tools. ChatItems are
         # persisted call/result/call/result for execution/UI purposes, while
@@ -201,6 +202,7 @@ def _items_to_messages(items: List["ChatItem"], system_prompt: str) -> List[Dict
                 seen_provider_batches.add(batch_key)
         msg = _item_to_message(item)
         if msg is not None:
+            clock.observe(item, msg)
             messages.append(msg)
 
     # Safety net: an interrupt or server restart can break the pairing between
@@ -208,6 +210,62 @@ def _items_to_messages(items: List["ChatItem"], system_prompt: str) -> List[Dict
     # either half of that, bricking every later turn.
     _repair_tool_call_pairing(messages)
     return messages
+
+
+# A tool result this long after the last time the agent was shown carries the
+# time again, so a long run can see the clock move.
+CLOCK_STAMP_EVERY = timedelta(minutes=5)
+
+
+def _utc(dt: Optional[datetime]) -> Optional[datetime]:
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
+def _elapsed(seconds: float) -> str:
+    minutes = int(seconds // 60)
+    if minutes < 60:
+        return f"{minutes} min"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours} h {minutes} min" if minutes else f"{hours} h"
+
+
+class _RunClock:
+    """Stamps the time on tool results during long runs.
+
+    User messages carry the time they were sent, but a run of tool calls after
+    one carries none, so the agent can't tell 5 minutes of work from 5 hours.
+    Every few minutes a tool result gets the time and how long it has been
+    since the user last wrote. Computed from stored times alone, so a rebuild
+    produces the same text and the cached prefix holds.
+    """
+
+    def __init__(self):
+        self.last_shown: Optional[datetime] = None
+        self.last_user: Optional[datetime] = None
+
+    def observe(self, item: ChatItem, msg: Dict[str, Any]) -> None:
+        at = _utc(item.created_at)
+        if at is None:
+            return
+        if item.item_type == "user_message":
+            self.last_shown = at
+            meta = _item_metadata(item)
+            if not (meta.get("background_task") or meta.get("timer")):
+                self.last_user = at
+            return
+        if item.item_type != "tool_result" or not isinstance(msg.get("content"), str):
+            return
+        if self.last_shown is not None and at - self.last_shown < CLOCK_STAMP_EVERY:
+            return
+        self.last_shown = at
+        stamp = at.astimezone().strftime("%Y-%m-%d %H:%M %Z")
+        since = (
+            f"; {_elapsed((at - self.last_user).total_seconds())} since the user's last message"
+            if self.last_user is not None else ""
+        )
+        msg["content"] = f"{msg['content']}\n\n[Current date/time: {stamp}{since}]"
 
 
 INTERRUPTED_TOOL_RESULT = (

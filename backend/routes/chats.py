@@ -2668,6 +2668,27 @@ async def cancel_background_task(chat_id: int, task_id: str, request: Optional[C
     return await run.snapshot()
 
 
+@router.get("/{chat_id}/timers")
+async def get_agent_timers(chat_id: int, session: AsyncSession = Depends(get_db_session)):
+    """Timers the agent set to wake itself in this chat that haven't ended."""
+    from agent.v2.timers import describe, list_timers
+    return {"timers": [describe(t) for t in await list_timers(session, chat_id)]}
+
+
+@router.post("/{chat_id}/timers/{timer_id}/cancel")
+async def cancel_agent_timer(chat_id: int, timer_id: str, session: AsyncSession = Depends(get_db_session)):
+    """End one of the agent's timers."""
+    from agent.v2.timers import describe, end_timers, parse_ref
+    try:
+        tid = parse_ref(timer_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    ended = await end_timers(session, chat_id, timer_id=tid)
+    if not ended:
+        raise HTTPException(status_code=404, detail="Timer not found")
+    return describe(ended[0])
+
+
 @router.post("/{chat_id}/stop")
 async def stop_agent_execution(
     chat_id: int,
@@ -2686,6 +2707,11 @@ async def stop_agent_execution(
 
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
+
+    # Stop means stop: timers the agent set to wake itself end too, so it
+    # doesn't come back on its own after the user stopped it.
+    from agent.v2.timers import end_timers
+    await end_timers(session, chat_id, reason="stopped")
 
     # Abort current execution. The hidden stop marker is written once the run
     # has unwound and before agent_stopped goes out, so the user's next message

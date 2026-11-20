@@ -486,6 +486,10 @@
           </div>
 
           <!-- A background task's receipt, addressed to the agent -->
+          <div v-else-if="item.item_type === 'user_message' && timerNotice(item)" class="flex justify-center py-1">
+            <span class="text-xs text-content-muted" :title="getItemMetadata(item)?.timer?.note">{{ timerNotice(item) }}</span>
+          </div>
+
           <div v-else-if="item.item_type === 'user_message' && backgroundNotice(item)" class="flex justify-center py-1">
             <span class="text-xs text-content-muted">{{ backgroundNotice(item) }}</span>
           </div>
@@ -1199,20 +1203,27 @@
       <div v-if="imageUnsupportedMessage" class="mb-2 text-xs text-amber-500">
         {{ imageUnsupportedMessage }}
       </div>
+      <AgentTimersBar
+        v-if="agentTimers.length > 0"
+        :class="runningBackgroundTasks.length > 0 ? 'mb-px' : ''"
+        :timers="agentTimers"
+        @cancel="cancelAgentTimer"
+      />
       <BackgroundTasksBar
         v-if="runningBackgroundTasks.length > 0"
+        :class="agentTimers.length > 0 ? 'rounded-t-none' : ''"
         :tasks="runningBackgroundTasks"
         @stop="stopBackgroundTask"
       />
       <ChatMessageQueue
         v-if="messageQueue.length > 0"
-        :class="runningBackgroundTasks.length > 0 ? 'rounded-t-none' : ''"
+        :class="runningBackgroundTasks.length > 0 || agentTimers.length > 0 ? 'rounded-t-none' : ''"
         :messages="messageQueue"
         @steer="steerQueuedMessage"
         @edit="editQueuedMessage"
         @remove="removeQueuedMessage"
       />
-      <MediaSelectionBar v-if="mediaCollections.selection.selecting.value" :class="messageQueue.length > 0 || runningBackgroundTasks.length > 0 ? 'rounded-t-none' : ''" />
+      <MediaSelectionBar v-if="mediaCollections.selection.selecting.value" :class="messageQueue.length > 0 || runningBackgroundTasks.length > 0 || agentTimers.length > 0 ? 'rounded-t-none' : ''" />
       <ChatInputBox
         ref="chatInputBoxRef"
         :attached-top="messageQueue.length > 0 || runningBackgroundTasks.length > 0 || mediaCollections.selection.selecting.value"
@@ -1421,6 +1432,7 @@ import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import SendButton from '../components/ui/SendButton.vue'
 import ChatMessageQueue, { type QueuedMessage } from '../components/chat/ChatMessageQueue.vue'
 import BackgroundTasksBar, { type BackgroundTask } from '../components/chat/BackgroundTasksBar.vue'
+import AgentTimersBar, { type AgentTimer } from '../components/chat/AgentTimersBar.vue'
 import StopGeneratingDialog from '../components/chat/StopGeneratingDialog.vue'
 import { useChatLiveState } from '../composables/useChatLiveState'
 import { useAgentActivity } from '../composables/useAgentActivity'
@@ -1647,6 +1659,8 @@ const nodeStates = ref({}) // Track node execution states: { node_id: { status, 
 const backgroundTasks = ref<Record<string, BackgroundTask>>({})
 const runningBackgroundTasks = computed(() =>
   Object.values(backgroundTasks.value).filter(t => t.state === 'running'))
+// Wake-ups the agent set for itself (backend agent/v2/timers.py).
+const agentTimers = ref<AgentTimer[]>([])
 // Non-zero while Stop asks whether to keep the turn's generations going.
 const stopGeneratingCount = ref(0)
 const suppressingPostStop = ref(false) // When true, ignore chat_item_created until agent responds to stop
@@ -5513,7 +5527,37 @@ async function loadBackgroundTasks() {
   }
 }
 
+async function loadAgentTimers() {
+  const forChat = chatId.value
+  if (forChat == null) return
+  try {
+    const response = await fetch(`/api/chats/${forChat}/timers`)
+    if (!response.ok || forChat !== chatId.value) return
+    agentTimers.value = (await response.json()).timers || []
+  } catch (error) {
+    console.warn('Could not load timers', error)
+  }
+}
+
+async function cancelAgentTimer(timerId: string) {
+  try {
+    const response = await fetch(`/api/chats/${chatId.value}/timers/${timerId}/cancel`, { method: 'POST' })
+    if (!response.ok && response.status !== 404) reportActionError("Couldn't cancel it.", await response.text())
+  } catch (error) {
+    reportActionError("Couldn't cancel it.", error)
+  }
+  await loadAgentTimers()
+}
+
+function timerNotice(item) {
+  const timer = getItemMetadata(item)?.timer
+  if (!timer) return null
+  return 'Timer went off'
+}
+
 watch(chatId, () => {
+  agentTimers.value = []
+  loadAgentTimers()
   backgroundTasks.value = {}
   stopGeneratingCount.value = 0
   loadBackgroundTasks()
@@ -6317,6 +6361,9 @@ function setupWebSocketSubscriptions() {
   }
   wsUnsubscribes.push(onWsEvent('background_task_updated', onBackgroundTask))
   wsUnsubscribes.push(onWsEvent('background_task_finished', onBackgroundTask))
+  wsUnsubscribes.push(onWsEvent('agent_timers_changed', (data) => {
+    if (data.chat_id === chatId.value) loadAgentTimers()
+  }))
 
   // agent_started - agent began processing
   wsUnsubscribes.push(onWsEvent('agent_started', (data) => {

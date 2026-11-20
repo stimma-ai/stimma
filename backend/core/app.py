@@ -1307,6 +1307,10 @@ async def lifespan(app: FastAPI):
         config_watcher_task = asyncio.create_task(watch_config_file())
         background_tasks.append(config_watcher_task)
 
+        # Wake-ups the chat agent set for itself (stimma.timers).
+        from agent.v2.timers import run_scheduler as run_agent_timers
+        background_tasks.append(asyncio.create_task(run_agent_timers()))
+
         await ensure_delete_worker_started()
 
         from drag_snapshots import cleanup_loop as cleanup_drag_snapshots
