@@ -261,3 +261,23 @@ test('Delete does nothing to the parts of a contact sheet', async t => {
   await expect(page.getByText('Move to trash')).toHaveCount(0)
   assert.deepEqual(deletes, [])
 })
+
+test('an open slideshow keeps the screen awake and hides the idle cursor outside focus mode', async t => {
+  const page = await fixture(t, { routes: page => page.evaluate(() => {
+    window.wakeLockLog = []
+    Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: {
+      async request(type) {
+        window.wakeLockLog.push(`request:${type}`)
+        return { async release() { window.wakeLockLog.push('release') }, addEventListener() {} }
+      },
+    } })
+  }) })
+  await expect(page.locator('.slideshow-control-bar')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.wakeLockLog)).toEqual(['request:screen'])
+  await page.mouse.move(400, 300)
+  await page.mouse.move(410, 310)
+  assert.equal(await page.evaluate(() => document.body.classList.contains('slideshow-cursor-hidden')), false)
+  await expect.poll(() => page.evaluate(() => document.body.classList.contains('slideshow-cursor-hidden')), { timeout: 5000 }).toBe(true)
+  await page.mouse.move(420, 320)
+  assert.equal(await page.evaluate(() => document.body.classList.contains('slideshow-cursor-hidden')), false)
+})

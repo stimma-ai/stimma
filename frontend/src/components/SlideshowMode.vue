@@ -1382,7 +1382,8 @@ import { useSlideshowPresence } from '../composables/useTabNavigation'
 import { createSlideshowDwell } from '../utils/slideshowDwell'
 import { subscribeImageRecovery, recoveredImageUrl } from '../utils/imageRecovery'
 import { mobileForeground, mobileAdvanceReady, mobileAutoplayAllowed, allowMobilePlayback } from '../composables/useMobilePlaybackLifecycle'
-import { createMobileKeepAwakeLease } from '../desktop/mobileBridge'
+import { createMobileKeepAwakeLease, isMobileShell } from '../desktop/mobileBridge'
+import { createScreenWakeLock } from '../utils/screenWakeLock'
 import { useViewport } from '../composables/useViewport'
 import { useBackOverride } from '../composables/useBackOverride'
 import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
@@ -1633,6 +1634,9 @@ const FOLLOW_MIN_DWELL_MS = 1500
 // the dwell floor for both follow-catch-up and the manual Play timer.
 const slideshowDwell = createSlideshowDwell()
 const updateNativeKeepAwake = createMobileKeepAwakeLease()
+// Desktop and browsers: no screensaver while the slideshow is open and visible.
+// Phone shells keep their own play-only lease above.
+const setScreenWakeLock = createScreenWakeLock()
 // Pending dwell/floor timer (setTimeout handle) and serialization guard for the
 // async preload+swap step. There is only ever one of each in flight.
 let dwellTimer = null
@@ -4176,7 +4180,7 @@ function toggleFocusMode() {
   trackControl('focus_mode')
 }
 
-// Cursor hiding for focus mode
+// Idle cursor hiding (all modes, like a video player)
 function showCursor() {
   document.body.classList.remove('slideshow-cursor-hidden')
 }
@@ -4209,8 +4213,8 @@ function resetCursorTimeout() {
   // Show cursor
   showCursor()
 
-  // Set new timeout to hide cursor
-  if (focusMode.value) {
+  // Hide the idle cursor like a video player does.
+  if (slideshowViewActive && !contextMenu.state.value.visible) {
     cursorTimeout = setTimeout(() => {
       // Don't hide if the pointer is over a modal/popup floating on top.
       if (cursorOverSlideshow()) {
@@ -4225,7 +4229,7 @@ function handleMouseMove(event) {
     lastMouseX = event.clientX
     lastMouseY = event.clientY
   }
-  if (focusMode.value) {
+  if (slideshowViewActive) {
     resetCursorTimeout()
   }
 }
@@ -6193,6 +6197,7 @@ watch(mobileForeground, foreground => {
 
 function updateKeepAwake() {
   void updateNativeKeepAwake(slideshowViewActive && mobileAdvanceReady.value && (isPlaying.value || (isVideo.value && !videoPaused.value)))
+  if (!isMobileShell()) setScreenWakeLock(slideshowViewActive)
 }
 watch([isPlaying, isVideo, videoPaused, mobileAdvanceReady], updateKeepAwake)
 
@@ -6364,14 +6369,14 @@ onMounted(async () => {
     document.body.classList.add('slideshow-focus-mode')
   }
 
-  // Set up mouse move listener for cursor hiding in focus mode. Listen on
+  // Set up mouse move listener for idle cursor hiding. Listen on
   // window (not just the overlay) so moving the mouse over a modal/popup that
   // floats above the slideshow also reveals the cursor.
   window.addEventListener('mousemove', handleMouseMove)
-  // Start cursor timeout if in focus mode
-  if (overlay.value && focusMode.value) {
+  if (overlay.value) {
     resetCursorTimeout()
   }
+  updateKeepAwake()
 
   // Initialize shuffled indices if randomized from URL
   if (props.randomized && props.randomSeed) {
@@ -6442,6 +6447,7 @@ onUnmounted(() => {
   stopImageRecovery?.()
   window.removeEventListener('stimma:media-reconnected', recoverVideoAfterResume)
   void updateNativeKeepAwake(false)
+  setScreenWakeLock(false)
   if (singleTapTimer) { clearTimeout(singleTapTimer); singleTapTimer = null }
   mediaPreloadEpoch++
   // Late preloads (live follow, neighbors) check this before starting.
@@ -6488,6 +6494,7 @@ onDeactivated(() => {
   slideshowDwell.pause()
   stopSlideshowTimer()
   void updateNativeKeepAwake(false)
+  setScreenWakeLock(false)
   document.body.classList.remove('slideshow-focus-mode')
   cleanupCursorTimeout()
   // WebKit can return a KeepAlive-cached MSE video with a dead compositor
@@ -6516,6 +6523,7 @@ onActivated(() => {
   slideshowViewActive = true
   if (mobileAdvanceReady.value) slideshowDwell.resume()
   updateKeepAwake()
+  resetCursorTimeout()
   scheduleAdvance()
   if (isVideo.value && deactivatedVideoState) {
     refreshKey.value++
@@ -6778,12 +6786,8 @@ watch(focusMode, (newValue) => {
   // Toggle body class to hide app-level sidebar
   if (newValue) {
     document.body.classList.add('slideshow-focus-mode')
-    // Start cursor hiding timeout
-    resetCursorTimeout()
   } else {
     document.body.classList.remove('slideshow-focus-mode')
-    // Stop cursor hiding and show cursor
-    cleanupCursorTimeout()
   }
 })
 
@@ -6791,7 +6795,7 @@ watch(focusMode, (newValue) => {
 watch(() => contextMenu.state.value.visible, (visible) => {
   if (visible) {
     cleanupCursorTimeout()
-  } else if (focusMode.value) {
+  } else {
     resetCursorTimeout()
   }
 })
