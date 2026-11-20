@@ -3055,6 +3055,9 @@ class StimmaSDK:
             if finish is not None and (card.status == "in_progress" or any(
                     slot.status in ("pending", "generating") for slot in card.slots)):
                 card.finish(finish)
+            if finish is not None:
+                card.ended = True
+                card.dirty = True
             if not card.live:
                 continue
             if finish is None:

@@ -87,6 +87,9 @@ class ResultCard:
         self.claimed = False
         self.item_id: Optional[int] = None
         self.status = "in_progress"
+        # The run is over: nothing will write the card again. (A gather's card
+        # is complete between gathers, but a later one can reopen it.)
+        self.ended = False
         self.kind: Optional[str] = None
         self.dirty = False
         self._branch_calls: dict[int, int] = {}
@@ -232,7 +235,7 @@ class ResultCard:
             "title": self.title or self.default_title(),
             "status": self.status,
             "mode": "stream" if self.stream else "batch",
-            "rows": [s.row(ended=self.status != "in_progress") for s in self._visible()],
+            "rows": [s.row(ended=self.ended) for s in self._visible()],
         }
         if not self.stream:
             data["total"] = len(self._visible())

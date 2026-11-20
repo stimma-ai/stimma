@@ -247,9 +247,9 @@ async def test_a_failed_slot_offers_retry_only_once_the_run_ends(db_session, gen
     generation["failing"] = {"b"}
     await sdk._gather(*[sdk._dispatch_tool("mock:gen", prompt=p) for p in "ab"], return_exceptions=True)
     (card,) = sdk._cards
-    card.status = "in_progress"  # still running: the run owns the card
+    # Between gathers the run still owns the card: a later gather can reopen it.
     assert "job_id" not in card.display_data()["rows"][1]["output"]
-    card.finish("completed")
+    await sdk._finalize_progress("completed")
     assert card.display_data()["rows"][1]["output"]["job_id"]
 
 
