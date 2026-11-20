@@ -78,7 +78,20 @@ const hasLabels = computed(() => props.rows.some(row => row.input?.label))
 const runningCount = computed(() => props.rows.filter(row => ['pending', 'generating'].includes(row.output?.status)).length)
 const doneCount = computed(() => props.rows.filter(row => row.output?.status === 'complete').length)
 
-const columns = computed(() => gridColumns({ count: count.value, width: width.value || 600 }))
+// The grid's own content width: in the panel a scrollbar takes its share.
+const gridRef = ref(null)
+const gridWidth = ref(0)
+let gridObserver
+watch(gridRef, el => {
+  gridObserver?.disconnect()
+  gridWidth.value = 0
+  if (!el) return
+  gridWidth.value = el.clientWidth
+  gridObserver = new ResizeObserver(([entry]) => { gridWidth.value = entry.contentRect.width })
+  gridObserver.observe(el)
+}, { flush: 'post' })
+onBeforeUnmount(() => gridObserver?.disconnect())
+const columns = computed(() => gridColumns({ count: count.value, width: gridWidth.value || width.value || 600 }))
 // Each picture's own aspect, from the media facts chat already loads.
 // Until they arrive (or while a picture is still generating) a tile is square.
 const ratioOf = row => {
@@ -88,7 +101,7 @@ const ratioOf = row => {
 const LABEL_HEIGHT = 20
 const placement = computed(() => placeGrid({
   ratios: props.rows.map(ratioOf),
-  width: width.value || 600,
+  width: gridWidth.value || width.value || 600,
   columns: columns.value,
   caption: hasLabels.value ? LABEL_HEIGHT : 0,
 }))
@@ -368,10 +381,12 @@ onMounted(() => {
     width.value = entry.contentRect.width
     updateStripEdges()
   })
+  width.value = rootRef.value.clientWidth
   resizeObserver.observe(rootRef.value)
   const scroller = rootRef.value.closest('[data-chat-scroller]')
   if (scroller) {
     scrollerObserver = new ResizeObserver(([entry]) => { chatHeight.value = entry.contentRect.height })
+    chatHeight.value = scroller.clientHeight || chatHeight.value
     scrollerObserver.observe(scroller)
   }
   nextTick(() => { centerActiveInStrip(); updateStripEdges() })
@@ -477,7 +492,7 @@ onBeforeUnmount(() => {
 
       <div class="flex min-h-0 flex-1 flex-col" :class="inPanel ? '' : ['overflow-hidden rounded-b-lg', hasHeader ? '' : 'rounded-t-lg']">
         <!-- Grid: one matte wall with 2px gutters -->
-        <div v-if="view === 'grid'" class="min-h-0 flex-1 bg-matte" :class="inPanel ? 'custom-scrollbar overflow-y-auto' : ''">
+        <div v-if="view === 'grid'" ref="gridRef" class="min-h-0 flex-1 bg-matte" :class="inPanel ? 'custom-scrollbar overflow-y-auto' : ''">
           <div class="relative" :style="{ height: gridHeight + 'px' }">
             <MediaCollectionTile
               v-for="(row, index) in rows.slice(0, visible)"
@@ -582,12 +597,12 @@ onBeforeUnmount(() => {
             </div>
             <!-- One row for the picture's controls: markers on the left, actions on the right. A click on the picture opens the slideshow. -->
             <div v-if="hasToolbar" class="flex h-10 flex-none items-center gap-0.5 bg-surface px-1.5 coarse:h-12" data-testid="media-collection-toolbar">
-              <template v-if="activeMediaId && !activeRow.output?.deleted && !isTrashed(activeRow)">
+              <div v-if="activeMediaId && !activeRow.output?.deleted && !isTrashed(activeRow)" class="flex min-w-0 shrink overflow-hidden">
                 <button
                   v-for="marker in availableMarkers"
                   :key="marker.id"
                   type="button"
-                  class="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-overlay-subtle coarse:h-11 coarse:w-11"
+                  class="flex h-7 w-7 flex-none items-center justify-center rounded-md transition-colors hover:bg-overlay-subtle coarse:h-11 coarse:w-11"
                   :class="hasMarker(activeMediaId, marker.id) ? '' : 'text-content-tertiary hover:text-content'"
                   :style="hasMarker(activeMediaId, marker.id) ? { color: marker.color } : null"
                   :title="hasMarker(activeMediaId, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
@@ -595,11 +610,11 @@ onBeforeUnmount(() => {
                 >
                   <span class="icon-container flex h-4 w-4 items-center justify-center" :class="hasMarker(activeMediaId, marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
                 </button>
-              </template>
+              </div>
               <span v-if="heroLabel" class="ml-1.5 min-w-0 truncate text-xs text-content-tertiary">{{ heroLabel }}</span>
               <span class="flex-1"></span>
               <VideoAuditionControl
-                v-if="activeIsVideo && heroRef && heroRef.hasAudio !== false"
+                v-if="heroRef?.canPlayVideo && !heroRef.videoFailed && heroRef.hasAudio !== false"
                 quiet
                 :active="heroRef.auditionActive"
                 :progress="heroRef.auditionProgress"

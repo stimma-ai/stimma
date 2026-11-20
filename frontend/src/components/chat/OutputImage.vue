@@ -104,7 +104,7 @@
         @play="videoPlaying = true"
         @pause="videoPlaying = false"
         @ended="onVideoEnded"
-        @error="videoError = !videoPreview; videoPlaying = false"
+        @error="onVideoError"
         @contextmenu.prevent="openVideoMenu"
       />
       <!-- Artwork keeps the collection's primary click: open the slideshow. -->
@@ -181,10 +181,11 @@
             hasMarker(row.output.media_id, marker.id)
               ? (isComposite ? 'bg-overlay-light' : 'bg-black/70')
               : (isComposite ? 'text-content-tertiary hover:bg-overlay-light hover:text-content' : 'text-white/85 [filter:drop-shadow(0_1px_2px_rgb(0_0_0/0.7))] hover:bg-black/55 hover:text-white hover:[filter:none]'),
-            quietMarkers && !hasMarker(row.output.media_id, marker.id) ? 'opacity-0 group-hover:opacity-100 [[data-pointer=coarse]_&]:hidden' : ''
+            // Quiet (grid tiles) on touch: a set marker is a status glyph the tap passes through; the menu changes it.
+            quietMarkers ? (hasMarker(row.output.media_id, marker.id) ? '[[data-pointer=coarse]_&]:pointer-events-none' : 'opacity-0 group-hover:opacity-100 [[data-pointer=coarse]_&]:hidden') : ''
           ]"
           :style="hasMarker(row.output.media_id, marker.id) ? { color: marker.color } : {}"
-          :disabled="quietMarkers && isCoarsePointer"
+          :tabindex="quietMarkers && isCoarsePointer ? -1 : undefined"
           :title="hasMarker(row.output.media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
         >
           <span class="w-4 h-4 flex items-center justify-center icon-container" :class="hasMarker(row.output.media_id, marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
@@ -455,8 +456,16 @@ const auditionActive = ref(false)
 const auditionProgress = ref(0)
 // The audition plays at the slideshow's video volume (the speaker's hover slider).
 const { videoVolume } = useMediaPlayback()
+// A clip that won't load leaves its still in place rather than a blank layer.
+const videoFailed = ref(false)
+function onVideoError() {
+  videoPlaying.value = false
+  if (!videoPreview.value) { videoError.value = true; return }
+  videoFailed.value = true
+  resetVideo()
+}
 function startAmbient() {
-  if (!canPlayVideo.value) return
+  if (!canPlayVideo.value || videoFailed.value) return
   auditionActive.value = false
   auditionProgress.value = 0
   void playVideo(true)
@@ -467,7 +476,8 @@ async function audition() {
   if (video) {
     // Back to the top at the right level before the sound comes on.
     video.currentTime = 0
-    video.volume = videoVolume.value
+    // The speaker's slider floor: a pass with sound is never silent.
+    video.volume = Math.max(0.05, videoVolume.value)
   }
   auditionActive.value = true
   auditionProgress.value = 0
@@ -496,7 +506,7 @@ function onVideoEnded() {
   videoPlaying.value = false
   if (auditionActive.value) startAmbient()
 }
-defineExpose({ audition, auditionActive, auditionProgress, hasAudio })
+defineExpose({ audition, auditionActive, auditionProgress, hasAudio, canPlayVideo, videoFailed })
 // Outside a collection a video stays a still until the pointer rests on it.
 function startHoverVideo() {
   if (props.playable || !isPlayableVideo.value || videoStarted.value) return
@@ -530,7 +540,7 @@ function onVideoDragStart(event) {
 function openVideoMenu(event) {
   videoMenu.show({ event, mediaId: props.row.output.media_id, assetId: props.row.output.asset_id })
 }
-watch(() => props.row.output.media_id, () => { resetVideo(); hasAudio.value = null; if (onScreen.value) startAmbient() })
+watch(() => props.row.output.media_id, () => { resetVideo(); hasAudio.value = null; videoFailed.value = false; if (onScreen.value) startAmbient() })
 onBeforeUnmount(resetVideo)
 onDeactivated(resetVideo)
 
