@@ -4191,15 +4191,17 @@ function hideCursor() {
 
 // Track the latest cursor position so the hide timeout can check what's
 // actually under the pointer (the slideshow vs. a modal/popup on top).
-let lastMouseX = 0
-let lastMouseY = 0
+let lastMouseX = null
+let lastMouseY = null
 
 // Only hide the cursor when the topmost element under the pointer belongs to
 // the slideshow overlay. Modals/popups (settings, crash dialog, etc.) are
 // teleported to <body> as siblings of the overlay, so when one is open the
 // element under the cursor is the modal — and we keep the cursor visible.
 function cursorOverSlideshow() {
-  if (!overlay.value) return true
+  // No pointer position yet (opened by click or key without moving): the
+  // slideshow fills the view, so treat the pointer as over it.
+  if (!overlay.value || lastMouseX === null) return true
   const el = document.elementFromPoint(lastMouseX, lastMouseY)
   return !el || overlay.value.contains(el)
 }
@@ -6376,7 +6378,7 @@ onMounted(async () => {
   if (overlay.value) {
     resetCursorTimeout()
   }
-  updateKeepAwake()
+  if (!isMobileShell()) setScreenWakeLock(true)
 
   // Initialize shuffled indices if randomized from URL
   if (props.randomized && props.randomSeed) {

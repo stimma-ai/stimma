@@ -274,6 +274,8 @@ test('an open slideshow keeps the screen awake and hides the idle cursor outside
   }) })
   await expect(page.locator('.slideshow-control-bar')).toBeVisible()
   await expect.poll(() => page.evaluate(() => window.wakeLockLog)).toEqual(['request:screen'])
+  // Opened without moving the mouse: the cursor still hides.
+  await expect.poll(() => page.evaluate(() => document.body.classList.contains('slideshow-cursor-hidden')), { timeout: 5000 }).toBe(true)
   await page.mouse.move(400, 300)
   await page.mouse.move(410, 310)
   assert.equal(await page.evaluate(() => document.body.classList.contains('slideshow-cursor-hidden')), false)

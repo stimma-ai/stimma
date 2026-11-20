@@ -1,8 +1,8 @@
 /**
  * Keep the display awake (no screensaver, no dimming) while something is on
  * screen to watch, the way a video player does. Uses the Screen Wake Lock API,
- * which Electron maps to the OS inhibitor (Wayland idle-inhibit, macOS and
- * Windows display assertions). Browsers drop the lock whenever the page is
+ * which Electron maps to the OS screensaver inhibitor where the platform
+ * offers one. Browsers drop the lock whenever the page is
  * hidden, so it is taken again each time the page becomes visible.
  * Unsupported or insecure contexts simply do nothing.
  */
@@ -33,8 +33,6 @@ export function createScreenWakeLock(): (active: boolean) => void {
     } finally {
       requesting = false
     }
-    // Wanted again while a request we then discarded was in flight.
-    if (wanted && !sentinel && document.visibilityState === 'visible') void acquire()
   }
 
   function onVisibility() {
