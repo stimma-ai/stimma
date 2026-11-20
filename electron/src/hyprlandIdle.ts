@@ -14,7 +14,7 @@
 import { execFile } from 'node:child_process'
 import type { BrowserWindow } from 'electron'
 
-type HyprClient = { address: string; pid: number; title: string; focusHistoryID: number }
+type HyprClient = { address: string; pid: number; title: string }
 type Run = (args: string[]) => Promise<string>
 
 export function onHyprland(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): boolean {
@@ -26,15 +26,19 @@ const runHyprctl: Run = (args) =>
     execFile('hyprctl', args, { timeout: 3000 }, (error, stdout) => (error ? reject(error) : resolve(String(stdout))))
   })
 
-/** This process's toplevel for `title`; with duplicates, the most recently focused. */
+/**
+ * This process's toplevel for the requesting window: its only window, or the
+ * one whose title matches. Ambiguous matches return null so another Stimma
+ * window is never marked by mistake.
+ */
 export function pickWindowAddress(clients: HyprClient[], pid: number, title: string): string | null {
   const ours = clients.filter((c) => c.pid === pid)
   const candidates = ours.length > 1 ? ours.filter((c) => c.title === title) : ours
-  const best = candidates.sort((a, b) => a.focusHistoryID - b.focusHistoryID)[0]
-  return best && /^0x[0-9a-f]+$/i.test(best.address) ? best.address : null
+  const only = candidates.length === 1 ? candidates[0] : null
+  return only && /^0x[0-9a-f]+$/i.test(only.address) ? only.address : null
 }
 
-export function idleInhibitScript(address: string, active: boolean): string {
+function idleInhibitScript(address: string, active: boolean): string {
   return `return tostring(hl.dispatch(hl.dsp.window.set_prop({window='address:${address}', prop='idle_inhibit', value='${active ? 1 : 0}'})).ok)`
 }
 
@@ -45,13 +49,16 @@ export function createHyprlandIdleInhibitor(run: Run = runHyprctl, pid = process
 
   async function apply(win: BrowserWindow, state: WindowState): Promise<void> {
     if (state.wanted === state.applied || win.isDestroyed()) return
+    // The value actually sent; `wanted` may change while the command runs, and
+    // the queued follow-up call reconciles the difference.
+    const target = state.wanted
     try {
       if (!state.address) {
         state.address = pickWindowAddress(JSON.parse(await run(['-j', 'clients'])), pid, win.getTitle())
       }
       if (!state.address) return
-      const ok = (await run(['repl', idleInhibitScript(state.address, state.wanted)])).trim() === 'true'
-      if (ok) state.applied = state.wanted
+      const ok = (await run(['repl', idleInhibitScript(state.address, target)])).trim() === 'true'
+      if (ok) state.applied = target
       else state.address = null // stale address or unsupported Hyprland; retry lookup next time
     } catch {
       state.address = null
