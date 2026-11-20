@@ -256,7 +256,8 @@ _JOB_SUMMARY_FIELDS = (
     "error",
 )
 # Per-chat detail that only an open view of that chat renders. Chat list and
-# activity summaries (chat_updated, agent_started/stopped, ...) stay global.
+# activity summaries (chat_updated, agent_started/stopped,
+# background_task_state, ...) stay global.
 _CHAT_DETAIL_EVENTS = frozenset({
     "chat_item_created",
     "chat_item_updated",

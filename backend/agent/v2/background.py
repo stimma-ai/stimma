@@ -379,7 +379,20 @@ async def _broadcast(run: BackgroundRun, event: str) -> None:
         log.debug(f"background: broadcast {event} failed: {e}")
 
 
+async def _broadcast_state(run: BackgroundRun) -> None:
+    """Task start and end for every client, not just those showing the chat:
+    the sidebar spinner of a chat nobody has open follows it."""
+    if run.ws_manager is None:
+        return
+    try:
+        await run.ws_manager.broadcast(
+            "background_task_state", {"chat_id": run.chat_id, "task_id": run.id, "state": run.state})
+    except Exception as e:
+        log.debug(f"background: broadcast background_task_state failed: {e}")
+
+
 async def _watch(run: BackgroundRun, on_finished) -> None:
+    await _broadcast_state(run)
     await _broadcast(run, "background_task_updated")
     last = None
     while not run.task.done():
@@ -404,6 +417,7 @@ async def _watch(run: BackgroundRun, on_finished) -> None:
         output = f"Error: {type(e).__name__}: {e}"
         run.state = "failed"
     run.finished_at = time.monotonic()
+    await _broadcast_state(run)
     await _broadcast(run, "background_task_finished")
 
     finished = [r for r in _runs.get((run.profile, run.chat_id), {}).values() if r.state != "running"]
