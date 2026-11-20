@@ -4,7 +4,7 @@
     <div class="flex justify-between items-center px-page py-2 min-h-header gap-2 flex-wrap compact:justify-start compact:gap-1 compact:min-h-0 compact:py-0">
       <!-- Left Side: Filter Toggle Button -->
       <button
-        class="-ml-3 flex h-control flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-ctl transition-colors duration-150 compact:-ml-[14px] compact:h-11 compact:w-11 compact:justify-center compact:px-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+        class="relative -ml-3 flex h-control flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-ctl transition-colors duration-150 compact:-ml-[14px] compact:h-11 compact:w-11 compact:justify-center compact:px-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
         :class="(showCriteriaPanel || hasActiveFilters) ? 'bg-overlay-light text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
         aria-label="Filters"
         :aria-expanded="showCriteriaPanel"
@@ -12,6 +12,11 @@
       >
         <FunnelIcon class="h-icon-nav w-icon-nav" aria-hidden="true" />
         <span class="compact:hidden">Filters</span>
+        <span
+          v-if="filterChipCount"
+          class="min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-accent-on text-[11px] font-semibold leading-[18px] text-center tabular-nums compact:absolute compact:top-1 compact:right-0.5"
+          data-testid="filter-count"
+        >{{ filterChipCount }}</span>
         <Caret :open="showCriteriaPanel" class="compact:hidden" />
       </button>
 
@@ -61,194 +66,6 @@
         </button>
         </div>
 
-        <!-- Cart: every active criterion as a chip. Compact: its own row under the toggles. -->
-        <div class="contents compact:flex compact:flex-wrap compact:gap-1.5 compact:basis-full compact:order-4 compact:empty:hidden">
-        <!-- Similar Search Badge -->
-        <div v-if="hasSimilarSearchBadge" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
-          <MagnifyingGlassCircleIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
-          <span class="leading-none">{{ similarSearchBadgeLabel }}</span>
-          <div
-            v-for="item in similarSearchSourceItems"
-            :key="item.id"
-            class="w-8 h-8 bg-surface-raised rounded border border-edge-subtle overflow-hidden"
-          >
-            <MediaImage
-              :media-id="item.id"
-              :file-hash="item.file_hash"
-              :alt="item.file_path"
-              :title="item.file_path"
-              container-class="w-full h-full"
-              :enable-context-menu="false"
-              :draggable="false"
-            />
-          </div>
-          <span v-if="!similarSearchSourceItems || similarSearchSourceItems.length === 0" class="leading-none">
-            {{ similarSearchFallbackLabel }}
-          </span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="emit('clear-similar')">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-
-        <!-- Text Similarity Badge -->
-        <div v-if="localSimilarToText" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
-          <MagnifyingGlassCircleIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
-          <span class="leading-none">{{ localSimilarToText }}</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearSimilarToText">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Media Type Badges -->
-        <div v-for="mediaType in allMediaTypes"
-             :key="mediaType"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isMediaTypeExcluded(mediaType) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
-             @click="toggleExcludeMediaType(mediaType)">
-          <span class="leading-none">{{ { images: 'Images', videos: 'Videos', audio: 'Audio', text: 'Text', vectors: 'SVG', sets: 'Sets', grids: 'Grids', sprites: 'Sprites', packages: 'Packages', layouts: 'Layouts' }[mediaType] || mediaType }}</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeMediaType(mediaType)">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Resolution Badges -->
-        <div v-for="resolution in allResolutions"
-             :key="resolution"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isResolutionExcluded(resolution) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
-             @click="toggleExcludeResolution(resolution)">
-          <span class="leading-none">{{ resolution.charAt(0).toUpperCase() + resolution.slice(1) }}</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeResolution(resolution)">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Tag Badges -->
-        <div v-for="tag in allTags"
-             :key="tag.id"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isTagExcluded(tag.id) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
-             @click="toggleExcludeTag(tag.id)">
-          <span class="leading-none">{{ tag.tag }}</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTag(tag.id)">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Project Badges (membership chip + specific projects) - hidden in trash and inside a project -->
-        <template v-if="!isTrashMode && !inProjectScope">
-          <!-- Scope chip: the top level shows unfiled assets unless project assets are included -->
-          <div v-if="localIncludeProjects"
-               class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi"
-               data-testid="include-project-assets-chip">
-            <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
-            <span class="leading-none">Project assets</span>
-            <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" aria-label="Hide project assets" @click.stop="setIncludeProjects(false)">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <!-- Membership existence chip: accent = in any project, red = not in any project -->
-          <div v-if="projectMembership"
-               :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', projectMembership === 'none' ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
-               @click="toggleProjectMembershipSign">
-            <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
-            <span class="leading-none">Any project</span>
-            <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearProjectMembership">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <!-- Specific project chips -->
-          <div v-for="project in allProjects"
-               :key="'proj-' + project.id"
-               :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isProjectExcluded(project.id) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
-               @click="toggleExcludeProject(project.id)">
-            <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
-            <span class="leading-none">{{ project.name }}</span>
-            <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeProject(project.id)">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </template>
-
-        <!-- Tool Badges -->
-        <div v-for="tool in allTools"
-             :key="tool.full_tool_id"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isToolExcluded(tool) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
-             @click="toggleExcludeTool(tool)">
-          <span class="leading-none">{{ getToolName(tool) }}</span>
-          <span v-if="isToolStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
-          <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full opacity-60 bg-overlay-medium">{{ getToolProvider(tool) }}</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTool(tool)">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Folder Badges -->
-        <div v-for="folder in allFolders"
-             :key="folder"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isFolderExcluded(folder) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
-             @click="toggleExcludeFolder(folder)">
-          <span class="leading-none">{{ getFolderName(folder) }}</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeFolder(folder)">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- File Date Badge (quick ranges toggle include/exclude; custom stays include-only) -->
-        <div v-if="selectedDateRange"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9', dateRangeExcluded ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi', selectedDateRange !== 'custom' ? 'cursor-pointer' : '']"
-             @click="toggleExcludeDateRange">
-          <span class="leading-none">{{ getDateRangeLabel() }}</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearDateRange">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Imported Badge (not shown in trash mode) -->
-        <div v-if="!isTrashMode && localIsImported !== null"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', localIsImported === false ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
-             @click="toggleImportedExclusion">
-          <span class="leading-none">Imported</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearImportedFilter">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Unused Badge (not shown in trash mode) -->
-        <div v-if="!isTrashMode && localIsUnused !== null"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', localIsUnused === false ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
-             @click="toggleUnusedExclusion">
-          <span class="leading-none">Unused</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearUnusedFilter">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        </div>
       </div>
 
       <!-- Right Side Controls -->
@@ -452,6 +269,196 @@
         <div class="hidden compact:flex items-center justify-between px-4 pt-3 pb-1">
           <span class="text-[15px] font-semibold text-content">Filters</span>
           <button type="button" class="min-h-11 px-3 rounded-md text-sm text-accent-hi border-none bg-transparent" @click="showCriteriaPanel = false">Done</button>
+        </div>
+        <!-- Active filters: every criterion as a removable chip. They live here, not in
+             the toolbar, so the toolbar stays one line; the Filters button counts them. -->
+        <div v-if="filterChipCount" class="flex flex-wrap items-center gap-1.5 px-4 pt-3 compact:pt-1" data-testid="active-filter-chips">
+        <!-- Similar Search Badge -->
+        <div v-if="hasSimilarSearchBadge" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
+          <MagnifyingGlassCircleIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
+          <span class="leading-none">{{ similarSearchBadgeLabel }}</span>
+          <div
+            v-for="item in similarSearchSourceItems"
+            :key="item.id"
+            class="w-8 h-8 bg-surface-raised rounded border border-edge-subtle overflow-hidden"
+          >
+            <MediaImage
+              :media-id="item.id"
+              :file-hash="item.file_hash"
+              :alt="item.file_path"
+              :title="item.file_path"
+              container-class="w-full h-full"
+              :enable-context-menu="false"
+              :draggable="false"
+            />
+          </div>
+          <span v-if="!similarSearchSourceItems || similarSearchSourceItems.length === 0" class="leading-none">
+            {{ similarSearchFallbackLabel }}
+          </span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="emit('clear-similar')">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+
+        <!-- Text Similarity Badge -->
+        <div v-if="localSimilarToText" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
+          <MagnifyingGlassCircleIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
+          <span class="leading-none">{{ localSimilarToText }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearSimilarToText">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Media Type Badges -->
+        <div v-for="mediaType in allMediaTypes"
+             :key="mediaType"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isMediaTypeExcluded(mediaType) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             @click="toggleExcludeMediaType(mediaType)">
+          <span class="leading-none">{{ { images: 'Images', videos: 'Videos', audio: 'Audio', text: 'Text', vectors: 'SVG', sets: 'Sets', grids: 'Grids', sprites: 'Sprites', packages: 'Packages', layouts: 'Layouts' }[mediaType] || mediaType }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeMediaType(mediaType)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Resolution Badges -->
+        <div v-for="resolution in allResolutions"
+             :key="resolution"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isResolutionExcluded(resolution) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             @click="toggleExcludeResolution(resolution)">
+          <span class="leading-none">{{ resolution.charAt(0).toUpperCase() + resolution.slice(1) }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeResolution(resolution)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Tag Badges -->
+        <div v-for="tag in allTags"
+             :key="tag.id"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isTagExcluded(tag.id) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             @click="toggleExcludeTag(tag.id)">
+          <span class="leading-none">{{ tag.tag }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTag(tag.id)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Project Badges (membership chip + specific projects) - hidden in trash and inside a project -->
+        <template v-if="!isTrashMode && !inProjectScope">
+          <!-- Scope chip: the top level shows unfiled assets unless project assets are included -->
+          <div v-if="localIncludeProjects"
+               class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi"
+               data-testid="include-project-assets-chip">
+            <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
+            <span class="leading-none">Project assets</span>
+            <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" aria-label="Hide project assets" @click.stop="setIncludeProjects(false)">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <!-- Membership existence chip: accent = in any project, red = not in any project -->
+          <div v-if="projectMembership"
+               :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', projectMembership === 'none' ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+               @click="toggleProjectMembershipSign">
+            <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
+            <span class="leading-none">Any project</span>
+            <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearProjectMembership">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <!-- Specific project chips -->
+          <div v-for="project in allProjects"
+               :key="'proj-' + project.id"
+               :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isProjectExcluded(project.id) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+               @click="toggleExcludeProject(project.id)">
+            <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
+            <span class="leading-none">{{ project.name }}</span>
+            <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeProject(project.id)">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </template>
+
+        <!-- Tool Badges -->
+        <div v-for="tool in allTools"
+             :key="tool.full_tool_id"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isToolExcluded(tool) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             @click="toggleExcludeTool(tool)">
+          <span class="leading-none">{{ getToolName(tool) }}</span>
+          <span v-if="isToolStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
+          <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full opacity-60 bg-overlay-medium">{{ getToolProvider(tool) }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTool(tool)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Folder Badges -->
+        <div v-for="folder in allFolders"
+             :key="folder"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', isFolderExcluded(folder) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             @click="toggleExcludeFolder(folder)">
+          <span class="leading-none">{{ getFolderName(folder) }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeFolder(folder)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- File Date Badge (quick ranges toggle include/exclude; custom stays include-only) -->
+        <div v-if="selectedDateRange"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9', dateRangeExcluded ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi', selectedDateRange !== 'custom' ? 'cursor-pointer' : '']"
+             @click="toggleExcludeDateRange">
+          <span class="leading-none">{{ getDateRangeLabel() }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearDateRange">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Imported Badge (not shown in trash mode) -->
+        <div v-if="!isTrashMode && localIsImported !== null"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', localIsImported === false ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             @click="toggleImportedExclusion">
+          <span class="leading-none">Imported</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearImportedFilter">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Unused Badge (not shown in trash mode) -->
+        <div v-if="!isTrashMode && localIsUnused !== null"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 cursor-pointer', localIsUnused === false ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             @click="toggleUnusedExclusion">
+          <span class="leading-none">Unused</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearUnusedFilter">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+          <button type="button" class="h-control compact:h-9 px-2 rounded-md text-xs text-content-tertiary border-none bg-transparent cursor-pointer hover:text-content-secondary hover:bg-overlay-subtle" @click="clearAllFilters()">Clear all</button>
         </div>
         <!-- Loading spinner -->
         <div v-if="isLoading" class="absolute top-0 left-0 right-0 bottom-0 bg-surface/80 flex items-center justify-center z-10 backdrop-blur-[2px]">
@@ -1115,6 +1122,23 @@ const allTools = computed(() => {
     .filter(id => !resolvedIds.has(id))
     .map(id => ({ full_tool_id: id, name: id.split(':').pop() || id }))
   return [...resolved, ...fallbacks]
+})
+
+// How many removable chips the panel's active-filter strip shows; mirrors its v-ifs.
+// The Filters button carries this count since the chips live inside the panel.
+const filterChipCount = computed(() => {
+  const showProjectChips = !props.isTrashMode && !props.inProjectScope
+  return (hasSimilarSearchBadge.value ? 1 : 0) +
+    (localSimilarToText.value ? 1 : 0) +
+    allMediaTypes.value.length +
+    allResolutions.value.length +
+    allTags.value.length +
+    (showProjectChips ? (localIncludeProjects.value ? 1 : 0) + (projectMembership.value ? 1 : 0) + allProjects.value.length : 0) +
+    allTools.value.length +
+    allFolders.value.length +
+    (selectedDateRange.value ? 1 : 0) +
+    (!props.isTrashMode && localIsImported.value !== null ? 1 : 0) +
+    (!props.isTrashMode && localIsUnused.value !== null ? 1 : 0)
 })
 
 // Top 5 tools for inline display in criteria panel
