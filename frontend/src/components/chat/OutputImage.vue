@@ -186,6 +186,7 @@
           ]"
           :style="hasMarker(row.output.media_id, marker.id) ? { color: marker.color } : {}"
           :tabindex="quietMarkers && isCoarsePointer ? -1 : undefined"
+          :aria-hidden="quietMarkers && isCoarsePointer ? 'true' : undefined"
           :title="hasMarker(row.output.media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
         >
           <span class="w-4 h-4 flex items-center justify-center icon-container" :class="hasMarker(row.output.media_id, marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />

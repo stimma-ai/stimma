@@ -492,7 +492,7 @@ onBeforeUnmount(() => {
 
       <div class="flex min-h-0 flex-1 flex-col" :class="inPanel ? '' : ['overflow-hidden rounded-b-lg', hasHeader ? '' : 'rounded-t-lg']">
         <!-- Grid: one matte wall with 2px gutters -->
-        <div v-if="view === 'grid'" ref="gridRef" class="min-h-0 flex-1 bg-matte" :class="inPanel ? 'custom-scrollbar overflow-y-auto' : ''">
+        <div v-if="view === 'grid'" ref="gridRef" class="min-h-0 flex-1 bg-matte" :class="inPanel ? 'custom-scrollbar scrollbar-stable overflow-y-auto' : ''">
           <div class="relative" :style="{ height: gridHeight + 'px' }">
             <MediaCollectionTile
               v-for="(row, index) in rows.slice(0, visible)"
