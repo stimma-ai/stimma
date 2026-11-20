@@ -4,11 +4,10 @@
  * panel. Provided by ChatView, read by MediaCollection.
  */
 import { computed, reactive, ref, shallowRef, type ComputedRef, type InjectionKey, type Ref, type ShallowRef } from 'vue'
-import type { CollectionSize, CollectionView } from '../utils/mediaCollectionLayout'
+import type { CollectionView } from '../utils/mediaCollectionLayout'
 
 export interface CollectionViewState {
   view: CollectionView
-  size: CollectionSize
   active: number
   expanded: boolean
 }
@@ -73,7 +72,7 @@ interface Options {
 export function useChatMediaCollections(options: Options): ChatMediaCollections {
   const states = new Map<number, CollectionViewState>()
   function viewState(itemId: number, initial: () => CollectionView) {
-    if (!states.has(itemId)) states.set(itemId, reactive({ view: initial(), size: 'm', active: 0, expanded: false }))
+    if (!states.has(itemId)) states.set(itemId, reactive({ view: initial(), active: 0, expanded: false }))
     return states.get(itemId)!
   }
 

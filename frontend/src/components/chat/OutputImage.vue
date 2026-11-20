@@ -181,10 +181,10 @@
             hasMarker(row.output.media_id, marker.id)
               ? (isComposite ? 'bg-overlay-light' : 'bg-black/70')
               : (isComposite ? 'text-content-tertiary hover:bg-overlay-light hover:text-content' : 'text-white/85 [filter:drop-shadow(0_1px_2px_rgb(0_0_0/0.7))] hover:bg-black/55 hover:text-white hover:[filter:none]'),
-            // Quiet (grid tiles): on touch the set markers are status only; the menu changes them.
-            quietMarkers ? (hasMarker(row.output.media_id, marker.id) ? '[[data-pointer=coarse]_&]:pointer-events-none' : 'opacity-0 group-hover:opacity-100 [[data-pointer=coarse]_&]:hidden') : ''
+            quietMarkers && !hasMarker(row.output.media_id, marker.id) ? 'opacity-0 group-hover:opacity-100 [[data-pointer=coarse]_&]:hidden' : ''
           ]"
           :style="hasMarker(row.output.media_id, marker.id) ? { color: marker.color } : {}"
+          :disabled="quietMarkers && isCoarsePointer"
           :title="hasMarker(row.output.media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
         >
           <span class="w-4 h-4 flex items-center justify-center icon-container" :class="hasMarker(row.output.media_id, marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
@@ -463,23 +463,40 @@ function startAmbient() {
 }
 async function audition() {
   if (auditionActive.value) { startAmbient(); return }
-  await playVideo(false)
   const video = videoRef.value
-  if (!video) return
-  video.volume = videoVolume.value
-  video.currentTime = 0
+  if (video) {
+    // Back to the top at the right level before the sound comes on.
+    video.currentTime = 0
+    video.volume = videoVolume.value
+  }
   auditionActive.value = true
+  auditionProgress.value = 0
+  await playVideo(false)
+  if (videoError.value) {
+    videoError.value = false
+    startAmbient()
+  }
+}
+// Whether the clip has a sound track: unknown (null) until the browser can
+// tell, which it does once a little of the quiet loop has played.
+const hasAudio = ref(null)
+function detectAudio(video) {
+  if (hasAudio.value !== null) return
+  if (typeof video.mozHasAudio === 'boolean') hasAudio.value = video.mozHasAudio
+  else if (video.audioTracks) hasAudio.value = video.audioTracks.length > 0
+  else if (typeof video.webkitAudioDecodedByteCount === 'number' && video.currentTime > 0.5) hasAudio.value = video.webkitAudioDecodedByteCount > 0
 }
 function onVideoTime(event) {
-  if (!auditionActive.value) return
   const video = event.target
+  detectAudio(video)
+  if (!auditionActive.value) return
   auditionProgress.value = video.duration ? video.currentTime / video.duration : 0
 }
 function onVideoEnded() {
   videoPlaying.value = false
   if (auditionActive.value) startAmbient()
 }
-defineExpose({ audition, auditionActive, auditionProgress })
+defineExpose({ audition, auditionActive, auditionProgress, hasAudio })
 // Outside a collection a video stays a still until the pointer rests on it.
 function startHoverVideo() {
   if (props.playable || !isPlayableVideo.value || videoStarted.value) return
@@ -513,7 +530,7 @@ function onVideoDragStart(event) {
 function openVideoMenu(event) {
   videoMenu.show({ event, mediaId: props.row.output.media_id, assetId: props.row.output.asset_id })
 }
-watch(() => props.row.output.media_id, () => { resetVideo(); if (onScreen.value) startAmbient() })
+watch(() => props.row.output.media_id, () => { resetVideo(); hasAudio.value = null; if (onScreen.value) startAmbient() })
 onBeforeUnmount(resetVideo)
 onDeactivated(resetVideo)
 
@@ -538,7 +555,8 @@ function handleClick() {
   if (props.row.output.deleted || isTrashed.value) return
   // Allow clicking on complete images
   if ((props.row.output.status === 'complete' || props.row.output.status === 'trashed') && props.row.output.media_id) {
-    if (auditionActive.value) startAmbient()
+    if (!props.playable) resetVideo()
+    else if (auditionActive.value) startAmbient()
     emit('view-image', props.row.output.media_id)
   }
 }

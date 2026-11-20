@@ -8,6 +8,7 @@ import ChatAddIcon from './ChatAddIcon.vue'
 import { useMarkers } from '../../composables/useMarkers'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import { getMediaType } from '../../utils/mediaTypes'
+import { useMediaState } from '../../composables/useMediaState'
 import { MediaImage, AppImage } from '../media'
 import OutputImage from './OutputImage.vue'
 import { CHAT_MEDIA_COLLECTIONS } from '../../composables/useChatMediaCollections'
@@ -39,7 +40,8 @@ const { availableMarkers, hasMarker } = useMarkers()
 // Status only: the strip shows which pictures carry a marker, so a marked one is
 // easy to find again. Setting markers stays on the picture itself.
 const setMarkers = computed(() => (mediaId.value == null ? [] : availableMarkers.value.filter(m => hasMarker(mediaId.value, m.id))))
-const isVideo = computed(() => getMediaType({ file_format: props.row.output?.file_format }) === 'video')
+const { mediaState } = useMediaState()
+const isVideo = computed(() => getMediaType({ file_format: mediaState.value[mediaId.value]?.file_format || props.row.output?.file_format }) === 'video')
 
 const mediaId = computed(() => props.row.output?.media_id ?? null)
 const status = computed(() => props.row.output?.status)

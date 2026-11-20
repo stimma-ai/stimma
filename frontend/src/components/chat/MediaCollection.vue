@@ -167,9 +167,8 @@ const activeIsVideo = computed(() => {
   return !!format && getMediaType({ file_format: format }) === 'video'
 })
 const heroRef = ref(null)
-const activeHasAudio = computed(() => activeIsVideo.value && !!mediaState.value[activeMediaId.value]?.has_audio)
 const canAdd = computed(() => activePickable.value && collections.canAttach.value)
-const hasToolbar = computed(() => !!activeMediaId.value || !!heroLabel.value)
+const hasToolbar = computed(() => !!activeMediaId.value || !!heroLabel.value || !!activeRow.value?.output?.job_id)
 const { loadMarkersForMedia, availableMarkers, hasMarker, toggleMarker } = useMarkers()
 // The strip shows markers, and the grid needs every picture's size.
 watch(universe, ids => {
@@ -248,6 +247,23 @@ function pageStrip(direction) {
   strip?.scrollBy({ left: direction * strip.clientWidth * 0.8, behavior: 'smooth' })
 }
 
+// Rows hold pictures of different widths, so Up and Down go to the tile in the
+// next row that sits closest under (or over) the middle of this one.
+function tileAbove(direction, last) {
+  const { rects, rowOf } = placement.value
+  const from = Math.min(activeIndex.value, last)
+  const target = rowOf[from] + direction
+  const middle = rects[from].x + rects[from].w / 2
+  let best = from
+  let distance = Infinity
+  for (let i = 0; i <= last; i += 1) {
+    if (rowOf[i] !== target) continue
+    const d = Math.abs(rects[i].x + rects[i].w / 2 - middle)
+    if (d < distance) { best = i; distance = d }
+  }
+  return best
+}
+
 // Keyboard: arrows move the active image, Space picks, Enter opens.
 // Keys someone else already handled and chorded keys (they belong to the
 // browser and app) are left alone. Widgets that use the arrows themselves (the
@@ -259,11 +275,12 @@ function onKeydown(event) {
   const onWidget = !!event.target.closest?.(ARROW_WIDGETS)
   const onControl = onWidget || !!event.target.closest?.('button,a,summary')
   const inGrid = view.value === 'grid'
-  const step = onWidget ? 0 : { ArrowLeft: -1, ArrowRight: 1, ArrowUp: inGrid ? -columns.value : 0, ArrowDown: inGrid ? columns.value : 0 }[event.key]
+  const step = onWidget ? 0 : { ArrowLeft: -1, ArrowRight: 1, ArrowUp: inGrid ? -1 : 0, ArrowDown: inGrid ? 1 : 0 }[event.key]
   if (step) {
     event.preventDefault()
     const last = (inGrid ? visible.value : count.value) - 1
-    show(Math.min(last, Math.max(0, activeIndex.value + step)))
+    const vertical = event.key === 'ArrowUp' || event.key === 'ArrowDown'
+    show(vertical ? tileAbove(step, last) : Math.min(last, Math.max(0, activeIndex.value + step)))
     nextTick(() => rootRef.value?.querySelector(`[data-tile="${activeIndex.value}"]`)?.focus())
   } else if (['Enter', ' '].includes(event.key) && onControl) {
     // A control inside the card keeps its own keys.
@@ -582,7 +599,7 @@ onBeforeUnmount(() => {
               <span v-if="heroLabel" class="ml-1.5 min-w-0 truncate text-xs text-content-tertiary">{{ heroLabel }}</span>
               <span class="flex-1"></span>
               <VideoAuditionControl
-                v-if="activeHasAudio && heroRef"
+                v-if="activeIsVideo && heroRef && heroRef.hasAudio !== false"
                 quiet
                 :active="heroRef.auditionActive"
                 :progress="heroRef.auditionProgress"

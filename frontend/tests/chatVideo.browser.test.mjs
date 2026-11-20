@@ -38,12 +38,15 @@ for (const phone of [false, true]) test(`chat video playback and toolbar (${phon
     const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 180
     const context = canvas.getContext('2d'); context.fillStyle = 'teal'; context.fillRect(0, 0, 320, 180)
     const stream = canvas.captureStream(10)
-    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' })
+    // A tone, so the clip has a sound track for the speaker to find.
+    const audio = new AudioContext(); const tone = audio.createOscillator(); const out = audio.createMediaStreamDestination()
+    tone.connect(out); tone.start(); stream.addTrack(out.stream.getAudioTracks()[0])
+    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' })
     const chunks = []
     const done = new Promise(resolve => { recorder.ondataavailable = e => chunks.push(e.data); recorder.onstop = resolve })
     const draw = setInterval(() => { context.fillStyle = `rgb(0, ${Math.floor(Math.random() * 150)}, 120)`; context.fillRect(0, 0, 320, 180) }, 40)
     recorder.start(); await new Promise(resolve => setTimeout(resolve, 2000)); recorder.stop(); await done; clearInterval(draw)
-    stream.getTracks().forEach(track => track.stop())
+    stream.getTracks().forEach(track => track.stop()); tone.stop(); await audio.close()
     return [...new Uint8Array(await new Blob(chunks).arrayBuffer())]
   }))
   for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
