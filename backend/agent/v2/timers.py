@@ -218,7 +218,7 @@ def timer_text(timer, *, due_at: datetime, now: datetime, since_user: Optional[f
     if timer.repeat:
         lines.append(
             f"It fires again at {local_time(timer.fire_at)}. Cancel it with "
-            f'stimma.timers.cancel("{timer_ref(timer.id)}") once the work is done.'
+            f'await stimma.timers.cancel("{timer_ref(timer.id)}") once the work is done.'
         )
     lines.append("</timer>")
     return "\n".join(lines)

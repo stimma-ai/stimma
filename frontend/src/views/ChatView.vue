@@ -3750,7 +3750,8 @@ function handleKeyDown(event) {
 // pristine text rather than the transport markdown.
 function recallTexts(itemsNewestFirst) {
   return itemsNewestFirst
-    .filter(item => item.item_type === 'user_message' && !item.parent_item_id && item.message_text)
+    .filter(item => item.item_type === 'user_message' && !item.parent_item_id && item.message_text
+      && !backgroundNotice(item) && !timerNotice(item))
     .map(item => parseMessageReferences(item.message_text).text || item.message_text)
 }
 
@@ -5527,13 +5528,19 @@ async function loadBackgroundTasks() {
   }
 }
 
+// Only the newest load applies, so a slow older response can't bring back a
+// cancelled timer.
+let agentTimersLoad = 0
 async function loadAgentTimers() {
   const forChat = chatId.value
   if (forChat == null) return
+  const load = ++agentTimersLoad
   try {
     const response = await fetch(`/api/chats/${forChat}/timers`)
-    if (!response.ok || forChat !== chatId.value) return
-    agentTimers.value = (await response.json()).timers || []
+    if (!response.ok) return
+    const timers = (await response.json()).timers || []
+    if (load !== agentTimersLoad || forChat !== chatId.value) return
+    agentTimers.value = timers
   } catch (error) {
     console.warn('Could not load timers', error)
   }
@@ -5545,8 +5552,11 @@ async function cancelAgentTimer(timerId: string) {
     if (!response.ok && response.status !== 404) reportActionError("Couldn't cancel it.", await response.text())
   } catch (error) {
     reportActionError("Couldn't cancel it.", error)
+  } finally {
+    await loadAgentTimers()
+    // A new list, even an unchanged one, re-enables the bar's Cancel buttons.
+    agentTimers.value = [...agentTimers.value]
   }
-  await loadAgentTimers()
 }
 
 function timerNotice(item) {

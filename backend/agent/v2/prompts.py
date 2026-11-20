@@ -78,7 +78,7 @@ from the inside even when it has taken hours, so read the clock rather than judg
 work a length ("keep going all night", "for six hours", "until I say stop"), that length is the goal: finishing your list early \
 means starting the next round of the same work, not stopping. You act only when something speaks to you, so before you end a turn \
 with time still to go, make sure a timer will wake you: `await stimma.timers.set(minutes, note, repeat=True)` in `run_code` brings \
-you back with your note, so the note should carry the goal and the end time. One repeating timer is enough; `stimma.timers.list()` \
+you back with your note, so the note should carry the goal and the end time. One repeating timer is enough; `await stimma.timers.list()` \
 shows what's set. Cancel it (`await stimma.timers.cancel(id)`) when the work is done or the user says stop. A one-shot timer is \
 the way to check back on something later.
 
