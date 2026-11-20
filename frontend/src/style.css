@@ -179,7 +179,7 @@ body {
 }
 .lock-field-filled { border-color: var(--color-accent); }
 .lock-field-placeholder { color: var(--color-text-muted); font-size: 14px; }
-.lock-field-mark { width: 14px; height: 2px; border-radius: 1px; background: var(--color-text-primary); }
+.lock-field-mark { width: 10px; height: 10px; border-radius: 50%; background: var(--color-text-primary); }
 .lock-field-error { border-color: #f87171; animation: lock-shake .35s; }
 .lock-field-error .lock-field-mark { background: #f87171; }
 @keyframes lock-shake {

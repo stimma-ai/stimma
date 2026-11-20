@@ -114,7 +114,7 @@
           class="lock-pin-input"
         />
 
-        <!-- PIN field: shaped like the app's text inputs, one dash per digit.
+        <!-- PIN field: shaped like the app's text inputs, one bullet per digit.
              Clicking it focuses the hidden input for keyboard entry. -->
         <div class="flex flex-col items-center gap-3 w-full max-w-[280px] sm:max-w-[252px]">
           <div
