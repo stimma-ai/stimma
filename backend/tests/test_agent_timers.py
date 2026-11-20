@@ -229,3 +229,55 @@ def test_long_runs_show_the_clock_on_tool_results():
     # Same items, same text: the cached prefix holds across rebuilds.
     again = {m["tool_call_id"]: m["content"] for m in _items_to_messages(items, "sys") if m["role"] == "tool"}
     assert again == results
+
+
+@pytest.mark.asyncio
+async def test_stop_after_a_firing_is_claimed_records_it_without_waking(db_session, fire, monkeypatch):
+    from agent.v2 import timers
+    chat_id = await _chat(db_session)
+    async with db_session() as s:
+        t = await timers.create_timer(s, chat_id, minutes=10, note="Keep going.", repeat=True)
+    await _make_due(db_session, t.id)
+
+    real_create_task = __import__("asyncio").create_task
+
+    def stop_then_deliver(coro):
+        timers.note_stop(chat_id)  # the user presses Stop between claim and delivery
+        return real_create_task(coro)
+
+    monkeypatch.setattr("agent.v2.timers.asyncio.create_task", stop_then_deliver)
+    assert await fire() == 1
+    (_, _, wake), = fire.delivered
+    assert wake is False
+
+
+@pytest.mark.asyncio
+async def test_code_started_before_stop_cannot_set_a_timer(db_session, tmp_path):
+    from agent.v2 import timers
+    from agent.v2.code_runtime import StimmaSDK
+    chat_id = await _chat(db_session)
+    async with db_session() as session:
+        sdk = StimmaSDK(session=session, chat_id=chat_id, workspace_dir=tmp_path,
+                        project_workspace_dir=None, interrupt_checker=lambda: False)
+        timers.note_stop(chat_id)
+        with pytest.raises(RuntimeError, match="Stop"):
+            await sdk.timers.set(10, "Keep going.", repeat=True)
+        later = StimmaSDK(session=session, chat_id=chat_id, workspace_dir=tmp_path,
+                          project_workspace_dir=None, interrupt_checker=lambda: False)
+        assert (await later.timers.set(10, "Keep going.", repeat=True))["state"] == "active"
+        await later.timers.cancel()
+
+
+def test_image_results_carry_the_clock_in_their_text_block():
+    from agent.v2.conversation import _RunClock
+    from database import ChatItem
+    t0 = datetime(2026, 11, 20, 2, 0)
+    clock = _RunClock()
+    clock.observe(ChatItem(item_type="user_message", created_at=t0), {"role": "user", "content": "x"})
+    msg = {"role": "tool", "content": [
+        {"type": "text", "text": "Image loaded."},
+        {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,AAAA"}},
+    ]}
+    clock.observe(ChatItem(item_type="tool_result", created_at=t0 + timedelta(minutes=40)), msg)
+    assert "40 min since the user's last message" in msg["content"][0]["text"]
+    assert msg["content"][1]["type"] == "image_url"

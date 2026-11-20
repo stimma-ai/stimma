@@ -6547,6 +6547,7 @@ function setupWebSocketSubscriptions() {
   wsUnsubscribes.push(onWsEvent('websocket_reconnected', () => {
     const transcript = resyncItems()
     syncAgentStatus()
+    loadAgentTimers()
     return transcript
   }))
 }
@@ -6641,6 +6642,7 @@ onActivated(async () => {
   // reconcile the transcript and agent state with the backend.
   resyncItems()
   syncAgentStatus()
+  loadAgentTimers()
   // Wait for route to be fully updated before checking for pending media
   // onActivated can fire before Vue Router finishes updating the route object
   await nextTick()

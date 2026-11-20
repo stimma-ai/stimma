@@ -2710,7 +2710,8 @@ async def stop_agent_execution(
 
     # Stop means stop: timers the agent set to wake itself end too, so it
     # doesn't come back on its own after the user stopped it.
-    from agent.v2.timers import end_timers
+    from agent.v2.timers import end_timers, note_stop
+    note_stop(chat_id)
     await end_timers(session, chat_id, reason="stopped")
 
     # Abort current execution. The hidden stop marker is written once the run

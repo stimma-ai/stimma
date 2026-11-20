@@ -16,6 +16,7 @@ stop.
 from __future__ import annotations
 
 import asyncio
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -33,6 +34,25 @@ NOTE_LIMIT = 2000
 POLL_SECONDS = 10.0
 # A timer this late (the server was down, or busy) says so when it fires.
 LATE_AFTER = timedelta(minutes=2)
+
+
+# When the user last pressed Stop in each chat (monotonic), by (profile, chat).
+# A firing claimed before a Stop, or code started before one, must not bring
+# the agent back.
+_stopped_at: dict[tuple[str, int], float] = {}
+
+
+def _chat_key(chat_id: int) -> tuple[str, int]:
+    from core.profile_context import get_current_profile
+    return get_current_profile(), chat_id
+
+
+def note_stop(chat_id: int) -> None:
+    _stopped_at[_chat_key(chat_id)] = time.monotonic()
+
+
+def stopped_since(chat_id: int, since: float) -> bool:
+    return _stopped_at.get(_chat_key(chat_id), float("-inf")) >= since
 
 
 def local_time(dt: Optional[datetime]) -> Optional[str]:
@@ -132,15 +152,13 @@ async def create_timer(
     return timer
 
 
-async def list_timers(session: AsyncSession, chat_id: int, *, include_ended: bool = False) -> list:
+async def list_timers(session: AsyncSession, chat_id: int) -> list:
+    """The chat's active timers, oldest first."""
     from database import AgentTimer
-    q = select(AgentTimer).where(AgentTimer.chat_id == chat_id)
-    if not include_ended:
-        q = q.where(AgentTimer.ended_at.is_(None))
-    else:
-        q = q.order_by(AgentTimer.id.desc()).limit(20)
-    rows = list((await session.execute(q)).scalars().all())
-    return sorted(rows, key=lambda t: t.id)
+    return list((await session.execute(
+        select(AgentTimer).where(AgentTimer.chat_id == chat_id, AgentTimer.ended_at.is_(None))
+        .order_by(AgentTimer.id)
+    )).scalars().all())
 
 
 async def end_timers(
@@ -160,15 +178,6 @@ async def end_timers(
         await session.commit()
         await _broadcast_changed(chat_id)
     return rows
-
-
-async def end_chat_timers(chat_id: int, *, reason: str) -> int:
-    """End a chat's timers from outside a request (Stop, chat deletion)."""
-    from core.profile_context import get_current_profile
-    from database_registry import get_database_registry
-    db = get_database_registry().get_database(get_current_profile())
-    async with db.async_session_maker() as session:
-        return len(await end_timers(session, chat_id, reason=reason))
 
 
 async def _broadcast_changed(chat_id: int) -> None:
@@ -243,6 +252,7 @@ async def fire_due_timers(profile_id: str) -> int:
     set_current_profile(profile_id)
     db = get_database_registry().get_database(profile_id)
     now = datetime.utcnow()
+    claimed = time.monotonic()
     notes: list[tuple[int, dict]] = []
     async with db.async_session_maker() as session:
         due = (await session.execute(
@@ -282,15 +292,16 @@ async def fire_due_timers(profile_id: str) -> int:
     for chat_id, note in notes:
         await _broadcast_changed(chat_id)
         # Delivery can run a whole agent turn; never hold the scheduler for it.
-        asyncio.create_task(_deliver(profile_id, chat_id, note, ws_manager, deliver_background_notification))
+        asyncio.create_task(_deliver(profile_id, chat_id, note, ws_manager, deliver_background_notification, claimed))
     return len(notes)
 
 
-async def _deliver(profile_id, chat_id, note, ws_manager, deliver) -> None:
+async def _deliver(profile_id, chat_id, note, ws_manager, deliver, claimed: float) -> None:
     from core.profile_context import set_current_profile
     set_current_profile(profile_id)
     try:
-        await deliver(chat_id, note, ws_manager, wake=True)
+        # Stopped since this firing was claimed: record it, but don't wake.
+        await deliver(chat_id, note, ws_manager, wake=not stopped_since(chat_id, claimed))
     except Exception as e:
         log.error(f"Chat {chat_id}: timer delivery failed: {e}", exc_info=True)
 

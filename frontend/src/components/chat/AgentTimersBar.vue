@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, reactive, ref } from 'vue'
+import { onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ClockIcon } from '@heroicons/vue/24/outline'
 
 export interface AgentTimer {
@@ -40,10 +40,12 @@ export interface AgentTimer {
   state: string
 }
 
-defineProps<{ timers: AgentTimer[] }>()
+const props = defineProps<{ timers: AgentTimer[] }>()
 const emit = defineEmits<{ cancel: [id: string] }>()
 
 const cancelling = reactive(new Set<string>())
+// The parent refetches after every cancel, so a timer still listed can be retried.
+watch(() => props.timers, () => cancelling.clear())
 // Countdowns move on their own between server updates.
 const now = ref(Date.now())
 const tick = setInterval(() => { now.value = Date.now() }, 15_000)

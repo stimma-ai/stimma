@@ -12,6 +12,7 @@ import json
 import math
 import os
 import random
+import time
 import re
 import traceback
 import threading
@@ -1521,6 +1522,7 @@ class StimmaTimersAPI:
 
     def __init__(self, sdk: "StimmaSDK"):
         self._sdk = sdk
+        self._began = time.monotonic()
 
     async def set(self, minutes: float, note: str, repeat: bool = False) -> dict[str, Any]:
         """Fire in ``minutes`` (1 to 10080), or every ``minutes`` with ``repeat=True``.
@@ -1530,7 +1532,9 @@ class StimmaTimersAPI:
         wants it to run (e.g. "until 7 AM"). Returns the timer: ``id``
         ("timer-3"), ``next_fires_at`` and the rest.
         """
-        from .timers import create_timer, describe
+        from .timers import create_timer, describe, stopped_since
+        if stopped_since(self._sdk.chat_id, self._began):
+            raise RuntimeError("The user pressed Stop after this code started, so no timer was set.")
         timer = await create_timer(self._sdk.session, self._sdk.chat_id, minutes=minutes, note=note, repeat=repeat)
         return describe(timer)
 

@@ -313,9 +313,9 @@ async def describe_media_actions_since(
 
 def _window_start(item: ChatItem) -> Optional[datetime]:
     """Where a user message's window ended, or None for a message the user
-    didn't write (a stop marker or a task notice)."""
+    didn't write (a stop marker, a task notice or a timer)."""
     metadata = _parse_detail(item.item_metadata)
-    if metadata.get("stop_event") or metadata.get("background_task"):
+    if metadata.get("stop_event") or metadata.get("background_task") or metadata.get("timer"):
         return None
     try:
         return datetime.fromisoformat(metadata[WINDOW_END_KEY])

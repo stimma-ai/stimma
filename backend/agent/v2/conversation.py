@@ -255,7 +255,12 @@ class _RunClock:
             if not (meta.get("background_task") or meta.get("timer")):
                 self.last_user = at
             return
-        if item.item_type != "tool_result" or not isinstance(msg.get("content"), str):
+        if item.item_type != "tool_result":
+            return
+        content = msg.get("content")
+        text_block = next((b for b in content if isinstance(b, dict) and b.get("type") == "text"), None) \
+            if isinstance(content, list) else None
+        if not isinstance(content, str) and text_block is None:
             return
         if self.last_shown is not None and at - self.last_shown < CLOCK_STAMP_EVERY:
             return
@@ -265,7 +270,11 @@ class _RunClock:
             f"; {_elapsed((at - self.last_user).total_seconds())} since the user's last message"
             if self.last_user is not None else ""
         )
-        msg["content"] = f"{msg['content']}\n\n[Current date/time: {stamp}{since}]"
+        note = f"\n\n[Current date/time: {stamp}{since}]"
+        if text_block is not None:
+            text_block["text"] = f"{text_block['text']}{note}"
+        else:
+            msg["content"] = f"{content}{note}"
 
 
 INTERRUPTED_TOOL_RESULT = (
