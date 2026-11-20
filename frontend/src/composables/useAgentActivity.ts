@@ -67,14 +67,15 @@ async function prime() {
       if (typeof entry?.chat_id === 'number' && ids.length) freshBackground.set(entry.chat_id, new Set(ids))
     }
     for (const e of backgroundEventsDuringPrime ?? []) applyBackgroundTask(freshBackground, e)
-    backgroundEventsDuringPrime = null
     backgroundTasksByChat.value = freshBackground
     for (const id of [...generatingChatIds.value, ...lostWhileDisconnected]) {
       if (!fresh.has(id)) emitRunEnd(id, 'completed')
     }
     lostWhileDisconnected.clear()
     replaceSet(fresh)
-  } catch {}
+  } catch {} finally {
+    if (seq === primeSeq) backgroundEventsDuringPrime = null
+  }
 }
 
 function init() {
