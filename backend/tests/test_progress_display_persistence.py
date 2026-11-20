@@ -34,6 +34,7 @@ async def test_flushed_progress_is_persisted(db_session):
     sdk = object.__new__(StimmaSDK)
     sdk.chat_id = chat_id
     sdk._progress_trackers = []
+    sdk._cards = []
     tracker = ProgressTracker(total=4, desc="Generating", _chat_id=chat_id, _sdk=sdk)
 
     await sdk._flush_progress()
@@ -81,6 +82,35 @@ async def test_plan_status_interrupts_stale_progress(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_plan_status_interrupts_a_stale_result_card(client, db_session):
+    """A run's result card whose run died keeps what finished and drops the
+    slots that will never fill. Plain show cards are left alone."""
+    chat_id = await _make_chat(db_session)
+    rows = [
+        {"id": "slot_0", "input": {"type": "output_only"}, "output": {"status": "complete", "media_id": 101}},
+        {"id": "slot_1", "input": {"type": "output_only"}, "output": {"status": "generating"}},
+        {"id": "slot_2", "input": {"type": "output_only"}, "output": {"status": "pending"}},
+    ]
+    async with db_session() as session:
+        card = ChatItem(chat_id=chat_id, item_type="media_display", show_role="intermediate", item_metadata=json.dumps({
+            "display_data": {"title": "3 videos", "status": "in_progress", "mode": "batch", "total": 3, "rows": rows},
+        }))
+        shown = ChatItem(chat_id=chat_id, item_type="media_display", show_role="final", item_metadata=json.dumps({
+            "display_data": {"title": "Shown", "status": "complete", "rows": rows[:1]},
+        }))
+        session.add_all([card, shown])
+        await session.commit()
+        card_id, shown_id = card.id, shown.id
+
+    response = await client.get(f"/api/chats/{chat_id}/plan-status")
+    assert response.status_code == 200
+    data = await _display_data(db_session, card_id)
+    assert data["status"] == "interrupted"
+    assert [row["id"] for row in data["rows"]] == ["slot_0"] and data["total"] == 1
+    assert (await _display_data(db_session, shown_id))["status"] == "complete"
+
+
+@pytest.mark.asyncio
 async def test_plan_status_leaves_a_backgrounded_batch_running(client, db_session):
     """A backgrounded run keeps filling its batch after the agent's turn ends.
     plan-status then reports the agent idle, but must not call the batch
@@ -89,6 +119,7 @@ async def test_plan_status_leaves_a_backgrounded_batch_running(client, db_sessio
     sdk = object.__new__(StimmaSDK)
     sdk.chat_id = chat_id
     sdk._progress_trackers = []
+    sdk._cards = []
     tracker = ProgressTracker(total=10, desc="Generating", _chat_id=chat_id, _sdk=sdk)
     await sdk._flush_progress()
 

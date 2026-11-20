@@ -1,7 +1,15 @@
 <template>
+  <!-- An open-ended run while it goes: a stream of its newest results -->
+  <StreamCard
+    v-if="isStreaming"
+    :title="displayData.title || ''"
+    :rows="rows"
+    @view-image="(mediaId, index) => $emit('view-image', mediaId, `row:${index}:output`)"
+    @see-all="streamExpanded = true"
+  />
   <!-- An agent's output images: browsed in place -->
   <MediaCollection
-    v-if="isCollection"
+    v-else-if="isCollection"
     :rows="rows"
     :item-id="chatItemId"
     :title="displayData.title || ''"
@@ -68,6 +76,7 @@
 import { reportActionError } from '../../composables/useToasts'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import MediaCollection from './MediaCollection.vue'
+import StreamCard from './StreamCard.vue'
 import MediaDisplayRow from './MediaDisplayRow.vue'
 import Button from '../ui/Button.vue'
 import { getCurrentProfileId } from '../../composables/useProfile'
@@ -137,6 +146,13 @@ const shouldUseCompactLayout = computed(() =>
 )
 const isCollection = computed(() =>
   allOutputOnly.value && !isLibraryMode.value && props.chatItemId != null
+)
+// A run's result card (backend result_cards.py) that is open-ended and still
+// going streams; once it ends, or the user asks to see it all, it's the collection.
+const streamExpanded = ref(false)
+const isStreaming = computed(() =>
+  isCollection.value && props.displayData.mode === 'stream' &&
+  props.displayData.status === 'in_progress' && !streamExpanded.value
 )
 const rowsContainerClass = computed(() =>
   shouldUseCompactLayout.value ? 'flex flex-wrap gap-2' : 'space-y-3'

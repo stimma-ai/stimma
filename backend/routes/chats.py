@@ -2897,10 +2897,12 @@ async def _cleanup_stale_v2_items(
     #    so pending tiles will never fill. A backgrounded run outlives the
     #    agent's turn and is still filling its batch: leave that one alone.
     from agent.v2.code_runtime import is_progress_live
+    #    A run's result card (a media_display with a status) is the same: its
+    #    unfinished slots will never fill, so they go.
     progress_result = await session.execute(
         select(ChatItem)
         .where(ChatItem.chat_id == chat_id)
-        .where(ChatItem.item_type == "progress_display")
+        .where(ChatItem.item_type.in_(["progress_display", "media_display"]))
     )
     for item in progress_result.scalars().all():
         try:
@@ -2910,7 +2912,21 @@ async def _cleanup_stale_v2_items(
         display_data = meta.get("display_data")
         if is_progress_live(item.id):
             continue
-        if isinstance(display_data, dict) and display_data.get("status", "in_progress") == "in_progress":
+        if not isinstance(display_data, dict):
+            continue
+        if item.item_type == "media_display":
+            if display_data.get("status") != "in_progress" or "mode" not in display_data:
+                continue
+            display_data["rows"] = [
+                row for row in display_data.get("rows") or []
+                if (row.get("output") or {}).get("status") not in ("pending", "generating")
+            ]
+            if "total" in display_data:
+                display_data["total"] = len(display_data["rows"])
+            display_data["status"] = "interrupted"
+            item.item_metadata = json.dumps({**meta, "display_data": display_data})
+            cleaned = True
+        elif display_data.get("status", "in_progress") == "in_progress":
             display_data["status"] = "interrupted"
             item.item_metadata = json.dumps({**meta, "display_data": display_data})
             cleaned = True

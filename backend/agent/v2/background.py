@@ -77,6 +77,9 @@ class RunControl:
         # generating would otherwise go on forever, each call canceled.
         self.stop_requested = False
         self.detached = False
+        # What the run's result cards add up to, for the background bar:
+        # {"title", "done", "failed", "total"} or {"title", "open": True}.
+        self.progress: Optional[dict[str, Any]] = None
         self.session_maker = session_maker
         # Job ids are profile-local; cancels must stay in the owning profile.
         from core.profile_context import get_current_profile
@@ -270,6 +273,8 @@ class BackgroundRun:
             "counts": _counts(items, self.control.waiting),
             "items": _recent(items),
         }
+        if self.control.progress:
+            snap["progress"] = dict(self.control.progress)
         if len(snap["items"]) < len(items):
             snap["earlier_items_finished"] = len(items) - len(snap["items"])
         return snap
@@ -424,7 +429,7 @@ async def _watch(run: BackgroundRun, on_finished) -> None:
         if run.task.done():
             break
         snap = await run.snapshot()
-        marker = json.dumps(snap["counts"], sort_keys=True)
+        marker = json.dumps([snap["counts"], snap.get("progress")], sort_keys=True)
         if marker != last:
             last = marker
             await _broadcast(run, "background_task_updated")

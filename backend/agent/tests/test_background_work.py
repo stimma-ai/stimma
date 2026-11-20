@@ -276,7 +276,7 @@ async def test_cancelling_a_whole_task_stops_its_code(session, test_chat, tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_consecutive_untitled_batches_share_one_progress_card(session, test_chat, tmp_path, fake_generation):
+async def test_consecutive_untitled_batches_share_one_card(session, test_chat, tmp_path, fake_generation):
     _, releases = fake_generation
     sdk = StimmaSDK(session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
                     project_workspace_dir=None, interrupt_checker=lambda: False, control=RunControl())
@@ -289,11 +289,11 @@ async def test_consecutive_untitled_batches_share_one_progress_card(session, tes
             event.set()
         await asyncio.wait_for(task, 3)
 
-    (tracker,) = sdk._progress_trackers
-    state = tracker._build_state()["display_data"]
-    assert state["total"] == 6 and state["current"] == 6
-    assert state["title"] == "Generating (6)"
-    assert sorted(state["previews"]) == [101, 102, 103, 104, 105, 106]
+    (card,) = sdk._cards
+    state = card.display_data()
+    # A loop of batches has no end in sight, so its card has no count.
+    assert state["mode"] == "stream" and "total" not in state
+    assert sorted(row["output"]["media_id"] for row in state["rows"]) == [101, 102, 103, 104, 105, 106]
 
 
 @pytest.mark.asyncio
@@ -357,7 +357,7 @@ def test_a_long_task_lists_only_its_latest_finished_items():
 
 
 @pytest.mark.asyncio
-async def test_a_gather_of_workers_counts_generations_not_workers(session, test_chat, tmp_path, fake_generation):
+async def test_a_gather_of_workers_has_no_count(session, test_chat, tmp_path, fake_generation):
     _, releases = fake_generation
     sdk = StimmaSDK(session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
                     project_workspace_dir=None, interrupt_checker=lambda: False, control=RunControl())
@@ -368,19 +368,16 @@ async def test_a_gather_of_workers_counts_generations_not_workers(session, test_
             await sdk._dispatch_tool("mock:gen", prompt=prompts.pop())
 
     task = asyncio.create_task(sdk._gather(worker(), worker()))
-    await _until(lambda: sdk._progress_trackers)
-    seen = []
+    await _until(lambda: sdk._cards and sdk._cards[0].live)
     while not task.done():
         for event in releases.values():
             event.set()
-        (tracker,) = sdk._progress_trackers
-        seen.append(tracker._build_state()["display_data"])
         await asyncio.sleep(0.01)
     await task
-    final = sdk._progress_trackers[0]._build_state()["display_data"]
-    assert (final["title"], final["current"], final["total"]) == ("Generating", 5, 5)
-    # While it ran, the bar moved with each finished image, not with each worker.
-    assert any(0 < s["current"] < 5 and s["total"] >= 3 for s in seen)
+    (card,) = sdk._cards
+    # Its total would be the calls started so far (3, then 4 of 7...), so it shows none.
+    assert card.summary() == {"title": "Results", "open": True}
+    assert len(card.display_data()["rows"]) == 5
 
 
 @pytest.mark.asyncio
@@ -413,6 +410,8 @@ async def test_capacity_reads_the_tools_backend(monkeypatch, session, test_chat,
     assert await tasks.capacity("comfyui:flux-klein-9b") == 2
     assert await tasks.capacity("builtin:comfyui:qwen-image:text-to-image") == 2
     assert await tasks.capacity("elsewhere:tool") == 1
+    # One waiting call per GPU, so GPUs that finish together each have their next job.
+    assert await tasks.workers("comfyui:flux-klein-9b") == 4
 
 
 

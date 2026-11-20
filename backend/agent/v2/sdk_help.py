@@ -439,6 +439,26 @@ Use progress for long loops that produce visible stages for the user.""",
         group="core",
         is_async=False,
     ),
+    "batch": SDKMethodHelp(
+        name="batch",
+        signature="with stimma.batch(title, *, total: int):",
+        summary="One result card with `total` slots for calls made inside, e.g. workers over a fixed list.",
+        details="""\
+A gather over the list does this by itself; use batch when a loop or workers
+make the calls, so the card keeps its count ("4 of 10").""",
+        group="core",
+        is_async=False,
+    ),
+    "stream": SDKMethodHelp(
+        name="stream",
+        signature="with stimma.stream(title):",
+        summary="One result card for open-ended generation (\"until I say stop\"): results stream in, no count.",
+        details="""\
+Wrap the workers of a run that keeps going. Size them with
+`await stimma.tasks.workers(tool)` and show each result with the stream's title.""",
+        group="core",
+        is_async=False,
+    ),
     "detect_faces": SDKMethodHelp(
         name="detect_faces",
         signature="await stimma.detect_faces(media_id, *, wait=True, timeout=60) -> list[dict]",

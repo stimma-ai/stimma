@@ -646,7 +646,6 @@ class AVToolResult:
         )
 
 
-_progress_slots: ContextVar[tuple] = ContextVar("progress_slots", default=())
 
 
 # Progress batches whose code is still running in this process, as (profile,
@@ -698,17 +697,10 @@ class ProgressTracker:
         self._item_id: int | None = None  # set on first flush
         self._current = 0
         self._previews: list[int] = []
-        self._preview_slots: list[dict] | None = None
-        self._preview_order: dict[int, tuple] = {}
         self._pending_lock = threading.Lock()
         self._pending_state: dict | None = None
         self._completed = False
         self._status = "in_progress"
-        # Generation calls made in each gather slot. A slot that makes several
-        # (a worker looping over a queue) means slots aren't images: the card
-        # then counts calls instead.
-        self._slot_calls: list[int] = []
-        self._calls_done = 0
 
         # Auto-register with SDK
         if _sdk is not None:
@@ -740,23 +732,7 @@ class ProgressTracker:
         self._pending_update = self._build_state()
 
     def _add_preview(self, media_id: int):
-        if self._preview_slots is not None:
-            context = _progress_slots.get()
-            for depth, (tracker, index) in enumerate(context):
-                if tracker is self:
-                    ids = self._preview_slots[index]["media_ids"]
-                    if media_id not in ids:
-                        ids.append(media_id)
-                        self._preview_order[media_id] = tuple(i for _, i in context[depth + 1:])
-                        ids.sort(key=lambda mid: self._preview_order[mid])
-                    self._previews = [
-                        mid for slot in self._preview_slots for mid in slot["media_ids"]
-                    ]
-                    break
-            else:
-                # Concurrent gathers must not collect each other's results.
-                return
-        elif media_id not in self._previews:
+        if media_id not in self._previews:
             self._previews.append(media_id)
         self._pending_update = self._build_state()
 
@@ -773,35 +749,8 @@ class ProgressTracker:
         """Accept tqdm close() calls silently."""
         pass
 
-    def _note_call(self, index: int) -> None:
-        if self._preview_slots is None:
-            return
-        while len(self._slot_calls) <= index:
-            self._slot_calls.append(0)
-        self._slot_calls[index] += 1
-        self._pending_update = self._build_state()
-
-    def _note_call_end(self) -> None:
-        if self._preview_slots is None:
-            return
-        self._calls_done += 1
-        self._pending_update = self._build_state()
-
-    @property
-    def _per_call(self) -> bool:
-        return any(n > 1 for n in self._slot_calls)
-
     def _build_state(self) -> dict:
         title, current, total = self._title, self._current, self._total
-        if self._per_call:
-            idle = sum(
-                1 for i, slot in enumerate(self._preview_slots or [])
-                if slot["status"] == "pending" and (i >= len(self._slot_calls) or not self._slot_calls[i])
-            )
-            total = sum(self._slot_calls) + idle
-            current = min(self._calls_done, total)
-            if title and re.fullmatch(r"Generating \(\d+\)", title):
-                title = "Generating"
         return {
             "item_id": self._item_id,
             "display_data": {
@@ -810,8 +759,6 @@ class ProgressTracker:
                 "current": current,
                 "total": total,
                 "previews": list(self._previews),
-                **({"preview_slots": copy.deepcopy(self._preview_slots)}
-                   if self._preview_slots is not None else {}),
             },
         }
 
@@ -1543,11 +1490,18 @@ class StimmaTasksAPI:
         await run.control.cancel(list(items) if items is not None else None)
         return await run.snapshot()
 
+    async def workers(self, tool) -> int:
+        """How many workers keep ``tool``'s GPUs busy in an open-ended run.
+
+        Its capacity plus one waiting call per GPU, so when the GPUs finish
+        together each already has its next job.
+        """
+        return 2 * await self.capacity(tool)
+
     async def capacity(self, tool) -> int:
         """How many calls of ``tool`` generate at the same time; more wait in its queue.
 
-        ``tool`` is a tool function from ``stimma.tools`` or its id. Keep this
-        many calls in flight, plus one waiting, to keep its GPUs busy.
+        ``tool`` is a tool function from ``stimma.tools`` or its id.
         """
         tool_id = tool if isinstance(tool, str) else getattr(tool, "tool_id", None)
         if not tool_id:
@@ -1624,6 +1578,34 @@ class StimmaTimersAPI:
         return [timer_ref(t.id) for t in ended]
 
 
+class _CardScope:
+    """``with stimma.batch(...)`` / ``with stimma.stream(...)``: calls made inside
+    (and in tasks started inside) land in one result card."""
+
+    def __init__(self, sdk: "StimmaSDK", card):
+        self._sdk = sdk
+        self.card = card
+        self._token = None
+
+    def __enter__(self):
+        from .result_cards import current_card
+        self._sdk._cards.append(self.card)
+        self._token = current_card.set((self.card, None))
+        return self.card
+
+    def __exit__(self, exc_type, exc, tb):
+        from .result_cards import current_card
+        current_card.reset(self._token)
+        self.card.finish("completed" if exc_type is None else "cancelled")
+        return False
+
+    async def __aenter__(self):
+        return self.__enter__()
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return self.__exit__(exc_type, exc, tb)
+
+
 class StimmaSDK:
     # Sub-API namespaces reachable as ``stimma.<name>``. Declared here because
     # they are instance attributes, which introspection of the class cannot
@@ -1676,8 +1658,10 @@ class StimmaSDK:
         # same title grow that card.
         self._show_cards: dict[tuple[str, str], int] = {}
         self._progress_trackers: list[ProgressTracker] = []
-        # The card untitled batches share, so a loop of batches grows one card.
-        self._auto_tracker: ProgressTracker | None = None
+        # This run's result cards (result_cards.py), and the one plain gathers
+        # share, so a loop of batches grows one card.
+        self._cards: list = []
+        self._auto_card = None
         # Per-run STP tool permission decisions (tool_id -> allowed). Populated by
         # the in-run permission gate so repeat calls in this run don't re-prompt.
         self._tool_perm_cache: dict[str, bool] = {}
@@ -2144,9 +2128,9 @@ class StimmaSDK:
         prompt_for_record = prompt_val if isinstance(prompt_val, str) else None
         control = self._control
         call_item = control.begin_call(tool_id, prompt_for_record, _task_type)
-        slots = _progress_slots.get()
-        for tracker, index in slots:
-            tracker._note_call(index)
+        from .result_cards import current_card
+        card_ctx = current_card.get()
+        card_slot = card_ctx[0].begin(card_ctx[1], call_item, _task_type) if card_ctx else None
 
         def _on_job_submitted(job_id: int) -> None:
             call_item.job_id = job_id
@@ -2168,8 +2152,8 @@ class StimmaSDK:
             )
         except BaseException as e:
             control.end_call(call_item, error=e)
-            for tracker, _ in slots:
-                tracker._note_call_end()
+            if card_slot is not None:
+                card_ctx[0].failed(card_slot, e)
             if not isinstance(e, Exception):
                 raise
             from .background import GenerationCancelled
@@ -2183,8 +2167,13 @@ class StimmaSDK:
             })
             raise
         control.end_call(call_item, media_id=result.get("media_id"))
-        for tracker, _ in slots:
-            tracker._note_call_end()
+        if card_slot is not None:
+            if result.get("metadata_only") or result.get("media_id") is None:
+                # A data tool (detections, captions) makes nothing to show.
+                card_slot.status = "empty"
+                card_ctx[0].dirty = True
+            else:
+                card_ctx[0].done(card_slot, result.get("media_id"), result.get("path"))
         if result.get("metadata_only"):
             # Data tool (e.g. detect-objects): no media output — hand the raw
             # result dict (detections, image_size, ...) straight back.
@@ -2236,32 +2225,26 @@ class StimmaSDK:
         if not coros:
             return []
 
-        # Auto-create progress tracker for batches so the user always sees progress
-        tracker = None
-        base = 0
-        auto = desc is None and len(coros) > 1
-        reuse = self._auto_tracker if auto else None
-        if reuse is not None and reuse._completed and reuse._status == "completed":
-            # Batch after batch (a loop that keeps generating): one card that
-            # grows, not a card per batch.
-            tracker = reuse
-            base = tracker._total
-            tracker._total += len(coros)
-            tracker._title = f"Generating ({tracker._total})"
-            tracker._preview_slots.extend({"media_ids": [], "status": "pending"} for _ in coros)
-            tracker._completed = False
-            tracker._status = "in_progress"
-            tracker._pending_update = tracker._build_state()
-        else:
-            effective_desc = desc if desc is not None else (f"Generating ({len(coros)})" if len(coros) > 1 else None)
-            if effective_desc is not None:
-                tracker = self.progress(len(coros), desc=effective_desc)
-                tracker._preview_slots = [
-                    {"media_ids": [], "status": "pending"} for _ in coros
-                ]
-                tracker._pending_update = tracker._build_state()
-                if auto:
-                    self._auto_tracker = tracker
+        # A batch gets one result card with a slot per branch, filled in place
+        # (result_cards.py). Inside an explicit stimma.batch/stream, or inside
+        # another gather's branch, calls belong to that card instead.
+        from .result_cards import ResultCard, current_card
+        card = None
+        branch_base = 0
+        if current_card.get() is None and len(coros) > 1:
+            reuse = self._auto_card
+            if reuse is not None and reuse.status != "in_progress":
+                # Batch after batch (a loop that keeps generating): one card
+                # that grows, and with no end in sight it has no count.
+                card = reuse
+                fresh = card.reopen(len(coros))
+            else:
+                card = ResultCard(title=desc, total=len(coros))
+                fresh = card.slots
+                self._cards.append(card)
+                self._auto_card = card
+            branch_base = len(card._branch_slot)
+            card.bind_branches(fresh, branch_base)
 
         sem = asyncio.Semaphore(max_concurrent)
         from .background import GenerationCancelled
@@ -2270,10 +2253,7 @@ class StimmaSDK:
         control.waiting += len(coros)
 
         async def _limited(idx, coro):
-            idx += base
-            token = _progress_slots.set(
-                (*_progress_slots.get(), (tracker, idx)) if tracker else _progress_slots.get()
-            )
+            card_token = current_card.set((card, branch_base + idx)) if card is not None else None
             entered = False
             try:
                 async with sem:
@@ -2284,49 +2264,25 @@ class StimmaSDK:
                     except GenerationCancelled:
                         # Cancelled on purpose: leave it out of the results
                         # rather than failing the whole batch.
-                        if tracker is not None:
-                            tracker._preview_slots[idx]["status"] = "cancelled"
                         return cancelled_marker
-                if tracker is not None:
-                    # Existing Tasks may have started before this gather's
-                    # context existed. Their returned media still belongs here.
-                    if isinstance(result, ToolResult) and result.media_id is not None:
-                        tracker._add_preview(result.media_id)
-                    tracker._preview_slots[idx]["status"] = "completed"
                 return result
-            except BaseException as error:
-                if tracker is not None:
-                    tracker._preview_slots[idx]["status"] = (
-                        "cancelled" if isinstance(error, asyncio.CancelledError) else "error"
-                    )
-                raise
             finally:
                 if not entered:
                     control.waiting -= 1
                     if asyncio.iscoroutine(coro):
                         coro.close()
-                if tracker is not None:
-                    tracker.update(1)
-                _progress_slots.reset(token)
+                if card_token is not None:
+                    current_card.reset(card_token)
 
         tasks = [_limited(i, c) for i, c in enumerate(coros)]
 
         try:
             results = await asyncio.gather(*tasks, return_exceptions=return_exceptions)
-        except BaseException as error:
-            if tracker is not None:
-                tracker._mark_completed(
-                    "cancelled" if isinstance(error, asyncio.CancelledError) else "error"
-                )
-            raise
-
-        # Mark tracker as completed so subsequent call_tool results
-        # don't bleed previews into this (now-finished) gather's display
-        if tracker is not None:
-            tracker._mark_completed(
-                "error" if any(isinstance(result, BaseException) for result in results)
-                else "completed"
-            )
+        finally:
+            if card is not None:
+                card.finish_batch()
+                if card is self._auto_card:
+                    card.status = "complete"
 
         # asyncio.gather preserves request order, including exception positions.
         kept = [r for r in results if r is not cancelled_marker]
@@ -2555,6 +2511,7 @@ class StimmaSDK:
         """Flush pending progress updates to the DB and the frontend."""
         from utils.websocket import ws_manager
 
+        await self._flush_cards()
         for tracker in self._progress_trackers:
             await self._ensure_tracker_created(tracker)
             pending = tracker._take_pending()
@@ -2577,6 +2534,8 @@ class StimmaSDK:
         while the user's script is still touching self.session concurrently.
         """
         from utils.websocket import ws_manager
+
+        await self._flush_cards(finish=reason)
 
         for tracker in self._progress_trackers:
             await self._ensure_tracker_created(tracker)
@@ -2950,18 +2909,22 @@ class StimmaSDK:
             # Merge saved media_ids with any existing ones, drop the paths
             all_media_ids = list(payload.get("media_ids") or []) + saved_media_ids
             created: dict[str, int] = {}
-            receipt = await show_tool(
-                role=payload["role"],
-                media_ids=all_media_ids or None,
-                paths=None,
-                title=payload["title"],
-                session=self.session,
-                chat_id=self.chat_id,
-                workspace_dir=self.workspace_dir,
-                **self._card_kwargs(payload, created),
-                **payload.get("revision", {}),
-            )
-            self._remember_card(payload, created)
+            card = self._card_for_show(payload, all_media_ids)
+            if card is not None:
+                receipt = await self._show_into_card(card, payload, all_media_ids)
+            else:
+                receipt = await show_tool(
+                    role=payload["role"],
+                    media_ids=all_media_ids or None,
+                    paths=None,
+                    title=payload["title"],
+                    session=self.session,
+                    chat_id=self.chat_id,
+                    workspace_dir=self.workspace_dir,
+                    **self._card_kwargs(payload, created),
+                    **payload.get("revision", {}),
+                )
+                self._remember_card(payload, created)
             if isinstance(receipt, str) and receipt.startswith("Error:"):
                 raise ValueError(receipt)
             self._shown_media_ids.extend(all_media_ids)
@@ -2991,6 +2954,129 @@ class StimmaSDK:
         if key is not None and created.get("id") is not None:
             self._show_cards[key] = created["id"]
 
+    def _card_for_show(self, payload: dict, media_ids: list[int]):
+        """The result card a show belongs in, if any.
+
+        Results a run made are already in its card, so showing them claims the
+        card (commits them, takes the title) rather than making a second card.
+        Later shows under that title add to it.
+        """
+        if payload.get("revision") or not media_ids:
+            return None
+        for card in reversed(self._cards):
+            if card.live and all(card.holds(mid) for mid in media_ids):
+                return card
+        title = payload.get("title")
+        if title:
+            for card in reversed(self._cards):
+                if card.claimed and card.title == title:
+                    return card
+        return None
+
+    async def _show_into_card(self, card, payload: dict, media_ids: list[int]) -> str:
+        from database import MediaItem
+        from database_registry import get_database_registry
+        from utils.websocket import ws_manager
+        from .result_cards import shown_receipt
+        from .tools.show import _apply_show_disposition
+
+        role = payload["role"]
+        db = get_database_registry().get_database(get_current_profile())
+        async with db.async_session_maker() as session:
+            asset_ids = await _apply_show_disposition(
+                session=session, chat_id=self.chat_id, media_ids=media_ids, role=role)
+            formats = dict((await session.execute(
+                select(MediaItem.id, MediaItem.file_format).where(MediaItem.id.in_(media_ids))
+            )).all())
+            await session.commit()
+        for mid, asset_id in zip(media_ids, asset_ids):
+            card.attach(mid, asset_id, formats.get(mid))
+        if role == "final":
+            card.role = "final"
+        if payload.get("title"):
+            card.title = payload["title"]
+        card.claimed = True
+        await self._write_card(card)
+        if role == "final":
+            for mid, asset_id in zip(media_ids, asset_ids):
+                if asset_id is not None:
+                    await ws_manager.broadcast("asset_created", {"asset_id": asset_id, "media_id": mid})
+        return shown_receipt(media_ids, dict(zip(media_ids, asset_ids)))
+
+    async def _write_card(self, card) -> None:
+        """Put a result card's state in its chat item, creating it the first time."""
+        async with card.write_lock:
+            await self._write_card_locked(card)
+
+    async def _write_card_locked(self, card) -> None:
+        from database import ChatItem
+        from database_registry import get_database_registry
+        from utils.websocket import ws_manager
+        from .result_cards import card_item_fields
+
+        card.dirty = False
+        fields = card_item_fields(card)
+        db = get_database_registry().get_database(get_current_profile())
+        async with db.async_session_maker() as session:
+            if card.item_id is None:
+                item = ChatItem(chat_id=self.chat_id, item_type="media_display", **fields)
+                session.add(item)
+                await session.commit()
+                card.item_id = item.id
+                if card.status == "in_progress":
+                    _live_progress_items.add((get_current_profile(), item.id))
+                event = "chat_item_created"
+            else:
+                item = await session.get(ChatItem, card.item_id)
+                if item is None:
+                    return
+                for key, value in fields.items():
+                    setattr(item, key, value)
+                await session.commit()
+                event = "chat_item_updated"
+            data = item.to_dict()
+        await ws_manager.broadcast(event, {"chat_id": self.chat_id, "item": data})
+
+    async def _flush_cards(self, finish: str | None = None) -> None:
+        """Bring every live result card up to date; ``finish`` ends them."""
+        from database_registry import get_database_registry
+        from .result_cards import run_progress
+
+        if not self._cards:
+            return
+        session_maker = get_database_registry().get_database(get_current_profile()).async_session_maker
+        for card in self._cards:
+            if finish is not None and (card.status == "in_progress" or any(
+                    slot.status in ("pending", "generating") for slot in card.slots)):
+                card.finish(finish)
+            if not card.live:
+                continue
+            if finish is None:
+                await card.refresh_job_states(session_maker)
+            if card.dirty or card.item_id is None:
+                try:
+                    await self._write_card(card)
+                except Exception as e:
+                    log.warning(f"result card: update failed: {e}")
+            if finish is not None and card.item_id is not None:
+                _live_progress_items.discard((get_current_profile(), card.item_id))
+        self._control.progress = run_progress(self._cards)
+
+    def batch(self, title: str | None = None, *, total: int):
+        """Group calls into one result card with ``total`` slots: ``with stimma.batch("Dance videos", total=10):``.
+
+        For a fixed list worked through by a loop or workers. A gather over the
+        list does this by itself.
+        """
+        from .result_cards import ResultCard
+        return _CardScope(self, ResultCard(title=title, total=int(total), declared=True))
+
+    def stream(self, title: str | None = None):
+        """Group open-ended calls ("until I say stop") into one result card with no count:
+        ``with stimma.stream("Market vendors"):``."""
+        from .result_cards import ResultCard
+        return _CardScope(self, ResultCard(title=title, stream=True))
+
     async def _flush_display_live(self, *, all_pending: bool = False) -> None:
         """Put what the code has shown so far into the chat while it runs.
 
@@ -3016,17 +3102,21 @@ class StimmaSDK:
                 try:
                     saved = await self._auto_save_paths(paths, session=session)
                     media_ids = list(payload.get("media_ids") or []) + saved
-                    receipt = await show_tool(
-                        role=payload["role"],
-                        media_ids=media_ids or None,
-                        paths=None,
-                        title=payload["title"],
-                        session=session,
-                        chat_id=self.chat_id,
-                        workspace_dir=self.workspace_dir,
-                        **self._card_kwargs(payload, created),
-                        **payload.get("revision", {}),
-                    )
+                    card = self._card_for_show(payload, media_ids)
+                    if card is not None:
+                        receipt = await self._show_into_card(card, payload, media_ids)
+                    else:
+                        receipt = await show_tool(
+                            role=payload["role"],
+                            media_ids=media_ids or None,
+                            paths=None,
+                            title=payload["title"],
+                            session=session,
+                            chat_id=self.chat_id,
+                            workspace_dir=self.workspace_dir,
+                            **self._card_kwargs(payload, created),
+                            **payload.get("revision", {}),
+                        )
                 except Exception as e:
                     # One show that fails (a file that can't be saved) mustn't
                     # stop the code or the shows after it.

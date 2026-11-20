@@ -39,12 +39,23 @@ export interface BackgroundTaskCounts {
   waiting: number
 }
 
+// What the run's result card adds up to (backend result_cards.py): a count
+// only when the run said how many it makes, otherwise open-ended.
+export interface BackgroundTaskProgress {
+  title?: string | null
+  open?: boolean
+  done?: number
+  failed?: number
+  total?: number
+}
+
 export interface BackgroundTask {
   id: string
   label: string
   state: string
   counts: BackgroundTaskCounts
   items?: { kind?: string }[]
+  progress?: BackgroundTaskProgress
 }
 
 const props = defineProps<{ tasks: BackgroundTask[] }>()
@@ -85,6 +96,7 @@ const NOUNS: Record<string, [string, string]> = {
 // The agent's own label wins; otherwise name the run from what it makes.
 function title(task: BackgroundTask): string {
   if (task.label) return task.label
+  if (task.progress?.title) return task.progress.title
   const n = total(task)
   if (!n) return 'Working…'
   const kinds = new Set((task.items || []).map(i => i.kind))
@@ -95,6 +107,11 @@ function title(task: BackgroundTask): string {
 }
 
 function summary(task: BackgroundTask): string {
+  // The card's own words: one count, or none for open-ended work. What is
+  // queued or in progress is the card's to show, not the bar's.
+  const p = task.progress
+  if (p?.open) return 'generating…'
+  if (p?.total) return `${p.done ?? 0} of ${p.total}` + (p.failed ? ` · ${p.failed} failed` : '')
   const c = task.counts
   const n = total(task)
   if (!n) return ''

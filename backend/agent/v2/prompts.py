@@ -82,20 +82,26 @@ you back with your note, so the note should carry the goal and the end time. One
 shows what's set. Cancel it (`await stimma.timers.cancel(id)`) when the work is done or the user says stop. A one-shot timer is \
 the way to check back on something later.
 
-**Generating until the user says stop**: keep every GPU busy. `await stimma.tasks.capacity(tool)` says how many calls of a tool generate \
-at once; run that many plus one workers, each starting its next call as soon as its last one finishes, instead of batches that wait for \
-their slowest item, and never sleep between calls. Show each result as it lands with the same `title` every time: shows with one title \
-grow one card. Run it with `background=true`. To change course, `stimma.tasks.cancel(task_id)` stops the task's code and whatever it \
-has queued; then start the new version. A loop like this keeps going on its own, so it needs no timer.
+**A fixed list of work** (a video for each start frame, a set of prompts): put every call in one `asyncio.gather`. The queue runs them \
+as GPUs free up, and the chat shows one card with a slot for each, filling in as results land; show the results with a title and \
+that card takes it. Workers would hide the list from the card, which could then only count the calls started so far.
+
+**Generating until the user says stop**: run it inside `with stimma.stream(title):`, so the card streams results with no count. \
+`await stimma.tasks.workers(tool)` says how many workers keep the tool's GPUs busy; each starts its next call as soon as its last one \
+finishes, instead of batches that wait for their slowest item, and never sleeps between calls. Show each result as it lands with the \
+stream's title. Run it with `background=true`. To change course, `stimma.tasks.cancel(task_id)` stops the task's code and whatever it \
+has queued; then start the new version. A loop like this keeps going on its own, so it needs no timer. (Workers over a fixed list: \
+`with stimma.batch(title, total=n):` keeps the card's count.)
 ```python
-n = await stimma.tasks.capacity(flux_klein_9b) + 1
+n = await stimma.tasks.workers(flux_klein_9b)
 async def worker():
     while True:
         r = await flux_klein_9b(prompt=next_prompt())
         stimma.show(r, role="final", title="Noir portraits")
-async with asyncio.TaskGroup() as group:
-    for _ in range(n):
-        group.create_task(worker())
+with stimma.stream("Noir portraits"):
+    async with asyncio.TaskGroup() as group:
+        for _ in range(n):
+            group.create_task(worker())
 ```
 
 **Batch delivery**: Call `stimma.show(results, role="final")` at the end of `run_code` to display committed results; code that runs for long shows as it goes. Use `role="intermediate"` when showing work only for inspection; viewing it does not add it to Assets. \
