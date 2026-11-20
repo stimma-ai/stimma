@@ -305,3 +305,30 @@ async def test_stop_that_sweeps_while_set_waits_on_the_database_still_wins(db_se
     async with db_session() as s:
         rows = (await s.execute(select(AgentTimer).where(AgentTimer.chat_id == chat_id))).scalars().all()
     assert [r.end_reason for r in rows] == ["stopped"]
+
+
+@pytest.mark.asyncio
+async def test_stop_that_cancels_set_right_after_its_commit_still_ends_the_timer(db_session, tmp_path, monkeypatch):
+    import asyncio
+    from agent.v2 import timers
+    from agent.v2.code_runtime import StimmaSDK
+    from database import AgentTimer
+    chat_id = await _chat(db_session)
+    real_create = timers.create_timer
+
+    async def create_then_cancelled(session, cid, **kw):
+        timers.note_stop(cid)  # Stop sweeps before the insert commits...
+        await real_create(session, cid, **kw)
+        raise asyncio.CancelledError  # ...and cancels this code just after it
+
+    monkeypatch.setattr(timers, "create_timer", create_then_cancelled)
+    async with db_session() as session:
+        sdk = StimmaSDK(session=session, chat_id=chat_id, workspace_dir=tmp_path,
+                        project_workspace_dir=None, interrupt_checker=lambda: False)
+        with pytest.raises(asyncio.CancelledError):
+            await sdk.timers.set(10, "Keep going.", repeat=True)
+    for _ in range(20):
+        await asyncio.sleep(0.01)
+    async with db_session() as s:
+        rows = (await s.execute(select(AgentTimer).where(AgentTimer.chat_id == chat_id))).scalars().all()
+    assert [r.end_reason for r in rows] == ["stopped"]

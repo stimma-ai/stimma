@@ -180,6 +180,29 @@ async def end_timers(
     return rows
 
 
+async def end_timers_created_since(chat_id: int, since: datetime) -> None:
+    """End the chat's active timers set at or after ``since``, as stopped.
+
+    For code that set a timer while the user was pressing Stop. Uses a
+    session of its own, since the caller's may be mid-cancellation.
+    """
+    from database import AgentTimer
+    from database_registry import get_database_registry
+    from core.profile_context import get_current_profile
+    db = get_database_registry().get_database(get_current_profile())
+    async with db.async_session_maker() as session:
+        rows = (await session.execute(select(AgentTimer).where(
+            AgentTimer.chat_id == chat_id, AgentTimer.ended_at.is_(None), AgentTimer.created_at >= since,
+        ))).scalars().all()
+        now = datetime.utcnow()
+        for t in rows:
+            t.ended_at = now
+            t.end_reason = "stopped"
+        if rows:
+            await session.commit()
+            await _broadcast_changed(chat_id)
+
+
 async def _broadcast_changed(chat_id: int) -> None:
     try:
         from utils.websocket import ws_manager
