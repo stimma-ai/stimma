@@ -18,13 +18,15 @@ const key = route('openai-1:gpt-6.1-sol', 'provider', { provider_kind: 'openai',
 const cloud = route('stimma:gpt-6.1-sol', 'stimma_cloud', { cost_tier: '$$$', collapsed: true, preferred_slug: chatgpt.slug })
 const auto = { slug: 'auto', source: 'auto', name: 'Auto: GPT-6.1 Sol', available: true, status: 'available', resolved_slug: chatgpt.slug }
 
-async function boot(t, { modelSlug = null, roles = {} } = {}) {
+async function boot(t, { modelSlug = null, roles = {}, catalogFailures = 0 } = {}) {
+  let failuresLeft = catalogFailures
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage()
   await page.route('**/*', route => {
     const path = new URL(route.request().url()).pathname
     if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<div id="app"></div><div id="settings"></div>' })
+    if (path.endsWith('/models/available') && failuresLeft > 0) { failuresLeft--; return route.fulfill({ status: 502, json: { detail: 'unavailable' } }) }
     if (path.endsWith('/models/available')) return route.fulfill({ json: { models: [auto, cloud, key, chatgpt], global_default: 'auto', cloud_status: 'available', llm_configured: true } })
     return route.fulfill({ json: {} })
   })
@@ -86,4 +88,10 @@ test('settings offer one route, plus the one a row is already pinned to', async 
   await page.locator('#settings button').first().click()
   await expect(page.getByText('Uses Stimma Account credits')).toHaveCount(1)
   await expect(page.getByText('Uses your OpenAI balance')).toHaveCount(0)
+})
+
+test('a failed first catalog read retries on its own instead of spinning forever', async t => {
+  const page = await boot(t, { catalogFailures: 2 })
+  await expect(page.locator('#app button')).toContainText('GPT-6.1 Sol')
+  await expect(page.locator('#app button svg.animate-spin')).toHaveCount(0)
 })

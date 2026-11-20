@@ -8,6 +8,7 @@ import { useAvailableModels } from '../../src/composables/useAvailableModels'
 import { recordEntityVisit } from '../../src/composables/useRecentEntities'
 import { useProvidersApi } from '../../src/composables/useProvidersApi'
 import { setReadDeadlineMs } from '../../src/utils/readDeadline'
+import { setLoadRetryDelays } from '../../src/utils/loadRetry.js'
 import '../../src/style.css'
 
 // A scripted server socket: the test pushes broadcasts and drops the
@@ -65,4 +66,6 @@ app.use(router)
 const query = new URLSearchParams(location.search)
 const start = query.get('start') || '/'
 if (query.get('deadline')) setReadDeadlineMs(Number(query.get('deadline')))
+// Automatic retries are off unless a test asks for them (in ms), so read counts stay exact.
+setLoadRetryDelays([Number(query.get('retry')) || 3_600_000])
 initApiConfig().then(() => setFlowsEnabled(true)).then(() => router.push(start)).then(() => app.mount('#app'))

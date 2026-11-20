@@ -108,6 +108,14 @@
                 All tools →
               </router-link>
             </div>
+
+            <!-- With nothing else below, the retry line sits just under the
+                 composer, out of flow so the hero stays centered, rather than
+                 at the foot of the page. -->
+            <p v-if="showRecentsError && !hasBelowHero" class="absolute inset-x-0 top-full mt-4 text-center text-xs text-content-muted" data-recents-error>
+              Couldn't load recent {{ failedRecentsLabel }}.
+              <Button variant="link" size="sm" class="coarse:min-h-11" @click="refreshHome({ force: true })">Try again</Button>
+            </p>
           </div>
 
           <!-- First run: recommended starting points instead of empty sections.
@@ -134,7 +142,7 @@
         <!-- Content sections -->
         <div ref="contentRef" class="w-full max-w-[var(--hub-column)] pb-12 compact:pb-20 space-y-section" :data-recents-state="recentsState">
 
-          <p v-if="failedRecentsLabel" class="text-center text-xs text-content-muted" data-recents-error>
+          <p v-if="showRecentsError && hasBelowHero" class="text-center text-xs text-content-muted" data-recents-error>
             Couldn't load recent {{ failedRecentsLabel }}.
             <Button variant="link" size="sm" class="coarse:min-h-11" @click="refreshHome({ force: true })">Try again</Button>
           </p>
@@ -368,6 +376,7 @@ import { getCurrentProfileId } from '../composables/useProfile'
 import { useWebSocket } from '../composables/useWebSocket'
 import { PROJECT_ASSETS_CHANGED_EVENT } from '../utils/projectScope'
 import Button from '../components/ui/Button.vue'
+import { createLoadRetry } from '../utils/loadRetry.js'
 
 const { allowsAutofocus } = useViewport()
 
@@ -440,6 +449,11 @@ const failedRecentsLabel = computed(() => {
 // The model check decides which hero (composer or tool grid) to show. The
 // page is revealed when it settles, when recents settle, or after a short
 // wait, whichever is first; until the check answers, the composer shows.
+// Failed recents retry on their own while Home is on screen, so a load that
+// failed while the connection settled does not wait for a tap or a reconnect.
+// Not forced: a failed read is never fresh, and one already under way is joined.
+const homeRetry = createLoadRetry(() => { if (active) void refreshHome() })
+const showRecentsError = computed(() => Boolean(failedRecentsLabel.value))
 const heroReady = ref(false)
 const HERO_WAIT_MS = 1500
 const dragOverCollectionId = ref(null)
@@ -1266,6 +1280,8 @@ function refreshHome({ force = false } = {}) {
     if (isCurrent()) {
       failedRecents.value = failed
       recentsState.value = failed.length === 0 ? 'ready' : 'error'
+      if (failed.length === 0) homeRetry.succeeded()
+      else if (active) homeRetry.failed()
     }
     return failed.length === 0
   }, { force })
@@ -1373,6 +1389,7 @@ onActivated(activate)
 
 onDeactivated(() => {
   active = false
+  homeRetry.stop()
   cleanupResizeObserver()
 })
 

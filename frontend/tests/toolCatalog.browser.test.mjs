@@ -54,7 +54,7 @@ const catalogFor = profile => [fullTool('paint', 'Paint', profile), fullTool('up
  * Serve the launch surfaces. `oldServer` ignores `view=summary`, as a server
  * from before the summary view does. Records every catalog and schema read.
  */
-async function openApp(t, { start = '/', oldServer = false, deadline = null, respond = () => undefined } = {}) {
+async function openApp(t, { start = '/', oldServer = false, deadline = null, retry = null, respond = () => undefined } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } })
@@ -91,7 +91,7 @@ async function openApp(t, { start = '/', oldServer = false, deadline = null, res
     bytes.set(key, (bytes.get(key) || 0) + body.length)
     return route.fulfill({ contentType: 'application/json', body }).catch(() => {})
   })
-  await page.goto(`http://tool-catalog.test/?start=${encodeURIComponent(start)}${deadline ? `&deadline=${deadline}` : ''}`)
+  await page.goto(`http://tool-catalog.test/?start=${encodeURIComponent(start)}${deadline ? `&deadline=${deadline}` : ''}${retry ? `&retry=${retry}` : ''}`)
   for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
   const count = (path, filter = () => true) => reads.filter(read => read.path === path && filter(read)).length
@@ -506,4 +506,35 @@ test('a schema read that keeps being overtaken fails as retryable instead of ret
   overtake = false
   const steps = await page.evaluate(async () => (await window.toolCatalogTest.catalog.getProviderTool('p:paint')).parameter_schema.properties.steps.default)
   assert.equal(steps, 40)
+})
+
+test('the sidebar keeps its nav when its first reads fail, and fills in on its own', async t => {
+  let failing = true
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  const { page, count, errors } = await openApp(t, {
+    retry: 300,
+    respond: async path => {
+      if (path !== '/api/saved-views' && path !== '/api/tools/pinned') return undefined
+      if (failing) return 502
+      // Both retries stay in flight together until the test lets them answer.
+      await gate
+      return path === '/api/saved-views' ? [{ id: 7, name: 'Late view', pinned: true, project_id: null, filters: {} }] : undefined
+    },
+  })
+  const nav = page.locator('.navigation-sidebar nav')
+  await expect(nav.getByText('Assets', { exact: true })).toBeVisible()
+  await expect.poll(() => count('/api/saved-views')).toBeGreaterThan(1)
+  failing = false
+  const pending = count('/api/saved-views')
+  await expect.poll(() => count('/api/saved-views')).toBeGreaterThan(pending)
+  await expect.poll(() => count('/api/tools/pinned')).toBeGreaterThan(pending - 1)
+  // The nav stays while both retries are pending.
+  await expect(nav.getByText('Assets', { exact: true })).toBeVisible()
+  release()
+  await expect(nav.getByText('Late view')).toBeVisible()
+  const settled = count('/api/saved-views')
+  await page.waitForTimeout(800)
+  assert.equal(count('/api/saved-views'), settled, 'no retries after success')
+  assert.deepEqual(errors, [])
 })

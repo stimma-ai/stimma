@@ -9,6 +9,7 @@ import { getCurrentProfileId } from './useProfile'
 import { withReadDeadline } from '../utils/readDeadline'
 import { isPrivacyLockdownActive } from './usePrivacyLockdown'
 import { sortModelsByBrand } from '../utils/modelVendors'
+import { createLoadRetry } from '../utils/loadRetry.js'
 import {
   isCatalogSelectableModel,
   isSelectableModel,
@@ -127,6 +128,11 @@ const selectableModels = computed(() => visibleModels.value.filter(
  * Fetch available models from the backend.
  * Caches results for CACHE_TTL_MS to avoid redundant network calls.
  */
+const modelsRetry = createLoadRetry(() => {
+  // Not forced: a read already under way for this scope is joined, not replaced.
+  if (models.value.length === 0) void fetchModels(lastProjectId.value)
+})
+
 async function fetchModels(projectId = null, force = false) {
   const now = Date.now()
   const requestedProjectId = projectId ?? null
@@ -172,10 +178,13 @@ async function loadModels(projectId, version, now) {
       : null
     error.value = null
     lastFetchTime.value = now
+    modelsRetry.succeeded()
   } catch (err) {
     if (version !== fetchVersion) return
     console.warn('Failed to fetch available models:', err)
     error.value = err
+    // Pickers spin until a catalog arrives, so a failed first load retries.
+    if (models.value.length === 0) modelsRetry.failed()
   } finally {
     if (version === fetchVersion) loading.value = false
   }

@@ -906,7 +906,7 @@
              (scroll-edge divider); border stays in flow via transparent so
              toggling never shifts layout. -->
         <div
-          class="relative flex items-center gap-1 py-2 border-t flex-shrink-0 transition-colors"
+          class="@container relative flex items-center gap-1 py-2 border-t flex-shrink-0 transition-colors"
           :class="[navScrolledUnder ? 'border-edge-subtle' : 'border-transparent', showAccountChip ? 'px-2' : 'pl-5 pr-2 coarse:pl-3.5']"
         >
           <!-- Signed in: chip fills the left, compact feedback + gear icons
@@ -923,9 +923,11 @@
                 <div class="w-7 h-7 rounded-full bg-overlay-light text-content-secondary flex items-center justify-center text-xs font-semibold uppercase flex-shrink-0">
                   {{ accountInitial }}
                 </div>
-                <div class="min-w-0 flex flex-col leading-tight">
+                <!-- A narrow sidebar has no room beside the icons for the name and
+                     balance; the initial stands for the account there. -->
+                <div class="min-w-0 hidden @[16rem]:flex flex-col leading-tight">
                   <span class="text-[13px] text-content truncate">{{ accountName }}</span>
-                  <span v-if="accountBalance" class="text-[11px] font-mono text-content-muted tabular-nums">{{ accountBalance }}</span>
+                  <span v-if="accountBalance" class="text-[11px] font-mono text-content-muted tabular-nums truncate">{{ accountBalance }}</span>
                 </div>
               </button>
             </Tooltip>
@@ -1145,6 +1147,7 @@ import EditorShelf from './EditorShelf.vue'
 import FeedbackFooterButton from '@stimma/feedback-footer-button'
 import DeviceChip from './DeviceChip.vue'
 import { scheduleMaintenance } from '../utils/startupMaintenance'
+import { createLoadRetry } from '../utils/loadRetry.js'
 
 const props = defineProps({
   isOpen: {
@@ -1398,9 +1401,29 @@ const loadingState = ref({
   tools: { loading: true, error: false }
 })
 
-const hasLoadedData = computed(() => {
-  return Object.values(loadingState.value).some(s => !s.loading && !s.error)
+// The nav shows once the first load settles, even a failed one: its links work
+// without the lists, which fill in when a retry lands. Later reloads and
+// retries never take it away again.
+const hasLoadedData = ref(false)
+let sidebarUnmounted = false
+
+// A failed list retries on its own; a reconnect would too, but the socket can
+// stay up while reads fail (a phone whose network was settling at launch).
+// A list already being read (a reconnect) is left to that read, which rearms
+// the retry if it fails.
+const sidebarRetry = createLoadRetry(() => {
+  const { savedViews: views, tools } = loadingState.value
+  if (views.error && !views.loading) void loadSavedViews()
+  if (tools.error && !tools.loading) void loadPinnedTools()
 })
+function settleSidebarLoad() {
+  if (sidebarUnmounted) return
+  hasLoadedData.value = true
+  const states = Object.values(loadingState.value)
+  if (states.some(s => s.loading)) return
+  if (states.some(s => s.error)) sidebarRetry.failed()
+  else sidebarRetry.succeeded()
+}
 
 // A phone drawer is short, so pinned tools (reachable from Tools) start folded
 // until the person chooses otherwise; their choice is stored from then on.
@@ -2629,7 +2652,12 @@ function stopResize() {
 
 // ==================== Data loading ====================
 
+// Reads per list still in flight: a startup read and a reconnect read can
+// overlap, and the list is loading until the last of them settles.
+const readsInFlight = { savedViews: 0, tools: 0 }
+
 async function loadSavedViews() {
+  readsInFlight.savedViews++
   loadingState.value.savedViews.loading = true
   try {
     savedViews.value = await getSavedViews()
@@ -2638,7 +2666,8 @@ async function loadSavedViews() {
     console.error('Failed to load saved views:', error)
     loadingState.value.savedViews.error = true
   } finally {
-    loadingState.value.savedViews.loading = false
+    loadingState.value.savedViews.loading = --readsInFlight.savedViews > 0
+    settleSidebarLoad()
   }
 }
 
@@ -2665,6 +2694,7 @@ function mergePinFallbacks(toolsMap: Map<string, any>, availabilityMap: Map<stri
 }
 
 async function loadPinnedTools() {
+  readsInFlight.tools++
   loadingState.value.tools.loading = true
   try {
     pinnedTools.value = await listPinnedTools()
@@ -2682,7 +2712,8 @@ async function loadPinnedTools() {
     console.error('Failed to load pinned tools:', error)
     loadingState.value.tools.error = true
   } finally {
-    loadingState.value.tools.loading = false
+    loadingState.value.tools.loading = --readsInFlight.tools > 0
+    settleSidebarLoad()
   }
 }
 
@@ -3039,6 +3070,8 @@ watch(allTabs, () => {
 
 
 onUnmounted(() => {
+  sidebarUnmounted = true
+  sidebarRetry.stop()
   if (unsubscribeFromProviderChanges) {
     unsubscribeFromProviderChanges()
     unsubscribeFromProviderChanges = null

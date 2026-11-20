@@ -23,7 +23,7 @@ function chat(id, name) {
  * Serve Home's API. `respond(path, query, headers)` may return a JSON body, a status
  * number, or a promise of either (to delay); undefined falls back to empty.
  */
-async function openHome(t, { start = '/', respond = () => undefined, deadline = null, dpr = 1 } = {}) {
+async function openHome(t, { start = '/', respond = () => undefined, deadline = null, retry = null, dpr = 1 } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: dpr })
@@ -47,7 +47,7 @@ async function openHome(t, { start = '/', respond = () => undefined, deadline = 
     }
     return route.fulfill({ json: answer }).catch(() => {})
   })
-  await page.goto(`http://home-load.test/?start=${encodeURIComponent(start)}${deadline ? `&deadline=${deadline}` : ''}`)
+  await page.goto(`http://home-load.test/?start=${encodeURIComponent(start)}${deadline ? `&deadline=${deadline}` : ''}${retry ? `&retry=${retry}` : ''}`)
   for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
   return { page, counts, errors, push: path => page.evaluate(path => window.homeLoadTest.router.push(path), path) }
@@ -111,6 +111,32 @@ test('a failed recents read keeps the composer usable and offers a retry', async
   await expect(page.getByText('Recovered chat')).toBeVisible()
   await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
   assert.equal(counts.get('/api/chats/previews'), 2)
+})
+
+test('failed recents retry on their own, with the socket up, and the error clears', async t => {
+  let failing = true
+  const { page, counts, errors } = await openHome(t, {
+    retry: 300,
+    respond: path => {
+      if (path === '/api/chats/previews') return failing ? 502 : { items: [chat(1, 'Back again')], total: 1 }
+      return undefined
+    },
+  })
+  await expect(composer(page)).toBeVisible()
+  await expect(page.getByText("Couldn't load recent chats.")).toBeVisible()
+  // The line sits under the composer, not at the foot of the page.
+  const composerBox = await composer(page).boundingBox()
+  const errorBox = await page.locator('[data-recents-error]').boundingBox()
+  assert.ok(errorBox.y - (composerBox.y + composerBox.height) < 150, 'retry line sits under the composer')
+  await expect.poll(() => counts.get('/api/chats/previews')).toBeGreaterThan(1)
+  failing = false
+  await expect(page.getByText('Back again')).toBeVisible()
+  await expect(page.locator('[data-recents-error]')).toHaveCount(0)
+  await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+  const settled = counts.get('/api/chats/previews')
+  await page.waitForTimeout(800)
+  assert.equal(counts.get('/api/chats/previews'), settled, 'no retries after success')
+  assert.deepEqual(errors, [])
 })
 
 test('a late response from the previous project never replaces the new one', async t => {
