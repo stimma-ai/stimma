@@ -157,3 +157,35 @@ def test_manual_action_interrupts_scheduled_wait_and_resumes_scheduling(monkeypa
     assert instance.drain(scheduled=True) is False
     instance.local.assert_called_once_with('maintenance', {'enabled': False})
     assert instance.commands.get_nowait() == 'update'
+
+
+def test_snapshot_keeps_databases_and_settings_but_skips_bulk_data(monkeypatch, tmp_path):
+    import sqlite3
+    state = tmp_path / 'state'
+    files = {
+        'config.yaml': 'a: 1',
+        'cloud_auth.json': '{}',
+        'work/settings.json': '{}',
+        'work/flows/1/notes.json': '{}',
+        'work/staging/generated/.stp-receipts/x/result.json': '{}',
+        'work/prompt_programs/narrow/abc.json': '{}',
+        'chats/3/workspace/data.json': '{}',
+        'work.backup/settings.json': '{}',
+    }
+    for name, text in files.items():
+        (state / name).parent.mkdir(parents=True, exist_ok=True)
+        (state / name).write_text(text)
+    for name in ('work/stimma_v1.db', 'work/flows/1/state.db', 'work.backup/stimma_v1.db',
+                 'work/media/cache.db'):
+        (state / name).parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(state / name) as connection:
+            connection.execute('CREATE TABLE t (v TEXT)')
+            connection.execute("INSERT INTO t VALUES ('kept')")
+    monkeypatch.setenv('STIMMA_DATA_DIR', str(state))
+    monkeypatch.setattr(supervisor, 'ROOT', tmp_path)
+    dest = supervisor.Supervisor().snapshot()
+    copied = sorted(str(p.relative_to(dest)) for p in dest.rglob('*') if p.is_file())
+    assert copied == ['cloud_auth.json', 'config.yaml', 'work/flows/1/state.db',
+                      'work/settings.json', 'work/stimma_v1.db']
+    with sqlite3.connect(dest / 'work/stimma_v1.db') as connection:
+        assert connection.execute('SELECT v FROM t').fetchall() == [('kept',)]

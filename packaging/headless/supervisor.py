@@ -146,6 +146,20 @@ def unpack(archive: Path, destination: Path):
         raise ValueError('Package has no server launcher')
 
 
+SNAPSHOT_DB_SUFFIXES = ('.db', '.sqlite', '.sqlite3')
+# Payloads, caches, logs and per-item records are not configuration, and a
+# migration never needs them restored. Walking them dominated update downtime.
+SNAPSHOT_SKIPPED_DIRS = frozenset({
+    'storage', 'managed', 'cache', 'media', 'objects', 'staging', 'prompt_programs',
+    'workspace', 'stimpacks', 'Logs', 'crashes',
+})
+
+
+def snapshot_skips(name: str) -> bool:
+    # Hidden trees are receipts/indexes; *.backup trees are already copies.
+    return name in SNAPSHOT_SKIPPED_DIRS or name.startswith('.') or name.endswith(('.backup', '.bak'))
+
+
 def control(action: str, **payload):
     with socket.socket(socket.AF_UNIX) as client:
         client.settimeout(20)
@@ -274,17 +288,30 @@ class Supervisor:
         self.child = None
 
     def snapshot(self):
-        """Backend is stopped. Copy databases/config only; media remains in place."""
+        """Backend is stopped. Copy databases and settings only; media remains in place.
+
+        This runs while the server is down, so it must not walk or copy the
+        per-item data a library accumulates (tens of thousands of cached
+        results, receipts and agent workspaces). Databases are backed up
+        wherever they live outside those trees; settings files only at the
+        state root and each profile's root.
+        """
         state = Path(os.environ.get('STIMMA_DATA_DIR', str(ROOT / 'state')))
         dest = ROOT / 'backups' / str(time.time_ns())
-        for source in state.rglob('*'):
-            if source.is_file() and source.suffix in ('.db', '.sqlite', '.sqlite3', '.yaml', '.json'):
-                # Managed payloads and model caches are not configuration.
-                if any(part in ('storage', 'managed', 'cache', 'media') for part in source.relative_to(state).parts):
+        for directory, subdirs, files in os.walk(state):
+            relative = Path(directory).relative_to(state)
+            subdirs[:] = [name for name in subdirs if not snapshot_skips(name)]
+            for name in files:
+                suffix = Path(name).suffix
+                is_db = suffix in SNAPSHOT_DB_SUFFIXES
+                if not is_db and not (suffix in ('.yaml', '.json') and len(relative.parts) <= 1):
                     continue
-                target = dest / source.relative_to(state)
+                source = Path(directory) / name
+                if not source.is_file():
+                    continue
+                target = dest / relative / name
                 target.parent.mkdir(parents=True, exist_ok=True)
-                if source.suffix in ('.db', '.sqlite', '.sqlite3'):
+                if is_db:
                     # SQLite's backup API includes any retained WAL transactions.
                     with sqlite3.connect(source) as src, sqlite3.connect(target) as dst:
                         src.backup(dst)
@@ -314,7 +341,8 @@ class Supervisor:
                 self.status(status='ready')
                 return
             except Exception:
-                time.sleep(1)
+                # Startup is a couple of seconds; poll finely so readiness isn't rounded up.
+                time.sleep(0.2)
         raise RuntimeError('Server readiness timed out')
 
     def activate(self, release):
