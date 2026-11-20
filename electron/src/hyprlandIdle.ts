@@ -27,13 +27,13 @@ const runHyprctl: Run = (args) =>
   })
 
 /**
- * This process's toplevel for the requesting window: its only window, or the
- * one whose title matches. Ambiguous matches return null so another Stimma
- * window is never marked by mistake.
+ * This process's toplevel for the requesting window: the one whose title
+ * matches, or, when the sender is our only visible window, our only client.
+ * Ambiguous matches return null so another Stimma window is never marked.
  */
-export function pickWindowAddress(clients: HyprClient[], pid: number, title: string): string | null {
+export function pickWindowAddress(clients: HyprClient[], pid: number, title: string, senderIsSole = false): string | null {
   const ours = clients.filter((c) => c.pid === pid)
-  const candidates = ours.length > 1 ? ours.filter((c) => c.title === title) : ours
+  const candidates = senderIsSole && ours.length === 1 ? ours : ours.filter((c) => c.title === title)
   const only = candidates.length === 1 ? candidates[0] : null
   return only && /^0x[0-9a-f]+$/i.test(only.address) ? only.address : null
 }
@@ -44,7 +44,11 @@ function idleInhibitScript(address: string, active: boolean): string {
 
 type WindowState = { wanted: boolean; applied: boolean; address: string | null; chain: Promise<void> }
 
-export function createHyprlandIdleInhibitor(run: Run = runHyprctl, pid = process.pid) {
+export function createHyprlandIdleInhibitor(
+  run: Run = runHyprctl,
+  pid = process.pid,
+  visibleWindowCount: () => number = () => 1,
+) {
   const states = new WeakMap<BrowserWindow, WindowState>()
 
   async function apply(win: BrowserWindow, state: WindowState): Promise<void> {
@@ -54,7 +58,8 @@ export function createHyprlandIdleInhibitor(run: Run = runHyprctl, pid = process
     const target = state.wanted
     try {
       if (!state.address) {
-        state.address = pickWindowAddress(JSON.parse(await run(['-j', 'clients'])), pid, win.getTitle())
+        const senderIsSole = win.isVisible() && visibleWindowCount() === 1
+        state.address = pickWindowAddress(JSON.parse(await run(['-j', 'clients'])), pid, win.getTitle(), senderIsSole)
       }
       if (!state.address) return
       const ok = (await run(['repl', idleInhibitScript(state.address, target)])).trim() === 'true'

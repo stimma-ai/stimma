@@ -17,7 +17,8 @@ test('picks this process\'s window, by title when it has several, never a guess'
     { address: '0xc', pid: 9, title: 'Stimma — B' },
   ]
   assert.equal(pickWindowAddress(clients, 7, 'Stimma — A'), '0xa')
-  assert.equal(pickWindowAddress(clients.slice(0, 1), 7, 'renamed'), '0xa')
+  assert.equal(pickWindowAddress(clients.slice(0, 1), 7, 'renamed', true), '0xa')
+  assert.equal(pickWindowAddress(clients.slice(0, 1), 7, 'renamed', false), null, 'a hidden sender never claims the other window')
   assert.equal(pickWindowAddress(clients, 8, 'Stimma — A'), null)
   assert.equal(pickWindowAddress([...clients, { address: '0xd', pid: 7, title: 'Stimma — A' }], 7, 'Stimma — A'), null)
   assert.equal(pickWindowAddress([{ address: "0x1'); evil()", pid: 7, title: 't' }], 7, 't'), null)
@@ -29,6 +30,7 @@ function fakeWindow() {
     webContents,
     getTitle: () => 'Stimma',
     isDestroyed: () => false,
+    isVisible: () => true,
   }) as unknown as BrowserWindow & { webContents: EventEmitter }
 }
 
