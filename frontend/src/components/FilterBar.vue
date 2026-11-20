@@ -7,6 +7,7 @@
         class="relative -ml-3 flex h-control flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-ctl transition-colors duration-150 compact:-ml-[14px] compact:h-11 compact:w-11 compact:justify-center compact:px-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
         :class="(showCriteriaPanel || hasActiveFilters) ? 'bg-overlay-light text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
         aria-label="Filters"
+        :aria-describedby="filterChipCount ? filterCountId : undefined"
         :aria-expanded="showCriteriaPanel"
         @click="toggleCriteriaPanel"
       >
@@ -16,7 +17,8 @@
           v-if="filterChipCount"
           class="min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-accent-on text-[11px] font-semibold leading-[18px] text-center tabular-nums compact:absolute compact:top-1 compact:right-0.5"
           data-testid="filter-count"
-        >{{ filterChipCount }}</span>
+          :id="filterCountId"
+        >{{ filterChipCount }}<span class="sr-only"> active</span></span>
         <Caret :open="showCriteriaPanel" class="compact:hidden" />
       </button>
 
@@ -272,7 +274,7 @@
         </div>
         <!-- Active filters: every criterion as a removable chip. They live here, not in
              the toolbar, so the toolbar stays one line; the Filters button counts them. -->
-        <div v-if="filterChipCount" class="flex flex-wrap items-center gap-1.5 px-4 pt-3 compact:pt-1" data-testid="active-filter-chips">
+        <div v-if="filterChipCount" class="relative z-20 flex flex-wrap items-center gap-1.5 px-4 pt-3 compact:pt-1" data-testid="active-filter-chips">
         <!-- Similar Search Badge -->
         <div v-if="hasSimilarSearchBadge" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
           <MagnifyingGlassCircleIcon class="w-icon-nav h-icon-nav flex-shrink-0" />
@@ -1124,6 +1126,7 @@ const allTools = computed(() => {
   return [...resolved, ...fallbacks]
 })
 
+const filterCountId = `filter-count-${Math.random().toString(36).slice(2, 8)}`
 // How many removable chips the panel's active-filter strip shows; mirrors its v-ifs.
 // The Filters button carries this count since the chips live inside the panel.
 const filterChipCount = computed(() => {
