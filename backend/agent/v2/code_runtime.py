@@ -1554,8 +1554,12 @@ class StimmaTasksAPI:
             raise ValueError("Pass a tool function from stimma.tools, or a tool id.")
         from backend_registry import get_backend_registry
         backends = await get_backend_registry().list_backends()
-        provider = tool_id.split(":", 1)[0]
-        state = backends.get(provider)
+        from providers.jsonrpc_manager import _get_backend_name
+        from providers.registry import ProviderRegistry
+        found = ProviderRegistry.get_instance().get_tool(tool_id)
+        if found is None:
+            return 1
+        state = backends.get(_get_backend_name(found[0].provider_id))
         if state is None or not state.get("max_concurrent"):
             return 1
         return max(1, int(state["max_concurrent"]))
@@ -2237,7 +2241,7 @@ class StimmaSDK:
         base = 0
         auto = desc is None and len(coros) > 1
         reuse = self._auto_tracker if auto else None
-        if reuse is not None and reuse._completed and reuse._item_id is not None:
+        if reuse is not None and reuse._completed and reuse._status == "completed":
             # Batch after batch (a loop that keeps generating): one card that
             # grows, not a card per batch.
             tracker = reuse
@@ -2992,51 +2996,57 @@ class StimmaSDK:
 
         A run that loops (generate until told to stop) never reaches its final
         flush, so without this nothing it shows would ever appear. Uses a fresh
-        session: the script uses self.session concurrently. Shown workspace
-        paths need self.session to be saved, so they wait for the final flush,
-        and so does everything after them, to keep the order. ``all_pending``
-        (the run has stopped) flushes those too.
+        session: the script uses self.session concurrently. ``all_pending``
+        (the run has stopped) uses the final flush.
         """
         if all_pending:
             await self.flush()
             return
         with self._display_lock:
-            ready = []
-            for payload in self._pending_display_calls:
-                if payload.get("paths"):
-                    break
-                ready.append(payload)
-            if not ready:
-                return
-            del self._pending_display_calls[:len(ready)]
+            ready = list(self._pending_display_calls)
+            self._pending_display_calls.clear()
+        if not ready:
+            return
         from database_registry import get_database_registry
         db = get_database_registry().get_database(get_current_profile())
         async with db.async_session_maker() as session:
             for payload in ready:
-                media_ids = list(payload.get("media_ids") or [])
+                paths = payload.get("paths") or []
                 created: dict[str, int] = {}
-                receipt = await show_tool(
-                    role=payload["role"],
-                    media_ids=media_ids or None,
-                    paths=None,
-                    title=payload["title"],
-                    session=session,
-                    chat_id=self.chat_id,
-                    workspace_dir=self.workspace_dir,
-                    **self._card_kwargs(payload, created),
-                    **payload.get("revision", {}),
-                )
-                self._remember_card(payload, created)
+                try:
+                    saved = await self._auto_save_paths(paths, session=session)
+                    media_ids = list(payload.get("media_ids") or []) + saved
+                    receipt = await show_tool(
+                        role=payload["role"],
+                        media_ids=media_ids or None,
+                        paths=None,
+                        title=payload["title"],
+                        session=session,
+                        chat_id=self.chat_id,
+                        workspace_dir=self.workspace_dir,
+                        **self._card_kwargs(payload, created),
+                        **payload.get("revision", {}),
+                    )
+                except Exception as e:
+                    # One show that fails (a file that can't be saved) mustn't
+                    # stop the code or the shows after it.
+                    await session.rollback()
+                    receipt = f"Error: {type(e).__name__}: {e}"
                 if isinstance(receipt, str) and receipt.startswith("Error:"):
                     # The code goes on; tell it on its own output, not by raising.
                     (self._stdout_print or print)(f"[show] {receipt}")
                     continue
+                self._remember_card(payload, created)
                 self._shown_media_ids.extend(media_ids)
-                self._shown_labels.extend(str(mid) for mid in media_ids)
+                self._shown_labels.extend(str(mid) for mid in payload.get("media_ids") or [])
+                if len(paths) == len(saved):
+                    self._shown_labels.extend(f"{p}→{mid}" for p, mid in zip(paths, saved))
+                else:
+                    self._shown_labels.extend(str(mid) for mid in saved)
                 if payload["role"] == "final" and receipt:
                     self._display_receipts.append(str(receipt))
 
-    async def _auto_save_paths(self, paths: list[str]) -> list[int]:
+    async def _auto_save_paths(self, paths: list[str], session=None) -> list[int]:
         """Save workspace paths to library with lineage from tracked tool results."""
         if not paths:
             return []
@@ -3051,12 +3061,12 @@ class StimmaSDK:
         source_media_ids = list(dict.fromkeys(source_media_ids))
 
         # Build provenance from the primary source's generation metadata
-        provenance = await self._build_edit_provenance(source_media_ids)
+        provenance = await self._build_edit_provenance(source_media_ids, session=session)
 
         saved_ids: list[int] = []
         for path in paths:
             raw = await save_workspace_file(
-                session=self.session,
+                session=session or self.session,
                 path=path,
                 workspace_dir=self.workspace_dir,
                 save_tags=None,
@@ -3070,7 +3080,7 @@ class StimmaSDK:
                 log.warning(f"[flush] Auto-save failed for {path}: {raw}")
         return saved_ids
 
-    async def _build_edit_provenance(self, source_media_ids: list[int]) -> dict[str, Any]:
+    async def _build_edit_provenance(self, source_media_ids: list[int], session=None) -> dict[str, Any]:
         """Build provenance for an agent-edited file with inherited lineage_trace."""
         provenance: dict[str, Any] = {
             "task_type": "agent_edit",
@@ -3081,7 +3091,7 @@ class StimmaSDK:
             return provenance
 
         # Fetch all source items in one query
-        result = await self.session.execute(
+        result = await (session or self.session).execute(
             select(MediaItem).where(MediaItem.id.in_(source_media_ids))
         )
         source_items = {item.id: item for item in result.scalars().all()}
@@ -3337,6 +3347,17 @@ def _globals_to_nonlocals(run_fn) -> None:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 names.add(node.name)
                 continue  # its body is its own scope
+            if isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+                # Its loop targets are its own; `:=` inside it binds out here.
+                inner = list(ast.iter_child_nodes(node))
+                while inner:
+                    child = inner.pop()
+                    if isinstance(child, (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        continue  # a scope of its own: its := binds there
+                    if isinstance(child, ast.NamedExpr) and isinstance(child.target, ast.Name):
+                        names.add(child.target.id)
+                    inner.extend(ast.iter_child_nodes(child))
+                continue
             if isinstance(node, ast.Lambda):
                 continue
             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
@@ -3557,14 +3578,24 @@ async def run_code_in_sandbox(
     def _exec_wrapper():
         import ast
         tree = ast.parse(wrapper, filename="<stimma_run_code>")
-        # The SDK is preloaded. A redundant `import stimma` later in the
-        # block must not make earlier SDK calls unbound locals in our wrapper.
-        declaration = ast.Global(names=["stimma"])
-        ast.copy_location(declaration, tree.body[0])
-        _globals_to_nonlocals(tree.body[0])
-        tree.body[0].body.insert(0, declaration)
-        ast.fix_missing_locations(tree)
-        exec(compile(tree, "<stimma_run_code>", "exec"), globals_dict, globals_dict)
+        rewritten = ast.parse(wrapper, filename="<stimma_run_code>")
+        _globals_to_nonlocals(rewritten.body[0])
+        for candidate in (rewritten, tree):
+            # The SDK is preloaded. A redundant `import stimma` later in the
+            # block must not make earlier SDK calls unbound locals in our wrapper.
+            declaration = ast.Global(names=["stimma"])
+            ast.copy_location(declaration, candidate.body[0])
+            candidate.body[0].body.insert(0, declaration)
+            ast.fix_missing_locations(candidate)
+            try:
+                compiled = compile(candidate, "<stimma_run_code>", "exec")
+                break
+            except SyntaxError:
+                # The global->nonlocal rewrite must never break code that
+                # compiles as written; the original's error is the real one.
+                if candidate is tree:
+                    raise
+        exec(compiled, globals_dict, globals_dict)
         return globals_dict["__stimma_run__"]
 
     sdk = sdk_instance

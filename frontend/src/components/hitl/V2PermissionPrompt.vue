@@ -9,7 +9,7 @@
     </svg>
     <div class="min-w-0">
       <div class="text-sm leading-snug truncate">
-        <span class="text-content-muted">{{ response?.approved ? 'Allowed' : 'Denied' }}</span>
+        <span class="text-content-muted">{{ response?.approved ? 'Allowed' : response?.interrupted ? 'Canceled' : 'Denied' }}</span>
         <span class="text-content ml-1.5">{{ response?.approved && response?.scope === 'provider' ? `all ${providerName} tools` : displayName }}</span>
       </div>
       <div

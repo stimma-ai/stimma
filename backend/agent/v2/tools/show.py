@@ -628,7 +628,8 @@ async def _create_display_item(
     # A run that shows results under one title as they finish grows one card
     # (append_to: that card's id) rather than stacking a card per batch.
     existing = await session.get(ChatItem, append_to) if append_to is not None else None
-    if existing is not None and existing.item_type == "media_display" and existing.show_role == role:
+    if (existing is not None and existing.chat_id == chat_id
+            and existing.item_type == "media_display" and existing.show_role == role):
         try:
             old_data = json.loads(existing.item_metadata or "{}").get("display_data") or {}
         except (TypeError, ValueError):
@@ -670,7 +671,7 @@ async def _create_display_item(
         session.add(display_item)
         await session.commit()
         item_event = "chat_item_created"
-    if created is not None:
+    if created is not None and not artifact_info:
         created["id"] = display_item.id
     if asset_ids:
         from database import Asset

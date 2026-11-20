@@ -70,3 +70,28 @@ test('a task that ends while the snapshot is in flight stays ended', async () =>
   await priming
   assert.equal(f.api.isChatWorking(9), false)
 })
+
+test('a turn that starts while the snapshot is in flight stays running', async () => {
+  const f = fixture({ chat_ids: [], background: [] })
+  const ends = []
+  f.api.onAgentRunEnd((chatId, reason) => ends.push([chatId, reason]))
+  const open = f.hold()
+  const priming = f.prime()
+  f.emit('agent_started', { chat_id: 9 })
+  open()
+  await priming
+  assert.equal(f.api.isChatGenerating(9), true)
+  assert.deepEqual(ends, [])
+})
+
+test('a rejected start leaves the running turn running', async () => {
+  const f = fixture({ chat_ids: [4], background: [] })
+  await f.prime()
+  const open = f.hold()
+  f.setRunning({ chat_ids: [4], background: [] })
+  const priming = f.prime()
+  f.emit('agent_stopped', { chat_id: 4, reason: 'already_running' })
+  open()
+  await priming
+  assert.equal(f.api.isChatGenerating(4), true)
+})

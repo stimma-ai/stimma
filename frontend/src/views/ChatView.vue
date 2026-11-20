@@ -1717,7 +1717,6 @@ let queueWatchdogTimer = null // Interval that reconciles state while messages a
 let reconcilingQueue = false // A view that just took the queue is catching up; nothing drains meanwhile
 let queueReconciled = true // This view has read the transcript since taking the queue
 let steerRetryTimer = null // Retries steers the server refused because its run hadn't registered yet
-let steerRefusals = 0 // Consecutive 409s: past a few, the running state is stale
 // uploadInput is now managed by ChatInputBox
 
 // WebSocket - use shared singleton composable
@@ -2047,7 +2046,7 @@ function parseAnalysisData(item) {
 
 function isActiveHITLRequest(item) {
   const action = parseHITLAction(item)
-  if (!action) return false
+  if (!action || action.closed) return false // closed: its code stopped while it waited
   const itemIdx = items.value.findIndex(i => i.id === item.id)
   if (itemIdx < 0) return false
   for (let i = itemIdx + 1; i < items.value.length; i++) {
@@ -2071,6 +2070,7 @@ function shouldShowHITLRequest(item) {
 }
 
 function findHITLResponse(requestItem) {
+  if (parseHITLAction(requestItem)?.closed) return { approved: false, interrupted: true }
   const itemIdx = items.value.findIndex(i => i.id === requestItem.id)
   if (itemIdx < 0) return null
   for (let i = itemIdx + 1; i < items.value.length; i++) {
@@ -3977,17 +3977,10 @@ async function postSteer(msg: QueuedMessage) {
         attachments: msg.attachments.length > 0 ? msg.attachments : null,
       }),
     })
-    if (response.ok) { steerRefusals = 0; return }
+    if (response.ok) return
     // 409: no run is registered. Either the turn just ended (the queue drain
     // sends it) or the one just started hasn't registered yet — retry shortly.
     msg.steering = false
-    // Refused again and again: this view's "running" is stale (no turn will
-    // ever register). Ask the server; once idle, the queue drain sends it.
-    if (response.status === 409 && ++steerRefusals >= 3) {
-      steerRefusals = 0
-      await syncAgentStatus()
-      if (!agentRunning.value && !agentPlanning.value) return
-    }
   } catch (error) {
     console.error('Error steering message:', error)
     msg.steering = false
@@ -4423,7 +4416,7 @@ watch([() => liveState.isOwner.value, chatId], ([owner]) => {
   queueReconciled = false
   reconcileQueueFromServer()
 })
-const { isChatGenerating: isChatRunningAnywhere } = useAgentActivity()
+const { isChatGenerating: isChatRunningAnywhere, resyncAgentActivity } = useAgentActivity()
 
 // Queue watchdog: while messages are queued, periodically reconcile agent
 // state with the server and try to drain. The idle-watcher above only fires
@@ -4445,6 +4438,11 @@ watch(() => messageQueue.value.length, (len) => {
       if (Date.now() - lastSendStartedAt < 8000) return
       if (sending.value || !liveState.isOwner.value) return
       await syncAgentStatus()
+      // The app-wide running set can be stale the same way (a start event
+      // with no run behind it); it blocks the drain too.
+      if (!agentRunning.value && chatId.value != null && isChatRunningAnywhere(chatId.value)) {
+        await resyncAgentActivity()
+      }
       processNextQueuedMessage()
     }, 5000)
   } else if (len === 0 && queueWatchdogTimer) {

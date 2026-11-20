@@ -23,6 +23,7 @@ type BackgroundTaskState = { chat_id: number, task_id: string, state: string }
 // Task events that arrive while a prime is in flight; replayed onto its
 // snapshot, which may predate them.
 let backgroundEventsDuringPrime: BackgroundTaskState[] | null = null
+let runEventsDuringPrime: [number, boolean][] | null = null
 
 const runEndListeners: AgentRunEndListener[] = []
 // Chats that were running when the socket dropped: if the re-prime says
@@ -53,6 +54,7 @@ function emitRunEnd(chatId: number, reason: string) {
 async function prime() {
   const seq = ++primeSeq
   backgroundEventsDuringPrime = []
+  runEventsDuringPrime = []
   try {
     const res = await fetch('/api/chats/agent/running')
     if (!res.ok) return
@@ -67,6 +69,11 @@ async function prime() {
       if (typeof entry?.chat_id === 'number' && ids.length) freshBackground.set(entry.chat_id, new Set(ids))
     }
     for (const e of backgroundEventsDuringPrime ?? []) applyBackgroundTask(freshBackground, e)
+    // Starts and stops that came while the snapshot was in flight are newer.
+    for (const [chatId, running] of runEventsDuringPrime ?? []) {
+      if (running) fresh.add(chatId)
+      else fresh.delete(chatId)
+    }
     backgroundTasksByChat.value = freshBackground
     for (const id of [...generatingChatIds.value, ...lostWhileDisconnected]) {
       if (!fresh.has(id)) emitRunEnd(id, 'completed')
@@ -74,7 +81,10 @@ async function prime() {
     lostWhileDisconnected.clear()
     replaceSet(fresh)
   } catch {} finally {
-    if (seq === primeSeq) backgroundEventsDuringPrime = null
+    if (seq === primeSeq) {
+      backgroundEventsDuringPrime = null
+      runEventsDuringPrime = null
+    }
   }
 }
 
@@ -86,16 +96,20 @@ function init() {
 
   on('agent_started', (data: any) => {
     if (data?.chat_id == null) return
+    runEventsDuringPrime?.push([data.chat_id, true])
     generatingChatIds.value.add(data.chat_id)
     replaceSet(new Set(generatingChatIds.value))
   })
 
   on('agent_stopped', (data: any) => {
     if (data?.chat_id == null) return
+    // already_running is a no-op echo for a start that never happened: the
+    // turn that was already running goes on.
+    if (data.reason === 'already_running') return
+    runEventsDuringPrime?.push([data.chat_id, false])
     generatingChatIds.value.delete(data.chat_id)
     replaceSet(new Set(generatingChatIds.value))
-    // already_running is a no-op echo for a start that never happened.
-    if (data.reason !== 'already_running') emitRunEnd(data.chat_id, data.reason ?? 'completed')
+    emitRunEnd(data.chat_id, data.reason ?? 'completed')
   })
 
   // Sent to every client on task start and end (the detailed
@@ -115,6 +129,7 @@ function init() {
     // reconnect primes again.
     primeSeq++
     backgroundEventsDuringPrime = null
+    runEventsDuringPrime = null
     if (!mobileRecoveryEnabled) {
       replaceSet(new Set())
       backgroundTasksByChat.value = new Map()
@@ -146,5 +161,10 @@ export function useAgentActivity() {
     runEndListeners.push(cb)
   }
 
-  return { generatingChatIds, isChatGenerating, isChatWorking, onAgentRunEnd }
+  // Reread which chats are running, for a view that finds its state stale.
+  function resyncAgentActivity(): Promise<void> {
+    return prime()
+  }
+
+  return { generatingChatIds, isChatGenerating, isChatWorking, onAgentRunEnd, resyncAgentActivity }
 }

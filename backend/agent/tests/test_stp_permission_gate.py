@@ -197,8 +197,14 @@ async def test_gate_ask_interrupt_cleans_registry(monkeypatch):
     async def _fake_card(**kw):
         pass
 
+    closed = []
+
+    async def _fake_close(session_maker, chat_id, request_id):
+        closed.append(chat_id)
+
     monkeypatch.setattr(gate, "_configured_decision", _ask)
     monkeypatch.setattr(gate, "_create_permission_card", _fake_card)
+    monkeypatch.setattr(gate, "_close_permission_card", _fake_close)
 
     task = asyncio.create_task(
         ensure_tool_permission(chat_id=10, tool_id="p:t", kwargs={}, run_cache={})
@@ -209,6 +215,8 @@ async def test_gate_ask_interrupt_cleans_registry(monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await task
     assert not is_pending_permission(gate._request_id(10, "p:t"))  # finally-block cleaned up
+    # Its card is closed, so nobody answers a call that no longer waits.
+    assert closed == [10]
 
 
 @pytest.mark.asyncio
@@ -362,3 +370,55 @@ async def test_human_response_for_background_work_does_not_announce_a_turn(
     assert result == {"success": True}
     assert future.result() == {"approved": True, "scope": "once"}
     assert events == ["chat_item_created"]
+
+
+@pytest.mark.asyncio
+async def test_a_stopped_wait_closes_only_its_own_card(monkeypatch, session, test_chat):
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from routes import chats
+
+    broadcasts = []
+
+    class _Ws:
+        async def broadcast(self, event, data):
+            broadcasts.append(event)
+
+    monkeypatch.setattr("utils.websocket.ws_manager", _Ws())
+    ids = {}
+    for name in ("a", "b"):
+        rid = gate._request_id(test_chat.id, f"p:{name}")
+        item = ChatItem(chat_id=test_chat.id, item_type="hitl_request", item_metadata=json.dumps({
+            "type": "v2_tool_permission",
+            "v2_tool_args": {"tool_id": f"p:{name}", "_inprocess_request_id": rid},
+        }))
+        session.add(item)
+        await session.commit()
+        ids[name] = (item.id, rid)
+
+    maker = async_sessionmaker(session.bind, expire_on_commit=False)
+    await gate._close_permission_card(maker, test_chat.id, ids["a"][1])
+    async with maker() as s:
+        a = json.loads((await s.get(ChatItem, ids["a"][0])).item_metadata)
+        b = json.loads((await s.get(ChatItem, ids["b"][0])).item_metadata)
+    assert a.get("closed") is True and "closed" not in b
+    assert broadcasts == ["chat_item_updated"]
+
+
+@pytest.mark.asyncio
+async def test_answering_a_closed_card_does_nothing(monkeypatch, session, test_chat):
+    from routes import chats
+
+    session.add(ChatItem(chat_id=test_chat.id, item_type="hitl_request", item_metadata=json.dumps({
+        "type": "v2_tool_permission", "closed": True,
+        "v2_tool_args": {"tool_id": "p:c", "_inprocess_request_id": "gone"},
+    })))
+    await session.commit()
+
+    async def _never(**kwargs):
+        raise AssertionError("a closed card must not resume anything")
+
+    monkeypatch.setattr("agent.resume_agent_after_hitl", _never)
+    result = await chats.submit_human_response(
+        test_chat.id, chats.HITLResponseRequest(approved=True, scope="once"), session,
+    )
+    assert result == {"success": True}

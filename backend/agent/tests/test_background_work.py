@@ -288,9 +288,6 @@ async def test_consecutive_untitled_batches_share_one_progress_card(session, tes
         for event in releases.values():
             event.set()
         await asyncio.wait_for(task, 3)
-        # The run loop has flushed the card by now: it has a chat item.
-        for tracker in sdk._progress_trackers:
-            tracker._item_id = tracker._item_id or 1
 
     (tracker,) = sdk._progress_trackers
     state = tracker._build_state()["display_data"]
@@ -384,3 +381,71 @@ async def test_a_gather_of_workers_counts_generations_not_workers(session, test_
     assert (final["title"], final["current"], final["total"]) == ("Generating", 5, 5)
     # While it ran, the bar moved with each finished image, not with each worker.
     assert any(0 < s["current"] < 5 and s["total"] >= 3 for s in seen)
+
+
+@pytest.mark.asyncio
+async def test_capacity_reads_the_tools_backend(monkeypatch, session, test_chat, tmp_path):
+    from agent.v2.code_runtime import StimmaTasksAPI
+
+    class _Registry:
+        async def list_backends(self):
+            return {"comfyui": {"max_concurrent": 2}}
+
+    class _Provider:
+        def __init__(self, provider_id):
+            self.provider_id = provider_id
+
+    class _Providers:
+        tools = {
+            "comfyui:flux-klein-9b": _Provider("comfyui"),
+            "builtin:comfyui:qwen-image:text-to-image": _Provider("builtin:comfyui"),
+        }
+
+        def get_tool(self, tool_id):
+            p = self.tools.get(tool_id)
+            return (p, object()) if p else None
+
+    monkeypatch.setattr("backend_registry.get_backend_registry", lambda: _Registry())
+    monkeypatch.setattr("providers.registry.ProviderRegistry.get_instance", lambda: _Providers())
+    sdk = StimmaSDK(session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+                    project_workspace_dir=None, interrupt_checker=lambda: False)
+    tasks = StimmaTasksAPI(sdk)
+    assert await tasks.capacity("comfyui:flux-klein-9b") == 2
+    assert await tasks.capacity("builtin:comfyui:qwen-image:text-to-image") == 2
+    assert await tasks.capacity("elsewhere:tool") == 1
+
+
+
+def test_a_walrus_in_a_comprehension_binds_at_the_top_level():
+    import ast
+    from agent.v2.code_runtime import _globals_to_nonlocals, _wrap_run_code
+    tree = ast.parse(_wrap_run_code(
+        "[(counter := v) for v in range(1)]\n"
+        "def bump():\n    global counter, v\n    counter += 1\n"
+    ))
+    _globals_to_nonlocals(tree.body[0])
+    text = ast.unparse(tree)
+    assert "nonlocal counter" in text and "global v" in text
+
+
+@pytest.mark.asyncio
+async def test_code_the_global_rewrite_would_break_still_runs(session, test_chat, tmp_path):
+    message = await asyncio.wait_for(run_code_detachable(
+        "fs = [lambda: (x := 1) for _ in range(1)]\n"
+        "def g():\n    global x\n    return 1\n"
+        "print('ran', g())",
+        session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+    ), 5)
+    assert "ran 1" in message
+
+
+
+def test_a_walrus_inside_a_lambda_is_not_a_top_level_name():
+    import ast
+    from agent.v2.code_runtime import _globals_to_nonlocals, _wrap_run_code
+    tree = ast.parse(_wrap_run_code(
+        "fs = [lambda: (x := 1) for _ in range(1)]\n"
+        "def g():\n    global x\n    x = 2\n"
+    ))
+    _globals_to_nonlocals(tree.body[0])
+    assert "nonlocal x" not in ast.unparse(tree)

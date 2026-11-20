@@ -188,6 +188,36 @@ def _mcp_driven(chat) -> bool:
         return False
 
 
+async def _close_permission_card(session_maker, chat_id: int, request_id: str) -> None:
+    """Mark this request's own card closed: nothing waits on it anymore."""
+    from utils.websocket import ws_manager
+    from sqlalchemy import select
+    try:
+        async with session_maker() as session:
+            rows = (await session.execute(
+                select(ChatItem)
+                .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "hitl_request")
+                .order_by(ChatItem.id.desc()).limit(50)
+            )).scalars().all()
+            for item in rows:
+                try:
+                    meta = json.loads(item.item_metadata or "{}")
+                except (TypeError, ValueError):
+                    continue
+                if (meta.get("v2_tool_args") or {}).get("_inprocess_request_id") != request_id:
+                    continue
+                meta["closed"] = True
+                item.item_metadata = json.dumps(meta)
+                await session.commit()
+                item_dict = item.to_dict()
+                break
+            else:
+                return
+        await ws_manager.broadcast("chat_item_updated", {"chat_id": chat_id, "item": item_dict})
+    except Exception as e:
+        log.warning(f"Chat {chat_id}: couldn't close a permission card nothing waits on: {e}")
+
+
 async def ensure_tool_permission(
     *,
     chat_id: int,
@@ -230,7 +260,9 @@ async def ensure_tool_permission(
     # decision == "ask": block on the card
     request_id = _request_id(chat_id, tool_id)
     fut = _PENDING.get(request_id)
+    raised_card = False
     if fut is None or fut.done():
+        raised_card = True
         # We are the first (or a new) request for this tool in this run — create the card.
         fut = asyncio.get_event_loop().create_future()
         _PENDING[request_id] = fut
@@ -254,6 +286,10 @@ async def ensure_tool_permission(
         # Cancellation (interrupt/stop) unwinds here — clean up so a later run re-asks.
         if _PENDING.get(request_id) is fut:
             _PENDING.pop(request_id, None)
+        if raised_card and (fut.cancelled() or not fut.done()):
+            # Nothing waits on the card anymore (its code was stopped): show it
+            # as resolved, so Allow can't answer a call that is gone.
+            await _close_permission_card(session_maker, chat_id, request_id)
 
     approved = bool(result.get("approved"))
     run_cache[tool_id] = approved

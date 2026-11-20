@@ -2508,6 +2508,9 @@ async def submit_human_response(
                 pending_action = json.loads(hitl_item.item_metadata) if isinstance(hitl_item.item_metadata, str) else hitl_item.item_metadata
             except json.JSONDecodeError:
                 pass
+            if isinstance(pending_action, dict) and pending_action.get("closed"):
+                # Its code was stopped while it waited: nothing to answer.
+                return {"success": True}
 
     # Fall back to working_context for backward compatibility
     if not pending_action:
