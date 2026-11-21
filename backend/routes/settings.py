@@ -2501,9 +2501,13 @@ async def delete_profile_endpoint(profile_id: str, request: Request):
     # at the next launch.
     profile_dir = app_dirs.get_profile_dir(profile_id)
     marker = profile_dir / PROFILE_DELETED_MARKER
+    marked_here = False
     if profile_dir.exists():
         try:
-            marker.touch()
+            marker.touch(exist_ok=False)
+            marked_here = True
+        except FileExistsError:
+            pass  # a delete already under way
         except OSError:
             raise HTTPException(status_code=500, detail="Could not delete the profile's folder")
 
@@ -2511,7 +2515,8 @@ async def delete_profile_endpoint(profile_id: str, request: Request):
     try:
         delete_profile_config(profile_id)
     except ValueError as e:
-        marker.unlink(missing_ok=True)
+        if marked_here:
+            marker.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=str(e))
 
     # Close its database here and in the ingestion process before removing

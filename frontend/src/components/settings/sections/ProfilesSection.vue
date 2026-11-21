@@ -669,6 +669,11 @@ async function targetPinFor(profile) {
   if (!profile.has_pin) return null
   const pin = askTargetPin.value ? targetPin.value : getCachedPin(profile.id)
   targetPinError.value = ''
+  if (!pin) {
+    // The cached PIN expired while the dialog was open.
+    askTargetPin.value = true
+    return undefined
+  }
   const response = await fetch(`${getApiBase()}/profiles/${profile.id}/verify-pin`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -702,11 +707,14 @@ function closeRenameModal() {
 async function submitRename() {
   if (!canRename.value || saving.value || !renameProfile.value) return
 
+  const profile = renameProfile.value
+  const name = renameProfileName.value.trim()
   saving.value = true
   try {
-    const pin = await targetPinFor(renameProfile.value)
-    if (pin === undefined) return
-    emit('update', { profileId: renameProfile.value.id, data: { name: renameProfileName.value.trim() }, pin })
+    const pin = await targetPinFor(profile)
+    // The dialog may have closed, or opened for another profile, meanwhile.
+    if (pin === undefined || renameProfile.value !== profile) return
+    emit('update', { profileId: profile.id, data: { name }, pin })
     closeRenameModal()
   } catch (error) {
     targetPinError.value = 'Could not check the PIN'
@@ -757,11 +765,13 @@ function closeDeleteConfirm() {
 async function deleteProfile() {
   if (!deleteConfirm.value || saving.value) return
 
+  const profile = deleteConfirm.value
   saving.value = true
   try {
-    const pin = await targetPinFor(deleteConfirm.value)
-    if (pin === undefined) return
-    emit('delete', deleteConfirm.value.id, pin)
+    const pin = await targetPinFor(profile)
+    // The dialog may have closed, or opened for another profile, meanwhile.
+    if (pin === undefined || deleteConfirm.value !== profile) return
+    emit('delete', profile.id, pin)
     closeDeleteConfirm()
   } catch (error) {
     targetPinError.value = 'Could not check the PIN'

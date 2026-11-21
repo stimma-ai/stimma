@@ -456,7 +456,11 @@ async def test_request_logs_and_metrics_never_carry_a_pin(pin_client):
     guid = get_database_registry().get_db_guid("unprotected")
     secret = "8642"
     logged = []
-    with mock_patch.object(slowtrace.log, "info", lambda *a, **k: logged.append((a, k))):
+    capture = lambda *a, **k: logged.append((a, k))  # noqa: E731
+    with mock_patch.object(slowtrace.log, "info", capture), mock_patch.object(slowtrace.log, "warning", capture), \
+            mock_patch.object(slowtrace, "SLOW_THRESHOLD_MS", -1):
         await pin_client.get(f"/api/db/{guid}/pin/{_hex(secret)}/media/999999/package-file/a.png", params={"pin": secret})
-    assert logged and _hex(secret) not in repr(logged) and secret not in repr(logged)
+    slow = [k for a, k in logged if a and a[0] == "SLOWTRACE"]
+    assert slow and "/pin/[redacted]/" in slow[0]["path"] and slow[0]["query"] == "pin=[redacted]"
+    assert _hex(secret) not in repr(logged) and secret not in repr(logged)
     assert _hex(secret) not in repr(get_request_metrics_collector().__dict__)
