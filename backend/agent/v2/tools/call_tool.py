@@ -435,6 +435,31 @@ async def _resolve_input_media_ref(img: Any, label: str, kwargs: dict, metadata_
         "a digit string, or a path to a file that exists."
     )
 
+def describe_inputs(final_params: Dict[str, Any], nested_ids: Dict[str, list],
+                    task_type: Optional[str]) -> list[dict]:
+    """The library media a call reads, each with its part: ``start`` (a video's
+    start frame), ``pinned`` (an item pinned on the output timeline) or ``input``."""
+    out: list[dict] = []
+    seen: set[int] = set()
+
+    def add(media_id, role):
+        if isinstance(media_id, bool) or not isinstance(media_id, int) or media_id in seen:
+            return
+        seen.add(media_id)
+        out.append({"media_id": media_id, "role": role})
+
+    for index, media_id in enumerate(final_params.get("input_media_ids") or []):
+        add(media_id, "start" if index == 0 and task_type == "image-to-video" else "input")
+    for name, ids in nested_ids.items():
+        items = final_params.get(name)
+        for index, media_id in enumerate(ids):
+            item = items[index] if isinstance(items, list) and index < len(items) else None
+            pinned = isinstance(item, dict) and isinstance(item.get("at"), (int, float)) \
+                and not isinstance(item.get("at"), bool)
+            add(media_id, "pinned" if pinned else "input")
+    return out
+
+
 def _pinned_frame_media_id(final_params: Dict[str, Any], nested_ids: Dict[str, list]) -> Optional[int]:
     """Library id of the earliest frame pinned on the output timeline, if any.
 
@@ -906,6 +931,12 @@ async def execute_call_tool(
         }
     # stimma.tasks can cancel a call before it reaches the queue.
     cancel_checker = kwargs.get("cancel_checker")
+    on_inputs = kwargs.get("on_inputs")
+    if callable(on_inputs):
+        try:
+            on_inputs(describe_inputs(final_params, nested_ids, task_type))
+        except Exception as e:  # a progress view is never worth failing a generation
+            log.debug(f"[call_tool_v2] on_inputs failed: {e}")
     from ..background import GenerationCancelled
     if callable(cancel_checker) and cancel_checker():
         raise GenerationCancelled("Cancelled before it started")

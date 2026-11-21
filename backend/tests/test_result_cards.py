@@ -261,3 +261,27 @@ async def test_tasks_made_before_the_gather_still_fill_its_card(db_session, gene
     (card,) = sdk._cards
     assert sorted(row["output"]["media_id"] for row in card.display_data()["rows"]) == sorted(media[:2])
     assert card.live
+
+
+@pytest.mark.asyncio
+async def test_a_declared_batch_counts_a_serial_loop_from_its_first_call(db_session, generation, tmp_path):
+    sdk, _, _ = await _setup(db_session, generation, tmp_path)
+    with sdk.batch("Long take", total=4):
+        for n in range(2):
+            await sdk._dispatch_tool("mock:gen", prompt=f"segment {n}")
+        await sdk._flush_cards()
+        # The bar reads "2 of 4", never "2 of 2" or "2 of 3".
+        assert sdk._control.progress == {"title": "Long take", "done": 2, "failed": 0, "total": 4}
+        for n in range(2, 4):
+            await sdk._dispatch_tool("mock:gen", prompt=f"segment {n}")
+    (card,) = sdk._cards
+    assert _statuses(card) == ["complete"] * 4
+
+
+@pytest.mark.asyncio
+async def test_an_undeclared_serial_loop_has_no_card_and_no_count(db_session, generation, tmp_path):
+    sdk, _, _ = await _setup(db_session, generation, tmp_path)
+    for n in range(3):
+        await sdk._dispatch_tool("mock:gen", prompt=f"segment {n}")
+    await sdk._flush_cards()
+    assert sdk._cards == [] and sdk._control.progress is None

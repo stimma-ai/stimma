@@ -442,10 +442,11 @@ Use progress for long loops that produce visible stages for the user.""",
     "batch": SDKMethodHelp(
         name="batch",
         signature="with stimma.batch(title, *, total: int):",
-        summary="One result card with `total` slots for calls made inside, e.g. workers over a fixed list.",
+        summary="One result card with `total` slots for calls made inside: a loop or workers over a known count.",
         details="""\
-A gather over the list does this by itself; use batch when a loop or workers
-make the calls, so the card keeps its count ("4 of 10").""",
+A gather over the list does this by itself. Wrap a loop (each step built on
+the last) or workers in batch so the card and the progress bar show
+"4 of 10"; without it they can only count what has started.""",
         group="core",
         is_async=False,
     ),

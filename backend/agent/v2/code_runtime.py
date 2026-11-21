@@ -2132,6 +2132,9 @@ class StimmaSDK:
         card_ctx = current_card.get()
         card_slot = card_ctx[0].begin(card_ctx[1], call_item, _task_type) if card_ctx else None
 
+        def _on_inputs(inputs: list[dict]) -> None:
+            call_item.inputs = inputs
+
         def _on_job_submitted(job_id: int) -> None:
             call_item.job_id = job_id
             call_item.state = "submitted"
@@ -2149,6 +2152,7 @@ class StimmaSDK:
                 prompt_request=prompt_request,
                 cancel_checker=lambda: control.should_cancel(call_item),
                 on_job_submitted=_on_job_submitted,
+                on_inputs=_on_inputs,
             )
         except BaseException as e:
             control.end_call(call_item, error=e)
@@ -2166,7 +2170,7 @@ class StimmaSDK:
                 "error": f"{type(e).__name__}: {e}",
             })
             raise
-        control.end_call(call_item, media_id=result.get("media_id"))
+        control.end_call(call_item, media_id=result.get("media_id"), path=result.get("path"))
         if card_slot is not None:
             if result.get("metadata_only") or result.get("media_id") is None:
                 # A data tool (detections, captions) makes nothing to show.
