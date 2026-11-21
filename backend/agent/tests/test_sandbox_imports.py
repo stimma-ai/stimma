@@ -31,3 +31,24 @@ def test_time_is_importable_but_sleep_points_at_asyncio(tmp_path):
 def test_unrelated_modules_are_still_denied(tmp_path):
     with pytest.raises(ImportError, match="Import 'subprocess' is not allowed"):
         _run(tmp_path, "import subprocess")
+
+
+def test_json_dumps_sdk_results_paths_and_numpy(tmp_path):
+    from pathlib import Path
+
+    from agent.v2.code_runtime import ToolResult
+
+    scope = {"__builtins__": dict(build_safe_builtins(tmp_path, print)),
+             "result": ToolResult(path=Path("clip.mp4"), media_id=7), "Path": Path}
+    exec(compile(
+        "import json, numpy as np\n"
+        "with open('state.json', 'w') as f:\n"
+        "    json.dump({'results': [result], 'where': Path('a/b.png'), 'n': np.int64(3), 'v': np.zeros(2)}, f)\n"
+        "out = json.loads(open('state.json').read())\n"
+        "from json import dumps\n"
+        "custom = dumps({1, 2}, default=lambda v: sorted(v) if isinstance(v, set) else str(v))\n",
+        "<run_code>", "exec"), scope)
+    out = scope["out"]
+    assert out["results"][0]["path"] == "clip.mp4" and out["results"][0]["media_id"] == 7
+    assert out["where"] == "a/b.png" and out["n"] == 3 and out["v"] == [0.0, 0.0]
+    assert scope["custom"] == "[1, 2]"

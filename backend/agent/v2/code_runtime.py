@@ -145,6 +145,53 @@ from .tools.show import show as show_tool
 
 log = get_logger(__name__)
 
+def _sandbox_json_default(value: Any) -> Any:
+    """What run_code's json does with values plain json rejects: SDK results
+    (ToolResult and its Path), paths, sets and numpy values, so an agent can
+    json.dump its own results without converting them first."""
+    if isinstance(value, os.PathLike):
+        return os.fsdecode(os.fspath(value))
+    if _dataclasses_mod.is_dataclass(value) and not isinstance(value, type):
+        return {f.name: getattr(value, f.name) for f in _dataclasses_mod.fields(value)}
+    if isinstance(value, (set, frozenset)):
+        return list(value)
+    if isinstance(value, numpy.generic):
+        return value.item()
+    if isinstance(value, numpy.ndarray):
+        return value.tolist()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def _make_sandbox_json():
+    import types
+
+    module = types.ModuleType("json", json.__doc__)
+    module.__dict__.update({k: v for k, v in vars(json).items() if not k.startswith("__")})
+
+    def _default(user_default):
+        if user_default is None:
+            return _sandbox_json_default
+
+        def chained(value):
+            try:
+                return user_default(value)
+            except TypeError:
+                return _sandbox_json_default(value)
+        return chained
+
+    def dumps(obj, *args, default=None, **kwargs):
+        return json.dumps(obj, *args, default=_default(default), **kwargs)
+
+    def dump(obj, fp, *args, default=None, **kwargs):
+        return json.dump(obj, fp, *args, default=_default(default), **kwargs)
+
+    module.dumps, module.dump = dumps, dump
+    return module
+
+
+_SANDBOX_JSON = _make_sandbox_json()
+
+
 ALLOWED_MODULES: dict[str, Any] = {
     "asyncio": asyncio,
     "base64": _base64_mod,
@@ -159,7 +206,7 @@ ALLOWED_MODULES: dict[str, Any] = {
     "hashlib": hashlib,
     "io": _io_mod,
     "itertools": itertools,
-    "json": json,
+    "json": _SANDBOX_JSON,
     "math": math,
     "numpy": numpy,
     "os.path": os.path,
@@ -3604,7 +3651,7 @@ async def run_code_in_sandbox(
         "ControlNetInput": ControlNetInput,
         "tqdm": _BoundTqdm,
         "asyncio": _patched_asyncio,
-        "json": json,
+        "json": _SANDBOX_JSON,
         "math": math,
         "random": random,
         "re": re,
