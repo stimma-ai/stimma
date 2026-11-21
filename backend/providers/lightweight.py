@@ -433,12 +433,19 @@ class LightweightProvider(ToolProvider):
             fd, tmp_path = tempfile.mkstemp(suffix=".mp4", prefix=f"filter_{filter_id}_")
             os.close(fd)
             whole_clip = WHOLE_CLIP_VIDEO_FILTERS.get(filter_id)
-            if whole_clip is not None:
-                whole_clip(str(image_path), tmp_path, settings)
-            else:
-                # Per-frame application reuses apply_builtin_filter, which overlays
-                # the filter def defaults — so pass the raw settings through.
-                apply_builtin_filter_video(filter_id, str(image_path), tmp_path, settings)
+            try:
+                if whole_clip is not None:
+                    whole_clip(str(image_path), tmp_path, settings)
+                else:
+                    # Per-frame application reuses apply_builtin_filter, which overlays
+                    # the filter def defaults — so pass the raw settings through.
+                    apply_builtin_filter_video(filter_id, str(image_path), tmp_path, settings)
+            except BaseException:
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+                raise
             return tmp_path
 
         tmp_path = await asyncio.to_thread(_apply_video if is_video else _apply_image)

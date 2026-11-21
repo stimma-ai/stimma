@@ -50,8 +50,9 @@ def _write(path: Path, data: bytes) -> None:
     temporary.replace(path)
 
 
-def _rotation(stream: dict) -> int:
-    """Display rotation in degrees (0/90/180/270) from ffprobe stream JSON."""
+def _rotation(stream: dict) -> float:
+    """Display rotation in degrees from ffprobe stream JSON (ffmpeg autorotates
+    within 1 degree of a quarter turn)."""
     value = 0.0
     for side in stream.get("side_data_list") or []:
         if "rotation" in side:
@@ -64,7 +65,7 @@ def _rotation(stream: dict) -> int:
             value = float((stream.get("tags") or {}).get("rotate") or 0)
         except (TypeError, ValueError):
             value = 0.0
-    return int(round(abs(value))) % 360
+    return abs(value) % 360
 
 
 def describe(source: Path, file_hash: str) -> dict:
@@ -98,7 +99,7 @@ def describe(source: Path, file_hash: str) -> dict:
         # ffmpeg autorotates on decode, so renditions come out in display
         # orientation; advertise those dimensions, not the stored ones.
         width, height = int(video["width"]), int(video["height"])
-        if _rotation(video) % 180 == 90:
+        if abs(_rotation(video) % 180 - 90) <= 1:
             width, height = height, width
         longest = max(width, height)
         variants = []

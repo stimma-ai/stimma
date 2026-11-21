@@ -102,7 +102,8 @@ def _extract_prompt_from_open_image(img: Image.Image) -> tuple[Optional[str], Op
         value = str(value).strip().strip('\x00').strip()
         if field == 'ImageDescription' and value.upper() in _CAMERA_BOILERPLATE:
             continue
-        if value and len(value) > 10:
+        # XPComment is user-written, so a short one is still a prompt.
+        if value and (len(value) > 10 or field == 'XPComment'):
             return value, parse_prompt_from_metadata(value)
     return None, None
 

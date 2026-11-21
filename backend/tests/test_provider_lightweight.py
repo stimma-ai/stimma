@@ -418,3 +418,23 @@ class TestFilterImageModes:
         assert out.info.get("icc_profile") == icc
         out = await _run_tool(provider, "darkroom-develop", {"input_images": [str(path)]})
         assert out.info.get("icc_profile") == icc
+
+
+async def test_failed_video_filter_removes_its_temp_output(provider, tmp_path, monkeypatch):
+    import glob
+    import tempfile
+
+    import filters.video_ops as vo
+
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    video_path = tmp_path / "clip.mp4"
+    video_path.write_bytes(b"not a video")
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("probe failed")
+
+    monkeypatch.setitem(vo.WHOLE_CLIP_VIDEO_FILTERS, "reverse", boom)
+    await provider.connect()
+    results = [r async for r in provider.execute("reverse", {"input_images": [str(video_path)]})]
+    assert results[-1].success is False
+    assert glob.glob(str(tmp_path / "filter_reverse_*")) == []

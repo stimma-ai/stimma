@@ -284,3 +284,20 @@ def test_reverse_timeout_removes_partial_output(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="stopped"):
         vo.apply_reverse_video("in.mp4", str(out))
     assert not out.exists()
+
+
+@pytest.mark.parametrize("rotation,swapped", [(89, True), (-90, True), (270.4, True), (180, False), (45, False)])
+def test_probe_swaps_near_quarter_turns(monkeypatch, rotation, swapped):
+    import json as _json
+    import filters.video_ops as vo
+
+    def fake_run(cmd, **kwargs):
+        if "v:0" in cmd:
+            out = {"streams": [{"width": 64, "height": 48, "r_frame_rate": "10/1",
+                                "side_data_list": [{"rotation": rotation}]}]}
+            return subprocess.CompletedProcess(cmd, 0, _json.dumps(out), "")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(vo.subprocess, "run", fake_run)
+    info = vo._probe("clip.mp4")
+    assert (info["width"], info["height"]) == ((48, 64) if swapped else (64, 48))

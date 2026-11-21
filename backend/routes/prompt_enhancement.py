@@ -1583,6 +1583,17 @@ def _extract_json_object(text: str) -> str:
         candidate = candidate.split("```", 1)[1].split("```", 1)[0]
     candidate = candidate.strip()
 
+    # A reply that is complete JSON must itself be the object; [{...}] or
+    # null is not a structured caption, so don't dig an object out of it.
+    try:
+        whole = json.loads(candidate)
+    except json.JSONDecodeError:
+        pass
+    else:
+        if not isinstance(whole, dict):
+            raise json.JSONDecodeError("Expected a JSON object", candidate, 0)
+        return json.dumps(whole, ensure_ascii=False, indent=2)
+
     # Fall back to the outermost {...} span if there's still surrounding prose.
     if not candidate.startswith("{"):
         start = candidate.find("{")

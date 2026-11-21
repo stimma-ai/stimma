@@ -30,3 +30,8 @@ def test_xpcomment_decodes_utf16_and_beats_boilerplate(tmp_path):
     raw, parsed = extract_prompt_from_exif(path)
     assert raw == prompt
     assert parsed == prompt
+
+
+def test_short_xpcomment_is_kept(tmp_path):
+    path = _jpeg_with(tmp_path, XPComment="red fox\x00".encode("utf-16-le"))
+    assert extract_prompt_from_exif(path)[0] == "red fox"

@@ -74,7 +74,10 @@ def _probe(input_path: str) -> Dict[str, Any]:
             rotation = float((stream.get("tags") or {}).get("rotate") or 0)
         except (TypeError, ValueError):
             rotation = 0.0
-    if int(round(abs(rotation))) % 180 == 90:
+    # ffmpeg autorotates within 1 degree of a quarter turn; ffprobe truncates
+    # the angle (89.9 reports as 89), so match with the same tolerance.
+    quarter = abs(rotation) % 180
+    if abs(quarter - 90) <= 1:
         width, height = height, width
 
     fps = 30.0
