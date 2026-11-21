@@ -584,6 +584,8 @@ filename / the `def` in the stub):
 `r` is a ToolResult: `.media_id`, `.path`, `.seed`, `.width`, `.height`,
 `.open()` -> PIL.Image. Submit all independent generations together with
 `asyncio.gather(...)`; the runtime and provider manage concurrency.
+When each call builds on the last, `with stimma.batch(title, total=n):`
+around the loop tells the chat how many are coming.
 Category directory names use hyphens; the import module uses
 underscores (`text-to-image` -> `text_to_image`).
 

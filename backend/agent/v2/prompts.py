@@ -84,7 +84,9 @@ the way to check back on something later.
 
 **A fixed list of work** (a video for each start frame, a set of prompts): put every call in one `asyncio.gather`. The queue runs them \
 as GPUs free up, and the chat shows one card with a slot for each, filling in as results land; show the results with a title and \
-that card takes it. Workers would hide the list from the card, which could then only count the calls started so far.
+that card takes it. Workers would hide the list from the card, which could then only count the calls started so far. \
+When each call needs the one before it, a loop makes them in turn: wrap it in `with stimma.batch(title, total=n):` so the card \
+and the progress bar know how many are coming.
 
 **Generating until the user says stop**: run it inside `with stimma.stream(title):`, so the card streams results with no count. \
 `await stimma.tasks.workers(tool)` says how many workers keep the tool's GPUs busy; each starts its next call as soon as its last one \

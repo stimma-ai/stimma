@@ -19,6 +19,7 @@ import json
 import re
 import time
 from dataclasses import dataclass, field
+from pathlib import PurePath
 from typing import Any, Callable, Optional
 
 from core.logging import get_logger
@@ -58,6 +59,10 @@ class CallItem:
     error: Optional[str] = None
     cancel_requested: bool = False
     began: float = field(default_factory=time.monotonic)
+    # Library media the call reads ({"media_id", "role"}), once it's resolved them.
+    inputs: list[dict[str, Any]] = field(default_factory=list)
+    file_format: Optional[str] = None
+    ended: Optional[float] = None
 
     @property
     def final(self) -> bool:
@@ -95,10 +100,14 @@ class RunControl:
         return item
 
     @staticmethod
-    def end_call(item: CallItem, *, media_id: Optional[int] = None, error: BaseException | None = None) -> None:
+    def end_call(item: CallItem, *, media_id: Optional[int] = None, error: BaseException | None = None,
+                 path: Optional[str] = None) -> None:
+        item.ended = time.monotonic()
         if error is None:
             item.state = "done"
             item.media_id = media_id
+            if path:
+                item.file_format = PurePath(path).suffix.lstrip(".").lower() or None
         elif isinstance(error, GenerationCancelled) or item.cancel_requested or isinstance(error, asyncio.CancelledError):
             item.state = "cancelled"
         else:
@@ -142,7 +151,9 @@ class RunControl:
                     log.warning(f"background: cancel job {item.job_id} failed: {e}")
         return [i.item for i in targets]
 
-    async def snapshot_items(self) -> list[dict[str, Any]]:
+    async def snapshot_items(self, *, detail: bool = False) -> list[dict[str, Any]]:
+        """Each call's state. ``detail`` adds what the progress view shows:
+        each call's inputs and its output's format."""
         jobs: dict[int, Any] = {}
         job_ids = [i.job_id for i in self.items if i.job_id is not None and not i.final]
         if job_ids and self.session_maker is not None:
@@ -177,7 +188,11 @@ class RunControl:
                     entry["state"] = "preparing"
                 if item.cancel_requested:
                     entry["cancel_requested"] = True
-            entry["elapsed_s"] = int(now - item.began)
+            entry["elapsed_s"] = int((item.ended or now) - item.began)
+            if detail:
+                entry["inputs"] = list(item.inputs)
+                if item.file_format:
+                    entry["file_format"] = item.file_format
             if item.media_id is not None:
                 entry["media_id"] = item.media_id
             if item.error:

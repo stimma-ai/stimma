@@ -2658,6 +2658,27 @@ async def get_background_work(chat_id: int):
     return {"tasks": tasks, "foreground": foreground}
 
 
+# The progress view shows the newest calls; an open-ended task can make thousands.
+BACKGROUND_ITEMS_LIMIT = 200
+
+
+@router.get("/{chat_id}/background/{task_id}/items")
+async def get_background_task_items(chat_id: int, task_id: str):
+    """What a background task has made so far, newest first, for the progress view.
+
+    Each item has its state, its inputs (library media it reads) and, once done,
+    its output's media id. Looking doesn't save anything: outputs stay where the
+    task's code leaves them.
+    """
+    from agent.v2 import background as bg
+    run = bg.get_run(chat_id, task_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Background task not found")
+    items = await run.control.snapshot_items(detail=True)
+    newest = list(reversed(items))[:BACKGROUND_ITEMS_LIMIT]
+    return {"id": run.id, "state": run.state, "items": newest, "total_items": len(items)}
+
+
 class CancelBackgroundRequest(PydanticBaseModel):
     items: Optional[List[int]] = None
 

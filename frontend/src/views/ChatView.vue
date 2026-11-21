@@ -1214,7 +1214,9 @@
         <BackgroundTasksBar
           v-if="runningBackgroundTasks.length > 0"
           :tasks="runningBackgroundTasks"
+          :chat-id="chatId"
           @stop="stopBackgroundTask"
+          @view="mediaId => openSlideshow(mediaId)"
         />
         <ChatMessageQueue
           v-if="messageQueue.length > 0"
