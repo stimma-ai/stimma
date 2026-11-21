@@ -6,6 +6,7 @@ Handles:
 - Refreshing ID tokens when they expire
 - Getting valid ID tokens (with auto-refresh)
 """
+import asyncio
 import time
 from typing import Optional, TypedDict
 
@@ -110,25 +111,44 @@ async def _refresh_id_token_classified(refresh_token: str) -> TokenResult:
         raise AuthRefreshError(str(e) or type(e).__name__) from e
 
 
-async def _clear_auth_after_session_expiry() -> None:
-    """Clear local auth and disconnect cloud after session expiry."""
-    # Signed out means multi-device stops too. The token is already dead, so
-    # this teardown is local only: no registry call needing a refresh.
+_expiry_teardown_tasks: set = set()
+
+
+async def clear_auth_after_session_expiry(generation: Optional[int] = None) -> None:
+    """Clear local auth and disconnect cloud after session expiry.
+
+    ``generation`` is the login the failure belongs to; when a logout or a new
+    login has superseded it, nothing is cleared. Auth is cleared before the
+    first await so a login landing mid-cleanup is never wiped.
+    """
+    from auth_storage import auth_generation, clear_auth_state
+
+    if generation is not None and auth_generation() != generation:
+        log.info("ignoring session expiry for a login that has since ended")
+        return
     try:
+        clear_auth_state()
+    except Exception as e:
+        log.warning("failed to clear auth state after session expiry", error=str(e))
+    cleared = auth_generation()
+
+    # Signed out means multi-device stops too: sessions die now, and the
+    # listener/heartbeat teardown runs in its own task, since the request or
+    # heartbeat that noticed the expiry may be one of the things it stops.
+    try:
+        from multi_device.auth import revoke_all_sessions
+        revoke_all_sessions()
         from multi_device import service as multi_device_service
-        await multi_device_service.stop_after_session_expiry()
+        task = asyncio.create_task(multi_device_service.stop_after_session_expiry())
+        _expiry_teardown_tasks.add(task)
+        task.add_done_callback(_expiry_teardown_tasks.discard)
     except Exception as e:
         log.warning("failed to stop multi-device after session expiry", error=str(e))
 
     try:
-        from auth_storage import clear_auth_state
-        clear_auth_state()
-    except Exception as e:
-        log.warning("failed to clear auth state after session expiry", error=str(e))
-
-    try:
         from routes.cloud import disconnect_cloud_internal
-        await disconnect_cloud_internal()
+        if auth_generation() == cleared:
+            await disconnect_cloud_internal()
     except Exception as e:
         log.warning("failed to disconnect cloud after session expiry", error=str(e))
 
@@ -295,11 +315,8 @@ async def get_valid_id_token(*, raise_on_failure: bool = False) -> Optional[str]
         return result['id_token']
 
     except AuthSessionExpiredError:
-        if auth_generation() != generation:
-            log.info("ignoring refresh failure for a login that has since ended")
-            return None
         log.info("stored Stimma Cloud session is no longer valid")
-        await _clear_auth_after_session_expiry()
+        await clear_auth_after_session_expiry(generation)
         if raise_on_failure:
             raise
     except AuthNetworkError as e:
@@ -360,11 +377,8 @@ async def force_refresh_id_token(*, raise_on_failure: bool = False) -> Optional[
         return result['id_token']
 
     except AuthSessionExpiredError:
-        if auth_generation() != generation:
-            log.info("ignoring forced refresh failure for a login that has since ended")
-            return None
         log.info("stored Stimma Cloud session is no longer valid during force refresh")
-        await _clear_auth_after_session_expiry()
+        await clear_auth_after_session_expiry(generation)
         if raise_on_failure:
             raise
     except AuthNetworkError as e:

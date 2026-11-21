@@ -413,7 +413,7 @@ async def get_account_info():
     Fetches the latest balance info. Use this when displaying
     account details that need to be up-to-date.
     """
-    from auth_storage import load_auth_state, save_auth_state, clear_auth_state
+    from auth_storage import auth_generation, load_auth_state
     from firebase_auth import (
         AuthNetworkError,
         AuthRefreshError,
@@ -429,6 +429,7 @@ async def get_account_info():
             detail=_auth_error("privacy_lockdown", disabled_message("Stimma account access")),
         )
 
+    generation = auth_generation()
     auth_state = load_auth_state()
     if not auth_state or not auth_state.get('refresh_token'):
         from routes.cloud import disconnect_cloud_internal
@@ -527,11 +528,8 @@ async def get_account_info():
                 ),
             )
         if e.response.status_code in (401, 403):
-            from multi_device import service as multi_device_service
-            from routes.cloud import disconnect_cloud_internal
-            await multi_device_service.stop_after_session_expiry()
-            await disconnect_cloud_internal()
-            clear_auth_state()
+            from firebase_auth import clear_auth_after_session_expiry
+            await clear_auth_after_session_expiry(generation)
             raise HTTPException(
                 status_code=401,
                 detail=_auth_error("session_expired", "Please sign in again."),

@@ -113,8 +113,12 @@ async def _download_pack(name: str) -> bytes:
 
 
 async def _install_pack_bytes(stimpacks_api, zip_bytes: bytes, name: str, detail: dict, profile_id: str):
-    """Unpack a downloaded marketplace pack off the event loop."""
-    return await asyncio.to_thread(
+    """Unpack a downloaded marketplace pack off the event loop.
+
+    If the caller is cancelled, wait for the worker to finish before letting
+    the cancellation through, so the profile lock outlives the unpack.
+    """
+    worker = asyncio.ensure_future(asyncio.to_thread(
         stimpacks_api.install_stimpack_from_zip_bytes,
         zip_bytes,
         profile_id=profile_id,
@@ -127,7 +131,12 @@ async def _install_pack_bytes(stimpacks_api, zip_bytes: bytes, name: str, detail
             "authorAvatarKey": detail.get("authorAvatarKey", ""),
             "autoEnable": detail.get("autoEnable", False),
         },
-    )
+    ))
+    try:
+        return await asyncio.shield(worker)
+    except asyncio.CancelledError:
+        await asyncio.wait({worker})
+        raise
 
 
 # --- Avatars ---

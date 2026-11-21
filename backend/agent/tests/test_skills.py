@@ -913,6 +913,17 @@ class TestMarketplaceInstallSafety:
         assert (victim / "stimpack.json").is_file()
         assert (marketplace_pack / "skills/grids/SKILL.md").is_file()
 
+    def test_listing_name_must_match_exactly(self, stimpacks_dir):
+        with pytest.raises(ValueError):
+            sp.install_stimpack_from_zip_bytes(_pack_zip("studio--pack"), "test-profile", _meta("studio-pack"))
+        assert list(stimpacks_dir.iterdir()) == []
+
+    def test_a_different_listing_with_the_same_name_is_not_replaced(self, stimpacks_dir, marketplace_pack):
+        meta = {**_meta("essentials"), "stimpackId": "sp_other"}
+        with pytest.raises(ValueError):
+            sp.install_stimpack_from_zip_bytes(_pack_zip("essentials"), "test-profile", meta)
+        assert (marketplace_pack / "skills/grids/SKILL.md").is_file()
+
     def test_never_replaces_a_users_own_pack(self, stimpacks_dir):
         own = stimpacks_dir / "essentials"
         _write_manifest(own, "essentials")

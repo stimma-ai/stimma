@@ -13,6 +13,8 @@ Tests cover:
 import pytest
 import json
 import os
+import asyncio
+
 import httpx
 from httpx import AsyncClient
 from unittest.mock import patch, AsyncMock, MagicMock
@@ -524,7 +526,20 @@ class TestFirebaseRefreshHandling:
              patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock), \
              patch("multi_device.service.stop_after_session_expiry", new_callable=AsyncMock) as stop:
             assert await get_valid_id_token() is None
+            await asyncio.sleep(0)  # the teardown runs in its own task
         stop.assert_awaited_once()
+
+    async def test_stale_expiry_does_not_clear_a_newer_login(self, auth_storage_env):
+        from auth_storage import auth_generation, load_auth_state, save_auth_state
+        from firebase_auth import clear_auth_after_session_expiry
+
+        save_auth_state({"user": {"uid": "u1"}, "refresh_token": "old-refresh"})
+        generation = auth_generation()
+        save_auth_state({"user": {"uid": "u2"}, "refresh_token": "new-refresh"}, new_login=True)
+        with patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
+            await clear_auth_after_session_expiry(generation)
+        assert load_auth_state()["refresh_token"] == "new-refresh"
+        disconnect.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

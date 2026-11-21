@@ -1453,7 +1453,7 @@ def _install_from_zip(
         dest_dir = stimpacks_root / slug
         if marketplace_meta:
             expected = marketplace_meta["name"]
-            if slug != _slugify(expected):
+            if manifest.name != expected:
                 raise ValueError(
                     f"Downloaded archive is stimpack '{manifest.name}', not '{expected}'"
                 )
@@ -1484,6 +1484,13 @@ def _install_from_zip(
                 )
             if _parse_stimpack_dir(staging) is None:
                 raise ValueError("Could not load the staged stimpack")
+            if (
+                marketplace_meta
+                and dest_dir.exists()
+                and not _is_same_marketplace_pack(dest_dir, marketplace_meta)
+            ):
+                # Recheck at the swap: a local pack may have appeared meanwhile.
+                raise ValueError(f"A different stimpack already occupies '{slug}'; not replacing it")
             _swap_into_place(staging, dest_dir)
         finally:
             if staging.exists():
@@ -1498,9 +1505,10 @@ def _is_same_marketplace_pack(stimpack_dir: Path, marketplace_meta: dict) -> boo
     _, _, raw = _read_sidecar(stimpack_dir)
     if not raw:
         return False
-    if raw.get("stimpackId") and raw.get("stimpackId") == marketplace_meta.get("stimpackId"):
-        return True
-    return bool(raw.get("name")) and _slugify(str(raw["name"])) == _slugify(marketplace_meta["name"])
+    if raw.get("stimpackId"):
+        # The listing id is authoritative: a reused name is a different pack.
+        return raw["stimpackId"] == marketplace_meta.get("stimpackId")
+    return raw.get("name") == marketplace_meta["name"]
 
 
 def _swap_into_place(staging: Path, dest_dir: Path) -> None:

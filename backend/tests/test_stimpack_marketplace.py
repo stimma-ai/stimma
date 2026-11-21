@@ -125,3 +125,26 @@ async def test_manual_update_waits_for_the_profile_sync_lock_and_unpacks_off_the
     result = await task
     assert result["marketplace_version"] == 2
     assert installs == [("lock-test", True)]
+
+
+async def test_cancelled_install_keeps_waiting_for_the_unpack(monkeypatch):
+    import asyncio
+    import threading
+    import time
+
+    finished = threading.Event()
+
+    def slow_install(zip_bytes, profile_id=None, marketplace_meta=None):
+        time.sleep(0.2)
+        finished.set()
+        return object()
+
+    api = SimpleNamespace(install_stimpack_from_zip_bytes=slow_install)
+    task = asyncio.create_task(stimpack_marketplace._install_pack_bytes(
+        api, b"zip", "pack", {"id": "sp_1"}, "p1",
+    ))
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert finished.is_set()
