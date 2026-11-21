@@ -654,7 +654,7 @@ async def test_unchanged_rewrite_retries_with_feedback_and_preserves_instruction
     assert 'using different wording' in retry_messages[-1]['content']
 
 
-async def test_repeated_echo_blocks_generation_before_queueing(
+async def test_repeated_echo_submits_the_prompt_as_given(
     generation_client, output_folder, prompt_variant_probe, monkeypatch
 ):
     from unittest.mock import AsyncMock, patch
@@ -665,16 +665,17 @@ async def test_repeated_echo_blocks_generation_before_queueing(
     complete = AsyncMock(return_value='  Joshua posing for a photo in a room\n')
     monkeypatch.setattr(pe, 'llm_complete_text', complete)
     queue = AsyncMock()
+    queue.submit_job = AsyncMock(return_value=7)
     with patch('generation_queue.get_generation_queue', return_value=queue):
         response = await generation_client.post('/api/generate/submit', json={
             'tool_id': 'test:text-to-image', 'task_type': 'text-to-image',
             'folder_path': output_folder, 'parameters': {'prompt': prompt},
             'prompt_options': {'autoImprove': {'enabled': True}},
         })
-    assert response.status_code == 502, response.text
-    assert 'unchanged after 3 attempts' in response.json()['detail']['message']
+    # A rewrite that only echoes the input never stops the run.
+    assert response.status_code == 200, response.text
     assert complete.await_count == 3
-    queue.submit_job.assert_not_called()
+    queue.submit_job.assert_awaited_once()
 
 
 async def test_flux3_klein_edit_shows_references_labeled_by_ordinal(prompt_variant_probe, monkeypatch):

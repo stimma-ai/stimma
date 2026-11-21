@@ -586,8 +586,14 @@ async def _auto_save_path(
 
     try:
         # Build provenance with lineage from session-level media tracking
-        provenance: dict[str, Any] = {"task_type": "agent_edit"}
+        from ..file_sources import sources_for_file
+
+        provenance: dict[str, Any] | None = {"task_type": "agent_edit"}
         source_ids = list(session_media_ids or [])
+        full = Path(path) if Path(path).is_absolute() else Path(workspace_dir or ".") / path
+        if session and await sources_for_file(session, workspace_dir, full):
+            # Recorded sources (stimma.ffmpeg, join_video) beat the session guess.
+            provenance, source_ids = None, []
         if source_ids and chat_id and session:
             sdk = StimmaSDK(
                 session=session, chat_id=chat_id,

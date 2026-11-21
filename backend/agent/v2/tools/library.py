@@ -1038,6 +1038,7 @@ async def resolve_params_from(
         ToolParameter("cursor", "string", "Opaque cursor for browse_options pagination", required=False),
         ToolParameter("path", "string", "Workspace filename to save (save action)", required=False),
         ToolParameter("save_tags", "array", "Tags to apply on save — only when the user explicitly requests tagging", required=False, items={"type": "string"}),
+        ToolParameter("sources", "array", "Save: media this file was made from, so its history shows them. Files made with stimma.ffmpeg or join_video already list theirs; add any you used in other code.", required=False, items={"type": "integer"}),
         ToolParameter("marker_name", "string", "Marker name (marker action). Markers are a FIXED, curated set (typically 'favorite' and 'library' — the saved-for-later flag) — you cannot create new ones. Use operation='list' if unsure which names exist; 'add' only applies an existing marker.", required=False),
         ToolParameter("collection_name", "string", "Collection name (collection action)", required=False),
         ToolParameter("collection_id", "integer", "Collection ID (collection action)", required=False),
@@ -1067,6 +1068,7 @@ async def library(
     cursor: Optional[str] = None,
     path: Optional[str] = None,
     save_tags: Optional[List[str]] = None,
+    sources: Optional[List[int]] = None,
     marker_name: Optional[str] = None,
     collection_name: Optional[str] = None,
     collection_id: Optional[int] = None,
@@ -1101,7 +1103,7 @@ async def library(
         if unknown:
             raise ValueError(f"Unknown library arguments: {sorted(unknown)}. Put supported criteria in filters; see browse_schema.")
         arguments = locals().copy()
-        parameter_names = {"query", "search_fields", "media_id", "media_ids", "asset_id", "asset_ids", "tags", "limit", "offset", "filters", "scope", "direction", "relationship", "sort_by", "random_seed", "facet", "cursor", "path", "save_tags", "marker_name", "collection_name", "collection_id", "section_name", "section_id", "operation"}
+        parameter_names = {"query", "search_fields", "media_id", "media_ids", "asset_id", "asset_ids", "tags", "limit", "offset", "filters", "scope", "direction", "relationship", "sort_by", "random_seed", "facet", "cursor", "path", "save_tags", "sources", "marker_name", "collection_name", "collection_id", "section_name", "section_id", "operation"}
         invalid = [name for name in parameter_names - query_actions[action] if arguments[name] is not None]
         if invalid:
             raise ValueError(f"{action} does not accept {sorted(invalid)}; use browse_schema for query capabilities")
@@ -1126,7 +1128,8 @@ async def library(
     elif action == "generation_params":
         return await _generation_params(session, media_id)
     elif action == "save":
-        return await _save(session, path, workspace_dir, save_tags, project_id=project_id)
+        return await _save(session, path, workspace_dir, save_tags, project_id=project_id,
+                           sources=sources)
     elif action == "lineage":
         from ..library_graph import traverse_lineage
         return json.dumps(await traverse_lineage(session, _validate_media_ids(_collect_media_ids(media_id, media_ids)),
@@ -1403,6 +1406,29 @@ def _compute_file_hash(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _validate_source_ids(sources: Any) -> List[int]:
+    if sources is None:
+        return []
+    if isinstance(sources, (int, str)) and not isinstance(sources, bool):
+        sources = [sources]
+    out: List[int] = []
+    for value in sources:
+        if isinstance(value, bool):
+            raise ValueError("sources must be media ids")
+        try:
+            out.append(int(value))
+        except (TypeError, ValueError):
+            raise ValueError(f"sources must be media ids, got {value!r}")
+    return out
+
+
+async def _missing_media_ids(session: AsyncSession, ids: List[int]) -> List[int]:
+    if not ids:
+        return []
+    found = set((await session.execute(select(MediaItem.id).where(MediaItem.id.in_(ids)))).scalars().all())
+    return [i for i in ids if i not in found]
+
+
 def _normalize_source_path(path: str, workspace_dir: Optional[Path]) -> Path:
     source = Path(path)
     if not source.is_absolute():
@@ -1422,7 +1448,14 @@ async def save_workspace_file(
     project_id: Optional[int] = None,
     metadata_source: str = "agent_v2_run_code",
     materialize_asset: bool = False,
+    sources: Optional[List[int]] = None,
 ) -> str:
+    """Save a workspace file as library media.
+
+    Without explicit ``provenance``, the file's lineage is the library media
+    recorded as going into it (stimma.ffmpeg, join_video) plus any ``sources``
+    the caller declares; with none of either it lands as a plain file.
+    """
     if not path:
         return "Error: path is required for save action"
     try:
@@ -1431,6 +1464,16 @@ async def save_workspace_file(
         return f"Error: {e}"
     if not source.exists():
         return f"Error: File not found: {source}"
+    try:
+        sources = _validate_source_ids(sources)
+    except ValueError as e:
+        return f"Error: {e}"
+    if provenance is None and not source.is_dir():
+        from ..file_sources import provenance_for_saved_file
+        missing = await _missing_media_ids(session, sources)
+        if missing:
+            return f"Error: sources not found in the library: {missing}"
+        provenance = await provenance_for_saved_file(session, workspace_dir, source, sources)
 
     is_layout_bundle = source.is_dir() and source.name.lower().endswith('.stimmalayout')
     is_package_bundle = source.is_dir() and source.name.lower().endswith('.stimmapackage')
@@ -1834,6 +1877,7 @@ async def _save(
     workspace_dir: Optional[Path],
     save_tags: Optional[List[str]],
     project_id: Optional[int] = None,
+    sources: Optional[List[int]] = None,
 ) -> str:
     return await save_workspace_file(
         session,
@@ -1842,6 +1886,7 @@ async def _save(
         save_tags,
         project_id=project_id,
         materialize_asset=True,
+        sources=sources,
     )
 
 

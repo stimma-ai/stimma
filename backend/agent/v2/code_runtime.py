@@ -145,6 +145,53 @@ from .tools.show import show as show_tool
 
 log = get_logger(__name__)
 
+def _sandbox_json_default(value: Any) -> Any:
+    """What run_code's json does with values plain json rejects: SDK results
+    (ToolResult and its Path), paths, sets and numpy values, so an agent can
+    json.dump its own results without converting them first."""
+    if isinstance(value, os.PathLike):
+        return os.fsdecode(os.fspath(value))
+    if _dataclasses_mod.is_dataclass(value) and not isinstance(value, type):
+        return {f.name: getattr(value, f.name) for f in _dataclasses_mod.fields(value)}
+    if isinstance(value, (set, frozenset)):
+        return list(value)
+    if isinstance(value, numpy.generic):
+        return value.item()
+    if isinstance(value, numpy.ndarray):
+        return value.tolist()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def _make_sandbox_json():
+    import types
+
+    module = types.ModuleType("json", json.__doc__)
+    module.__dict__.update({k: v for k, v in vars(json).items() if not k.startswith("__")})
+
+    def _default(user_default):
+        if user_default is None:
+            return _sandbox_json_default
+
+        def chained(value):
+            try:
+                return user_default(value)
+            except TypeError:
+                return _sandbox_json_default(value)
+        return chained
+
+    def dumps(obj, *args, default=None, **kwargs):
+        return json.dumps(obj, *args, default=_default(default), **kwargs)
+
+    def dump(obj, fp, *args, default=None, **kwargs):
+        return json.dump(obj, fp, *args, default=_default(default), **kwargs)
+
+    module.dumps, module.dump = dumps, dump
+    return module
+
+
+_SANDBOX_JSON = _make_sandbox_json()
+
+
 ALLOWED_MODULES: dict[str, Any] = {
     "asyncio": asyncio,
     "base64": _base64_mod,
@@ -159,7 +206,7 @@ ALLOWED_MODULES: dict[str, Any] = {
     "hashlib": hashlib,
     "io": _io_mod,
     "itertools": itertools,
-    "json": json,
+    "json": _SANDBOX_JSON,
     "math": math,
     "numpy": numpy,
     "os.path": os.path,
@@ -186,7 +233,7 @@ ALLOWED_MODULES: dict[str, Any] = {
 # of truth for what it can import in sandboxed Python.
 ALLOWED_MODULES_PROMPT_DESCRIPTION = (
     "Allowed imports: asyncio, base64, collections, colorsys, copy, csv, "
-    "dataclasses, datetime, fnmatch, functools, glob (workspace-scoped: glob, "
+    "dataclasses, datetime, time (no sleep: use asyncio.sleep), fnmatch, functools, glob (workspace-scoped: glob, "
     "iglob, escape), hashlib, io, itertools, json, math, numpy, "
     "os (workspace-scoped: getcwd, listdir, walk, makedirs, mkdir, remove, "
     "rename, stat + full os.path), pathlib, PIL (all submodules: Image, "
@@ -198,6 +245,27 @@ ALLOWED_MODULES_PROMPT_DESCRIPTION = (
     "`await stimma.ffmpeg(...)` / `await stimma.ffprobe(...)` — workspace-jailed, "
     "no subprocess import needed."
 )
+
+
+class _SafeTime:
+    """``time`` for run_code: everything except a blocking ``sleep``.
+
+    Sandbox code runs on the backend event loop, so ``time.sleep`` would stall
+    every other chat. The module still has to be importable: datetime's C
+    implementation imports ``time`` (strftime, timetuple, now) and
+    ``_strptime`` through the *calling frame's* ``__import__``, which is the
+    sandbox's, so denying it broke ordinary datetime use.
+    """
+
+    def __getattr__(self, name: str):
+        if name == "sleep":
+            raise AttributeError(
+                "time.sleep would block the app; use `await asyncio.sleep(seconds)` in run_code."
+            )
+        return getattr(time, name)
+
+
+_SAFE_TIME = _SafeTime()
 
 
 def _import_denied_message(name: str) -> str:
@@ -448,6 +516,11 @@ def _make_safe_import(
             return module if fromlist else ALLOWED_MODULES[top_level]
         if name == "os":
             return safe_os if safe_os is not None else SimpleNamespace(path=os.path)
+        if name == "time":
+            return _SAFE_TIME
+        if name == "_strptime":
+            # Imported by datetime.strptime from inside C code (see _SafeTime).
+            return _importlib.import_module("_strptime")
         if name == "glob" and safe_glob is not None:
             return safe_glob
         if name == "shutil" and safe_shutil is not None:
@@ -1028,10 +1101,11 @@ class StimmaLibraryAPI:
         path: "str | Path | None" = None,
     ) -> dict[str, Any]:
         """Save to the library. Accepts a ToolResult, a PIL Image, or a
-        workspace path (``path=`` is an alias for a path item). For images
-        composed/edited in code (an Image or path, not a ToolResult), pass
-        sources=[media ids] so the derivation is recorded — otherwise
-        code-path edits are invisible to lineage."""
+        workspace path (``path=`` is an alias for a path item).
+
+        sources=[media ids]: what the file was made from, shown in its history.
+        Files made with stimma.ffmpeg or join_video already list theirs; add
+        any you used in other code (PIL, numpy)."""
         return await self._save_payload(item, tags, inspired_by, sources, path,
                                         materialize_asset=True)
 
@@ -1087,19 +1161,9 @@ class StimmaLibraryAPI:
                 provenance["source_inputs"] = base.get("source_inputs", [])
             path = item.path
         else:
+            # Recorded sources (stimma.ffmpeg, join_video) plus declared ones;
+            # save_workspace_file resolves both.
             path = Path(item)
-            src_ids = [sources] if isinstance(sources, int) else [int(s) for s in (sources or [])]
-            if src_ids:
-                provenance = {
-                    "task_type": "code",
-                    "tool_id": "run_code",
-                    "parameters": {},
-                    "seed": None,
-                    "source_media_ids": src_ids,
-                }
-                base = await self._sdk._build_edit_provenance(src_ids)
-                provenance["lineage_trace"] = base.get("lineage_trace", [])
-                provenance["source_inputs"] = base.get("source_inputs", [])
 
         raw = await save_workspace_file(
             session=self._sdk.session,
@@ -1110,6 +1174,8 @@ class StimmaLibraryAPI:
             inspired_by=inspired_by,
             project_id=self._sdk.project_id,
             materialize_asset=materialize_asset,
+            sources=None if provenance is not None else (
+                [sources] if isinstance(sources, int) else list(sources or [])),
         )
         if isinstance(raw, str) and raw.startswith("Error:"):
             raise RuntimeError(raw[6:].strip())
@@ -1907,6 +1973,13 @@ class StimmaSDK:
         if exe is None:
             raise RuntimeError(f"{tool} is not installed on this machine.")
 
+        trace = None
+        if tool == "ffmpeg":
+            # Note which library media go into each file written, so a later
+            # library save of it inherits them (file_sources).
+            from .file_sources import FfmpegTrace
+            trace = await asyncio.to_thread(FfmpegTrace, argv, Path(self.workspace_dir))
+
         proc = await asyncio.create_subprocess_exec(
             exe,
             *argv,
@@ -1936,6 +2009,9 @@ class StimmaSDK:
                 f"{tool} exited {result.returncode}: {' '.join(argv)}\n"
                 f"{result.stderr[-2000:]}"
             )
+        if trace is not None and result.returncode == 0:
+            from .file_sources import trace_ffmpeg_result
+            await trace_ffmpeg_result(self.session, self.workspace_dir, trace)
         return result
 
     async def detect_faces(
@@ -3162,14 +3238,20 @@ class StimmaSDK:
         # Build provenance from the primary source's generation metadata
         provenance = await self._build_edit_provenance(source_media_ids, session=session)
 
+        from .file_sources import sources_for_file
+
         saved_ids: list[int] = []
         for path in paths:
+            # A file with recorded sources (stimma.ffmpeg, join_video) is saved
+            # with those; the run's tool results are only a guess.
+            full = Path(path) if Path(path).is_absolute() else Path(self.workspace_dir) / path
+            recorded = await sources_for_file(session or self.session, self.workspace_dir, full)
             raw = await save_workspace_file(
                 session=session or self.session,
                 path=path,
                 workspace_dir=self.workspace_dir,
                 save_tags=None,
-                provenance=provenance,
+                provenance=None if recorded else provenance,
                 project_id=self.project_id,
             )
             if isinstance(raw, str) and not raw.startswith("Error:"):
@@ -3181,83 +3263,8 @@ class StimmaSDK:
 
     async def _build_edit_provenance(self, source_media_ids: list[int], session=None) -> dict[str, Any]:
         """Build provenance for an agent-edited file with inherited lineage_trace."""
-        provenance: dict[str, Any] = {
-            "task_type": "agent_edit",
-            "source_media_ids": source_media_ids,
-        }
-
-        if not source_media_ids:
-            return provenance
-
-        # Fetch all source items in one query
-        result = await (session or self.session).execute(
-            select(MediaItem).where(MediaItem.id.in_(source_media_ids))
-        )
-        source_items = {item.id: item for item in result.scalars().all()}
-
-        if not source_items:
-            return provenance
-
-        # Build lineage_trace from ALL sources (deduplicated by media_id)
-        seen_trace_ids: set[int] = set()
-        lineage_trace: list[dict] = []
-
-        for mid in source_media_ids:
-            source_item = source_items.get(mid)
-            if not source_item:
-                continue
-
-            source_gen: dict = {}
-            if source_item.generation_metadata:
-                try:
-                    source_gen = json.loads(source_item.generation_metadata)
-                except (TypeError, json.JSONDecodeError):
-                    pass
-
-            # Inherit this parent's lineage_trace entries
-            for entry in (source_gen.get("lineage_trace") or []):
-                entry_id = entry.get("media_id")
-                if entry_id and entry_id not in seen_trace_ids:
-                    seen_trace_ids.add(entry_id)
-                    lineage_trace.append(entry)
-
-            # Append this parent itself as an ancestor entry
-            if mid not in seen_trace_ids:
-                seen_trace_ids.add(mid)
-                source_parameters = dict(source_gen.get("parameters") or {})
-                if source_parameters.get("seed") is None and source_gen.get("seed") is not None:
-                    source_parameters["seed"] = source_gen["seed"]
-                lineage_trace.append({
-                    "media_id": mid,
-                    "task_type": source_gen.get("task_type"),
-                    "tool_id": source_gen.get("tool_id"),
-                    "model": source_gen.get("model"),
-                    "generator": source_gen.get("generator"),
-                    "prompt": source_gen.get("prompt"),
-                    "negative_prompt": source_gen.get("negative_prompt"),
-                    "parameters": source_parameters,
-                    "generated_at": source_gen.get("generated_at"),
-                    "source_inputs": source_gen.get("source_inputs") if isinstance(source_gen.get("source_inputs"), list) else [],
-                    "seed": source_gen.get("seed"),
-                })
-
-        provenance["lineage_trace"] = lineage_trace
-        provenance["source_inputs"] = [
-            {"media_id": mid, "role": "source_image", "file_path": source_items[mid].file_path}
-            for mid in source_media_ids if mid in source_items
-        ]
-
-        # Inherit tool_id from primary source for tool lineage propagation
-        primary_item = source_items.get(source_media_ids[0])
-        if primary_item and primary_item.generation_metadata:
-            try:
-                primary_gen = json.loads(primary_item.generation_metadata)
-                if primary_gen.get("tool_id"):
-                    provenance["tool_id"] = primary_gen["tool_id"]
-            except (TypeError, json.JSONDecodeError):
-                pass
-
-        return provenance
+        from .file_sources import build_edit_provenance
+        return await build_edit_provenance(session or self.session, source_media_ids)
 
     async def _resolve_media_or_path(self, value: str | Path | int) -> Path:
         if isinstance(value, int):
@@ -3644,7 +3651,7 @@ async def run_code_in_sandbox(
         "ControlNetInput": ControlNetInput,
         "tqdm": _BoundTqdm,
         "asyncio": _patched_asyncio,
-        "json": json,
+        "json": _SANDBOX_JSON,
         "math": math,
         "random": random,
         "re": re,

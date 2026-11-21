@@ -308,8 +308,10 @@ async def _enhance(job_params: Dict[str, Any], prompt: str, *, tool_id: str, tas
     """The classic per-image rewrite (Tool View's Enhance), as today."""
     from routes.generation import enhance_tool_prompt
 
+    outcome: Dict[str, Any] = {}
     try:
-        enhanced = await enhance_tool_prompt(job_params, tool_id=tool_id, task_type=task_type, project_id=project_id)
+        enhanced = await enhance_tool_prompt(job_params, tool_id=tool_id, task_type=task_type,
+                                             project_id=project_id, outcome=outcome)
     except Exception as e:
         log.warning(f"[prompt_handling] Prompt enhancement failed for {tool_id}: {e}")
         detail = getattr(e, "detail", None)
@@ -324,6 +326,12 @@ async def _enhance(job_params: Dict[str, Any], prompt: str, *, tool_id: str, tas
             f"Prompt enhancement failed: {message or str(e)}. No generation was started."
         ) from e
     enhanced = dict(enhanced)
+    if outcome.get("improved") == "fallback":
+        # A rewrite that couldn't be used never stops the run: the prompt went as written.
+        enhanced["prompt_metadata"] = _prompt_metadata(prompt, False)
+        reason = outcome.get("reason") or "the rewrite couldn't be used"
+        fallback = f"Prompt enhancement was skipped ({reason}), so your prompt was sent as written."
+        return PreparedPrompt(enhanced, note=f"{note} {fallback}" if note else fallback)
     enhanced["prompt_metadata"] = _prompt_metadata(prompt, True)
     if note is None and enhanced.get("prompt") != prompt:
         note = (f"Your prompt was rewritten for {target or 'this model'} before generating. "

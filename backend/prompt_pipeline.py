@@ -875,18 +875,19 @@ def _validated_prompt_preload(
 
 async def _improve_or_as_filled(level: Optional[str], outcome: Optional[Dict[str, Any]],
                                 db, prompt: str, **kwargs: Any) -> str:
-    """Improve. The per-image improver (`level` set: Fluent and Direct) never stops a run:
-    when it fails (empty replies, a chat model that is unreachable or not set up) the
-    prompt goes as filled and `outcome` records the fallback. Classic Improve still fails
-    the generation, so its prompt can't bypass it."""
+    """Improve. A bad reply never stops a run: the prompt goes as given and `outcome`
+    records the fallback and its reason. The per-image improver (`level` set: Fluent and
+    Direct) also degrades when the chat model is unreachable or not set up; classic
+    Improve still fails for those, since they fail every model feature."""
     try:
         return await _improve_with_verbatim_protection(db, prompt, level=level, outcome=outcome, **kwargs)
     except Exception as e:
-        if not level:
+        reason = _unusable_reply_reason(e)
+        if not level and reason is None:
             raise
-        log.warning(f"[prompt-pipeline] Improve failed; sending the prompt as filled: {str(e)[:200]}")
+        log.warning(f"[prompt-pipeline] Improve failed; sending the prompt as given: {str(e)[:200]}")
         if outcome is not None:
-            outcome.update(improved="fallback", reason="the improver failed")
+            outcome.update(improved="fallback", reason=reason or "the improver failed")
         return prompt
 
 
@@ -903,6 +904,21 @@ def _is_model_reply_failure(exc: Exception) -> bool:
     if isinstance(exc, asyncio.TimeoutError):
         return True
     return isinstance(exc, HTTPException) and exc.status_code in (502, 504)
+
+
+def _unusable_reply_reason(exc: Exception) -> Optional[str]:
+    """Why the assistant's reply couldn't be used, or None when the failure was not a
+    reply at all (no model set up, provider down, out of credit)."""
+    detail = getattr(exc, "detail", None)
+    if not isinstance(detail, dict) or detail.get("code") != "prompt_enhancement_failed":
+        return None
+    message = str(detail.get("message") or "")
+    # "... after 3 attempts: <reason>. Generation was not started. ..." or the
+    # improver's own "The tool assistant returned ... . Generation was not started."
+    head = message.split(". Generation was not started")[0]
+    reason = head.split(": ", 1)[1] if ": " in head else head
+    reason = reason.strip().rstrip(".")
+    return (reason[:1].lower() + reason[1:]) if reason else "the rewrite couldn't be used"
 
 
 def _is_llm_unconfigured_error(exc: Exception) -> bool:
@@ -958,9 +974,9 @@ async def run_prompt_pipeline(
     absent/disabled options skip the LLM steps, but final processing
     (comments/verbatim and any LLM-introduced wildcards) ALWAYS runs — same
     as an interactive submit.
-    LLM failures propagate (the caller fails the step, like the interactive
-    submit surfaces the error). Enabled enhancement must succeed, including
-    validation, before generation can start.
+    A rewrite that can't be used (empty, unchanged, failed validation) sends the
+    prompt as given and records why in `outcome`; failures that aren't a reply (no
+    model set up, provider errors) propagate so the caller fails the step.
     `input_roles`: what each input image is for, decided once for the submit from the
     prompt as typed (input_roles.roles_for_submit); the improver asks itself without.
     `fixed_spans`, `level` and `outcome` are for the per-image improver; see

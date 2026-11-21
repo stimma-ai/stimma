@@ -275,3 +275,20 @@ test('editor and agent-edit steps offer no "use these settings"', () => {
   assert.equal(agent.steps[0].tool, 'Edited by agent')
   assert.equal(agent.steps[0].settings, null)
 })
+
+test('a video stitched in agent code lists its clips, in order, as inputs', () => {
+  const prov = buildProvenance({
+    id: 90,
+    generation_metadata: {
+      task_type: 'video-stitch',
+      source: 'agent_v2_run_code',
+      source_inputs: [{ media_id: 11, role: 'clip' }, { media_id: 12, role: 'clip' }, { media_id: 13, role: 'input_audio' }],
+      lineage_trace: [{ media_id: 11, task_type: 'text-to-video' }, { media_id: 12, task_type: 'text-to-video' }],
+    },
+  }, { tools })
+  const own = prov.steps[0]
+  assert.equal(own.tool, 'Video stitch')
+  assert.equal(prov.imported, false)
+  assert.deepEqual(own.inputs.map(i => [i.mediaId, i.roleLabel]), [[11, 'Clip'], [12, 'Clip'], [13, 'Input audio']])
+  assert.equal(own.settings, null)
+})

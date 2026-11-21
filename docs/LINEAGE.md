@@ -270,6 +270,27 @@ Common task_type values and their meanings:
 | video-extend | Extended video | 1 video |
 | video-stitch | Combined videos | 2+ videos |
 
+## Agent-composed media
+
+Media the agent builds in code from library media (ffmpeg concat, trims, muxes,
+`join_video`) is recorded at the SDK boundary, not reconstructed later:
+
+- `stimma.ffmpeg` notes which library media each output file was made from. An
+  input counts when its bytes are a library item (a workspace copy, a tool
+  result) or a file already recorded this way, so chains flatten to the library
+  media: a file made from a file made from clips lists the clips. Concat lists,
+  `concat:` inputs and image sequences are read.
+- `stimma.join_video` (seamkit's state-preserving join) records its segments.
+- `library save` of such a file (the tool action or `stimma.library.save`)
+  writes `derived` edges to those sources. `sources=[media ids]` adds any the
+  platform could not see (PIL/numpy work is never traced).
+
+Records are keyed by content hash in the chat workspace, so copies and renames
+keep their sources and an overwrite drops them. A video made from two or more
+videos is saved as `video-stitch` with `source_inputs` role `clip`, in order;
+anything else is `agent_edit` with roles `input_video`, `input_audio` or
+`source_image`.
+
 ## Edge Cases
 
 ### No Lineage

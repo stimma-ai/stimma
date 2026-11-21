@@ -146,6 +146,58 @@ async def test_real_join_exports_and_reimports_opaque_tail_mapping(db_session, t
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="ffmpeg and ffprobe required")
+async def test_real_join_with_audio_pads_inside_filtergraph_and_keeps_coverage(db_session, tmp_path):
+    """Overlapped segments with sound join (ffmpeg rejects -af next to -filter_complex)."""
+    import asyncio
+    from types import SimpleNamespace
+    from video_join import join_video
+
+    class SDK:
+        workspace_dir = tmp_path
+        def _resolve_path(self, value):
+            return tmp_path / value
+        def _contain_av_token(self, tool, value):
+            return value
+        async def run(self, tool, *args):
+            proc = await asyncio.create_subprocess_exec(tool, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            stdout, stderr = await proc.communicate()
+            assert proc.returncode == 0, stderr.decode()
+            return SimpleNamespace(stdout=stdout.decode())
+        async def ffmpeg(self, *args):
+            return await self.run("ffmpeg", *args)
+        async def ffprobe(self, *args):
+            return await self.run("ffprobe", *args)
+
+    sdk = SDK()
+    segments = []
+    async with db_session() as session:
+        sdk.session = session
+        for i in range(3):
+            path = tmp_path / f"seg{i}.mp4"
+            await sdk.ffmpeg("-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=24",
+                             "-f", "lavfi", "-i", f"sine=frequency={440 + 110 * i}:sample_rate=48000",
+                             "-frames:v", "60", "-t", "2.5", "-c:v", "libx264", "-c:a", "aac", str(path))
+            media = await create_media_item(session, file_path=path, file_hash=hashlib.sha256(path.read_bytes()).hexdigest(), file_format="mp4")
+            await stage_managed_media(session, media=media, profile_id="default", remove_source=False)
+            await attach_sidecars(session, media=media, sidecars=[state()], profile_id="default")
+            segments.append({"media_id": media.id, "overlap": 0 if i == 0 else 12})
+        report = await join_video(sdk, segments)
+        assert report["frames"] == 60 + 48 + 48
+        assert report["companions"] == 3
+        probe = json.loads((await sdk.ffprobe("-v", "error", "-show_streams", "-show_format", "-of", "json", report["out"])).stdout)
+        kinds = sorted(s["codec_type"] for s in probe["streams"])
+        assert kinds == ["audio", "video"]
+        assert float(probe["format"]["duration"]) == pytest.approx(156 / 24, abs=0.05)
+        from agent.v2.tools.library import save_workspace_file
+        saved = json.loads(await save_workspace_file(session, report["out"], tmp_path, None))
+        records = await companions_for_media(session, saved["media_id"], "default")
+        spans = sorted(r["media_mapping"]["spans"][0]["media"] for r in records)
+        assert spans == [[0, 60], [60, 108], [108, 156]]
+        assert all(r["media_mapping"]["spans"][0]["preserved_streams"] == ["audio", "video"] for r in records)
+
+
+@pytest.mark.asyncio
 async def test_ephemeral_cleanup_releases_state_and_receipt(db_session, tmp_path):
     from flow_runtime.ephemeral import purge_ephemeral_run
     from database import ManagedArtifact

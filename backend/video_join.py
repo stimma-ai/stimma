@@ -22,7 +22,7 @@ async def join_video(sdk, segments, out="joined.mp4"):
     output.parent.mkdir(parents=True, exist_ok=True)
     work = sdk.workspace_dir / ".video-join" / uuid.uuid4().hex
     work.mkdir(parents=True)
-    parts, records, files = [], [], []
+    parts, records, files, source_ids = [], [], [], []
     dimensions, fps = None, None
     total = 0
     for i, original in enumerate(segments):
@@ -42,6 +42,12 @@ async def join_video(sdk, segments, out="joined.mp4"):
             digest = hashlib.sha256(await asyncio.to_thread(source.read_bytes)).hexdigest()
             media = await sdk.session.scalar(select(MediaItem).where(
                 MediaItem.file_hash == digest, MediaItem.deleted_at.is_(None), MediaItem.deletion_pending_at.is_(None)).order_by(MediaItem.id.desc()).limit(1))
+        if media is not None:
+            source_ids.append(media.id)
+        else:
+            # A file made earlier from library media: its clips are the sources.
+            from agent.v2.file_sources import sources_for_files
+            source_ids.extend(await sources_for_files(sdk.session, sdk.workspace_dir, [source]))
         local = work / f"source_{i}{source.suffix}"
         await asyncio.to_thread(shutil.copyfile, source, local)
         result = await sdk.ffprobe("-v", "error", "-show_streams", "-of", "json", str(local))
@@ -85,10 +91,11 @@ async def join_video(sdk, segments, out="joined.mp4"):
         if audio:
             filters.append(f"[{i}:a]atrim=start={float(start/fps)}:end={float(end/fps)},asetpts=PTS-STARTPTS[a{i}]")
             labels.append(f"[a{i}]")
-    filters.append("".join(labels) + f"concat=n={len(parts)}:v=1:a={int(audio)}[v]" + ("[a]" if audio else ""))
+    # Pad audio inside the graph: ffmpeg rejects -af on a stream fed by -filter_complex.
+    filters.append("".join(labels) + f"concat=n={len(parts)}:v=1:a={int(audio)}[v]" + ("[acat];[acat]apad[a]" if audio else ""))
     args = ["-v", "error", "-y", *files, "-filter_complex", ";".join(filters), "-map", "[v]"]
     if audio:
-        args += ["-map", "[a]", "-c:a", "aac", "-af", "apad"]
+        args += ["-map", "[a]", "-c:a", "aac"]
     args += ["-c:v", "libx264", "-crf", "18", "-preset", "fast", "-pix_fmt", "yuv420p",
              "-t", str(float(total/fps)), "-movflags", "+faststart", str(output)]
     await sdk.ffmpeg(*args)
@@ -97,5 +104,8 @@ async def join_video(sdk, segments, out="joined.mp4"):
     if actual != total:
         raise ValueError(f"Assembly frame count mismatch: expected {total}, received {actual}")
     await write_portable_manifest(output, records)
+    # library save of the joined file lists its clips, in order.
+    from agent.v2.file_sources import record_sources
+    await record_sources(sdk.workspace_dir, [output], source_ids)
     return {"out": str(output), "frames": total, "fps": float(fps), "segments": parts,
             "companions": len(records), "mode": "preserve_state"}
