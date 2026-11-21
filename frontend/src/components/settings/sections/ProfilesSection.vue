@@ -105,18 +105,31 @@
           @keydown.enter="submitRename"
         />
         <p v-if="renameError" class="text-xs text-red-400 mt-1">{{ renameError }}</p>
+        <template v-if="needsTargetPin(renameProfile)">
+          <label class="block text-xs text-content-tertiary mt-3 mb-1">PIN for this profile</label>
+          <input
+            v-model="targetPin"
+            type="password"
+            inputmode="numeric"
+            maxlength="20"
+            placeholder="Enter PIN"
+            class="w-full bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
+            @keydown.enter="submitRename"
+          />
+          <p v-if="targetPinError" class="text-xs text-red-400 mt-1">{{ targetPinError }}</p>
+        </template>
       </div>
 
       <template #footer>
         <Button variant="secondary" @click="closeRenameModal">Cancel</Button>
-        <Button variant="primary" :disabled="!canRename || saving" @click="submitRename">
+        <Button variant="primary" :disabled="!canRename || saving || (needsTargetPin(renameProfile) && !targetPin)" @click="submitRename">
           {{ saving ? 'Renaming...' : 'Rename' }}
         </Button>
       </template>
     </Modal>
 
     <!-- Delete confirmation modal -->
-    <Modal :show="!!deleteConfirm" size="md" @close="deleteConfirm = null">
+    <Modal :show="!!deleteConfirm" size="md" @close="closeDeleteConfirm">
       <template #header>
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
@@ -144,11 +157,24 @@
           <li>Markers and collections</li>
           <li>Profile settings and folders</li>
         </ul>
+        <template v-if="needsTargetPin(deleteConfirm)">
+          <label class="block text-xs text-content-tertiary mt-4 mb-1">PIN for this profile</label>
+          <input
+            v-model="targetPin"
+            type="password"
+            inputmode="numeric"
+            maxlength="20"
+            placeholder="Enter PIN"
+            class="w-full bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
+            @keydown.enter="deleteProfile"
+          />
+          <p v-if="targetPinError" class="text-xs text-red-400 mt-1">{{ targetPinError }}</p>
+        </template>
       </div>
 
       <template #footer>
-        <Button variant="secondary" @click="deleteConfirm = null">Cancel</Button>
-        <Button variant="danger" :disabled="saving" @click="deleteProfile">
+        <Button variant="secondary" @click="closeDeleteConfirm">Cancel</Button>
+        <Button variant="danger" :disabled="saving || (needsTargetPin(deleteConfirm) && !targetPin)" @click="deleteProfile">
           {{ saving ? 'Deleting...' : 'Delete Forever' }}
         </Button>
       </template>
@@ -425,7 +451,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { getApiBase } from '../../../apiConfig'
-import { cachePin, syncPinTimeouts } from '../../../composables/usePinLock'
+import { cachePin, getCachedPin, syncPinTimeouts } from '../../../composables/usePinLock'
 import Modal from '../../ui/Modal.vue'
 import Button from '../../ui/Button.vue'
 
@@ -622,8 +648,39 @@ const canRename = computed(() => {
   return true
 })
 
+// Renaming or deleting a PIN-protected profile takes its PIN, which this
+// window may not hold (it's on another profile, or the PIN expired).
+const targetPin = ref('')
+const targetPinError = ref('')
+
+function needsTargetPin(profile) {
+  return !!profile?.has_pin && !getCachedPin(profile.id)
+}
+
+function resetTargetPin() {
+  targetPin.value = ''
+  targetPinError.value = ''
+}
+
+/** The PIN to send for `profile` (null when it has none), or undefined when the entered one is wrong. */
+async function targetPinFor(profile) {
+  if (!profile.has_pin) return null
+  const cached = getCachedPin(profile.id)
+  if (cached) return cached
+  targetPinError.value = ''
+  const response = await fetch(`${getApiBase()}/profiles/${profile.id}/verify-pin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin: targetPin.value }),
+  })
+  if (response.ok) return targetPin.value
+  targetPinError.value = response.status === 401 ? 'Incorrect PIN' : 'Could not check the PIN'
+  return undefined
+}
+
 // Rename modal functions
 function openRenameModal(profile) {
+  resetTargetPin()
   renameProfile.value = profile
   renameProfileName.value = profile.name
 }
@@ -631,6 +688,7 @@ function openRenameModal(profile) {
 function closeRenameModal() {
   renameProfile.value = null
   renameProfileName.value = ''
+  resetTargetPin()
 }
 
 async function submitRename() {
@@ -638,8 +696,12 @@ async function submitRename() {
 
   saving.value = true
   try {
-    emit('update', { profileId: renameProfile.value.id, data: { name: renameProfileName.value.trim() } })
+    const pin = await targetPinFor(renameProfile.value)
+    if (pin === undefined) return
+    emit('update', { profileId: renameProfile.value.id, data: { name: renameProfileName.value.trim() }, pin })
     closeRenameModal()
+  } catch (error) {
+    targetPinError.value = 'Could not check the PIN'
   } finally {
     saving.value = false
   }
@@ -675,16 +737,26 @@ function switchToProfile(profileId) {
 
 // Delete functions
 function confirmDelete(profile) {
+  resetTargetPin()
   deleteConfirm.value = profile
 }
 
+function closeDeleteConfirm() {
+  deleteConfirm.value = null
+  resetTargetPin()
+}
+
 async function deleteProfile() {
-  if (!deleteConfirm.value) return
+  if (!deleteConfirm.value || saving.value) return
 
   saving.value = true
   try {
-    emit('delete', deleteConfirm.value.id)
-    deleteConfirm.value = null
+    const pin = await targetPinFor(deleteConfirm.value)
+    if (pin === undefined) return
+    emit('delete', deleteConfirm.value.id, pin)
+    closeDeleteConfirm()
+  } catch (error) {
+    targetPinError.value = 'Could not check the PIN'
   } finally {
     saving.value = false
   }

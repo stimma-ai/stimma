@@ -497,6 +497,8 @@ export function useWebSocket() {
       }
       window.addEventListener('profile-will-change', cancelOptional)
       window.addEventListener('pin-cached', reconnectWithNewPin)
+      window.addEventListener('pin-auto-locked', reconnectWithoutPin)
+      window.addEventListener('pin-cleared', reconnectWithoutPin)
     }
 
     // Register global handler for toast notifications from backend
@@ -606,6 +608,19 @@ function reconnectWithNewPin(event) {
   replaceAfterResume()
 }
 
+/**
+ * This window's profile locked (idle, manual lock, or a rejected PIN). A
+ * socket that proved its PIN would keep receiving the profile's events:
+ * replace it with one that presents no PIN.
+ */
+function reconnectWithoutPin(event) {
+  const profileId = getCurrentProfileId()
+  if (!profileId || event?.detail?.profileId !== profileId) return
+  if (!isLive(ws.value) || !realtimeScope.presentedPin(profileId)) return
+  if (getCachedPin(profileId)) return
+  replaceAfterResume()
+}
+
 /** Optional reconnect work for the previous profile is obsolete. */
 function cancelOptional() {
   optionalToken++
@@ -630,6 +645,8 @@ if (import.meta.hot) {
     document.removeEventListener('visibilitychange', onVisible)
     window.removeEventListener('profile-will-change', cancelOptional)
     window.removeEventListener('pin-cached', reconnectWithNewPin)
+    window.removeEventListener('pin-auto-locked', reconnectWithoutPin)
+    window.removeEventListener('pin-cleared', reconnectWithoutPin)
     // Save handlers for the next module version
     data.eventHandlers = eventHandlers
 

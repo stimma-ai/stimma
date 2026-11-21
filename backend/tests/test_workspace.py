@@ -323,6 +323,27 @@ class TestBlobs:
         await client.put("/api/workspace/blobs/removed", content=b"old", params={"if_absent": True})
         assert (await client.get("/api/workspace/blobs/removed")).status_code == 404
 
+    async def test_client_cannot_point_a_blob_doc_at_a_file(self, client: AsyncClient, db):
+        import workspace_service as service
+
+        for value in ({"hash": "../../config.yaml", "size": 1}, {"size": 1}):
+            response = await client.post("/api/workspace/docs", json={"ops": [
+                {"namespace": "blob", "key": "evil", "value": value},
+            ]})
+            assert response.status_code == 422
+        migrated = await client.post("/api/workspace/migrate", json={"client_id": "desktop-blob", "docs": [
+            {"namespace": "blob", "key": "evil", "value": {"hash": "../../config.yaml"}},
+        ]})
+        assert migrated.json()["stats"]["dropped"] == [{"key": "evil", "reason": "malformed"}]
+        assert (await client.get("/api/workspace/blobs/evil")).status_code == 404
+
+        # A malformed doc already stored reads as missing and doesn't stop cleanup.
+        db.add(WorkspaceDoc(namespace="blob", key="old", value='{"size": 3}', rev=1,
+                            created_at=datetime.utcnow(), updated_at=datetime.utcnow()))
+        await db.commit()
+        assert (await client.get("/api/workspace/blobs/old")).status_code == 404
+        await service.purge_expired(db, "default")
+
     async def test_missing_blob_is_404(self, client: AsyncClient):
         assert (await client.get("/api/workspace/blobs/nothing")).status_code == 404
 

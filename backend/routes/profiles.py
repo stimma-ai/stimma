@@ -2,7 +2,7 @@
 API routes for profile management.
 """
 import bcrypt
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 from core.logging import get_logger
@@ -88,10 +88,13 @@ async def get_current():
 
 
 @router.get("/{profile_id}")
-async def get_profile(profile_id: str):
+async def get_profile(profile_id: str, request: Request):
     """
-    Get details for a specific profile.
+    Get details for a specific profile. Its folders need its PIN, if it has one.
     """
+    from core.middleware import require_profile_pin
+
+    require_profile_pin(request, profile_id)
     registry = get_database_registry()
     config = registry.get_profile_config(profile_id)
     if not config:
@@ -113,10 +116,13 @@ async def get_profile(profile_id: str):
 
 
 @router.get("/{profile_id}/folders")
-async def get_profile_folders(profile_id: str):
+async def get_profile_folders(profile_id: str, request: Request):
     """
-    Get the folders configured for a specific profile.
+    Get the folders configured for a specific profile (its PIN, if it has one).
     """
+    from core.middleware import require_profile_pin
+
+    require_profile_pin(request, profile_id)
     settings = get_settings()
     folders = settings.get_folders_for_profile(profile_id)
     return {

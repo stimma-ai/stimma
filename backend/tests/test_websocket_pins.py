@@ -191,6 +191,22 @@ async def test_proof_does_not_outlive_the_pin_it_was_checked_against():
     assert [d["media_id"] for d in socket.of("media_added")] == [1, 3, 5]
 
 
+async def test_proof_lapses_when_the_profile_idles_out():
+    from core import middleware
+
+    pins = Pins(locked="1234")
+    manager = WebSocketManager(pin_hash_for=pins)
+    socket = Socket()
+    manager.attach(socket, scoped("locked"), await manager.prove_pin("locked", "1234"))
+    await manager.broadcast("media_added", {"media_id": 1, "profile_id": "locked"})
+    await manager.drain()
+    pin_hash, verified_at = middleware._pin_last_verified["locked"]
+    middleware._pin_last_verified["locked"] = (pin_hash, verified_at - 31 * 60)
+    await manager.broadcast("media_added", {"media_id": 2, "profile_id": "locked"})
+    await manager.drain()
+    assert [d["media_id"] for d in socket.of("media_added")] == [1]
+
+
 class GatedSocket(Socket):
     """A socket whose writes block until the test opens the gate, so frames
     sit in the client's queue."""

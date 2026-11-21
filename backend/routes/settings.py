@@ -7,12 +7,13 @@ Provides endpoints for:
 - Updating global settings (tool providers, background work)
 - Profile CRUD operations
 """
+import asyncio
 import os
 import re
 import shutil
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 import app_dirs
@@ -2412,11 +2413,63 @@ async def create_profile_endpoint(request: CreateProfileRequest):
     )
 
 
+# Left in a deleted profile's folder until the folder is gone.
+PROFILE_DELETED_MARKER = ".stimma-deleted"
+PROFILE_REMOVAL_ATTEMPTS = 30
+PROFILE_REMOVAL_DELAY_SECONDS = 1.0
+_profile_removals: set = set()
+
+
+def _remove_profile_dir(profile_dir) -> bool:
+    """Remove a deleted profile's folder, its marker last so that a removal
+    stopped partway is still finished later."""
+    try:
+        for child in profile_dir.iterdir():
+            if child.name == PROFILE_DELETED_MARKER:
+                continue
+            if child.is_dir() and not child.is_symlink():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+        shutil.rmtree(profile_dir)
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        log.info("profile folder not removed yet", error_type=type(e).__name__)
+        return False
+    return True
+
+
+async def _retry_profile_dir_removal(profile_id: str, profile_dir) -> None:
+    """The ingestion process closes the profile's database when it next
+    reloads its config; until then the folder may be in use."""
+    for _ in range(PROFILE_REMOVAL_ATTEMPTS):
+        await asyncio.sleep(PROFILE_REMOVAL_DELAY_SECONDS)
+        if get_settings().get_profile(profile_id) is not None:
+            return
+        if await asyncio.to_thread(_remove_profile_dir, profile_dir):
+            return
+    log.warning("deleted profile's folder still in use; it is removed at next launch", profile_id=profile_id)
+
+
+def remove_deleted_profile_dirs() -> None:
+    """At launch, before any database opens: finish removing the folders of
+    profiles deleted while their files were in use."""
+    data_dir = app_dirs.get_data_dir()
+    if not data_dir.is_dir():
+        return
+    configured = {p.id for p in get_settings().profiles}
+    for child in data_dir.iterdir():
+        if child.name not in configured and (child / PROFILE_DELETED_MARKER).is_file():
+            _remove_profile_dir(child)
+
+
 @router.delete("/profiles/{profile_id}")
-async def delete_profile_endpoint(profile_id: str):
+async def delete_profile_endpoint(profile_id: str, request: Request):
     """Delete a profile and its database.
 
-    Cannot delete the only remaining profile or the current profile.
+    Cannot delete the only remaining profile or the current profile. A
+    PIN-protected profile needs its PIN (X-Target-Profile-PIN).
     """
     current_profile_id = get_current_profile()
 
@@ -2437,6 +2490,8 @@ async def delete_profile_endpoint(profile_id: str):
     profile = settings.get_profile(profile_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
+    from core.middleware import require_profile_pin
+    require_profile_pin(request, profile_id)
 
     # Delete from config
     try:
@@ -2444,10 +2499,27 @@ async def delete_profile_endpoint(profile_id: str):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Delete profile directory (contains database)
+    # Close its database here and in the ingestion process before removing
+    # its files: Windows refuses to delete a database that is still open.
+    # The config watcher does the same later; both are idempotent.
+    await get_database_registry().unregister_profile(profile_id)
+    from core.app import get_reload_config_event
+    reload_event = get_reload_config_event()
+    if reload_event is not None:
+        reload_event.set()
+
     profile_dir = app_dirs.get_profile_dir(profile_id)
     if profile_dir.exists():
-        shutil.rmtree(profile_dir)
+        # Marked first, so a removal that can't finish now is finished later
+        # (retried shortly, and at the next launch).
+        try:
+            (profile_dir / PROFILE_DELETED_MARKER).touch()
+        except OSError:
+            pass
+        if not await asyncio.to_thread(_remove_profile_dir, profile_dir):
+            task = asyncio.create_task(_retry_profile_dir_removal(profile_id, profile_dir))
+            _profile_removals.add(task)
+            task.add_done_callback(_profile_removals.discard)
 
     log.info("profile deleted", profile_id=profile_id)
 
@@ -2458,8 +2530,12 @@ async def delete_profile_endpoint(profile_id: str):
 
 
 @router.patch("/profiles/{profile_id}")
-async def rename_profile_endpoint(profile_id: str, request: RenameProfileRequest):
-    """Rename a profile."""
+async def rename_profile_endpoint(profile_id: str, request: RenameProfileRequest, http_request: Request):
+    """Rename a profile. A PIN-protected profile needs its PIN (X-Target-Profile-PIN)."""
+    from core.middleware import require_profile_pin
+    if get_settings().get_profile(profile_id) is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    require_profile_pin(http_request, profile_id)
     try:
         rename_profile(profile_id, request.name)
     except ValueError as e:
