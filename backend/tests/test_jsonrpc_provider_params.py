@@ -365,3 +365,13 @@ async def test_reply_to_another_hosts_request_does_not_resolve_ours():
 
     await provider._process_message({"jsonrpc": "2.0", "id": sent[0]["id"], "result": {"tools": ["ours"]}})
     assert await reply == {"tools": ["ours"]}
+
+
+@pytest.mark.parametrize("mime", ["application/octet-stream", "application/x-safetensors", "audio/x-wav",
+                                  "image/svg+xml", "image/jpeg", "video/mp4", "audio/wav", ""])
+def test_uploaded_asset_ids_are_valid_for_any_mime(mime):
+    """Companions upload as application/octet-stream; a hyphenated extension was rejected by
+    every websocket provider, so stored generation state never reached the model."""
+    from providers.jsonrpc import _asset_extension, _valid_asset_id
+    assert _valid_asset_id(f"{'0' * 32}.{_asset_extension(mime)}")
+    assert _asset_extension("image/jpeg") == "jpg" and _asset_extension("video/mp4") == "mp4"
