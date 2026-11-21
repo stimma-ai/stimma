@@ -7814,12 +7814,17 @@ async function handleProfileChanged() {
   await loadTool(true)  // force reload from API + reinitialize state + restart watchers
 }
 
+// Set on unmount; mount work resuming after it attaches nothing.
+let viewDisposed = false
+
 onMounted(async () => {
   // Under KeepAlive onActivated claims too; this covers a mount outside it.
   claimCompactHeader(compactHeaderToken)
   console.log('[ToolView onMounted] Starting', { queryKeys: Object.keys(route.query) })
   await whenWorkspaceReady()
+  if (viewDisposed) return
   await loadTool()
+  if (viewDisposed) return
   console.log('[ToolView onMounted] loadTool completed')
 
   // Listen for profile changes
@@ -7909,6 +7914,7 @@ onDeactivated(() => {
 })
 
 onUnmounted(async () => {
+  viewDisposed = true
   releaseCompactHeader(compactHeaderToken)
   foreverModeSessionId.value++
   workRequestQueue.value = []

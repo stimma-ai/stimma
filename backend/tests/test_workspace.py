@@ -128,6 +128,26 @@ class TestDocs:
         assert response.status_code == 422
         assert ("kv", "first") not in await docs(client)
 
+    async def test_resent_batch_is_applied_once(self, client: AsyncClient):
+        """A batch committed before its answer was lost must not undo a later edit."""
+        await write(client, {"namespace": "kv", "key": "k", "value": {"prompt": "cat"}})
+        batch = {"origin": "a", "batch_id": f"batch-{uuid.uuid4()}", "ops": [{"namespace": "kv", "key": "k", "set": {"prompt": "dog"}}]}
+        first = await client.post("/api/workspace/docs", json=batch)
+        assert first.status_code == 200 and first.json()["changes"]
+        await write(client, {"namespace": "kv", "key": "k", "set": {"prompt": "bird"}}, origin="b")
+        ws = MockWebSocketManager()
+        with patch(PATCH_TARGET, ws):
+            again = await client.post("/api/workspace/docs", json=batch)
+        assert again.status_code == 200
+        assert again.json() == {"changes": [], "duplicate": True}
+        assert ws.broadcasts == []
+        assert (await docs(client))[("kv", "k")]["value"] == {"prompt": "bird"}
+
+    async def test_refused_batch_is_not_remembered(self, client: AsyncClient):
+        batch = {"batch_id": f"batch-{uuid.uuid4()}", "ops": [{"namespace": "Bad!", "key": "k", "value": 1}]}
+        assert (await client.post("/api/workspace/docs", json=batch)).status_code == 422
+        assert (await client.post("/api/workspace/docs", json=batch)).status_code == 422
+
     async def test_closed_tabs_are_reported_newest_first(self, client: AsyncClient):
         for tab_id in ("chat:1", "chat:2"):
             await write(client, {"namespace": "tab", "key": tab_id, "value": tab(tab_id)})

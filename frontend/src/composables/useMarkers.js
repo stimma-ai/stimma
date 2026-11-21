@@ -12,6 +12,27 @@ const isInitializing = ref(false)
 // WebSocket unsubscribers (registered per init)
 let wsUnsubscribers = []
 
+// Bumped on a profile switch; reads begun before it are for the old profile.
+let generation = 0
+let readMarkerCatalog = null
+
+async function refreshAvailableMarkers() {
+  const readFor = generation
+  const markers = await readMarkerCatalog()
+  if (readFor === generation) availableMarkers.value = markers
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('profile-changed', () => {
+    generation++
+    mediaMarkers.value = {}
+    availableMarkers.value = []
+    if (readMarkerCatalog && (isInitialized.value || isInitializing.value)) {
+      refreshAvailableMarkers().catch(err => console.error('Failed to load markers:', err))
+    }
+  })
+}
+
 // Note: markers_updated WebSocket handler in useWebSocket.js dispatches 'markers-changed'
 // browser events which we listen for in init() to refresh availableMarkers
 
@@ -23,6 +44,7 @@ let wsUnsubscribers = []
 export function useMarkers() {
   const { getMarkers, addMarkerToMedia, removeMarkerFromMedia } = useMediaApi()
   const { on: onWebSocketEvent } = useWebSocket()
+  readMarkerCatalog ??= getMarkers
 
   // Initialize markers system (called once, shared across all uses)
   async function init() {
@@ -31,7 +53,7 @@ export function useMarkers() {
 
     try {
       // Load available markers
-      availableMarkers.value = await getMarkers()
+      await refreshAvailableMarkers()
 
       // Subscribe to WebSocket events for real-time marker changes
       if (wsUnsubscribers.length === 0) {
@@ -60,8 +82,8 @@ export function useMarkers() {
       }
 
       // Listen for marker definition changes (icon, color, name edits)
-      window.addEventListener('markers-changed', async () => {
-        availableMarkers.value = await getMarkers()
+      window.addEventListener('markers-changed', () => {
+        refreshAvailableMarkers().catch(err => console.error('Failed to load markers:', err))
       })
 
       isInitialized.value = true
@@ -80,6 +102,7 @@ export function useMarkers() {
     const missingIds = mediaIds.filter(id => !(id in mediaMarkers.value))
     if (missingIds.length === 0) return
 
+    const readFor = generation
     try {
       const response = await fetch('/api/media/markers/batch-get', {
         method: 'POST',
@@ -88,6 +111,7 @@ export function useMarkers() {
       })
       if (response.ok) {
         const markersByMedia = await response.json()
+        if (readFor !== generation) return
         mediaMarkers.value = {
           ...mediaMarkers.value,
           ...markersByMedia

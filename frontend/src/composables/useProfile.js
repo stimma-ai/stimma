@@ -10,6 +10,7 @@ import { rewriteUrl, isDesktop } from '../apiConfig'
 import { desktop } from '../desktop'
 import { getCachedPin, syncPinTimeouts } from './usePinLock'
 import { configureSettingsAccess, readProfiles } from './useBootstrapSnapshot'
+import { getSavedRouteForProfile } from './useRouteRestore'
 
 // Global reactive state (shared across all components)
 const currentProfileId = ref(localStorage.getItem('profileId') || null)
@@ -108,6 +109,14 @@ export function getCurrentDbGuid() {
   return currentDbGuid.value
 }
 
+// Runs between the ID changing and 'profile-changed', ahead of every listener:
+// the workspace detaches here, so no listener reads the old profile's documents.
+// (Listener order on window is registration order, whatever the phase.)
+let profileSwitchHook = null
+export function setProfileSwitchHook(hook) {
+  profileSwitchHook = hook
+}
+
 /**
  * Set the current profile ID.
  * Updates localStorage and triggers data refresh.
@@ -126,6 +135,7 @@ export function setCurrentProfileId(profileId) {
   currentProfileId.value = profileId
   localStorage.setItem('profileId', profileId)
   void reportWindowProfile(profileId)
+  profileSwitchHook?.()
 
   // Dispatch 'profile-changed' AFTER changing the profile ID
   // This triggers composables to reload from the NEW profile's storage
@@ -174,12 +184,14 @@ export async function loadProfiles({ reuse = false } = {}) {
   isLoadingProfiles.value = true
   try {
     const data = await readProfiles(reuse ? { maxAgeMs: PROFILES_REUSE_MAX_AGE_MS } : { fresh: true })
+    const currentId = currentProfileId.value
+    // Whether this window was showing the current profile, rather than starting up.
+    const wasListed = !!currentId && profiles.value.some(p => p.id === currentId)
     profiles.value = data.profiles || []
     syncPinTimeouts(profiles.value)
 
     // If current profile ID is null or doesn't match any loaded profile,
     // set it to the first profile's ID
-    const currentId = currentProfileId.value
     const exists = profiles.value.some(p => p.id === currentId)
     // A pinned profile that vanished means it was deleted: this window
     // closes rather than silently becoming another profile's window. The
@@ -188,9 +200,17 @@ export async function loadProfiles({ reuse = false } = {}) {
       if (await closeWindowForDeletedProfile()) return
     }
     if ((!currentId || !exists) && profiles.value.length > 0) {
-      currentProfileId.value = profiles.value[0].id
-      localStorage.setItem('profileId', profiles.value[0].id)
-      void reportWindowProfile(profiles.value[0].id)
+      const fallback = profiles.value[0].id
+      currentProfileId.value = fallback
+      localStorage.setItem('profileId', fallback)
+      if (wasListed) {
+        // Everything on screen, and the workspace it reads, belongs to the
+        // deleted profile: start over on the fallback's own last route.
+        await reportWindowProfile(fallback)
+        window.location.href = getSavedRouteForProfile(fallback)
+      } else {
+        void reportWindowProfile(fallback)
+      }
     }
   } catch (error) {
     console.error('Failed to load profiles:', error)

@@ -13,7 +13,7 @@
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { desktop } from '../desktop'
-import { getCurrentProfileId } from '../composables/useProfile'
+import { getCurrentProfileId, setProfileSwitchHook } from '../composables/useProfile'
 import { useWebSocket } from '../composables/useWebSocket'
 import { getBlob as getLocalBlob, listBlobKeys as listLocalBlobs } from './blobStorage'
 import { makeInstallKey, makeProfileKey } from './storageKeys'
@@ -183,8 +183,8 @@ function listenOnce() {
     return isWorkspaceHydrated() ? rehydrate() : activate()
   })
   // After profile-will-change, whose listeners save what's pending to the profile
-  // being left. This runs first among profile-changed listeners, registered at boot.
-  window.addEventListener('profile-changed', () => {
+  // being left, and before any profile-changed listener reads the workspace.
+  setProfileSwitchHook(() => {
     if (!capable) return
     detachProfile()
     void activate()

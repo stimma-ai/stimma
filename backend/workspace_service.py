@@ -192,6 +192,34 @@ def event_payload(changes: list[dict], origin: Optional[str]) -> dict:
     return {"origin": origin, "changes": trimmed}
 
 
+_BATCHES_KEY = "workspace_recent_batches"
+# A client resends a batch whose answer it never got, possibly after a restart
+# or a later visit to the profile; this many recent ids catch that.
+RECENT_BATCH_LIMIT = 1000
+
+
+async def claim_batch(session: AsyncSession, batch_id: Optional[str]) -> bool:
+    """Record a batch about to be applied, in the caller's transaction. False when
+    it was applied before: applying it again would undo later writes."""
+    if not batch_id:
+        return True
+    row = await session.get(DatabaseMeta, _BATCHES_KEY)
+    try:
+        recent = json.loads(row.value) if row is not None else []
+    except ValueError:
+        recent = []
+    if not isinstance(recent, list):
+        recent = []
+    if batch_id in recent:
+        return False
+    recent = [*recent, batch_id][-RECENT_BATCH_LIMIT:]
+    if row is None:
+        session.add(DatabaseMeta(key=_BATCHES_KEY, value=_dumps(recent)))
+    else:
+        row.value = _dumps(recent)
+    return True
+
+
 async def snapshot(session: AsyncSession) -> dict:
     """Everything a client needs to show the workspace."""
     await seed_pinned_tabs(session)

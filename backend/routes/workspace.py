@@ -36,6 +36,8 @@ class WorkspaceOp(BaseModel):
 
 class WorkspaceOpsRequest(BaseModel):
     origin: Optional[str] = None  # The writing client; it ignores its own event.
+    # Stable across resends of one batch, so a resend is applied at most once.
+    batch_id: Optional[str] = Field(default=None, max_length=128)
     ops: List[WorkspaceOp]
 
 
@@ -69,6 +71,9 @@ async def read_workspace(session: AsyncSession = Depends(get_db_session)):
 @router.post("/docs")
 async def write_docs(request: WorkspaceOpsRequest, session: AsyncSession = Depends(get_db_session)):
     async with service.write_lock():
+        if not await service.claim_batch(session, request.batch_id):
+            await session.rollback()
+            return {"changes": [], "duplicate": True}
         try:
             changes = await service.apply_ops(session, [op.as_op() for op in request.ops])
         except service.WorkspaceError as error:

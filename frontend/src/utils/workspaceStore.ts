@@ -67,7 +67,14 @@ const clientId = randomId()
 const docs = new Map<string, Doc>()
 let closedTabs: unknown[] = []
 const outbox = new Map<string, PendingOp>()
-let inflight = new Map<string, PendingOp>()
+// Batches sent, or due to be sent again, and not yet acknowledged; oldest first.
+// One is always resent whole under its id, so a batch the server committed but
+// whose answer was lost isn't applied a second time over a later edit.
+interface Batch {
+  id: string
+  ops: Map<string, PendingOp>
+}
+let unacked: Batch[] = []
 const namespaceListeners = new Map<string, Set<DocListener>>()
 const keyListeners = new Map<string, Set<KeyListener>>()
 
@@ -76,15 +83,38 @@ let hydrated = false
 let flushTimer: ReturnType<typeof setTimeout> | null = null
 let flushing = false
 let offline = false
+let retryAt = 0
 let boundProfile: string | null = null
-// Documents changed by events while a full read is in flight; that read may
-// predate them, so it must not undo them.
-let touchedDuringRead: Set<string> | null = null
+// Bumped whenever the documents held stop being the ones a read was made for.
+let epoch = 0
+// Documents changed by events while a full read is in flight, one set per read;
+// that read may predate them, so it must not undo them.
+const activeReads = new Set<Set<string>>()
 
 const docId = (namespace: string, key: string) => `${namespace}\u0000${key}`
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b)
+
+/** What's unacknowledged for a document, oldest first. */
+function pendingOps(id: string): PendingOp[] {
+  const found: PendingOp[] = []
+  for (const batch of unacked) {
+    const op = batch.ops.get(id)
+    if (op) found.push(op)
+  }
+  const queued = outbox.get(id)
+  if (queued) found.push(queued)
+  return found
+}
+
+function lastSent(id: string): PendingOp | undefined {
+  for (let i = unacked.length - 1; i >= 0; i--) {
+    const op = unacked[i].ops.get(id)
+    if (op) return op
+  }
+  return undefined
+}
 
 // --- Reading ---
 
@@ -124,11 +154,12 @@ export function writeDoc(namespace: string, key: string, value: unknown, delayMs
 
   const dueAt = Date.now() + delayMs
   const pending = outbox.get(id)
+  const sent = lastSent(id)
   // A merge needs a live document on the server: one we've read, or a
   // replacement queued or on its way ahead of this write.
   const canMerge = isObject(value) && isObject(current?.value) &&
-    !pending?.deleted && !inflight.get(id)?.deleted &&
-    ((current?.rev ?? 0) > 0 || !!pending?.hasValue || !!inflight.get(id)?.hasValue)
+    !pending?.deleted && !sent?.deleted &&
+    ((current?.rev ?? 0) > 0 || !!pending?.hasValue || !!sent?.hasValue)
 
   if (pending?.hasValue || !canMerge) {
     outbox.set(id, { namespace, key, hasValue: true, value, dueAt })
@@ -184,94 +215,108 @@ function serializeOp(op: PendingOp) {
 
 function scheduleFlush() {
   if (flushTimer) clearTimeout(flushTimer)
-  if (flushing || outbox.size === 0) return
+  flushTimer = null
+  if (flushing) return
   let due = Infinity
-  for (const op of outbox.values()) due = Math.min(due, op.dueAt)
+  if (unacked.length) due = retryAt
+  else for (const op of outbox.values()) due = Math.min(due, op.dueAt)
+  if (due === Infinity) return
   flushTimer = setTimeout(flush, Math.max(0, due - Date.now()))
 }
 
-function requeue(ops: Map<string, PendingOp>) {
-  // A newer write to the same document stays newer.
-  for (const [id, op] of ops) {
-    const newer = outbox.get(id)
-    if (!newer) {
-      outbox.set(id, op)
-    } else if (!newer.hasValue && !newer.deleted && !op.deleted) {
-      if (op.hasValue) {
-        const merged = isObject(op.value) ? { ...op.value } : op.value
-        if (isObject(merged)) {
-          Object.assign(merged, newer.set)
-          for (const k of newer.unset ?? []) delete merged[k]
-        }
-        outbox.set(id, { ...newer, set: undefined, unset: undefined, hasValue: true, value: merged })
-      } else {
-        const set = { ...op.set, ...newer.set }
-        const unset = new Set([...(op.unset ?? []), ...(newer.unset ?? [])])
-        for (const k of Object.keys(newer.set ?? {})) unset.delete(k)
-        for (const k of newer.unset ?? []) delete set[k]
-        outbox.set(id, { ...newer, set, unset })
-      }
+/** `newer` applied over `older`, as one operation. */
+function coalesce(older: PendingOp, newer: PendingOp): PendingOp {
+  if (newer.hasValue || newer.deleted || older.deleted) return newer
+  if (older.hasValue) {
+    const merged = isObject(older.value) ? { ...older.value } : older.value
+    if (isObject(merged)) {
+      Object.assign(merged, newer.set)
+      for (const k of newer.unset ?? []) delete merged[k]
     }
+    return { ...newer, set: undefined, unset: undefined, hasValue: true, value: merged }
   }
+  const set = { ...older.set, ...newer.set }
+  const unset = new Set([...(older.unset ?? []), ...(newer.unset ?? [])])
+  for (const k of Object.keys(newer.set ?? {})) unset.delete(k)
+  for (const k of newer.unset ?? []) delete set[k]
+  return { ...newer, set, unset }
+}
+
+const REFUSED = new Set([409, 413, 422])
+
+async function postBatch(profile: string | null, batch: Batch) {
+  const { data } = await axios.post(
+    `${getApiBase()}/workspace/docs`,
+    { origin: clientId, batch_id: batch.id, ops: [...batch.ops.values()].map(serializeOp) },
+    { profileId: profile } as object,
+  )
+  return data
 }
 
 async function flush(force = false): Promise<void> {
   flushTimer = null
-  if (flushing || outbox.size === 0 || !serverMode) return
-  const now = Date.now()
-  for (const [id, op] of outbox) {
-    if (force || op.dueAt <= now) {
-      inflight.set(id, op)
-      outbox.delete(id)
+  if (flushing || !serverMode) return
+  if (!unacked.length) {
+    const now = Date.now()
+    const ops = new Map<string, PendingOp>()
+    for (const [id, op] of outbox) {
+      if (force || op.dueAt <= now) {
+        ops.set(id, op)
+        outbox.delete(id)
+      }
     }
-  }
-  if (inflight.size === 0) {
+    if (ops.size === 0) {
+      scheduleFlush()
+      return
+    }
+    unacked.push({ id: randomId(), ops })
+  } else if (!force && retryAt > Date.now()) {
     scheduleFlush()
     return
   }
   flushing = true
   const profile = boundProfile
-  // Leaving the profile replaces `inflight`: this batch is then no longer part of
-  // what the window holds, whatever becomes of it.
-  const batch = inflight
-  const ops = [...batch.values()].map(serializeOp)
+  // Leaving the profile takes `unacked` with it (detachProfile sends it on): this
+  // batch is then no longer part of what the window holds, whatever becomes of it.
+  const batch = unacked[0]
+  const owned = () => unacked[0] === batch
+  let reread = false
   try {
-    await axios.post(
-      `${getApiBase()}/workspace/docs`,
-      { origin: clientId, ops },
-      { profileId: profile } as object,
-    )
-    // A document created here now exists on the server, so later writes can merge.
-    // Other revisions come only from reads and events: the response to this write
-    // can overtake another client's earlier event, which must still apply.
-    if (batch === inflight) {
-      for (const [id, op] of batch) {
+    const data = await postBatch(profile, batch)
+    if (owned()) {
+      unacked.shift()
+      // A document created here now exists on the server, so later writes can
+      // merge. Other revisions come only from reads and events: the response to
+      // this write can overtake another client's earlier event, which must still apply.
+      for (const [id, op] of batch.ops) {
         const doc = docs.get(id)
         if (doc && op.hasValue && doc.rev === 0) doc.rev = 1
       }
+      // Already applied once, before an answer that never arrived; anything since
+      // may have replaced it, and only a read shows what.
+      reread = !!data?.duplicate
+      retryAt = 0
+      setOffline(false)
     }
-    batch.clear()
-    setOffline(false)
   } catch (error: any) {
     const status = error?.response?.status
-    if (status === 413 || status === 422 || status === 409) {
+    if (!owned()) {
+      // detachProfile has it.
+    } else if (REFUSED.has(status)) {
       // The server refuses this batch and always will; retrying would wedge
       // every later write behind it.
-      console.error('[workspace] write refused', status, [...batch.keys()])
-      batch.clear()
-    } else if (batch !== inflight) {
-      saveUnsent(profile, ops)
+      console.error('[workspace] write refused', status, [...batch.ops.keys()])
+      unacked.shift()
     } else {
-      requeue(batch)
-      batch.clear()
       setOffline(true)
-      for (const op of outbox.values()) op.dueAt = Math.max(op.dueAt, Date.now() + RETRY_MS)
+      retryAt = Date.now() + RETRY_MS
     }
   } finally {
     flushing = false
   }
   persistOutbox()
-  scheduleFlush()
+  if (reread) void rehydrate()
+  else scheduleFlush()
 }
 
 function setOffline(next: boolean) {
@@ -283,56 +328,83 @@ function outboxStorageKey(profile: string | null): string {
   return `${basePrefix()}_${profile}_${OUTBOX_PART}`
 }
 
+// Stored as a list of entries: a batch that may have reached the server keeps
+// its id ({ batch, ops }); a bare op was never sent.
 function persistOutbox(force = false) {
   if (!boundProfile) return
   const key = outboxStorageKey(boundProfile)
   try {
-    if (outbox.size === 0 && inflight.size === 0) {
+    if (outbox.size === 0 && unacked.length === 0) {
       if (localStorage.getItem(key) !== null) localStorage.removeItem(key)
     } else if (offline || force) {
-      const ops = [...inflight.values(), ...outbox.values()].map(serializeOp)
-      localStorage.setItem(key, JSON.stringify(ops))
+      const entries = [...unacked.map(serializeBatch), ...[...outbox.values()].map(serializeOp)]
+      localStorage.setItem(key, JSON.stringify(entries))
     }
   } catch { /* Storage full: the unsent changes stay in memory. */ }
 }
 
+function serializeBatch(batch: Batch) {
+  return { batch: batch.id, ops: [...batch.ops.values()].map(serializeOp) }
+}
+
 /** Keep changes that belong to a profile this window has left, for its next visit. */
-function saveUnsent(profile: string | null, ops: unknown[]) {
-  if (!profile) return
+function saveUnsent(profile: string | null, batches: Batch[]) {
+  if (!profile || !batches.length) return
   const key = outboxStorageKey(profile)
   try {
     const saved = JSON.parse(localStorage.getItem(key) || '[]')
-    localStorage.setItem(key, JSON.stringify([...saved, ...ops]))
+    localStorage.setItem(key, JSON.stringify([...(Array.isArray(saved) ? saved : []), ...batches.map(serializeBatch)]))
   } catch { /* Storage full: nothing more can be done for them. */ }
+}
+
+/** A saved op as pending, applied to what's held; null if it no longer applies. */
+function restoreOp(op: any): PendingOp | null {
+  if (!op || typeof op.namespace !== 'string' || typeof op.key !== 'string') return null
+  const id = docId(op.namespace, op.key)
+  const pending: PendingOp = { namespace: op.namespace, key: op.key, dueAt: 0 }
+  const current = docs.get(id)
+  if (op.deleted) {
+    pending.deleted = true
+    docs.delete(id)
+  } else if ('value' in op) {
+    pending.hasValue = true
+    pending.value = op.value
+    docs.set(id, { value: op.value, rev: current?.rev ?? 0 })
+  } else {
+    pending.set = op.set ?? {}
+    pending.unset = new Set(op.unset ?? [])
+    if (!isObject(current?.value)) return null
+    const merged = { ...current!.value, ...pending.set }
+    for (const k of pending.unset) delete merged[k]
+    docs.set(id, { value: merged, rev: current!.rev })
+  }
+  return pending
 }
 
 function restoreOutbox(profile: string) {
   const key = outboxStorageKey(profile)
-  let ops: any[] = []
+  let entries: any[] = []
   try {
-    ops = JSON.parse(localStorage.getItem(key) || '[]')
+    const saved = JSON.parse(localStorage.getItem(key) || '[]')
+    if (Array.isArray(saved)) entries = saved
   } catch { /* unreadable: nothing to restore */ }
-  for (const op of ops) {
-    if (!op || typeof op.namespace !== 'string' || typeof op.key !== 'string') continue
-    const id = docId(op.namespace, op.key)
-    const pending: PendingOp = { namespace: op.namespace, key: op.key, dueAt: 0 }
-    const current = docs.get(id)
-    if (op.deleted) {
-      pending.deleted = true
-      docs.delete(id)
-    } else if ('value' in op) {
-      pending.hasValue = true
-      pending.value = op.value
-      docs.set(id, { value: op.value, rev: current?.rev ?? 0 })
-    } else {
-      pending.set = op.set ?? {}
-      pending.unset = new Set(op.unset ?? [])
-      if (!isObject(current?.value)) continue
-      const merged = { ...current!.value, ...pending.set }
-      for (const k of pending.unset) delete merged[k]
-      docs.set(id, { value: merged, rev: current!.rev })
+  for (const entry of entries) {
+    if (typeof entry?.batch === 'string' && Array.isArray(entry.ops)) {
+      if (unacked.some(batch => batch.id === entry.batch)) continue
+      const ops = new Map<string, PendingOp>()
+      for (const op of entry.ops) {
+        const pending = restoreOp(op)
+        if (pending) ops.set(docId(pending.namespace, pending.key), pending)
+      }
+      if (ops.size) unacked.push({ id: entry.batch, ops })
+      continue
     }
-    outbox.set(id, pending)
+    const pending = restoreOp(entry)
+    if (!pending) continue
+    // Several saved ops for one document are one change, in order.
+    const id = docId(pending.namespace, pending.key)
+    const earlier = outbox.get(id)
+    outbox.set(id, earlier ? coalesce(earlier, pending) : pending)
   }
 }
 
@@ -369,8 +441,7 @@ function notifyHydrated() {
 function overlayPending(id: string, value: unknown): unknown {
   // What this client has yet to get acknowledged stays on top, oldest first.
   let next = value
-  for (const op of [inflight.get(id), outbox.get(id)]) {
-    if (!op) continue
+  for (const op of pendingOps(id)) {
     if (op.deleted) return undefined
     if (op.hasValue) {
       next = op.value
@@ -383,10 +454,14 @@ function overlayPending(id: string, value: unknown): unknown {
 }
 
 async function refetch(namespace: string, key: string) {
+  const readFor = epoch
   try {
     const { data } = await axios.get(
       `${getApiBase()}/workspace/docs/${encodeURIComponent(namespace)}/${encodeURI(key)}`,
+      { profileId: boundProfile } as object,
     )
+    // The window moved on (another profile, or a fresh read) while this was out.
+    if (readFor !== epoch) return
     const id = docId(namespace, key)
     const current = docs.get(id)
     if (current && data.rev <= current.rev) return
@@ -399,7 +474,7 @@ async function refetch(namespace: string, key: string) {
 function applyRemoteChange(change: any) {
   const { namespace, key, rev } = change
   const id = docId(namespace, key)
-  touchedDuringRead?.add(id)
+  for (const touched of activeReads) touched.add(id)
   const current = docs.get(id)
   if (current && rev <= current.rev) return
 
@@ -407,7 +482,7 @@ function applyRemoteChange(change: any) {
     void refetch(namespace, key)
     return
   }
-  const dirty = !!outbox.get(id) || !!inflight.get(id)
+  const dirty = pendingOps(id).length > 0
 
   if (change.deleted) {
     if (dirty) return
@@ -432,14 +507,14 @@ function applyRemoteChange(change: any) {
     return
   }
   const outgoing = new Set<string>()
-  for (const op of [inflight.get(id), outbox.get(id)]) {
-    if (op?.hasValue) {
+  for (const op of pendingOps(id)) {
+    if (op.hasValue) {
       // Our whole-document write is on top of anything arriving.
       docs.set(id, { value: current.value, rev })
       return
     }
-    for (const k of Object.keys(op?.set ?? {})) outgoing.add(k)
-    for (const k of op?.unset ?? []) outgoing.add(k)
+    for (const k of Object.keys(op.set ?? {})) outgoing.add(k)
+    for (const k of op.unset ?? []) outgoing.add(k)
   }
   const next = { ...current.value }
   const changedKeys: string[] = []
@@ -477,10 +552,8 @@ export async function readSnapshot(): Promise<Snapshot> {
 }
 
 /** Install a full read. Fires listeners for whatever it changed. */
-export function installSnapshot(snapshot: Snapshot, profile: string, first: boolean): void {
+export function installSnapshot(snapshot: Snapshot, profile: string, first: boolean, skip: Set<string> | null = null): void {
   const previous = first ? new Map<string, Doc>() : new Map(docs)
-  const skip = touchedDuringRead
-  touchedDuringRead = null
   if (first) {
     docs.clear()
     outbox.clear()
@@ -506,7 +579,7 @@ export function installSnapshot(snapshot: Snapshot, profile: string, first: bool
   const removed: Array<[string, string]> = []
   if (!first) {
     for (const [id] of previous) {
-      if (seen.has(id) || skip?.has(id) || outbox.has(id) || inflight.has(id)) continue
+      if (seen.has(id) || skip?.has(id) || pendingOps(id).length) continue
       const [namespace, key] = id.split('\u0000')
       docs.delete(id)
       removed.push([namespace, key])
@@ -528,19 +601,24 @@ export function installSnapshot(snapshot: Snapshot, profile: string, first: bool
 export async function rehydrate(): Promise<void> {
   if (!serverMode || !hydrated) return
   const profile = boundProfile
-  touchedDuringRead = new Set()
+  const readFor = epoch
+  const touched = new Set<string>()
+  activeReads.add(touched)
   try {
     const snapshot = await readSnapshot()
-    if (profile !== getCurrentProfileId() || !profile) return
-    installSnapshot(snapshot, profile, false)
+    if (readFor !== epoch || profile !== getCurrentProfileId() || !profile) return
+    installSnapshot(snapshot, profile, false, touched)
   } catch {
-    touchedDuringRead = null
+    // The next reconnect reads again.
+  } finally {
+    activeReads.delete(touched)
   }
   void flush(true)
 }
 
 /** This server has a workspace, not yet read: reads are empty, writes dropped. */
 export function beginHydration(): void {
+  epoch++
   serverMode = true
   hydrated = false
   docs.clear()
@@ -549,12 +627,13 @@ export function beginHydration(): void {
 
 /** This server has no workspace: everything is local storage. */
 export function useLocalStorageOnly(): void {
+  epoch++
   serverMode = false
   hydrated = false
   boundProfile = null
   docs.clear()
   outbox.clear()
-  inflight.clear()
+  unacked = []
   closedTabs = []
 }
 
@@ -567,16 +646,33 @@ export function detachProfile(): void {
   const profile = boundProfile
   if (flushTimer) clearTimeout(flushTimer)
   flushTimer = null
-  const ops = [...outbox.values()].map(serializeOp)
+  const batches = [...unacked]
+  if (outbox.size) batches.push({ id: randomId(), ops: new Map(outbox) })
   outbox.clear()
-  inflight = new Map()
+  unacked = []
+  retryAt = 0
+  epoch++
+  activeReads.clear()
   hydrated = false
   boundProfile = null
   // Everything saved for it is in hand now, and is put back only if it fails.
   if (profile) localStorage.removeItem(outboxStorageKey(profile))
-  if (!profile || !ops.length) return
-  void axios.post(`${getApiBase()}/workspace/docs`, { origin: clientId, ops }, { profileId: profile } as object)
-    .catch(() => saveUnsent(profile, ops))
+  if (!profile || !batches.length) return
+  void sendInOrder(profile, batches)
+}
+
+// The first may still be on its way from flush; under the same id the server
+// applies it once, whichever copy arrives first.
+async function sendInOrder(profile: string, batches: Batch[]) {
+  for (let i = 0; i < batches.length; i++) {
+    try {
+      await postBatch(profile, batches[i])
+    } catch (error: any) {
+      if (REFUSED.has(error?.response?.status)) continue
+      saveUnsent(profile, batches.slice(i))
+      return
+    }
+  }
 }
 
 // --- Keys ---

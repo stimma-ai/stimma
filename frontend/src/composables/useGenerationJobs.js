@@ -1262,11 +1262,20 @@ export function useGenerationJobs(options = {}) {
     sortedCompletedJobs.value.length + completedHistoryCount.value
   )
 
-  // Initialize: load data and set up WebSocket listeners
-  async function init() {
-    isLoading.value = true
+  // Listeners are registered once per manager; init can run again (a profile
+  // switch, a retry) to reload data without stacking another set.
+  let subscribed = false
+  let disposed = false
 
-    // Subscribe to WebSocket events FIRST to avoid missing any updates during load
+  function generatorTopicName() {
+    return feedScope
+      ? `feed:${feedScope}`
+      : generatorInstanceId ? `generator:${generatorInstanceId}` : null
+  }
+
+  function subscribe() {
+    if (subscribed) return
+    subscribed = true
     console.log(`[useGenerationJobs:${taskType || 'all'}] Subscribing to WebSocket events (generatorInstanceId=${generatorInstanceId})`)
     unsubscribers.push(onWebSocketEvent('generation_job_queued', handleJobQueued))
     unsubscribers.push(onWebSocketEvent('generation_job_started', handleJobStarted))
@@ -1294,9 +1303,7 @@ export function useGenerationJobs(options = {}) {
     unsubscribers.push(onWebSocketEvent('postprocessing_chain_progress', handleChainProgress))
     // This feed's jobs arrive in full (other clients get summaries) for as
     // long as the feed exists, including while its view is cached offscreen.
-    const generatorTopic = feedScope
-      ? `feed:${feedScope}`
-      : generatorInstanceId ? `generator:${generatorInstanceId}` : null
+    const generatorTopic = generatorTopicName()
     if (generatorTopic) {
       unsubscribers.push(acquireRealtimeTopic(generatorTopic))
       // Jobs read before the server confirmed this feed are read again then.
@@ -1305,17 +1312,16 @@ export function useGenerationJobs(options = {}) {
       }))
     }
 
-    // Then load initial data (chain runs after jobs — loadJobs resets the
-    // chain-run state, so populating must come second). The feed renders
-    // from this read at once; if the server does not follow the feed yet,
-    // its confirmation reloads the jobs (above), so nothing is missed.
-    if (generatorTopic) markRealtimeTopicProvisional(generatorTopic)
-    await Promise.all([
-      loadJobs(),
-      loadMarkers()
-    ])
-    await loadChainRuns()
+    // Listen for markers config changes
+    window.addEventListener('markers-changed', loadMarkers)
+  }
 
+  // Registered after the first load: every socket open, the first included,
+  // announces a reconnect, and one arriving mid-load would read everything twice.
+  let reconciling = false
+  function subscribeReconcile() {
+    if (reconciling || disposed) return
+    reconciling = true
     // Reconcile with the server after every reconnect: phones retain remote
     // work through suspension, and desktop dropped its running jobs on disconnect.
     // Every job strip refreshes on the same reconnect; strips reading the same list share one request.
@@ -1338,15 +1344,34 @@ export function useGenerationJobs(options = {}) {
       }
       clearAllJobProgress()
     }))
+  }
 
-    // Listen for markers config changes
-    window.addEventListener('markers-changed', loadMarkers)
+  // Initialize: set up listeners (first, so no update during the load is
+  // missed), then load data. Repeatable; refused once cleaned up.
+  async function init() {
+    if (disposed) return
+    subscribe()
+    isLoading.value = true
+
+    // Then load initial data (chain runs after jobs — loadJobs resets the
+    // chain-run state, so populating must come second). The feed renders
+    // from this read at once; if the server does not follow the feed yet,
+    // its confirmation reloads the jobs (above), so nothing is missed.
+    const generatorTopic = generatorTopicName()
+    if (generatorTopic) markRealtimeTopicProvisional(generatorTopic)
+    await Promise.all([
+      loadJobs(),
+      loadMarkers()
+    ])
+    await loadChainRuns()
+    subscribeReconcile()
 
     isLoading.value = false
   }
 
   // Cleanup: unsubscribe from WebSocket events
   function cleanup() {
+    disposed = true
     unsubscribers.forEach(unsub => unsub())
     unsubscribers.length = 0
     clearAllJobProgress()

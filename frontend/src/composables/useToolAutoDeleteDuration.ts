@@ -37,6 +37,18 @@ const autoDeleteDurationState = ref<string>(DEFAULT_DURATION)
 // and that path sets the profile without dispatching 'profile-changed'. So the
 // value is loaded lazily and reloaded whenever the resolved key changes.
 let loadedKey: string | null = null
+// Other clients' changes to the setting, for the key loaded.
+let unsubscribe: (() => void) | null = null
+let subscribedKey: string | null = null
+
+function subscribeTo(key: string): void {
+  if (subscribedKey === key) return
+  unsubscribe?.()
+  subscribedKey = key
+  unsubscribe = syncedStorage.subscribe(key, value => {
+    if (value !== null) autoDeleteDurationState.value = normalizeDuration(value)
+  })
+}
 
 function getStableProfileKey(): string {
   return makeProfileKey(STORAGE_PART)
@@ -84,6 +96,7 @@ function loadDuration(): void {
     const profileId = getCurrentProfileId()
     const stableKey = getStableProfileKey()
     loadedKey = stableKey
+    subscribeTo(stableKey)
     const stableValue = syncedStorage.getItem(stableKey)
     if (stableValue !== null) {
       const normalized = normalizeDuration(stableValue)
@@ -117,6 +130,8 @@ const autoDeleteDuration = computed<string>({
 
 if (typeof window !== 'undefined') {
   window.addEventListener('profile-changed', loadDuration)
+  // A switched profile's workspace arrives after profile-changed.
+  window.addEventListener('workspace-loaded', loadDuration)
   // The bundle/sandbox prefix is only correct once settings land.
   window.addEventListener('settings-loaded', ensureLoaded)
 }
