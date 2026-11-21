@@ -73,6 +73,11 @@ const props = defineProps({
   action: {
     type: Object,
     required: true
+  },
+  // The hitl_request chat item this card answers.
+  requestItemId: {
+    type: Number,
+    default: null
   }
 })
 
@@ -92,7 +97,7 @@ async function submitResponse(responseData) {
         'Content-Type': 'application/json',
         'X-Profile-ID': getCurrentProfileId()
       },
-      body: JSON.stringify(responseData)
+      body: JSON.stringify({ ...responseData, request_item_id: props.requestItemId })
     })
 
     if (!response.ok) {

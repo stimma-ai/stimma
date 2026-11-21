@@ -26,33 +26,36 @@ async def abort_plan(chat, session, ws_manager, stop_marker=False, keep_generati
                                   keep_generating=keep_generating)
 
 
-async def resume_agent_after_hitl(chat, response_data, session, ws_manager):
-    """Resume the agent after a human-in-the-loop action."""
+async def resume_agent_after_hitl(chat, response_data, session, ws_manager, action_type=None, response_persisted=False):
+    """Resume the agent after a human-in-the-loop action.
+
+    action_type is the answered request's type; without it, the newest
+    request decides. response_persisted: the hitl_response is already saved.
+    """
     import json
     from sqlalchemy import select
     from database import ChatItem
 
-    # Peek at the pending HITL action type to decide which handler to use
-    result = await session.execute(
-        select(ChatItem)
-        .where(ChatItem.chat_id == chat.id)
-        .where(ChatItem.item_type == "hitl_request")
-        .order_by(ChatItem.created_at.desc())
-        .limit(1)
-    )
-    hitl_item = result.scalar_one_or_none()
+    if action_type is None:
+        # Peek at the pending HITL action type to decide which handler to use
+        result = await session.execute(
+            select(ChatItem)
+            .where(ChatItem.chat_id == chat.id)
+            .where(ChatItem.item_type == "hitl_request")
+            .order_by(ChatItem.created_at.desc())
+            .limit(1)
+        )
+        hitl_item = result.scalar_one_or_none()
+        if hitl_item and hitl_item.item_metadata:
+            try:
+                action_data = json.loads(hitl_item.item_metadata) if isinstance(hitl_item.item_metadata, str) else hitl_item.item_metadata
+                action_type = action_data.get("type")
+            except (json.JSONDecodeError, KeyError, AttributeError):
+                pass
 
-    if hitl_item and hitl_item.item_metadata:
-        try:
-            action_data = json.loads(hitl_item.item_metadata) if isinstance(hitl_item.item_metadata, str) else hitl_item.item_metadata
-            action_type = action_data.get("type")
-            if action_type == "v2_tool_permission":
-                from .v2.service import resume_after_hitl
-                await resume_after_hitl(chat, response_data, session, ws_manager)
-                return
-            elif action_type == "ask_user":
-                from .v2.service import resume_after_ask_user
-                await resume_after_ask_user(chat, response_data, session, ws_manager)
-                return
-        except (json.JSONDecodeError, KeyError):
-            pass
+    if action_type == "v2_tool_permission":
+        from .v2.service import resume_after_hitl
+        await resume_after_hitl(chat, response_data, session, ws_manager, response_persisted=response_persisted)
+    elif action_type == "ask_user":
+        from .v2.service import resume_after_ask_user
+        await resume_after_ask_user(chat, response_data, session, ws_manager, response_persisted=response_persisted)

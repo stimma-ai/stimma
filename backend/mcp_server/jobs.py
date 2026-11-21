@@ -258,7 +258,9 @@ async def accept(caller, name, key, args):
                     brief += "\nWork unattended where possible. Park on essential questions and permissions."
                 session.add(
                     ChatItem(
-                        chat_id=chat.id, item_type="user_message", message_text=brief
+                        chat_id=chat.id,
+                        item_type="user_message",
+                        message_text=brief + FINAL_OUTPUT_INSTRUCTION,
                     )
                 )
             await session.commit()
@@ -266,6 +268,14 @@ async def accept(caller, name, key, args):
         _revoked.discard(caller.key)
         spawn(caller, job.id)
         return result
+
+
+# The agent reads its brief from the persisted user message, so this rides on
+# every message an MCP caller sends: the first brief and each follow-up.
+FINAL_OUTPUT_INSTRUCTION = (
+    "\nMark the deliverables you produced with show(role='final'). End with a "
+    "concise completion summary that states any unmet requirements or limitations."
+)
 
 
 def spawn(caller, job_id, response=None, message=None):
@@ -295,16 +305,13 @@ async def pending_interaction(session, chat_id):
             )
         )
     ).all()
-    exact = {
-        json.loads(row.item_metadata or "{}").get("_mcp_interaction_id")
-        for row in responses
-    }
+    def answered(row):
+        meta = json.loads(row.item_metadata or "{}")
+        return meta.get("_mcp_interaction_id") or meta.get("request_item_id")
+
+    exact = {answered(row) for row in responses}
     generic_after = max(
-        (
-            row.id
-            for row in responses
-            if "_mcp_interaction_id" not in json.loads(row.item_metadata or "{}")
-        ),
+        (row.id for row in responses if not answered(row)),
         default=0,
     )
     return next(
@@ -338,10 +345,11 @@ async def run(caller, job_id, *, response=None, message=None):
 
                 await ws_manager.broadcast("chat_created", {"chat": chat.to_dict()})
                 if response is not None:
-                    from routes.chats import submit_human_response, HITLResponseRequest
+                    from routes.chats import apply_human_response, HITLResponseRequest
 
-                    await submit_human_response(
-                        chat.id, HITLResponseRequest(**response), session
+                    # The job's state is read from the finished turn.
+                    await apply_human_response(
+                        chat.id, HITLResponseRequest(**response), session, wait=True
                     )
                 elif job.operation == "agent_start":
                     from agent import run_agent
@@ -362,7 +370,6 @@ async def run(caller, job_id, *, response=None, message=None):
                             )
                         if args.get("interaction") == "unattended":
                             brief += "\nWork unattended where possible. Park on essential questions and permissions."
-                    brief += "\nMark the deliverables you produced with show(role='final'). End with a concise completion summary that states any unmet requirements or limitations."
                     await run_agent(
                         chat=chat,
                         user_message=brief,
@@ -666,7 +673,7 @@ async def control(
                     ChatItem(
                         chat_id=job.chat_id,
                         item_type="user_message",
-                        message_text=message,
+                        message_text=message + FINAL_OUTPUT_INSTRUCTION,
                     )
                 )
             job.controller_version += 1
@@ -706,6 +713,9 @@ async def control(
                 await session.commit()
             else:
                 _revoked.discard(caller.key)
+                if response is not None and pending:
+                    # Answer the exact request the caller was shown.
+                    response = {**response, "request_item_id": pending.id}
                 spawn(caller, job.id, response=response, message=message)
             return result
 

@@ -15,7 +15,7 @@ from llm_resolver import get_effective_llm_config, get_chat_llm_config
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..tools_registry import tool, ToolParameter, get_all_tools
+from ..tools_registry import tool, ToolParameter, get_all_tools, tool_arguments_error
 from ..prompts import get_system_prompt
 from ..conversation import response_reserve
 from ..llm_options import agent_llm_options
@@ -392,6 +392,7 @@ async def _run_delegate_loop_inner(
     resume_pending_tool: dict | None = None,
     resume_remaining_tools: list | None = None,
     resume_created_media_ids: list[int] | None = None,
+    resume_invoked_skills: list[str] | None = None,
 ) -> tuple[str, dict]:
     """Run an ephemeral agentic loop with DB-persisted child items for UI visibility.
 
@@ -429,6 +430,9 @@ async def _run_delegate_loop_inner(
     last_text = ""
     persist = parent_item_id is not None and ws_manager is not None
     created_media_ids: list[int] = resume_created_media_ids[:] if resume_created_media_ids else []
+    # Skills loaded into this delegate's own history (the parent's don't count:
+    # the delegate never sees them).
+    invoked_skills: list[str] = list(resume_invoked_skills or [])
 
     # Cumulative token usage for this delegation
     cumulative_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "reasoning_tokens": 0}
@@ -560,8 +564,15 @@ async def _run_delegate_loop_inner(
             fn_arguments = tc_data["function"]["arguments"]
             tool_call_id = tc_data["id"]
 
+            # Unusable arguments get an error result, never a prompt.
+            args_error = tool_arguments_error(fn_name, fn_arguments)
+            # The user just approved this exact call. "Allow once" records no
+            # grant, so checking again would prompt for it forever.
+            approved_on_resume = turn == start_turn and resume_pending_tool is not None and i == 0
+
             # Permission check — pause for HITL if tool is not authorized
-            if chat and await _delegate_needs_permission(fn_name, fn_arguments, chat, session):
+            if (chat and not args_error and not approved_on_resume
+                    and await _delegate_needs_permission(fn_name, fn_arguments, chat, session)):
                 remaining_tools = tool_calls_data[i + 1:]
                 delegate_state = {
                     "messages": messages,
@@ -576,6 +587,7 @@ async def _run_delegate_loop_inner(
                     "parent_remaining": parent_remaining or [],
                     "task": task,
                     "context": context,
+                    "invoked_skills": invoked_skills,
                 }
                 await _pause_delegate_for_permission(
                     fn_name, fn_arguments, tool_call_id,
@@ -597,8 +609,11 @@ async def _run_delegate_loop_inner(
                 await session.commit()
                 await _broadcast_child_item(call_item, ws_manager, chat_id)
 
+            injected_messages: list[dict] = []
             # Safety: skip excluded tools even if LLM hallucinates them
-            if fn_name in _EXCLUDED_TOOLS:
+            if args_error:
+                result_str = args_error
+            elif fn_name in _EXCLUDED_TOOLS:
                 if fn_name == "show":
                     result_str = "Error: show is not available in delegation mode. The parent agent will call show() with the media_ids from your create_layout results."
                 else:
@@ -610,6 +625,12 @@ async def _run_delegate_loop_inner(
                     try:
                         kwargs = json.loads(fn_arguments) if fn_arguments else {}
                         kwargs["session_media_ids"] = session_media_ids
+                        # Skill invokes load into this delegate's history, and
+                        # run_code can import the loaded skills' lib modules.
+                        kwargs["_injected_messages"] = injected_messages
+                        kwargs["_loaded_skills"] = set(invoked_skills)
+                        if invoked_skills:
+                            kwargs["_enabled_stimpacks"] = list(invoked_skills)
                         result_str = await tool_def.handler(
                             session=session,
                             chat_id=chat_id,
@@ -662,6 +683,11 @@ async def _run_delegate_loop_inner(
                 "tool_call_id": tool_call_id,
                 "content": result_content,
             })
+            for inj in injected_messages:
+                messages.append({"role": "user", "name": "_stimma_context", "content": inj["content"]})
+                for skill_name in (json.loads(fn_arguments).get("name"), inj.get("skill_name")):
+                    if skill_name and skill_name not in invoked_skills:
+                        invoked_skills.append(skill_name)
 
     result_text = last_text or "Subagent completed without producing a final response."
 

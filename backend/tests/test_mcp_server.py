@@ -1250,7 +1250,14 @@ async def test_delegated_receipt_excludes_intermediates_and_resets_on_followup(m
     async def fake_run(**kwargs):
         nonlocal calls
         session, chat = kwargs["session"], kwargs["chat"]
-        assert "unmet requirements" in kwargs["user_message"]
+        # The agent reads the persisted message, not user_message.
+        from sqlalchemy import select
+        latest = await session.scalar(
+            select(ChatItem.message_text)
+            .where(ChatItem.chat_id == chat.id, ChatItem.item_type == "user_message")
+            .order_by(ChatItem.id.desc()).limit(1)
+        )
+        assert "show(role='final')" in latest and "unmet requirements" in latest
         if calls == 0:
             session.add(ChatItem(chat_id=chat.id, item_type="media_display", show_role="intermediate", media_ids=json.dumps([mids[1]])))
             session.add(ChatItem(chat_id=chat.id, item_type="media_display", show_role="final", media_ids=json.dumps([mids[0]])))

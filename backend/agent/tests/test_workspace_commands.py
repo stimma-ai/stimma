@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 import sys
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from PIL import Image
@@ -77,7 +77,7 @@ async def test_python_uses_existing_restricted_runtime(session, test_chat, tmp_p
 @pytest.mark.asyncio
 async def test_service_adapts_before_prompt_and_records_the_actual_result(session, test_chat, mock_ws, tmp_path, monkeypatch):
     (tmp_path / 'info.txt').write_text('Package files')
-    monkeypatch.setattr(service, 'get_workspace_dir', lambda _: tmp_path)
+    monkeypatch.setattr(service, 'get_workspace_dir', lambda *_: tmp_path)
     monkeypatch.setattr(service, 'get_permission_decision', AsyncMock(return_value='ask'))
     shell = AsyncMock(side_effect=AssertionError('A real shell must not execute'))
     monkeypatch.setattr(service.get_tool('bash'), 'handler', shell)
@@ -100,7 +100,18 @@ async def test_explicit_shell_approval_keeps_native_execution(session, test_chat
 
 @pytest.mark.asyncio
 async def test_explicit_denial_is_not_bypassed(session, test_chat, tmp_path, monkeypatch):
-    monkeypatch.setattr(service, 'get_workspace_dir', lambda _: tmp_path)
+    monkeypatch.setattr(service, 'get_workspace_dir', lambda *_: tmp_path)
     monkeypatch.setattr(service, 'get_permission_decision', AsyncMock(return_value='deny'))
     monkeypatch.setattr(service, 'check_permission_for_call', AsyncMock(return_value=False))
     assert await service._needs_permission('bash', json.dumps({'command': 'python -c "print(1)"'}), test_chat, session)
+
+
+@pytest.mark.asyncio
+async def test_bash_preflight_checks_the_workspace_the_call_runs_in(session, test_chat, tmp_path, monkeypatch):
+    # Project and flow chats run in their own workspace; the preflight must
+    # look there, not create and check a default chat workspace.
+    (tmp_path / 'info.txt').write_text('Project notes')
+    monkeypatch.setattr(service, 'get_workspace_dir', Mock(side_effect=AssertionError('default workspace used')))
+    monkeypatch.setattr(service, 'get_permission_decision', AsyncMock(return_value='ask'))
+    arguments = json.dumps({'command': 'cat info.txt'})
+    assert not await service._needs_permission('bash', arguments, test_chat, session, str(tmp_path))

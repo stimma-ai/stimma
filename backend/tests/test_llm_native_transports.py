@@ -322,6 +322,70 @@ def test_persisted_anthropic_tool_item_reconstructs_whole_provider_batch():
     assert [call["id"] for call in message["tool_calls"]] == ["toolu_1", "toolu_2"]
 
 
+def test_parallel_calls_without_ids_get_ids_before_batch_state():
+    raw = _Obj({
+        "model": "local-test",
+        "choices": [{
+            "finish_reason": "tool_calls",
+            "message": {
+                "role": "assistant", "content": None,
+                "tool_calls": [
+                    {"type": "function", "function": {"name": "one", "arguments": "{}"}},
+                    {"id": "", "type": "function", "function": {"name": "two", "arguments": "{}"}},
+                ],
+            },
+        }],
+        "usage": {},
+    })
+
+    response = _normalize_response(raw)
+
+    ids = [call.id for call in response.tool_calls]
+    assert all(ids) and len(set(ids)) == 2
+    assert [call["id"] for call in response.provider_state["tool_calls"]] == ids
+
+
+def test_saved_batch_without_call_ids_replays_its_own_row():
+    state = {"kind": "openai_chat_tool_batch", "tool_calls": [
+        {"id": "", "type": "function", "function": {"name": "one", "arguments": "{}"}},
+        {"id": "", "type": "function", "function": {"name": "two", "arguments": "{}"}},
+    ]}
+    item = SimpleNamespace(
+        item_type="tool_call", tool_args="{}", tool_call_id="call_saved", tool_name="one",
+        item_metadata=json.dumps({"llm_provider_state": state}),
+    )
+    message = _item_to_message(item)
+
+    assert [call["id"] for call in message["tool_calls"]] == ["call_saved"]
+    assert "_stimma_provider_state" not in message
+
+
+def test_saved_batch_replays_sanitized_arguments_with_ids_and_metadata():
+    extra = {"google": {"thought_signature": "opaque-signature"}}
+    state = {"kind": "openai_chat_tool_batch", "tool_calls": [
+        {"id": "call_1", "type": "function", "function": {"name": "bash", "arguments": '{"command": "ls'},
+         "extra_content": extra},
+        {"id": "call_2", "type": "function", "function": {"name": "bash", "arguments": '{"command": "pwd"}'}},
+    ]}
+    item = SimpleNamespace(
+        item_type="tool_call", tool_args='{"command": "ls"}', tool_call_id="call_1", tool_name="bash",
+        item_metadata=json.dumps({"llm_provider_state": state}),
+    )
+    message = _item_to_message(item)
+
+    for calls in (message["tool_calls"], message["_stimma_provider_state"]["tool_calls"]):
+        assert [call["id"] for call in calls] == ["call_1", "call_2"]
+        assert json.loads(calls[0]["function"]["arguments"])["_malformed_arguments"]
+        assert calls[0]["extra_content"] == extra
+        assert calls[1]["function"]["arguments"] == '{"command": "pwd"}'
+    normalized = _normalize_parallel_tool_history([
+        message,
+        {"role": "tool", "tool_call_id": "call_1", "content": "a"},
+        {"role": "tool", "tool_call_id": "call_2", "content": "b"},
+    ])
+    json.loads(normalized[0]["tool_calls"][0]["function"]["arguments"])
+
+
 def test_provider_http_error_message_never_contains_supplier_details():
     request = httpx.Request("POST", "https://api.openai.com/v1/responses")
     response = httpx.Response(
