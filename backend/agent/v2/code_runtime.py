@@ -186,7 +186,7 @@ ALLOWED_MODULES: dict[str, Any] = {
 # of truth for what it can import in sandboxed Python.
 ALLOWED_MODULES_PROMPT_DESCRIPTION = (
     "Allowed imports: asyncio, base64, collections, colorsys, copy, csv, "
-    "dataclasses, datetime, fnmatch, functools, glob (workspace-scoped: glob, "
+    "dataclasses, datetime, time (no sleep: use asyncio.sleep), fnmatch, functools, glob (workspace-scoped: glob, "
     "iglob, escape), hashlib, io, itertools, json, math, numpy, "
     "os (workspace-scoped: getcwd, listdir, walk, makedirs, mkdir, remove, "
     "rename, stat + full os.path), pathlib, PIL (all submodules: Image, "
@@ -198,6 +198,27 @@ ALLOWED_MODULES_PROMPT_DESCRIPTION = (
     "`await stimma.ffmpeg(...)` / `await stimma.ffprobe(...)` — workspace-jailed, "
     "no subprocess import needed."
 )
+
+
+class _SafeTime:
+    """``time`` for run_code: everything except a blocking ``sleep``.
+
+    Sandbox code runs on the backend event loop, so ``time.sleep`` would stall
+    every other chat. The module still has to be importable: datetime's C
+    implementation imports ``time`` (strftime, timetuple, now) and
+    ``_strptime`` through the *calling frame's* ``__import__``, which is the
+    sandbox's, so denying it broke ordinary datetime use.
+    """
+
+    def __getattr__(self, name: str):
+        if name == "sleep":
+            raise AttributeError(
+                "time.sleep would block the app; use `await asyncio.sleep(seconds)` in run_code."
+            )
+        return getattr(time, name)
+
+
+_SAFE_TIME = _SafeTime()
 
 
 def _import_denied_message(name: str) -> str:
@@ -448,6 +469,11 @@ def _make_safe_import(
             return module if fromlist else ALLOWED_MODULES[top_level]
         if name == "os":
             return safe_os if safe_os is not None else SimpleNamespace(path=os.path)
+        if name == "time":
+            return _SAFE_TIME
+        if name == "_strptime":
+            # Imported by datetime.strptime from inside C code (see _SafeTime).
+            return _importlib.import_module("_strptime")
         if name == "glob" and safe_glob is not None:
             return safe_glob
         if name == "shutil" and safe_shutil is not None:
