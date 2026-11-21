@@ -451,7 +451,8 @@ export function registerIpcHandlers(): void {
 
   // One live dictation session; owned by the window that started it. The
   // transcript stream outlives the voice_start response and is torn down on
-  // stop/cancel, owner destruction, or (helper-side) lease expiry.
+  // stop/cancel, a capture error, owner destruction, or the next start. Lease
+  // expiry stops capture helper-side only; the listener waits for one of those.
   let voiceSession: { requestId: number; owner: IpcMainInvokeEvent['sender']; ownerDestroyed: () => void } | null = null
   const endVoiceSession = (only?: typeof voiceSession) => {
     if (!voiceSession || (only !== undefined && voiceSession !== only)) return
