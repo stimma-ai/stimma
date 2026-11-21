@@ -184,6 +184,7 @@ Use `view_image` tool to see image pixels directly in the agent's context. Downs
 Tracked automatically at the `stimma` API layer:
 - Generated `.stimma.tools` calls record "output X was produced from input Y using tool Z with params W"
 - `library.save()` carries provenance chain from ToolResult
+- `stimma.ffmpeg` / `join_video` outputs remember the library media that went in; `library.save()` of those files inherits them (see `docs/LINEAGE.md`). Code-only pixel work is declared with `sources=[media ids]`
 - `library.save()` accepts optional `inspired_by` for looser remix links
 - `library(action="lineage", media_id=42)` returns the full derivation tree
 

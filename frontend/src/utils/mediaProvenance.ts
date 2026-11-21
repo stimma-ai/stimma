@@ -278,6 +278,8 @@ const ROLE_LABELS: Record<string, string> = {
   end_image: 'End frame',
   reference: 'Reference',
   input_video: 'Input video',
+  input_audio: 'Input audio',
+  clip: 'Clip',
   image: 'Image',
   style: 'Style',
   mask: 'Mask',
