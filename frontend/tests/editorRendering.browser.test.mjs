@@ -108,3 +108,22 @@ test('closing the real editor while its base is decoding cannot resurrect its li
   assert.equal(await page.evaluate(() => window.editorTest.composite), null)
   assert.deepEqual(errors, [])
 })
+
+test('a finished crop drag is one undo step, with nothing empty after it', async t => {
+  const { page, errors } = await fixture(t)
+  await expect.poll(() => page.evaluate(() => window.editorTest.loading)).toBe(false)
+  await page.locator('[data-op-id="crop"]').dblclick()
+  await expect.poll(() => page.evaluate(() => window.editorTest.cropInput?.width)).toBe(240)
+  const box = await page.locator('canvas.touch-none').boundingBox()
+  const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  await page.mouse.move(center.x, center.y)
+  await page.mouse.down()
+  await page.mouse.move(center.x + 15, center.y, { steps: 3 })
+  await page.mouse.up()
+  await expect.poll(() => page.evaluate(() => window.editorTest.stack.journal.value.length)).toBeGreaterThan(0)
+  await page.waitForTimeout(200)
+  const journal = await page.evaluate(() => window.editorTest.stack.journal.value.map(entry => entry.forward.params))
+  assert.equal(journal.length, 1, JSON.stringify(journal))
+  assert.ok(journal[0].rect)
+  assert.deepEqual(errors, [])
+})

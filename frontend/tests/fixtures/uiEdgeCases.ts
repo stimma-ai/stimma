@@ -5,6 +5,7 @@ import ToolDrawer from '../../src/components/compact/ToolDrawer.vue'
 import HorizontalVirtualScroller from '../../src/components/HorizontalVirtualScroller.vue'
 import VirtualMediaGrid from '../../src/components/VirtualMediaGrid.vue'
 import LineageView from '../../src/views/LineageView.vue'
+import FlowView from '../../src/views/FlowView.vue'
 import { useStackDocument } from '../../src/imageEditor/stack/useStackDocument'
 import '../../src/style.css'
 
@@ -50,6 +51,13 @@ function lineageCase() {
   ])
 }
 
+function flowCase() {
+  const shown = ref(true)
+  state.hide = () => { shown.value = false }
+  state.show = () => { shown.value = true }
+  return () => h(KeepAlive, () => shown.value ? h(FlowView, { id: 1 }) : h('div'))
+}
+
 function filmstripCase() {
   // Newest first: a prepend puts new ids at index 0.
   const ids = ref(Array.from({ length: 60 }, (_, i) => 1000 - i))
@@ -76,6 +84,7 @@ const setups: Record<string, () => () => any> = {
   drawer: drawerCase,
   lineage: lineageCase,
   filmstrip: filmstripCase,
+  flow: flowCase,
 }
 const app = createApp({ setup: setups[mode] })
 const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: { render: () => null } }] })

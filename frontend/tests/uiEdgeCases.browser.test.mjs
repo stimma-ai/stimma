@@ -105,3 +105,29 @@ test('after a prepend that leaves the slide in place, the next step still center
   await page.evaluate(() => window.uiState.go(20))
   await expect.poll(() => strip.evaluate(el => Math.round(el.scrollLeft))).toBe(1750)
 })
+
+test('the task list hears keys only while it is the visible screen', async t => {
+  const page = await fixture(t, 'flow')
+  await page.waitForTimeout(300)
+  // With no task focused, ArrowDown moves into the list and claims the key.
+  const claimed = (key, init = {}) => page.evaluate(([key, init]) => {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init })
+    document.body.dispatchEvent(event)
+    return event.defaultPrevented
+  }, [key, init])
+  assert.equal(await claimed('ArrowDown'), true)
+  assert.equal(await claimed('ArrowDown', { ctrlKey: true }), false)
+  assert.equal(await claimed('ArrowDown', { metaKey: true }), false)
+  // An open menu or dialog keeps its keys.
+  await page.evaluate(() => { const layer = document.createElement('div'); layer.dataset.escapeLayer = ''; layer.textContent = 'Menu'; layer.id = 'test-layer'; document.body.append(layer) })
+  assert.equal(await claimed('ArrowDown'), false)
+  await page.evaluate(() => document.getElementById('test-layer').remove())
+  // Cached in the background, it leaves the keys of other screens alone.
+  await page.evaluate(() => window.uiState.hide())
+  await page.waitForTimeout(50)
+  assert.equal(await claimed('ArrowDown'), false)
+  assert.equal(await claimed('Enter'), false)
+  await page.evaluate(() => window.uiState.show())
+  await page.waitForTimeout(50)
+  assert.equal(await claimed('ArrowDown'), true)
+})
