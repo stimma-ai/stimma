@@ -1599,12 +1599,18 @@ def _extract_json_object(text: str) -> str:
         block = fence.group(1).strip()
         return _object(json.loads(block), block)
 
-    # 3) Surrounding prose: decode the first JSON value that starts with { or [.
-    starts = [i for i in (candidate.find("{"), candidate.find("[")) if i != -1]
-    if not starts:
-        raise json.JSONDecodeError("No JSON object found", candidate, 0)
-    value, _ = json.JSONDecoder().raw_decode(candidate, min(starts))
-    return _object(value, candidate)
+    # 3) Surrounding prose: the first { or [ that decodes is the reply's value
+    # (prose brackets like "[x, y]" don't decode and are skipped).
+    decoder = json.JSONDecoder()
+    for i, ch in enumerate(candidate):
+        if ch not in "{[":
+            continue
+        try:
+            value, _ = decoder.raw_decode(candidate, i)
+        except json.JSONDecodeError:
+            continue
+        return _object(value, candidate)
+    raise json.JSONDecodeError("No JSON object found", candidate, 0)
 
 
 def _looks_like_ideogram_json(text: str) -> bool:

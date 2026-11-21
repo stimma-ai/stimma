@@ -107,13 +107,16 @@ def is_quarter_turn(stream: dict) -> bool:
                 angle = float(sd["rotation"])
             except (TypeError, ValueError):
                 pass
-        if angle is not None:
+        if angle is not None and math.isfinite(angle):
             break
+        angle = None
     if angle is None:
         try:
             angle = float((stream.get("tags") or {}).get("rotate") or 0)
         except (TypeError, ValueError):
             angle = 0.0
+    if not math.isfinite(angle):
+        return False
     return int(math.floor(abs(angle) + 0.5)) % 180 == 90
 
 

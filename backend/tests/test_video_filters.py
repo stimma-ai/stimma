@@ -305,3 +305,10 @@ def test_probe_matches_ffmpeg_autorotation(tmp_path, angle, dims):
     assert tuple(int(v) for v in decoded.split(b"\n")[1].split()) == dims
     out = apply_builtin_filter_video("levels", str(src), str(tmp_path / "out.mp4"), {"brightness": 0})
     assert _probe_dims(out)[:2] == dims
+
+
+def test_non_finite_rotation_keeps_stored_size():
+    from utils.video_frames import is_quarter_turn
+
+    assert is_quarter_turn({"tags": {"rotate": "nan"}}) is False
+    assert is_quarter_turn({"side_data_list": [{"rotation": "nan"}], "tags": {"rotate": "90"}}) is True

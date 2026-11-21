@@ -162,3 +162,8 @@ def test_looks_like_ideogram_json():
 def test_extract_json_object_requires_an_object(raw):
     with pytest.raises(json.JSONDecodeError):
         _extract_json_object(raw)
+
+
+def test_extract_json_object_skips_prose_brackets():
+    raw = 'Here is the caption (bbox in [x, y, w, h]): {"caption": "hello"}'
+    assert json.loads(_extract_json_object(raw)) == {"caption": "hello"}
