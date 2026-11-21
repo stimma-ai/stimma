@@ -5,7 +5,12 @@
     tabindex="-1"
     class="outline-none [&_img]:[-webkit-touch-callout:none] [&_video]:[-webkit-touch-callout:none]"
     data-drop-zone
-    :class="fullscreen ? 'fixed inset-0 bg-slideshow-matt flex z-overlay compact:flex-col' : 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-overlay'"
+    :class="[
+      fullscreen ? 'fixed inset-0 bg-slideshow-matt flex z-overlay compact:flex-col' : 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-overlay',
+      { 'slideshow-chrome-autohide': chromeAutoHides, 'slideshow-chrome-idle': chromeAutoHides && chromeIdle },
+    ]"
+    @pointerdown.capture="handleChromePointerDown"
+    @pointermove.capture="handleChromePointerMove"
     @dragover.prevent
     @drop.prevent
     @keydown.esc="handleKeydown"
@@ -2175,6 +2180,12 @@ const gridViewerRef = ref(null)
 let cursorTimeout = null
 const CURSOR_HIDE_DELAY = 3000 // 3 seconds
 
+// Focus mode fades the floating chrome after the same idle delay, like a video
+// player: any pointer movement or tap brings it back. Phones have their own
+// immersive view, so this is desktop/tablet focus mode only.
+const chromeIdle = ref(false)
+const chromeAutoHides = computed(() => focusMode.value && !slideshowCompact.value)
+
 // Control bar dragging state
 const isDragging = ref(false)
 const isHovered = ref(false)
@@ -4214,6 +4225,7 @@ function resetCursorTimeout() {
 
   // Show cursor
   showCursor()
+  chromeIdle.value = false
 
   // Hide the idle cursor like a video player does.
   if (slideshowViewActive && !contextMenu.state.value.visible) {
@@ -4221,9 +4233,30 @@ function resetCursorTimeout() {
       // Don't hide if the pointer is over a modal/popup floating on top.
       if (cursorOverSlideshow()) {
         hideCursor()
+        // Keep the chrome up while the mouse rests on it or drags the bar.
+        if (chromeAutoHides.value && !mouseOverChrome() && !isDragging.value) chromeIdle.value = true
       }
     }, CURSOR_HIDE_DELAY)
   }
+}
+
+// A finger lifted off a control is not hovering it; only a mouse holds the chrome up.
+function mouseOverChrome() {
+  if (lastMouseX === null || lastPointerWasTouch) return false
+  const el = document.elementFromPoint(lastMouseX, lastMouseY)
+  return !!el?.closest('.z-chrome:not([data-window-drag-region]), .z-menu')
+}
+
+// A tap or click reveals hidden chrome and restarts the idle countdown.
+// Only a real mouse move clears the touch flag: Safari sends compat
+// mousemoves after a tap.
+let lastPointerWasTouch = false
+function handleChromePointerDown(event) {
+  lastPointerWasTouch = event.pointerType === 'touch'
+  if (chromeAutoHides.value) resetCursorTimeout()
+}
+function handleChromePointerMove(event) {
+  if (event.pointerType === 'mouse') lastPointerWasTouch = false
 }
 
 function handleMouseMove(event) {
@@ -4242,6 +4275,7 @@ function cleanupCursorTimeout() {
     cursorTimeout = null
   }
   showCursor()
+  chromeIdle.value = false
 }
 
 function toggleOrientation() {
@@ -6788,6 +6822,8 @@ watch(focusMode, (newValue) => {
   // Toggle body class to hide app-level sidebar
   if (newValue) {
     document.body.classList.add('slideshow-focus-mode')
+    // Start the idle countdown even if focus mode came from a key press.
+    if (slideshowViewActive) resetCursorTimeout()
   } else {
     document.body.classList.remove('slideshow-focus-mode')
   }
@@ -7099,6 +7135,18 @@ async function toggleMarker(markerId) {
 </script>
 
 <style scoped>
+/* Focus mode: the floating chrome (direct children of the overlay) fades out
+   when idle, leaving only the picture. Fade out slowly, back in quickly. */
+.slideshow-chrome-autohide > .z-chrome:not([data-window-drag-region]) {
+  transition: opacity 150ms ease, background-color 200ms ease, color 200ms ease, visibility 0s;
+}
+/* visibility (after the fade) also takes the hidden controls out of the tab order. */
+.slideshow-chrome-idle > .z-chrome:not([data-window-drag-region]) {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 600ms ease, visibility 0s 600ms;
+}
 .compact-bar-btn {
   @apply bg-transparent border-none text-content-tertiary cursor-pointer w-11 h-11 shrink-0 p-0 flex items-center justify-center rounded-md transition-colors hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent;
 }
