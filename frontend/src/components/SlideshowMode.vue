@@ -1589,6 +1589,10 @@ const { printAssetDetail } = usePrint()
 // Track IDs of items we're deleting to avoid double-handling via WebSocket
 const deletingItemIds = ref(new Set())
 
+// IDs whose trash request is still in flight: a second Delete on the same
+// slide must not send (and count) the removal twice.
+const trashInFlightIds = new Set()
+
 // Track IDs of items removed locally (before server refresh) - strip will skip these
 const localRemovedIds = ref(new Set())
 
@@ -4449,55 +4453,26 @@ function handleKeydown(event) {
   // Grid view mode: 4-directional navigation within grid
   if (isViewingGrid.value && currentGridView.value) {
     const grid = currentGridView.value
-    switch (event.key) {
-      case 'ArrowRight':
-      case 'd':
-        event.preventDefault()
-        if (gridViewCol.value < grid.cols - 1) {
-          // Check if next cell has content
-          const nextCell = getGridCellContent(gridViewRow.value, gridViewCol.value + 1)
-          if (nextCell?.resolved) {
-            gridViewCol.value++
-            resetZoom()
-          }
+    const step = {
+      ArrowRight: [0, 1], d: [0, 1], ArrowLeft: [0, -1], a: [0, -1],
+      ArrowUp: [-1, 0], w: [-1, 0], ArrowDown: [1, 0], s: [1, 0],
+    }[event.key]
+    if (step) {
+      event.preventDefault()
+      // Skip empty cells: move to the nearest filled cell in that direction.
+      let row = gridViewRow.value + step[0]
+      let col = gridViewCol.value + step[1]
+      while (row >= 0 && row < grid.rows && col >= 0 && col < grid.cols) {
+        if (getGridCellContent(row, col)?.resolved) {
+          gridViewRow.value = row
+          gridViewCol.value = col
+          resetZoom()
+          break
         }
-        return
-      case 'ArrowLeft':
-      case 'a':
-        event.preventDefault()
-        if (gridViewCol.value > 0) {
-          // Check if prev cell has content
-          const prevCell = getGridCellContent(gridViewRow.value, gridViewCol.value - 1)
-          if (prevCell?.resolved) {
-            gridViewCol.value--
-            resetZoom()
-          }
-        }
-        return
-      case 'ArrowUp':
-      case 'w':
-        event.preventDefault()
-        if (gridViewRow.value > 0) {
-          // Check if cell above has content
-          const upCell = getGridCellContent(gridViewRow.value - 1, gridViewCol.value)
-          if (upCell?.resolved) {
-            gridViewRow.value--
-            resetZoom()
-          }
-        }
-        return
-      case 'ArrowDown':
-      case 's':
-        event.preventDefault()
-        if (gridViewRow.value < grid.rows - 1) {
-          // Check if cell below has content
-          const downCell = getGridCellContent(gridViewRow.value + 1, gridViewCol.value)
-          if (downCell?.resolved) {
-            gridViewRow.value++
-            resetZoom()
-          }
-        }
-        return
+        row += step[0]
+        col += step[1]
+      }
+      return
     }
     // Fall through to other key handlers (zoom, focus mode, etc.)
   }
@@ -5330,6 +5305,8 @@ async function handleDeleteCurrentItem() {
   }
 
   const deletedId = itemIdentity(currentItem.value)
+  if (trashInFlightIds.has(deletedId)) return
+  trashInFlightIds.add(deletedId)
   const removedIds = new Set([deletedId])
 
   try {
@@ -5358,6 +5335,7 @@ async function handleDeleteCurrentItem() {
     console.error('Failed to delete media:', error)
     addToast('Failed to move item to trash', 'error')
   } finally {
+    trashInFlightIds.delete(deletedId)
     // Clean up after a delay to ensure websocket has processed
     setTimeout(() => {
       deletingItemIds.value.delete(deletedId)

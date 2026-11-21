@@ -59,9 +59,11 @@ function firesIn(timer: AgentTimer): string {
 
 function minutes(n: number | undefined): string {
   if (!n) return ''
-  if (n < 60) return `${Math.round(n)} min`
-  const h = Math.floor(n / 60)
-  const m = Math.round(n % 60)
+  // Round once, so 119.5 reads "2 h", not "1 h 60 min".
+  const total = Math.round(n)
+  if (total < 60) return `${total} min`
+  const h = Math.floor(total / 60)
+  const m = total % 60
   return m ? `${h} h ${m} min` : `${h} h`
 }
 

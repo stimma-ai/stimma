@@ -776,8 +776,9 @@
 
 <script setup lang="ts">
 import { formatDate, formatRelativeShort } from '../utils/timeFormat'
+import { hasEscapeLayer } from '../utils/escapeLayers.js'
 import { mobileRecoveryEnabled } from '../composables/useMobileRecovery.js'
-import { ref, computed, watch, nextTick, onMounted, onUnmounted, onActivated, provide, type WatchStopHandle } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, onActivated, onDeactivated, provide, type WatchStopHandle } from 'vue'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
 import RenameSheet from '../components/compact/RenameSheet.vue'
 import Sheet from '../components/ui/Sheet.vue'
@@ -2371,6 +2372,9 @@ function prevTask() {
 }
 
 function handleKey(e: KeyboardEvent) {
+  // Leave keys another layer already handled, shortcuts, and open dialogs or
+  // menus alone; those keys are not meant for the task list.
+  if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || hasEscapeLayer()) return
   // Don't steal typing in inputs/textareas
   const target = e.target as HTMLElement | null
   if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
@@ -2395,7 +2399,11 @@ function handleKey(e: KeyboardEvent) {
   else if (e.key === 'k' || e.key === 'ArrowUp') { prevTask(); e.preventDefault() }
 }
 
+// The view stays cached in KeepAlive after navigating away; only listen
+// while it is the visible screen.
 onMounted(() => window.addEventListener('keydown', handleKey))
+onActivated(() => window.addEventListener('keydown', handleKey))
+onDeactivated(() => window.removeEventListener('keydown', handleKey))
 onUnmounted(() => window.removeEventListener('keydown', handleKey))
 
 // Auto-focus first pending task when the list changes

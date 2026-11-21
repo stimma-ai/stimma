@@ -3749,6 +3749,8 @@ function onAdjustInspectorChange(patch: Record<string, any>, coalesceKey: string
 }
 
 async function commitAdjustInspectorChange() {
+  // The drag ended; another drag of the same slider is a separate undo step.
+  stack.breakCoalescing()
   cancelLiveAdjustPreview()
   await render()
   await stack.flush()
@@ -4069,7 +4071,9 @@ async function applyCropChange(
     } as any)
     cropOpId.value = opId
     selectedOpId.value = opId
-  } else {
+  } else if (Object.keys(patch).length) {
+    // Settling a finished drag passes no patch; journaling it would leave an
+    // empty step for the first Undo to spend.
     stack.setParams(cropOpId.value, patch, coalesceKey)
   }
   // StackCropCanvas already draws the moving crop directly from cropInput.

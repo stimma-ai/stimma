@@ -283,3 +283,48 @@ test('an open slideshow keeps the screen awake and hides the idle cursor outside
   await page.mouse.move(420, 320)
   assert.equal(await page.evaluate(() => document.body.classList.contains('slideshow-cursor-hidden')), false)
 })
+
+test('a second Delete while the first is still trashing sends nothing more', async t => {
+  const calls = []
+  let release
+  const held = new Promise(resolve => { release = resolve })
+  const items = [1, 2, 3].map(id => ({ ...slide(id, `image-${id}`, 100 + id) }))
+  const page = await fixture(t, { items, routes: page =>
+    page.route('**/assets/batch/trash', async route => {
+      calls.push(route.request().postDataJSON())
+      await held
+      return route.fulfill({ json: { asset_ids: calls.length === 1 ? [101] : [] } })
+    }),
+  })
+  await expect(page.locator('img[src*="image-1"]').first()).toBeVisible()
+  await page.keyboard.press('Delete')
+  await expect.poll(() => calls.length).toBe(1)
+  await page.keyboard.press('Delete')
+  await page.waitForTimeout(100)
+  release()
+  await page.waitForTimeout(300)
+  assert.deepEqual(calls, [{ asset_ids: [101] }])
+})
+
+test('grid arrows step over empty cells to the next filled one', async t => {
+  const gridItem = { id: 60, asset_id: 60, media_id: 6, file_format: 'stimmagrid.json', file_hash: 'grid-1', width: 0, height: 0 }
+  const page = await fixture(t, { items: [gridItem], routes: page =>
+    page.route('**/media/6/content', route => route.fulfill({ json: { rows: 2, cols: 3, cells: [
+      { row: 0, col: 0, resolved: slide(201, 'cell-a', 301) },
+      { row: 0, col: 2, resolved: slide(203, 'cell-c', 303) },
+      { row: 1, col: 2, resolved: slide(206, 'cell-f', 306) },
+    ] } })),
+  })
+  await page.locator('img[src*="cell-a"]').first().click()
+  await expect(page.locator('img[src*="cell-a"]').first()).toBeVisible()
+  await page.keyboard.press('ArrowRight')
+  await expect(page.locator('img[src*="cell-c"]').first()).toBeVisible()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.locator('img[src*="cell-f"]').first()).toBeVisible()
+  // Nothing filled to the left on this row: stay put.
+  await page.keyboard.press('ArrowLeft')
+  await expect(page.locator('img[src*="cell-f"]').first()).toBeVisible()
+  await page.keyboard.press('ArrowUp')
+  await page.keyboard.press('ArrowLeft')
+  await expect(page.locator('img[src*="cell-a"]').first()).toBeVisible()
+})
