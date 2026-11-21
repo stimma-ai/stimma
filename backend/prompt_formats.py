@@ -86,6 +86,9 @@ def render_h3_prompt_reference() -> str:
         "input presentation order described by the tool. A video with sound contributes "
         "separate audio and video tags; standalone audio follows those references. "
         "Keyframes pin moments on the target timeline rather than receiving reference "
-        "tags. Describe their actual times and carry motion and sound through pinned clips."
+        "tags. Refer to them by their times rather than describing how they look: a pinned picture "
+        "already fixes the framing and poses there, and a different framing in the prompt is one the "
+        "model can only reach with a cut. Carry motion and sound through pinned clips as one "
+        "continuous take."
     )
     return "\n\n".join(sections) + "\n"
