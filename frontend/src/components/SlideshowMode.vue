@@ -5283,6 +5283,8 @@ async function deleteContainerMember(context) {
   // leaves a hole. It leaves the view at once, so a second Delete acts on the
   // next slide; the asset_trashed event updates the list behind the set.
   const assetId = itemIdentity(context.member)
+  if (trashInFlightIds.has(assetId)) return
+  trashInFlightIds.add(assetId)
   containerMemberRemovals.add(assetId)
   setTimeout(() => containerMemberRemovals.delete(assetId), 10000)
   pruneContainerViewsForAssets([assetId])
@@ -5292,6 +5294,8 @@ async function deleteContainerMember(context) {
     console.error('Failed to delete media:', error)
     addToast('Failed to move item to trash', 'error')
     void refreshContainerViews()
+  } finally {
+    trashInFlightIds.delete(assetId)
   }
 }
 

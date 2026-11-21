@@ -978,6 +978,7 @@ function handleItemClick(itemId, index, event) {
     return
   }
 
+  rangeRequest++
   // Cmd/Ctrl-click to toggle selection (like checkbox click)
   if (event.metaKey || event.ctrlKey) {
     emit('toggle-selection', itemId, index)
@@ -1005,6 +1006,7 @@ function handleCheckboxClick(itemId, index, event) {
     return
   }
 
+  rangeRequest++
   // Track whether this click is selecting or deselecting (before the toggle)
   const wasSelected = isSelected(itemId)
   lastClickedAction.value = wasSelected ? 'deselect' : 'select'
@@ -1093,10 +1095,15 @@ function closeEmptySpaceMenu() {
   showEmptySpaceMenu.value = false
 }
 
+// A newer click or selection change makes a range still loading stale.
+let rangeRequest = 0
+watch(() => props.selectedItemIds, () => { rangeRequest++ })
+
 async function handleRangeSelection(endIndex) {
   if (lastClickedIndex.value === null) {
     return
   }
+  const request = ++rangeRequest
 
   // Get the range of indices
   const start = Math.min(lastClickedIndex.value, endIndex)
@@ -1111,6 +1118,7 @@ async function handleRangeSelection(endIndex) {
   }
   if (missingPages.size) {
     await Promise.all([...missingPages].map(page => loadPage(page)))
+    if (request !== rangeRequest) return
   }
 
   // Collect all item IDs in the range
