@@ -105,7 +105,7 @@
           @keydown.enter="submitRename"
         />
         <p v-if="renameError" class="text-xs text-red-400 mt-1">{{ renameError }}</p>
-        <template v-if="needsTargetPin(renameProfile)">
+        <template v-if="askTargetPin">
           <label class="block text-xs text-content-tertiary mt-3 mb-1">PIN for this profile</label>
           <input
             v-model="targetPin"
@@ -122,7 +122,7 @@
 
       <template #footer>
         <Button variant="secondary" @click="closeRenameModal">Cancel</Button>
-        <Button variant="primary" :disabled="!canRename || saving || (needsTargetPin(renameProfile) && !targetPin)" @click="submitRename">
+        <Button variant="primary" :disabled="!canRename || saving || (askTargetPin && !targetPin)" @click="submitRename">
           {{ saving ? 'Renaming...' : 'Rename' }}
         </Button>
       </template>
@@ -157,7 +157,7 @@
           <li>Markers and collections</li>
           <li>Profile settings and folders</li>
         </ul>
-        <template v-if="needsTargetPin(deleteConfirm)">
+        <template v-if="askTargetPin">
           <label class="block text-xs text-content-tertiary mt-4 mb-1">PIN for this profile</label>
           <input
             v-model="targetPin"
@@ -174,7 +174,7 @@
 
       <template #footer>
         <Button variant="secondary" @click="closeDeleteConfirm">Cancel</Button>
-        <Button variant="danger" :disabled="saving || (needsTargetPin(deleteConfirm) && !targetPin)" @click="deleteProfile">
+        <Button variant="danger" :disabled="saving || (askTargetPin && !targetPin)" @click="deleteProfile">
           {{ saving ? 'Deleting...' : 'Delete Forever' }}
         </Button>
       </template>
@@ -451,7 +451,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { getApiBase } from '../../../apiConfig'
-import { cachePin, getCachedPin, syncPinTimeouts } from '../../../composables/usePinLock'
+import { cachePin, getCachedPin, rejectCachedPin, syncPinTimeouts } from '../../../composables/usePinLock'
 import Modal from '../../ui/Modal.vue'
 import Button from '../../ui/Button.vue'
 
@@ -652,35 +652,43 @@ const canRename = computed(() => {
 // window may not hold (it's on another profile, or the PIN expired).
 const targetPin = ref('')
 const targetPinError = ref('')
+const askTargetPin = ref(false)
 
-function needsTargetPin(profile) {
-  return !!profile?.has_pin && !getCachedPin(profile.id)
-}
-
-function resetTargetPin() {
+function resetTargetPin(profile = null) {
   targetPin.value = ''
   targetPinError.value = ''
+  askTargetPin.value = !!profile?.has_pin && !getCachedPin(profile.id)
 }
 
-/** The PIN to send for `profile` (null when it has none), or undefined when the entered one is wrong. */
+/**
+ * The PIN to send for `profile` (null when it has none), or undefined when
+ * it isn't accepted. A cached PIN is checked too: it may have changed
+ * elsewhere, and then it's forgotten and the dialog asks for the PIN.
+ */
 async function targetPinFor(profile) {
   if (!profile.has_pin) return null
-  const cached = getCachedPin(profile.id)
-  if (cached) return cached
+  const pin = askTargetPin.value ? targetPin.value : getCachedPin(profile.id)
   targetPinError.value = ''
   const response = await fetch(`${getApiBase()}/profiles/${profile.id}/verify-pin`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin: targetPin.value }),
+    body: JSON.stringify({ pin }),
   })
-  if (response.ok) return targetPin.value
-  targetPinError.value = response.status === 401 ? 'Incorrect PIN' : 'Could not check the PIN'
+  if (response.ok) return pin
+  if (response.status !== 401) {
+    targetPinError.value = 'Could not check the PIN'
+  } else if (askTargetPin.value) {
+    targetPinError.value = 'Incorrect PIN'
+  } else {
+    rejectCachedPin(profile.id, pin)
+    askTargetPin.value = true
+  }
   return undefined
 }
 
 // Rename modal functions
 function openRenameModal(profile) {
-  resetTargetPin()
+  resetTargetPin(profile)
   renameProfile.value = profile
   renameProfileName.value = profile.name
 }
@@ -737,7 +745,7 @@ function switchToProfile(profileId) {
 
 // Delete functions
 function confirmDelete(profile) {
-  resetTargetPin()
+  resetTargetPin(profile)
   deleteConfirm.value = profile
 }
 

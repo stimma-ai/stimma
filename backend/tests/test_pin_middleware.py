@@ -155,8 +155,8 @@ async def pin_app(pin_temp_dir: Path):
         from routes import media, media_files, package_media, profiles
         from routes import settings as settings_routes
         app.include_router(media.router)
-        app.include_router(media_files.router, prefix="/api")
-        app.include_router(package_media.router, prefix="/api")
+        app.include_router(media_files.router)
+        app.include_router(package_media.router)
         app.include_router(profiles.router)
         app.include_router(settings_routes.router)
 
@@ -309,23 +309,43 @@ class TestTargetProfilePin:
     """Routes that name a profile (by db_guid or id) need that profile's PIN,
     whatever profile the caller is on."""
 
-    async def test_db_guid_media_needs_its_profiles_pin(self, pin_client):
+    async def test_db_guid_media_needs_its_profiles_pin(self, pin_client, pin_temp_dir):
         from database_registry import get_database_registry
+        from packages.manifest import PACKAGE_FORMAT
+        from tests.helpers.media import create_media_item, generate_test_image
 
-        guid = get_database_registry().get_db_guid("protected")
-        url = f"/api/db/{guid}/media/999999/file"
+        registry = get_database_registry()
+        guid = registry.get_db_guid("protected")
+        image = pin_temp_dir / "pin-media" / "photo.png"
+        file_hash = generate_test_image(image)
+        bundle = pin_temp_dir / "pin-media" / "Delivery.stimmapackage"
+        bundle.mkdir()
+        (bundle / "index.html").write_text('<html lang="en" data-stimma-package="1"><head></head><body><img src="a.png"></body></html>')
+        generate_test_image(bundle / "a.png")
+        async with registry.get_database("protected").async_session_maker() as session:
+            photo = await create_media_item(session, file_path=image, file_hash=file_hash)
+            package = await create_media_item(session, file_path=bundle, file_format=PACKAGE_FORMAT)
+            photo_id, package_id = photo.id, package.id
+            await session.commit()
+
+        url = f"/api/db/{guid}/media/{photo_id}/file"
         as_other = {"X-Profile-ID": "unprotected"}
         assert (await pin_client.get(url, headers=as_other)).status_code == 403
         assert (await pin_client.get(url, params={"pin": "wrong"})).status_code == 403
         allowed = await pin_client.get(url, params={"pin": TEST_PIN})
-        assert allowed.status_code == 404  # past the PIN; there is no such media
+        assert allowed.status_code == 200, allowed.text
+        assert allowed.content == image.read_bytes()
         assert allowed.headers["cache-control"] == "no-store"
         header = await pin_client.get(url, headers={"X-Profile-PIN": TEST_PIN})
-        assert header.status_code == 404
+        assert header.status_code == 200
         # Package covers carry it in the path, so their relative URLs keep it.
-        cover = f"/api/db/{guid}/pin/{{}}/media/999999/package-file/index.html"
-        assert (await pin_client.get(cover.format(_hex("wrong")))).status_code == 403
-        assert (await pin_client.get(cover.format(_hex(TEST_PIN)))).status_code == 404
+        cover = f"/api/db/{guid}/pin/{{}}/media/{package_id}/package-file/{{}}"
+        assert (await pin_client.get(cover.format(_hex("wrong"), "index.html"))).status_code == 403
+        assert (await pin_client.get(f"/api/db/{guid}/media/{package_id}/package-file/a.png")).status_code == 403
+        for name in ("index.html", "a.png"):
+            served = await pin_client.get(cover.format(_hex(TEST_PIN), name))
+            assert served.status_code == 200, (name, served.text)
+            assert served.headers["cache-control"] == "no-store"
 
     async def test_db_guid_media_of_open_profile_is_unchanged(self, pin_client):
         from database_registry import get_database_registry
@@ -423,3 +443,20 @@ def test_profile_folder_in_use_is_removed_later(tmp_path, monkeypatch):
     assert not gone.exists()
     assert kept.is_dir() and unmarked.is_dir()
     shutil.rmtree(kept)
+
+
+async def test_request_logs_and_metrics_never_carry_a_pin(pin_client):
+    """Package covers carry the PIN in the path and <img> URLs in the query;
+    neither reaches the request log or the request metrics."""
+    from unittest.mock import patch as mock_patch
+    from core import slowtrace
+    from core.request_metrics import get_request_metrics_collector
+    from database_registry import get_database_registry
+
+    guid = get_database_registry().get_db_guid("unprotected")
+    secret = "8642"
+    logged = []
+    with mock_patch.object(slowtrace.log, "info", lambda *a, **k: logged.append((a, k))):
+        await pin_client.get(f"/api/db/{guid}/pin/{_hex(secret)}/media/999999/package-file/a.png", params={"pin": secret})
+    assert logged and _hex(secret) not in repr(logged) and secret not in repr(logged)
+    assert _hex(secret) not in repr(get_request_metrics_collector().__dict__)

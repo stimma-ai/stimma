@@ -423,13 +423,13 @@ async def put_blob(session: AsyncSession, key: str, data: bytes, if_absent: bool
     )
 
 
-_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+_DIGEST_RE = re.compile(r"[0-9a-f]{64}")
 
 
 def _blob_digest(value: Any) -> Optional[str]:
     """The file name a blob document points at, or None if it isn't a digest."""
     digest = value.get("hash") if isinstance(value, dict) else None
-    return digest if isinstance(digest, str) and _DIGEST_RE.match(digest) else None
+    return digest if isinstance(digest, str) and _DIGEST_RE.fullmatch(digest) else None
 
 
 async def get_blob(session: AsyncSession, key: str) -> Optional[bytes]:

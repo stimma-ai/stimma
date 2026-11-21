@@ -2424,20 +2424,23 @@ def _remove_profile_dir(profile_dir) -> bool:
     """Remove a deleted profile's folder, its marker last so that a removal
     stopped partway is still finished later."""
     try:
-        for child in profile_dir.iterdir():
+        for child in list(profile_dir.iterdir()):
             if child.name == PROFILE_DELETED_MARKER:
                 continue
-            if child.is_dir() and not child.is_symlink():
-                shutil.rmtree(child)
-            else:
-                child.unlink()
+            try:
+                if child.is_dir() and not child.is_symlink():
+                    shutil.rmtree(child)
+                else:
+                    child.unlink()
+            except FileNotFoundError:
+                pass  # SQLite removes its -wal/-shm files on close
         shutil.rmtree(profile_dir)
     except FileNotFoundError:
         pass
     except OSError as e:
         log.info("profile folder not removed yet", error_type=type(e).__name__)
         return False
-    return True
+    return not profile_dir.exists()
 
 
 async def _retry_profile_dir_removal(profile_id: str, profile_dir) -> None:
@@ -2493,10 +2496,22 @@ async def delete_profile_endpoint(profile_id: str, request: Request):
     from core.middleware import require_profile_pin
     require_profile_pin(request, profile_id)
 
+    # Marked before the config changes, so a folder whose removal can't
+    # finish now (or is interrupted) is finished later: retried shortly, and
+    # at the next launch.
+    profile_dir = app_dirs.get_profile_dir(profile_id)
+    marker = profile_dir / PROFILE_DELETED_MARKER
+    if profile_dir.exists():
+        try:
+            marker.touch()
+        except OSError:
+            raise HTTPException(status_code=500, detail="Could not delete the profile's folder")
+
     # Delete from config
     try:
         delete_profile_config(profile_id)
     except ValueError as e:
+        marker.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=str(e))
 
     # Close its database here and in the ingestion process before removing
@@ -2508,14 +2523,7 @@ async def delete_profile_endpoint(profile_id: str, request: Request):
     if reload_event is not None:
         reload_event.set()
 
-    profile_dir = app_dirs.get_profile_dir(profile_id)
     if profile_dir.exists():
-        # Marked first, so a removal that can't finish now is finished later
-        # (retried shortly, and at the next launch).
-        try:
-            (profile_dir / PROFILE_DELETED_MARKER).touch()
-        except OSError:
-            pass
         if not await asyncio.to_thread(_remove_profile_dir, profile_dir):
             task = asyncio.create_task(_retry_profile_dir_removal(profile_id, profile_dir))
             _profile_removals.add(task)
