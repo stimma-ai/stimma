@@ -1356,7 +1356,7 @@ def get_stimpack_lib_modules(enabled_skills: list[str] | None) -> dict[str, Path
 # Stimpack installation
 # ---------------------------------------------------------------------------
 
-# Serializes the unpack-and-swap itself. Callers' asyncio locks can release
+# Serializes marketplace unpack-and-swap. Callers' asyncio locks can release
 # while a cancelled caller's worker thread is still installing.
 _install_lock = threading.Lock()
 
@@ -1435,6 +1435,9 @@ def _install_from_zip(
     With ``marketplace_meta`` the archive must be the listing it was downloaded
     for, and it only replaces a folder that is already that marketplace pack.
     """
+    if not marketplace_meta:
+        # Local uploads run on the request path; never make them wait.
+        return _install_from_zip_locked(file_path, profile_id, marketplace_meta)
     with _install_lock:
         return _install_from_zip_locked(file_path, profile_id, marketplace_meta)
 

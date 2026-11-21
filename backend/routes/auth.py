@@ -406,6 +406,24 @@ async def get_auth_status():
     }
 
 
+def _session_expired_error(generation: int) -> HTTPException:
+    """401 sign-in-again, unless a newer login replaced the one that expired."""
+    from auth_storage import auth_generation
+
+    if auth_generation() != generation:
+        return HTTPException(
+            status_code=503,
+            detail=_auth_error(
+                "auth_temporarily_unavailable",
+                "Couldn't verify your Stimma session. Try again shortly.",
+            ),
+        )
+    return HTTPException(
+        status_code=401,
+        detail=_auth_error("session_expired", "Please sign in again."),
+    )
+
+
 @router.get("/account")
 async def get_account_info():
     """Get fresh account info from stimma.cloud.
@@ -443,10 +461,7 @@ async def get_account_info():
     try:
         id_token = await get_valid_id_token(raise_on_failure=True)
     except AuthSessionExpiredError:
-        raise HTTPException(
-            status_code=401,
-            detail=_auth_error("session_expired", "Please sign in again."),
-        )
+        raise _session_expired_error(generation)
     except AuthNetworkError:
         raise HTTPException(
             status_code=503,
@@ -491,10 +506,7 @@ async def get_account_info():
         from account_sync import apply_account_update
         return await apply_account_update(account, effective_token)
     except AuthSessionExpiredError:
-        raise HTTPException(
-            status_code=401,
-            detail=_auth_error("session_expired", "Please sign in again."),
-        )
+        raise _session_expired_error(generation)
     except AuthNetworkError:
         raise HTTPException(
             status_code=503,
@@ -529,20 +541,8 @@ async def get_account_info():
             )
         if e.response.status_code in (401, 403):
             from firebase_auth import clear_auth_after_session_expiry
-            if auth_generation() != generation:
-                # A newer login replaced the one this request used: not a sign-out.
-                raise HTTPException(
-                    status_code=503,
-                    detail=_auth_error(
-                        "auth_temporarily_unavailable",
-                        "Couldn't verify your Stimma session. Try again shortly.",
-                    ),
-                )
             await clear_auth_after_session_expiry(generation)
-            raise HTTPException(
-                status_code=401,
-                detail=_auth_error("session_expired", "Please sign in again."),
-            )
+            raise _session_expired_error(generation)
         log.error("failed to fetch account info", status=e.response.status_code, error=str(e))
         raise HTTPException(
             status_code=502,

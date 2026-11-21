@@ -77,3 +77,17 @@ async def test_cloud_token_refresh_blocks_stale_token_when_auth_is_gone():
     assert allowed is False
     assert config["auth_token"] == "stale"
     disconnect.assert_awaited_once()
+
+
+async def test_cloud_token_refresh_leaves_the_disconnect_to_a_pending_expiry_teardown():
+    from routes.cloud import _refresh_cloud_token
+
+    config = {"auth_token": "stale"}
+    with patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value=None), \
+         patch("firebase_auth.session_expiry_teardown_pending", return_value=True), \
+         patch("auth_storage.load_auth_state", return_value=None), \
+         patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
+        allowed = await _refresh_cloud_token(config)
+
+    assert allowed is False
+    disconnect.assert_not_awaited()

@@ -72,9 +72,13 @@ async def _refresh_cloud_token(config: dict) -> bool:
         # saved session. Do not fall back to a stale token for the operation
         # that triggered this refresh.
         from auth_storage import load_auth_state
+        from firebase_auth import session_expiry_teardown_pending
         if not (load_auth_state() or {}).get('refresh_token'):
             log.info("cloud token refresh found no signed-in session")
-            await disconnect_cloud_internal()
+            # A session-expiry teardown already disconnects; a second,
+            # concurrent disconnect would cut it off partway.
+            if not session_expiry_teardown_pending():
+                await disconnect_cloud_internal()
             return False
 
         # A transient refresh failure preserves auth state. The cached token

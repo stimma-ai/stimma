@@ -770,6 +770,19 @@ class TestAccountInfo:
         mock_clear.assert_not_called()
         mock_disconnect.assert_not_awaited()
 
+    async def test_superseded_refresh_failure_is_not_a_sign_out(self, auth_client: AsyncClient):
+        import auth_storage
+        from firebase_auth import AuthSessionExpiredError
+
+        async def old_refresh_fails(**kwargs):
+            auth_storage._auth_generation += 1  # a new login lands meanwhile
+            raise AuthSessionExpiredError("old session")
+
+        with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
+             patch("firebase_auth.get_valid_id_token", side_effect=old_refresh_fails):
+            response = await auth_client.get("/api/auth/account")
+        assert response.status_code == 503
+
     async def test_account_cloud_failure(self, auth_client: AsyncClient):
         """Test account info when cloud API fails returns 502."""
         with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \

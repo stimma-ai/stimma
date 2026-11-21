@@ -114,6 +114,11 @@ async def _refresh_id_token_classified(refresh_token: str) -> TokenResult:
 _expiry_teardown_tasks: set = set()
 
 
+def session_expiry_teardown_pending() -> bool:
+    """True while an expiry teardown (which owns the cloud disconnect) runs."""
+    return bool(_expiry_teardown_tasks)
+
+
 async def clear_auth_after_session_expiry(generation: Optional[int] = None) -> None:
     """Clear local auth and disconnect cloud after session expiry.
 
