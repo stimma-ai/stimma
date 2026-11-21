@@ -742,11 +742,6 @@ def _read_sidecar(stimpack_dir: Path) -> tuple[Optional[MarketplaceMeta], bool, 
         return None, True, raw
 
 
-def _load_marketplace_sidecar(stimpack_dir: Path) -> Optional[MarketplaceMeta]:
-    """Load .marketplace.json sidecar if present and readable."""
-    return _read_sidecar(stimpack_dir)[0]
-
-
 def write_marketplace_sidecar(
     stimpack_dir: Path,
     stimpack_id: str,
@@ -1124,11 +1119,16 @@ def find_skill(
 
 
 def marketplace_pack_dir_names(profile_id: Optional[str] = None) -> set[str]:
-    """Directory names under the profile stimpacks dir that are marketplace installs."""
+    """Directory names under the profile stimpacks dir that are marketplace installs.
+
+    Judged by the folder's own sidecar file, readable or not, so an install
+    hidden from listing (same pack name as another) is still read-only.
+    """
+    if not profile_id:
+        profile_id = get_current_profile()
     return {
-        pack.dir_path.name
-        for pack in list_installed_stimpacks(profile_id=profile_id)
-        if (pack.marketplace is not None or pack.sidecar_unreadable) and not pack.is_dev
+        d.name for d in _iter_stimpack_dirs(get_user_stimpacks_dir(profile_id))
+        if (d / MARKETPLACE_SIDECAR).is_file()
     }
 
 
@@ -1260,7 +1260,12 @@ def reset_override(name: str, profile_id: Optional[str] = None) -> Optional[Path
         pack = packs_by_name.get(fork.pack_name)
         if pack is None or pack.is_dev:
             return None
-        target = pack.dir_path if len(pack.skills) <= 1 else fork.dir_path
+        if len(pack.skills) <= 1:
+            target = pack.dir_path
+        elif fork.dir_path.resolve() != pack.dir_path.resolve():
+            target = fork.dir_path
+        else:
+            return None  # skill shares the pack root with others; nothing to move alone
         root = get_user_stimpacks_dir(profile_id).resolve()
         if not target.resolve().is_relative_to(root) or target.resolve() == root:
             return None

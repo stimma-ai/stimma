@@ -181,14 +181,9 @@ async def verify_pin(profile_id: str, request: VerifyPinRequest):
         # No PIN set - always valid
         return {"valid": True}
 
-    # Verify PIN
-    try:
-        is_valid = bcrypt.checkpw(
-            request.pin.encode('utf-8'),
-            profile_config.pin_hash.encode('utf-8')
-        )
-    except Exception:
-        is_valid = False
+    # Verify PIN (cached verifier: a verified profile counts as unlocked)
+    from core.middleware import verify_pin
+    is_valid = verify_pin(profile_id, request.pin, profile_config.pin_hash)
 
     if not is_valid:
         raise HTTPException(status_code=401, detail="Invalid PIN")

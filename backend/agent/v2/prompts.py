@@ -222,7 +222,7 @@ frontmatter; once the skill is invoked, `import <module>` works in run_code. `sk
 every skill with its path and any loading problems — run it after writing to confirm the skill parsed. \
 Then describe the skill to the user in a couple of sentences and offer to test it: invoke it and run a \
 fresh example through it; refine with edit_file. Read a skill's file before describing or changing it. \
-Built-in skills (installed stimpacks under `skills/`) are read-only. Before changing one, tell the user \
+Built-in skills (stimpacks installed from the library, marked built-in in the list) are read-only. Before changing one, tell the user \
 it would mean making their own copy, which stops getting updates to the built-in skill and may drift out \
 of date, and ask first. Offer the alternatives: a new skill of their own alongside it, or a note in memory. \
 If they still want their own version, make it: copy the skill's folder to `skills/<slug>/`, keep the same \

@@ -798,11 +798,14 @@ class TestLegacyAndUnreadableSidecars:
         legacy = _write_legacy_pack(stimpacks_dir, "variations")
         list_skills()
         assert legacy.exists()  # nothing covers it yet
-        sp._legacy_migration_checked.discard("test-profile")  # what a marketplace install does
-        pack = stimpacks_dir / "essentials"
-        _write_manifest(pack, "essentials")
-        _write_skill(pack, "variations", "name: variations\ndescription: Upstream", "Upstream body")
-        _write_sidecar(pack, "essentials")
+        import io, zipfile
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("stimpack.json", json.dumps({"name": "essentials", "version": "1"}))
+            zf.writestr("skills/variations/SKILL.md", "---\nname: variations\ndescription: Upstream\n---\n\nUpstream body")
+        sp.install_stimpack_from_zip_bytes(buf.getvalue(), profile_id="test-profile", marketplace_meta={
+            "stimpackId": "sp_1", "name": "essentials", "version": 2, "versionId": "v_2",
+        })
         assert [s.qualified_name for s in list_skills() if s.slug == "variations"] == ["essentials/variations"]
         assert not legacy.exists()
 
@@ -847,3 +850,24 @@ class TestBuiltInEditGuidance:
         assert "stops getting updates to the built-in skill" in text and "ask first" in text
         assert "a new skill of their own alongside it, or a note in memory" in text
         assert "If they still want their own version, make it" in text
+
+
+class TestReviewEdgeCases:
+    def test_hidden_install_with_sidecar_stays_readonly(self, stimpacks_dir, marketplace_pack, fresh_migration):
+        # Same pack name as the readable install, so listing hides it; still not writable.
+        dup = stimpacks_dir / "essentials-old"
+        _write_manifest(dup, "essentials")
+        _write_skill(dup, "variations", "name: variations\ndescription: Old", "Old body")
+        (dup / ".marketplace.json").write_text("{not json", encoding="utf-8")
+        assert readonly_workspace_error("skills/essentials-old/skills/variations/SKILL.md")
+
+    def test_reset_refuses_a_skill_sharing_its_pack_root(self, stimpacks_dir, marketplace_pack):
+        mine = stimpacks_dir / "mine"
+        mine.mkdir()
+        (mine / "SKILL.md").write_text("---\nname: variations\ndescription: Mine\n---\n\nFork", encoding="utf-8")
+        (mine / "other").mkdir()
+        (mine / "other" / "SKILL.md").write_text("---\nname: other\ndescription: Other\n---\n\nOther", encoding="utf-8")
+        (mine / "stimpack.json").write_text(json.dumps({"name": "mine", "resources": [
+            {"type": "skill", "path": "SKILL.md"}, {"type": "skill", "path": "other/SKILL.md"}]}), encoding="utf-8")
+        assert sp.reset_override("variations") is None
+        assert (mine / "SKILL.md").exists() and (mine / "other" / "SKILL.md").exists()
