@@ -356,10 +356,11 @@ class Supervisor:
                 return
             try:
                 self.local('ready')
-                self.status(status='ready')
-                return
             except Exception:
                 pass
+            else:
+                self.status(status='ready')
+                return
             now = time.monotonic()
             if now >= next_notice:
                 print(f'[stimma] Server still starting after {int(now - started) // 60} minutes '

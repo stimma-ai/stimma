@@ -118,14 +118,22 @@ export async function startBackend(identity: AppIdentity, appVersion: string): P
     diagnostic: (text) => log.error('backend', text),
   })
 
-  child.on('exit', (code, signal) => {
-    log.error('stimma', `Watchdog exited (code=${code}, signal=${signal})`)
-    // shutdownBackend clears watchdogPid first; any other exit means the
-    // backend is gone (the watchdog gave up restarting it).
-    if (watchdogPid !== child.pid) return
+  // shutdownBackend clears watchdogPid first; any other exit, or a watchdog
+  // that never started, means the backend is gone for this run.
+  let stopped = false
+  const backendStopped = () => {
+    if (stopped || watchdogPid !== (child.pid ?? null)) return
+    stopped = true
     watchdogPid = null
     backendPort = null
     setLocalBackendStopped()
+  }
+  // A kill failure on a running watchdog also emits 'error'; only a failed
+  // spawn (no pid) means it never started.
+  child.on('error', () => { if (child.pid === undefined) backendStopped() })
+  child.on('exit', (code, signal) => {
+    log.error('stimma', `Watchdog exited (code=${code}, signal=${signal})`)
+    backendStopped()
   })
   child.unref()
 }

@@ -453,8 +453,8 @@ export function registerIpcHandlers(): void {
   // transcript stream outlives the voice_start response and is torn down on
   // stop/cancel, owner destruction, or (helper-side) lease expiry.
   let voiceSession: { requestId: number; owner: IpcMainInvokeEvent['sender']; ownerDestroyed: () => void } | null = null
-  const endVoiceSession = () => {
-    if (!voiceSession) return
+  const endVoiceSession = (only?: typeof voiceSession) => {
+    if (!voiceSession || (only !== undefined && voiceSession !== only)) return
     removeEventListener(voiceSession.requestId)
     voiceSession.owner.removeListener('destroyed', voiceSession.ownerDestroyed)
     voiceSession = null
@@ -468,6 +468,8 @@ export function registerIpcHandlers(): void {
       {},
       (payload) => {
         if (!target.isDestroyed()) target.send('stimma:voice-transcript-event', payload)
+        // A capture error ends the session; the renderer sends no stop/cancel.
+        if ((payload as { type?: unknown } | null)?.type === 'error') endVoiceSession(session)
       },
       'explicit',
     )
@@ -475,7 +477,7 @@ export function registerIpcHandlers(): void {
       // Renderer went away mid-capture: cancel immediately rather than
       // waiting for the helper's keepalive lease to expire.
       void helperRequest('voice_cancel').catch(() => {})
-      endVoiceSession()
+      endVoiceSession(session)
     }
     target.once('destroyed', ownerDestroyed)
     const session = { requestId: call.id, owner: target, ownerDestroyed }
@@ -483,20 +485,29 @@ export function registerIpcHandlers(): void {
     try {
       await call.result
     } catch (error) {
-      if (voiceSession === session) endVoiceSession()
+      endVoiceSession(session)
       throw error
     }
   })
 
+  // End only the session the request was for; another window may have
+  // started a newer one while the helper answered.
   handle('stimma:voice-stop', async () => {
-    const text = await helperRequest('voice_stop')
-    endVoiceSession()
-    return text
+    const session = voiceSession
+    try {
+      return await helperRequest('voice_stop')
+    } finally {
+      endVoiceSession(session)
+    }
   })
 
   handle('stimma:voice-cancel', async () => {
-    await helperRequest('voice_cancel')
-    endVoiceSession()
+    const session = voiceSession
+    try {
+      await helperRequest('voice_cancel')
+    } finally {
+      endVoiceSession(session)
+    }
   })
 
   handle('stimma:voice-keepalive', () => helperRequest('voice_keepalive'))

@@ -3,6 +3,9 @@ services:
     image: ghcr.io/stimma-ai/stimma-server:latest
     container_name: stimma
     restart: unless-stopped
+    # An update waits for its database migration before stopping; stopping
+    # sooner leaves a recovery record the next start refuses to run past.
+    # Avoid stopping mid-update, or pass a longer `docker compose stop -t`.
     stop_grace_period: 2m
     network_mode: host
     security_opt:
