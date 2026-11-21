@@ -375,3 +375,48 @@ def test_uploaded_asset_ids_are_valid_for_any_mime(mime):
     from providers.jsonrpc import _asset_extension, _valid_asset_id
     assert _valid_asset_id(f"{'0' * 32}.{_asset_extension(mime)}")
     assert _asset_extension("image/jpeg") == "jpg" and _asset_extension("video/mp4") == "mp4"
+
+
+@pytest.mark.asyncio
+async def test_companion_upload_over_websocket_reaches_provider_with_valid_asset_id(tmp_path, monkeypatch):
+    """Runs the real upload_asset + companion record path; only the transport's HTTP PUT is
+    faked, and it rejects ids the way an STP provider does. A '<hex>.octet-stream' id used to
+    be refused there, so stored generation state silently fell back to pixels."""
+    import hashlib
+    import re
+    from providers.jsonrpc import WebSocketProviderConfig, WebSocketTransport, _valid_asset_id
+
+    stp_asset_id = re.compile(r"^[A-Za-z0-9_-]{8,64}\.[A-Za-z0-9]{1,12}$")  # STP asset management rule
+    received = []
+
+    async def provider_put(self, path, data, content_type):
+        asset_id = path.rsplit("/", 1)[-1]
+        if not stp_asset_id.match(asset_id):
+            raise RuntimeError(f"Asset upload failed: HTTP 400 — invalid asset id {asset_id}")
+        received.append((asset_id, data, content_type))
+
+    monkeypatch.setattr(WebSocketTransport, "http_put", provider_put)
+    config = WebSocketProviderConfig(id="fixture", url="ws://provider.test/ws")
+    provider = JsonRpcProvider(config)
+    provider._transport = WebSocketTransport(config)
+    provider._transport._origin = "http://provider.test"
+    provider._asset_base_url = "http://provider.test/assets"
+    provider._capabilities = {"media_sidecars": True}
+
+    video, state = tmp_path / "source.mp4", tmp_path / "state.bin"
+    video.write_bytes(b"render")
+    state.write_bytes(b"latents")
+    schema = {"type": "object", "properties": {"pins": {"type": "array", "items": {"type": "object", "properties": {
+        "media": {"type": "string", "x-media": "video",
+                  "x-accept-sidecars": [{"format": "latents", "format_version": 1}]}}}}}}
+    companion = {"file": str(state), "format": "latents", "format_version": 1,
+                 "sha256": hashlib.sha256(b"latents").hexdigest(), "byte_size": 7}
+    envelope = {}
+
+    result = await provider._upload_input_assets({"pins": [{"media": str(video)}]}, schema, {str(video): [companion]}, envelope)
+
+    primary_id = result["pins"][0]["media"]
+    record = envelope[primary_id][0]
+    assert record.get("status") != "unavailable", record
+    assert _valid_asset_id(record["asset_id"]) and stp_asset_id.match(record["asset_id"])
+    assert (record["asset_id"], b"latents") in [(asset_id, data) for asset_id, data, _ in received]
