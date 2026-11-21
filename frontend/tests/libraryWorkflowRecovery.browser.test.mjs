@@ -206,7 +206,11 @@ test('dismissing a failed batch cell hides it without deleting the row', async t
   })
   assert.equal(await page.evaluate(() => window.workflowTest.jobs.dismissJob(5)), true)
   assert.equal(requests.filter(request => request.path === '/api/generate/jobs/5').length, 0)
-  assert.equal(await page.evaluate(() => window.workflowTest.jobs.dismissedJobs.value.has(5)), true)
+  // Still counted toward the batch, but hidden from its grid.
+  assert.deepEqual(await page.evaluate(() => {
+    const batch = window.workflowTest.jobs.batchJobs.value.b
+    return [batch.jobs.length, batch.failed, batch.hiddenJobIds]
+  }), [2, 1, [5]])
 })
 
 test('Undo refuses to send an asset restore to a different profile', async t => {

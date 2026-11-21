@@ -1165,7 +1165,10 @@ class GenerationQueue:
                 batch_jobs = {job.batch_id: job for job in queued_jobs if job.batch_id}
                 with ProfileScope(profile_id):
                     for job in batch_jobs.values():
-                        await self._handle_batch_job_completion(job, None, profile_id)
+                        try:
+                            await self._handle_batch_job_completion(job, None, profile_id)
+                        except Exception:
+                            log.exception("batch settlement after cancel failed", batch_id=job.batch_id)
 
         return total_cancelled
 
@@ -2483,11 +2486,22 @@ class GenerationQueue:
                 tool_id = job.tool_id
                 was_processing = job.status == 'processing'
 
-                # Mark as cancelled
+                # Mark as cancelled, only if it is still active (a finalizer
+                # may have completed it since the read).
+                cancelled_at = datetime.utcnow()
+                changed = await session.execute(
+                    update(GenerationJob)
+                    .where(GenerationJob.id == job_id,
+                           GenerationJob.status.in_(['queued', 'assigned', 'processing']))
+                    .values(status='cancelled', error=error, completed_at=cancelled_at)
+                    .execution_options(synchronize_session=False)
+                )
+                await session.commit()
+                if not changed.rowcount:
+                    return False
                 job.status = 'cancelled'
                 job.error = error
-                job.completed_at = datetime.utcnow()
-                await session.commit()
+                job.completed_at = cancelled_at
 
                 # Track cancellation telemetry (durationMs = elapsed-at-cancel)
                 try:

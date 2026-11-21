@@ -81,6 +81,7 @@ export function useGenerationJobs(options = {}) {
   // Batch tracking
   const batches = ref({})  // batch_id -> { total, completed, failed, output_set_id, status }
   const dismissedBatches = ref(new Set())  // batch_ids that have been dismissed
+  const dismissedBatchCells = ref(new Set())  // batch job ids hidden from their batch grid
 
   // Post-processing chain runs: chain_run_id -> run dict (see /api/postprocessing)
   const chainRuns = ref({})
@@ -201,6 +202,9 @@ export function useGenerationJobs(options = {}) {
           }
         }
         batchGroups[job.batch_id].jobs.push(job)
+        if (dismissedBatchCells.value.has(job.id)) {
+          (batchGroups[job.batch_id].hiddenJobIds ||= []).push(job.id)
+        }
       }
     }
 
@@ -346,6 +350,7 @@ export function useGenerationJobs(options = {}) {
         failedMediaLoads.value = new Set()
         dismissedJobs.value = new Set()
         dismissedBatches.value = new Set()
+        dismissedBatchCells.value = new Set()
         chainRuns.value = {}
         dismissedChainRuns.value = new Set()
       }
@@ -920,8 +925,11 @@ export function useGenerationJobs(options = {}) {
       try {
         // A batch's rows carry its totals and settlement, so batch jobs are
         // only hidden here; other failed jobs are deleted.
-        const isBatchJob = jobs.value.some(j => j.id === jobId && j.batch_id)
-        if (!isBatchJob) await axios.delete(`${getAPIBase()}/generate/jobs/${jobId}?hard_delete=true`)
+        if (jobs.value.some(j => j.id === jobId && j.batch_id)) {
+          dismissedBatchCells.value = new Set([...dismissedBatchCells.value, jobId])
+          return true
+        }
+        await axios.delete(`${getAPIBase()}/generate/jobs/${jobId}?hard_delete=true`)
         jobs.value = jobs.value.filter(j => j.id !== jobId)
         dismissedJobs.value = new Set([...dismissedJobs.value, jobId])
         return true
@@ -1362,6 +1370,7 @@ export function useGenerationJobs(options = {}) {
     mediaGenerationTimes,
     availableMarkers,
     dismissedJobs,
+    dismissedBatchCells,
     failedMediaLoads,
     isLoading,
     totalCompletedCount,

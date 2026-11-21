@@ -14,7 +14,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import and_, desc, select
+from sqlalchemy import and_, desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import flow_lifecycle
@@ -713,8 +713,12 @@ async def clear_flow_runtime_state(
     flow.program_hash = _program_hash(get_empty_flow_program())
     flow.input_schema = None
     flow.execution_state = "idle"
-    flow.pending_task_count = 0  # clear_flow_state deleted every task row
     flow.updated_at = datetime.utcnow()
+    # clear_flow_state deleted every task row. An explicit UPDATE, since the
+    # loaded value may already be 0 while a stopping runtime raised the column.
+    await session.execute(
+        update(Flow).where(Flow.id == flow_id).values(pending_task_count=0)
+    )
     await session.commit()
     await session.refresh(flow)
     flow_lifecycle.clear_cached_load_error(flow_id)

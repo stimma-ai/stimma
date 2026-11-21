@@ -219,6 +219,7 @@ async def retry_chain_run(chain_run_id: int, profile_id: str, websocket_manager)
         run = result.scalar_one_or_none()
         if not run or run.status not in ("paused", "failed"):
             return False
+        job_instance_id = await _base_job_instance_id(session, run.job_id)
         # Reset the failed step back to queued and resume.
         step_results = json.loads(run.step_results or "[]")
         if run.step_index < len(step_results):
@@ -236,7 +237,6 @@ async def retry_chain_run(chain_run_id: int, profile_id: str, websocket_manager)
         await session.commit()
         if not claimed.rowcount:
             return False
-        job_instance_id = await _base_job_instance_id(session, run.job_id)
 
     log.info(f"[postproc] Retrying chain run {chain_run_id} from step {run.step_index}")
     try:

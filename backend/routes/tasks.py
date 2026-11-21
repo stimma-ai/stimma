@@ -362,9 +362,13 @@ def _resolve_offline(
             ),
         )
     state_db = get_flow_state_db_path(flow_id)
+    # Claim the pending task first so a losing concurrent resolution never
+    # overwrites the stored decision.
+    if _gdb.resolve_task(state_db, tid, resolution, require_pending=True) is None:
+        return False
     inputs_hash = task_row.get("inputs_hash")
     if inputs_hash:
         _gdb.insert_hitl_result(
             state_db, task_row["equation_key"], inputs_hash, resolution,
         )
-    return _gdb.resolve_task(state_db, tid, resolution, require_pending=True) is not None
+    return True
