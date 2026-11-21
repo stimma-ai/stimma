@@ -76,6 +76,23 @@ def _format_jsonrpc_error(error: Any) -> str:
 _ASSET_ID_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}\.[A-Za-z0-9]{1,12}$")
 
 
+def _asset_extension(mime_type: str) -> str:
+    """An asset-id extension STP accepts (1-12 letters or digits) for any MIME type.
+
+    Subtypes like ``octet-stream``, ``x-wav`` or ``svg+xml`` are not valid
+    extensions, and a provider rejects an upload named with one.
+    """
+    canonical = (mime_type or "").split(";")[0].strip().lower()
+    ext = canonical.split("/")[-1]
+    if ext == "jpeg":
+        ext = "jpg"
+    if re.fullmatch(r"[a-z0-9]{1,12}", ext):
+        return ext
+    import mimetypes
+    guessed = (mimetypes.guess_extension(canonical) or "").lstrip(".")
+    return re.sub(r"[^a-z0-9]", "", guessed or ext)[:12] or "bin"
+
+
 def _valid_asset_id(asset_id: str) -> bool:
     return isinstance(asset_id, str) and bool(_ASSET_ID_RE.match(asset_id))
 
@@ -1901,11 +1918,7 @@ class JsonRpcProvider(ToolProvider):
 
     async def upload_asset(self, data: bytes, mime_type: str) -> str:
         """Upload an asset to the provider."""
-        # Generate asset ID
-        ext = mime_type.split("/")[-1]
-        if ext == "jpeg":
-            ext = "jpg"
-        asset_id = f"{uuid.uuid4().hex}.{ext}"
+        asset_id = f"{uuid.uuid4().hex}.{_asset_extension(mime_type)}"
 
         if isinstance(self._transport, WebSocketTransport):
             # Refresh token before HTTP operation to avoid 401
