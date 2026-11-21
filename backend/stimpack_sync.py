@@ -99,8 +99,9 @@ async def sync_loop() -> None:
     await asyncio.sleep(STARTUP_DELAY_SECONDS)
     while True:
         try:
-            if not is_privacy_lockdown_enabled():
-                for profile_id in eligible_profile_ids():
+            for profile_id in _all_profile_ids():
+                # Recheck per profile: an earlier profile's sync can outlast another's unlock.
+                if not is_privacy_lockdown_enabled() and profile_id in eligible_profile_ids():
                     await sync_profile(profile_id)
         except asyncio.CancelledError:
             raise
