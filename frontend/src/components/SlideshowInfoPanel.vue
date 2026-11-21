@@ -944,8 +944,12 @@ const fileInfoRows = computed(() => {
     const size = bytes ? ` · ${(bytes / 1048576).toFixed(1)} MB` : ''
     rows.push({ key: 'companions', label: 'Stored companions', value: `${labels}${size} · ${status}`, mono: false, valueClass: 'text-content-secondary' })
   }
-  const usage = parseGenerationMetadata(m.generation_metadata)?.input_usage || []
-  if (usage.length) {
+  const generation = parseGenerationMetadata(m.generation_metadata)
+  const usage = generation?.input_usage || []
+  if (generation?.input_usage_note) {
+    // Stored state was skipped for a reason nobody chose: say so plainly.
+    rows.push({ key: 'inputUsage', label: 'Input representations', value: generation.input_usage_note, mono: false, valueClass: 'text-amber-400' })
+  } else if (usage.length) {
     const descriptions = [...new Set(usage.map(u => [u.source, u.reason].filter(Boolean).join(' · ').replaceAll('_', ' ')))]
     rows.push({ key: 'inputUsage', label: 'Input representations', value: descriptions.join(', '), mono: false, valueClass: 'text-content-secondary' })
   }

@@ -231,3 +231,49 @@ async def import_portable_manifest(session, *, media, source, profile_id):
     except (OSError, ValueError, TypeError):
         # An optional companion manifest cannot invalidate healthy primary media.
         return
+
+
+# Why a provider used the rendered pixels for a pinned input instead of its stored state
+# (`input_usage` entries an adapter reports). These follow from what was asked for, such as
+# a pin the state doesn't cover or a source that never had state, so they need no note.
+_INTENDED_PIXEL_REASONS = frozenset({
+    "no_stored_state", "no_compatible_sidecar", "unsupported_interval",
+    "coverage_unavailable", "encoding_mismatch",
+})
+_PIXEL_REASON_WORDS = {
+    "upload_failed": "upload failed",
+    "integrity_failed": "stored file damaged",
+    "invalid_state": "stored state unreadable",
+    "invalid_descriptor": "stored state unreadable",
+    "state_unavailable": "stored state unavailable",
+    "capture_failed": "not saved with the source",
+    "export_failed": "not saved with the source",
+    "storage_failed": "not saved with the source",
+    "local_missing": "stored file missing",
+}
+
+
+def input_usage_note(input_usage) -> str | None:
+    """A plain note when stored state was skipped for a reason nobody chose, else None.
+
+    The generation still succeeded; the note tells the agent and the person that a pinned
+    input was re-encoded from its pixels, which carries more drift than its stored state.
+    """
+    if not isinstance(input_usage, list):
+        return None
+    by_reason: dict[str, list[int]] = {}
+    for number, entry in enumerate(input_usage, start=1):
+        if not isinstance(entry, dict) or entry.get("source") != "rendered_video":
+            continue
+        reason = str(entry.get("reason") or "")
+        if reason in _INTENDED_PIXEL_REASONS:
+            continue
+        by_reason.setdefault(reason, []).append(number)
+    notes = []
+    for reason, numbers in by_reason.items():
+        words = _PIXEL_REASON_WORDS.get(reason) or reason.replace("_", " ") or "unknown reason"
+        which = (f"keyframe {numbers[0]}" if len(numbers) == 1 else
+                 f"keyframes {', '.join(map(str, numbers[:-1]))} and {numbers[-1]}")
+        notes.append(f"Stored generation state wasn't used for {which} ({words}), "
+                     "so it was re-encoded from the video.")
+    return " ".join(notes) or None

@@ -3910,6 +3910,7 @@ class GenerationQueue:
             except (TypeError, ValueError):
                 inspired_by = None
 
+        from media_sidecars import input_usage_note
         generation_metadata_json = json.dumps(build_generation_metadata(
             task_type=task_type,
             tool_id=job.tool_id,
@@ -3931,6 +3932,7 @@ class GenerationQueue:
             inspired_by=inspired_by,
             extra={k: v for k, v in {
                 "input_usage": exec_result.metadata.get("input_usage"),
+                "input_usage_note": input_usage_note(exec_result.metadata.get("input_usage")),
                 "prompt_program": original_params.get("prompt_program"),
                 "prompt_direct": original_params.get("prompt_direct"),
             }.items() if v} or None,

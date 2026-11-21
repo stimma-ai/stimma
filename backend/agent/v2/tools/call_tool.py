@@ -1019,11 +1019,14 @@ async def execute_call_tool(
     db = get_database_registry().get_database(get_current_profile())
     async with db.async_session_maker() as fresh_session:
         result = await fresh_session.execute(
-            select(MediaItem.file_path, MediaItem.width, MediaItem.height).where(MediaItem.id == media_id)
+            select(MediaItem.file_path, MediaItem.width, MediaItem.height, MediaItem.generation_metadata)
+            .where(MediaItem.id == media_id)
         )
         row = result.one_or_none()
+        input_note = None
         if row:
-            media_file_path, width, height = row
+            media_file_path, width, height, generation_metadata = row
+            input_note = _input_usage_note_of(generation_metadata)
 
     if workspace_dir and media_file_path:
         try:
@@ -1060,6 +1063,8 @@ async def execute_call_tool(
         "sent_prompt": job_params.get("prompt") if job_params.get("prompt") != prompt else None,
         "prompt_note": prompt_note,
         "shape_note": shape_note,
+        # A pinned input whose stored state couldn't be used (the result still stands).
+        "input_note": input_note,
         # With vary: what this image drew, and the seed that repeats it.
         "choices": prepared.choices,
         "draw_seed": prepared.draw_seed,
@@ -1181,9 +1186,21 @@ async def call_tool(
         parts.append(f' For create_layout, use src="{workspace_filename}".')
     if result.get("prompt_note"):
         parts.append(f"\n{result['prompt_note']}")
+    if result.get("input_note"):
+        parts.append(f"\n{result['input_note']}")
     if result.get("sent_prompt"):
         parts.append(f"\nPrompt sent to the model:\n{result['sent_prompt']}")
     return "".join(parts)
+
+
+def _input_usage_note_of(generation_metadata: Any) -> Optional[str]:
+    """The stored-state note the queue recorded on this generation, if any."""
+    try:
+        meta = json.loads(generation_metadata) if isinstance(generation_metadata, str) else generation_metadata
+    except (TypeError, ValueError):
+        return None
+    note = meta.get("input_usage_note") if isinstance(meta, dict) else None
+    return note if isinstance(note, str) and note else None
 
 
 def _coerce_enhance_flag(value: Any) -> Any:

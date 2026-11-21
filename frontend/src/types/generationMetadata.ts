@@ -62,6 +62,8 @@ export interface LineageTraceEntry {
 export interface GenerationMetadata {
   /** Actual representation selected by consuming adapters. */
   input_usage?: Array<Record<string, unknown>>
+  /** Plain note when a pinned input's stored state was skipped for a reason nobody chose. */
+  input_usage_note?: string
   /** Schema version. Currently 3. */
   version?: number
   /** "stimma" | "flow" | "external" | "batch" | "agent_v2_*" | "flow_create_layout" ... */

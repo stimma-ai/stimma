@@ -86,6 +86,8 @@ async def _describe(session: AsyncSession, item: MediaItem) -> Dict[str, Any]:
     entry["sidecars"] = await companions_for_media(session, item.id, get_current_profile(), include_paths=False)
     if gen.get("input_usage"):
         entry["input_usage"] = gen["input_usage"]
+    if gen.get("input_usage_note"):
+        entry["input_usage_note"] = gen["input_usage_note"]
     # What was written before the prompt was processed, and, for an image made with
     # varied choices, what it drew: keep_choices / draw_seed take these as they are.
     written = (gen.get("prompt_metadata") or {}).get("original_prompt") if isinstance(gen.get("prompt_metadata"), dict) else None

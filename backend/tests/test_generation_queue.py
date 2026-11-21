@@ -1665,3 +1665,35 @@ async def test_multi_output_finalization_preserves_independent_companions_and_re
         rows = list(await session.scalars(select(MediaSidecar).where(MediaSidecar.media_id.in_(ids))))
         assert {(r.format, json.loads(r.descriptor_json)["index"]) for r in rows} == {("opaque.0", 0), ("opaque.1", 1)}
         assert len(rows) == 2
+
+
+@pytest.mark.asyncio
+async def test_finalize_records_a_plain_note_when_stored_state_was_skipped(
+    generation_queue, generation_db_session, tmp_path, monkeypatch,
+):
+    """The generation still lands; its metadata carries the note the info panel and the
+    agent show when a pinned input fell back to its pixels for a reason nobody chose."""
+    from io import BytesIO
+    from PIL import Image
+    from types import SimpleNamespace
+    from database import MediaItem
+    from providers.base import ExecutionResult
+    raw = BytesIO()
+    Image.new("RGB", (16, 16), "green").save(raw, format="PNG")
+    path = tmp_path / "fallback.png"
+    path.write_bytes(raw.getvalue())
+    usage = [{"source": "native_latent"}, {"source": "rendered_video", "reason": "upload_failed"}]
+    result = ExecutionResult(success=True, output_data=raw.getvalue(), metadata={"input_usage": usage})
+    async with generation_db_session() as session:
+        job = await create_generation_job(session, status="processing", output_disposition="asset")
+        await session.commit()
+    monkeypatch.setattr(generation_queue, "_update_grid_with_media_id", AsyncMock())
+    await generation_queue._finalize_job(job, "default", result, str(path), {}, "text-to-image", {}, result,
+                                         SimpleNamespace(provider_id="test"), datetime.utcnow())
+    async with generation_db_session() as session:
+        saved = await session.get(GenerationJob, job.id)
+        assert saved.status == "completed"
+        meta = json.loads((await session.get(MediaItem, saved.result_media_id)).generation_metadata)
+    assert meta["input_usage"] == usage
+    assert meta["input_usage_note"] == (
+        "Stored generation state wasn't used for keyframe 2 (upload failed), so it was re-encoded from the video.")
