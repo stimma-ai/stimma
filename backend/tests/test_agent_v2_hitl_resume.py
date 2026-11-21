@@ -248,14 +248,20 @@ async def test_delegate_answers_unusable_arguments_and_loads_skills_into_its_his
     results = {m["tool_call_id"]: m["content"] for m in messages if m["role"] == "tool"}
     assert "not valid JSON" in results["a"] and "JSON object" in results["b"]
     assert messages[-1] == {"role": "user", "name": "_stimma_context", "content": "Brand rules: teal."}
+    # The provider is never sent the torn arguments back.
+    replayed = [m for m in messages if m.get("tool_calls")][0]["tool_calls"]
+    assert json.loads(replayed[0]["function"]["arguments"])["_malformed_arguments"]
     assert seen == [set(), {"brand", "pack/brand"}]
 
 
 @pytest.mark.asyncio
-async def test_skill_invoke_checks_the_history_it_is_given():
-    from agent.v2.tools.skill import skill_tool
+async def test_skill_invoke_checks_the_history_it_is_given(monkeypatch):
+    from agent.v2.tools import skill
 
-    assert "already loaded" in await skill_tool(action="invoke", name="brand", _loaded_skills={"brand"})
+    assert "already loaded" in await skill.skill_tool(action="invoke", name="brand", _loaded_skills={"brand"})
+    found = SimpleNamespace(skill=SimpleNamespace(qualified_name="pack/brand"))
+    monkeypatch.setattr(skill, "load_skill", lambda name: found)
+    assert "already loaded" in await skill.skill_tool(action="invoke", name="brand", _loaded_skills={"pack/brand"})
 
 
 @pytest.mark.asyncio
@@ -286,3 +292,45 @@ async def test_unusable_tool_arguments_get_an_error_result_not_a_prompt(db_sessi
         assert await _items(session, chat.id, "hitl_request") == []
         results = {r.tool_call_id: r.tool_result for r in await _items(session, chat.id, "tool_result")}
         assert "not valid JSON" in results["a"] and "JSON object" in results["b"]
+
+
+@pytest.mark.asyncio
+async def test_resume_point_of_another_call_is_left_alone(db_session, monkeypatch):
+    loop = AsyncMock()
+    monkeypatch.setattr(service, "_run_agentic_loop", loop)
+    async with db_session() as session:
+        slot = {"tool_call_id": "ask_new", "turn": 0, "remaining_tool_calls": []}
+        chat = Chat(name="Moved", generation_settings=json.dumps({"_v2_ask_pending": slot}))
+        session.add(chat)
+        await session.commit()
+        await service.resume_after_ask_user(
+            chat, {"answer": "Old"}, session, MockWebSocketManager(),
+            response_persisted=True, expected_tool_call_id="ask_old",
+        )
+        loop.assert_not_awaited()
+        assert await _items(session, chat.id, "tool_result") == []
+        assert json.loads(chat.generation_settings)["_v2_ask_pending"] == slot
+
+
+@pytest.mark.asyncio
+async def test_older_card_for_the_same_gate_cannot_release_the_newer_call(db_session, monkeypatch):
+    from agent.v2 import tool_permission_gate
+    from routes.chats import HITLResponseRequest, apply_human_response
+
+    async with db_session() as session:
+        chat = Chat(name="Restarted")
+        session.add(chat)
+        await session.commit()
+        action = {"type": "v2_tool_permission", "tool_call_id": "gen",
+                  "v2_tool_args": {"tool_id": "test:gen", "_inprocess_request_id": "req-a"}}
+        stale = await _add_request(session, chat.id, action)
+        await _add_request(session, chat.id, action)
+        future = asyncio.get_event_loop().create_future()
+        monkeypatch.setitem(tool_permission_gate._PENDING, "req-a", future)
+        monkeypatch.setattr("routes.chats.ws_manager", MockWebSocketManager())
+        with pytest.raises(HTTPException) as error:
+            await apply_human_response(chat.id, HITLResponseRequest(
+                approved=True, scope="once", request_item_id=stale.id,
+            ), session, wait=True)
+        assert error.value.status_code == 409
+        assert not future.done()

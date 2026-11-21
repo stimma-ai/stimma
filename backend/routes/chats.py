@@ -2516,6 +2516,7 @@ async def _resume_after_hitl_background(
     response_data: dict,
     action_type: Optional[str],
     profile_id: str,
+    tool_call_id: Optional[str] = None,
 ) -> None:
     """Resume the agent after an answer, in its own session (see _run_agent_background)."""
     from database_registry import get_database_registry
@@ -2523,11 +2524,10 @@ async def _resume_after_hitl_background(
 
     set_current_profile(profile_id)
     db = get_database_registry().get_database(profile_id)
-    # Never resume while another run of this chat is still going.
-    from agent.v2.service import get_active_task
-    prev_task = get_active_task(chat_id)
-    if prev_task and not prev_task.done() and prev_task is not asyncio.current_task():
-        await asyncio.gather(prev_task, return_exceptions=True)
+    # Never resume while another run of this chat is still going, and hold
+    # the chat from here on, so a message sent meanwhile waits for us.
+    from agent.v2.service import claim_chat_task
+    await claim_chat_task(chat_id)
     try:
         async with db.async_session_maker() as session:
             chat = await session.get(Chat, chat_id)
@@ -2541,6 +2541,7 @@ async def _resume_after_hitl_background(
                 ws_manager=ws_manager,
                 action_type=action_type,
                 response_persisted=True,
+                tool_call_id=tool_call_id,
             )
     except Exception as e:
         # The resume surfaces its own errors as chat items; this is a backstop.
@@ -2647,8 +2648,21 @@ async def apply_human_response(
         inprocess_id = v2_args.get("_inprocess_request_id")
         if inprocess_id:
             from agent.v2.tool_permission_gate import is_pending_permission, resolve_pending_permission
-            if not is_pending_permission(inprocess_id):
-                # Its call is gone. Never hand this answer to another request.
+            # Gate ids repeat per chat and tool, so only the newest card with
+            # this id belongs to the parked call (an older one can outlive a
+            # restart). Never hand this answer to another request.
+            later = (await session.scalars(
+                select(ChatItem.item_metadata)
+                .where(ChatItem.chat_id == chat_id)
+                .where(ChatItem.item_type == "hitl_request")
+                .where(ChatItem.id > hitl_item.id)
+            )).all()
+            superseded = any(
+                inprocess_id in (meta or "")
+                and (json.loads(meta).get("v2_tool_args") or {}).get("_inprocess_request_id") == inprocess_id
+                for meta in later
+            )
+            if superseded or not is_pending_permission(inprocess_id):
                 raise HTTPException(status_code=409, detail="This request is no longer waiting for an answer.")
             scope = request.scope or "once"
             approved = bool(request.approved)
@@ -2730,12 +2744,14 @@ async def apply_human_response(
             ws_manager=ws_manager,
             action_type=action_type,
             response_persisted=response_persisted,
+            tool_call_id=pending_action.get("tool_call_id"),
         )
         log.info("resume_agent_after_hitl completed")
     else:
         from core.profile_context import get_current_profile
         asyncio.create_task(_resume_after_hitl_background(
             chat_id, response_data, action_type, get_current_profile(),
+            pending_action.get("tool_call_id"),
         ))
 
     return {"success": True}

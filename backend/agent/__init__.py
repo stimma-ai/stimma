@@ -26,11 +26,14 @@ async def abort_plan(chat, session, ws_manager, stop_marker=False, keep_generati
                                   keep_generating=keep_generating)
 
 
-async def resume_agent_after_hitl(chat, response_data, session, ws_manager, action_type=None, response_persisted=False):
+async def resume_agent_after_hitl(chat, response_data, session, ws_manager, action_type=None,
+                                  response_persisted=False, tool_call_id=None):
     """Resume the agent after a human-in-the-loop action.
 
     action_type is the answered request's type; without it, the newest
     request decides. response_persisted: the hitl_response is already saved.
+    tool_call_id: the answered request's call, which the saved resume point
+    must still belong to.
     """
     import json
     from sqlalchemy import select
@@ -55,7 +58,9 @@ async def resume_agent_after_hitl(chat, response_data, session, ws_manager, acti
 
     if action_type == "v2_tool_permission":
         from .v2.service import resume_after_hitl
-        await resume_after_hitl(chat, response_data, session, ws_manager, response_persisted=response_persisted)
+        await resume_after_hitl(chat, response_data, session, ws_manager, response_persisted=response_persisted,
+                                expected_tool_call_id=tool_call_id)
     elif action_type == "ask_user":
         from .v2.service import resume_after_ask_user
-        await resume_after_ask_user(chat, response_data, session, ws_manager, response_persisted=response_persisted)
+        await resume_after_ask_user(chat, response_data, session, ws_manager, response_persisted=response_persisted,
+                                    expected_tool_call_id=tool_call_id)

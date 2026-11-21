@@ -331,7 +331,7 @@ def test_parallel_calls_without_ids_get_ids_before_batch_state():
                 "role": "assistant", "content": None,
                 "tool_calls": [
                     {"type": "function", "function": {"name": "one", "arguments": "{}"}},
-                    {"id": "", "type": "function", "function": {"name": "two", "arguments": "{}"}},
+                    {"id": "", "type": "function", "function": {"name": "two", "arguments": {"city": "Oslo"}}},
                 ],
             },
         }],
@@ -343,6 +343,7 @@ def test_parallel_calls_without_ids_get_ids_before_batch_state():
     ids = [call.id for call in response.tool_calls]
     assert all(ids) and len(set(ids)) == 2
     assert [call["id"] for call in response.provider_state["tool_calls"]] == ids
+    assert json.loads(response.tool_calls[1].arguments) == {"city": "Oslo"}
 
 
 def test_saved_batch_without_call_ids_replays_its_own_row():

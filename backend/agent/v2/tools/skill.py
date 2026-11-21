@@ -233,13 +233,14 @@ async def skill_tool(
         # Check if already invoked in this conversation. A delegate passes the
         # skills loaded into its own history; it never sees the chat's.
         loaded_skills = kwargs.get("_loaded_skills")
-        if loaded_skills is not None:
-            if name in loaded_skills:
-                return f"Skill '{name}' is already loaded in this conversation."
-        elif session and chat_id:
+        if loaded_skills is None and session and chat_id:
             if await _is_skill_already_invoked(name, session, chat_id):
                 return f"Skill '{name}' is already loaded in this conversation."
         loaded = load_skill(name)
+        if loaded_skills is not None and (
+            name in loaded_skills or (loaded and loaded.skill.qualified_name in loaded_skills)
+        ):
+            return f"Skill '{name}' is already loaded in this conversation."
         if not loaded:
             return f"Error: Skill '{name}' not found. Use skill(action=\"list\") to see available skills."
         environment = await _chat_environment(session, chat_id)

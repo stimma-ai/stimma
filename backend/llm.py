@@ -335,10 +335,15 @@ def _normalize_response(raw_response) -> LLMResponse:
                 # Some servers omit call ids. Mint one here, before the batch
                 # state below is built, so results persisted under this id
                 # still match the replayed batch.
+                arguments = getattr(fn, 'arguments', '{}')
+                if arguments is not None and not isinstance(arguments, str):
+                    # Some servers send parsed arguments; the rest of the
+                    # agent stores and validates them as JSON text.
+                    arguments = json.dumps(_plain_value(arguments))
                 tool_calls.append(ToolCall(
                     id=getattr(tc, 'id', None) or f"call_{uuid.uuid4().hex[:12]}",
                     name=getattr(fn, 'name', ''),
-                    arguments=getattr(fn, 'arguments', '{}'),
+                    arguments=arguments,
                     extra_content=_plain_value(getattr(tc, 'extra_content', None)),
                 ))
 

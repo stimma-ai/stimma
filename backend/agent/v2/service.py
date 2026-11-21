@@ -66,6 +66,22 @@ def get_active_chat_ids() -> list[int]:
     return sorted(chat_id for profile, chat_id in _active_chat_executions if profile == profile_id)
 
 
+async def claim_chat_task(chat_id: int) -> None:
+    """Wait for any other run of this chat, then register the current task as it.
+
+    Nothing awaits between the last check and the claim, so a run that starts
+    afterwards (see _run_agent_background) waits for this one.
+    """
+    current = asyncio.current_task()
+    while True:
+        prev = get_active_task(chat_id)
+        if not prev or prev.done() or prev is current:
+            break
+        await asyncio.gather(prev, return_exceptions=True)
+    if current:
+        _active_chat_tasks[_chat_key(chat_id)] = current
+
+
 def get_active_task(chat_id: int) -> Optional[asyncio.Task]:
     """Return the asyncio task of the active execution for this chat, if any."""
     return _active_chat_tasks.get(_chat_key(chat_id))
@@ -996,6 +1012,16 @@ def _build_tool_prompt(fn_name: str, kwargs: dict) -> str:
     return f"Use tool: {fn_name}"
 
 
+def _execution_workspace_dir(chat: Chat) -> str | Path:
+    """Where this chat's tool calls run: a flow chat edits its flow's directory."""
+    if chat.flow_id is not None:
+        from flow_runtime import get_flow_dir
+        flow_dir = get_flow_dir(chat.flow_id)
+        if flow_dir.exists():
+            return str(flow_dir)
+    return get_workspace_dir(chat.id, chat.project_id)
+
+
 async def _needs_permission(
     fn_name: str,
     fn_arguments: str,
@@ -1012,7 +1038,7 @@ async def _needs_permission(
         from .workspace_commands import can_run_in_workspace
         args = _parse_tool_args(fn_arguments)
         if workspace_dir is None:
-            workspace_dir = get_workspace_dir(chat.id, chat.project_id)
+            workspace_dir = _execution_workspace_dir(chat)
         if can_run_in_workspace(str(args.get("command", "")), workspace_dir):
             return False
     # V2 tool-level gating (bash, browse_web, run_code)
@@ -1585,16 +1611,13 @@ async def _run_agentic_loop_inner(
     # broadcast) is shared with the main agent loop.
     if chat.flow_id is not None:
         from .flow_prompt import build_available_models_section, get_flow_system_prompt
-        from flow_runtime import get_flow_dir
         system_prompt = get_flow_system_prompt(
             additional_instructions=resolved_config.additional_instructions,
             global_memory=resolved_config.global_memory,
             project_memory=resolved_config.project_memory,
             available_models=await build_available_models_section(chat.project_id),
         )
-        flow_dir = get_flow_dir(chat.flow_id)
-        if flow_dir.exists():
-            workspace_dir = str(flow_dir)
+        workspace_dir = _execution_workspace_dir(chat)
     else:
         system_prompt = get_system_prompt(
             additional_instructions=resolved_config.additional_instructions,
@@ -1810,6 +1833,9 @@ async def _run_agentic_loop_inner(
                 call_item_id=call_item.id,
                 shown_media_ids=shown_media_ids,
                 enabled_stimpacks=list(_invoked_skills) if _invoked_skills else None,
+                # A delegate that pauses must know the calls after it.
+                parent_turn=start_turn,
+                parent_remaining=pending_tool_calls[index + 1:],
                 effective_model_slug=effective_model_slug,
             )
             # Track newly invoked skills
@@ -2401,10 +2427,13 @@ async def resume_after_hitl(
     session: AsyncSession,
     ws_manager: WebSocketManager,
     response_persisted: bool = False,
+    expected_tool_call_id: Optional[str] = None,
 ) -> None:
     """Resume v2 agent after a permission HITL response.
 
     response_persisted: the caller already saved the hitl_response item.
+    expected_tool_call_id: the answered request's call; the saved resume
+    point must still be that call.
     """
     from ..hitl import parse_human_response, ToolPermissionResponse
 
@@ -2428,6 +2457,9 @@ async def resume_after_hitl(
     pending = gen_settings.pop("_v2_pending", None)
     if not pending:
         log.warning(f"Chat {chat_id}: No _v2_pending state for resume")
+        return
+    if expected_tool_call_id and pending.get("tool_call_id") != expected_tool_call_id:
+        log.warning(f"Chat {chat_id}: resume point moved to another call; not resuming")
         return
 
     # Save HITL response ChatItem
@@ -2494,7 +2526,7 @@ async def resume_after_hitl(
 
     try:
         _raise_if_interrupted(chat_id)
-        workspace_dir = get_workspace_dir(chat_id, chat.project_id)
+        workspace_dir = _execution_workspace_dir(chat)
         project_workspace_dir = get_project_workspace(chat.project_id)
 
         # Resolve model slug for this chat
@@ -2619,10 +2651,13 @@ async def resume_after_ask_user(
     session: AsyncSession,
     ws_manager: WebSocketManager,
     response_persisted: bool = False,
+    expected_tool_call_id: Optional[str] = None,
 ) -> None:
     """Resume v2 agent after the user answers an ask_user prompt.
 
     response_persisted: the caller already saved the hitl_response item.
+    expected_tool_call_id: the answered request's call; the saved resume
+    point must still be that call.
     """
     chat_id = chat.id
     await session.refresh(chat)
@@ -2643,6 +2678,9 @@ async def resume_after_ask_user(
     pending = gen_settings.pop("_v2_ask_pending", None)
     if not pending:
         log.warning(f"Chat {chat_id}: No _v2_ask_pending state for resume")
+        return
+    if expected_tool_call_id and pending.get("tool_call_id") != expected_tool_call_id:
+        log.warning(f"Chat {chat_id}: resume point moved to another call; not resuming")
         return
 
     # Save HITL response ChatItem

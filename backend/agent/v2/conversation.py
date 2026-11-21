@@ -557,15 +557,8 @@ def _item_to_message(item: ChatItem) -> Dict[str, Any] | None:
                         return message
                     # The batch keeps the provider's raw arguments; sanitize
                     # them like the row's own, keeping ids and metadata.
-                    state_calls = [
-                        {**call, "function": {
-                            **(call.get("function") or {}),
-                            "arguments": _replay_arguments((call.get("function") or {}).get("arguments")),
-                        }}
-                        for call in state_calls
-                    ]
-                    state = {**state, "tool_calls": state_calls}
-                    message["tool_calls"] = state_calls
+                    state = replayable_provider_state(state)
+                    message["tool_calls"] = state["tool_calls"]
                 message["_stimma_provider_state"] = state
         return message
 
@@ -613,6 +606,25 @@ def _replay_arguments(raw: Any) -> str:
     except (ValueError, TypeError):
         args = json.dumps({"_malformed_arguments": str(raw)[:2000]})
     return args
+
+
+def replayable_tool_calls(calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Copies of tool calls whose arguments are safe to replay; ids and metadata kept."""
+    return [
+        {**call, "function": {
+            **(call.get("function") or {}),
+            "arguments": _replay_arguments((call.get("function") or {}).get("arguments")),
+        }} if isinstance(call, dict) else call
+        for call in calls
+    ]
+
+
+def replayable_provider_state(state: Any) -> Any:
+    """A Chat Completions batch state with replay-safe arguments; others unchanged."""
+    if (isinstance(state, dict) and state.get("kind") == "openai_chat_tool_batch"
+            and isinstance(state.get("tool_calls"), list)):
+        return {**state, "tool_calls": replayable_tool_calls(state["tool_calls"])}
+    return state
 
 
 def _build_view_image_result(tool_call_id: str, marker: dict) -> dict:

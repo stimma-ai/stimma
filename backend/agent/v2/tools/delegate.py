@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..tools_registry import tool, ToolParameter, get_all_tools, tool_arguments_error
 from ..prompts import get_system_prompt
-from ..conversation import response_reserve
+from ..conversation import replayable_provider_state, replayable_tool_calls, response_reserve
 from ..llm_options import agent_llm_options
 
 from core.logging import get_logger
@@ -550,9 +550,12 @@ async def _run_delegate_loop_inner(
                     },
                     **({"extra_content": tc.extra_content} if tc.extra_content else {}),
                 })
-            assistant_msg["tool_calls"] = tool_calls_data
+            # History replays to the provider, which may reject torn
+            # arguments; the calls themselves keep the raw ones, so a bad
+            # call is answered with an error.
+            assistant_msg["tool_calls"] = replayable_tool_calls(tool_calls_data)
             if resp.provider_state:
-                assistant_msg["_stimma_provider_state"] = resp.provider_state
+                assistant_msg["_stimma_provider_state"] = replayable_provider_state(resp.provider_state)
             messages.append(assistant_msg)
 
         # Execute each tool call
