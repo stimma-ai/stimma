@@ -85,10 +85,11 @@ async def join_video(sdk, segments, out="joined.mp4"):
         if audio:
             filters.append(f"[{i}:a]atrim=start={float(start/fps)}:end={float(end/fps)},asetpts=PTS-STARTPTS[a{i}]")
             labels.append(f"[a{i}]")
-    filters.append("".join(labels) + f"concat=n={len(parts)}:v=1:a={int(audio)}[v]" + ("[a]" if audio else ""))
+    # Pad audio inside the graph: ffmpeg rejects -af on a stream fed by -filter_complex.
+    filters.append("".join(labels) + f"concat=n={len(parts)}:v=1:a={int(audio)}[v]" + ("[acat];[acat]apad[a]" if audio else ""))
     args = ["-v", "error", "-y", *files, "-filter_complex", ";".join(filters), "-map", "[v]"]
     if audio:
-        args += ["-map", "[a]", "-c:a", "aac", "-af", "apad"]
+        args += ["-map", "[a]", "-c:a", "aac"]
     args += ["-c:v", "libx264", "-crf", "18", "-preset", "fast", "-pix_fmt", "yuv420p",
              "-t", str(float(total/fps)), "-movflags", "+faststart", str(output)]
     await sdk.ffmpeg(*args)
