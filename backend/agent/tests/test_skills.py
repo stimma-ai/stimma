@@ -880,3 +880,86 @@ class TestReviewEdgeCases:
         (d / "skills" / "x").mkdir(parents=True)
         (d / ".marketplace.json").write_text("{bad", encoding="utf-8")
         assert readonly_workspace_error("skills/odd/skills/x/SKILL.md")
+
+
+def _pack_zip(name: str, body: str = "New body") -> bytes:
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("stimpack.json", json.dumps({"name": name, "version": "2"}))
+        zf.writestr("skills/variations/SKILL.md", f"---\nname: variations\ndescription: d\n---\n\n{body}")
+        zf.writestr("skills/variations/notes.md", "extra")
+    return buf.getvalue()
+
+
+def _meta(name: str, version: int = 2) -> dict:
+    return {"stimpackId": "sp_1", "name": name, "version": version, "versionId": f"v_{version}"}
+
+
+class TestMarketplaceInstallSafety:
+    def test_update_replaces_the_same_marketplace_pack(self, stimpacks_dir, marketplace_pack):
+        info = sp.install_stimpack_from_zip_bytes(_pack_zip("essentials"), "test-profile", _meta("essentials"))
+        assert info.marketplace.version == 2
+        assert (marketplace_pack / "skills/variations/SKILL.md").read_text(encoding="utf-8").endswith("New body")
+        assert not (marketplace_pack / "skills/grids").exists()
+        assert [p.name for p in stimpacks_dir.iterdir()] == ["essentials"]
+
+    def test_archive_for_another_pack_is_rejected(self, stimpacks_dir, marketplace_pack):
+        victim = stimpacks_dir / "mine"
+        _write_manifest(victim, "mine")
+        with pytest.raises(ValueError):
+            sp.install_stimpack_from_zip_bytes(_pack_zip("mine"), "test-profile", _meta("essentials"))
+        assert (victim / "stimpack.json").is_file()
+        assert (marketplace_pack / "skills/grids/SKILL.md").is_file()
+
+    def test_never_replaces_a_users_own_pack(self, stimpacks_dir):
+        own = stimpacks_dir / "essentials"
+        _write_manifest(own, "essentials")
+        _write_skill(own, "mine", "name: mine\ndescription: Mine", "Mine body")
+        with pytest.raises(ValueError):
+            sp.install_stimpack_from_zip_bytes(_pack_zip("essentials"), "test-profile", _meta("essentials"))
+        assert (own / "skills/mine/SKILL.md").is_file()
+        assert not (own / ".marketplace.json").exists()
+
+    def test_failed_copy_keeps_the_installed_pack(self, stimpacks_dir, marketplace_pack, monkeypatch):
+        real_copy = sp.shutil.copy2
+        copied = []
+
+        def flaky_copy(src, dst):
+            copied.append(src)
+            if len(copied) == 2:
+                raise OSError("disk full")
+            return real_copy(src, dst)
+
+        monkeypatch.setattr(sp.shutil, "copy2", flaky_copy)
+        with pytest.raises(OSError):
+            sp.install_stimpack_from_zip_bytes(_pack_zip("essentials"), "test-profile", _meta("essentials"))
+        info = sp._parse_stimpack_dir(marketplace_pack)
+        assert info.marketplace is not None and info.marketplace.version == "1"
+        assert (marketplace_pack / "skills/grids/SKILL.md").is_file()
+        assert [p.name for p in stimpacks_dir.iterdir()] == ["essentials"]
+
+    def test_failed_swap_restores_the_installed_pack(self, stimpacks_dir, marketplace_pack, monkeypatch):
+        real_rename = sp.os.rename
+
+        def rename(src, dst):
+            if ".staging-" in str(src):
+                raise OSError("rename failed")
+            return real_rename(src, dst)
+
+        monkeypatch.setattr(sp.os, "rename", rename)
+        with pytest.raises(OSError):
+            sp.install_stimpack_from_zip_bytes(_pack_zip("essentials"), "test-profile", _meta("essentials"))
+        assert (marketplace_pack / "skills/grids/SKILL.md").is_file()
+        assert [p.name for p in stimpacks_dir.iterdir()] == ["essentials"]
+
+    def test_fresh_install_and_local_upload_still_work(self, stimpacks_dir, tmp_path):
+        info = sp.install_stimpack_from_zip_bytes(_pack_zip("stimma-essentials"), "test-profile", _meta("stimma-essentials"))
+        assert info.dir_path == stimpacks_dir / "stimma-essentials" and info.marketplace is not None
+        upload = tmp_path / "own.zip"
+        upload.write_bytes(_pack_zip("own-pack"))
+        assert sp.install_stimpack_from_file(upload, "test-profile").tier == "local"
+        upload.write_bytes(_pack_zip("own-pack", body="v2"))
+        sp.install_stimpack_from_file(upload, "test-profile")
+        assert (stimpacks_dir / "own-pack/skills/variations/SKILL.md").read_text(encoding="utf-8").endswith("v2")

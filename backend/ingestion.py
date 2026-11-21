@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import os
 from pathlib import Path
 from typing import Optional, List
@@ -658,6 +659,13 @@ class MediaIngestion:
 
         # Update settings reference
         self.settings = new_settings
+
+        # Face-detection parameters apply live: the detector and the version
+        # stamped on results change together (no await in between).
+        fd = new_settings.face_detection
+        self.face_detection_service.min_confidence = fd.min_confidence
+        self.face_detection_service.max_faces = fd.max_faces
+        self.config_mgr.apply_face_detection_settings(new_settings)
 
         # A config reload runs in a monitor task while the main ingestion loop
         # may be sleeping for up to five minutes. Adding a Source must wake that
@@ -1728,7 +1736,10 @@ class MediaIngestion:
             # Profile was removed while task was queued - expected during config reload
             log.debug(f"FACE: Skipping item {item_id}, profile '{profile_id}' was removed")
             return
+        # One snapshot per job, so the stamped version matches the parameters used.
         current_version = self.config_mgr.get_version('face_detection')
+        min_confidence = self.settings.face_detection.min_confidence
+        max_faces = self.settings.face_detection.max_faces
 
         try:
             # Mark as processing
@@ -1768,8 +1779,12 @@ class MediaIngestion:
                 loop = asyncio.get_event_loop()
                 faces = await loop.run_in_executor(
                     _io_executor,
-                    self.face_detection_service.detect_faces,
-                    image
+                    functools.partial(
+                        self.face_detection_service.detect_faces,
+                        image,
+                        min_confidence=min_confidence,
+                        max_faces=max_faces,
+                    ),
                 )
             finally:
                 # Close video frame if we extracted one

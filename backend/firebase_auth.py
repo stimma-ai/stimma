@@ -112,6 +112,14 @@ async def _refresh_id_token_classified(refresh_token: str) -> TokenResult:
 
 async def _clear_auth_after_session_expiry() -> None:
     """Clear local auth and disconnect cloud after session expiry."""
+    # Signed out means multi-device stops too. The token is already dead, so
+    # this teardown is local only: no registry call needing a refresh.
+    try:
+        from multi_device import service as multi_device_service
+        await multi_device_service.stop_after_session_expiry()
+    except Exception as e:
+        log.warning("failed to stop multi-device after session expiry", error=str(e))
+
     try:
         from auth_storage import clear_auth_state
         clear_auth_state()
@@ -245,6 +253,7 @@ async def get_valid_id_token(*, raise_on_failure: bool = False) -> Optional[str]
         return None
 
     from auth_storage import load_auth_state, save_auth_state, is_token_expired
+    from auth_storage import auth_generation
 
     auth_state = load_auth_state()
     if not auth_state:
@@ -268,8 +277,12 @@ async def get_valid_id_token(*, raise_on_failure: bool = False) -> Optional[str]
     # Token is expired or missing, need to refresh
     log.info("id token expired or missing, refreshing")
 
+    generation = auth_generation()
     try:
         result = await _refresh_id_token_classified(refresh_token)
+        if auth_generation() != generation:
+            log.info("discarding id token refresh for a login that has since ended")
+            return None
 
         # Update auth state with new tokens
         auth_state['id_token'] = result['id_token']
@@ -282,6 +295,9 @@ async def get_valid_id_token(*, raise_on_failure: bool = False) -> Optional[str]
         return result['id_token']
 
     except AuthSessionExpiredError:
+        if auth_generation() != generation:
+            log.info("ignoring refresh failure for a login that has since ended")
+            return None
         log.info("stored Stimma Cloud session is no longer valid")
         await _clear_auth_after_session_expiry()
         if raise_on_failure:
@@ -313,6 +329,7 @@ async def force_refresh_id_token(*, raise_on_failure: bool = False) -> Optional[
         return None
 
     from auth_storage import load_auth_state, save_auth_state
+    from auth_storage import auth_generation
 
     auth_state = load_auth_state()
     if not auth_state:
@@ -326,8 +343,12 @@ async def force_refresh_id_token(*, raise_on_failure: bool = False) -> Optional[
 
     log.info("force-refreshing id token after 401")
 
+    generation = auth_generation()
     try:
         result = await _refresh_id_token_classified(refresh_token)
+        if auth_generation() != generation:
+            log.info("discarding forced id token refresh for a login that has since ended")
+            return None
 
         auth_state['id_token'] = result['id_token']
         auth_state['refresh_token'] = result['refresh_token']
@@ -339,6 +360,9 @@ async def force_refresh_id_token(*, raise_on_failure: bool = False) -> Optional[
         return result['id_token']
 
     except AuthSessionExpiredError:
+        if auth_generation() != generation:
+            log.info("ignoring forced refresh failure for a login that has since ended")
+            return None
         log.info("stored Stimma Cloud session is no longer valid during force refresh")
         await _clear_auth_after_session_expiry()
         if raise_on_failure:

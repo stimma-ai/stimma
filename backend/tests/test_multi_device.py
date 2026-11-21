@@ -911,3 +911,27 @@ async def test_health_is_small_and_only_answers_behind_a_valid_session(monkeypat
         expired = await client.get("/api/multi-device/health", headers={"Authorization": "Bearer stale"})
         assert expired.status_code == 401
         assert expired.headers.get("x-stimma-session-invalid") == "1"
+
+
+@pytest.mark.asyncio
+async def test_session_expiry_cuts_satellites_off_without_calling_the_registry(signed_in_server):
+    """An expired session has no token left to reach the registry with, but the
+    listener and every issued session must still go."""
+    from multi_device import service
+
+    calls, published = signed_in_server
+    token = auth.issue_session("device-a", "acct-1")
+
+    await service.stop_after_session_expiry()
+
+    assert calls["stop_serving"] == [True]
+    assert calls["stop_heartbeat"] == [True]
+    assert published == []
+    assert auth.verify_session(token) is None
+
+
+def test_a_new_login_is_not_judged_by_the_previous_accounts_uid(monkeypatch):
+    monkeypatch.setattr(auth, "_own_account_uid_cache", "acct-old")
+    monkeypatch.setattr("auth_storage.load_auth_state", lambda: _auth_state_with_uid("acct-new"))
+    auth.reset_own_account_uid()
+    assert auth.own_account_uid() == "acct-new"

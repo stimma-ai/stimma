@@ -39,7 +39,8 @@ async def test_sync_profile_installs_then_updates_in_profile_scope(monkeypatch):
     calls = []
     monkeypatch.setattr(stimpack_sync, "is_privacy_lockdown_enabled", lambda: False)
 
-    async def auto_install():
+    async def auto_install(profile_id):
+        assert profile_id == get_current_profile()
         calls.append(("auto-install", get_current_profile()))
         return {"installed": ["stimma-essentials"]}
 
@@ -47,15 +48,16 @@ async def test_sync_profile_installs_then_updates_in_profile_scope(monkeypatch):
         calls.append(("check", get_current_profile()))
         return {"updates": [{"name": "stimma-docs", "newVersion": 4}, {"name": "broken"}]}
 
-    async def update(name):
+    async def update(name, profile_id):
+        assert profile_id == get_current_profile()
         calls.append(("update", name, get_current_profile()))
         if name == "broken":
             raise RuntimeError("download failed")
         return {}
 
-    monkeypatch.setattr(market, "run_auto_install", auto_install)
+    monkeypatch.setattr(market, "auto_install_packs", auto_install)
     monkeypatch.setattr(market, "check_updates", check_updates)
-    monkeypatch.setattr(market, "update_from_marketplace", update)
+    monkeypatch.setattr(market, "update_pack", update)
     result = await stimpack_sync.sync_profile("p1")
     assert result == {"installed": ["stimma-essentials"], "updated": ["stimma-docs"], "changed": True}
     assert calls == [
@@ -70,7 +72,7 @@ async def test_sync_does_nothing_under_privacy_lockdown(monkeypatch):
     async def boom(*a, **k):
         raise AssertionError("no cloud calls under lockdown")
 
-    monkeypatch.setattr(market, "run_auto_install", boom)
+    monkeypatch.setattr(market, "auto_install_packs", boom)
     monkeypatch.setattr(market, "check_updates", boom)
     assert await stimpack_sync.sync_profile("p1") == {"installed": [], "updated": [], "changed": False}
     monkeypatch.setattr(market, "is_privacy_lockdown_enabled", lambda: True)

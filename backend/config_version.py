@@ -37,6 +37,13 @@ class ConfigVersionManager:
             self.settings.clip.pretrained
         )
 
+        self._compute_face_detection_version()
+
+        log.info(f"Config versions computed:")
+        for phase, version in self._version_cache.items():
+            log.info(f"  {phase}: {version}")
+
+    def _compute_face_detection_version(self):
         # Face detection version: model + min_confidence + max_faces (all affect output)
         # Model name is hardcoded in face_detection_service.py - update here if changed
         self._version_cache['face_detection'] = self._compute_hash(
@@ -45,9 +52,10 @@ class ConfigVersionManager:
             str(self.settings.face_detection.max_faces)
         )
 
-        log.info(f"Config versions computed:")
-        for phase, version in self._version_cache.items():
-            log.info(f"  {phase}: {version}")
+    def apply_face_detection_settings(self, settings) -> None:
+        """Adopt reloaded face-detection settings (they apply live, no restart)."""
+        self.settings = settings
+        self._compute_face_detection_version()
 
     def get_version(self, phase: str) -> str:
         """Get current config version for a phase."""

@@ -527,7 +527,9 @@ async def get_account_info():
                 ),
             )
         if e.response.status_code in (401, 403):
+            from multi_device import service as multi_device_service
             from routes.cloud import disconnect_cloud_internal
+            await multi_device_service.stop_after_session_expiry()
             await disconnect_cloud_internal()
             clear_auth_state()
             raise HTTPException(

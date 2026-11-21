@@ -139,12 +139,18 @@ class FaceDetectionService:
         """Check if the model is currently loading."""
         return self._loading
 
-    def detect_faces(self, image: Union[str, Path, Image.Image]) -> List[Dict[str, Any]]:
+    def detect_faces(
+        self,
+        image: Union[str, Path, Image.Image],
+        min_confidence: Optional[float] = None,
+        max_faces: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Detect faces in an image and extract embeddings.
 
         Args:
             image: Path to image file or PIL Image object
+            min_confidence, max_faces: Override the service settings for this call
 
         Returns:
             List of face dictionaries containing:
@@ -154,9 +160,15 @@ class FaceDetectionService:
                 - landmarks: dict with facial landmark coordinates (optional)
         """
         with self._idle.use():
-            return self._detect_faces_active(image)
+            return self._detect_faces_active(
+                image,
+                self.min_confidence if min_confidence is None else min_confidence,
+                self.max_faces if max_faces is None else max_faces,
+            )
 
-    def _detect_faces_active(self, image: Union[str, Path, Image.Image]) -> List[Dict[str, Any]]:
+    def _detect_faces_active(
+        self, image: Union[str, Path, Image.Image], min_confidence: float, max_faces: int
+    ) -> List[Dict[str, Any]]:
         if not self._loaded:
             # Auto-load on first use; blocks on the load lock if another
             # thread is already loading, so we never proceed with detector=None.
@@ -185,14 +197,14 @@ class FaceDetectionService:
 
             # Run face detection
             log.debug("FACE DETECTION: Running detection...")
-            detected_faces = self.detector.detect(image_np, conf_threshold=self.min_confidence)
+            detected_faces = self.detector.detect(image_np, conf_threshold=min_confidence)
 
             # Process results
             faces = []
             if detected_faces:
                 log.debug(f"FACE DETECTION: Found {len(detected_faces)} faces")
 
-                for i, face in enumerate(detected_faces[:self.max_faces]):
+                for i, face in enumerate(detected_faces[:max_faces]):
                     confidence = face.confidence
 
                     # Extract bounding box [x1, y1, x2, y2]

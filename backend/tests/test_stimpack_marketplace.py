@@ -80,3 +80,48 @@ async def test_author_avatar_returns_clean_404_for_missing_cloud_avatar(monkeypa
     assert captured["url"] == "https://dev.stimma.ai/api/avatars/avatars/missing"
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "Avatar not found"
+
+
+async def test_manual_update_waits_for_the_profile_sync_lock_and_unpacks_off_the_loop(monkeypatch):
+    import asyncio
+    import threading
+
+    import stimpack_sync
+    from core.profile_context import ProfileScope
+
+    loop_thread = threading.get_ident()
+    installs = []
+
+    def install(zip_bytes, profile_id=None, marketplace_meta=None):
+        installs.append((profile_id, threading.get_ident() != loop_thread))
+        return SimpleNamespace(
+            name="pack", display_name="Pack", tier="marketplace",
+            marketplace=SimpleNamespace(version=2),
+        )
+
+    api = SimpleNamespace(
+        list_installed_stimpacks=lambda profile_id=None: [SimpleNamespace(name="pack", marketplace=object())],
+        install_stimpack_from_zip_bytes=install,
+    )
+
+    async def cloud_get(path, params=None, auth=True):
+        return {"id": "sp_1", "currentVersion": 2, "currentVersionId": "v_2"}
+
+    async def download(name):
+        return b"zip"
+
+    monkeypatch.setattr(stimpack_marketplace, "_stimpacks_api", lambda: api)
+    monkeypatch.setattr(stimpack_marketplace, "_cloud_get", cloud_get)
+    monkeypatch.setattr(stimpack_marketplace, "_download_pack", download)
+    monkeypatch.setattr(stimpack_marketplace, "is_privacy_lockdown_enabled", lambda: False)
+
+    lock = stimpack_sync.profile_lock("lock-test")
+    await lock.acquire()
+    with ProfileScope("lock-test"):
+        task = asyncio.create_task(stimpack_marketplace.update_from_marketplace("pack"))
+    await asyncio.sleep(0.05)
+    assert not task.done() and installs == []  # a sync pass holds the profile
+    lock.release()
+    result = await task
+    assert result["marketplace_version"] == 2
+    assert installs == [("lock-test", True)]

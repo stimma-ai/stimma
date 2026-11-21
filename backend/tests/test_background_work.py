@@ -351,6 +351,8 @@ class TestConfigReload:
 
         # Create mock ingestion
         mock_ingestion = MagicMock(spec=ingestion.MediaIngestion)
+        mock_ingestion.face_detection_service = MagicMock()
+        mock_ingestion.config_mgr = MagicMock()
         mock_ingestion.settings = mock_settings_initial
         mock_ingestion.registry = MagicMock()
         mock_ingestion.folder_to_profile = {}
@@ -383,6 +385,8 @@ class TestConfigReload:
         new_settings.profiles = [new_profile]
 
         mock_ingestion = MagicMock(spec=ingestion.MediaIngestion)
+        mock_ingestion.face_detection_service = MagicMock()
+        mock_ingestion.config_mgr = MagicMock()
         mock_ingestion.settings = initial_settings
         mock_ingestion.registry = MagicMock()
         mock_ingestion.folder_to_profile = {}
@@ -413,6 +417,8 @@ class TestConfigReload:
         new_settings.profiles = [new_profile]
 
         mock_ingestion = MagicMock(spec=ingestion.MediaIngestion)
+        mock_ingestion.face_detection_service = MagicMock()
+        mock_ingestion.config_mgr = MagicMock()
         mock_ingestion.settings = initial_settings
         mock_ingestion.registry = MagicMock()
         mock_ingestion.folder_to_profile = {}

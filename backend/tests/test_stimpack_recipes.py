@@ -39,6 +39,8 @@ def test_dev_stimpacks_dir_discovers_pack_recipes(monkeypatch):
 
     monkeypatch.undo()  # drop the session-wide fixture patch for this test
     monkeypatch.setattr(get_settings(), "dev_stimpacks_dir", str(FIXTURES))
+    # Its transition state file lives in the real data dir; keep it untouched.
+    monkeypatch.setattr(stimpacks_mod, "_track_dev_stimpacks_enabled", lambda dev_dir: None)
     found = dict(stimpacks_mod.list_stimpack_recipe_files())
     assert found["test-tiles"].name == "tiles.py"
     assert get_recipe("tiles").source == "test-tiles"

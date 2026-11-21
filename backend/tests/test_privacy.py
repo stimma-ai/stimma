@@ -250,6 +250,46 @@ async def test_privacy_lockdown_suppresses_flags_fetch(fresh_env, patch_settings
     await client.stop()
 
 
+@pytest.mark.asyncio
+async def test_privacy_lockdown_ignores_cached_flags(fresh_env, patch_settings, monkeypatch):
+    fresh_env.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
+    patch_settings()
+    import feature_flags as ff
+    monkeypatch.setattr(ff, "_load_cache", lambda: {"cached_flag": True})
+    client = ff.FeatureFlagClient()
+    await client.start()
+    assert client.all() == {}
+    assert client.get_bool("cached_flag", False) is False
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_flags_refresh_requested_during_a_fetch_is_not_lost(monkeypatch):
+    import feature_flags as ff
+    monkeypatch.setattr(ff, "FETCH_INTERVAL_SECONDS", 60)
+    real_sleep = asyncio.sleep
+    monkeypatch.setattr(ff.asyncio, "sleep", lambda s: real_sleep(0))
+    client = ff.FeatureFlagClient()
+    client._refresh_event = asyncio.Event()
+    fetches = []
+
+    async def fetch(self):
+        fetches.append(True)
+        if len(fetches) == 1:
+            self.refresh()  # e.g. sign-in changes while the first fetch is in flight
+
+    monkeypatch.setattr(ff.FeatureFlagClient, "_fetch_once", fetch)
+    task = asyncio.create_task(client._poll_loop())
+    for _ in range(20):
+        await real_sleep(0.01)
+        if len(fetches) >= 2:
+            break
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert len(fetches) >= 2
+
+
 def test_privacy_lockdown_suppresses_update_check(fresh_env, patch_settings, monkeypatch):
     fresh_env.setenv("STIMMA_DISTRIBUTION", "official")
     fresh_env.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")

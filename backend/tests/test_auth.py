@@ -470,6 +470,63 @@ class TestFirebaseRefreshHandling:
         assert load_auth_state()["refresh_token"] == "refresh-secret"
 
 
+    async def test_refresh_finishing_after_logout_does_not_resurrect_the_session(self, auth_storage_env):
+        from auth_storage import clear_auth_state, load_auth_state, save_auth_state
+        from firebase_auth import get_valid_id_token
+
+        store, data_dir = auth_storage_env
+        save_auth_state({"user": {"uid": "u1"}, "refresh_token": "old-refresh", "id_token_expiry": 0})
+
+        async def refresh_then_logout(refresh_token):
+            clear_auth_state()  # the user signs out while Firebase answers
+            return {"id_token": "fresh", "refresh_token": "rotated", "expiry": 9e9}
+
+        with patch("firebase_auth.refresh_id_token", side_effect=refresh_then_logout):
+            assert await get_valid_id_token() is None
+
+        assert load_auth_state() is None
+        assert store.token is None
+
+    async def test_old_refresh_failing_does_not_clear_a_newer_login(self, auth_storage_env):
+        from auth_storage import load_auth_state, save_auth_state
+        from firebase_auth import force_refresh_id_token
+
+        store, data_dir = auth_storage_env
+        save_auth_state({"user": {"uid": "u1"}, "refresh_token": "old-refresh", "id_token_expiry": 0})
+
+        request = httpx.Request("POST", "https://securetoken.googleapis.com/v1/token")
+        response = httpx.Response(400, json={"error": {"message": "INVALID_REFRESH_TOKEN"}}, request=request)
+
+        async def new_login_then_fail(refresh_token):
+            save_auth_state(
+                {"user": {"uid": "u2"}, "refresh_token": "new-refresh", "id_token_expiry": 0},
+                new_login=True,
+            )
+            raise httpx.HTTPStatusError("invalid refresh", request=request, response=response)
+
+        with patch("firebase_auth.refresh_id_token", side_effect=new_login_then_fail), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
+            assert await force_refresh_id_token() is None
+
+        assert load_auth_state()["refresh_token"] == "new-refresh"
+        disconnect.assert_not_awaited()
+
+    async def test_session_expiry_stops_multi_device(self, auth_storage_env):
+        from auth_storage import save_auth_state
+        from firebase_auth import get_valid_id_token
+
+        save_auth_state({"user": {"uid": "u1"}, "refresh_token": "bad-refresh", "id_token_expiry": 0})
+        request = httpx.Request("POST", "https://securetoken.googleapis.com/v1/token")
+        response = httpx.Response(400, json={"error": {"message": "INVALID_REFRESH_TOKEN"}}, request=request)
+        error = httpx.HTTPStatusError("invalid refresh", request=request, response=response)
+
+        with patch("firebase_auth.refresh_id_token", new_callable=AsyncMock, side_effect=error), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock), \
+             patch("multi_device.service.stop_after_session_expiry", new_callable=AsyncMock) as stop:
+            assert await get_valid_id_token() is None
+        stop.assert_awaited_once()
+
+
 # ---------------------------------------------------------------------------
 # Tests: GET /api/auth/status
 # ---------------------------------------------------------------------------

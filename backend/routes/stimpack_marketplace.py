@@ -3,6 +3,7 @@ Stimpack marketplace routes — proxies to stimma.ai cloud API for marketplace o
 
 Handles: browse, detail, install, publish, check-updates, update, mine.
 """
+import asyncio
 from urllib.parse import quote, urlsplit
 
 from fastapi import APIRouter, HTTPException, Response
@@ -15,6 +16,7 @@ from core.logging import get_logger
 from core.profile_context import get_current_profile
 from firebase_auth import get_valid_id_token as get_id_token
 from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
+from stimpack_sync import profile_lock
 
 router = APIRouter(prefix="/api/stimpack-marketplace", tags=["stimpack-marketplace"])
 log = get_logger(__name__)
@@ -99,6 +101,35 @@ async def _cloud_post(path: str, data: dict | None = None, auth: bool = True) ->
         return response.json()
 
 
+async def _download_pack(name: str) -> bytes:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{_cloud_base()}/{name}/download",
+            headers=with_cloud_access_headers(),
+            timeout=60.0,
+        )
+        response.raise_for_status()
+        return response.content
+
+
+async def _install_pack_bytes(stimpacks_api, zip_bytes: bytes, name: str, detail: dict, profile_id: str):
+    """Unpack a downloaded marketplace pack off the event loop."""
+    return await asyncio.to_thread(
+        stimpacks_api.install_stimpack_from_zip_bytes,
+        zip_bytes,
+        profile_id=profile_id,
+        marketplace_meta={
+            "stimpackId": detail["id"],
+            "name": name,
+            "version": detail.get("currentVersion") or 1,
+            "versionId": detail.get("currentVersionId", ""),
+            "author": detail.get("authorUsername", ""),
+            "authorAvatarKey": detail.get("authorAvatarKey", ""),
+            "autoEnable": detail.get("autoEnable", False),
+        },
+    )
+
+
 # --- Avatars ---
 
 @router.get("/avatar/{key:path}")
@@ -174,47 +205,8 @@ async def install_from_marketplace(name: str):
     if is_privacy_lockdown_enabled():
         raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
     profile_id = get_current_profile()
-    stimpacks_api = _stimpacks_api()
-
-    # Check if already installed
-    installed = stimpacks_api.list_installed_stimpacks(profile_id=profile_id)
-    for s in installed:
-        if s.name == name:
-            raise HTTPException(status_code=409, detail=f"Stimpack '{name}' is already installed")
-
-    # Get stimpack detail from cloud
-    detail = await _cloud_get(f"/{name}", auth=False)
-    if not detail or detail.get("status") != "approved":
-        raise HTTPException(status_code=404, detail="Stimpack not found or not approved")
-
-    # Download zip
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{_cloud_base()}/{name}/download",
-            headers=with_cloud_access_headers(),
-            timeout=60.0,
-        )
-        response.raise_for_status()
-        zip_bytes = response.content
-
-    # Install locally
-    current_version = detail.get("currentVersion") or 1
-    info = stimpacks_api.install_stimpack_from_zip_bytes(
-        zip_bytes,
-        profile_id=profile_id,
-        marketplace_meta={
-            "stimpackId": detail["id"],
-            "name": name,
-            "version": current_version,
-            "versionId": detail.get("currentVersionId", ""),
-            "author": detail.get("authorUsername", ""),
-            "authorAvatarKey": detail.get("authorAvatarKey", ""),
-            "autoEnable": detail.get("autoEnable", False),
-        },
-    )
-
-    if not info:
-        raise HTTPException(status_code=500, detail="Failed to install stimpack")
+    async with profile_lock(profile_id):
+        info, detail = await install_pack(name, profile_id)
 
     # Record install on cloud (fire-and-forget)
     try:
@@ -235,6 +227,28 @@ async def install_from_marketplace(name: str):
         "marketplace_version": info.marketplace.version if info.marketplace else None,
         "marketplace_author": info.marketplace.author if info.marketplace else None,
     }
+
+
+async def install_pack(name: str, profile_id: str):
+    """Install a marketplace pack. Caller holds ``profile_lock(profile_id)``."""
+    stimpacks_api = _stimpacks_api()
+
+    # Check if already installed
+    installed = stimpacks_api.list_installed_stimpacks(profile_id=profile_id)
+    for s in installed:
+        if s.name == name:
+            raise HTTPException(status_code=409, detail=f"Stimpack '{name}' is already installed")
+
+    # Get stimpack detail from cloud
+    detail = await _cloud_get(f"/{name}", auth=False)
+    if not detail or detail.get("status") != "approved":
+        raise HTTPException(status_code=404, detail="Stimpack not found or not approved")
+
+    zip_bytes = await _download_pack(name)
+    info = await _install_pack_bytes(stimpacks_api, zip_bytes, name, detail, profile_id)
+    if not info:
+        raise HTTPException(status_code=500, detail="Failed to install stimpack")
+    return info, detail
 
 
 # --- Publish ---
@@ -318,6 +332,18 @@ async def update_from_marketplace(name: str):
     if is_privacy_lockdown_enabled():
         raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
     profile_id = get_current_profile()
+    async with profile_lock(profile_id):
+        info = await update_pack(name, profile_id)
+    return {
+        "name": info.name,
+        "display_name": info.display_name,
+        "tier": info.tier,
+        "marketplace_version": info.marketplace.version if info.marketplace else None,
+    }
+
+
+async def update_pack(name: str, profile_id: str):
+    """Update a marketplace pack in place. Caller holds ``profile_lock(profile_id)``."""
     stimpacks_api = _stimpacks_api()
 
     # Find the installed stimpack
@@ -331,41 +357,12 @@ async def update_from_marketplace(name: str):
     if not detail:
         raise HTTPException(status_code=404, detail="Stimpack not found in library")
 
-    # Download zip
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{_cloud_base()}/{name}/download",
-            headers=with_cloud_access_headers(),
-            timeout=60.0,
-        )
-        response.raise_for_status()
-        zip_bytes = response.content
-
-    # Re-install (overwrites existing)
-    current_version = detail.get("currentVersion") or 1
-    info = stimpacks_api.install_stimpack_from_zip_bytes(
-        zip_bytes,
-        profile_id=profile_id,
-        marketplace_meta={
-            "stimpackId": detail["id"],
-            "name": name,
-            "version": current_version,
-            "versionId": detail.get("currentVersionId", ""),
-            "author": detail.get("authorUsername", ""),
-            "authorAvatarKey": detail.get("authorAvatarKey", ""),
-            "autoEnable": detail.get("autoEnable", False),
-        },
-    )
-
+    # Re-install (replaces the existing copy)
+    zip_bytes = await _download_pack(name)
+    info = await _install_pack_bytes(stimpacks_api, zip_bytes, name, detail, profile_id)
     if not info:
         raise HTTPException(status_code=500, detail="Failed to update stimpack")
-
-    return {
-        "name": info.name,
-        "display_name": info.display_name,
-        "tier": info.tier,
-        "marketplace_version": info.marketplace.version if info.marketplace else None,
-    }
+    return info
 
 
 # --- My Stimpacks ---
@@ -391,6 +388,12 @@ async def run_auto_install():
     if is_privacy_lockdown_enabled():
         return {"installed": [], "message": disabled_message("Marketplace stimpacks")}
     profile_id = get_current_profile()
+    async with profile_lock(profile_id):
+        return await auto_install_packs(profile_id)
+
+
+async def auto_install_packs(profile_id: str) -> dict:
+    """Install pending default packs. Caller holds ``profile_lock(profile_id)``."""
     stimpacks_api = _stimpacks_api()
     requested_names: list[str] = []
     seen_names: set[str] = set()
@@ -425,29 +428,8 @@ async def run_auto_install():
             if not detail or detail.get("status") != "approved":
                 raise ValueError("Stimpack not found or not approved")
 
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{_cloud_base()}/{name}/download",
-                    headers=with_cloud_access_headers(),
-                    timeout=60.0,
-                )
-                response.raise_for_status()
-                zip_bytes = response.content
-
-            current_version = detail.get("currentVersion") or 1
-            info = stimpacks_api.install_stimpack_from_zip_bytes(
-                zip_bytes,
-                profile_id=profile_id,
-                marketplace_meta={
-                    "stimpackId": detail["id"],
-                    "name": name,
-                    "version": current_version,
-                    "versionId": detail.get("currentVersionId", ""),
-                    "author": detail.get("authorUsername", ""),
-                    "authorAvatarKey": detail.get("authorAvatarKey", ""),
-                    "autoEnable": detail.get("autoEnable", False),
-                },
-            )
+            zip_bytes = await _download_pack(name)
+            info = await _install_pack_bytes(stimpacks_api, zip_bytes, name, detail, profile_id)
             if info:
                 stimpacks_api.record_auto_installed_stimpack(name, profile_id=profile_id)
                 installed.append(name)

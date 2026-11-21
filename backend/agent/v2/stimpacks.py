@@ -37,6 +37,7 @@ import re
 import shutil
 import tempfile
 import unicodedata
+import uuid
 import zipfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -463,6 +464,9 @@ def _iter_stimpack_dirs(base_dir: Path):
     if not base_dir.is_dir():
         return
     for child in sorted(base_dir.iterdir()):
+        # Dot folders are in-flight install staging/backup copies, never packs.
+        if child.name.startswith("."):
+            continue
         if child.is_dir() and (
             (child / STIMPACK_MANIFEST).is_file() or (child / SKILL_FILENAME).is_file()
         ):
@@ -1384,19 +1388,8 @@ def install_stimpack_from_zip_bytes(
         tmp_path = Path(tmp.name)
 
     try:
-        info = _install_from_zip(tmp_path, profile_id)
+        info = _install_from_zip(tmp_path, profile_id, marketplace_meta=marketplace_meta)
         if info and marketplace_meta:
-            write_marketplace_sidecar(
-                stimpack_dir=info.dir,
-                stimpack_id=marketplace_meta["stimpackId"],
-                name=marketplace_meta["name"],
-                version=marketplace_meta["version"],
-                version_id=marketplace_meta["versionId"],
-                author=marketplace_meta.get("author", ""),
-                author_avatar_key=marketplace_meta.get("authorAvatarKey", ""),
-            )
-            # Re-parse to pick up the sidecar
-            info = _parse_stimpack_dir(info.dir)
             # A newly installed pack may now cover legacy per-skill installs.
             _legacy_migration_checked.discard(profile_id)
         return info
@@ -1428,8 +1421,14 @@ def _install_from_md(file_path: Path, profile_id: str) -> Optional[StimpackInfo]
     return _parse_stimpack_dir(dest_dir)
 
 
-def _install_from_zip(file_path: Path, profile_id: str) -> Optional[StimpackInfo]:
-    """Install a stimpack from a .zip archive (stimpack.json/SKILL.md + companions)."""
+def _install_from_zip(
+    file_path: Path, profile_id: str, marketplace_meta: Optional[dict] = None
+) -> Optional[StimpackInfo]:
+    """Install a stimpack from a .zip archive (stimpack.json/SKILL.md + companions).
+
+    With ``marketplace_meta`` the archive must be the listing it was downloaded
+    for, and it only replaces a folder that is already that marketplace pack.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         with zipfile.ZipFile(file_path, "r") as zf:
@@ -1450,22 +1449,74 @@ def _install_from_zip(file_path: Path, profile_id: str) -> Optional[StimpackInfo
             raise ValueError("Could not load stimpack manifest from zip archive")
 
         slug = _slugify(manifest.name)
-        dest_dir = get_user_stimpacks_dir(profile_id) / slug
-        # Replace any existing copy so updates are clean.
-        if dest_dir.exists():
-            shutil.rmtree(dest_dir)
-        dest_dir.mkdir(parents=True, exist_ok=True)
+        stimpacks_root = get_user_stimpacks_dir(profile_id)
+        dest_dir = stimpacks_root / slug
+        if marketplace_meta:
+            expected = marketplace_meta["name"]
+            if slug != _slugify(expected):
+                raise ValueError(
+                    f"Downloaded archive is stimpack '{manifest.name}', not '{expected}'"
+                )
+            if dest_dir.exists() and not _is_same_marketplace_pack(dest_dir, marketplace_meta):
+                raise ValueError(
+                    f"A different stimpack already occupies '{slug}'; not replacing it"
+                )
 
-        # Copy the whole pack directory (manifest, SKILL.md, lib/, assets).
-        for f in pack_root.rglob("*"):
-            if f.is_file():
-                rel = f.relative_to(pack_root)
-                out = dest_dir / rel
-                out.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(f, out)
+        stimpacks_root.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(prefix=f".{slug}.staging-", dir=stimpacks_root))
+        try:
+            # Copy the whole pack directory (manifest, SKILL.md, lib/, assets).
+            for f in pack_root.rglob("*"):
+                if f.is_file():
+                    rel = f.relative_to(pack_root)
+                    out = staging / rel
+                    out.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(f, out)
+            if marketplace_meta:
+                write_marketplace_sidecar(
+                    stimpack_dir=staging,
+                    stimpack_id=marketplace_meta["stimpackId"],
+                    name=marketplace_meta["name"],
+                    version=marketplace_meta["version"],
+                    version_id=marketplace_meta["versionId"],
+                    author=marketplace_meta.get("author", ""),
+                    author_avatar_key=marketplace_meta.get("authorAvatarKey", ""),
+                )
+            if _parse_stimpack_dir(staging) is None:
+                raise ValueError("Could not load the staged stimpack")
+            _swap_into_place(staging, dest_dir)
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging, ignore_errors=True)
 
         _invalidate_cache(profile_id)
         return _parse_stimpack_dir(dest_dir)
+
+
+def _is_same_marketplace_pack(stimpack_dir: Path, marketplace_meta: dict) -> bool:
+    """True when the folder's sidecar names the same marketplace pack (readable or not)."""
+    _, _, raw = _read_sidecar(stimpack_dir)
+    if not raw:
+        return False
+    if raw.get("stimpackId") and raw.get("stimpackId") == marketplace_meta.get("stimpackId"):
+        return True
+    return bool(raw.get("name")) and _slugify(str(raw["name"])) == _slugify(marketplace_meta["name"])
+
+
+def _swap_into_place(staging: Path, dest_dir: Path) -> None:
+    """Move a fully staged pack to ``dest_dir``, restoring the old copy on failure."""
+    backup: Optional[Path] = None
+    if dest_dir.exists():
+        backup = dest_dir.with_name(f".{dest_dir.name}.old-{uuid.uuid4().hex[:8]}")
+        os.rename(dest_dir, backup)
+    try:
+        os.rename(staging, dest_dir)
+    except BaseException:
+        if backup is not None:
+            os.rename(backup, dest_dir)
+        raise
+    if backup is not None:
+        shutil.rmtree(backup, ignore_errors=True)
 
 
 def _find_pack_root(root: Path) -> Optional[Path]:

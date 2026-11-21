@@ -272,6 +272,12 @@ def verify_session(token: str) -> Optional[dict]:
     return record
 
 
+def reset_own_account_uid() -> None:
+    """Forget the cached uid so the next check reads the current login."""
+    global _own_account_uid_cache
+    _own_account_uid_cache = _ACCOUNT_UID_UNSET
+
+
 def revoke_all_sessions() -> None:
     """Drop every session — called when serving stops or the account signs out."""
     global _own_account_uid_cache
