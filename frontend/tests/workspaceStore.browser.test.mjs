@@ -336,3 +336,26 @@ test('a reread or refetch left running by a profile switch touches nothing in th
   assert.equal(await page.evaluate(() => window.workspace.getDoc('kv', 'big')), undefined)
   assert.deepEqual(await page.evaluate(() => window.workspace.getDoc('kv', 'k')), { other: true })
 })
+
+test('what a switch leaves unsent is saved at once, and resent under its id next visit', async t => {
+  const { page, server } = await fixture(t, { serverDocs: [{ namespace: 'kv', key: 'k', value: { a: 1 }, rev: 2 }] })
+  await activate(page)
+  server.fail = true
+  await page.evaluate(([P]) => {
+    const { syncedStorage, setCurrentProfileId } = window.workspace
+    syncedStorage.setItem(`${P}k`, JSON.stringify({ a: 2 }), { delayMs: 60000 })
+    setCurrentProfileId('profile-other')
+  }, [P])
+  // Saved before any answer, so a reload straight after the switch keeps it.
+  const saved = JSON.parse(await page.evaluate(P => localStorage.getItem(`${P}workspace_outbox`), P))
+  assert.equal(saved.length, 1)
+  assert.ok(saved[0].batch)
+  server.fail = false
+  await page.reload()
+  await page.evaluate(PROFILE => localStorage.setItem('profileId', PROFILE), PROFILE)
+  await page.addScriptTag({ content: code })
+  await activate(page)
+  await expect.poll(() => server.writes.length).toBe(1)
+  assert.equal(server.writes[0].batch_id, saved[0].batch)
+  await expect.poll(() => page.evaluate(P => localStorage.getItem(`${P}workspace_outbox`), P)).toBeNull()
+})

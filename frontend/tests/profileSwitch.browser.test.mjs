@@ -122,6 +122,22 @@ test('markers are reread on a switch, and a read for the old profile is dropped'
   assert.deepEqual(await page.evaluate(() => window.t.markers.availableMarkers.value.map(m => m.name)), ['B marker'])
 })
 
+test('a marker catalog that couldn\'t be read on a switch is read by the next init', async t => {
+  const { page, server } = await fixture(t)
+  await page.evaluate(() => window.t.markers.init())
+  // B is locked: its catalog read fails until the PIN is entered.
+  server.markers[B] = undefined
+  await page.route('**/api/markers', route => route.request().headers()['x-profile-id'] === B && !server.markers[B]
+    ? route.fulfill({ status: 403, body: '{}' })
+    : route.fallback())
+  await page.evaluate(B => window.t.setCurrentProfileId(B), B)
+  await page.waitForTimeout(100)
+  assert.deepEqual(await page.evaluate(() => window.t.markers.availableMarkers.value), [])
+  server.markers[B] = [{ id: 2, name: 'B marker' }]
+  await page.evaluate(() => window.t.markers.init())
+  assert.deepEqual(await page.evaluate(() => window.t.markers.availableMarkers.value.map(m => m.name)), ['B marker'])
+})
+
 test('an account read that a push overtakes neither replaces it nor signs out', async t => {
   const { page, server } = await fixture(t)
   server.account = { body: { credits: 1 } }

@@ -4716,6 +4716,9 @@ async function loadOutputFolder() {
   }
 }
 
+// Set on unmount; load and mount work resuming after it attaches nothing.
+let viewDisposed = false
+
 async function loadTool(forceReload = false, silent = false) {
   const fullToolId = props.fullToolId
   if (!fullToolId) {
@@ -4748,15 +4751,17 @@ async function loadTool(forceReload = false, silent = false) {
     const statusCode = err?.response?.status
     error.value = { message: 'Failed to load tool', statusCode }
     isInitialLoading.value = false
-    scheduleLoadRetry()
+    if (!viewDisposed) scheduleLoadRetry()
     return
   }
+  if (viewDisposed) return
 
   // Load output folder and init job manager in parallel
   await Promise.all([
     loadOutputFolder(),
     jobsManager.init()
   ])
+  if (viewDisposed) return
 
   // Apply tool schema defaults directly (tools are the single source of truth)
   const toolDefaults = getToolDefaults(tool.value.parameter_schema)
@@ -4776,6 +4781,7 @@ async function loadTool(forceReload = false, silent = false) {
   // Initialize state from preset or tool defaults (via composable)
   const savedPresetId = loadActivePresetId()
   await initializeState(savedPresetId)
+  if (viewDisposed) return
 
   // Load presets for the agent's state_context (fire-and-forget).
   refreshAgentPresets()
@@ -7813,9 +7819,6 @@ async function handleProfileChanged() {
   await whenWorkspaceReady()
   await loadTool(true)  // force reload from API + reinitialize state + restart watchers
 }
-
-// Set on unmount; mount work resuming after it attaches nothing.
-let viewDisposed = false
 
 onMounted(async () => {
   // Under KeepAlive onActivated claims too; this covers a mount outside it.

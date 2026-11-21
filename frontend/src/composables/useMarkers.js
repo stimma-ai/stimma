@@ -14,12 +14,17 @@ let wsUnsubscribers = []
 
 // Bumped on a profile switch; reads begun before it are for the old profile.
 let generation = 0
+// The generation whose catalog was read; behind `generation` until a read lands
+// (a PIN-locked profile's read fails until unlock, and init reads again).
+let catalogGeneration = -1
 let readMarkerCatalog = null
 
 async function refreshAvailableMarkers() {
   const readFor = generation
   const markers = await readMarkerCatalog()
-  if (readFor === generation) availableMarkers.value = markers
+  if (readFor !== generation) return
+  availableMarkers.value = markers
+  catalogGeneration = readFor
 }
 
 if (typeof window !== 'undefined') {
@@ -48,6 +53,17 @@ export function useMarkers() {
 
   // Initialize markers system (called once, shared across all uses)
   async function init() {
+    if (isInitialized.value && !isInitializing.value && catalogGeneration !== generation) {
+      isInitializing.value = true
+      try {
+        await refreshAvailableMarkers()
+      } catch (err) {
+        console.error('Failed to load markers:', err)
+      } finally {
+        isInitializing.value = false
+      }
+      return
+    }
     if (isInitialized.value || isInitializing.value) return
     isInitializing.value = true
 
@@ -137,16 +153,19 @@ export function useMarkers() {
   async function toggleMarker(mediaId, marker) {
     const has = hasMarker(mediaId, marker.id)
     const currentMarkers = mediaMarkers.value[mediaId] || []
+    const madeFor = generation
 
     try {
       if (has) {
         await removeMarkerFromMedia(mediaId, marker.id)
+        if (madeFor !== generation) return
         mediaMarkers.value = {
           ...mediaMarkers.value,
           [mediaId]: currentMarkers.filter(m => m.id !== marker.id)
         }
       } else {
         await addMarkerToMedia(mediaId, marker.id)
+        if (madeFor !== generation) return
         mediaMarkers.value = {
           ...mediaMarkers.value,
           [mediaId]: [...currentMarkers, marker]

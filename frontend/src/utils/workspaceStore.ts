@@ -270,6 +270,8 @@ async function flush(force = false): Promise<void> {
       return
     }
     unacked.push({ id: randomId(), ops })
+    // A saved copy holds these as never sent; from now on it must know their id.
+    if (hasSavedOutbox(boundProfile)) persistOutbox(true)
   } else if (!force && retryAt > Date.now()) {
     scheduleFlush()
     return
@@ -295,6 +297,7 @@ async function flush(force = false): Promise<void> {
       // Already applied once, before an answer that never arrived; anything since
       // may have replaced it, and only a read shows what.
       reread = !!data?.duplicate
+      if (profile) forgetSaved(profile, batch.id)
       retryAt = 0
       setOffline(false)
     }
@@ -347,14 +350,25 @@ function serializeBatch(batch: Batch) {
   return { batch: batch.id, ops: [...batch.ops.values()].map(serializeOp) }
 }
 
-/** Keep changes that belong to a profile this window has left, for its next visit. */
-function saveUnsent(profile: string | null, batches: Batch[]) {
-  if (!profile || !batches.length) return
+function hasSavedOutbox(profile: string | null): boolean {
+  try {
+    return !!profile && localStorage.getItem(outboxStorageKey(profile)) !== null
+  } catch {
+    return false
+  }
+}
+
+/** A batch the server has answered for no longer needs its saved copy. */
+function forgetSaved(profile: string, batchId: string) {
   const key = outboxStorageKey(profile)
   try {
     const saved = JSON.parse(localStorage.getItem(key) || '[]')
-    localStorage.setItem(key, JSON.stringify([...(Array.isArray(saved) ? saved : []), ...batches.map(serializeBatch)]))
-  } catch { /* Storage full: nothing more can be done for them. */ }
+    if (!Array.isArray(saved)) return
+    const rest = saved.filter(entry => entry?.batch !== batchId)
+    if (rest.length === saved.length) return
+    if (rest.length) localStorage.setItem(key, JSON.stringify(rest))
+    else localStorage.removeItem(key)
+  } catch { /* Unreadable: the next visit resends, and the server ignores repeats. */ }
 }
 
 /** A saved op as pending, applied to what's held; null if it no longer applies. */
@@ -655,23 +669,29 @@ export function detachProfile(): void {
   activeReads.clear()
   hydrated = false
   boundProfile = null
-  // Everything saved for it is in hand now, and is put back only if it fails.
-  if (profile) localStorage.removeItem(outboxStorageKey(profile))
-  if (!profile || !batches.length) return
-  void sendInOrder(profile, batches)
+  if (!profile) return
+  // Saved first, so a page reload right after the switch loses nothing; each
+  // copy goes once the server answers for it. Everything saved before is in
+  // `batches` already (restored when the profile was read).
+  try {
+    if (batches.length) localStorage.setItem(outboxStorageKey(profile), JSON.stringify(batches.map(serializeBatch)))
+    else localStorage.removeItem(outboxStorageKey(profile))
+  } catch { /* Storage full: sending is all that's left. */ }
+  if (batches.length) void sendInOrder(profile, batches)
 }
 
 // The first may still be on its way from flush; under the same id the server
-// applies it once, whichever copy arrives first.
+// applies it once, whichever copy arrives first. Coming back to the profile
+// restores what's still saved, and resends it ahead of anything new.
 async function sendInOrder(profile: string, batches: Batch[]) {
-  for (let i = 0; i < batches.length; i++) {
+  for (const batch of batches) {
     try {
-      await postBatch(profile, batches[i])
+      await postBatch(profile, batch)
     } catch (error: any) {
-      if (REFUSED.has(error?.response?.status)) continue
-      saveUnsent(profile, batches.slice(i))
-      return
+      // Anything else stays saved for the next visit, with what follows it.
+      if (!REFUSED.has(error?.response?.status)) return
     }
+    forgetSaved(profile, batch.id)
   }
 }
 
