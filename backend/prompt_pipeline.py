@@ -480,6 +480,12 @@ async def _improve_with_verbatim_protection(
             failure_reason, failure_advice, retry_hint = _H3_PROBLEM_FEEDBACK.get(
                 problem, _H3_PROBLEM_FEEDBACK["format"]
             )
+            if problem == "dialogue_missing" and not _h3_source_has_spoken_words(prompt_with_placeholders):
+                # Speech asked for with no words given: no rewrite can quote lines that
+                # don't exist, so retrying only costs time. Fail now; callers send the
+                # prompt as given (_improve_or_as_filled).
+                failure_reason, failure_advice = _H3_NO_WORDS_FEEDBACK
+                break
             continue
         if not _image_tags_in_range(candidate, input_image_count, prompt_with_placeholders):
             failure_reason = "the rewrite referenced an image that was not supplied"
@@ -515,9 +521,10 @@ async def _improve_with_verbatim_protection(
 
     from fastapi import HTTPException
 
+    attempts = attempt + 1
     raise HTTPException(status_code=422, detail={
         "code": "prompt_enhancement_failed",
-        "message": f"Prompt enhancement failed after {_MAX_LLM_RETRIES} attempts: {failure_reason}. "
+        "message": f"Prompt enhancement failed after {attempts} attempt{'s' if attempts != 1 else ''}: {failure_reason}. "
                    f"Generation was not started. {failure_advice}",
     })
 
@@ -569,6 +576,22 @@ _H3_PROBLEM_FEEDBACK: Dict[str, Tuple[str, str, str]] = {
         "overall_soundscape: and non_diegetic_music:, in that order.",
     ),
 }
+
+
+_H3_NO_WORDS_FEEDBACK = (
+    "the prompt asks for speech but gives no words to say",
+    "Put each line the character should say in double quotes, written exactly as it should "
+    "be spoken. Then retry.",
+)
+
+
+def _h3_source_has_spoken_words(source_prompt: str) -> bool:
+    """Whether the input supplies actual words to speak: quoted lines, <d> blocks or
+    script lines. "She speaks to the camera" asks for speech but supplies none."""
+    from routes.prompt_enhancement import _H3_DIALOGUE_BLOCK_RE, _H3_SCRIPT_LINE_RE
+
+    return bool(_SOURCE_QUOTE_RE.search(source_prompt) or _H3_DIALOGUE_BLOCK_RE.search(source_prompt)
+                or _H3_SCRIPT_LINE_RE.search(source_prompt))
 
 
 def _with_retry_hint(instructions: Optional[str], hint: Optional[str]) -> Optional[str]:

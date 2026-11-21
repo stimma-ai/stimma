@@ -286,6 +286,96 @@ class TestRunPromptPipeline:
         assert attempts[0].instructions is None
         assert "did not supply" in attempts[1].instructions
 
+    async def test_h3_talking_scene_without_words_sends_the_prompt_after_one_attempt(
+        self, generation_app, generation_db_session, monkeypatch
+    ):
+        """Speech asked for with no words given: no rewrite can quote lines that don't
+        exist, so the caller's prompt goes at once instead of after every retry."""
+        import routes.prompt_enhancement as pe
+
+        attempts = []
+
+        async def fake_improve(request, session):
+            attempts.append(request)
+            return pe.ImprovePromptResponse(
+                improved_prompt="integrated_multimodal_description: [Shot 1] "
+                "A baker talks warmly to the camera.\n\n"
+                "overall_soundscape: Quiet room tone.\n\nnon_diegetic_music: N/A"
+            )
+
+        monkeypatch.setattr(pe, "improve_prompt", fake_improve)
+        original = "a baker speaks to the camera about the morning bread"
+        outcome = {}
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            original,
+            {"autoImprove": {"enabled": True}},
+            model="minimax-h3-t2v",
+            is_video=True,
+            h3_task="t2va",
+            h3_duration=5,
+            outcome=outcome,
+        )
+        assert len(attempts) == 1
+        assert out == original
+        assert outcome["improved"] == "fallback"
+        assert outcome["reason"] == "the prompt asks for speech but gives no words to say"
+
+    async def test_h3_retries_dropped_lines_when_words_were_given(
+        self, generation_app, generation_db_session, monkeypatch
+    ):
+        """Dropping quoted lines is the model's slip: retrying can fix it."""
+        import routes.prompt_enhancement as pe
+
+        attempts = []
+
+        async def fake_improve(request, session):
+            attempts.append(request)
+            line = "" if len(attempts) == 1 else " (S1) says: <d>[English] Fresh bread!</d>"
+            return pe.ImprovePromptResponse(
+                improved_prompt=f"integrated_multimodal_description: [Shot 1] A baker{line}\n\n"
+                "overall_soundscape: Quiet room tone.\n\nnon_diegetic_music: N/A"
+            )
+
+        monkeypatch.setattr(pe, "improve_prompt", fake_improve)
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            'a baker says "Fresh bread!"',
+            {"autoImprove": {"enabled": True}},
+            model="minimax-h3-t2v",
+            is_video=True,
+            h3_task="t2va",
+            h3_duration=5,
+        )
+        assert len(attempts) == 2
+        assert "<d>[English] Fresh bread!</d>" in out
+        assert "dropped the spoken lines" in attempts[1].instructions
+
+    async def test_h3_one_attempt_failure_names_the_attempt_count(
+        self, generation_app, generation_db_session, monkeypatch
+    ):
+        """Classic Improve without an outcome still learns why, in plain words."""
+        import routes.prompt_enhancement as pe
+        from fastapi import HTTPException
+
+        async def fake_improve(request, session):
+            return pe.ImprovePromptResponse(
+                improved_prompt="integrated_multimodal_description: [Shot 1] A baker talks.\n\n"
+                "overall_soundscape: Room tone.\n\nnon_diegetic_music: N/A"
+            )
+
+        monkeypatch.setattr(pe, "improve_prompt", fake_improve)
+        with pytest.raises(HTTPException) as raised:
+            await pp._improve_with_verbatim_protection(
+                _db(generation_db_session), "a baker speaks", instructions=None, model="minimax-h3-t2v",
+                is_video=True, is_audio=False, input_image_count=0, audio_conditioned=False, media_id=None,
+                h3_task="t2va", h3_duration=5, h3_media_ids=None, h3_reference_manifest=None,
+                h3_generate_audio=True, project_id=None,
+            )
+        message = raised.value.detail["message"]
+        assert message.startswith("Prompt enhancement failed after 1 attempt: the prompt asks for speech")
+        assert pp._unusable_reply_reason(raised.value) == "the prompt asks for speech but gives no words to say"
+
     async def test_h3_preserves_structure_but_unwraps_user_verbatim(
         self, generation_app, generation_db_session, monkeypatch
     ):
