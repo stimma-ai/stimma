@@ -1223,7 +1223,7 @@
           @edit="editQueuedMessage"
           @remove="removeQueuedMessage"
         />
-        <MediaSelectionBar v-if="mediaCollections.selection.selecting.value" class="rounded-none" />
+        <MediaSelectionBar v-if="mediaCollections.selection.selecting.value" class="rounded-t-none" />
       </div>
       <ChatInputBox
         ref="chatInputBoxRef"
