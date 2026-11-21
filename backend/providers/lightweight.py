@@ -258,12 +258,15 @@ class LightweightProvider(ToolProvider):
         def _apply() -> str:
             import os
 
-            from utils.image_ops import open_oriented
+            from utils.image_ops import compatible_icc, open_oriented, to_srgb
             with open_oriented(image_path) as img:
+                if img.mode == "CMYK":
+                    img = to_srgb(img)
                 out = tool_def.run(parameters, img)
                 fd, tmp_path = tempfile.mkstemp(suffix=".png", prefix=f"{tool_def.id}_")
                 os.close(fd)
-                out.save(tmp_path, format="PNG")
+                icc = compatible_icc(img, out)
+                out.save(tmp_path, format="PNG", **({"icc_profile": icc} if icc else {}))
                 return tmp_path
 
         tmp_path = await asyncio.to_thread(_apply)
@@ -413,13 +416,14 @@ class LightweightProvider(ToolProvider):
             return ExecutionResult(success=False, error=f"Filter '{filter_id}' does not support video input")
 
         def _apply_image() -> str:
-            from utils.image_ops import open_oriented, png_compatible
+            from utils.image_ops import compatible_icc, open_oriented, png_compatible
             with open_oriented(image_path) as img:
-                out = apply_builtin_filter(filter_id, img, settings)
+                out = png_compatible(apply_builtin_filter(filter_id, img, settings))
                 fd, tmp_path = tempfile.mkstemp(suffix=".png", prefix=f"filter_{filter_id}_")
                 import os
                 os.close(fd)
-                png_compatible(out).save(tmp_path, format="PNG")
+                icc = compatible_icc(img, out)
+                out.save(tmp_path, format="PNG", **({"icc_profile": icc} if icc else {}))
                 return tmp_path
 
         def _apply_video() -> str:

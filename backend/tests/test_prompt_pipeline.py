@@ -947,3 +947,53 @@ async def test_raw_prompts_pass_through_untouched():
     prompt = "a {red|blue} car, {{style}} [verbatim]\n# a note for the model"
     options = {"raw": True, "autoImprove": {"enabled": True}, "translate": {"enabled": True, "language": "fr"}}
     assert await pp.run_prompt_pipeline(None, prompt, options) == prompt
+
+
+class TestModelReplyFallbacks:
+    """A bad model reply in translation or Ideogram JSON sends the user's own
+    words instead of failing the run (with or without a per-image level)."""
+
+    async def test_ideogram_json_failure_sends_resolved_prompt(self, generation_app, generation_db_session, monkeypatch):
+        from fastapi import HTTPException
+        import routes.prompt_enhancement as pe
+
+        async def bad_json(request):
+            raise HTTPException(status_code=502, detail="The model returned invalid JSON for Ideogram. Try again.")
+
+        monkeypatch.setattr(pe, "prompt_to_ideogram_json", bad_json)
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "a {sign|sign} that says [OPEN]",
+            {"autoImprove": {"enabled": True, "mode": "ideogram-json"}},
+        )
+        assert out == "a sign that says OPEN"
+
+    @pytest.mark.parametrize("reply", ["", "   "])
+    async def test_blank_translation_keeps_the_prompt(self, generation_app, generation_db_session, monkeypatch, reply):
+        import routes.prompt_enhancement as pe
+
+        async def blank(request):
+            return pe.TranslatePromptResponse(translated_prompt=reply)
+
+        monkeypatch.setattr(pe, "translate_prompt", blank)
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "a red fox in the snow",
+            {"translate": {"enabled": True, "language": "zh-Hans"}},
+        )
+        assert out == "a red fox in the snow"
+
+    async def test_translation_timeout_keeps_the_prompt(self, generation_app, generation_db_session, monkeypatch):
+        from fastapi import HTTPException
+        import routes.prompt_enhancement as pe
+
+        async def timeout(request):
+            raise HTTPException(status_code=504, detail="Request timed out")
+
+        monkeypatch.setattr(pe, "translate_prompt", timeout)
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "a red fox in the snow",
+            {"translate": {"enabled": True, "language": "zh-Hans"}},
+        )
+        assert out == "a red fox in the snow"

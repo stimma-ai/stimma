@@ -230,3 +230,57 @@ def test_reverse_audio_mode_remove_drops_audio(tmp_path):
 def test_reverse_invalid_audio_mode_raises(tmp_path):
     with pytest.raises(ValueError):
         apply_reverse_video(str(tmp_path / "in.mp4"), str(tmp_path / "out.mp4"), audio="bogus")
+
+
+# --- rotation, stream selection, reverse deadline ---
+
+@requires_ffmpeg
+def test_rotated_phone_clip_keeps_display_orientation(tmp_path):
+    """A clip stored 64x48 with a 90-degree display rotation decodes as 48x64
+    frames; the filter must reshape with the display size, not the stored one."""
+    plain = _make_clip(tmp_path / "plain.mp4")
+    src = tmp_path / "rot.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-display_rotation", "90", "-i", plain,
+                    "-c", "copy", str(src)], check=True, capture_output=True)
+    out = apply_builtin_filter_video("levels", str(src), str(tmp_path / "out.mp4"), {"brightness": 0})
+    w, h, frames = _probe_dims(out)
+    assert (w, h) == (48, 64)
+    assert 9 <= frames <= 11
+    # Content matches the autorotated source (not a scrambled reshape).
+    want = _decode_frames(src, 48, 64)[0]
+    got = _decode_frames(out, 48, 64)[0]
+    assert sum(abs(a - b) for a, b in zip(want, got)) / len(want) < 12
+
+
+@requires_ffmpeg
+def test_decodes_first_video_stream_only(tmp_path):
+    """ffmpeg auto-selects the largest video stream; the filter probes v:0, so
+    it must decode v:0 too."""
+    small = _make_clip(tmp_path / "small.mp4", size="64x48")
+    big = _make_clip(tmp_path / "big.mp4", size="128x96")
+    src = tmp_path / "two.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", small, "-i", big,
+                    "-map", "0:v", "-map", "1:v", "-c", "copy", str(src)],
+                   check=True, capture_output=True)
+    out = apply_builtin_filter_video("levels", str(src), str(tmp_path / "out.mp4"), {"brightness": 0})
+    w, h, frames = _probe_dims(out)
+    assert (w, h) == (64, 48)
+    assert 9 <= frames <= 11
+
+
+def test_reverse_timeout_removes_partial_output(tmp_path, monkeypatch):
+    import filters.video_ops as vo
+
+    out = tmp_path / "out.mp4"
+    monkeypatch.setattr(vo, "_ensure_ffmpeg", lambda: None)
+    monkeypatch.setattr(vo, "_probe", lambda p: {"has_audio": False})
+
+    def fake_run(cmd, **kwargs):
+        assert kwargs.get("timeout")
+        out.write_bytes(b"partial")
+        raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+
+    monkeypatch.setattr(vo.subprocess, "run", fake_run)
+    with pytest.raises(RuntimeError, match="stopped"):
+        vo.apply_reverse_video("in.mp4", str(out))
+    assert not out.exists()

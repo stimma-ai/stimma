@@ -117,3 +117,24 @@ async def test_fragments_are_published_before_completion_and_deletion_stops_writ
     await asyncio.sleep(0.1)
     assert set(root.rglob("*.m4s")) == files, "cancelled encoder must not recreate deleted fragments"
     assert not (root / "small" / "complete").exists()
+
+
+def test_rotated_video_advertises_display_dimensions(tmp_path, monkeypatch):
+    monkeypatch.setenv("STIMMA_CACHE_DIR", str(tmp_path / "cache"))
+    plain = tmp_path / "plain.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=duration=1:size=320x180:rate=10",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", str(plain)],
+                   check=True, capture_output=True, timeout=20)
+    source = tmp_path / "portrait.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-display_rotation", "90", "-i", str(plain), "-c", "copy", str(source)],
+                   check=True, capture_output=True, timeout=20)
+    file_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+
+    # A manifest cached before rotation awareness is re-described.
+    root = video_playback.cache_dir(file_hash)
+    root.mkdir(parents=True)
+    (root / "manifest.json").write_text(json.dumps({"version": 1, "renditions": [{"width": 320, "height": 180}]}))
+
+    manifest = video_playback.describe(source, file_hash)
+    assert [(r["width"], r["height"]) for r in manifest["renditions"]] == [(180, 320)]
+    assert video_playback.describe(source, file_hash) == manifest

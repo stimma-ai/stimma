@@ -236,3 +236,20 @@ def test_blank_prompt_and_invalid_intent_fail_clearly():
         mask_assistant.SelectRequest(image_data_url=_image_data_url(), prompt="   ")
     with pytest.raises(ValidationError, match="Input should be 'subject', 'background' or 'sky'"):
         mask_assistant.SelectRequest(image_data_url=_image_data_url(), intent="person")
+
+
+def test_segment_mask_conversion_thresholds_and_inverts_alpha():
+    from routes.mask_assistant import _convert_grayscale_to_rgba
+
+    gray = Image.new("L", (4, 2), 0)
+    gray.putpixel((0, 0), 255)
+    gray.putpixel((1, 0), 129)
+    gray.putpixel((2, 0), 128)
+    buf = io.BytesIO()
+    gray.save(buf, "PNG")
+    out = Image.open(io.BytesIO(_convert_grayscale_to_rgba(buf.getvalue())))
+    assert out.mode == "RGBA"
+    assert out.getpixel((0, 0)) == (255, 255, 255, 0)
+    assert out.getpixel((1, 0)) == (255, 255, 255, 0)
+    assert out.getpixel((2, 0)) == (0, 0, 0, 255)
+    assert out.getpixel((3, 1)) == (0, 0, 0, 255)

@@ -599,6 +599,63 @@ class TestExport:
         assert response.status_code == 400
 
 
+class TestRasterExport:
+    @staticmethod
+    def _fake_renderer(calls):
+        """Stand in for the local renderer: honors target_long_side like the
+        real one (default 2x supersample) and paints 50%-opaque red."""
+        async def _render(text, w, h, **kwargs):
+            calls.append((w, h, kwargs))
+            dpr = 2.0
+            if kwargs.get("target_long_side"):
+                dpr = kwargs["target_long_side"] / max(w, h)
+            assert w * dpr * h * dpr <= 40_000_000, "over the renderer pixel budget"
+            img = Image.new("RGBA", (int(w * dpr), int(h * dpr)), (255, 0, 0, 128))
+            buf = io.BytesIO()
+            img.save(buf, "PNG")
+            return buf.getvalue()
+        return _render
+
+    async def _svg_item(self, db_session, tmp_path, svg=SIMPLE):
+        svg_file = tmp_path / "mark.svg"
+        svg_file.write_text(svg)
+        async with db_session() as session:
+            item = await create_media_item(session, materialize_asset=True, file_path=svg_file, file_format="svg")
+            await session.commit()
+        return item
+
+    async def test_large_png_renders_and_keeps_alpha(self, client: AsyncClient, db_session, tmp_path):
+        from unittest.mock import patch
+
+        item = await self._svg_item(db_session, tmp_path)
+        calls = []
+        with patch("utils.document_render.render_svg_document", self._fake_renderer(calls)):
+            response = await client.post(
+                f"/api/media/{item.id}/svg-export", json={"format": "png", "width": 3200}
+            )
+        assert response.status_code == 200, response.text
+        img = Image.open(io.BytesIO(response.content))
+        assert img.size == (3200, 3200)
+        # 50% opaque art stays 50% opaque, not 25%.
+        assert abs(img.getpixel((100, 100))[3] - 128) <= 1
+
+    async def test_png_set_rejects_members_too_tall(self, client: AsyncClient, db_session, tmp_path):
+        from unittest.mock import patch
+
+        tall = (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="0 0 200 300">'
+            '<rect width="200" height="300"/></svg>'
+        )
+        item = await self._svg_item(db_session, tmp_path, tall)
+        calls = []
+        with patch("utils.document_render.render_svg_document", self._fake_renderer(calls)):
+            response = await client.post(
+                f"/api/media/{item.id}/svg-export", json={"format": "png-set", "sizes": [64, 3000]}
+            )
+        assert response.status_code == 400
+        assert calls == []
+
+
 class TestRasterizeSvgSandbox:
     """`stimma.rasterize_svg` is how the agent inspects its own work in run_code."""
 

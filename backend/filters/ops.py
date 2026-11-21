@@ -375,11 +375,44 @@ FILTER_HANDLERS: Dict[str, Callable[[Image.Image, Dict[str, Any]], Image.Image]]
 }
 
 
+# Geometry-only filters work on any mode Pillow can crop/resize, so 16-bit
+# and palette sources keep their depth.
+_GEOMETRY_FILTERS = {"crop", "resize"}
+
+
+def _pixel_ready(img: Image.Image) -> Image.Image:
+    """Normalize modes the pixel effects (and Pillow's blur) can't take.
+
+    Palette images keep their transparency, 16-bit samples are scaled down to
+    8-bit instead of clipped, and CMYK is color-managed to RGB.
+    """
+    mode = img.mode
+    if mode in ("L", "LA", "RGB", "RGBA"):
+        return img
+    if mode == "P":
+        return img.convert("RGBA" if "transparency" in img.info else "RGB")
+    if mode == "PA":
+        return img.convert("RGBA")
+    if mode == "1":
+        return img.convert("L")
+    if mode.startswith("I") or mode == "F":
+        arr = np.asarray(img, dtype=np.float64)
+        if mode.startswith("I;16") or (arr.size and arr.max() > 255):
+            arr = arr / 257.0
+        return Image.fromarray(np.clip(arr, 0, 255).round().astype(np.uint8), mode="L")
+    if mode == "CMYK":
+        from utils.image_ops import to_srgb
+        return to_srgb(img)
+    return img.convert("RGBA" if "A" in mode else "RGB")
+
+
 def apply_builtin_filter(filter_id: str, img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
     """Apply one built-in filter to a PIL image. Settings overlay the def defaults."""
     handler = FILTER_HANDLERS.get(filter_id)
     if handler is None:
         raise ValueError(f"Unknown built-in filter: {filter_id}")
+    if filter_id not in _GEOMETRY_FILTERS:
+        img = _pixel_ready(img)
     d = get_filter_def(filter_id)
     merged = {p["name"]: p["default"] for p in (d["params"] if d else [])}
     merged.update(settings or {})

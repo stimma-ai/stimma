@@ -182,6 +182,9 @@ async def _rasterize(
             inner_w,
             inner_h,
             queue_timeout_s=30.0,
+            # Render at the requested size; the default 2x supersample would
+            # push large exports past the renderer's pixel budget.
+            target_long_side=max(inner_w, inner_h),
         )
     except (LayoutRenderBusy, LayoutRenderUnavailable) as e:
         raise HTTPException(
@@ -200,7 +203,9 @@ async def _rasterize(
         art = art.resize((inner_w, inner_h), Image.LANCZOS)
 
     canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    canvas.paste(art, ((width - inner_w) // 2, (height - inner_h) // 2), art)
+    # No mask: the canvas is fully transparent, so a straight paste keeps the
+    # art's own alpha (masking with it would square it: 50% -> 25%).
+    canvas.paste(art, ((width - inner_w) // 2, (height - inner_h) // 2))
 
     if opaque:
         flat = Image.new("RGBA", (width, height), background)
@@ -223,12 +228,16 @@ def _resolve_raster_size(width: int, height: int, opts: SvgExportOptions) -> tup
         scale = opts.scale or 1.0
         target_w = max(1, int(round(width * scale)))
         target_h = max(1, int(round(height * scale)))
+    _check_raster_size(target_w, target_h)
+    return target_w, target_h
+
+
+def _check_raster_size(target_w: int, target_h: int) -> None:
     if max(target_w, target_h) > MAX_RASTER_DIMENSION:
         raise HTTPException(
             status_code=400,
             detail=f"Requested raster exceeds {MAX_RASTER_DIMENSION}px on its long side",
         )
-    return target_w, target_h
 
 
 # Embeddable code ────────────────────────────────────────────────────────────
@@ -331,10 +340,12 @@ async def export_svg(
             raise HTTPException(
                 status_code=400, detail=f"Sizes must be at most {MAX_RASTER_DIMENSION}px"
             )
+        members = [(size, max(1, int(round(size * height / width)))) for size in sizes]
+        for size, target_h in members:
+            _check_raster_size(size, target_h)
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            for size in sizes:
-                target_h = max(1, int(round(size * height / width)))
+            for size, target_h in members:
                 img = await _rasterize(svg_text, size, target_h)
                 zf.writestr(f"{base_name}-{size}.png", _png_bytes(img))
         return await _attachment(buf.getvalue(), f"{base_name}-png.zip", "application/zip")

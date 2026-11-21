@@ -13,6 +13,8 @@ streamed (one frame in memory at a time) so long clips don't blow up RAM.
 
 from __future__ import annotations
 
+import json
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -41,21 +43,44 @@ def _ensure_ffmpeg() -> None:
 
 
 def _probe(input_path: str) -> Dict[str, Any]:
-    """Return width, height, fps and audio presence for a video."""
+    """Return display width/height, fps and audio presence for a video.
+
+    Width/height are in display orientation: ffmpeg autorotates on decode, so a
+    portrait phone clip stored as 1920x1080 with a 90-degree rotation tag
+    decodes as 1080x1920 frames.
+    """
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "stream=width,height,r_frame_rate",
-         "-of", "csv=p=0", input_path],
+         "-show_entries", "stream=width,height,r_frame_rate:stream_tags=rotate:stream_side_data=rotation",
+         "-of", "json", input_path],
         capture_output=True, text=True, timeout=30,
     )
-    if out.returncode != 0 or not out.stdout.strip():
+    try:
+        stream = (json.loads(out.stdout or "{}").get("streams") or [None])[0]
+    except ValueError:
+        stream = None
+    if out.returncode != 0 or not stream or not stream.get("width") or not stream.get("height"):
         raise RuntimeError(f"Could not read video stream: {input_path}")
-    parts = out.stdout.strip().split(",")
-    width, height = int(parts[0]), int(parts[1])
+    width, height = int(stream["width"]), int(stream["height"])
+    rotation = 0.0
+    for sd in stream.get("side_data_list") or []:
+        if "rotation" in sd:
+            try:
+                rotation = float(sd["rotation"])
+            except (TypeError, ValueError):
+                pass
+    if not rotation:
+        try:
+            rotation = float((stream.get("tags") or {}).get("rotate") or 0)
+        except (TypeError, ValueError):
+            rotation = 0.0
+    if int(round(abs(rotation))) % 180 == 90:
+        width, height = height, width
 
     fps = 30.0
-    if len(parts) > 2 and parts[2] and "/" in parts[2]:
-        num, den = parts[2].split("/")
+    rate = str(stream.get("r_frame_rate") or "")
+    if "/" in rate:
+        num, den = rate.split("/")
         try:
             fps = float(num) / float(den) if float(den) else 30.0
         except (ValueError, ZeroDivisionError):
@@ -126,7 +151,7 @@ def apply_builtin_filter_video(
     frame_bytes = in_w * in_h * 3
 
     decoder = subprocess.Popen(
-        ["ffmpeg", "-v", "error", "-i", input_path,
+        ["ffmpeg", "-v", "error", "-i", input_path, "-map", "0:v:0",
          "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
     )
@@ -190,6 +215,18 @@ def apply_builtin_filter_video(
                     pass
 
 
+# Reverse buffers the whole clip inside one ffmpeg call; bound it so a huge or
+# wedged input can't hold a worker forever.
+REVERSE_TIMEOUT_SECONDS = 30 * 60
+
+
+def _remove_partial(path: str) -> None:
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
 def apply_reverse_video(input_path: str, output_path: str, *, audio: str = "reverse") -> str:
     """Reverse a video's frames end-to-end. ``audio`` controls the audio track:
     "reverse" (default) plays it backwards too, in sync with the reversed
@@ -222,8 +259,15 @@ def apply_reverse_video(input_path: str, output_path: str, *, audio: str = "reve
         cmd += ["-vf", "reverse", "-an"]
     cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", output_path]
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=REVERSE_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        _remove_partial(output_path)
+        raise RuntimeError(
+            f"Reversing the video took longer than {REVERSE_TIMEOUT_SECONDS // 60} minutes and was stopped"
+        )
     if result.returncode != 0:
+        _remove_partial(output_path)
         raise RuntimeError(f"ffmpeg failed to reverse video: {result.stderr.strip()}")
 
     log.info(f"[filter:video] reverse (audio={audio}): {input_path} -> {output_path}")

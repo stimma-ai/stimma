@@ -4,6 +4,7 @@ Segmentation only: natural-language mask commands are interpreted by the
 ToolView prompt agent (mask_subject / unmask_subject / expand_mask / ... in
 prompt_agent_tools.py), which calls /segment directly.
 """
+import asyncio
 import base64
 import hashlib
 import io
@@ -55,19 +56,12 @@ def _convert_grayscale_to_rgba(mask_data: bytes) -> bytes:
     if img.mode != 'L':
         img = img.convert('L')
 
-    # Create RGBA image
-    rgba = Image.new('RGBA', img.size, (0, 0, 0, 255))  # Default: preserve (opaque black)
-
-    # Process pixels
-    gray_data = img.load()
-    rgba_data = rgba.load()
-
-    for y in range(img.height):
-        for x in range(img.width):
-            gray_value = gray_data[x, y]
-            if gray_value > 128:  # White = detected = inpaint this area
-                rgba_data[x, y] = (255, 255, 255, 0)  # Transparent = inpaint
-            # else: keep (0, 0, 0, 255) = preserve
+    # White = detected = inpaint (transparent white); else preserve (opaque black).
+    hit = np.asarray(img) > 128
+    rgba_arr = np.zeros((img.height, img.width, 4), dtype=np.uint8)
+    rgba_arr[..., 3] = 255
+    rgba_arr[hit] = (255, 255, 255, 0)
+    rgba = Image.fromarray(rgba_arr, mode="RGBA")
 
     # Convert to PNG bytes
     output = io.BytesIO()
@@ -387,7 +381,7 @@ async def segment_with_sam3(request: SegmentRequest):
             best_confidence = 0.0
             for detection in qualifying:
                 if detection.mask_data:
-                    rgba_mask = _convert_grayscale_to_rgba(detection.mask_data)
+                    rgba_mask = await asyncio.to_thread(_convert_grayscale_to_rgba, detection.mask_data)
                     mask_b64 = base64.b64encode(rgba_mask).decode('utf-8')
                     mask_data_urls.append(f"data:image/png;base64,{mask_b64}")
                     best_confidence = max(best_confidence, detection.score)
@@ -412,7 +406,7 @@ async def segment_with_sam3(request: SegmentRequest):
             )
 
         # Convert SAM3 grayscale mask to RGBA format
-        rgba_mask = _convert_grayscale_to_rgba(best.mask_data)
+        rgba_mask = await asyncio.to_thread(_convert_grayscale_to_rgba, best.mask_data)
 
         # Convert to data URL
         mask_b64 = base64.b64encode(rgba_mask).decode('utf-8')

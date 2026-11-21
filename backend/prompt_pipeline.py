@@ -734,13 +734,16 @@ async def _translate_with_verbatim_protection(
             project_id=project_id,
         )
         candidate = (await translate_prompt(request)).translated_prompt
+        if not (candidate or "").strip():
+            log.warning(f"[prompt-pipeline] Translate attempt {attempt + 1}: empty reply, retrying...")
+            continue
         if not segments:
             return candidate
         if verify_verbatim_preserved(candidate, segments):
             return restore_verbatim(candidate, segments)
         log.warning(f"[prompt-pipeline] Translate attempt {attempt + 1}: verbatim placeholders dropped, retrying...")
 
-    log.warning("[prompt-pipeline] All translate retries failed to preserve verbatim text, using untranslated prompt")
+    log.warning("[prompt-pipeline] All translate retries returned empty or dropped verbatim text, using untranslated prompt")
     return prompt
 
 
@@ -885,6 +888,21 @@ async def _improve_or_as_filled(level: Optional[str], outcome: Optional[Dict[str
         if outcome is not None:
             outcome.update(improved="fallback", reason="the improver failed")
         return prompt
+
+
+def _is_model_reply_failure(exc: Exception) -> bool:
+    """A bad or missing model reply: invalid output, provider error, or timeout.
+
+    Optional finishing stages (translation, Ideogram JSON) degrade to the
+    user's own words on these instead of failing the run.
+    """
+    import asyncio
+
+    from fastapi import HTTPException
+
+    if isinstance(exc, asyncio.TimeoutError):
+        return True
+    return isinstance(exc, HTTPException) and exc.status_code in (502, 504)
 
 
 def _is_llm_unconfigured_error(exc: Exception) -> bool:
@@ -1042,9 +1060,12 @@ async def run_prompt_pipeline(
                 processed, translate["language"], project_id
             )
         except Exception as e:
-            if not _is_llm_unconfigured_error(e):
+            if _is_llm_unconfigured_error(e):
+                log.info("[prompt-pipeline] No LLM configured; skipping translation")
+            elif _is_model_reply_failure(e):
+                log.warning(f"[prompt-pipeline] Translation failed; sending the untranslated prompt: {str(e)[:200]}")
+            else:
                 raise
-            log.info("[prompt-pipeline] No LLM configured; skipping translation")
 
     # 4) Final cleanup: comments, verbatim, and any wildcard syntax introduced
     # by the LLM.
@@ -1061,6 +1082,11 @@ async def run_prompt_pipeline(
     if ideogram_json_mode:
         from prompt_stage import say
         await say("writing")
-        processed = await _to_ideogram_json(processed, width, height, project_id)
+        try:
+            processed = await _to_ideogram_json(processed, width, height, project_id)
+        except Exception as e:
+            if not _is_model_reply_failure(e):
+                raise
+            log.warning(f"[prompt-pipeline] Ideogram JSON failed; sending the prompt as text: {str(e)[:200]}")
 
     return processed

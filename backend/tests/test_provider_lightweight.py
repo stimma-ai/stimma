@@ -351,3 +351,70 @@ class TestFilterMediaTypeValidation:
         final = results[-1]
         assert final.success is True
         assert not _video_has_audio(final.metadata["output_path"])
+
+
+# ---------------------------------------------------------------------------
+# Image modes and color profiles (filters + Darkroom)
+# ---------------------------------------------------------------------------
+
+
+def _rgb_icc() -> bytes:
+    from PIL import ImageCms
+    return ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+
+
+async def _run_tool(provider, tool_id, params):
+    await provider.connect()
+    results = [item async for item in provider.execute(tool_id, params)]
+    final = results[-1]
+    assert final.success is True, final.error
+    return Image.open(final.metadata["output_path"])
+
+
+class TestFilterImageModes:
+    async def test_blur_accepts_palette_bilevel_16bit_and_cmyk(self, provider, tmp_path):
+        sources = {
+            "P": Image.new("RGB", (32, 32), (200, 30, 30)).convert("P"),
+            "1": Image.new("1", (32, 32), 1),
+            "I;16": Image.new("I;16", (32, 32), 40000),
+            "CMYK": Image.new("CMYK", (32, 32), (0, 255, 255, 0)),
+        }
+        for mode, img in sources.items():
+            path = tmp_path / f"in_{mode.replace(';', '')}.{'jpg' if mode == 'CMYK' else 'png'}"
+            img.save(path)
+            out = await _run_tool(provider, "blur", {"input_images": [str(path)], "amount": 10})
+            out.load()
+            if mode == "I;16":
+                # 16-bit samples are scaled down, not clipped to white.
+                assert abs(out.convert("L").getpixel((16, 16)) - 40000 / 257) < 3
+
+    async def test_color_filter_keeps_palette_transparency(self, provider, tmp_path):
+        img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+        img.paste((200, 50, 50, 255), (0, 0, 8, 16))
+        path = tmp_path / "pal.png"
+        img.convert("P").save(path)  # palette PNG with a tRNS entry
+        assert "transparency" in Image.open(path).info
+        out = await _run_tool(provider, "filter", {"input_images": [str(path)]})
+        assert out.mode == "RGBA"
+        assert out.getpixel((12, 8))[3] == 0
+        assert out.getpixel((2, 8))[3] == 255
+
+    async def test_crop_keeps_16bit_and_cmyk_crop_saves(self, provider, tmp_path):
+        p16 = tmp_path / "g16.png"
+        Image.new("I;16", (40, 20), 40000).save(p16)
+        out = await _run_tool(provider, "crop", {"input_images": [str(p16)], "aspect": "1:1"})
+        assert out.size == (20, 20)
+        assert out.getpixel((5, 5)) == 40000
+        pc = tmp_path / "c.jpg"
+        Image.new("CMYK", (40, 20), (0, 255, 255, 0)).save(pc)
+        out = await _run_tool(provider, "crop", {"input_images": [str(pc)], "aspect": "1:1"})
+        assert out.mode == "RGB" and out.size == (20, 20)
+
+    async def test_filter_and_darkroom_keep_icc_profile(self, provider, tmp_path):
+        icc = _rgb_icc()
+        path = tmp_path / "tagged.png"
+        Image.new("RGB", (32, 32), (120, 160, 200)).save(path, icc_profile=icc)
+        out = await _run_tool(provider, "levels", {"input_images": [str(path)], "brightness": 10})
+        assert out.info.get("icc_profile") == icc
+        out = await _run_tool(provider, "darkroom-develop", {"input_images": [str(path)]})
+        assert out.info.get("icc_profile") == icc

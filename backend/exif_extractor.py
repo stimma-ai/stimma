@@ -50,6 +50,21 @@ def extract_prompt_from_exif(file_path: Path) -> tuple[Optional[str], Optional[s
         return None, None
 
 
+# ImageDescription values cameras write on every shot; never a prompt.
+_CAMERA_BOILERPLATE = {
+    "OLYMPUS DIGITAL CAMERA",
+    "KONICA MINOLTA DIGITAL CAMERA",
+    "MINOLTA DIGITAL CAMERA",
+    "DIGITAL CAMERA",
+    "SONY DSC",
+    "SAMSUNG DIGITAL CAMERA",
+    "KODAK DIGITAL STILL CAMERA",
+    "PENTAX DIGITAL CAMERA",
+    "DIGITAL STILL CAMERA",
+    "DCIM",
+}
+
+
 def _extract_prompt_from_open_image(img: Image.Image) -> tuple[Optional[str], Optional[str]]:
     """Extract prompt fields from an already-open image."""
     exif_data = img.getexif()
@@ -73,12 +88,20 @@ def _extract_prompt_from_open_image(img: Image.Image) -> tuple[Optional[str], Op
         if field not in exif_dict:
             continue
         value = exif_dict[field]
-        if isinstance(value, bytes):
+        if field == 'XPComment' and isinstance(value, (bytes, tuple, list)):
+            # Windows XP* tags are UTF-16LE, NUL-terminated.
+            try:
+                value = bytes(value).decode('utf-16-le', errors='ignore')
+            except Exception:
+                continue
+        elif isinstance(value, bytes):
             try:
                 value = value.decode('utf-8', errors='ignore')
             except Exception:
                 continue
-        value = str(value).strip()
+        value = str(value).strip().strip('\x00').strip()
+        if field == 'ImageDescription' and value.upper() in _CAMERA_BOILERPLATE:
+            continue
         if value and len(value) > 10:
             return value, parse_prompt_from_metadata(value)
     return None, None

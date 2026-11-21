@@ -25,6 +25,8 @@ from core.logging import get_logger
 from utils.mse_loop import _avc_codec_string
 
 VERSION = 1
+# Bumped when manifest metadata changes but encoded fragments do not.
+LAYOUT = 2
 _pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="video-playback")
 _jobs: dict[str, Future] = {}
 _jobs_lock = threading.Lock()
@@ -48,13 +50,34 @@ def _write(path: Path, data: bytes) -> None:
     temporary.replace(path)
 
 
+def _rotation(stream: dict) -> int:
+    """Display rotation in degrees (0/90/180/270) from ffprobe stream JSON."""
+    value = 0.0
+    for side in stream.get("side_data_list") or []:
+        if "rotation" in side:
+            try:
+                value = float(side["rotation"])
+            except (TypeError, ValueError):
+                pass
+    if not value:
+        try:
+            value = float((stream.get("tags") or {}).get("rotate") or 0)
+        except (TypeError, ValueError):
+            value = 0.0
+    return int(round(abs(value))) % 360
+
+
 def describe(source: Path, file_hash: str) -> dict:
     root = cache_dir(file_hash)
     root.mkdir(parents=True, exist_ok=True)
     with FileLock(str(root / "describe.lock")):
         path = root / "manifest.json"
         if path.exists():
-            return json.loads(path.read_text())
+            cached = json.loads(path.read_text())
+            # Manifests written before LAYOUT advertised stored, not display,
+            # dimensions; re-describe them (the encoded fragments stay valid).
+            if cached.get("layout") == LAYOUT:
+                return cached
         probe = subprocess.run([
             "ffprobe", "-v", "error", "-show_streams", "-show_format",
             "-of", "json", str(source),
@@ -72,7 +95,12 @@ def describe(source: Path, file_hash: str) -> dict:
         duration = float(frames / fps)
         gop = max(1, round(2 * fps))
         segment_duration = float(gop / fps)
-        longest = max(int(video["width"]), int(video["height"]))
+        # ffmpeg autorotates on decode, so renditions come out in display
+        # orientation; advertise those dimensions, not the stored ones.
+        width, height = int(video["width"]), int(video["height"])
+        if _rotation(video) % 180 == 90:
+            width, height = height, width
+        longest = max(width, height)
         variants = []
         for name, edge, bitrate in (("small", 640, 600_000), ("medium", 1280, 1_800_000), ("large", 1920, 4_500_000)):
             if variants and longest <= variants[-1]["edge"]:
@@ -81,11 +109,11 @@ def describe(source: Path, file_hash: str) -> dict:
             variants.append({
                 "id": name, "edge": edge, "video_bitrate": bitrate,
                 "bandwidth": bitrate * 2 + (128_000 if audio else 0),
-                "width": max(2, int(int(video["width"]) * scale) // 2 * 2),
-                "height": max(2, int(int(video["height"]) * scale) // 2 * 2),
+                "width": max(2, int(width * scale) // 2 * 2),
+                "height": max(2, int(height * scale) // 2 * 2),
             })
         manifest = {
-            "version": VERSION, "streaming": True, "duration": duration,
+            "version": VERSION, "layout": LAYOUT, "streaming": True, "duration": duration,
             "fps": str(fps), "frames": frames, "gop": gop,
             "segment_duration": segment_duration, "segment_count": math.ceil(frames / gop),
             "has_audio": bool(audio), "sample_rate": int((audio or {}).get("sample_rate") or 48000),

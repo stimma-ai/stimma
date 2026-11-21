@@ -153,3 +153,9 @@ def test_looks_like_ideogram_json():
     assert not _looks_like_ideogram_json("[1, 2, 3]")
     assert not _looks_like_ideogram_json('{"unterminated": ')
     assert not _looks_like_ideogram_json("")
+
+
+@pytest.mark.parametrize("raw", ["[]", "null", "[1, 2]", '"text"'])
+def test_extract_json_object_requires_an_object(raw):
+    with pytest.raises(json.JSONDecodeError):
+        _extract_json_object(raw)

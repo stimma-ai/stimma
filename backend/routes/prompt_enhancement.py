@@ -1591,6 +1591,9 @@ def _extract_json_object(text: str) -> str:
             candidate = candidate[start:end + 1]
 
     parsed = json.loads(candidate)  # raises json.JSONDecodeError if invalid
+    if not isinstance(parsed, dict):
+        # [] or null parse, but aren't a structured caption.
+        raise json.JSONDecodeError("Expected a JSON object", candidate, 0)
     return json.dumps(parsed, ensure_ascii=False, indent=2)
 
 

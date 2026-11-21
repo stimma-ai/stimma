@@ -137,8 +137,8 @@ class SCRFDDetector:
         new_width = int(img_width * scale)
         new_height = int(img_height * scale)
 
-        # Resize image
-        resized = image_ops.resize(image, (new_width, new_height), mode="bilinear")
+        # Resize image; SCRFD was trained on RGB (upstream swaps BGR->RGB).
+        resized = image_ops.resize(image, (new_width, new_height), mode="bilinear")[..., ::-1]
 
         # Create padded image (pad with zeros)
         padded = np.zeros((input_height, input_width, 3), dtype=np.float32)

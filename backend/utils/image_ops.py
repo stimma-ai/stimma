@@ -13,13 +13,65 @@ from PIL import Image, ImageOps
 ResizeMode = Literal["nearest", "bilinear", "bicubic"]
 
 
+def icc_color_space(icc: bytes | None) -> bytes | None:
+    """The data color space signature of an ICC profile (b"RGB ", b"GRAY", b"CMYK"...)."""
+    if not icc or len(icc) < 20:
+        return None
+    return bytes(icc[16:20])
+
+
+def to_srgb(img: Image.Image) -> Image.Image:
+    """Convert a CMYK (or other non-RGB color space) image to RGB.
+
+    Uses the embedded ICC profile when there is one, so CMYK colors map to
+    sRGB instead of Pillow's naive inversion. The result carries no profile
+    (untagged means sRGB).
+    """
+    icc = img.info.get("icc_profile")
+    if icc and img.mode == "CMYK" and icc_color_space(icc) == b"CMYK":
+        try:
+            from io import BytesIO
+
+            from PIL import ImageCms
+
+            src = ImageCms.ImageCmsProfile(BytesIO(icc))
+            out = ImageCms.profileToProfile(img, src, ImageCms.createProfile("sRGB"), outputMode="RGB")
+            if out is not None:
+                out.info.pop("icc_profile", None)
+                return out
+        except Exception:
+            pass
+    out = img.convert("RGB")
+    out.info.pop("icc_profile", None)
+    return out
+
+
+def compatible_icc(src: Image.Image, out: Image.Image) -> bytes | None:
+    """The source's ICC profile if it still describes ``out``'s pixels.
+
+    NumPy round trips (filters, Darkroom) drop ``info``, so a Display P3 photo
+    would come back untagged and render desaturated. Carry the profile across
+    when the color space family still matches the output mode.
+    """
+    icc = src.info.get("icc_profile")
+    space = icc_color_space(icc)
+    if space == b"RGB " and out.mode in ("RGB", "RGBA"):
+        return icc
+    if space == b"GRAY" and out.mode in ("L", "LA", "I", "I;16"):
+        return icc
+    return None
+
+
 def png_compatible(img: Image.Image) -> Image.Image:
     """Encode numeric source images as 16-bit grayscale, never clipped RGB.
 
     Preserve integer samples already in PNG's unsigned 16-bit range. Scale
-    wider/signed integers and floating-point images across that range. Other
-    modes pass through unchanged; conversion happens only at PNG save sites.
+    wider/signed integers and floating-point images across that range. Color
+    spaces PNG can't hold (CMYK, YCbCr, LAB, HSV) become RGB. Other modes
+    pass through unchanged; conversion happens only at PNG save sites.
     """
+    if img.mode in ("CMYK", "YCbCr", "LAB", "HSV"):
+        return to_srgb(img)
     if img.mode not in ("I", "F"):
         return img
     values = np.asarray(img, dtype=np.float64)
