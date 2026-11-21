@@ -68,6 +68,17 @@ def extract_ingestion_metadata(file_path: Path) -> tuple[dict, Optional[str], Op
     stimma_metadata = extract_stimma_metadata(file_path)
     return metadata, raw_metadata, parsed_prompt, stimma_metadata
 
+
+def _path_in_folder(file_path: str, folder_path: str) -> bool:
+    """True when ``file_path`` lies inside ``folder_path`` (not a sibling like ``/photos-old``)."""
+    separators = "/\\" if os.sep == "\\" else "/"
+    prefix = folder_path.rstrip(separators)
+    if not file_path.startswith(prefix):
+        return False
+    rest = file_path[len(prefix):]
+    return rest == "" or rest[0] in separators
+
+
 async def sync_auto_markers_for_items(
     session: AsyncSession,
     media_items: list[tuple[int, str]],  # List of (media_id, file_path)
@@ -118,7 +129,7 @@ async def sync_auto_markers_for_items(
         # Find which folder this file is in
         target_markers = set()
         for folder_path, marker_names in folder_markers.items():
-            if file_path.startswith(folder_path):
+            if _path_in_folder(file_path, folder_path):
                 target_markers = marker_names
                 break
 

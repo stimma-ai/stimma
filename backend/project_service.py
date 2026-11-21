@@ -179,12 +179,17 @@ async def current_media_ids_for_assets(session: AsyncSession, asset_ids) -> list
     ids = [a for a in dict.fromkeys(asset_ids) if a is not None]
     if not ids:
         return []
-    rows = await session.scalars(
-        select(AssetRevision.primary_media_id)
-        .join(Asset, Asset.current_revision_id == AssetRevision.id)
-        .where(Asset.id.in_(ids))
-    )
-    return [m for m in rows if m is not None]
+    from utils.sql_chunks import sql_in_chunks
+
+    media_ids: list[int] = []
+    for chunk in sql_in_chunks(ids):
+        rows = await session.scalars(
+            select(AssetRevision.primary_media_id)
+            .join(Asset, Asset.current_revision_id == AssetRevision.id)
+            .where(Asset.id.in_(chunk))
+        )
+        media_ids.extend(m for m in rows if m is not None)
+    return media_ids
 
 
 async def broadcast_project_assets_changed_for_assets(

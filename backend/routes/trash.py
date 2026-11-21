@@ -773,25 +773,29 @@ async def bulk_permanently_delete(
 
     candidates: list[tuple[int, int]] = []
     candidate_asset_ids: set[int] = set()
-    revision_by_media = dict(
-        (
-            await session.execute(
-                select(
-                    AssetRevision.primary_media_id,
-                    AssetRevision.asset_id,
-                ).where(
-                    AssetRevision.primary_media_id.in_(request.media_ids),
-                    AssetRevision.deleted_at.is_(None),
+    from utils.sql_chunks import sql_in_chunks
+
+    revision_by_media: dict[int, int] = {}
+    for chunk in sql_in_chunks(dict.fromkeys(request.media_ids)):
+        revision_by_media.update(
+            (
+                await session.execute(
+                    select(
+                        AssetRevision.primary_media_id,
+                        AssetRevision.asset_id,
+                    ).where(
+                        AssetRevision.primary_media_id.in_(chunk),
+                        AssetRevision.deleted_at.is_(None),
+                    )
                 )
-            )
-        ).all()
-    )
-    assets_by_id = {
-        asset.id: asset
-        for asset in await session.scalars(
-            select(Asset).where(Asset.id.in_(set(revision_by_media.values())))
+            ).all()
         )
-    }
+    assets_by_id: dict[int, Asset] = {}
+    for chunk in sql_in_chunks(set(revision_by_media.values())):
+        assets_by_id.update(
+            (asset.id, asset)
+            for asset in await session.scalars(select(Asset).where(Asset.id.in_(chunk)))
+        )
     for media_id in request.media_ids:
         asset_id = revision_by_media.get(media_id)
         if asset_id is None:

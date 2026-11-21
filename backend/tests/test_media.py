@@ -170,6 +170,27 @@ class TestFaceSimilaritySearch:
         assert matching_id in ordered_ids
         assert nonmatching_id not in ordered_ids
 
+    async def test_face_similarity_chunks_large_candidate_sets(self, db_session):
+        """Candidate lists past SQLite's bind cap must score, not fail with too many variables."""
+        from types import SimpleNamespace
+
+        from tests.helpers.media import create_media_item
+        from utils.similarity import filter_items_by_face_similarity
+
+        async with db_session() as session:
+            reference = await create_media_item(session, face_detection_status="completed", materialize_asset=True)
+            match = await create_media_item(session, face_detection_status="completed", materialize_asset=True)
+            self._add_face(session, reference.id, self._unit([1, 0, 0]))
+            self._add_face(session, match.id, self._unit([1, 0.01, 0]))
+            await session.commit()
+            items = [SimpleNamespace(id=i) for i in range(10_000_000, 10_040_000)]
+            items += [SimpleNamespace(id=reference.id), SimpleNamespace(id=match.id)]
+            matched, scores = await filter_items_by_face_similarity(
+                session, items, [reference.id], 0.8
+            )
+        assert {item.id for item in matched} == {reference.id, match.id}
+        assert scores[match.id] > 0.99
+
     async def test_face_similarity_requires_reference_face_embeddings(self, client: AsyncClient, db_session):
         """The API should explain when the reference image has no face embeddings."""
         from tests.helpers.media import create_media_item

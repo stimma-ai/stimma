@@ -3699,6 +3699,22 @@ class ExportRequest(BaseModel):
     options: ExportOptions = ExportOptions()
 
 
+def _unique_zip_name(name: str, used: dict[str, int]) -> str:
+    """Return ``name`` or the next free ``stem_N.ext`` and reserve it in ``used``.
+
+    ``used`` maps every emitted name to the next suffix to try for it.
+    """
+    candidate = name
+    if candidate in used:
+        path = Path(name)
+        n = used[name]
+        while (candidate := f"{path.stem}_{n}{path.suffix}") in used:
+            n += 1
+        used[name] = n + 1
+    used[candidate] = 1
+    return candidate
+
+
 @router.post("/media/download")
 async def bulk_download_media(
     request: BulkDownloadRequest,
@@ -3714,10 +3730,13 @@ async def bulk_download_media(
         raise HTTPException(status_code=400, detail="No media IDs provided")
 
     # Fetch all requested media items (including trashed items so we can download from trash)
-    result = await session.execute(
-        select(MediaItem).where(MediaItem.id.in_(request.media_ids))
-    )
-    items = result.scalars().all()
+    from utils.sql_chunks import sql_in_chunks
+
+    items = []
+    for chunk in sql_in_chunks(dict.fromkeys(request.media_ids)):
+        items.extend(
+            await session.scalars(select(MediaItem).where(MediaItem.id.in_(chunk)))
+        )
 
     if not items:
         raise HTTPException(status_code=404, detail="No media items found")
@@ -3775,7 +3794,7 @@ async def bulk_download_media(
 
     def generate_zip():
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-            seen_names = {}  # Track filenames to handle duplicates
+            used_names: dict[str, int] = {}  # Every entry name already written
 
             for item in valid_items:
                 file_path = Path(item.file_path)
@@ -3784,14 +3803,7 @@ async def bulk_download_media(
                 zipped_ids.append(item.id)
 
                 # Handle duplicate filenames by adding a suffix
-                base_name = file_path.name
-                if base_name in seen_names:
-                    seen_names[base_name] += 1
-                    stem = file_path.stem
-                    suffix = file_path.suffix
-                    base_name = f"{stem}_{seen_names[base_name]}{suffix}"
-                else:
-                    seen_names[base_name] = 0
+                base_name = _unique_zip_name(file_path.name, used_names)
 
                 # Write file or directory to zip
                 if file_path.is_dir():
@@ -4184,7 +4196,7 @@ async def export_media(
 
         def generate_zip():
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-                seen_names = {}
+                used_names: dict[str, int] = {}
 
                 for item in valid_items:
                     file_path = Path(item.file_path)
@@ -4217,13 +4229,7 @@ async def export_media(
                         data = None
 
                     # Handle duplicate filenames
-                    if filename in seen_names:
-                        seen_names[filename] += 1
-                        stem = Path(filename).stem
-                        suffix = Path(filename).suffix
-                        filename = f"{stem}_{seen_names[filename]}{suffix}"
-                    else:
-                        seen_names[filename] = 0
+                    filename = _unique_zip_name(filename, used_names)
 
                     if data is None and file_path.is_dir():
                         # Directory-based media: add all files under the directory name

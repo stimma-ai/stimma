@@ -93,6 +93,15 @@ RESOLUTION_MAP = {
 }
 
 
+def path_has_prefix(column, prefix: str):
+    """Literal, case-sensitive path prefix test.
+
+    ``LIKE``/``startswith`` treat ``_`` and ``%`` as wildcards and fold ASCII
+    case in SQLite, so ``/my_photos/`` would also match ``/My-photos/``.
+    """
+    return func.instr(column, prefix) == 1
+
+
 def media_pending_autodelete(now: Optional[datetime] = None):
     """Compatibility predicate: Media no longer auto-deletes independently."""
     return false()
@@ -583,13 +592,13 @@ def build_filtered_query(
         if folders:
             folder_list = [f.strip().rstrip('/') + '/' for f in folders.split(',') if f.strip()]
             if folder_list:
-                folder_conditions = [MediaItem.file_path.startswith(folder) for folder in folder_list]
+                folder_conditions = [path_has_prefix(MediaItem.file_path, folder) for folder in folder_list]
                 query = query.where(or_(*folder_conditions))
 
         if excluded_folders:
             excluded_folder_list = [f.strip().rstrip('/') + '/' for f in excluded_folders.split(',') if f.strip()]
             for folder in excluded_folder_list:
-                query = query.where(~MediaItem.file_path.startswith(folder))
+                query = query.where(~path_has_prefix(MediaItem.file_path, folder))
 
     # Resolution filter (OR within category)
     if exclude_category != 'resolutions':

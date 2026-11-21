@@ -32,6 +32,7 @@ from database_registry import get_database_registry
 from database import MediaItem
 from sqlalchemy import select, func
 from ingestion import sync_auto_markers_for_items
+from utils.query_builder import path_has_prefix
 from llm_resolver import normalize_model_slug
 from tool_provider_identity import (
     STIMMA_TOOL_PROVIDER_DISPLAY_NAME,
@@ -560,7 +561,7 @@ async def get_settings_all():
                 result = await session.execute(
                     select(func.count(MediaItem.id)).where(
                         MediaItem.deleted_at.is_(None),
-                        MediaItem.file_path.like(f"{folder_prefix}%")
+                        path_has_prefix(MediaItem.file_path, folder_prefix)
                     )
                 )
                 media_count = result.scalar() or 0
@@ -1299,7 +1300,7 @@ async def _sync_folder_auto_markers(profile_id: str, folders_data: list[dict]):
                 result = await session.execute(
                     select(MediaItem.id, MediaItem.file_path).where(
                         MediaItem.deleted_at.is_(None),
-                        MediaItem.file_path.like(f"{folder_prefix}%")
+                        path_has_prefix(MediaItem.file_path, folder_prefix)
                     )
                 )
                 media_items.extend([(row.id, row.file_path) for row in result.all()])

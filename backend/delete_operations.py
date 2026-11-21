@@ -34,6 +34,7 @@ from database import (
 )
 from database_registry import get_database_registry
 from trash_service import TrashService
+from utils.sql_chunks import SQL_IN_CHUNK_SIZE, sql_in_chunks  # noqa: F401 (re-exported)
 from utils.websocket import ws_manager
 
 log = get_logger(__name__)
@@ -42,18 +43,6 @@ DELETE_BATCH_SIZE = 500
 ASSET_IDENTITY_BATCH_SIZE = 25
 ASSET_REFERENCE_BATCH_SIZE = 1000
 ASSET_FINALIZE_BATCH_SIZE = 100
-# Older SQLite builds cap bound parameters at 999 per statement (32766 since
-# 3.32). Queue-sized ``IN (...)`` lists, such as every Asset in a large Trash,
-# are split into slices that fit either limit.
-SQL_IN_CHUNK_SIZE = 900
-
-
-def sql_in_chunks(values: list) -> list[list]:
-    """Split ``values`` into slices small enough for one SQLite ``IN`` list."""
-    return [
-        values[start:start + SQL_IN_CHUNK_SIZE]
-        for start in range(0, len(values), SQL_IN_CHUNK_SIZE)
-    ]
 LEASE_SECONDS = 60
 WORKER_BUSY_YIELD_SECONDS = 0.01
 WORKER_RECOVERY_SECONDS = 300.0
@@ -1273,7 +1262,88 @@ async def _checkpoint_asset_queue_if_drained(db, profile_id: str) -> bool:
     return True
 
 
-async def _prepare_queued_asset_references(db, profile_id: str) -> bool:
+def _only_operations(operation_ids: list[int] | None) -> tuple:
+    return () if operation_ids is None else (DeleteOperation.id.in_(operation_ids),)
+
+
+def _is_transient_db_error(exc: Exception) -> bool:
+    from sqlalchemy.exc import OperationalError
+
+    text = str(exc).lower()
+    return isinstance(exc, OperationalError) and ("locked" in text or "busy" in text)
+
+
+async def _run_queued_asset_phase(db, profile_id: str, phase, phase_name: str, limit: int) -> bool:
+    """Run one queued Asset phase as a batch, isolating operations that keep failing.
+
+    One bad Asset would otherwise roll back the whole slice on every pass and
+    stall the queue behind it forever. On a batch failure the slice is split in
+    halves, each in its own transaction, until the failing operation stands
+    alone; it is then marked failed so explicit retry can pick it up.
+    """
+    try:
+        return await phase(db, profile_id)
+    except Exception as exc:
+        if _is_transient_db_error(exc):
+            raise
+        log.warning(
+            "DELETE OPS: batch failed; isolating the failing operation",
+            phase=phase_name, error=str(exc), exc_info=True,
+        )
+    async with db.async_session_maker() as session:
+        operation_ids = list(
+            await session.scalars(
+                select(DeleteOperation.id)
+                .where(
+                    DeleteOperation.profile_id == profile_id,
+                    DeleteOperation.kind == "asset",
+                    DeleteOperation.status == "queued",
+                    DeleteOperation.current_phase == phase_name,
+                )
+                .order_by(DeleteOperation.id.asc())
+                .limit(limit)
+            )
+        )
+
+    async def isolate(ids: list[int]) -> None:
+        try:
+            await phase(db, profile_id, operation_ids=ids)
+            return
+        except Exception as exc:
+            if _is_transient_db_error(exc):
+                raise
+            if len(ids) > 1:
+                middle = len(ids) // 2
+                await isolate(ids[:middle])
+                await isolate(ids[middle:])
+                return
+            error = str(exc) or type(exc).__name__
+        log.error("DELETE OPS: operation failed", operation_id=ids[0], phase=phase_name, error=error)
+        async with db.async_session_maker() as session:
+            operation = await session.get(DeleteOperation, ids[0])
+            if operation is None or operation.status != "queued":
+                return
+            now = _utcnow()
+            operation.status = "failed"
+            operation.current_phase = "failed"
+            operation.failed_items = max(operation.failed_items or 0, 1)
+            operation.last_error = error[:1000]
+            operation.started_at = operation.started_at or now
+            operation.completed_at = now
+            operation.updated_at = now
+            await session.commit()
+            await _broadcast_operation_update(
+                session, "delete_operation_failed", operation, force=True
+            )
+
+    if operation_ids:
+        await isolate(operation_ids)
+    return bool(operation_ids)
+
+
+async def _prepare_queued_asset_references(
+    db, profile_id: str, operation_ids: list[int] | None = None
+) -> bool:
     """Scrub weak Asset references once for a large queue slice.
 
     Identity staging stays deliberately small to keep SQLite write-lock
@@ -1289,6 +1359,7 @@ async def _prepare_queued_asset_references(db, profile_id: str) -> bool:
                     DeleteOperation.kind == "asset",
                     DeleteOperation.status == "queued",
                     DeleteOperation.current_phase == "identity_queued",
+                    *_only_operations(operation_ids),
                 )
                 .order_by(DeleteOperation.id.asc())
                 .limit(ASSET_REFERENCE_BATCH_SIZE)
@@ -1348,7 +1419,9 @@ async def _prepare_queued_asset_references(db, profile_id: str) -> bool:
     return True
 
 
-async def _stage_queued_asset_identities(db, profile_id: str) -> bool:
+async def _stage_queued_asset_identities(
+    db, profile_id: str, operation_ids: list[int] | None = None
+) -> bool:
     """Convert a bounded set of durable Asset targets into unlink work."""
     async with db.async_session_maker() as session:
         operations = list(
@@ -1359,6 +1432,7 @@ async def _stage_queued_asset_identities(db, profile_id: str) -> bool:
                     DeleteOperation.kind == "asset",
                     DeleteOperation.status == "queued",
                     DeleteOperation.current_phase == "identity_refs_scrubbed",
+                    *_only_operations(operation_ids),
                 )
                 .order_by(DeleteOperation.id.asc())
                 .limit(ASSET_IDENTITY_BATCH_SIZE)
@@ -1502,18 +1576,21 @@ async def _process_profile(profile_id: str) -> bool:
             now=now,
         )
 
-    identity_staged = await _stage_queued_asset_identities(db, profile_id)
+    async def stage_identities() -> bool:
+        return await _run_queued_asset_phase(
+            db, profile_id, _stage_queued_asset_identities,
+            "identity_refs_scrubbed", ASSET_IDENTITY_BATCH_SIZE,
+        )
+
+    identity_staged = await stage_identities()
     references_prepared = False
     if not identity_staged:
-        references_prepared = await _prepare_queued_asset_references(
-            db,
-            profile_id,
+        references_prepared = await _run_queued_asset_phase(
+            db, profile_id, _prepare_queued_asset_references,
+            "identity_queued", ASSET_REFERENCE_BATCH_SIZE,
         )
         if references_prepared:
-            identity_staged = await _stage_queued_asset_identities(
-                db,
-                profile_id,
-            )
+            identity_staged = await stage_identities()
 
     async with db.async_session_maker() as session:
         recovery_now = time.monotonic()

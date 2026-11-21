@@ -155,6 +155,17 @@ class TestFolderFiltering:
             assert (item["file_path"].startswith("/photos/vacation/") or
                     item["file_path"].startswith("/photos/work/"))
 
+    async def test_folder_filter_matches_underscore_and_case_literally(self, client: AsyncClient, db_session):
+        import uuid
+        root = f"/lit_{uuid.uuid4().hex[:8]}"
+        async with db_session() as session:
+            inside = await create_media_item(session, materialize_asset=True, file_path=Path(f"{root}/my_photos/a.jpg"))
+            await create_media_item(session, materialize_asset=True, file_path=Path(f"{root}/my-photos/b.jpg"))
+            await create_media_item(session, materialize_asset=True, file_path=Path(f"{root}/MY_PHOTOS/c.jpg"))
+        response = await client.get("/api/media", params={"folders": f"{root}/my_photos"})
+        assert response.status_code == 200
+        assert [item["id"] for item in response.json()["items"]] == [inside.id]
+
     async def test_exclude_folder(self, client: AsyncClient, folder_organized_media):
         """Test excluding a folder."""
         response = await client.get("/api/media", params={"excluded_folders": "/photos/vacation"})

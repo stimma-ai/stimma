@@ -24,6 +24,7 @@ from database import (
     WorkingDocument,
 )
 from implicit_markers import implicit_markers_by_media
+from utils.sql_chunks import SQL_IN_CHUNK_SIZE, sql_in_chunks
 
 
 async def classify_media_assets(
@@ -317,18 +318,20 @@ async def broadcast_assets_retained(
     ids = sorted(set(asset_ids))
     if not ids:
         return
-    media_ids = list(
-        await session.scalars(
-            select(AssetRevision.primary_media_id)
-            .join(Asset, Asset.current_revision_id == AssetRevision.id)
-            .where(
-                Asset.id.in_(ids),
-                Asset.state == "active",
-                Asset.deleted_at.is_(None),
-                AssetRevision.deleted_at.is_(None),
+    media_ids: list[int] = []
+    for chunk in sql_in_chunks(ids):
+        media_ids.extend(
+            await session.scalars(
+                select(AssetRevision.primary_media_id)
+                .join(Asset, Asset.current_revision_id == AssetRevision.id)
+                .where(
+                    Asset.id.in_(chunk),
+                    Asset.state == "active",
+                    Asset.deleted_at.is_(None),
+                    AssetRevision.deleted_at.is_(None),
+                )
             )
         )
-    )
     for media_id in media_ids:
         await ws_manager.broadcast("auto_delete_removed", {"media_id": media_id})
     await ws_manager.broadcast(
@@ -358,32 +361,34 @@ async def broadcast_asset_organization_updated(
     ids = sorted(set(asset_ids))
     if not ids:
         return
-    media_items = list(
-        await session.scalars(
-            select(MediaItem)
-            .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
-            .join(Asset, Asset.current_revision_id == AssetRevision.id)
-            .where(
-                Asset.id.in_(ids),
-                Asset.deleted_at.is_(None),
-                AssetRevision.deleted_at.is_(None),
+    # Chunked so every IN list inside the projection fits SQLite's bind cap.
+    for chunk in sql_in_chunks(ids):
+        media_items = list(
+            await session.scalars(
+                select(MediaItem)
+                .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
+                .join(Asset, Asset.current_revision_id == AssetRevision.id)
+                .where(
+                    Asset.id.in_(chunk),
+                    Asset.deleted_at.is_(None),
+                    AssetRevision.deleted_at.is_(None),
+                )
             )
         )
-    )
-    for projection in await media_compatibility_projections(session, media_items):
-        if "expires_at" in fields and projection.get("expires_at") is None:
+        for projection in await media_compatibility_projections(session, media_items):
+            if "expires_at" in fields and projection.get("expires_at") is None:
+                await ws_manager.broadcast(
+                    "auto_delete_removed", {"media_id": projection["media_id"]}
+                )
             await ws_manager.broadcast(
-                "auto_delete_removed", {"media_id": projection["media_id"]}
+                "media_updated",
+                {
+                    "media_id": projection["media_id"],
+                    "asset_id": projection.get("asset_id"),
+                    "fields": list(fields),
+                    "media": projection,
+                },
             )
-        await ws_manager.broadcast(
-            "media_updated",
-            {
-                "media_id": projection["media_id"],
-                "asset_id": projection.get("asset_id"),
-                "fields": list(fields),
-                "media": projection,
-            },
-        )
     await ws_manager.broadcast(
         "assets_updated", {"asset_ids": ids, "fields": list(fields)}
     )
@@ -526,6 +531,114 @@ async def set_asset_tag(
     row.deleted_at = datetime.utcnow()
     await session.flush()
     return True
+
+
+async def clear_assets_expiration(session: AsyncSession, asset_ids) -> set[int]:
+    """Batch ``clear_asset_expiration``; returns the ids that had an expiry."""
+    from database import MediaItem
+
+    expired: set[int] = set()
+    for chunk in sql_in_chunks(dict.fromkeys(asset_ids)):
+        for asset in await session.scalars(select(Asset).where(Asset.id.in_(chunk))):
+            if asset.expires_at is not None:
+                expired.add(asset.id)
+            asset.expires_at = None
+        for media in await session.scalars(
+            select(MediaItem)
+            .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
+            .join(Asset, Asset.current_revision_id == AssetRevision.id)
+            .where(Asset.id.in_(chunk), MediaItem.auto_delete_at.is_not(None))
+        ):
+            media.auto_delete_at = None
+    return expired
+
+
+async def set_assets_marker(
+    session: AsyncSession, *, asset_ids, marker_id: int, add: bool
+) -> tuple[list[int], set[int]]:
+    """Batch ``set_asset_marker``: returns (changed ids, ids whose expiry cleared)."""
+    ids = list(dict.fromkeys(asset_ids))
+    rows: dict[int, AssetMarker] = {}
+    for chunk in sql_in_chunks(ids):
+        for row in await session.scalars(
+            select(AssetMarker).where(
+                AssetMarker.asset_id.in_(chunk),
+                AssetMarker.marker_id == marker_id,
+                AssetMarker.deleted_at.is_(None),
+            )
+        ):
+            rows[row.asset_id] = row
+    expired = await clear_assets_expiration(session, ids) if add else set()
+    changed: list[int] = []
+    now = datetime.utcnow()
+    for asset_id in ids:
+        row = rows.get(asset_id)
+        if add:
+            if row is not None and row.source == "manual":
+                continue
+            if row is None:
+                session.add(
+                    AssetMarker(asset_id=asset_id, marker_id=marker_id, source="manual")
+                )
+            else:
+                row.source = "manual"
+        else:
+            if row is None:
+                continue
+            if row.source == "auto":
+                row.source = "suppressed"
+            else:
+                row.deleted_at = now
+        changed.append(asset_id)
+    await session.flush()
+    return changed, expired
+
+
+async def set_assets_tags(
+    session: AsyncSession, *, asset_ids, add_tag_ids, remove_tag_ids
+) -> tuple[int, int, set[int], set[int]]:
+    """Batch ``set_asset_tag`` over every (asset, tag) pair, adds before removes.
+
+    Returns (added, removed, changed asset ids, ids whose expiry cleared).
+    """
+    ids = list(dict.fromkeys(asset_ids))
+    add_tag_ids = list(dict.fromkeys(add_tag_ids))
+    remove_tag_ids = list(dict.fromkeys(remove_tag_ids))
+    tag_ids = list(dict.fromkeys([*add_tag_ids, *remove_tag_ids]))
+    rows: dict[tuple[int, int], AssetTag] = {}
+    half = SQL_IN_CHUNK_SIZE // 2  # Two IN lists share one statement's binds
+    for tag_chunk in sql_in_chunks(tag_ids, half):
+        for chunk in sql_in_chunks(ids, half):
+            for row in await session.scalars(
+                select(AssetTag).where(
+                    AssetTag.asset_id.in_(chunk),
+                    AssetTag.tag_id.in_(tag_chunk),
+                    AssetTag.deleted_at.is_(None),
+                )
+            ):
+                rows[(row.asset_id, row.tag_id)] = row
+    expired = await clear_assets_expiration(session, ids) if add_tag_ids else set()
+    added = removed = 0
+    changed: set[int] = set()
+    now = datetime.utcnow()
+    for asset_id in ids:
+        for tag_id in add_tag_ids:
+            if (asset_id, tag_id) in rows:
+                continue
+            row = AssetTag(asset_id=asset_id, tag_id=tag_id)
+            session.add(row)
+            rows[(asset_id, tag_id)] = row
+            added += 1
+            changed.add(asset_id)
+        for tag_id in remove_tag_ids:
+            row = rows.pop((asset_id, tag_id), None)
+            if row is None:
+                continue
+            row.deleted_at = now
+            removed += 1
+            changed.add(asset_id)
+    await session.flush()
+    return added, removed, changed, expired
 
 
 async def mirror_media_associations_to_asset(
