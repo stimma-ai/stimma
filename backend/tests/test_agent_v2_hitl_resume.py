@@ -367,3 +367,34 @@ async def test_a_run_waits_for_the_chat_task_it_finds_then_claims_the_chat():
     await asyncio.wait_for(waiter, timeout=1)
     assert service.get_active_task(42) is waiter
     await holder
+
+
+@pytest.mark.asyncio
+async def test_stop_while_the_card_is_saved_leaves_no_gate_to_join(monkeypatch):
+    from agent.v2 import tool_permission_gate as gate
+
+    async def ask(*args, **kwargs):
+        return "ask"
+
+    saving = asyncio.Event()
+    closed = []
+
+    async def slow_card(**kwargs):
+        saving.set()
+        await asyncio.sleep(10)
+
+    async def close(session_maker, chat_id, request_id):
+        closed.append(request_id)
+
+    monkeypatch.setattr(gate, "_configured_decision", ask)
+    monkeypatch.setattr(gate, "_create_permission_card", slow_card)
+    monkeypatch.setattr(gate, "_close_permission_card", close)
+    first = asyncio.create_task(gate.ensure_tool_permission(chat_id=43, tool_id="p:t", kwargs={}, run_cache={}))
+    await saving.wait()
+    old_id = gate._live_request_id(43, "p:t")
+    first.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first
+    assert gate._live_request_id(43, "p:t") is None
+    assert not gate.is_pending_permission(old_id)
+    assert closed == [old_id]

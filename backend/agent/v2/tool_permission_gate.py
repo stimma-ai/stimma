@@ -278,29 +278,34 @@ async def ensure_tool_permission(
         fut = asyncio.get_event_loop().create_future()
         _PENDING[request_id] = fut
         _LIVE_GATES[gate_key] = request_id
-        meta = _resolve_display_meta(tool_id, kwargs, task_type)
-        await _create_permission_card(
-            session_maker=session_maker,
-            chat_id=chat_id,
-            tool_id=tool_id,
-            request_id=request_id,
-            display_name=meta["display_name"],
-            provider_name=meta["provider_name"],
-            provider_id=meta["provider_id"],
-            task_type=meta["task_type"],
-            inputs=meta["inputs"],
-        )
     # else: a concurrent gather branch already raised the card — await the same future.
 
     try:
+        if raised_card:
+            meta = _resolve_display_meta(tool_id, kwargs, task_type)
+            await _create_permission_card(
+                session_maker=session_maker,
+                chat_id=chat_id,
+                tool_id=tool_id,
+                request_id=request_id,
+                display_name=meta["display_name"],
+                provider_name=meta["provider_name"],
+                provider_id=meta["provider_id"],
+                task_type=meta["task_type"],
+                inputs=meta["inputs"],
+            )
         result = await fut
     finally:
         # Cancellation (interrupt/stop) unwinds here — clean up so a later run re-asks.
+        if raised_card and not fut.done():
+            # Stopped while saving or showing the card: no later call may join
+            # this gate, and calls sharing it stop with it.
+            fut.cancel()
         if _PENDING.get(request_id) is fut:
             _PENDING.pop(request_id, None)
         if _LIVE_GATES.get(gate_key) == request_id:
             _LIVE_GATES.pop(gate_key, None)
-        if raised_card and (fut.cancelled() or not fut.done()):
+        if raised_card and fut.cancelled():
             # Nothing waits on the card anymore (its code was stopped): show it
             # as resolved, so Allow can't answer a call that is gone.
             await _close_permission_card(session_maker, chat_id, request_id)
