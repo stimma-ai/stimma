@@ -15,7 +15,7 @@ const built = await build({ ...base, configFile: false, logLevel: 'error', root,
 const output = (Array.isArray(built) ? built : [built]).flatMap(result => result.output)
 const entities = name => ({ chats: name ? [{ id: 1, name, project_id: null }] : [], collections: [], flows: [], projects: [], presets: [] })
 
-async function open(t, { start = '/elsewhere', respond = () => undefined, touch = false, deadline = 1500 } = {}) {
+async function open(t, { start = '/elsewhere', respond = () => undefined, touch = false, deadline = 1500, grid = false } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: touch ? 390 : 1280, height: 844 }, isMobile: touch, hasTouch: touch })
@@ -43,7 +43,7 @@ async function open(t, { start = '/elsewhere', respond = () => undefined, touch 
     }
     return route.fulfill({ json: answer }).catch(() => {})
   })
-  await page.goto(`http://workflow-recovery.test/?start=${encodeURIComponent(start)}&deadline=${deadline}${touch ? '&viewport=compact&pointer=coarse' : ''}`)
+  await page.goto(`http://workflow-recovery.test/?start=${encodeURIComponent(start)}&deadline=${deadline}${touch ? '&viewport=compact&pointer=coarse' : ''}${grid ? '&grid=1' : ''}`)
   for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
   await expect.poll(() => page.evaluate(() => !!window.workflowTest)).toBe(true)
@@ -217,6 +217,22 @@ test('dismissing a failed batch cell hides it without deleting the row', async t
   })
   assert.equal(await page.evaluate(() => window.workflowTest.jobs.dismissJob(7)), true)
   assert.deepEqual(await page.evaluate(() => window.workflowTest.jobs.batchJobs.value.c.hiddenJobIds), [7])
+})
+
+test('a dismissed failed media-batch cell leaves the grid and returns once it succeeds', async t => {
+  const { page } = await open(t, { grid: true })
+  const params = JSON.stringify({ _batch_presentation_only: true })
+  await page.evaluate(parameters => {
+    window.workflowTest.jobs.jobs.value = [{ id: 8, batch_id: 'm', batch_total: 1, status: 'failed', parameters, created_at: '2026-01-01T00:00:00Z', completed_at: '2026-01-01T00:00:01Z' }]
+  }, params)
+  const grid = page.locator('[data-test-grid]')
+  await expect(grid.locator('[data-reveal-key="media-batch-m"]')).toHaveCount(1)
+  assert.equal(await page.evaluate(() => window.workflowTest.jobs.dismissJob(8)), true)
+  await expect(grid.locator('[data-reveal-key="media-batch-m"]')).toHaveCount(0)
+  await page.evaluate(parameters => {
+    window.workflowTest.jobs.jobs.value = [{ id: 8, batch_id: 'm', batch_total: 1, status: 'completed', result_media_id: 80, parameters, created_at: '2026-01-01T00:00:00Z', completed_at: '2026-01-01T00:00:02Z' }]
+  }, params)
+  await expect(grid.locator('[data-reveal-key="media-batch-m"] .jobs-batch-cell')).toHaveCount(1)
 })
 
 test('Undo refuses to send an asset restore to a different profile', async t => {
