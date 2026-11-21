@@ -82,6 +82,41 @@ def probe_video_info(video_path: str | Path) -> Tuple[float, float]:
     return _probe(video_path)
 
 
+def is_quarter_turn(stream: dict) -> bool:
+    """Whether ffmpeg's autorotation transposes this ffprobe video stream.
+
+    ffmpeg rounds the display-matrix angle and transposes only at 90/270;
+    other angles rotate in place and keep the stored size. ffprobe's own
+    ``rotation`` value is truncated (89.9 and 89.1 both print 89), so read the
+    matrix when it's there.
+    """
+    import math
+
+    angle = None
+    for sd in stream.get("side_data_list") or []:
+        text = sd.get("displaymatrix")
+        if isinstance(text, str):
+            try:
+                m = [int(v) for line in text.strip().splitlines() for v in line.split(":", 1)[1].split()]
+                if len(m) >= 5:
+                    angle = math.degrees(math.atan2(m[1] / math.hypot(m[1], m[4]), m[0] / math.hypot(m[0], m[3])))
+            except (ValueError, IndexError, ZeroDivisionError):
+                angle = None
+        if angle is None and "rotation" in sd:
+            try:
+                angle = float(sd["rotation"])
+            except (TypeError, ValueError):
+                pass
+        if angle is not None:
+            break
+    if angle is None:
+        try:
+            angle = float((stream.get("tags") or {}).get("rotate") or 0)
+        except (TypeError, ValueError):
+            angle = 0.0
+    return int(math.floor(abs(angle) + 0.5)) % 180 == 90
+
+
 def probe_video_stream_info(video_path: str | Path) -> dict:
     """Best-effort {duration, fps, width, height} for a video; values are 0 if unknown."""
     import ffmpeg

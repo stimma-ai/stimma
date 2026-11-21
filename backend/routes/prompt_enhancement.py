@@ -1570,42 +1570,41 @@ async def translate_prompt(request: TranslatePromptRequest):
 def _extract_json_object(text: str) -> str:
     """Pull a single JSON object out of an LLM response and re-serialize it.
 
-    Tolerates ```json fences and leading/trailing prose, then validates by
-    round-tripping through json.loads so callers get well-formed JSON or a clear
-    error. Returns pretty-printed JSON (ensure_ascii=False so CJK stays legible).
+    Tolerates a ```json fence and leading/trailing prose, then validates by
+    parsing, so callers get well-formed JSON or a clear error. The reply's
+    outermost JSON value must be an object: [{...}], null and the like are
+    not structured captions. Returns pretty-printed JSON (ensure_ascii=False
+    so CJK stays legible).
     """
     import json
+    import re
 
-    candidate = text.strip()
-    if "```json" in candidate:
-        candidate = candidate.split("```json", 1)[1].split("```", 1)[0]
-    elif "```" in candidate:
-        candidate = candidate.split("```", 1)[1].split("```", 1)[0]
-    candidate = candidate.strip()
+    def _object(value, source: str) -> str:
+        if not isinstance(value, dict):
+            raise json.JSONDecodeError("Expected a JSON object", source, 0)
+        return json.dumps(value, ensure_ascii=False, indent=2)
 
-    # A reply that is complete JSON must itself be the object; [{...}] or
-    # null is not a structured caption, so don't dig an object out of it.
+    candidate = (text or "").strip()
+
+    # 1) The whole reply is JSON.
     try:
-        whole = json.loads(candidate)
-    except json.JSONDecodeError:
-        pass
-    else:
-        if not isinstance(whole, dict):
-            raise json.JSONDecodeError("Expected a JSON object", candidate, 0)
-        return json.dumps(whole, ensure_ascii=False, indent=2)
+        return _object(json.loads(candidate), candidate)
+    except json.JSONDecodeError as e:
+        if e.msg == "Expected a JSON object":
+            raise
 
-    # Fall back to the outermost {...} span if there's still surrounding prose.
-    if not candidate.startswith("{"):
-        start = candidate.find("{")
-        end = candidate.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            candidate = candidate[start:end + 1]
+    # 2) A fenced block (```json ... ``` on their own lines).
+    fence = re.search(r"^```[a-zA-Z]*[ \t]*\n(.*?)\n[ \t]*```", candidate, re.S | re.M)
+    if fence:
+        block = fence.group(1).strip()
+        return _object(json.loads(block), block)
 
-    parsed = json.loads(candidate)  # raises json.JSONDecodeError if invalid
-    if not isinstance(parsed, dict):
-        # [] or null parse, but aren't a structured caption.
-        raise json.JSONDecodeError("Expected a JSON object", candidate, 0)
-    return json.dumps(parsed, ensure_ascii=False, indent=2)
+    # 3) Surrounding prose: decode the first JSON value that starts with { or [.
+    starts = [i for i in (candidate.find("{"), candidate.find("[")) if i != -1]
+    if not starts:
+        raise json.JSONDecodeError("No JSON object found", candidate, 0)
+    value, _ = json.JSONDecoder().raw_decode(candidate, min(starts))
+    return _object(value, candidate)
 
 
 def _looks_like_ideogram_json(text: str) -> bool:

@@ -286,18 +286,22 @@ def test_reverse_timeout_removes_partial_output(tmp_path, monkeypatch):
     assert not out.exists()
 
 
-@pytest.mark.parametrize("rotation,swapped", [(89, True), (-90, True), (270.4, True), (180, False), (45, False)])
-def test_probe_swaps_near_quarter_turns(monkeypatch, rotation, swapped):
-    import json as _json
-    import filters.video_ops as vo
 
-    def fake_run(cmd, **kwargs):
-        if "v:0" in cmd:
-            out = {"streams": [{"width": 64, "height": 48, "r_frame_rate": "10/1",
-                                "side_data_list": [{"rotation": rotation}]}]}
-            return subprocess.CompletedProcess(cmd, 0, _json.dumps(out), "")
-        return subprocess.CompletedProcess(cmd, 0, "", "")
+@requires_ffmpeg
+@pytest.mark.parametrize("angle,dims", [("89.9", (48, 64)), ("89.1", (64, 48)), ("-90", (48, 64)), ("180", (64, 48))])
+def test_probe_matches_ffmpeg_autorotation(tmp_path, angle, dims):
+    """Size must match what ffmpeg actually decodes: it transposes only when
+    the display-matrix angle rounds to a quarter turn (89.1 rotates in place)."""
+    from filters.video_ops import _probe
 
-    monkeypatch.setattr(vo.subprocess, "run", fake_run)
-    info = vo._probe("clip.mp4")
-    assert (info["width"], info["height"]) == ((48, 64) if swapped else (64, 48))
+    plain = _make_clip(tmp_path / "plain.mp4")
+    src = tmp_path / "rot.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-display_rotation", angle, "-i", plain,
+                    "-c", "copy", str(src)], check=True, capture_output=True)
+    info = _probe(str(src))
+    assert (info["width"], info["height"]) == dims
+    decoded = subprocess.run(["ffmpeg", "-v", "error", "-i", str(src), "-frames:v", "1",
+                              "-f", "image2pipe", "-c:v", "ppm", "-"], check=True, capture_output=True).stdout
+    assert tuple(int(v) for v in decoded.split(b"\n")[1].split()) == dims
+    out = apply_builtin_filter_video("levels", str(src), str(tmp_path / "out.mp4"), {"brightness": 0})
+    assert _probe_dims(out)[:2] == dims

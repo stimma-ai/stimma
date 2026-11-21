@@ -51,7 +51,7 @@ def _probe(input_path: str) -> Dict[str, Any]:
     """
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "stream=width,height,r_frame_rate:stream_tags=rotate:stream_side_data=rotation",
+         "-show_entries", "stream=width,height,r_frame_rate:stream_tags=rotate:stream_side_data",
          "-of", "json", input_path],
         capture_output=True, text=True, timeout=30,
     )
@@ -62,22 +62,9 @@ def _probe(input_path: str) -> Dict[str, Any]:
     if out.returncode != 0 or not stream or not stream.get("width") or not stream.get("height"):
         raise RuntimeError(f"Could not read video stream: {input_path}")
     width, height = int(stream["width"]), int(stream["height"])
-    rotation = 0.0
-    for sd in stream.get("side_data_list") or []:
-        if "rotation" in sd:
-            try:
-                rotation = float(sd["rotation"])
-            except (TypeError, ValueError):
-                pass
-    if not rotation:
-        try:
-            rotation = float((stream.get("tags") or {}).get("rotate") or 0)
-        except (TypeError, ValueError):
-            rotation = 0.0
-    # ffmpeg autorotates within 1 degree of a quarter turn; ffprobe truncates
-    # the angle (89.9 reports as 89), so match with the same tolerance.
-    quarter = abs(rotation) % 180
-    if abs(quarter - 90) <= 1:
+    from utils.video_frames import is_quarter_turn
+
+    if is_quarter_turn(stream):
         width, height = height, width
 
     fps = 30.0

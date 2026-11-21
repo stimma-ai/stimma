@@ -23,6 +23,7 @@ from filelock import FileLock
 import app_dirs
 from core.logging import get_logger
 from utils.mse_loop import _avc_codec_string
+from utils.video_frames import is_quarter_turn
 
 VERSION = 1
 # Bumped when manifest metadata changes but encoded fragments do not.
@@ -48,24 +49,6 @@ def _write(path: Path, data: bytes) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_bytes(data)
     temporary.replace(path)
-
-
-def _rotation(stream: dict) -> float:
-    """Display rotation in degrees from ffprobe stream JSON (ffmpeg autorotates
-    within 1 degree of a quarter turn)."""
-    value = 0.0
-    for side in stream.get("side_data_list") or []:
-        if "rotation" in side:
-            try:
-                value = float(side["rotation"])
-            except (TypeError, ValueError):
-                pass
-    if not value:
-        try:
-            value = float((stream.get("tags") or {}).get("rotate") or 0)
-        except (TypeError, ValueError):
-            value = 0.0
-    return abs(value) % 360
 
 
 def describe(source: Path, file_hash: str) -> dict:
@@ -99,7 +82,7 @@ def describe(source: Path, file_hash: str) -> dict:
         # ffmpeg autorotates on decode, so renditions come out in display
         # orientation; advertise those dimensions, not the stored ones.
         width, height = int(video["width"]), int(video["height"])
-        if abs(_rotation(video) % 180 - 90) <= 1:
+        if is_quarter_turn(video):
             width, height = height, width
         longest = max(width, height)
         variants = []

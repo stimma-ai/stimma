@@ -155,7 +155,10 @@ def test_looks_like_ideogram_json():
     assert not _looks_like_ideogram_json("")
 
 
-@pytest.mark.parametrize("raw", ["[]", "null", "[1, 2]", '"text"', '[{"caption": "hello"}]', '```json\n[{"a": 1}]\n```'])
+@pytest.mark.parametrize("raw", [
+    "[]", "null", "[1, 2]", '"text"', '[{"caption": "hello"}]', '```json\n[{"a": 1}]\n```',
+    'Here it is: [{"caption": "hello"}]', '["Show this snippet: ```{}```"]',
+])
 def test_extract_json_object_requires_an_object(raw):
     with pytest.raises(json.JSONDecodeError):
         _extract_json_object(raw)
