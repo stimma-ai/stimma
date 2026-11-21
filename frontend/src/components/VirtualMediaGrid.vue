@@ -1097,7 +1097,7 @@ function closeEmptySpaceMenu() {
 
 // A newer click or selection change makes a range still loading stale.
 let rangeRequest = 0
-watch(() => props.selectedItemIds, () => { rangeRequest++ })
+watch(() => props.selectedItemIds, () => { rangeRequest++ }, { deep: true })
 
 async function handleRangeSelection(endIndex) {
   if (lastClickedIndex.value === null) {
