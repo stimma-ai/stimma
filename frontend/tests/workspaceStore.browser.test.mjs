@@ -393,3 +393,22 @@ test('a write left behind that lands while the window is back reading that profi
   await expect.poll(() => page.evaluate(() => window.workspace.getDoc('kv', 'k'))).toEqual({ a: 2 })
   assert.equal(server.writes.length, 1)
 })
+
+test('a write acknowledged while a reread is out isn\'t undone by that reread', async t => {
+  const { page, server } = await fixture(t, { serverDocs: [{ namespace: 'kv', key: 'k', value: { a: 1 }, rev: 2 }] })
+  await activate(page)
+  const before = server.docs
+  let releaseRead
+  await page.route('**/api/workspace', async route => {
+    await new Promise(resolve => { releaseRead = resolve })
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ docs: before, closed_tabs: [], migration: { claimed: false } }) })
+  })
+  void page.evaluate(() => window.workspace.rehydrate())
+  await expect.poll(() => typeof releaseRead).toBe('function')
+  await page.evaluate(P => window.workspace.syncedStorage.removeItem(`${P}k`), P)
+  await expect.poll(() => server.writes.length).toBe(1)
+  await page.waitForTimeout(100)
+  releaseRead()
+  await page.waitForTimeout(200)
+  assert.equal(await page.evaluate(() => window.workspace.getDoc('kv', 'k')), undefined)
+})

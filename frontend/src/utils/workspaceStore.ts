@@ -289,6 +289,8 @@ async function flush(force = false): Promise<void> {
       if (profile) answeredAfterLeaving(profile, batch.id)
     } else {
       unacked.shift()
+      // A read in flight may predate this write, which no longer overlays it.
+      for (const touched of activeReads) for (const id of batch.ops.keys()) touched.add(id)
       // A document created here now exists on the server, so later writes can
       // merge. Other revisions come only from reads and events: the response to
       // this write can overtake another client's earlier event, which must still apply.

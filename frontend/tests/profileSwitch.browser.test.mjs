@@ -138,6 +138,23 @@ test('a marker catalog that couldn\'t be read on a switch is read by the next in
   assert.deepEqual(await page.evaluate(() => window.t.markers.availableMarkers.value.map(m => m.name)), ['B marker'])
 })
 
+test('a first marker load cut short by a switch still sets markers up for later profiles', async t => {
+  const { page, server } = await fixture(t)
+  server.markers.c = [{ id: 3, name: 'C marker' }]
+  await page.route('**/api/markers', async route => {
+    if (route.request().headers()['x-profile-id'] !== A) return route.fallback()
+    await new Promise(resolve => setTimeout(resolve, 300))
+    return route.fulfill({ status: 500, body: '{}' })
+  })
+  void page.evaluate(() => window.t.markers.init())
+  await page.waitForTimeout(50)
+  await page.evaluate(B => window.t.setCurrentProfileId(B), B)
+  await page.waitForTimeout(500)
+  await page.evaluate(() => window.t.setCurrentProfileId('c'))
+  await expect.poll(() => page.evaluate(() => window.t.markers.availableMarkers.value.map(m => m.name))).toEqual(['C marker'])
+  assert.equal(await page.evaluate(() => window.t.markers.isInitialized.value), true)
+})
+
 test('an account read that a push overtakes neither replaces it nor signs out', async t => {
   const { page, server } = await fixture(t)
   server.account = { body: { credits: 1 } }

@@ -41,14 +41,66 @@ function readCatalog() {
   return read
 }
 
+let onWebSocketEvent = null
+// Set once anything has asked for markers; a profile switch then loads them again.
+let wanted = false
+
+// Subscribes once, and reads the current profile's catalog unless it's read
+// already (a locked profile's read fails until unlock, and the next call reads).
+async function initMarkers() {
+  if (isInitialized.value && catalogGeneration === generation) return
+  isInitializing.value = true
+
+  try {
+    // Load available markers
+    await readCatalog()
+    if (isInitialized.value) return
+
+    // Subscribe to WebSocket events for real-time marker changes
+    if (wsUnsubscribers.length === 0) {
+      // Individual media marker updates
+      wsUnsubscribers.push(onWebSocketEvent('media_updated', (data) => {
+        const { media_id, fields, media } = data
+        if (!media_id || !media) return
+
+        // Update markers if that's what changed
+        if (fields.includes('markers')) {
+          mediaMarkers.value = {
+            ...mediaMarkers.value,
+            [media_id]: media.markers || []
+          }
+        }
+      }))
+
+      // Bulk auto-marker sync (from folder settings change)
+      // Clear cache and notify views to refresh visible markers
+      wsUnsubscribers.push(onWebSocketEvent('auto_markers_synced', (data) => {
+        console.log('[useMarkers] Auto-markers synced, clearing cache', data)
+        mediaMarkers.value = {}
+        // Dispatch event so views can reload markers for visible items
+        window.dispatchEvent(new CustomEvent('auto-markers-synced'))
+      }))
+    }
+
+    // Listen for marker definition changes (icon, color, name edits)
+    window.addEventListener('markers-changed', () => {
+      refreshAvailableMarkers().catch(err => console.error('Failed to load markers:', err))
+    })
+
+    isInitialized.value = true
+  } catch (err) {
+    console.error('Failed to initialize markers:', err)
+  } finally {
+    isInitializing.value = false
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('profile-changed', () => {
     generation++
     mediaMarkers.value = {}
     availableMarkers.value = []
-    if (readMarkerCatalog && (isInitialized.value || isInitializing.value)) {
-      readCatalog().catch(err => console.error('Failed to load markers:', err))
-    }
+    if (wanted) void initMarkers()
   })
 }
 
@@ -62,57 +114,14 @@ if (typeof window !== 'undefined') {
  */
 export function useMarkers() {
   const { getMarkers, addMarkerToMedia, removeMarkerFromMedia } = useMediaApi()
-  const { on: onWebSocketEvent } = useWebSocket()
+  const { on } = useWebSocket()
   readMarkerCatalog ??= getMarkers
+  onWebSocketEvent ??= on
 
-  // Initialize markers system (shared across all uses). Reads the catalog
-  // again when the current profile's hasn't been read (e.g. locked until now).
-  async function init() {
-    if (isInitialized.value && catalogGeneration === generation) return
-    isInitializing.value = true
-
-    try {
-      // Load available markers
-      await readCatalog()
-      if (isInitialized.value) return
-
-      // Subscribe to WebSocket events for real-time marker changes
-      if (wsUnsubscribers.length === 0) {
-        // Individual media marker updates
-        wsUnsubscribers.push(onWebSocketEvent('media_updated', (data) => {
-          const { media_id, fields, media } = data
-          if (!media_id || !media) return
-
-          // Update markers if that's what changed
-          if (fields.includes('markers')) {
-            mediaMarkers.value = {
-              ...mediaMarkers.value,
-              [media_id]: media.markers || []
-            }
-          }
-        }))
-
-        // Bulk auto-marker sync (from folder settings change)
-        // Clear cache and notify views to refresh visible markers
-        wsUnsubscribers.push(onWebSocketEvent('auto_markers_synced', (data) => {
-          console.log('[useMarkers] Auto-markers synced, clearing cache', data)
-          mediaMarkers.value = {}
-          // Dispatch event so views can reload markers for visible items
-          window.dispatchEvent(new CustomEvent('auto-markers-synced'))
-        }))
-      }
-
-      // Listen for marker definition changes (icon, color, name edits)
-      window.addEventListener('markers-changed', () => {
-        refreshAvailableMarkers().catch(err => console.error('Failed to load markers:', err))
-      })
-
-      isInitialized.value = true
-    } catch (err) {
-      console.error('Failed to initialize markers:', err)
-    } finally {
-      isInitializing.value = false
-    }
+  // Initialize markers system (shared across all uses).
+  function init() {
+    wanted = true
+    return initMarkers()
   }
 
   // Load markers for specific media IDs (batch)
