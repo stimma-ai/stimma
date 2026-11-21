@@ -20,14 +20,17 @@ def _profiles(monkeypatch, *profiles):
 async def test_eligible_profiles_are_pinless_or_unlocked(monkeypatch):
     _profiles(
         monkeypatch,
-        SimpleNamespace(id="open", pin_hash=None),
-        SimpleNamespace(id="locked", pin_hash="h1"),
-        SimpleNamespace(id="unlocked", pin_hash="h2"),
-        SimpleNamespace(id="pin-changed", pin_hash="new"),
+        SimpleNamespace(id="open", pin_hash=None, pin_idle_timeout_minutes=30),
+        SimpleNamespace(id="locked", pin_hash="h1", pin_idle_timeout_minutes=30),
+        SimpleNamespace(id="unlocked", pin_hash="h2", pin_idle_timeout_minutes=30),
+        SimpleNamespace(id="idle", pin_hash="h3", pin_idle_timeout_minutes=5),
+        SimpleNamespace(id="pin-changed", pin_hash="new", pin_idle_timeout_minutes=30),
     )
-    monkeypatch.setattr(middleware, "_pin_verification_cache", {
-        ("unlocked", "h2", "x"): True,
-        ("pin-changed", "old", "x"): True,  # verified against a PIN that no longer applies
+    now = middleware.time.monotonic()
+    monkeypatch.setattr(middleware, "_pin_last_verified", {
+        "unlocked": ("h2", now - 60),
+        "idle": ("h3", now - 6 * 60),  # past its idle timeout: locked again
+        "pin-changed": ("old", now),  # verified against a PIN that no longer applies
     })
     assert stimpack_sync.eligible_profile_ids() == ["open", "unlocked"]
 

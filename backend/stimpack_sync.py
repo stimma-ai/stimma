@@ -33,7 +33,9 @@ def eligible_profile_ids() -> list[str]:
     from core.middleware import has_verified_pin
     out = []
     for profile in get_settings().profiles or []:
-        if not profile.pin_hash or has_verified_pin(profile.id, profile.pin_hash):
+        if not profile.pin_hash or has_verified_pin(
+            profile.id, profile.pin_hash, profile.pin_idle_timeout_minutes
+        ):
             out.append(profile.id)
     return out
 

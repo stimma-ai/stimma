@@ -6,6 +6,7 @@ Validates PIN for protected profiles.
 """
 from core.logging import get_logger
 import hashlib
+import time
 import traceback
 from functools import lru_cache
 
@@ -24,6 +25,10 @@ log = get_logger(__name__)
 # We hash the PIN with SHA256 as the cache key (fast) to avoid storing plaintext PINs
 # The actual bcrypt verification only happens on cache miss
 _pin_verification_cache: dict[tuple[str, str, str], bool] = {}
+# Last successful PIN check per profile: (pin_hash, monotonic time). A PIN
+# profile counts as unlocked on the server only while this is within its idle
+# timeout, so background work stops once the client locks or goes quiet.
+_pin_last_verified: dict[str, tuple[str, float]] = {}
 
 
 # Routes that don't require a profile (profile-agnostic endpoints)
@@ -66,21 +71,26 @@ def verify_pin(profile_id: str, pin: str, pin_hash: str) -> bool:
 
     # Check cache first
     if cache_key in _pin_verification_cache:
+        _pin_last_verified[profile_id] = (pin_hash, time.monotonic())
         return True  # We only cache successful verifications
 
     # Cache miss - do the slow bcrypt check
     try:
         if bcrypt.checkpw(pin.encode('utf-8'), pin_hash.encode('utf-8')):
             _pin_verification_cache[cache_key] = True
+            _pin_last_verified[profile_id] = (pin_hash, time.monotonic())
             return True
         return False
     except Exception:
         return False
 
 
-def has_verified_pin(profile_id: str, pin_hash: str) -> bool:
-    """True when this process has accepted the profile's current PIN (it is unlocked)."""
-    return any(k[0] == profile_id and k[1] == pin_hash for k in _pin_verification_cache)
+def has_verified_pin(profile_id: str, pin_hash: str, idle_timeout_minutes: int) -> bool:
+    """True while the profile is unlocked: its current PIN was accepted within the idle timeout."""
+    last = _pin_last_verified.get(profile_id)
+    if not last or last[0] != pin_hash:
+        return False
+    return time.monotonic() - last[1] < max(1, idle_timeout_minutes) * 60
 
 
 def clear_pin_cache(profile_id: str = None):
@@ -92,7 +102,9 @@ def clear_pin_cache(profile_id: str = None):
     global _pin_verification_cache
     if profile_id is None:
         _pin_verification_cache = {}
+        _pin_last_verified.clear()
     else:
+        _pin_last_verified.pop(profile_id, None)
         _pin_verification_cache = {
             k: v for k, v in _pin_verification_cache.items()
             if k[0] != profile_id

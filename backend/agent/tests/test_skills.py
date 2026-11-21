@@ -861,7 +861,7 @@ class TestReviewEdgeCases:
         (dup / ".marketplace.json").write_text("{not json", encoding="utf-8")
         assert readonly_workspace_error("skills/essentials-old/skills/variations/SKILL.md")
 
-    def test_reset_refuses_a_skill_sharing_its_pack_root(self, stimpacks_dir, marketplace_pack):
+    def test_reset_of_a_skill_sharing_its_pack_root_sets_aside_only_its_file(self, stimpacks_dir, marketplace_pack):
         mine = stimpacks_dir / "mine"
         mine.mkdir()
         (mine / "SKILL.md").write_text("---\nname: variations\ndescription: Mine\n---\n\nFork", encoding="utf-8")
@@ -869,5 +869,14 @@ class TestReviewEdgeCases:
         (mine / "other" / "SKILL.md").write_text("---\nname: other\ndescription: Other\n---\n\nOther", encoding="utf-8")
         (mine / "stimpack.json").write_text(json.dumps({"name": "mine", "resources": [
             {"type": "skill", "path": "SKILL.md"}, {"type": "skill", "path": "other/SKILL.md"}]}), encoding="utf-8")
-        assert sp.reset_override("variations") is None
-        assert (mine / "SKILL.md").exists() and (mine / "other" / "SKILL.md").exists()
+        assert [o["name"] for o in sp.list_overrides()] == ["mine/variations"]
+        assert sp.reset_override("mine/variations") is not None
+        assert not (mine / "SKILL.md").exists() and (mine / "other" / "SKILL.md").exists()
+        assert find_skill("variations")[1].pack_name == "essentials"
+        assert find_skill("other")[1].pack_name == "mine"
+
+    def test_folder_with_sidecar_is_readonly_even_without_a_manifest(self, stimpacks_dir):
+        d = stimpacks_dir / "odd"
+        (d / "skills" / "x").mkdir(parents=True)
+        (d / ".marketplace.json").write_text("{bad", encoding="utf-8")
+        assert readonly_workspace_error("skills/odd/skills/x/SKILL.md")

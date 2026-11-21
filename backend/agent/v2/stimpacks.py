@@ -1126,10 +1126,8 @@ def marketplace_pack_dir_names(profile_id: Optional[str] = None) -> set[str]:
     """
     if not profile_id:
         profile_id = get_current_profile()
-    return {
-        d.name for d in _iter_stimpack_dirs(get_user_stimpacks_dir(profile_id))
-        if (d / MARKETPLACE_SIDECAR).is_file()
-    }
+    root = get_user_stimpacks_dir(profile_id)
+    return {d.name for d in root.iterdir() if d.is_dir() and (d / MARKETPLACE_SIDECAR).is_file()}
 
 
 # ---------------------------------------------------------------------------
@@ -1260,12 +1258,17 @@ def reset_override(name: str, profile_id: Optional[str] = None) -> Optional[Path
         pack = packs_by_name.get(fork.pack_name)
         if pack is None or pack.is_dev:
             return None
+        fork_dir = fork.dir_path.resolve()
+        shares_dir = any(
+            s is not fork and (s.dir_path.resolve() == fork_dir or fork_dir in s.dir_path.resolve().parents)
+            for s in pack.skills
+        )
         if len(pack.skills) <= 1:
             target = pack.dir_path
-        elif fork.dir_path.resolve() != pack.dir_path.resolve():
-            target = fork.dir_path
+        elif shares_dir:
+            target = fork.skill_md  # other skills live in this folder; set aside just this one
         else:
-            return None  # skill shares the pack root with others; nothing to move alone
+            target = fork.dir_path
         root = get_user_stimpacks_dir(profile_id).resolve()
         if not target.resolve().is_relative_to(root) or target.resolve() == root:
             return None
