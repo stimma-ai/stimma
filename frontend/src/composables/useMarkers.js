@@ -44,6 +44,7 @@ function readCatalog() {
 let onWebSocketEvent = null
 // Set once anything has asked for markers; a profile switch then loads them again.
 let wanted = false
+let subscribed = false
 
 // Subscribes once, and reads the current profile's catalog unless it's read
 // already (a locked profile's read fails until unlock, and the next call reads).
@@ -54,7 +55,10 @@ async function initMarkers() {
   try {
     // Load available markers
     await readCatalog()
-    if (isInitialized.value) return
+    // Ready only for the profile whose catalog is in hand.
+    if (catalogGeneration === generation) isInitialized.value = true
+    if (subscribed) return
+    subscribed = true
 
     // Subscribe to WebSocket events for real-time marker changes
     if (wsUnsubscribers.length === 0) {
@@ -86,8 +90,6 @@ async function initMarkers() {
     window.addEventListener('markers-changed', () => {
       refreshAvailableMarkers().catch(err => console.error('Failed to load markers:', err))
     })
-
-    isInitialized.value = true
   } catch (err) {
     console.error('Failed to initialize markers:', err)
   } finally {
@@ -100,6 +102,7 @@ if (typeof window !== 'undefined') {
     generation++
     mediaMarkers.value = {}
     availableMarkers.value = []
+    isInitialized.value = false
     if (wanted) void initMarkers()
   })
 }

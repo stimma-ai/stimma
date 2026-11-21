@@ -90,6 +90,8 @@ let epoch = 0
 // Documents changed by events while a full read is in flight, one set per read;
 // that read may predate them, so it must not undo them.
 const activeReads = new Set<Set<string>>()
+// Set when a write was acknowledged during a read; that read skipped its documents.
+let readAgain = false
 
 const docId = (namespace: string, key: string) => `${namespace}\u0000${key}`
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -289,8 +291,10 @@ async function flush(force = false): Promise<void> {
       if (profile) answeredAfterLeaving(profile, batch.id)
     } else {
       unacked.shift()
-      // A read in flight may predate this write, which no longer overlays it.
+      // A read in flight may predate this write, which no longer overlays it: it
+      // leaves these documents alone, and another read follows it.
       for (const touched of activeReads) for (const id of batch.ops.keys()) touched.add(id)
+      if (activeReads.size) readAgain = true
       // A document created here now exists on the server, so later writes can
       // merge. Other revisions come only from reads and events: the response to
       // this write can overtake another client's earlier event, which must still apply.
@@ -638,6 +642,7 @@ export async function rehydrate(): Promise<void> {
   const readFor = epoch
   const touched = new Set<string>()
   activeReads.add(touched)
+  let again = false
   try {
     const snapshot = await readSnapshot()
     if (readFor !== epoch || profile !== getCurrentProfileId() || !profile) return
@@ -646,8 +651,13 @@ export async function rehydrate(): Promise<void> {
     // The next reconnect reads again.
   } finally {
     activeReads.delete(touched)
+    if (readAgain && activeReads.size === 0) {
+      readAgain = false
+      again = readFor === epoch
+    }
   }
-  void flush(true)
+  if (again) void rehydrate()
+  else void flush(true)
 }
 
 /** This server has a workspace, not yet read: reads are empty, writes dropped. */
@@ -687,6 +697,7 @@ export function detachProfile(): void {
   retryAt = 0
   epoch++
   activeReads.clear()
+  readAgain = false
   hydrated = false
   boundProfile = null
   if (!profile) return

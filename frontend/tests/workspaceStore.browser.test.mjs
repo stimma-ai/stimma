@@ -412,3 +412,26 @@ test('a write acknowledged while a reread is out isn\'t undone by that reread', 
   await page.waitForTimeout(200)
   assert.equal(await page.evaluate(() => window.workspace.getDoc('kv', 'k')), undefined)
 })
+
+test('a reread that skipped a just-acknowledged document reads again for its other fields', async t => {
+  const { page, server } = await fixture(t, { serverDocs: [{ namespace: 'kv', key: 'k', value: { a: 1, b: 1 }, rev: 2 }] })
+  await activate(page)
+  let releaseRead
+  let first = true
+  await page.route('**/api/workspace', async route => {
+    if (!first) return route.fallback()
+    first = false
+    // Taken before this client's write of `a`, carrying another client's `b`.
+    const body = JSON.stringify({ docs: [{ namespace: 'kv', key: 'k', value: { a: 1, b: 2 }, rev: 3 }], closed_tabs: [], migration: { claimed: false } })
+    await new Promise(resolve => { releaseRead = resolve })
+    return route.fulfill({ contentType: 'application/json', body })
+  })
+  void page.evaluate(() => window.workspace.rehydrate())
+  await expect.poll(() => typeof releaseRead).toBe('function')
+  await page.evaluate(P => window.workspace.syncedStorage.setItem(`${P}k`, JSON.stringify({ a: 5, b: 1 })), P)
+  await expect.poll(() => server.writes.length).toBe(1)
+  server.docs = [{ namespace: 'kv', key: 'k', value: { a: 5, b: 2 }, rev: 4 }]
+  await page.waitForTimeout(100)
+  releaseRead()
+  await expect.poll(() => page.evaluate(() => window.workspace.getDoc('kv', 'k'))).toEqual({ a: 5, b: 2 })
+})

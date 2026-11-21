@@ -155,6 +155,18 @@ test('a first marker load cut short by a switch still sets markers up for later 
   assert.equal(await page.evaluate(() => window.t.markers.isInitialized.value), true)
 })
 
+test('markers count as loaded only once the current profile\'s catalog is in', async t => {
+  const { page, server } = await fixture(t)
+  await page.evaluate(() => window.t.markers.init())
+  const release = hold(server, `markers:${B}`)
+  await page.evaluate(B => window.t.setCurrentProfileId(B), B)
+  await page.waitForTimeout(100)
+  assert.equal(await page.evaluate(() => window.t.markers.isInitialized.value), false)
+  release()
+  await expect.poll(() => page.evaluate(() => window.t.markers.isInitialized.value)).toBe(true)
+  assert.deepEqual(await page.evaluate(() => window.t.markers.availableMarkers.value.map(m => m.name)), ['B marker'])
+})
+
 test('an account read that a push overtakes neither replaces it nor signs out', async t => {
   const { page, server } = await fixture(t)
   server.account = { body: { credits: 1 } }
