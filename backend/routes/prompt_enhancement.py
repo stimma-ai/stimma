@@ -488,9 +488,15 @@ def _h3_task_guidance(
         )
         if pins:
             guidance += (
-                "\nThe target video is also pinned to these moments on its timeline. They are not tags; "
-                "describe them in words, and write the action so it passes through each one at its time "
-                "and continues naturally from any pinned clip:\n" + "\n".join(pins)
+                "\nThe target video is also pinned to these moments on its timeline. They are not tags. "
+                "You cannot see them, and they already fix the picture at those moments: the framing, the "
+                "camera position and where everyone is. Refer to them by their time without saying how "
+                "they look, because a framing, distance or pose you write "
+                "that differs from a pinned picture is something the model can only reach by cutting to "
+                "it. Write one continuous take that carries on from the pinned picture and passes through "
+                "each pin at its time, with framing changing only through camera or subject movement the "
+                "request asks for. Reference images set identity and appearance here, not the framing:\n"
+                + "\n".join(pins)
             )
         return guidance
     if task == "i2va":

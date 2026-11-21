@@ -331,6 +331,7 @@ def test_h3_reference_guidance_describes_pinned_keyframes_in_words():
     assert "- at the end: a still frame" in guidance
     assert "timeline-alignment instructions" not in guidance
     assert "They are not tags" in guidance
+    assert "without saying how they look" in guidance
 
 
 def test_h3_audio_disabled_keeps_schema_but_forces_na():
