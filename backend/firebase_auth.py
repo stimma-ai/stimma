@@ -42,6 +42,10 @@ class AuthSessionExpiredError(AuthRefreshError):
     """Raised when the stored refresh token is invalid, revoked, or expired."""
 
 
+class AuthSessionSupersededError(AuthRefreshError):
+    """The refresh belonged to a login that a logout or new login replaced."""
+
+
 class AuthNetworkError(AuthRefreshError):
     """Raised when token refresh could not reach Firebase."""
 
@@ -119,18 +123,19 @@ def session_expiry_teardown_pending() -> bool:
     return bool(_expiry_teardown_tasks)
 
 
-async def clear_auth_after_session_expiry(generation: Optional[int] = None) -> None:
+async def clear_auth_after_session_expiry(generation: Optional[int] = None) -> bool:
     """Clear local auth and disconnect cloud after session expiry.
 
     ``generation`` is the login the failure belongs to; when a logout or a new
     login has superseded it, nothing is cleared. Auth is cleared before the
-    first await so a login landing mid-cleanup is never wiped.
+    first await so a login landing mid-cleanup is never wiped. Returns False
+    when the expiry was superseded and nothing was cleared.
     """
     from auth_storage import auth_generation, clear_auth_state
 
     if generation is not None and auth_generation() != generation:
         log.info("ignoring session expiry for a login that has since ended")
-        return
+        return False
     try:
         clear_auth_state()
     except Exception as e:
@@ -149,6 +154,7 @@ async def clear_auth_after_session_expiry(generation: Optional[int] = None) -> N
     task = asyncio.create_task(_finish_session_expiry_teardown(cleared))
     _expiry_teardown_tasks.add(task)
     task.add_done_callback(_expiry_teardown_tasks.discard)
+    return True
 
 
 async def _finish_session_expiry_teardown(cleared_generation: int) -> None:
@@ -316,6 +322,8 @@ async def get_valid_id_token(*, raise_on_failure: bool = False) -> Optional[str]
         result = await _refresh_id_token_classified(refresh_token)
         if auth_generation() != generation:
             log.info("discarding id token refresh for a login that has since ended")
+            if raise_on_failure:
+                raise AuthSessionSupersededError("Stimma session was replaced")
             return None
 
         # Update auth state with new tokens
@@ -328,10 +336,15 @@ async def get_valid_id_token(*, raise_on_failure: bool = False) -> Optional[str]
         log.info("refreshed and saved new id token")
         return result['id_token']
 
-    except AuthSessionExpiredError:
-        log.info("stored Stimma Cloud session is no longer valid")
-        await clear_auth_after_session_expiry(generation)
+    except AuthSessionSupersededError:
         if raise_on_failure:
+            raise
+    except AuthSessionExpiredError as e:
+        log.info("stored Stimma Cloud session is no longer valid")
+        cleared = await clear_auth_after_session_expiry(generation)
+        if raise_on_failure:
+            if not cleared:
+                raise AuthSessionSupersededError("Stimma session was replaced") from e
             raise
     except AuthNetworkError as e:
         log.warning("could not reach Firebase to refresh id token", error=str(e))
@@ -379,6 +392,8 @@ async def force_refresh_id_token(*, raise_on_failure: bool = False) -> Optional[
         result = await _refresh_id_token_classified(refresh_token)
         if auth_generation() != generation:
             log.info("discarding forced id token refresh for a login that has since ended")
+            if raise_on_failure:
+                raise AuthSessionSupersededError("Stimma session was replaced")
             return None
 
         auth_state['id_token'] = result['id_token']
@@ -390,10 +405,15 @@ async def force_refresh_id_token(*, raise_on_failure: bool = False) -> Optional[
         log.info("force-refreshed and saved new id token")
         return result['id_token']
 
-    except AuthSessionExpiredError:
-        log.info("stored Stimma Cloud session is no longer valid during force refresh")
-        await clear_auth_after_session_expiry(generation)
+    except AuthSessionSupersededError:
         if raise_on_failure:
+            raise
+    except AuthSessionExpiredError as e:
+        log.info("stored Stimma Cloud session is no longer valid during force refresh")
+        cleared = await clear_auth_after_session_expiry(generation)
+        if raise_on_failure:
+            if not cleared:
+                raise AuthSessionSupersededError("Stimma session was replaced") from e
             raise
     except AuthNetworkError as e:
         log.warning("could not reach Firebase during force refresh", error=str(e))
