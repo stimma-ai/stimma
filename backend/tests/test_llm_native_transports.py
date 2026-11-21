@@ -361,6 +361,14 @@ def test_saved_batch_without_call_ids_replays_its_own_row():
     assert "_stimma_provider_state" not in message
 
 
+def test_replay_wraps_arguments_that_are_not_an_object():
+    item = SimpleNamespace(
+        item_type="tool_call", tool_args='["ls"]', tool_call_id="call_1", tool_name="bash", item_metadata=None,
+    )
+    arguments = _item_to_message(item)["tool_calls"][0]["function"]["arguments"]
+    assert json.loads(arguments) == {"_malformed_arguments": '["ls"]'}
+
+
 def test_saved_batch_replays_sanitized_arguments_with_ids_and_metadata():
     extra = {"google": {"thought_signature": "opaque-signature"}}
     state = {"kind": "openai_chat_tool_batch", "tool_calls": [

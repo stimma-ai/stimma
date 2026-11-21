@@ -602,8 +602,11 @@ def _replay_arguments(raw: Any) -> str:
     """
     args = raw or "{}"
     try:
-        json.loads(args)
+        parsed = json.loads(args)
     except (ValueError, TypeError):
+        parsed = None
+    if not isinstance(parsed, dict):
+        # Torn JSON, or JSON that isn't an object (the call was never run).
         args = json.dumps({"_malformed_arguments": str(raw)[:2000]})
     return args
 

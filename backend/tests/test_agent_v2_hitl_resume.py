@@ -205,11 +205,19 @@ async def test_delegate_runs_the_call_allowed_once_then_checks_the_next(db_sessi
                 chat_id=chat.id, workspace_dir=str(tmp_path), project_workspace_dir=None,
                 interrupt_checker=lambda: False, session_media_ids=[], parent_item_id=None,
                 ws_manager=MockWebSocketManager(), chat=chat,
-                resume_messages=[{"role": "assistant", "content": None, "tool_calls": [first, second]}],
+                resume_messages=[
+                    {"role": "assistant", "content": None, "tool_calls": [_call("c0", "bash", '{"command": "ls')]},
+                    {"role": "tool", "tool_call_id": "c0", "content": "Error"},
+                    {"role": "assistant", "content": None, "tool_calls": [first, second]},
+                ],
                 resume_pending_tool=first, resume_remaining_tools=[second],
             )
         bash.handler.assert_awaited_once()
-        assert json.loads(chat.generation_settings)["_v2_pending"]["tool_call_id"] == "c2"
+        pending = json.loads(chat.generation_settings)["_v2_pending"]
+        assert pending["tool_call_id"] == "c2"
+        # Torn arguments saved by an older build are sanitized on resume.
+        saved = pending["delegate_state"]["messages"][0]["tool_calls"][0]["function"]["arguments"]
+        assert json.loads(saved)["_malformed_arguments"]
 
 
 @pytest.mark.asyncio
@@ -313,24 +321,49 @@ async def test_resume_point_of_another_call_is_left_alone(db_session, monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_older_card_for_the_same_gate_cannot_release_the_newer_call(db_session, monkeypatch):
-    from agent.v2 import tool_permission_gate
-    from routes.chats import HITLResponseRequest, apply_human_response
+async def test_an_old_gate_card_cannot_release_a_new_gate(monkeypatch):
+    from agent.v2 import tool_permission_gate as gate
 
-    async with db_session() as session:
-        chat = Chat(name="Restarted")
-        session.add(chat)
-        await session.commit()
-        action = {"type": "v2_tool_permission", "tool_call_id": "gen",
-                  "v2_tool_args": {"tool_id": "test:gen", "_inprocess_request_id": "req-a"}}
-        stale = await _add_request(session, chat.id, action)
-        await _add_request(session, chat.id, action)
-        future = asyncio.get_event_loop().create_future()
-        monkeypatch.setitem(tool_permission_gate._PENDING, "req-a", future)
-        monkeypatch.setattr("routes.chats.ws_manager", MockWebSocketManager())
-        with pytest.raises(HTTPException) as error:
-            await apply_human_response(chat.id, HITLResponseRequest(
-                approved=True, scope="once", request_item_id=stale.id,
-            ), session, wait=True)
-        assert error.value.status_code == 409
-        assert not future.done()
+    async def ask(*args, **kwargs):
+        return "ask"
+
+    async def no_card(**kwargs):
+        pass
+
+    async def no_close(*args):
+        pass
+
+    monkeypatch.setattr(gate, "_configured_decision", ask)
+    monkeypatch.setattr(gate, "_create_permission_card", no_card)
+    monkeypatch.setattr(gate, "_close_permission_card", no_close)
+    first = asyncio.create_task(gate.ensure_tool_permission(chat_id=41, tool_id="p:t", kwargs={}, run_cache={}))
+    await asyncio.sleep(0.01)
+    old_id = gate._live_request_id(41, "p:t")
+    first.cancel()  # e.g. the run stopped; its card stays in history
+    with pytest.raises(asyncio.CancelledError):
+        await first
+    second = asyncio.create_task(gate.ensure_tool_permission(chat_id=41, tool_id="p:t", kwargs={}, run_cache={}))
+    await asyncio.sleep(0.01)
+    assert not gate.resolve_pending_permission(old_id, {"approved": True, "scope": "once"})
+    assert not second.done()
+    assert gate.resolve_pending_permission(gate._live_request_id(41, "p:t"), {"approved": True, "scope": "once"})
+    await asyncio.wait_for(second, timeout=1)
+
+
+@pytest.mark.asyncio
+async def test_a_run_waits_for_the_chat_task_it_finds_then_claims_the_chat():
+    release = asyncio.Event()
+
+    async def running():
+        await service.claim_chat_task(42)
+        await release.wait()
+
+    holder = asyncio.create_task(running())
+    await asyncio.sleep(0)
+    waiter = asyncio.create_task(service.claim_chat_task(42))
+    await asyncio.sleep(0.01)
+    assert not waiter.done()
+    release.set()
+    await asyncio.wait_for(waiter, timeout=1)
+    assert service.get_active_task(42) is waiter
+    await holder

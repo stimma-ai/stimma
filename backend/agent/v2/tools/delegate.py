@@ -417,7 +417,14 @@ async def _run_delegate_loop_inner(
 
     # Resume or fresh start
     if resume_messages is not None:
-        messages = resume_messages
+        # History saved by an older build can hold torn arguments.
+        messages = [
+            {**m, "tool_calls": replayable_tool_calls(m["tool_calls"]),
+             **({"_stimma_provider_state": replayable_provider_state(m["_stimma_provider_state"])}
+                if m.get("_stimma_provider_state") else {})}
+            if m.get("role") == "assistant" and m.get("tool_calls") else m
+            for m in resume_messages
+        ]
     else:
         messages = [
             {"role": "system", "content": system_prompt},

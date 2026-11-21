@@ -561,11 +561,10 @@ async def _run_agent_background(
     # abort), wait for it to finish instead of letting run_agent's concurrency
     # guard drop this run — a dropped run means a committed user message the
     # agent never answers.
-    from agent.v2.service import get_active_task
-    prev_task = get_active_task(chat_id)
-    if prev_task and not prev_task.done() and prev_task is not asyncio.current_task():
-        log.info(f"Chat {chat_id}: waiting for previous agent run to finish before starting")
-        await asyncio.gather(prev_task, return_exceptions=True)
+    # Claiming before any database await also makes a HITL resume that
+    # starts meanwhile wait for this run.
+    from agent.v2.service import claim_chat_task
+    await claim_chat_task(chat_id)
 
     try:
         async with db.async_session_maker() as session:
@@ -2648,21 +2647,8 @@ async def apply_human_response(
         inprocess_id = v2_args.get("_inprocess_request_id")
         if inprocess_id:
             from agent.v2.tool_permission_gate import is_pending_permission, resolve_pending_permission
-            # Gate ids repeat per chat and tool, so only the newest card with
-            # this id belongs to the parked call (an older one can outlive a
-            # restart). Never hand this answer to another request.
-            later = (await session.scalars(
-                select(ChatItem.item_metadata)
-                .where(ChatItem.chat_id == chat_id)
-                .where(ChatItem.item_type == "hitl_request")
-                .where(ChatItem.id > hitl_item.id)
-            )).all()
-            superseded = any(
-                inprocess_id in (meta or "")
-                and (json.loads(meta).get("v2_tool_args") or {}).get("_inprocess_request_id") == inprocess_id
-                for meta in later
-            )
-            if superseded or not is_pending_permission(inprocess_id):
+            if not is_pending_permission(inprocess_id):
+                # Its call is gone. Never hand this answer to another request.
                 raise HTTPException(status_code=409, detail="This request is no longer waiting for an answer.")
             scope = request.scope or "once"
             approved = bool(request.approved)
