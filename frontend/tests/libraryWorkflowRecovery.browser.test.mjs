@@ -211,6 +211,12 @@ test('dismissing a failed batch cell hides it without deleting the row', async t
     const batch = window.workflowTest.jobs.batchJobs.value.b
     return [batch.jobs.length, batch.failed, batch.hiddenJobIds]
   }), [2, 1, [5]])
+  // A finished batch whose only cells were dismissed takes no results slot.
+  await page.evaluate(() => {
+    window.workflowTest.jobs.jobs.value = [{ id: 7, batch_id: 'c', batch_total: 1, status: 'failed' }]
+  })
+  assert.equal(await page.evaluate(() => window.workflowTest.jobs.dismissJob(7)), true)
+  assert.deepEqual(await page.evaluate(() => window.workflowTest.jobs.batchJobs.value.c.hiddenJobIds), [7])
 })
 
 test('Undo refuses to send an asset restore to a different profile', async t => {

@@ -578,10 +578,11 @@ function batchFailedCount(batch: BatchInfo): number {
 function batchTerminalCount(batch: BatchInfo): number {
   return batchCompletedCount(batch) + batchFailedCount(batch)
 }
-// Dismissed cells stay in the batch's counts but are not drawn.
+// Dismissed failed cells stay in the batch's counts but are not drawn. A
+// dismissed job that was retried elsewhere and succeeded shows again.
 function visibleCells(batch: BatchInfo, cells: BatchCell[]): BatchCell[] {
   const hidden = batch.hiddenJobIds
-  return hidden?.length ? cells.filter(c => !hidden.includes(c.job.id)) : cells
+  return hidden?.length ? cells.filter(c => c.state !== 'failed' || !hidden.includes(c.job.id)) : cells
 }
 function batchResultCells(batch: BatchInfo): BatchCell[] {
   return batchCells(batch).filter(c => c.state === 'done' || c.state === 'failed')
@@ -676,6 +677,7 @@ const unifiedDisplayItems = computed(() => {
   // until every member (incl. post-processing) is terminal.
   for (const batch of mediaBatches.value) {
     const done = batchIsComplete(batch)
+    if (done && visibleCells(batch, batchCells(batch)).length === 0) continue  // every cell dismissed
     const earliestJob = [...(batch.jobs || [])].sort((a, b) =>
       new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
     )[0]
