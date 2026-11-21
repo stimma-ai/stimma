@@ -416,6 +416,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useStimpacksApi, type Stimpack, type SkillOverride, type MarketplaceStimpack, type StimpackValidation, type StimpackValidationSkill } from '../../../composables/useStimpacksApi'
 import { getApiBase, isDesktop } from '../../../apiConfig'
 import { getCurrentProfileId } from '../../../composables/useProfile'
+import { useMultiDevice } from '../../../composables/useMultiDevice'
 import { addToast, reportActionError } from '../../../composables/useToasts'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import ConfirmModal from '../../ConfirmModal.vue'
@@ -452,10 +453,13 @@ const { privacyLockdownActive } = usePrivacyLockdown()
 
 // --- Local development affordances -----------------------------------------
 
-// Opening a Finder/Explorer window needs the Tauri shell; hide in plain browsers.
-const canOpenFolder = isDesktop()
+// Opening a Finder/Explorer window needs the desktop shell; hide in plain
+// browsers. A remote server's folder is on that machine, not this one.
+const { isRemote } = useMultiDevice()
+const canOpenFolder = computed(() => isDesktop() && !isRemote.value)
 
 async function openStimpacksFolder() {
+  if (!canOpenFolder.value) return
   try {
     const path = await getStimpacksDir()
     const { desktop } = await import('../../../desktop')

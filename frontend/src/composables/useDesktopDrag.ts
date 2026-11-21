@@ -178,6 +178,20 @@ async function resolveExportableSnapshotPath(mediaId: number, key: string): Prom
   return null
 }
 
+/**
+ * A path on this computer for a media item. A remote server's file_path names
+ * a file on that machine, so remote media goes through a local copy. Returns
+ * null when the active server changed while the copy was being made.
+ */
+async function localMediaPath(mediaId: number, filePath: string): Promise<string | null> {
+  if (!isRemote.value) return filePath
+  const key = snapshotKey(mediaId)
+  const path = await getExportableSnapshotPath(mediaId)
+  if (key !== snapshotKey(mediaId)) return null
+  if (!path) throw new Error('Could not prepare a local copy')
+  return path
+}
+
 export function useDesktopDrag() {
   const { getMediaItem } = useMediaApi()
 
@@ -410,11 +424,13 @@ export function useDesktopDrag() {
     getFilePath,
     prewarmDragSnapshot,
     async revealMediaFile(mediaId: number, filePath: string) {
-      const key = snapshotKey(mediaId)
-      const path = isRemote.value ? await getExportableSnapshotPath(mediaId) : filePath
-      if (key !== snapshotKey(mediaId)) return
-      if (!path) throw new Error("Could not prepare a local copy")
-      await desktop.revealItemInDir(path)
+      const path = await localMediaPath(mediaId, filePath)
+      if (path) await desktop.revealItemInDir(path)
+    },
+    /** Open with this computer's default app; remote media opens a local copy. */
+    async openMediaFile(mediaId: number, filePath: string) {
+      const path = await localMediaPath(mediaId, filePath)
+      if (path) await desktop.openPath(path)
     },
   }
 }

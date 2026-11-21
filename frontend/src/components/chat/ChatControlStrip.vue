@@ -68,9 +68,10 @@
         <ArtifactPanelIcon />
       </IconButton>
 
-      <!-- Open Workspace (dev mode only) -->
+      <!-- Open Workspace (dev mode only; the folder is on this computer only
+           when the server is) -->
       <Button
-        v-if="devModeRef"
+        v-if="devModeRef && !isRemote"
         variant="ghost"
         size="sm"
         title="Open workspace folder in Finder"
@@ -168,6 +169,7 @@ import Button from '../ui/Button.vue'
 import { ArrowsPointingInIcon, ArrowUturnLeftIcon, BugAntIcon, FolderOpenIcon } from '@heroicons/vue/24/outline'
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { devModeRef } from '../../appConfig'
+import { useMultiDevice } from '../../composables/useMultiDevice'
 
 interface Props {
   chatName?: string
@@ -198,7 +200,9 @@ const emit = defineEmits<{
 }>()
 
 // Open workspace folder in Finder
+const { isRemote } = useMultiDevice()
 async function openWorkspace() {
+  if (isRemote.value) return
   try {
     const response = await fetch(`/api/chats/${props.chatId}/workspace-path`)
     if (!response.ok) return

@@ -112,3 +112,50 @@ fn parent_death_still_kills_backend_group() {
         std::thread::sleep(Duration::from_millis(25));
     }
 }
+
+#[test]
+fn shutdown_lets_backend_run_its_shutdown_hooks() {
+    let marker = std::env::temp_dir().join(format!("watchdog-graceful-{}", std::process::id()));
+    let _ = std::fs::remove_file(&marker);
+    let mut supervisor = Supervisor(
+        Command::new(WATCHDOG)
+            .args([
+                "--parent-pid",
+                &std::process::id().to_string(),
+                "/bin/sh",
+                "-c",
+                "trap 'echo cleaned > \"$1\"; exit 0' TERM; sleep 60 & echo \"$$ $!\"; wait",
+                "backend",
+                marker.to_str().unwrap(),
+            ])
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
+    let mut line = String::new();
+    BufReader::new(supervisor.0.stdout.take().unwrap())
+        .read_line(&mut line)
+        .unwrap();
+    let pids: Vec<u32> = line
+        .split_whitespace()
+        .map(|pid| pid.parse().unwrap())
+        .collect();
+    assert_eq!(pids.len(), 2);
+
+    let started = Instant::now();
+    assert!(Command::new(WATCHDOG)
+        .args(["--shutdown-watchdog", &supervisor.0.id().to_string()])
+        .status()
+        .unwrap()
+        .success());
+    assert!(started.elapsed() < Duration::from_secs(2), "A cooperative backend stops promptly");
+    let cleaned = std::fs::read_to_string(&marker).unwrap_or_default();
+    let _ = std::fs::remove_file(&marker);
+    assert_eq!(cleaned.trim(), "cleaned", "Backend shutdown hooks did not run");
+    for pid in pids {
+        assert!(
+            !std::path::Path::new(&format!("/proc/{pid}")).exists(),
+            "Process {pid} survived shutdown"
+        );
+    }
+}

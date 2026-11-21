@@ -452,10 +452,11 @@ export function registerIpcHandlers(): void {
   // One live dictation session; owned by the window that started it. The
   // transcript stream outlives the voice_start response and is torn down on
   // stop/cancel, owner destruction, or (helper-side) lease expiry.
-  let voiceSession: { requestId: number; ownerDestroyed: () => void } | null = null
+  let voiceSession: { requestId: number; owner: IpcMainInvokeEvent['sender']; ownerDestroyed: () => void } | null = null
   const endVoiceSession = () => {
     if (!voiceSession) return
     removeEventListener(voiceSession.requestId)
+    voiceSession.owner.removeListener('destroyed', voiceSession.ownerDestroyed)
     voiceSession = null
   }
 
@@ -477,8 +478,14 @@ export function registerIpcHandlers(): void {
       endVoiceSession()
     }
     target.once('destroyed', ownerDestroyed)
-    voiceSession = { requestId: call.id, ownerDestroyed }
-    await call.result
+    const session = { requestId: call.id, owner: target, ownerDestroyed }
+    voiceSession = session
+    try {
+      await call.result
+    } catch (error) {
+      if (voiceSession === session) endVoiceSession()
+      throw error
+    }
   })
 
   handle('stimma:voice-stop', async () => {

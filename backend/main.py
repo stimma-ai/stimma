@@ -283,8 +283,10 @@ if __name__ == "__main__":
     # get stuck in Rust code that doesn't respond to signals.
     # NOTE: We pass the app object directly (not "main:app" string) because
     # PyInstaller bundles the app and string imports don't work.
+    from core.loopback_host import LoopbackHostGuard
     uvicorn.run(
-        app,
+        # Only the loopback listener checks Host; remote serving has its own gate.
+        LoopbackHostGuard(app, port),
         host="127.0.0.1",
         port=port,
         reload=False,

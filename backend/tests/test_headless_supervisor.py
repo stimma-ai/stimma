@@ -206,3 +206,89 @@ def test_failed_snapshot_restarts_previous_release(monkeypatch, tmp_path):
         instance.activate(release)
     start.assert_called_once_with(previous)
     assert not (tmp_path / 'activation.json').exists()
+
+
+class _FakeChild:
+    def __init__(self):
+        self.returncode = None
+
+    def poll(self):
+        return self.returncode
+
+
+def _fake_release(tmp_path, name):
+    release = tmp_path / 'releases' / 'production' / name
+    release.mkdir(parents=True)
+    (release / 'release.json').write_text(json.dumps({'version': name, 'branch': 'production'}))
+    return release
+
+
+def test_shutdown_during_activation_waits_for_readiness_and_clears_record(monkeypatch, tmp_path):
+    monkeypatch.setattr(supervisor, 'APP', tmp_path)
+    monkeypatch.setattr(supervisor, 'BRANCH', 'production')
+    monkeypatch.setattr(supervisor.time, 'sleep', lambda _: None)
+    release = _fake_release(tmp_path, 'new')
+    instance = supervisor.Supervisor()
+    monkeypatch.setattr(instance, 'current', lambda: None)
+    monkeypatch.setattr(supervisor.subprocess, 'Popen', Mock(return_value=_FakeChild()))
+    calls = []
+
+    def ready(action, body=None):
+        calls.append(action)
+        if len(calls) == 2:
+            instance.stopping = True  # SIGTERM arrives mid-migration
+        if len(calls) < 5:
+            raise ConnectionRefusedError()
+        return {}
+
+    monkeypatch.setattr(instance, 'local', ready)
+    instance.activate(release)
+    assert len(calls) == 5
+    assert instance.state['status'] == 'ready'
+    assert not (tmp_path / 'activation.json').exists()
+
+
+def test_shutdown_before_switch_skips_activation(monkeypatch, tmp_path):
+    monkeypatch.setattr(supervisor, 'APP', tmp_path)
+    release = _fake_release(tmp_path, 'new')
+    instance = supervisor.Supervisor()
+    monkeypatch.setattr(instance, 'current', lambda: None)
+    monkeypatch.setattr(instance, 'stop_child', Mock(side_effect=lambda: setattr(instance, 'stopping', True)))
+    start = Mock()
+    monkeypatch.setattr(instance, 'start_child', start)
+    instance.activate(release)
+    start.assert_not_called()
+    assert not (tmp_path / 'activation.json').exists()
+    assert not (tmp_path / 'current').exists()
+
+
+def test_slow_startup_has_no_deadline_while_server_is_alive(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(supervisor, 'APP', tmp_path)
+    release = _fake_release(tmp_path, 'slow')
+    clock = [0.0]
+    monkeypatch.setattr(supervisor.time, 'monotonic', lambda: clock[0])
+    monkeypatch.setattr(supervisor.time, 'sleep', lambda seconds: clock.__setitem__(0, clock[0] + 60))
+    monkeypatch.setattr(supervisor.subprocess, 'Popen', Mock(return_value=_FakeChild()))
+    instance = supervisor.Supervisor()
+
+    def ready(action, body=None):
+        if clock[0] < 20 * 60:  # a long migration before the server listens
+            raise ConnectionRefusedError()
+        return {}
+
+    monkeypatch.setattr(instance, 'local', ready)
+    instance.start_child(release)
+    assert instance.state['status'] == 'ready'
+    assert 'still starting' in capsys.readouterr().out
+
+
+def test_startup_wait_ends_when_server_exits(monkeypatch, tmp_path):
+    monkeypatch.setattr(supervisor, 'APP', tmp_path)
+    release = _fake_release(tmp_path, 'broken')
+    child = _FakeChild()
+    monkeypatch.setattr(supervisor.subprocess, 'Popen', Mock(return_value=child))
+    monkeypatch.setattr(supervisor.time, 'sleep', lambda _: setattr(child, 'returncode', 1))
+    instance = supervisor.Supervisor()
+    monkeypatch.setattr(instance, 'local', Mock(side_effect=ConnectionRefusedError()))
+    with pytest.raises(RuntimeError, match='startup failed'):
+        instance.start_child(release)

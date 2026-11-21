@@ -74,3 +74,26 @@ test('remote reveal and drag use local copies, isolate devices, and never wait i
     assert.deepEqual(calls.at(-1), ['reveal', '/local/original.png'])
   } finally { globalThis.fetch = previousFetch; delete globalThis.dragFixture }
 })
+
+test('remote open uses a local copy, local open uses the original', async () => {
+  const calls = []
+  globalThis.dragFixture = {
+    profile: 'profile-open', isRemote: { value: true }, activeDeviceId: { value: 'server-open' },
+    desktop: {
+      cacheRemoteFile: async () => '/tmp/open-copy.png',
+      openPath: async path => calls.push(['open', path]),
+    },
+  }
+  const previousFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response(new Uint8Array([1]), { headers: { 'content-disposition': 'inline; filename="p.png"' } })
+  try {
+    const { useDesktopDrag } = await import(`data:text/javascript;base64,${Buffer.from(code + '\n//open').toString('base64')}`)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    const drag = useDesktopDrag()
+    await drag.openMediaFile(9, '/server/p.png')
+    assert.deepEqual(calls, [['open', '/tmp/open-copy.png']])
+    globalThis.dragFixture.isRemote.value = false
+    await drag.openMediaFile(9, '/local/p.png')
+    assert.deepEqual(calls.at(-1), ['open', '/local/p.png'])
+  } finally { globalThis.fetch = previousFetch; delete globalThis.dragFixture }
+})

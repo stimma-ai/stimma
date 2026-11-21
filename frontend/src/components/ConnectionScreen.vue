@@ -14,6 +14,7 @@
         <img class="connection-logo motion-reduce:animate-none" src="/logo.svg" alt="" />
         <h1 class="mt-6 max-w-full break-words font-brand text-lg font-semibold text-content">{{ deviceName }}</h1>
         <p class="mt-2 text-sm text-content-secondary" role="status">{{ statusLine }}</p>
+        <Button v-if="localServerStopped" class="mt-4 min-h-11 shrink-0" @click="restart">Restart Stimma</Button>
         <Button variant="link" class="mt-4 min-h-11 shrink-0" @click="chip?.openMenu()">Choose another server</Button>
       </div>
     </div>
@@ -26,8 +27,9 @@ import { useMultiDevice } from '../composables/useMultiDevice'
 import DeviceChip from './DeviceChip.vue'
 import Button from './ui/Button.vue'
 import { useServerUpdater } from '../composables/useServerUpdater'
+import { desktop } from '../desktop'
 
-const { connectionState, activeDeviceName, retry, refresh } = useMultiDevice()
+const { connectionState, activeDeviceName, isRemote, retry, refresh } = useMultiDevice()
 const { restartExpected, restartTakingLonger } = useServerUpdater()
 
 const chip = ref(null)
@@ -36,7 +38,17 @@ const deviceName = computed(() => activeDeviceName.value)
 // Two beats per situation: what is happening, then (once it has been a while)
 // that we are still at it. The unreachable state is not a distinct message —
 // the auto-retry below keeps trying, so to the user it is just a long connect.
+// The desktop shell reports its own server unreachable only once the server
+// has stopped and will not come back by itself; a restart is the way out.
+const localServerStopped = computed(() =>
+  desktop.kind === 'electron' && !isRemote.value && connectionState.value === 'unreachable')
+
+function restart() {
+  void desktop.relaunch()
+}
+
 const statusLine = computed(() => {
+  if (localServerStopped.value) return "Stimma's server stopped unexpectedly."
   if (restartExpected.value) {
     return restartTakingLonger.value ? `Still waiting for ${deviceName.value}…` : 'Restarting after the update…'
   }
@@ -53,7 +65,7 @@ let autoRetryInFlight = false
 
 onMounted(() => {
   timer = setInterval(async () => {
-    if (connectionState.value !== 'unreachable' || autoRetryInFlight) return
+    if (connectionState.value !== 'unreachable' || localServerStopped.value || autoRetryInFlight) return
     autoRetryInFlight = true
     // Nothing is pushing us roster changes here — there is no app websocket
     // while the window has no backend — so re-read the roster before the

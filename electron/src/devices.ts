@@ -84,6 +84,8 @@ let state: PersistedState = {
   preferredRoutes: {},
 }
 let localBackendPort: number | null = null
+/** The watchdog gave up on the local backend; only a relaunch brings it back. */
+let localBackendStopped = false
 let connectionState: ConnectionState = 'connecting'
 /**
  * Whether the cached roster reflects the registry's last word. False until
@@ -184,6 +186,20 @@ export function setLocalBackendPort(port: number): void {
     const connected = await connect({ patienceMs: CONNECT_PATIENCE_MS })
     if (connected === 'ready') await refreshDevices()
   })()
+}
+
+/**
+ * The local backend is gone for good (the watchdog exhausted its restarts).
+ * Stop forwarding to its dead port and report the window unreachable so the
+ * renderer offers a restart. An active remote connection is unaffected.
+ */
+export function setLocalBackendStopped(): void {
+  localBackendPort = null
+  localBackendStopped = true
+  if (state.activeDeviceId !== LOCAL_DEVICE) return
+  connectGen++
+  setProxyTarget(null)
+  setConnectionState('unreachable')
 }
 
 /**
@@ -578,6 +594,11 @@ export async function connect(options: { patienceMs?: number } = {}): Promise<Co
   const superseded = () => gen !== connectGen || state.activeDeviceId !== deviceId
 
   if (state.activeDeviceId === LOCAL_DEVICE) {
+    if (localBackendStopped) {
+      setProxyTarget(null)
+      setConnectionState('unreachable')
+      return connectionState
+    }
     if (localBackendPort === null) {
       setConnectionState('connecting')
       return connectionState

@@ -76,6 +76,12 @@ const RESTART_DELAY: Duration = Duration::from_secs(2);
 /// If backend runs longer than this, reset the restart counter.
 const STABILITY_THRESHOLD: Duration = Duration::from_secs(30);
 
+/// How long the backend leader gets to run its shutdown hooks after SIGTERM
+/// before the group is killed. Electron waits five seconds for the whole stop
+/// on Linux, so this leaves room to kill and reap the survivors.
+#[cfg(unix)]
+const GRACEFUL_STOP: Duration = Duration::from_secs(3);
+
 /// How often to check if parent is still alive.
 const PARENT_CHECK_INTERVAL: Duration = Duration::from_millis(500);
 
@@ -239,7 +245,8 @@ fn main() {
 
                 loop {
                     if SHUTDOWN.load(Ordering::SeqCst) {
-                        log("Shutdown during wait, killing backend tree");
+                        log("Shutdown during wait, stopping backend tree");
+                        request_backend_stop(&mut child);
                         kill_process_tree(pid);
                         let _ = child.wait();
                         reap_backend_descendants(pid);
@@ -506,27 +513,24 @@ fn resolve_backend_path(name: &str) -> PathBuf {
     path
 }
 
+/// The backend command line. A Windows `run.cmd` launcher is spawned directly:
+/// Rust's standard library runs batch files through cmd.exe with its path and
+/// arguments escaped for it, while a hand-built `cmd /C` line loses the quotes
+/// around install paths containing spaces or `&`.
+fn backend_command(binary: &Path, args: &[String]) -> Command {
+    let mut cmd = Command::new(binary);
+    cmd.args(args);
+    cmd
+}
+
 fn spawn_backend(binary: &PathBuf, args: &[String]) -> io::Result<process::Child> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-        let mut cmd = if binary
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| ext.eq_ignore_ascii_case("cmd") || ext.eq_ignore_ascii_case("bat"))
-            .unwrap_or(false)
-        {
-            let mut c = Command::new("cmd");
-            c.arg("/C").arg(binary);
-            c
-        } else {
-            Command::new(binary)
-        };
-
-        cmd.args(args)
-            .env("PYTHONUTF8", "1")
+        let mut cmd = backend_command(binary, args);
+        cmd.env("PYTHONUTF8", "1")
             .stdin(Stdio::null())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
@@ -557,9 +561,8 @@ fn spawn_backend(binary: &PathBuf, args: &[String]) -> io::Result<process::Child
     {
         use std::os::unix::process::CommandExt;
 
-        let mut cmd = Command::new(binary);
-        cmd.args(args)
-            .stdin(Stdio::null())
+        let mut cmd = backend_command(binary, args);
+        cmd.stdin(Stdio::null())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
 
@@ -574,6 +577,27 @@ fn spawn_backend(binary: &PathBuf, args: &[String]) -> io::Result<process::Child
 
         cmd.spawn()
     }
+}
+
+/// Ask the backend leader to shut down so its shutdown hooks run and it stops
+/// its own workers, then give it a bounded wait. The caller kills the group.
+fn request_backend_stop(child: &mut process::Child) {
+    #[cfg(unix)]
+    {
+        unsafe {
+            libc::kill(child.id() as i32, libc::SIGTERM);
+        }
+        let deadline = Instant::now() + GRACEFUL_STOP;
+        while Instant::now() < deadline {
+            match child.try_wait() {
+                Ok(None) => thread::sleep(Duration::from_millis(50)),
+                _ => return,
+            }
+        }
+        log("Backend did not stop in time, killing it");
+    }
+    #[cfg(not(unix))]
+    let _ = child;
 }
 
 fn kill_process_tree(pid: u32) {
@@ -636,5 +660,20 @@ fn is_process_dead_windows(pid: u32) -> bool {
         CloseHandle(handle);
 
         result == WAIT_OBJECT_0 || result != WAIT_TIMEOUT
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn batch_launcher_is_spawned_directly_with_its_arguments() {
+        let launcher = Path::new(r"C:\Program Files\R&D Tools\Stimma\resources\backend\run.cmd");
+        let args = vec!["--port".to_string(), "9191".to_string()];
+        let cmd = backend_command(launcher, &args);
+        assert_eq!(cmd.get_program(), launcher.as_os_str());
+        let built: Vec<_> = cmd.get_args().collect();
+        assert_eq!(built, ["--port", "9191"]);
     }
 }

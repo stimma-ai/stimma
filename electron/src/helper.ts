@@ -13,7 +13,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import readline from 'node:readline'
 import type { AppIdentity } from './identity'
-import { log } from './log'
+import { log } from './log.ts'
 
 interface Pending {
   resolve: (value: unknown) => void
@@ -81,14 +81,35 @@ function ensureHelper(): ChildProcess {
   const errRl = readline.createInterface({ input: proc.stderr! })
   errRl.on('line', (line) => log.info('helper', line))
 
-  proc.on('exit', (code, signal) => {
-    log.warn('helper', `stimma-native exited (code=${code}, signal=${signal})`)
+  // A failed spawn or a broken stdin pipe emits 'error' (possibly without an
+  // 'exit'); either way settle every pending call once and drop the child.
+  let tornDown = false
+  const teardown = (reason: string) => {
+    if (tornDown) return
+    tornDown = true
     if (child === proc) child = null
+    rl.close()
+    errRl.close()
     for (const [, entry] of pending) {
-      entry.reject(new Error('stimma-native helper exited'))
+      entry.reject(new Error(reason))
     }
     pending.clear()
     eventListeners.clear()
+  }
+
+  proc.on('error', (error) => {
+    log.error('helper', `stimma-native failed: ${error.message}`)
+    teardown('stimma-native helper failed')
+    proc.kill()
+  })
+  proc.stdin!.on('error', (error) => {
+    log.error('helper', `stimma-native stdin failed: ${error.message}`)
+    teardown('stimma-native helper failed')
+    proc.kill()
+  })
+  proc.on('exit', (code, signal) => {
+    log.warn('helper', `stimma-native exited (code=${code}, signal=${signal})`)
+    teardown('stimma-native helper exited')
   })
 
   return proc

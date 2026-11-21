@@ -1405,7 +1405,7 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
   const distribution = Deno.env.get("STIMMA_DISTRIBUTION") === "official" ? "official" : "dev";
   console.log(`Baking STIMMA_DISTRIBUTION=${distribution} into launchers...`);
   const windowsPython = `%~dp0python`;
-  const runCmd = `@echo off\r\nsetlocal\r\nset PYTHONUTF8=1\r\nset PYTHONPATH=%~dp0;%~dp0backend;%PYTHONPATH%\r\nif not defined STIMMA_DISTRIBUTION set STIMMA_DISTRIBUTION=${distribution}\r\nif not defined STIMMA_PYTHON_DIR set "STIMMA_PYTHON_DIR=${windowsPython}"\r\n"%STIMMA_PYTHON_DIR%\\python.exe" "%~dp0backend\\main.py" %*\r\n`;
+  const runCmd = `@echo off\r\nsetlocal\r\nset PYTHONUTF8=1\r\nset "PYTHONPATH=%~dp0;%~dp0backend;%PYTHONPATH%"\r\nif not defined STIMMA_DISTRIBUTION set STIMMA_DISTRIBUTION=${distribution}\r\nif not defined STIMMA_PYTHON_DIR set "STIMMA_PYTHON_DIR=${windowsPython}"\r\n"%STIMMA_PYTHON_DIR%\\python.exe" "%~dp0backend\\main.py" %*\r\n`;
   const runSh = `#!/bin/bash\nDIR="$(cd "$(dirname "$0")" && pwd)"\nexport PYTHONUTF8=1\nexport PYTHONPATH="$DIR:$DIR/backend\${PYTHONPATH:+:$PYTHONPATH}"\nexport STIMMA_DISTRIBUTION="\${STIMMA_DISTRIBUTION:-${distribution}}"\nexec "$DIR/python/python.exe" "$DIR/backend/main.py" "$@"\n`;
   await Deno.writeTextFile(join(outputDir, "run.cmd"), runCmd);
   await Deno.writeTextFile(join(outputDir, "run.sh"), runSh);

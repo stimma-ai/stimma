@@ -13,7 +13,7 @@ import { observeBackendOutput } from './backendOutput.ts'
 export { parseBackendPort } from './backendOutput.ts'
 import type { AppIdentity } from './identity'
 import { log } from './log'
-import { setLocalBackendPort } from './devices'
+import { setLocalBackendPort, setLocalBackendStopped } from './devices'
 import { preparePythonRuntime } from './pythonRuntime'
 
 let backendPort: number | null = null
@@ -119,8 +119,13 @@ export async function startBackend(identity: AppIdentity, appVersion: string): P
   })
 
   child.on('exit', (code, signal) => {
-    if (watchdogPid === child.pid) watchdogPid = null
     log.error('stimma', `Watchdog exited (code=${code}, signal=${signal})`)
+    // shutdownBackend clears watchdogPid first; any other exit means the
+    // backend is gone (the watchdog gave up restarting it).
+    if (watchdogPid !== child.pid) return
+    watchdogPid = null
+    backendPort = null
+    setLocalBackendStopped()
   })
   child.unref()
 }
@@ -130,8 +135,9 @@ export async function startBackend(identity: AppIdentity, appVersion: string): P
  *
  * Linux AppImages unmount when Electron exits. Waiting for parent-death cleanup
  * is too late: Python workers can fault (SIGBUS) as their executable mappings
- * disappear. The watchdog's synchronous stop command kills and reaps its whole
- * backend group before returning, while Electron still holds the mount alive.
+ * disappear. The watchdog's synchronous stop command asks the backend to shut
+ * down, then kills and reaps its whole backend group before returning, while
+ * Electron still holds the mount alive.
  *
  * Parent-death monitoring is normally sufficient, but on Windows the cmd.exe
  * launcher can disappear before the watchdog observes Electron's exit. That
@@ -154,7 +160,11 @@ export function shutdownBackend(): void {
     }
     return
   }
-  if (process.platform !== 'win32') return
+  if (process.platform !== 'win32') {
+    // macOS: parent-death monitoring stops the backend; this quit is expected.
+    watchdogPid = null
+    return
+  }
 
   const pid = watchdogPid
   watchdogPid = null

@@ -1578,7 +1578,7 @@ const {
 } = useAssetApi()
 const { on: onWebSocketEvent } = useWebSocket()
 const { cachedTools, fetchProvidersAndTools } = useProvidersApi()
-const { isDesktop, handleDragStart: desktopDragStart, prewarmDragSnapshot, revealMediaFile } = useDesktopDrag()
+const { isDesktop, handleDragStart: desktopDragStart, prewarmDragSnapshot, revealMediaFile, openMediaFile } = useDesktopDrag()
 
 // Tooltip nudge for the (otherwise invisible) ⌥ drag-out modifier. Plain drag
 // is an in-app transfer everywhere; the file-export modifier only applies in
@@ -4661,11 +4661,10 @@ async function openInSystemViewer() {
 
   if (isDesktop.value) {
     try {
-      const { desktop } = await import('../desktop')
-      console.log('[Slideshow] Opening in system viewer:', currentItem.value.file_path)
-      await desktop.openPath(currentItem.value.file_path)
+      await openMediaFile(currentPayloadId.value, currentItem.value.file_path)
     } catch (e) {
       console.error('Failed to open in system viewer:', e)
+      addToast('Could not open the file on this computer.', 'error')
     }
   }
 }

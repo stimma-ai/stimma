@@ -82,6 +82,10 @@ for (const accepted of [true, false]) {
           await new Promise<void>(resolve => local.close(() => resolve()))
         }
       }
+      // The local backend dying must not take an active remote connection down.
+      devices.setLocalBackendStopped()
+      assert.equal(devices.getConnectionState(), 'ready')
+      assert.ok(devices.getProxyTarget()?.session)
       const text = messages.join('\n')
       const connected = text.match(/Connected to (device [a-f0-9]{8}) via lan/)
       assert.ok(connected)
@@ -95,3 +99,35 @@ for (const accepted of [true, false]) {
     }
   })
 }
+
+test('a local backend the watchdog gave up on leaves the window unreachable', async (t) => {
+  t.mock.method(console, 'log', () => {})
+  t.mock.method(console, 'error', () => {})
+  const scratch = makeScratchDir('devices-local-stopped-')
+  try {
+    const outfile = path.join(scratch.dir, 'devices.cjs')
+    await build({
+      stdin: { contents: `export * from './src/devices.ts'; export { getProxyTarget } from './src/proxy.ts'`,
+        resolveDir: path.resolve(import.meta.dirname, '..'), loader: 'ts' },
+      outfile, bundle: true, platform: 'node', format: 'cjs',
+      plugins: [{ name: 'test-keyring', setup(build) {
+        build.onResolve({ filter: /^electron$/ }, () => ({ path: 'electron', namespace: 'test' }))
+        build.onLoad({ filter: /.*/, namespace: 'test' }, () => ({ contents: 'export const safeStorage = {}' }))
+      } }],
+    })
+    const devices = createRequire(import.meta.url)(outfile)
+    devices.initDevices(scratch.dir)
+    devices.setLocalBackendPort(9)
+    const deadline = Date.now() + 3000
+    while (devices.getConnectionState() !== 'ready' && Date.now() < deadline) await new Promise(r => setTimeout(r, 10))
+    assert.equal(devices.getProxyTarget()?.port, 9)
+    devices.setLocalBackendStopped()
+    assert.equal(devices.getProxyTarget(), null)
+    assert.equal(devices.getConnectionState(), 'unreachable')
+    // Retrying cannot revive it; the renderer offers a restart instead.
+    assert.equal(await devices.connect(), 'unreachable')
+    assert.equal(devices.getProxyTarget(), null)
+  } finally {
+    scratch.cleanup()
+  }
+})

@@ -523,9 +523,11 @@ import { bgClass, textClass } from '../utils/statusColors'
 import { factRows, formatDateTime, normalizeDate } from '../utils/mediaProvenance'
 import { useAssetApi } from '../composables/useAssetApi'
 import { hasAssetIdentity, mediaIdOf } from '../utils/assetIdentity'
+import { useDesktopDrag } from '../composables/useDesktopDrag'
 
 const { formatRemainingTime } = useExpirationClock()
 const isDesktopMode = isDesktop()
+const { revealMediaFile } = useDesktopDrag()
 
 const props = defineProps({
   currentItem: {
@@ -914,8 +916,7 @@ async function copyFilePath() {
 async function revealFileInFinder() {
   if (!props.currentItem?.file_path || !isDesktopMode) return
   try {
-    const { desktop } = await import('../desktop')
-    await desktop.revealItemInDir(props.currentItem.file_path)
+    await revealMediaFile(mediaIdOf(props.currentItem), props.currentItem.file_path)
   } catch (error) {
     console.error('Failed to reveal in Finder:', error)
     addToast('Could not show file in Finder', 'error')

@@ -327,7 +327,14 @@ class Supervisor:
                     shutil.copy2(source, target)
         return dest
 
-    def start_child(self, release):
+    def start_child(self, release, finish_on_stop=False):
+        """Start the server and wait while it is alive until it is ready.
+
+        Startup runs migrations before the server listens, which can take a
+        long time on a large library, so there is no deadline. A pending
+        shutdown stops the wait unless `finish_on_stop` is set: an activation
+        must reach readiness before its recovery record can be cleared.
+        """
         self.local_port = local_port()
         metadata = json.loads((release / 'release.json').read_text())
         env = dict(os.environ, STIMMA_HEADLESS='1', STIMMA_SUPERVISOR_TOKEN=self.token,
@@ -340,22 +347,30 @@ class Supervisor:
         self.child = subprocess.Popen([str(release / 'run.sh'), '--bundle-id', bundle,
                                        '--port', str(self.local_port)], env=env, cwd=release)
         self.status(status='starting', version=metadata['version'], serverStartedAt=time.time_ns())
-        deadline = time.monotonic() + 300
-        while time.monotonic() < deadline and not self.stopping:
+        started = time.monotonic()
+        next_notice = started + 300
+        while True:
             if self.child.poll() is not None:
                 raise RuntimeError('Server startup failed; retained package and data for recovery')
+            if self.stopping and not finish_on_stop:
+                return
             try:
                 self.local('ready')
                 self.status(status='ready')
                 return
             except Exception:
-                # Startup is a couple of seconds; poll finely so readiness isn't rounded up.
-                time.sleep(0.2)
-        raise RuntimeError('Server readiness timed out')
+                pass
+            now = time.monotonic()
+            if now >= next_notice:
+                print(f'[stimma] Server still starting after {int(now - started) // 60} minutes '
+                      '(database migrations can take a while on large libraries)', flush=True)
+                next_notice = now + 300
+            # Startup is a couple of seconds; poll finely so readiness isn't rounded up.
+            time.sleep(0.2)
 
     def activate(self, release):
         previous = self.current()
-        if previous == release:
+        if previous == release or self.stopping:
             return
         serving = bool(self.child and self.child.poll() is None)
         self.stop_child()
@@ -367,6 +382,10 @@ class Supervisor:
             if serving:
                 self.start_child(previous)
             raise
+        if self.stopping:
+            # Shutdown arrived while stopping or snapshotting; nothing has
+            # switched, so the next boot starts the current release.
+            return
         # Persist before switching: after interrupted migrations, fail closed on next startup.
         atomic_json(APP / 'activation.json', {'previous': str(previous) if previous else None,
                                             'candidate': str(release), 'backup': str(backup) if backup else None})
@@ -374,7 +393,7 @@ class Supervisor:
         link.unlink(missing_ok=True)
         link.symlink_to(release.relative_to(APP))
         os.replace(link, APP / 'current')
-        self.start_child(release)
+        self.start_child(release, finish_on_stop=True)
         (APP / 'activation.json').unlink()
         retained = {release, previous}
         for candidate in (APP / 'releases' / BRANCH).iterdir():
@@ -471,7 +490,7 @@ class Supervisor:
                 print(f'[stimma] Startup update unavailable: {exc}', flush=True)
                 if (APP / 'activation.json').exists():
                     raise
-            if not self.child:
+            if not self.child and not self.stopping:
                 current = self.current()
                 if current is None:
                     raise RuntimeError('No cached server package; retry when the update service is available')

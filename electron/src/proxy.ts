@@ -445,7 +445,23 @@ function isStalePooledSocket(proxied: http.ClientRequest, err: unknown): boolean
   return code === 'ECONNRESET' || (err as Error | null)?.message === 'socket hang up'
 }
 
+/**
+ * The proxy listens on loopback only, but a web page can still reach it by
+ * DNS rebinding (its own hostname resolving to 127.0.0.1). Such requests
+ * carry the page's hostname as Host; only this listener's own address passes.
+ */
+export function isProxyHost(host: string | undefined): boolean {
+  if (!host || listenPort === null) return false
+  const value = host.trim().toLowerCase()
+  return value === `127.0.0.1:${listenPort}` || value === `localhost:${listenPort}`
+}
+
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+  if (!isProxyHost(req.headers.host)) {
+    res.writeHead(421, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ detail: 'Invalid host' }))
+    return
+  }
   const upstream = target
   if (!upstream) {
     unavailable(req, res)
@@ -523,6 +539,10 @@ function forwardRequest(
  * the handshake upstream and splice the two sockets once it succeeds.
  */
 function handleUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buffer): void {
+  if (!isProxyHost(req.headers.host)) {
+    socket.end('HTTP/1.1 421 Misdirected Request\r\n\r\n')
+    return
+  }
   const upstream = target
   if (!upstream) {
     socket.end('HTTP/1.1 503 Service Unavailable\r\n\r\n')

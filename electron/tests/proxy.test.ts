@@ -319,7 +319,7 @@ test('503s an upgrade with no target instead of hanging', async () => {
 
   const status: string = await new Promise((resolve, reject) => {
     const socket = net.connect(port, '127.0.0.1', () => {
-      socket.write('GET /ws HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n')
+      socket.write(`GET /ws HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n`)
     })
     socket.setEncoding('utf8')
     socket.once('data', (d: string) => {
@@ -333,6 +333,36 @@ test('503s an upgrade with no target instead of hanging', async () => {
 
   stopProxy()
   fs.rmSync(dir, { recursive: true, force: true })
+})
+
+test('rejects a foreign Host on requests and upgrades (DNS rebinding)', async () => {
+  const dir = tmpDir()
+  let reached = 0
+  const up = await upstream((_req, res) => { reached++; res.end('ok') })
+  up.server.on('upgrade', (_req, socket) => { reached++; socket.destroy() })
+  const port = await startProxy(dir)
+  setProxyTarget({ host: '127.0.0.1', port: up.port })
+
+  assert.equal((await get(port, '/api/settings')).status, 200)
+  assert.equal((await get(port, '/api/settings', { host: `localhost:${port}` })).status, 200)
+  assert.equal((await get(port, '/api/settings', { host: `attacker.example:${port}` })).status, 421)
+  const before = reached
+  const status: string = await new Promise((resolve, reject) => {
+    const socket = net.connect(port, '127.0.0.1', () => {
+      socket.write(`GET /ws HTTP/1.1\r\nHost: attacker.example:${port}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n`)
+    })
+    socket.setEncoding('utf8')
+    socket.once('data', (d: string) => {
+      socket.destroy()
+      resolve(d.split('\r\n')[0])
+    })
+    socket.on('error', reject)
+  })
+  assert.match(status, /421/)
+  assert.equal(reached, before)
+
+  stopProxy()
+  await closeUpstream(up)
 })
 
 test('reuses the same port across restarts so the renderer origin is stable', async () => {
