@@ -99,7 +99,7 @@ class _FakeSessionContext:
         session = MagicMock()
         session.get = AsyncMock(return_value=None)
         result = MagicMock()
-        result.one_or_none.return_value = (self._file_path, 1024, 1024)
+        result.one_or_none.return_value = (self._file_path, 1024, 1024, None)
         session.execute = AsyncMock(return_value=result)
         return session
 
