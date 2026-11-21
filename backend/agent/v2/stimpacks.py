@@ -36,6 +36,7 @@ import os
 import re
 import shutil
 import tempfile
+import threading
 import unicodedata
 import uuid
 import zipfile
@@ -1355,6 +1356,11 @@ def get_stimpack_lib_modules(enabled_skills: list[str] | None) -> dict[str, Path
 # Stimpack installation
 # ---------------------------------------------------------------------------
 
+# Serializes the unpack-and-swap itself. Callers' asyncio locks can release
+# while a cancelled caller's worker thread is still installing.
+_install_lock = threading.Lock()
+
+
 def install_stimpack_from_file(file_path: Path, profile_id: Optional[str] = None) -> Optional[StimpackInfo]:
     """Install a stimpack from a .md or .zip file."""
     if not profile_id:
@@ -1429,6 +1435,13 @@ def _install_from_zip(
     With ``marketplace_meta`` the archive must be the listing it was downloaded
     for, and it only replaces a folder that is already that marketplace pack.
     """
+    with _install_lock:
+        return _install_from_zip_locked(file_path, profile_id, marketplace_meta)
+
+
+def _install_from_zip_locked(
+    file_path: Path, profile_id: str, marketplace_meta: Optional[dict]
+) -> Optional[StimpackInfo]:
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         with zipfile.ZipFile(file_path, "r") as zf:

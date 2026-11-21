@@ -442,6 +442,7 @@ class TestFirebaseRefreshHandling:
              patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
             with pytest.raises(AuthSessionExpiredError):
                 await get_valid_id_token(raise_on_failure=True)
+            await asyncio.sleep(0)  # cloud disconnect runs in the teardown task
 
         assert load_auth_state() is None
         assert not (data_dir / "cloud_auth.json").exists()
@@ -538,6 +539,7 @@ class TestFirebaseRefreshHandling:
         save_auth_state({"user": {"uid": "u2"}, "refresh_token": "new-refresh"}, new_login=True)
         with patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
             await clear_auth_after_session_expiry(generation)
+            await asyncio.sleep(0)
         assert load_auth_state()["refresh_token"] == "new-refresh"
         disconnect.assert_not_awaited()
 
@@ -736,6 +738,7 @@ class TestAccountInfo:
              patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as mock_disconnect, \
              patch("auth_storage.clear_auth_state") as mock_clear:
             response = await auth_client.get("/api/auth/account")
+            await asyncio.sleep(0)
 
         assert response.status_code == 401
         assert response.json()["detail"] == {
@@ -744,6 +747,28 @@ class TestAccountInfo:
         }
         mock_clear.assert_called_once()
         mock_disconnect.assert_awaited_once()
+
+    async def test_account_rejection_after_a_new_login_is_not_a_sign_out(self, auth_client: AsyncClient):
+        import auth_storage
+        request = httpx.Request("GET", "https://stimma.ai/api/auth/me")
+        response401 = httpx.Response(401, json={"error": "Invalid token"}, request=request)
+
+        async def old_token_rejected(token):
+            auth_storage._auth_generation += 1  # a new login lands meanwhile
+            raise httpx.HTTPStatusError("invalid token", request=request, response=response401)
+
+        with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
+             patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value="tok"), \
+             patch("firebase_auth.force_refresh_id_token", new_callable=AsyncMock, return_value="fresh-tok"), \
+             patch("cloud_api.fetch_user_account", side_effect=old_token_rejected), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as mock_disconnect, \
+             patch("auth_storage.clear_auth_state") as mock_clear:
+            response = await auth_client.get("/api/auth/account")
+            await asyncio.sleep(0)
+
+        assert response.status_code == 503
+        mock_clear.assert_not_called()
+        mock_disconnect.assert_not_awaited()
 
     async def test_account_cloud_failure(self, auth_client: AsyncClient):
         """Test account info when cloud API fails returns 502."""

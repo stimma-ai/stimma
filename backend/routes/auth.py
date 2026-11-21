@@ -529,6 +529,15 @@ async def get_account_info():
             )
         if e.response.status_code in (401, 403):
             from firebase_auth import clear_auth_after_session_expiry
+            if auth_generation() != generation:
+                # A newer login replaced the one this request used: not a sign-out.
+                raise HTTPException(
+                    status_code=503,
+                    detail=_auth_error(
+                        "auth_temporarily_unavailable",
+                        "Couldn't verify your Stimma session. Try again shortly.",
+                    ),
+                )
             await clear_auth_after_session_expiry(generation)
             raise HTTPException(
                 status_code=401,

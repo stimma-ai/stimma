@@ -132,25 +132,34 @@ async def clear_auth_after_session_expiry(generation: Optional[int] = None) -> N
         log.warning("failed to clear auth state after session expiry", error=str(e))
     cleared = auth_generation()
 
-    # Signed out means multi-device stops too: sessions die now, and the
-    # listener/heartbeat teardown runs in its own task, since the request or
-    # heartbeat that noticed the expiry may be one of the things it stops.
+    # Signed out means multi-device stops too: sessions die now. The rest
+    # (cloud disconnect, listener/heartbeat teardown) runs in its own task,
+    # since the request or heartbeat that noticed the expiry may be one of
+    # the things it stops.
     try:
         from multi_device.auth import revoke_all_sessions
         revoke_all_sessions()
-        from multi_device import service as multi_device_service
-        task = asyncio.create_task(multi_device_service.stop_after_session_expiry())
-        _expiry_teardown_tasks.add(task)
-        task.add_done_callback(_expiry_teardown_tasks.discard)
     except Exception as e:
-        log.warning("failed to stop multi-device after session expiry", error=str(e))
+        log.warning("failed to revoke multi-device sessions after session expiry", error=str(e))
+    task = asyncio.create_task(_finish_session_expiry_teardown(cleared))
+    _expiry_teardown_tasks.add(task)
+    task.add_done_callback(_expiry_teardown_tasks.discard)
+
+
+async def _finish_session_expiry_teardown(cleared_generation: int) -> None:
+    from auth_storage import auth_generation
 
     try:
         from routes.cloud import disconnect_cloud_internal
-        if auth_generation() == cleared:
+        if auth_generation() == cleared_generation:
             await disconnect_cloud_internal()
     except Exception as e:
         log.warning("failed to disconnect cloud after session expiry", error=str(e))
+    try:
+        from multi_device import service as multi_device_service
+        await multi_device_service.stop_after_session_expiry()
+    except Exception as e:
+        log.warning("failed to stop multi-device after session expiry", error=str(e))
 
 
 async def exchange_custom_token(custom_token: str) -> TokenResult:
