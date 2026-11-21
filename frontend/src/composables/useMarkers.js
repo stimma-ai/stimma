@@ -27,13 +27,27 @@ async function refreshAvailableMarkers() {
   catalogGeneration = readFor
 }
 
+// One catalog read per profile generation; callers for the same profile join it,
+// and one begun for an older profile never stands in for the current one.
+let catalogRead = null
+let catalogReadFor = -1
+function readCatalog() {
+  if (catalogRead && catalogReadFor === generation) return catalogRead
+  catalogReadFor = generation
+  const read = refreshAvailableMarkers().finally(() => {
+    if (catalogRead === read) catalogRead = null
+  })
+  catalogRead = read
+  return read
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('profile-changed', () => {
     generation++
     mediaMarkers.value = {}
     availableMarkers.value = []
     if (readMarkerCatalog && (isInitialized.value || isInitializing.value)) {
-      refreshAvailableMarkers().catch(err => console.error('Failed to load markers:', err))
+      readCatalog().catch(err => console.error('Failed to load markers:', err))
     }
   })
 }
@@ -51,25 +65,16 @@ export function useMarkers() {
   const { on: onWebSocketEvent } = useWebSocket()
   readMarkerCatalog ??= getMarkers
 
-  // Initialize markers system (called once, shared across all uses)
+  // Initialize markers system (shared across all uses). Reads the catalog
+  // again when the current profile's hasn't been read (e.g. locked until now).
   async function init() {
-    if (isInitialized.value && !isInitializing.value && catalogGeneration !== generation) {
-      isInitializing.value = true
-      try {
-        await refreshAvailableMarkers()
-      } catch (err) {
-        console.error('Failed to load markers:', err)
-      } finally {
-        isInitializing.value = false
-      }
-      return
-    }
-    if (isInitialized.value || isInitializing.value) return
+    if (isInitialized.value && catalogGeneration === generation) return
     isInitializing.value = true
 
     try {
       // Load available markers
-      await refreshAvailableMarkers()
+      await readCatalog()
+      if (isInitialized.value) return
 
       // Subscribe to WebSocket events for real-time marker changes
       if (wsUnsubscribers.length === 0) {

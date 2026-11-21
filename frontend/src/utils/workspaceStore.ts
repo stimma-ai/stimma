@@ -285,7 +285,9 @@ async function flush(force = false): Promise<void> {
   let reread = false
   try {
     const data = await postBatch(profile, batch)
-    if (owned()) {
+    if (!owned()) {
+      if (profile) answeredAfterLeaving(profile, batch.id)
+    } else {
       unacked.shift()
       // A document created here now exists on the server, so later writes can
       // merge. Other revisions come only from reads and events: the response to
@@ -356,6 +358,18 @@ function hasSavedOutbox(profile: string | null): boolean {
   } catch {
     return false
   }
+}
+
+// A profile whose left-behind write landed after this window began reading it
+// again: that read may predate the write (whose event this window ignores as its own).
+let rereadFor: string | null = null
+
+/** The server answered for a batch sent after the window left its profile. */
+function answeredAfterLeaving(profile: string, batchId: string) {
+  forgetSaved(profile, batchId)
+  if (profile !== getCurrentProfileId()) return
+  if (hydrated && boundProfile === profile) void rehydrate()
+  else rereadFor = profile
 }
 
 /** A batch the server has answered for no longer needs its saved copy. */
@@ -601,6 +615,10 @@ export function installSnapshot(snapshot: Snapshot, profile: string, first: bool
   }
   if (first) restoreOutbox(profile)
   notifyHydrated()
+  if (first && rereadFor === profile) {
+    rereadFor = null
+    void rehydrate()
+  }
 
   for (const [namespace, key] of removed) {
     notify(namespace, key, undefined, { changedKeys: null, deleted: true, rehydrated: true })
@@ -691,7 +709,7 @@ async function sendInOrder(profile: string, batches: Batch[]) {
       // Anything else stays saved for the next visit, with what follows it.
       if (!REFUSED.has(error?.response?.status)) return
     }
-    forgetSaved(profile, batch.id)
+    answeredAfterLeaving(profile, batch.id)
   }
 }
 

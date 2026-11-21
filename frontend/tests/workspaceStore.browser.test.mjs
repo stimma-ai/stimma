@@ -178,7 +178,7 @@ test('a saved copy of what was sent doesn\'t come back after being acknowledged'
   server.fail = false
   await page.evaluate(() => window.workspace.detachProfile())
   await expect.poll(() => server.writes.length).toBe(1)
-  assert.equal(await page.evaluate(P => localStorage.getItem(`${P}workspace_outbox`), P), null)
+  await expect.poll(() => page.evaluate(P => localStorage.getItem(`${P}workspace_outbox`), P)).toBeNull()
 })
 
 test('a tool state change arriving tells listeners what was held before', async t => {
@@ -358,4 +358,38 @@ test('what a switch leaves unsent is saved at once, and resent under its id next
   await expect.poll(() => server.writes.length).toBe(1)
   assert.equal(server.writes[0].batch_id, saved[0].batch)
   await expect.poll(() => page.evaluate(P => localStorage.getItem(`${P}workspace_outbox`), P)).toBeNull()
+})
+
+test('a write left behind that lands while the window is back reading that profile is read again', async t => {
+  const { page, server } = await fixture(t, { serverDocs: [{ namespace: 'kv', key: 'k', value: { a: 1 }, rev: 2 }] })
+  await activate(page)
+  let releaseWrite, written
+  const landed = new Promise(resolve => { written = resolve })
+  await page.route('**/api/workspace/docs', async route => {
+    server.writes.push(route.request().postDataJSON())
+    await new Promise(resolve => { releaseWrite = resolve })
+    server.docs = [{ namespace: 'kv', key: 'k', value: { a: 2 }, rev: 3 }]
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ changes: [] }) })
+    written()
+  })
+  // The read on returning is taken before the write lands, and arrives after its answer.
+  let stale = true
+  await page.route('**/api/workspace', async route => {
+    if (route.request().headers()['x-profile-id'] !== PROFILE || !stale) return route.fallback()
+    stale = false
+    const before = server.docs
+    releaseWrite()
+    await landed
+    await new Promise(resolve => setTimeout(resolve, 100))
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ docs: before, closed_tabs: [], migration: { claimed: false } }) })
+  })
+  await page.evaluate(([P]) => {
+    const { syncedStorage, setCurrentProfileId } = window.workspace
+    syncedStorage.setItem(`${P}k`, JSON.stringify({ a: 2 }), { delayMs: 60000 })
+    setCurrentProfileId('profile-other')
+  }, [P])
+  await expect.poll(() => typeof releaseWrite).toBe('function')
+  await page.evaluate(PROFILE => window.workspace.setCurrentProfileId(PROFILE), PROFILE)
+  await expect.poll(() => page.evaluate(() => window.workspace.getDoc('kv', 'k'))).toEqual({ a: 2 })
+  assert.equal(server.writes.length, 1)
 })
