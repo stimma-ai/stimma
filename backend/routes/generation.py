@@ -3012,7 +3012,7 @@ async def get_generation_job(job_id: int):
     """Get details of a specific generation job."""
     from generation_queue import get_generation_queue
     generation_queue = get_generation_queue()
-    job = await generation_queue.get_job(job_id)
+    job = await generation_queue.get_job(job_id, profile_id=get_current_profile())
 
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -3032,7 +3032,7 @@ async def cancel_generation_job(job_id: int, hard_delete: bool = Query(False)):
     generation_queue = get_generation_queue()
 
     if hard_delete:
-        success = await generation_queue.delete_job(job_id)
+        success = await generation_queue.delete_job(job_id, get_current_profile())
         if not success:
             raise HTTPException(
                 status_code=400,
@@ -3040,7 +3040,7 @@ async def cancel_generation_job(job_id: int, hard_delete: bool = Query(False)):
             )
         return {"success": True, "job_id": job_id, "deleted": True}
     else:
-        success = await generation_queue.cancel_job(job_id)
+        success = await generation_queue.cancel_job(job_id, profile_id=get_current_profile())
         if not success:
             raise HTTPException(
                 status_code=400,
@@ -3089,6 +3089,8 @@ async def retry_generation_job(job_id: int, session: AsyncSession = Depends(get_
 
     await session.commit()
     await session.refresh(job)
+    from generation_queue import get_generation_queue
+    get_generation_queue().wake_workers()
 
     # Broadcast job queued event
     await ws_manager.broadcast('generation_job_queued', {

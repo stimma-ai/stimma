@@ -918,7 +918,10 @@ export function useGenerationJobs(options = {}) {
   function dismissJob(jobId) {
     return actOnJob(`dismiss:${jobId}`, async () => {
       try {
-        await axios.delete(`${getAPIBase()}/generate/jobs/${jobId}?hard_delete=true`)
+        // A batch's rows carry its totals and settlement, so batch jobs are
+        // only hidden here; other failed jobs are deleted.
+        const isBatchJob = jobs.value.some(j => j.id === jobId && j.batch_id)
+        if (!isBatchJob) await axios.delete(`${getAPIBase()}/generate/jobs/${jobId}?hard_delete=true`)
         jobs.value = jobs.value.filter(j => j.id !== jobId)
         dismissedJobs.value = new Set([...dismissedJobs.value, jobId])
         return true

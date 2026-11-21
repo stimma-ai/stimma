@@ -846,3 +846,18 @@ async def test_delete_flow_stops_runtime(client, db_session):
     r = await client.delete(f"/api/flows/{flow_id}")
     assert r.status_code == 200
     assert flow_registry.get_runtime(flow_id) is None
+
+
+@pytest.mark.asyncio
+async def test_clear_flow_resets_pending_task_count(client, db_session):
+    """Clearing deletes every task row, so the badge count goes to zero."""
+    from sqlalchemy import update
+    from database import Flow
+
+    flow_id = (await client.post("/api/flows", json={"name": "p5-clear-count"})).json()["id"]
+    async with db_session() as session:
+        await session.execute(update(Flow).where(Flow.id == flow_id).values(pending_task_count=2))
+        await session.commit()
+    cleared = await client.post(f"/api/flows/{flow_id}/clear")
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["pending_task_count"] == 0

@@ -199,6 +199,16 @@ test('failed cancellation keeps the batch visible, duplicate clicks share a requ
   assert.equal(await page.evaluate(() => window.workflowTest.jobs.dismissedJobs.value.has(4)), false)
 })
 
+test('dismissing a failed batch cell hides it without deleting the row', async t => {
+  const { page, requests } = await open(t)
+  await page.evaluate(() => {
+    window.workflowTest.jobs.jobs.value = [{ id: 5, batch_id: 'b', batch_total: 2, status: 'failed' }, { id: 6, batch_id: 'b', status: 'queued' }]
+  })
+  assert.equal(await page.evaluate(() => window.workflowTest.jobs.dismissJob(5)), true)
+  assert.equal(requests.filter(request => request.path === '/api/generate/jobs/5').length, 0)
+  assert.equal(await page.evaluate(() => window.workflowTest.jobs.dismissedJobs.value.has(5)), true)
+})
+
 test('Undo refuses to send an asset restore to a different profile', async t => {
   const { page, requests } = await open(t, { respond: path => path === '/api/assets/batch/trash' ? { asset_ids: [8] } : undefined })
   await page.evaluate(() => window.workflowTest.trash.trashAssetsWithUndo([8]))

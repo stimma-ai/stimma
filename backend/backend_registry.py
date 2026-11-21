@@ -15,7 +15,7 @@ class BackendState:
     """State tracking for a single backend."""
     name: str
     max_concurrent: int
-    current_jobs: Set[int] = field(default_factory=set)  # Set of job IDs currently processing
+    current_jobs: Set[tuple] = field(default_factory=set)  # (profile_id, job_id) currently processing; ids are profile-local
     is_available: bool = True
     last_error: Optional[str] = None
     last_error_at: Optional[datetime] = None
@@ -131,7 +131,7 @@ class BackendRegistry:
                 return backend_name
             return None
 
-    async def assign_job(self, backend_name: str, job_id: int) -> bool:
+    async def assign_job(self, backend_name: str, job_id: int, profile_id: str) -> bool:
         """
         Assign a job to a backend.
 
@@ -147,10 +147,10 @@ class BackendRegistry:
             if not state or not state.can_accept_job():
                 return False
 
-            state.current_jobs.add(job_id)
+            state.current_jobs.add((profile_id, job_id))
             return True
 
-    async def release_job(self, backend_name: str, job_id: int):
+    async def release_job(self, backend_name: str, job_id: int, profile_id: str):
         """
         Release a job from a backend when it completes or fails.
 
@@ -160,8 +160,8 @@ class BackendRegistry:
         """
         async with self._lock:
             state = self.backends.get(backend_name)
-            if state and job_id in state.current_jobs:
-                state.current_jobs.discard(job_id)
+            if state:
+                state.current_jobs.discard((profile_id, job_id))
 
     async def mark_backend_error(self, backend_name: str, error: str):
         """

@@ -7,6 +7,7 @@ import json
 import time
 import asyncio
 import functools
+import weakref
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Callable
 from sqlalchemy import select, update, func
@@ -407,6 +408,9 @@ class GenerationQueue:
         self._forever_mode_lock = asyncio.Lock()
         # Event to wake workers immediately when a job is submitted
         self._job_submitted_event = asyncio.Event()
+        # (profile_id, batch_id) -> lock serializing batch settlement, so
+        # concurrent finalizers agree on one output set.
+        self._batch_locks: "weakref.WeakValueDictionary[tuple, asyncio.Lock]" = weakref.WeakValueDictionary()
 
         # Prompt warm pool: server-owned, in-memory-only pre-enhancement of
         # generate-forever prompts. Scoped exactly to a generator instance's
@@ -1156,6 +1160,12 @@ class GenerationQueue:
                                 'generator_instance_id': job.generator_instance_id,
             
                             })
+
+                # Cancelled children count toward their batch's terminal total.
+                batch_jobs = {job.batch_id: job for job in queued_jobs if job.batch_id}
+                with ProfileScope(profile_id):
+                    for job in batch_jobs.values():
+                        await self._handle_batch_job_completion(job, None, profile_id)
 
         return total_cancelled
 
@@ -2240,6 +2250,10 @@ class GenerationQueue:
         if job is not None:
             await self._handle_batch_job_completion(job, None, profile_id)
 
+    def wake_workers(self) -> None:
+        """Wake idle workers to scan for runnable jobs now (new work or capacity)."""
+        self._job_submitted_event.set()
+
     async def get_job(self, job_id: int, profile_id: str = None) -> Optional[Dict[str, Any]]:
         """Get job details by ID.
 
@@ -2509,7 +2523,7 @@ class GenerationQueue:
                 if backend_name:
                     from backend_registry import get_backend_registry
                     backend_registry = get_backend_registry()
-                    await backend_registry.release_job(backend_name, job_id)
+                    await backend_registry.release_job(backend_name, job_id, profile_id)
 
                 # Broadcast job cancelled event
                 if self._websocket_manager:
@@ -2531,16 +2545,17 @@ class GenerationQueue:
 
         return False  # Job not found in any profile
 
-    async def delete_job(self, job_id: int) -> bool:
+    async def delete_job(self, job_id: int, profile_id: str) -> bool:
         """
-        Hard delete a job from the database.
+        Hard delete a job from ``profile_id``'s database (job ids are profile-local).
         Only allows deleting failed or cancelled jobs.
 
         Returns:
             True if deleted, False if job not found or not in deletable state
         """
-        # Search all profile databases to find the job
-        for profile_id, db in self._get_all_jobs_dbs():
+        for pid, db in self._get_all_jobs_dbs():
+            if pid != profile_id:
+                continue
             async with db.async_session_maker() as session:
                 result = await session.execute(
                     select(GenerationJob).where(GenerationJob.id == job_id)
@@ -2550,8 +2565,9 @@ class GenerationQueue:
                 if not job:
                     continue  # Try next profile
 
-                # Only allow deleting failed or cancelled jobs
-                if job.status not in ['failed', 'cancelled']:
+                # Only allow deleting failed or cancelled jobs. Batch rows stay:
+                # they hold the batch's total and count toward its settlement.
+                if job.status not in ['failed', 'cancelled'] or job.batch_id:
                     return False
 
                 generator_instance_id = job.generator_instance_id
@@ -2660,7 +2676,7 @@ class GenerationQueue:
         if job.status == 'failed' and job.batch_id:
             await self._handle_batch_job_completion(job, None, profile_id)
         if job.backend_name:
-            await self.scheduler.on_job_completed(job.id, job.backend_name)
+            await self.scheduler.on_job_completed(job.id, job.backend_name, profile_id)
             if job.status == 'failed':
                 await self._fill_available_slots(job.backend_name)
         self._job_submitted_event.set()
@@ -3075,6 +3091,21 @@ class GenerationQueue:
         media_item: Optional["MediaItem"],
         profile_id: str
     ):
+        if not job.batch_id:
+            return
+        key = (profile_id, job.batch_id)
+        lock = self._batch_locks.get(key)
+        if lock is None:
+            lock = self._batch_locks[key] = asyncio.Lock()
+        async with lock:
+            await self._handle_batch_job_completion_locked(job, media_item, profile_id)
+
+    async def _handle_batch_job_completion_locked(
+        self,
+        job: GenerationJob,
+        media_item: Optional["MediaItem"],
+        profile_id: str
+    ):
         """Handle completion of a job that is part of a batch.
 
         - If first job in batch: create output set with this result
@@ -3179,13 +3210,13 @@ class GenerationQueue:
                             await attach_media_to_project(media_session, job.project_id, output_set_id)
                             log.info(f"Batch {batch_id}: Attached output set {output_set_id} to project {job.project_id}")
 
-                        # Store output_set_id on all batch jobs for reliability
-                        await jobs_session.execute(
+                        # Store output_set_id on all batch jobs for reliability,
+                        # in the same session as the set so SQLite sees one writer.
+                        await media_session.execute(
                             update(GenerationJob)
                             .where(GenerationJob.batch_id == batch_id)
                             .values(batch_output_set_id=output_set_id)
                         )
-                        await jobs_session.commit()
 
                         log.info(f"Batch {batch_id}: Output set created with id={output_set_id}")
 
@@ -3428,16 +3459,20 @@ class GenerationQueue:
 
         try:
             # Update status to processing
+            # started_at identifies this execution attempt; finalization only
+            # completes the job while the row is still this attempt.
+            started_at = datetime.utcnow()
             async with self._get_db(profile_id).async_session_maker() as session:
                 changed = await session.execute(
                     update(GenerationJob)
                     .where(GenerationJob.id == job.id,
                            GenerationJob.status.in_(['queued', 'assigned', 'processing']))
-                    .values(status='processing', started_at=datetime.utcnow())
+                    .values(status='processing', started_at=started_at)
                 )
                 await session.commit()
                 if not changed.rowcount:
                     return
+            job.started_at = started_at
 
             job_dict = await self.get_job(job.id, profile_id=profile_id)
 
@@ -3699,7 +3734,7 @@ class GenerationQueue:
             # Free the backend slot and ask forever-mode clients for the next job
             # NOW so the next generation starts immediately.
             if job.backend_name:
-                await self.scheduler.on_job_completed(job.id, job.backend_name)
+                await self.scheduler.on_job_completed(job.id, job.backend_name, profile_id)
                 await self._fill_available_slots(job.backend_name)
             return
 
@@ -3724,7 +3759,7 @@ class GenerationQueue:
                     # Job was cancelled - don't treat as failure, just clean up
                     log.info(f"Job {job.id} was cancelled, skipping failure handling")
                     if job.backend_name:
-                        await self.scheduler.on_job_completed(job.id, job.backend_name)
+                        await self.scheduler.on_job_completed(job.id, job.backend_name, profile_id)
                         await self._fill_available_slots(job.backend_name)
                 else:
                     # Mark job as failed (in the job's profile database)
@@ -3778,7 +3813,7 @@ class GenerationQueue:
 
                     # Notify scheduler that job is complete (even if failed)
                     if job.backend_name:
-                        await self.scheduler.on_job_completed(job.id, job.backend_name)
+                        await self.scheduler.on_job_completed(job.id, job.backend_name, profile_id)
                         # Request more work from forever mode clients if capacity available
                         await self._fill_available_slots(job.backend_name)
 
@@ -3845,9 +3880,9 @@ class GenerationQueue:
             log.exception("post-processing failed", job_id=job.id, error=str(e))
             try:
                 async with self._get_db(profile_id).async_session_maker() as session:
-                    await session.execute(
+                    changed = await session.execute(
                         update(GenerationJob)
-                        .where(GenerationJob.id == job.id)
+                        .where(*_same_attempt(job))
                         .values(
                             status='failed',
                             completed_at=completed_at,
@@ -3855,12 +3890,17 @@ class GenerationQueue:
                         )
                     )
                     await session.commit()
+                # A job that already completed or was cancelled keeps its status.
+                if not changed.rowcount:
+                    return
                 if self._websocket_manager:
                     job_dict = await self.get_job(job.id, profile_id=profile_id)
                     await self._websocket_manager.broadcast('generation_job_failed', {
                         'job': job_dict,
                         'generator_instance_id': job.generator_instance_id,
                     })
+                if job.batch_id:
+                    await self._handle_batch_job_completion(job, None, profile_id)
             except Exception:
                 log.exception("failed to mark job failed after post-proc error", job_id=job.id)
         finally:
@@ -4079,8 +4119,27 @@ class GenerationQueue:
                                                              expires_at=auto_delete_at, output_index=output_index)
                 output_media_ids.append(other.id)
                 additional_media.append((other, asset_id))
-            persistent_job.result_media_id = media_item.id
-            persistent_job.result_media_ids = json.dumps(output_media_ids)
+            if not media_item.file_hash:
+                raise RuntimeError(f"media item {media_item.id} has no file hash")
+
+            # Outputs and completion commit together, and only while the row is
+            # still this execution attempt (a cancel may have won meanwhile).
+            claimed = await session.execute(
+                update(GenerationJob)
+                .where(*_same_attempt(job))
+                .values(
+                    status='completed',
+                    completed_at=completed_at,
+                    auto_delete_at=None,  # Legacy inert; Asset.expires_at is canonical
+                    result_media_id=media_item.id,
+                    result_media_ids=json.dumps(output_media_ids),
+                )
+                .execution_options(synchronize_session=False)
+            )
+            if not claimed.rowcount:
+                await session.rollback()
+                log.info(f"Job {job.id}: no longer processing; discarding its outputs")
+                return
 
             # ONE commit for all database operations
             await session.commit()
@@ -4120,22 +4179,6 @@ class GenerationQueue:
         # This allows the LLM to see generated media IDs in future conversation turns
         await self._update_grid_with_media_id(job.id, media_item.id, profile_id=profile_id)
         log.debug(f"Job {job.id}: TIMING - _update_grid_with_media_id: {(_time.time() - _t0)*1000:.0f}ms")
-
-        # Update job as completed (in the job's profile database)
-        _t0 = _time.time()
-        async with self._get_db(profile_id).async_session_maker() as session:
-            await session.execute(
-                update(GenerationJob)
-                .where(GenerationJob.id == job.id)
-                .values(
-                    status='completed',
-                    completed_at=completed_at,
-                    auto_delete_at=None,  # Legacy inert; Asset.expires_at is canonical
-                    result_media_id=media_item.id if media_item else None
-                )
-            )
-            await session.commit()
-        log.debug(f"Job {job.id}: TIMING - update job completed: {(_time.time() - _t0)*1000:.0f}ms")
 
         if not media_item:
             log.error(f"Job {job.id}: No media item created")
@@ -4214,11 +4257,14 @@ class GenerationQueue:
 
             # Handle batch processing if this job is part of a batch
             if job.batch_id and media_item:
-                await self._handle_batch_job_completion(
-                    job=job,
-                    media_item=media_item,
-                    profile_id=profile_id
-                )
+                try:
+                    await self._handle_batch_job_completion(
+                        job=job,
+                        media_item=media_item,
+                        profile_id=profile_id
+                    )
+                except Exception as e:
+                    log.error(f"Job {job.id}: batch handling failed: {e}", exc_info=True)
 
             # Kick off the post-processing chain when the job carries one.
             # Chain-step jobs run under CHAIN_INSTANCE_ID so a chain never
@@ -4250,6 +4296,14 @@ class GenerationQueue:
             log.error(f"Job {job.id}: Media not ready, did not broadcast to clients")
         log.debug(f"Job {job.id}: TIMING - broadcast: {(_time.time() - _t0)*1000:.0f}ms")
         log.debug(f"Job {job.id}: TIMING - TOTAL post-generation: {(_time.time() - _post_gen_start)*1000:.0f}ms")
+
+
+def _same_attempt(job) -> tuple:
+    """WHERE clauses matching ``job`` only while it is still the processing
+    attempt that started at ``job.started_at``."""
+    started = (GenerationJob.started_at.is_(None) if job.started_at is None
+               else GenerationJob.started_at == job.started_at)
+    return (GenerationJob.id == job.id, GenerationJob.status == 'processing', started)
 
 
 # Global queue instance

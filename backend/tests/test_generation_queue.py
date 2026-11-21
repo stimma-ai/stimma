@@ -1665,3 +1665,171 @@ async def test_multi_output_finalization_preserves_independent_companions_and_re
         rows = list(await session.scalars(select(MediaSidecar).where(MediaSidecar.media_id.in_(ids))))
         assert {(r.format, json.loads(r.descriptor_json)["index"]) for r in rows} == {("opaque.0", 0), ("opaque.1", 1)}
         assert len(rows) == 2
+
+
+# =============================================================================
+# Profile scoping, wake-ups, and batch settlement
+# =============================================================================
+
+
+async def _batch_job(session, batch_id, *, status="queued", total=None, **fields):
+    job = await create_generation_job(session, status=status, **fields)
+    job.batch_id = batch_id
+    job.batch_total = total
+    job.parameters = json.dumps({**json.loads(job.parameters or "{}"), "_batch_index": job.id})
+    await session.commit()
+    await session.refresh(job)
+    return job
+
+
+async def _media(session, folder, name):
+    from tests.helpers.media import generate_test_image
+    path = Path(folder) / name
+    file_hash = generate_test_image(path, width=16, height=16)
+    media = await create_media_item(session, file_path=path, file_hash=file_hash, file_format="png")
+    await session.commit()
+    return media
+
+
+def _batch_completed(mock_ws, batch_id):
+    return [d for _, d in mock_ws.get_broadcasts("batch_completed") if d["batch_id"] == batch_id]
+
+
+@pytest.mark.asyncio
+async def test_job_routes_pass_the_request_profile(generation_queue, generation_client, monkeypatch):
+    calls = {}
+
+    async def record(name, result):
+        async def fn(*args, **kwargs):
+            calls[name] = (args, kwargs)
+            return result
+        return fn
+
+    monkeypatch.setattr(generation_queue, "get_job", await record("get", {"id": 1}))
+    monkeypatch.setattr(generation_queue, "cancel_job", await record("cancel", True))
+    monkeypatch.setattr(generation_queue, "delete_job", await record("delete", True))
+    assert (await generation_client.get("/api/generate/jobs/1")).status_code == 200
+    assert (await generation_client.delete("/api/generate/jobs/1")).status_code == 200
+    assert (await generation_client.delete("/api/generate/jobs/1?hard_delete=true")).status_code == 200
+    assert calls["get"][1]["profile_id"] == "default"
+    assert calls["cancel"][1]["profile_id"] == "default"
+    assert calls["delete"][0][1:] == ("default",)
+
+
+@pytest.mark.asyncio
+async def test_delete_job_is_profile_scoped_and_keeps_batch_rows(generation_queue, generation_db_session):
+    async with generation_db_session() as session:
+        plain = await create_generation_job(session, status="failed")
+        batched = await _batch_job(session, "keep-rows", status="failed", total=2)
+    assert await generation_queue.delete_job(plain.id, "no-such-profile") is False
+    assert await generation_queue.delete_job(batched.id, "default") is False
+    assert await generation_queue.delete_job(plain.id, "default") is True
+
+
+@pytest.mark.asyncio
+async def test_retry_wakes_workers(generation_queue, generation_client, generation_db_session):
+    async with generation_db_session() as session:
+        job = await create_generation_job(session, status="failed")
+    generation_queue._job_submitted_event.clear()
+    resp = await generation_client.post(f"/api/generate/jobs/{job.id}/retry")
+    assert resp.status_code == 200, resp.text
+    assert generation_queue._job_submitted_event.is_set()
+    await generation_queue.cancel_job(job.id, profile_id="default")
+
+
+@pytest.mark.asyncio
+async def test_backend_slots_are_profile_scoped():
+    from backend_registry import BackendRegistry
+    registry = BackendRegistry()
+    await registry.register_backend("slots", max_concurrent=2)
+    assert await registry.assign_job("slots", 1, "p1")
+    assert await registry.assign_job("slots", 1, "p2")
+    assert (await registry.get_backend_state("slots")).available_slots == 0
+    await registry.release_job("slots", 1, "p1")
+    assert (await registry.get_backend_state("slots")).available_slots == 1
+
+
+@pytest.mark.asyncio
+async def test_disconnect_cancel_settles_the_batch(generation_queue, generation_db_session, mock_ws):
+    async with generation_db_session() as session:
+        await _batch_job(session, "disc-batch", total=2, generator_instance_id="disc-client")
+        await _batch_job(session, "disc-batch", generator_instance_id="disc-client")
+    mock_ws.clear()
+    assert await generation_queue.cancel_queued_jobs_for_instance("disc-client") == 2
+    done = _batch_completed(mock_ws, "disc-batch")
+    assert len(done) == 1 and done[0]["status"] == "failed"
+
+
+@pytest.mark.asyncio
+async def test_finalizer_failure_settles_batch_and_keeps_completed(generation_queue, generation_db_session, mock_ws, monkeypatch):
+    async with generation_db_session() as session:
+        job = await _batch_job(session, "fin-fail", status="processing", total=1)
+        done_job = await create_generation_job(session, status="completed")
+    monkeypatch.setattr(generation_queue, "_finalize_job", AsyncMock(side_effect=RuntimeError("boom")))
+    mock_ws.clear()
+    await generation_queue._finalize_job_safe(job, "default", None, None, {}, "text-to-image", {}, None, None, datetime.utcnow())
+    await generation_queue._finalize_job_safe(done_job, "default", None, None, {}, "text-to-image", {}, None, None, datetime.utcnow())
+    async with generation_db_session() as session:
+        assert (await session.get(GenerationJob, job.id)).status == "failed"
+        assert (await session.get(GenerationJob, done_job.id)).status == "completed"
+    done = _batch_completed(mock_ws, "fin-fail")
+    assert len(done) == 1 and done[0]["status"] == "failed"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_batch_results_share_one_output_set(generation_queue, generation_db_session, output_folder, mock_ws):
+    async with generation_db_session() as session:
+        first = await _batch_job(session, "race-batch", status="completed", total=2, folder_path=output_folder)
+        second = await _batch_job(session, "race-batch", status="completed", folder_path=output_folder)
+        m1 = await _media(session, output_folder, "race1.png")
+        m2 = await _media(session, output_folder, "race2.png")
+    await asyncio.gather(
+        generation_queue._handle_batch_job_completion(first, m1, "default"),
+        generation_queue._handle_batch_job_completion(second, m2, "default"),
+    )
+    from sqlalchemy import select
+    async with generation_db_session() as session:
+        set_ids = set(await session.scalars(
+            select(GenerationJob.batch_output_set_id).where(GenerationJob.batch_id == "race-batch")))
+    assert len(set_ids) == 1 and None not in set_ids
+    done = [d for _, d in mock_ws.get_broadcasts("batch_job_completed") if d["batch_id"] == "race-batch"]
+    assert {d["output_set_id"] for d in done} == set_ids
+
+
+@pytest.mark.asyncio
+async def test_project_batch_first_result_attaches_output_set(generation_queue, generation_db_session, output_folder):
+    from database import Project
+    async with generation_db_session() as session:
+        project = Project(name="Batch project")
+        session.add(project)
+        await session.commit()
+        job = await _batch_job(session, "proj-batch", status="completed", total=2, folder_path=output_folder)
+        job.project_id = project.id
+        await session.commit()
+        media = await _media(session, output_folder, "proj1.png")
+    await asyncio.wait_for(generation_queue._handle_batch_job_completion(job, media, "default"), 10)
+    async with generation_db_session() as session:
+        assert (await session.get(GenerationJob, job.id)).batch_output_set_id is not None
+
+
+@pytest.mark.asyncio
+async def test_cancel_during_finalization_wins(generation_queue, generation_db_session, tmp_path, monkeypatch):
+    from io import BytesIO
+    from PIL import Image
+    from types import SimpleNamespace
+    from providers.base import ExecutionResult
+    raw = BytesIO()
+    Image.new("RGB", (16, 16), "green").save(raw, format="PNG")
+    path = tmp_path / "cancelled.png"
+    path.write_bytes(raw.getvalue())
+    result = ExecutionResult(success=True, output_data=raw.getvalue(), metadata={})
+    async with generation_db_session() as session:
+        job = await create_generation_job(session, status="processing", output_disposition="asset")
+    monkeypatch.setattr(generation_queue, "_update_grid_with_media_id", AsyncMock())
+    assert await generation_queue.cancel_job(job.id, profile_id="default")
+    await generation_queue._finalize_job(job, "default", result, str(path), {}, "text-to-image", {}, result,
+                                         SimpleNamespace(provider_id="test"), datetime.utcnow())
+    async with generation_db_session() as session:
+        saved = await session.get(GenerationJob, job.id)
+        assert saved.status == "cancelled"
+        assert saved.result_media_id is None

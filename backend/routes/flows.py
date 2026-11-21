@@ -713,6 +713,7 @@ async def clear_flow_runtime_state(
     flow.program_hash = _program_hash(get_empty_flow_program())
     flow.input_schema = None
     flow.execution_state = "idle"
+    flow.pending_task_count = 0  # clear_flow_state deleted every task row
     flow.updated_at = datetime.utcnow()
     await session.commit()
     await session.refresh(flow)
