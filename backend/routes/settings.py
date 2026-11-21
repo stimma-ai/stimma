@@ -2782,6 +2782,30 @@ async def list_stimpacks_endpoint():
     return [_stimpack_info_to_response(s) for s in stimpacks]
 
 
+class SkillOverrideResponse(BaseModel):
+    name: str  # qualified name of the user's version
+    display_name: str
+    overrides: str  # qualified name of the built-in skill it replaces
+    original_display_name: str
+    original_pack_display_name: str
+
+
+@router.get("/skill-overrides", response_model=list[SkillOverrideResponse])
+async def list_skill_overrides_endpoint():
+    """The user's own versions of built-in skills (they replace the built-in one)."""
+    profile_id = get_current_profile()
+    return _stimpacks_api().list_overrides(profile_id=profile_id)
+
+
+@router.post("/skill-overrides/{name:path}/reset", status_code=204)
+async def reset_skill_override_endpoint(name: str):
+    """Set aside the user's version so the built-in skill is used again."""
+    profile_id = get_current_profile()
+    archived = _stimpacks_api().reset_override(name, profile_id=profile_id)
+    if archived is None:
+        raise HTTPException(status_code=404, detail=f"No override named '{name}'")
+
+
 @router.get("/stimpacks-dir")
 async def get_stimpacks_dir():
     """Path of the profile's stimpacks folder — packs dropped/edited here load live."""

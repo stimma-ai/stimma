@@ -52,6 +52,30 @@
 
       <!-- Installed stimpacks grid -->
       <template v-else>
+        <!-- The user's own versions of built-in skills -->
+        <div v-if="overrides.length > 0" class="mb-4 rounded-lg bg-overlay-faint px-4 py-3">
+          <h4 class="text-[13px] font-semibold text-content">Your versions of built-in skills</h4>
+          <p class="mt-0.5 text-xs text-content-tertiary">These are used instead of the built-in skill and don't get its updates.</p>
+          <div class="mt-2 divide-y divide-edge-subtle">
+            <div
+              v-for="override in overrides"
+              :key="override.name"
+              class="flex items-center justify-between gap-4 py-2"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-[13px] text-content">{{ override.display_name }}</p>
+                <p class="truncate text-xs text-content-tertiary">Replaces {{ override.original_display_name }} from {{ override.original_pack_display_name }}</p>
+              </div>
+              <button
+                @click="handleResetOverride(override)"
+                class="shrink-0 rounded-md px-2 py-1 text-xs text-accent transition-colors hover:bg-accent/10"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div v-if="stimpacks.length > 0" class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2.5">
           <div
             v-for="stimpack in stimpacks"
@@ -283,6 +307,16 @@
       @cancel="showRemoveConfirm = false"
     />
 
+    <!-- Reset Confirmation -->
+    <ConfirmDialog
+      :show="!!pendingReset"
+      title="Reset to the built-in skill?"
+      :message="`Use the built-in &quot;${pendingReset?.original_display_name}&quot; again. Your version is set aside, not deleted.`"
+      confirm-label="Reset"
+      @confirm="executeResetOverride"
+      @cancel="pendingReset = null"
+    />
+
     <!-- Publish Confirmation -->
     <ConfirmModal
       :show="showPublishConfirm"
@@ -379,12 +413,13 @@
 <script setup lang="ts">
 import { flowsEnabled } from '../../../composables/useExperimentalFlows'
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { useStimpacksApi, type Stimpack, type MarketplaceStimpack, type StimpackValidation, type StimpackValidationSkill } from '../../../composables/useStimpacksApi'
+import { useStimpacksApi, type Stimpack, type SkillOverride, type MarketplaceStimpack, type StimpackValidation, type StimpackValidationSkill } from '../../../composables/useStimpacksApi'
 import { getApiBase, isDesktop } from '../../../apiConfig'
 import { getCurrentProfileId } from '../../../composables/useProfile'
 import { addToast, reportActionError } from '../../../composables/useToasts'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import ConfirmModal from '../../ConfirmModal.vue'
+import ConfirmDialog from '../../ui/ConfirmDialog.vue'
 import Modal from '../../ui/Modal.vue'
 import KeyValueList, { type KeyValueRow } from '../../ui/KeyValueList.vue'
 
@@ -409,6 +444,8 @@ const {
   getStimpacksDir,
   validateStimpack,
   publishToMarketplace,
+  listSkillOverrides,
+  resetSkillOverride,
 } = useStimpacksApi()
 
 const { privacyLockdownActive } = usePrivacyLockdown()
@@ -541,6 +578,36 @@ async function loadStimpacks() {
     console.error('Failed to load stimpacks:', err)
   } finally {
     loading.value = false
+  }
+  void loadOverrides()
+}
+
+const overrides = ref<SkillOverride[]>([])
+const pendingReset = ref<SkillOverride | null>(null)
+
+async function loadOverrides() {
+  try {
+    overrides.value = await listSkillOverrides()
+  } catch (err) {
+    console.error('Failed to load skill overrides:', err)
+    overrides.value = []
+  }
+}
+
+function handleResetOverride(override: SkillOverride) {
+  pendingReset.value = override
+}
+
+async function executeResetOverride() {
+  const override = pendingReset.value
+  pendingReset.value = null
+  if (!override) return
+  try {
+    await resetSkillOverride(override.name)
+    await loadStimpacks()
+    notifyStimpacksChanged()
+  } catch (err) {
+    reportActionError("Couldn't reset the skill.", err)
   }
 }
 

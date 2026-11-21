@@ -384,7 +384,7 @@ const { currentProfileId, profiles, loadProfiles, setCurrentProfileId } = usePro
 const { isAuthenticated, initAuth } = useAuth()
 const { checkStartupReadiness, refreshReadiness } = useReadiness()
 const { fetchSettings, updateDeveloperMode } = useSettingsApi()
-const { runAutoInstall, checkUpdates: checkStimpackUpdates, updateFromMarketplace } = useStimpacksApi()
+const { runAutoInstall, checkUpdates: checkStimpackUpdates, updateFromMarketplace, syncMarketplace } = useStimpacksApi()
 import { setWildcards, setSegments } from './composables/useWildcards'
 const { restoreRoute, setupPersistence } = useRouteRestore()
 const { slideshowActive } = useTabNavigation()
@@ -1307,6 +1307,21 @@ async function syncMarketplaceStimpacks(profileId = currentProfileId.value) {
 
   const run = (async () => {
     let stimpacksChanged = false
+
+    // The server runs the same pass on its own schedule; this just asks for
+    // it now. Older servers without /sync fall back to the step-by-step path.
+    try {
+      const result = await syncMarketplace()
+      if (result.changed) window.dispatchEvent(new CustomEvent('stimpacks-changed'))
+      syncedMarketplaceStimpackProfiles.add(profileId)
+      return
+    } catch (error) {
+      if (error?.response?.status !== 404) {
+        console.warn('[App] Failed to sync stimpacks:', error)
+        syncedMarketplaceStimpackProfiles.add(profileId)
+        return
+      }
+    }
 
     try {
       const result = await runAutoInstall()

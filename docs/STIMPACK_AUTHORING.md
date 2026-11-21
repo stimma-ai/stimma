@@ -387,6 +387,11 @@ have, module collisions, unknown `environments` keys, empty bodies, a root
    folder to `skills/<slug>/` and keep the same `name:` — a local skill
    shadows a marketplace skill of the same slug everywhere (reminders, menus,
    tool surfaces, and invoke by either name), and is labeled as yours.
+   A fork stops getting the original's updates, so the agent asks before
+   making one and offers a new skill or a memory note instead; Settings →
+   Stimpacks lists every fork with a Reset action that sets it aside.
+   A pack whose `.marketplace.json` can't be read is still treated as an
+   install: read-only, and never shadowing another skill.
 
 ## Checklist for new stimpacks
 

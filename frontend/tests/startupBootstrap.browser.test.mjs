@@ -19,9 +19,9 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const LATENCY_MS = 60
 // Maintenance answers more slowly than the queue's gap between tasks, so a
 // task that resolved before its network work finished would overlap the next.
-const SLOW = { '/api/collections/7': 800, '/api/collections/8': Infinity, '/api/headless/status': 1500, '/api/stimpack-marketplace/auto-install': 400, '/api/stimpack-marketplace/check-updates': 400 }
+const SLOW = { '/api/collections/7': 800, '/api/collections/8': Infinity, '/api/headless/status': 1500, '/api/stimpack-marketplace/sync': 400 }
 const DESKTOP_CHECK_MS = 800
-const MAINTENANCE = ['/api/stimpack-marketplace/auto-install', '/api/stimpack-marketplace/check-updates', '/api/headless/status']
+const MAINTENANCE = ['/api/stimpack-marketplace/sync', '/api/headless/status']
 const BUNDLE = 'ai.stimma.stimma.debug'
 
 function profile(id, extra = {}) {
@@ -37,7 +37,7 @@ const fixed = {
   '/api/processing/status': {},
   '/api/auth/status': { authenticated: false },
   '/api/feature-flags': {},
-  '/api/stimpack-marketplace/auto-install': { installed: [] },
+  '/api/stimpack-marketplace/sync': { installed: [], updated: [], changed: false },
   '/api/telemetry/track': {},
 }
 
@@ -220,7 +220,7 @@ function report(title, entries, shellAt) {
 }
 
 // Let deferred maintenance run to completion before counting.
-async function settle(page, backend, path = MAINTENANCE[1]) {
+async function settle(page, backend, path = MAINTENANCE[0]) {
   await page.waitForFunction(() => true)
   const deadline = Date.now() + 15_000
   while (!backend.log.some(r => r.path === path) && Date.now() < deadline) await page.waitForTimeout(100)
@@ -312,7 +312,7 @@ test('a PIN-locked start sees only profile metadata, then unlock fetches its set
   assert.equal(count(backend, '/api/settings') - locked, 1, 'unlock after a lock refetches settings')
   // Unlocking still runs deferred maintenance for the profile.
   await settle(page, backend)
-  assert.ok(count(backend, '/api/stimpack-marketplace/check-updates') >= 1)
+  assert.ok(count(backend, '/api/stimpack-marketplace/sync', { method: 'POST' }) >= 1)
 })
 
 test('a deep link whose route guard is still fetching is not replaced by the saved route', async t => {

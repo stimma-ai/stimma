@@ -586,7 +586,7 @@ class TestForkPrecedence:
 
     def test_marketplace_pack_is_readonly_to_write_and_edit_tools(self, stimpacks_dir, marketplace_pack):
         err = readonly_workspace_error("skills/essentials/skills/variations/SKILL.md")
-        assert err and "marketplace-installed" in err and "skills/<slug>/" in err
+        assert err and "built-in stimpack" in err and "skills/<slug>/" in err and "Ask the user first" in err
         assert readonly_workspace_error("skills/variations/SKILL.md") is None
         assert readonly_workspace_error("out.png") is None
 
@@ -596,7 +596,7 @@ class TestForkPrecedence:
         from agent.v2.tools.edit_file import edit_file
         ws = str(workspace)
         res = await write_file(file_path="skills/essentials/skills/variations/SKILL.md", content="x", workspace_dir=ws, session=session, chat_id=test_chat.id)
-        assert res.startswith("Error") and "fork" in res.lower()
+        assert res.startswith("Error") and "own copy" in res
         res = await edit_file(file_path="skills/essentials/skills/variations/SKILL.md", old_string="Upstream", new_string="x", workspace_dir=ws, session=session, chat_id=test_chat.id)
         assert res.startswith("Error")
         assert (marketplace_pack / "skills" / "variations" / "SKILL.md").read_text(encoding="utf-8").endswith("Upstream body")
@@ -615,7 +615,7 @@ class TestForkPrecedence:
         _write_fork(stimpacks_dir, "variations", "name: variations\ndisplay_name: My Variations\ndescription: Mine\nauthor: agent", "Fork body")
         result = await skill_tool(action="list", session=session, chat_id=test_chat.id)
         assert "| variations | Mine | chat | My Variations | skills/variations/SKILL.md | yours, overrides essentials/variations |" in result
-        assert "| essentials/grids |" in result and "marketplace, read-only — fork to skills/grids/" in result
+        assert "| essentials/grids |" in result and "built-in, read-only — ask the user before copying to skills/grids/" in result
         assert "| essentials/variations |" not in result
         assert "Hidden by your forks: essentials/variations → variations" in result
         assert "not offered in tool (the original was)" in result
@@ -671,7 +671,7 @@ class TestSkillsPathAliases:
         except OSError:
             pytest.skip("Symlink creation unavailable")
         result = await write_file(file_path="upstream/skills/variations/SKILL.md", content="changed", workspace_dir=str(workspace))
-        assert "marketplace-installed" in result
+        assert "built-in stimpack" in result
         assert (marketplace_pack / "skills/variations/SKILL.md").read_text().endswith("Upstream body")
 
     @pytest.mark.asyncio
@@ -739,3 +739,111 @@ async def test_manual_skill_activation_includes_companion_directory(dev_pack, se
         ChatItem.chat_id == test_chat.id, ChatItem.item_type == "stimpack_injection"))
     assert "`.stimma/skills/dev-pack/`" in item.message_text
     assert item.message_text.endswith("Dev body")
+
+
+# =============================================================================
+# Unreadable / legacy sidecars, overrides and reset
+# =============================================================================
+
+def _write_legacy_pack(stimpacks_dir: Path, slug: str, body: str = "Stale body", author: str = "stimma-team") -> Path:
+    """A pre-stimpack per-skill marketplace install: root SKILL.md, skillId sidecar."""
+    d = stimpacks_dir / slug
+    d.mkdir()
+    (d / "SKILL.md").write_text(f"---\nname: {slug}\ndescription: Old {slug}\n---\n\n{body}", encoding="utf-8")
+    (d / ".marketplace.json").write_text(json.dumps({
+        "skillId": "sk_1", "name": slug, "version": 3, "versionId": "v_9", "author": author,
+    }), encoding="utf-8")
+    return d
+
+
+@pytest.fixture
+def fresh_migration(monkeypatch):
+    monkeypatch.setattr(sp, "_legacy_migration_checked", set())
+    monkeypatch.setattr(sp, "_unreadable_sidecars_logged", set())
+
+
+class TestLegacyAndUnreadableSidecars:
+    def test_legacy_install_covered_by_current_pack_is_archived_once(self, stimpacks_dir, marketplace_pack, fresh_migration):
+        legacy = _write_legacy_pack(stimpacks_dir, "variations")
+        names = [s.qualified_name for s in list_skills()]
+        assert "essentials/variations" in names and "variations" not in names
+        assert not legacy.exists()
+        archived = list((stimpacks_dir.parent / "archived-stimpacks").glob("legacy-*/variations"))
+        assert len(archived) == 1
+        assert (archived[0] / "SKILL.md").read_text(encoding="utf-8").endswith("Stale body")
+        # Idempotent: nothing left to move on a rerun.
+        assert sp.migrate_legacy_marketplace_installs("test-profile") == []
+
+    def test_legacy_install_without_a_current_pack_stays_but_never_shadows(self, stimpacks_dir, fresh_migration):
+        legacy = _write_legacy_pack(stimpacks_dir, "tool-selection")
+        assert sp.migrate_legacy_marketplace_installs("test-profile") == []
+        assert legacy.exists()
+        skill = next(s for s in list_skills() if s.slug == "tool-selection")
+        assert not skill.is_local and skill.pack_sidecar_unreadable
+        # Still an install to the agent's file tools.
+        assert readonly_workspace_error("skills/tool-selection/SKILL.md")
+
+    def test_unreadable_sidecar_never_shadows_and_is_logged(self, stimpacks_dir, marketplace_pack, fresh_migration, caplog):
+        # Not the legacy shape (someone else's author): not archived, but still not a fork.
+        stale = _write_legacy_pack(stimpacks_dir, "variations", author="someone")
+        with caplog.at_level("WARNING"):
+            visible = list_skills()
+        assert stale.exists()
+        assert [s.qualified_name for s in visible if s.slug == "variations"] == ["essentials/variations"]
+        assert shadowed_skills() == []
+        assert find_skill("variations")[1].pack_name == "essentials"
+        assert any("'variations'" in r.message and "unreadable marketplace record" in r.message for r in caplog.records)
+
+    def test_new_marketplace_install_reruns_migration(self, stimpacks_dir, fresh_migration):
+        legacy = _write_legacy_pack(stimpacks_dir, "variations")
+        list_skills()
+        assert legacy.exists()  # nothing covers it yet
+        sp._legacy_migration_checked.discard("test-profile")  # what a marketplace install does
+        pack = stimpacks_dir / "essentials"
+        _write_manifest(pack, "essentials")
+        _write_skill(pack, "variations", "name: variations\ndescription: Upstream", "Upstream body")
+        _write_sidecar(pack, "essentials")
+        assert [s.qualified_name for s in list_skills() if s.slug == "variations"] == ["essentials/variations"]
+        assert not legacy.exists()
+
+
+class TestOverridesAndReset:
+    def test_overrides_list_and_reset_single_skill_fork(self, stimpacks_dir, marketplace_pack, caplog):
+        fork = _write_fork(stimpacks_dir, "variations", "name: variations\ndisplay_name: My Variations\ndescription: Mine", "Fork body")
+        overrides = sp.list_overrides()
+        assert overrides == [{
+            "name": "variations", "display_name": "My Variations", "overrides": "essentials/variations",
+            "original_display_name": "Variations", "original_pack_display_name": "Essentials",
+        }]
+        with caplog.at_level("WARNING"):
+            sp.log_active_overrides()
+        assert any("variations (overrides essentials/variations)" in r.message for r in caplog.records)
+        assert sp.reset_override("variations") is not None
+        assert not fork.exists()
+        assert list((stimpacks_dir.parent / "archived-stimpacks").glob("reset-*/variations"))
+        assert find_skill("variations")[1].pack_name == "essentials"
+        assert sp.list_overrides() == []
+        assert sp.reset_override("variations") is None
+
+    def test_reset_in_multi_skill_pack_archives_only_that_skill(self, stimpacks_dir, marketplace_pack):
+        mine = stimpacks_dir / "mine"
+        _write_manifest(mine, "mine")
+        _write_skill(mine, "variations", "name: variations\ndescription: Mine", "Fork body")
+        _write_skill(mine, "other", "name: other\ndescription: Other", "Other body")
+        # Either the fork's or the original's name selects the override.
+        assert sp.reset_override("essentials/variations") is not None
+        assert not (mine / "skills" / "variations").exists()
+        assert (mine / "skills" / "other" / "SKILL.md").exists()
+        assert find_skill("variations")[1].pack_name == "essentials"
+
+
+class TestBuiltInEditGuidance:
+    """The agent's standing instructions on drafts and on changing built-in skills."""
+
+    def test_system_prompt_asks_before_copying_and_drafts_stay_in_chat(self):
+        from agent.v2.prompts import get_system_prompt
+        text = " ".join(get_system_prompt().replace("\\\n", " ").split())
+        assert "give the text in your reply and don't write or edit files" in text
+        assert "stops getting updates to the built-in skill" in text and "ask first" in text
+        assert "a new skill of their own alongside it, or a note in memory" in text
+        assert "If they still want their own version, make it" in text

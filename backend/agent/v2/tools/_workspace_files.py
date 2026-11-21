@@ -78,9 +78,11 @@ def readonly_workspace_error(file_path: str, workspace_dir: str | None = None) -
             marketplace_dirs = set()
         if parts[1] in marketplace_dirs:
             return (
-                f"Error: {SKILLS_MOUNT}/{parts[1]}/ is a marketplace-installed stimpack and is read-only — "
-                "a marketplace update would overwrite edits. Fork the skill instead: copy its folder to "
-                f"{SKILLS_MOUNT}/<slug>/ (keep the same `name:` so your copy takes precedence over the original) "
+                f"Error: {SKILLS_MOUNT}/{parts[1]}/ is a built-in stimpack and is read-only; updates would "
+                "overwrite edits. Changing it means making the user their own copy, which stops getting "
+                "updates and may drift out of date. Ask the user first, and offer a new skill of their own "
+                "or a memory note instead. If they want their own version, copy the skill's folder to "
+                f"{SKILLS_MOUNT}/<slug>/ (keep the same `name:` so the copy takes precedence over the original) "
                 "and edit the copy."
             )
     return None

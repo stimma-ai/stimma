@@ -1316,6 +1316,10 @@ async def lifespan(app: FastAPI):
         from drag_snapshots import cleanup_loop as cleanup_drag_snapshots
         background_tasks.append(asyncio.create_task(cleanup_drag_snapshots()))
 
+        # Marketplace stimpacks stay current without a client (headless installs).
+        from stimpack_sync import sync_loop as stimpack_sync_loop
+        background_tasks.append(asyncio.create_task(stimpack_sync_loop()))
+
         # Multi-device: resume serving if the user left it on, and make this
         # install discoverable to its account. Deliberately fire-and-forget —
         # discovery must never delay or fail app startup.

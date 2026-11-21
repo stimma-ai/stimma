@@ -78,6 +78,11 @@ def verify_pin(profile_id: str, pin: str, pin_hash: str) -> bool:
         return False
 
 
+def has_verified_pin(profile_id: str, pin_hash: str) -> bool:
+    """True when this process has accepted the profile's current PIN (it is unlocked)."""
+    return any(k[0] == profile_id and k[1] == pin_hash for k in _pin_verification_cache)
+
+
 def clear_pin_cache(profile_id: str = None):
     """Clear the PIN verification cache.
 

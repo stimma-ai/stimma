@@ -87,8 +87,8 @@ def _skill_path(pack: StimpackInfo, skill: SkillInfo, skills_root: Path | None) 
 def _notes(pack: StimpackInfo, skill: SkillInfo) -> str:
     if pack.is_dev:
         return "dev repo, read-only"
-    if pack.marketplace is not None:
-        return f"marketplace, read-only — fork to {SKILLS_MOUNT}/{skill.slug}/"
+    if pack.marketplace is not None or pack.sidecar_unreadable:
+        return f"built-in, read-only — ask the user before copying to {SKILLS_MOUNT}/{skill.slug}/"
     if skill.overrides:
         return f"yours, overrides {skill.overrides}"
     return "yours"
@@ -219,9 +219,11 @@ async def skill_tool(
         lines.append("")
         lines.append(
             f"This conversation is the '{environment}' environment; invoke only applies to skills offered there. "
-            f"Skills are files: read or edit them at the paths above, add new ones under {SKILLS_MOUNT}/. "
-            f"Marketplace packs are read-only — fork a skill by copying its folder to {SKILLS_MOUNT}/<slug>/ "
-            "with the same name; your copy then takes precedence."
+            f"Skills are files: read or edit the user's own at the paths above, add new ones under {SKILLS_MOUNT}/. "
+            "Built-in skills are read-only. Changing one means making the user their own copy, which stops "
+            "getting updates and may drift out of date, so ask first and offer a new skill or a memory note "
+            f"instead. If they want it, copy the skill's folder to {SKILLS_MOUNT}/<slug>/ with the same name; "
+            "the copy then takes precedence."
         )
         return "\n".join(lines)
 

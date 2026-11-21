@@ -60,6 +60,9 @@ STIMPACK_MANIFEST = "stimpack.json"
 # still best-effort load with a warning so an old app degrades, not breaks.
 STIMPACK_FORMAT_VERSION = 1
 MARKETPLACE_SIDECAR = ".marketplace.json"
+# Folders set aside (legacy installs, reset overrides) live beside stimpacks/,
+# never inside it, so the loader cannot pick them up again.
+ARCHIVE_DIRNAME = "archived-stimpacks"
 AUTO_INSTALL_STATE_FILE = ".marketplace-auto-install-state.json"
 
 # Resource types a stimpack manifest may declare. Only `skill` is fully wired;
@@ -193,11 +196,14 @@ class SkillInfo:
     pack_is_marketplace: bool = False  # pack carries a marketplace sidecar (read-only to the agent)
     pack_is_dev: bool = False  # pack comes from the dev stimpacks repo
     overrides: Optional[str] = None  # qualified name of the marketplace skill this local skill shadows
+    # Pack has a .marketplace.json the loader cannot read. It is still an
+    # install (read-only, never a fork), so it must not shadow anything.
+    pack_sidecar_unreadable: bool = False
 
     @property
     def is_local(self) -> bool:
         """User- or agent-authored (not a marketplace install, not the dev repo)."""
-        return not self.pack_is_marketplace and not self.pack_is_dev
+        return not self.pack_is_marketplace and not self.pack_is_dev and not self.pack_sidecar_unreadable
 
     @property
     def qualified_name(self) -> str:
@@ -237,6 +243,9 @@ class StimpackInfo:
     provides: list[str] = field(default_factory=list)  # union of skills' provides
     marketplace: Optional[MarketplaceMeta] = None
     is_dev: bool = False  # Loaded from the dev_stimpacks_dir override (shadows profile copy)
+    # .marketplace.json present but unreadable; its raw JSON when it parsed at all.
+    sidecar_unreadable: bool = False
+    raw_sidecar: Optional[dict] = None
 
     @property
     def dir(self) -> Path:
@@ -693,14 +702,25 @@ def _load_or_derive_manifest(stimpack_dir: Path) -> Optional[StimpackManifest]:
     return None
 
 
-def _load_marketplace_sidecar(stimpack_dir: Path) -> Optional[MarketplaceMeta]:
-    """Load .marketplace.json sidecar if present."""
+_unreadable_sidecars_logged: set[str] = set()
+
+
+def _read_sidecar(stimpack_dir: Path) -> tuple[Optional[MarketplaceMeta], bool, Optional[dict]]:
+    """Read .marketplace.json: (meta, present_but_unreadable, raw_json).
+
+    An unreadable sidecar still marks the folder as an install. Callers must
+    never fall back to treating it as the user's own pack, or a stale install
+    would silently override the current one.
+    """
     sidecar_path = stimpack_dir / MARKETPLACE_SIDECAR
     if not sidecar_path.is_file():
-        return None
+        return None, False, None
+    raw: Optional[dict] = None
     try:
         data = json.loads(sidecar_path.read_text(encoding="utf-8"))
-        return MarketplaceMeta(
+        if isinstance(data, dict):
+            raw = data
+        meta = MarketplaceMeta(
             stimpack_id=data["stimpackId"],
             name=data["name"],
             version=data["version"],
@@ -709,9 +729,22 @@ def _load_marketplace_sidecar(stimpack_dir: Path) -> Optional[MarketplaceMeta]:
             author=data.get("author", ""),
             author_avatar_key=data.get("authorAvatarKey", ""),
         )
+        return meta, False, raw
     except Exception as e:
-        log.warning(f"Failed to read marketplace sidecar {sidecar_path}: {e}")
-        return None
+        key = str(sidecar_path)
+        if key not in _unreadable_sidecars_logged:
+            _unreadable_sidecars_logged.add(key)
+            log.warning(
+                f"Stimpack folder '{stimpack_dir.name}' has an unreadable marketplace record "
+                f"({sidecar_path}: {type(e).__name__}: {e}); keeping it read-only and not letting "
+                "it override any other skill"
+            )
+        return None, True, raw
+
+
+def _load_marketplace_sidecar(stimpack_dir: Path) -> Optional[MarketplaceMeta]:
+    """Load .marketplace.json sidecar if present and readable."""
+    return _read_sidecar(stimpack_dir)[0]
 
 
 def write_marketplace_sidecar(
@@ -877,9 +910,9 @@ def _parse_stimpack_dir(stimpack_dir: Path, is_dev: bool = False) -> Optional[St
     if manifest is None:
         return None
 
-    marketplace = _load_marketplace_sidecar(stimpack_dir)
-    tier = "marketplace" if marketplace else "local"
-    author = manifest.author or ("marketplace" if marketplace else "user")
+    marketplace, sidecar_unreadable, raw_sidecar = _read_sidecar(stimpack_dir)
+    tier = "marketplace" if (marketplace or sidecar_unreadable) else "local"
+    author = manifest.author or ("marketplace" if (marketplace or sidecar_unreadable) else "user")
 
     skills = _discover_skills(stimpack_dir, manifest)
 
@@ -888,6 +921,7 @@ def _parse_stimpack_dir(stimpack_dir: Path, is_dev: bool = False) -> Optional[St
     for skill in skills:
         skill.pack_is_marketplace = marketplace is not None
         skill.pack_is_dev = is_dev
+        skill.pack_sidecar_unreadable = sidecar_unreadable
         for module in skill.provides:
             if module not in provides:
                 provides.append(module)
@@ -909,6 +943,8 @@ def _parse_stimpack_dir(stimpack_dir: Path, is_dev: bool = False) -> Optional[St
         provides=provides,
         marketplace=marketplace,
         is_dev=is_dev,
+        sidecar_unreadable=sidecar_unreadable,
+        raw_sidecar=raw_sidecar,
     )
 
 
@@ -920,6 +956,13 @@ def list_installed_stimpacks(profile_id: Optional[str] = None) -> list[StimpackI
     """Return all stimpacks visible in the user's profile (dev override shadows profile)."""
     if not profile_id:
         profile_id = get_current_profile()
+
+    if profile_id not in _legacy_migration_checked:
+        _legacy_migration_checked.add(profile_id)
+        try:
+            migrate_legacy_marketplace_installs(profile_id)
+        except Exception as e:  # pragma: no cover - defensive; never block listing
+            log.warning(f"Legacy stimpack migration skipped for profile {profile_id}: {e}")
 
     result = []
     seen: set[str] = set()
@@ -1003,9 +1046,19 @@ def _split_shadowed(
     bare-name lookup stays ambiguous.
     """
     all_skills = [skill for pack in packs for skill in pack.skills]
+    # A pack with an unreadable sidecar is an install, not a fork: it never
+    # shadows, and it yields to any readable install or dev skill of its slug.
+    installed_slugs = {
+        skill.slug for skill in all_skills
+        if (skill.pack_is_marketplace or skill.pack_is_dev) and not skill.pack_sidecar_unreadable
+    }
+    all_skills = [
+        skill for skill in all_skills
+        if not (skill.pack_sidecar_unreadable and skill.slug in installed_slugs)
+    ]
     forks_by_slug: dict[str, list[SkillInfo]] = {}
     for skill in all_skills:
-        if not skill.pack_is_marketplace:
+        if not skill.pack_is_marketplace and not skill.pack_sidecar_unreadable:
             forks_by_slug.setdefault(skill.slug, []).append(skill)
     visible: list[SkillInfo] = []
     hidden: list[tuple[SkillInfo, SkillInfo]] = []
@@ -1075,8 +1128,147 @@ def marketplace_pack_dir_names(profile_id: Optional[str] = None) -> set[str]:
     return {
         pack.dir_path.name
         for pack in list_installed_stimpacks(profile_id=profile_id)
-        if pack.marketplace is not None and not pack.is_dev
+        if (pack.marketplace is not None or pack.sidecar_unreadable) and not pack.is_dev
     }
+
+
+# ---------------------------------------------------------------------------
+# Legacy installs, overrides and reset
+# ---------------------------------------------------------------------------
+
+_legacy_migration_checked: set[str] = set()
+
+
+def _archive_root(profile_id: str) -> Path:
+    return get_user_stimpacks_dir(profile_id).parent / ARCHIVE_DIRNAME
+
+
+def _archive_path(src: Path, profile_id: str, reason: str) -> Path:
+    """Move ``src`` into the profile's archive folder; return where it went."""
+    from datetime import datetime, timezone
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    dest_parent = _archive_root(profile_id) / f"{reason}-{stamp}"
+    dest_parent.mkdir(parents=True, exist_ok=True)
+    dest = dest_parent / src.name
+    n = 1
+    while dest.exists():
+        n += 1
+        dest = dest_parent / f"{src.name}-{n}"
+    shutil.move(str(src), str(dest))
+    return dest
+
+
+def _is_legacy_sidecar(raw: Optional[dict]) -> bool:
+    """The pre-stimpack per-skill marketplace record: skillId, no stimpackId, our author."""
+    return (
+        isinstance(raw, dict)
+        and "skillId" in raw
+        and "stimpackId" not in raw
+        and raw.get("author") == "stimma-team"
+    )
+
+
+def migrate_legacy_marketplace_installs(profile_id: Optional[str] = None) -> list[Path]:
+    """Archive old per-skill marketplace installs that a current pack now provides.
+
+    Early builds installed each built-in skill as its own pack with a
+    ``skillId`` sidecar. Once the same skill ships inside a current pack
+    (e.g. stimma-essentials), the old copy is stale; it is moved to the
+    profile's archive folder, never deleted. Idempotent: archived folders
+    are gone from stimpacks/, so a rerun finds nothing.
+    """
+    if not profile_id:
+        profile_id = get_current_profile()
+    parsed: list[StimpackInfo] = []
+    for stimpack_dir, is_dev in _iter_effective_stimpack_dirs(profile_id):
+        info = _parse_stimpack_dir(stimpack_dir, is_dev=is_dev)
+        if info:
+            parsed.append(info)
+    current = [p for p in parsed if (p.marketplace is not None or p.is_dev)]
+    current_names = {p.name for p in current}
+    current_slugs = {s.slug for p in current for s in p.skills}
+    archived: list[Path] = []
+    for info in parsed:
+        if info.is_dev or not info.sidecar_unreadable or not _is_legacy_sidecar(info.raw_sidecar):
+            continue
+        raw = info.raw_sidecar or {}
+        names = {info.name, info.dir_path.name, str(raw.get("name", ""))}
+        slugs = {s.slug for s in info.skills}
+        if not (names & current_names or (names | slugs) & current_slugs):
+            continue
+        dest = _archive_path(info.dir_path, profile_id, "legacy")
+        log.info(
+            f"Archived legacy marketplace install '{info.dir_path.name}' (profile {profile_id}): "
+            f"a current stimpack provides it now; moved to {dest}"
+        )
+        archived.append(dest)
+    if archived:
+        _invalidate_cache(profile_id)
+    return archived
+
+
+def list_overrides(profile_id: Optional[str] = None) -> list[dict]:
+    """Local skills that replace a built-in (marketplace) skill, for Settings and logs."""
+    packs = list_installed_stimpacks(profile_id=profile_id)
+    packs_by_name = {pack.name: pack for pack in packs}
+    _, hidden = _split_shadowed(packs)
+    out = []
+    for original, fork in hidden:
+        fork_pack = packs_by_name.get(fork.pack_name)
+        if fork_pack is None or fork_pack.is_dev:
+            continue
+        out.append({
+            "name": fork.qualified_name,
+            "display_name": fork.display_name,
+            "overrides": original.qualified_name,
+            "original_display_name": original.display_name,
+            "original_pack_display_name": original.pack_display_name,
+        })
+    return out
+
+
+def log_active_overrides(profile_id: Optional[str] = None) -> list[dict]:
+    """One warning per profile listing local skills that hide a built-in one."""
+    if not profile_id:
+        profile_id = get_current_profile()
+    overrides = list_overrides(profile_id=profile_id)
+    if overrides:
+        joined = ", ".join(f"{o['name']} (overrides {o['overrides']})" for o in overrides)
+        log.warning(
+            f"Profile {profile_id}: {len(overrides)} local skill(s) override built-in skills "
+            f"and do not receive updates: {joined}"
+        )
+    return overrides
+
+
+def reset_override(name: str, profile_id: Optional[str] = None) -> Optional[Path]:
+    """Archive the local skill that overrides a built-in one, restoring the original.
+
+    ``name`` is the override's qualified name or the qualified name of the
+    built-in skill it hides. Archives the whole pack when the override is its
+    only skill, otherwise just the skill's folder. Returns the archive path,
+    or None when ``name`` is not an active override.
+    """
+    if not profile_id:
+        profile_id = get_current_profile()
+    packs = list_installed_stimpacks(profile_id=profile_id)
+    packs_by_name = {pack.name: pack for pack in packs}
+    _, hidden = _split_shadowed(packs)
+    for original, fork in hidden:
+        if name not in (fork.qualified_name, original.qualified_name):
+            continue
+        pack = packs_by_name.get(fork.pack_name)
+        if pack is None or pack.is_dev:
+            return None
+        target = pack.dir_path if len(pack.skills) <= 1 else fork.dir_path
+        root = get_user_stimpacks_dir(profile_id).resolve()
+        if not target.resolve().is_relative_to(root) or target.resolve() == root:
+            return None
+        dest = _archive_path(target, profile_id, "reset")
+        log.info(f"Reset override '{fork.qualified_name}' of '{original.qualified_name}'; moved to {dest}")
+        _invalidate_cache(profile_id)
+        return dest
+    return None
 
 
 def load_skill(name: str, profile_id: Optional[str] = None) -> Optional[SkillContent]:
@@ -1197,6 +1389,8 @@ def install_stimpack_from_zip_bytes(
             )
             # Re-parse to pick up the sidecar
             info = _parse_stimpack_dir(info.dir)
+            # A newly installed pack may now cover legacy per-skill installs.
+            _legacy_migration_checked.discard(profile_id)
         return info
     finally:
         tmp_path.unlink(missing_ok=True)

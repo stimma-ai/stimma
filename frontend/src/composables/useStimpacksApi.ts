@@ -65,6 +65,15 @@ export interface Stimpack {
   skills: Skill[]
 }
 
+/** A user's own version of a built-in skill; it replaces the built-in one. */
+export interface SkillOverride {
+  name: string
+  display_name: string
+  overrides: string
+  original_display_name: string
+  original_pack_display_name: string
+}
+
 export interface StimpackDetail extends Stimpack {
   content: string
 }
@@ -252,6 +261,24 @@ export function useStimpacksApi() {
     return response.data
   }
 
+  /** One server-side pass: default installs plus updates, serialized per profile. */
+  async function syncMarketplace(): Promise<{ installed: string[]; updated: string[]; changed: boolean }> {
+    const response = await axios.post(`${marketplaceBase()}/sync`)
+    return response.data
+  }
+
+  // --- The user's own versions of built-in skills ---
+
+  async function listSkillOverrides(): Promise<SkillOverride[]> {
+    const response = await axios.get(`${getApiBase()}/settings/skill-overrides`)
+    return response.data
+  }
+
+  async function resetSkillOverride(name: string): Promise<void> {
+    const path = name.split('/').map(encodeURIComponent).join('/')
+    await axios.post(`${getApiBase()}/settings/skill-overrides/${path}/reset`)
+  }
+
   async function listMyMarketplaceStimpacks(): Promise<{ stimpacks: Array<MarketplaceStimpack & { latestVersion: { version: number; status: string } | null }> }> {
     const response = await axios.get(`${marketplaceBase()}/mine`)
     return response.data
@@ -280,6 +307,10 @@ export function useStimpacksApi() {
     runAutoInstall,
     checkUpdates,
     updateFromMarketplace,
+    syncMarketplace,
     listMyMarketplaceStimpacks,
+    // Overrides
+    listSkillOverrides,
+    resetSkillOverride,
   }
 }

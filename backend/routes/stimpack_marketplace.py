@@ -465,3 +465,18 @@ async def run_auto_install():
     if failed:
         response["failed"] = failed
     return response
+
+
+# --- Sync (auto-install + updates in one locked pass) ---
+
+@router.post("/sync")
+async def sync_marketplace_stimpacks():
+    """Install default packs and apply updates for the current profile.
+
+    The same pass the server runs on its own schedule; serialized per profile
+    so a page load and the background loop never install over each other.
+    """
+    if is_privacy_lockdown_enabled():
+        return {"installed": [], "updated": [], "changed": False}
+    from stimpack_sync import sync_profile
+    return await sync_profile(get_current_profile())
