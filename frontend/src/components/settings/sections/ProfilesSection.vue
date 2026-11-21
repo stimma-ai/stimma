@@ -653,8 +653,12 @@ const canRename = computed(() => {
 const targetPin = ref('')
 const targetPinError = ref('')
 const askTargetPin = ref(false)
+// Bumped whenever a dialog opens or closes: a PIN check that finishes after
+// that belongs to a dialog that is gone, and must not act.
+let dialogOpening = 0
 
 function resetTargetPin(profile = null) {
+  dialogOpening++
   targetPin.value = ''
   targetPinError.value = ''
   askTargetPin.value = !!profile?.has_pin && !getCachedPin(profile.id)
@@ -665,7 +669,7 @@ function resetTargetPin(profile = null) {
  * it isn't accepted. A cached PIN is checked too: it may have changed
  * elsewhere, and then it's forgotten and the dialog asks for the PIN.
  */
-async function targetPinFor(profile) {
+async function targetPinFor(profile, opening) {
   if (!profile.has_pin) return null
   const pin = askTargetPin.value ? targetPin.value : getCachedPin(profile.id)
   targetPinError.value = ''
@@ -679,6 +683,7 @@ async function targetPinFor(profile) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pin }),
   })
+  if (opening !== dialogOpening) return undefined
   if (response.ok) return pin
   if (response.status !== 401) {
     targetPinError.value = 'Could not check the PIN'
@@ -709,15 +714,16 @@ async function submitRename() {
 
   const profile = renameProfile.value
   const name = renameProfileName.value.trim()
+  const opening = dialogOpening
   saving.value = true
   try {
-    const pin = await targetPinFor(profile)
-    // The dialog may have closed, or opened for another profile, meanwhile.
-    if (pin === undefined || renameProfile.value !== profile) return
+    const pin = await targetPinFor(profile, opening)
+    // The dialog may have closed or reopened meanwhile.
+    if (pin === undefined || opening !== dialogOpening) return
     emit('update', { profileId: profile.id, data: { name }, pin })
     closeRenameModal()
   } catch (error) {
-    targetPinError.value = 'Could not check the PIN'
+    if (opening === dialogOpening) targetPinError.value = 'Could not check the PIN'
   } finally {
     saving.value = false
   }
@@ -766,15 +772,16 @@ async function deleteProfile() {
   if (!deleteConfirm.value || saving.value) return
 
   const profile = deleteConfirm.value
+  const opening = dialogOpening
   saving.value = true
   try {
-    const pin = await targetPinFor(profile)
-    // The dialog may have closed, or opened for another profile, meanwhile.
-    if (pin === undefined || deleteConfirm.value !== profile) return
+    const pin = await targetPinFor(profile, opening)
+    // The dialog may have closed or reopened meanwhile.
+    if (pin === undefined || opening !== dialogOpening) return
     emit('delete', profile.id, pin)
     closeDeleteConfirm()
   } catch (error) {
-    targetPinError.value = 'Could not check the PIN'
+    if (opening === dialogOpening) targetPinError.value = 'Could not check the PIN'
   } finally {
     saving.value = false
   }
