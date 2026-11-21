@@ -1,7 +1,7 @@
 <template>
   <!-- Docks on top of the composer, like the message queue: work the agent
        started that is still running while the conversation goes on. -->
-  <div class="rounded-t-lg bg-field divide-y divide-edge-subtle">
+  <div class="bg-field divide-y divide-edge-subtle">
     <div
       v-for="task in tasks"
       :key="task.id"

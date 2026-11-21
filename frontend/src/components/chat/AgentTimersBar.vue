@@ -1,7 +1,7 @@
 <template>
   <!-- Docks on top of the composer: wake-ups the agent set for itself, so
        the user can see it will come back, and when, and end it. -->
-  <div class="rounded-t-lg bg-field divide-y divide-edge-subtle">
+  <div class="bg-field divide-y divide-edge-subtle">
     <div
       v-for="timer in timers"
       :key="timer.id"

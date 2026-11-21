@@ -1203,30 +1203,31 @@
       <div v-if="imageUnsupportedMessage" class="mb-2 text-xs text-amber-500">
         {{ imageUnsupportedMessage }}
       </div>
-      <AgentTimersBar
-        v-if="agentTimers.length > 0"
-        :class="runningBackgroundTasks.length > 0 ? 'mb-px' : ''"
-        :timers="agentTimers"
-        @cancel="cancelAgentTimer"
-      />
-      <BackgroundTasksBar
-        v-if="runningBackgroundTasks.length > 0"
-        :class="agentTimers.length > 0 ? 'rounded-t-none' : ''"
-        :tasks="runningBackgroundTasks"
-        @stop="stopBackgroundTask"
-      />
-      <ChatMessageQueue
-        v-if="messageQueue.length > 0"
-        :class="runningBackgroundTasks.length > 0 || agentTimers.length > 0 ? 'rounded-t-none' : ''"
-        :messages="messageQueue"
-        @steer="steerQueuedMessage"
-        @edit="editQueuedMessage"
-        @remove="removeQueuedMessage"
-      />
-      <MediaSelectionBar v-if="mediaCollections.selection.selecting.value" :class="messageQueue.length > 0 || runningBackgroundTasks.length > 0 || agentTimers.length > 0 ? 'rounded-t-none' : ''" />
+      <!-- Strips docked on the composer form one stack: rounded once at the top,
+           and one hairline between every strip and above the composer. -->
+      <div v-if="composerDocked" class="rounded-t-lg overflow-hidden divide-y divide-edge-subtle">
+        <AgentTimersBar
+          v-if="agentTimers.length > 0"
+          :timers="agentTimers"
+          @cancel="cancelAgentTimer"
+        />
+        <BackgroundTasksBar
+          v-if="runningBackgroundTasks.length > 0"
+          :tasks="runningBackgroundTasks"
+          @stop="stopBackgroundTask"
+        />
+        <ChatMessageQueue
+          v-if="messageQueue.length > 0"
+          :messages="messageQueue"
+          @steer="steerQueuedMessage"
+          @edit="editQueuedMessage"
+          @remove="removeQueuedMessage"
+        />
+        <MediaSelectionBar v-if="mediaCollections.selection.selecting.value" class="rounded-none" />
+      </div>
       <ChatInputBox
         ref="chatInputBoxRef"
-        :attached-top="messageQueue.length > 0 || runningBackgroundTasks.length > 0 || mediaCollections.selection.selecting.value"
+        :attached-top="composerDocked"
         :project-id="chat ? (chat.project_id ?? null) : undefined"
         :draft="composerDraft"
         :attachments="inputAttachments"
@@ -1711,6 +1712,12 @@ const editingItemId = ref(null) // ID of item being edited, null if not editing
 const editingText = ref('') // Current text in inline editor
 const editingMinSize = ref({ width: 0, height: 0 }) // Original bubble size when editing started
 const messageQueue = liveState.messageQueue // Messages sent while the agent is busy (shared per chat)
+// Any strip docked on top of the composer (it drops its top corners to match).
+const composerDocked = computed(() =>
+  agentTimers.value.length > 0
+  || runningBackgroundTasks.value.length > 0
+  || messageQueue.value.length > 0
+  || mediaCollections.selection.selecting.value)
 let lastSendStartedAt = 0 // When the last POST /items started (watchdog grace period)
 let queueBackoffUntil = 0 // Don't retry a failed queued send before this time
 let queueWatchdogTimer = null // Interval that reconciles state while messages are queued
