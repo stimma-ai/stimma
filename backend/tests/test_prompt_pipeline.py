@@ -249,7 +249,7 @@ class TestRunPromptPipeline:
         assert out.startswith("integrated_multimodal_description:")
         assert "[Shot 1]" in out
 
-    async def test_h3_fails_when_every_attempt_invents_dialogue(
+    async def test_h3_sends_the_prompt_as_given_when_every_attempt_invents_dialogue(
         self, generation_app, generation_db_session, monkeypatch
     ):
         import routes.prompt_enhancement as pe
@@ -266,22 +266,22 @@ class TestRunPromptPipeline:
 
         monkeypatch.setattr(pe, "improve_prompt", fake_improve)
         original = "a baker opens the shop"
-        from fastapi import HTTPException
-
-        with pytest.raises(HTTPException) as exc:
-            out = await pp.run_prompt_pipeline(
-                _db(generation_db_session),
-                original,
-                {"autoImprove": {"enabled": True}},
-                model="minimax-h3-t2v",
-                is_video=True,
-                h3_task="t2va",
-                h3_duration=5,
-            )
+        outcome = {}
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            original,
+            {"autoImprove": {"enabled": True}},
+            model="minimax-h3-t2v",
+            is_video=True,
+            h3_task="t2va",
+            h3_duration=5,
+            outcome=outcome,
+        )
         assert len(attempts) == 3
-        assert exc.value.detail["code"] == "prompt_enhancement_failed"
-        assert "adding spoken lines" in exc.value.detail["message"]
-        assert "Settings" not in exc.value.detail["message"]
+        # A bad rewrite never stops the run: the caller's own words go.
+        assert out == original
+        assert outcome["improved"] == "fallback"
+        assert outcome["reason"] == "the rewrite kept adding spoken lines that were not asked for"
         # Later attempts are told what went wrong.
         assert attempts[0].instructions is None
         assert "did not supply" in attempts[1].instructions
@@ -412,7 +412,7 @@ class TestRunPromptPipeline:
         assert "exact words" in out
         assert "__VERBATIM_A__" not in out
 
-    async def test_enhance_fails_when_verbatim_never_survives(
+    async def test_enhance_sends_the_prompt_as_given_when_verbatim_never_survives(
         self, generation_app, generation_db_session, monkeypatch
     ):
         import routes.prompt_enhancement as pe
@@ -422,16 +422,16 @@ class TestRunPromptPipeline:
 
         monkeypatch.setattr(pe, "improve_prompt", fake_improve)
 
-        from fastapi import HTTPException
-
-        with pytest.raises(HTTPException) as exc:
-            out = await pp.run_prompt_pipeline(
-                _db(generation_db_session),
-                "[exact words] scene",
-                {"autoImprove": {"enabled": True, "instructions": ""}},
-            )
-        assert exc.value.detail["code"] == "prompt_enhancement_failed"
-        assert "protected text" in exc.value.detail["message"]
+        outcome = {}
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "[exact words] scene",
+            {"autoImprove": {"enabled": True, "instructions": ""}},
+            outcome=outcome,
+        )
+        assert out == "exact words scene"
+        assert outcome["improved"] == "fallback"
+        assert "protected text" in outcome["reason"]
 
     async def test_unknown_translate_language_is_noop(self, generation_app, monkeypatch):
         import routes.prompt_enhancement as pe
@@ -758,7 +758,7 @@ def test_image_tags_in_range_rejects_invented_references_only():
     ('a generic paragraph', 'a cyclist rides', {'h3_task': 't2va', 'is_video': True}, 'wrong layout for this video model'),
     ('Use <image3>', 'edit the photo', {'input_image_count': 1}, 'image that was not supplied'),
 ])
-async def test_invalid_enhancement_blocks_submission(
+async def test_invalid_enhancement_submits_the_prompt_as_given(
     generation_client, output_folder, monkeypatch, candidate, source, context, reason
 ):
     import routes.prompt_enhancement as pe
@@ -767,6 +767,7 @@ async def test_invalid_enhancement_blocks_submission(
     improve = AsyncMock(return_value=pe.ImprovePromptResponse(improved_prompt=candidate))
     monkeypatch.setattr(pe, 'improve_prompt', improve)
     queue = AsyncMock()
+    queue.submit_job = AsyncMock(return_value=7)
     with patch('generation_queue.get_generation_queue', return_value=queue):
         # Supply the model context at the descriptor boundary, then run the real
         # submission and prompt pipeline to prove nothing reaches the queue.
@@ -783,12 +784,10 @@ async def test_invalid_enhancement_blocks_submission(
                 'folder_path': output_folder, 'task_type': 'text-to-video' if context.get('is_video') else 'image-to-image',
                 'prompt_options': {'autoImprove': {'enabled': True}},
             })
-    assert response.status_code == 422, response.text
-    assert isinstance(response.json()['detail'], dict), response.text
-    assert response.json()['detail']['code'] == 'prompt_enhancement_failed'
-    assert reason in response.json()['detail']['message']
+    assert response.status_code == 200, response.text
     assert improve.await_count == 3
-    queue.submit_job.assert_not_called()
+    queue.submit_job.assert_awaited_once()
+    assert queue.submit_job.await_args.kwargs['parameters']['prompt'] == source
 
 async def test_unchanged_cached_rewrite_runs_live_enhancement(
     generation_app, generation_db_session, monkeypatch

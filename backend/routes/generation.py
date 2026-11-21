@@ -643,7 +643,10 @@ async def _apply_generation_prompt_pipeline(
     generator_instance_id: Optional[str] = None,
     project_id: Optional[int] = None,
     forever: bool = False,
+    improve_outcome: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    """`improve_outcome`, when passed, receives what classic Improve did (see
+    run_prompt_pipeline's `outcome`), e.g. a fallback to the prompt as given."""
     prompt = parameters.get("prompt")
     if not isinstance(prompt, str):
         return parameters
@@ -685,7 +688,7 @@ async def _apply_generation_prompt_pipeline(
     program_run = None
     level: Optional[str] = None
     fixed_spans: Optional[List[Tuple[int, int, str]]] = None
-    outcome: Optional[Dict[str, Any]] = None
+    outcome: Optional[Dict[str, Any]] = improve_outcome
     program_opts = (prompt_options or {}).get("program")
     fluent = not raw and isinstance(program_opts, dict) and bool(program_opts.get("enabled")) and ctx["program_supported"]
     if fluent:
@@ -1111,9 +1114,12 @@ async def enhance_tool_prompt(
     tool_id: str,
     task_type: Optional[str],
     project_id: Optional[int] = None,
+    outcome: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Run a submit's prompt through ToolView's Enhance pipeline, exactly as an
-    editor submit with Enhance on would (same live-parameter context)."""
+    editor submit with Enhance on would (same live-parameter context). `outcome`
+    receives what the improver did ("fallback" plus a reason when its rewrite
+    couldn't be used and the prompt went as given)."""
     return await _apply_generation_prompt_pipeline(
         parameters,
         tool_id=tool_id,
@@ -1121,6 +1127,7 @@ async def enhance_tool_prompt(
         prompt_options={"autoImprove": {"enabled": True}},
         prompt_preload=None,
         project_id=project_id,
+        improve_outcome=outcome,
     )
 
 

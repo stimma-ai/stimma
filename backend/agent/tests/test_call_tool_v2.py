@@ -166,6 +166,28 @@ async def test_enhancement_rejection_reaches_agent_without_submitting_generation
 
 
 @pytest.mark.asyncio
+async def test_unusable_rewrite_generates_from_the_callers_prompt_and_says_so(
+    session, test_chat, fake_queue, mock_generation, tmp_path, monkeypatch,
+):
+    async def bad_reply(parameters, *, outcome=None, **kwargs):
+        # What the pipeline does when every rewrite echoes the input.
+        outcome.update(improved="fallback", reason="the tool assistant returned the original prompt unchanged")
+        return dict(parameters)
+
+    monkeypatch.setattr("routes.generation.enhance_tool_prompt", bad_reply)
+    result = await call_tool(
+        tool_id="image:model-a", parameters={"prompt": "a cat"}, enhance_prompt=True,
+        session=session, chat_id=test_chat.id, workspace_dir=str(tmp_path),
+    )
+
+    assert not result.startswith("Error")
+    fake_queue.submit_job.assert_awaited_once()
+    assert fake_queue.submit_job.await_args.kwargs["parameters"]["prompt"] == "a cat"
+    assert "your prompt was sent as written" in result
+    assert "returned the original prompt unchanged" in result
+
+
+@pytest.mark.asyncio
 async def test_call_tool_keeps_reference_slots_when_first_image_has_no_library_id(
     session, test_chat, fake_queue, mock_generation, tmp_path, monkeypatch,
 ):

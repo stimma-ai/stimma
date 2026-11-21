@@ -197,11 +197,24 @@ async def test_three_empty_answers_send_the_prompt_as_filled(generation_app, gen
     assert len(requests) == 3 and out == PROMPT and outcome["improved"] == "fallback"
 
 
-async def test_classic_improve_still_fails_the_generation(generation_app, generation_db_session, monkeypatch):
+async def test_classic_improve_sends_the_prompt_as_given_after_bad_replies(generation_app, generation_db_session, monkeypatch):
+    _fake_improve(monkeypatch, ["   "])
+    outcome = {}
+    out = await pp.run_prompt_pipeline(_db(generation_db_session), PROMPT, LATE, model="flux1-dev", outcome=outcome)
+    assert out == PROMPT
+    assert outcome["improved"] == "fallback"
+    assert outcome["reason"] == "the assistant returned an empty prompt"
+
+
+async def test_classic_improve_still_fails_when_the_assistant_is_unreachable(generation_app, generation_db_session, monkeypatch):
     import pytest
     from fastapi import HTTPException
+    import routes.prompt_enhancement as pe
 
-    _fake_improve(monkeypatch, ["   "])
+    async def down(request, session):
+        raise HTTPException(status_code=502, detail={"code": "llm_provider_error", "message": "HTTP 503"})
+
+    monkeypatch.setattr(pe, "improve_prompt", down)
     with pytest.raises(HTTPException):
         await pp.run_prompt_pipeline(_db(generation_db_session), PROMPT, LATE, model="flux1-dev")
 

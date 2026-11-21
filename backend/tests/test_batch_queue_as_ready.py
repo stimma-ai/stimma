@@ -93,8 +93,9 @@ async def test_a_child_whose_improve_raises_fails_alone(generation_client, gener
         nonlocal calls
         calls += 1
         if calls == 2:
+            # Not a bad reply (those send the prompt as given): the assistant is down.
             raise HTTPException(status_code=502, detail={
-                "code": "prompt_enhancement_failed", "message": "The tool assistant returned an empty prompt."})
+                "code": "llm_provider_error", "message": "The tool assistant rejected the request (HTTP 503)."})
         return pe.ImprovePromptResponse(improved_prompt=f"improved {calls}")
 
     with (
@@ -106,7 +107,7 @@ async def test_a_child_whose_improve_raises_fails_alone(generation_client, gener
     assert response.status_code == 200, response.text
     assert len(queued) == 2
     failed = queue.submit_failed_batch_job.await_args.kwargs
-    assert failed["error"] == "The tool assistant returned an empty prompt."
+    assert failed["error"] == "The tool assistant rejected the request (HTTP 503)."
     assert failed["client_ref"] == "tile-1"
     assert sorted(response.json()["job_ids"]) == sorted([q["parameters"]["_batch_index"] + 100 for q in queued]
                                                         + [failed["parameters"]["_batch_index"] + 200])
