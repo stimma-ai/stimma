@@ -489,13 +489,13 @@ def _h3_task_guidance(
         if pins:
             guidance += (
                 "\nThe target video is also pinned to these moments on its timeline. They are not tags. "
-                "You cannot see them, and they already fix the picture at those moments: the framing, the "
-                "camera position and where everyone is. Refer to them by their time without saying how "
-                "they look, because a framing, distance or pose you write "
-                "that differs from a pinned picture is something the model can only reach by cutting to "
-                "it. Write one continuous take that carries on from the pinned picture and passes through "
-                "each pin at its time, with framing changing only through camera or subject movement the "
-                "request asks for. Reference images set identity and appearance here, not the framing:\n"
+                "Each pin fixes the picture at its time: the framing, the camera position and where "
+                "everyone is. You cannot see them, so refer to them by their time without saying how they "
+                "look, and invent no framing, distance or pose for those moments. Between pins, describe "
+                "the action and any camera or subject movement the request asks for. Keep every cut the "
+                "request asks for. Where the shot is continuous, a framing, distance or pose that "
+                "contradicts a pinned picture makes an unintended cut to it more likely. Reference images "
+                "set identity and appearance here, not the framing:\n"
                 + "\n".join(pins)
             )
         return guidance
@@ -579,7 +579,7 @@ def _h3_input_has_dialogue(prompt: str) -> bool:
     )
 
 
-def _h3_pinned_speech(reference_manifest: Optional[List[Dict[str, Any]]]) -> List[Tuple[float, float]]:
+def _h3_pinned_sound(reference_manifest: Optional[List[Dict[str, Any]]]) -> List[Tuple[float, float]]:
     """(start, end) seconds of every span whose sound is pinned without a picture."""
     spans = []
     for item in reference_manifest or []:
@@ -590,18 +590,18 @@ def _h3_pinned_speech(reference_manifest: Optional[List[Dict[str, Any]]]) -> Lis
 
 
 def _h3_dialogue_guidance(prompt: str, reference_manifest: Optional[List[Dict[str, Any]]] = None) -> str:
-    spans = _h3_pinned_speech(reference_manifest)
+    spans = _h3_pinned_sound(reference_manifest)
     if spans:
         times = ", ".join(
             f"from {start:.2f} to {end:.2f} seconds" if end > start else f"from {start:.2f} seconds on"
             for start, end in spans
         )
         pinned = (
-            f"PINNED SOUND: The speech and sound {times} come from a supplied recording, and the "
-            "picture lip-syncs to it and keeps its timing. Describe who is speaking there and how: "
-            "their delivery, expression and mouth moving with the words. Leave the words themselves "
-            "to the recording: no <d> blocks, quoted lines or speaker IDs for that time, since a "
-            "written line would compete with the recorded one."
+            f"PINNED SOUND: The sound {times} is guided by a supplied recording, with its timing. "
+            "Keep the role the request and context give it: dialogue, narration, music, ambience or "
+            "effects. Only where it is someone speaking on screen, describe who speaks and their "
+            "delivery and expression. Leave any words to the recording: no <d> blocks, quoted lines "
+            "or speaker IDs for that time, since a written line would compete with the recorded one."
         )
         if not _h3_input_has_dialogue(prompt):
             return pinned + " Add no other spoken, sung or narrated words."

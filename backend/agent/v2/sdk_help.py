@@ -467,8 +467,12 @@ Wrap the workers of a run that keeps going. Size them with
         details="""\
 Returns typical_s (median seconds per call), fastest_s, slowest_s, runs and
 recent (each run's seconds with its duration/frames/width/height, newest first).
-Use it to state a cost before long work: calls / capacity(tool) waves, each
-about typical_s, scaled to the settings you plan. With no history typical_s is
+Use it to state a cost before long work: independent calls of comparable
+settings take about ceil(calls / capacity(tool)) waves of typical_s each; calls
+that wait on earlier ones add their own run times, and queueing and model loads
+add more. Longer or larger outputs take longer, by an amount that depends on the
+settings and hardware, so scale from recent runs like the ones you plan
+(recent lists their settings). With no history typical_s is
 None and note says so; say the time is unknown until the first call finishes.
 Sits with stimma.tasks.capacity(tool) (calls that run at once) and
 stimma.tasks.workers(tool) (workers that keep its GPUs busy).""",
@@ -726,6 +730,19 @@ Example:
   r = await stimma.ffprobe("-v", "error", "-show_entries", "format=duration",
                            "-of", "json", "clip.mp4")
   print(r.stdout)""",
+        group="image",
+        is_async=True,
+    ),
+    "record_sources": SDKMethodHelp(
+        name="record_sources",
+        signature="await stimma.record_sources(out, inputs) -> list[int]",
+        summary="Note which inputs a workspace file was made from, so saving it keeps that history.",
+        details="""\
+Files written by stimma.ffmpeg and join_video already know their sources. Call
+this for a file built through steps they can't follow (raw frames, numpy, PIL).
+inputs is an ordered list of workspace paths, ToolResults or media ids; a path
+counts as its library item, or as the sources already noted for it. A later
+library.save(out) lists them as its lineage. Returns the media ids noted.""",
         group="image",
         is_async=True,
     ),

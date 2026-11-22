@@ -564,11 +564,12 @@ _H3_PROBLEM_FEEDBACK: Dict[str, Tuple[str, str, str]] = {
     ),
     "dialogue_over_pinned_speech": (
         "the rewrite kept writing spoken lines over the supplied speech",
-        "Describe who speaks and how, without quoting words: the supplied speech already says "
+        "Describe what the supplied sound is without quoting words: the recording already sets "
         "them. Then retry.",
         "Your previous rewrite wrote spoken lines where the supplied recording already sets the "
-        "words. The person still talks there: describe who speaks, their delivery and expression, "
-        "and their mouth moving with the words, but write no new <d> blocks or quoted lines for it.",
+        "sound. Keep its role: if someone speaks there on screen, they still talk, so describe who "
+        "speaks and their delivery and expression; if it is narration, music, ambience or effects, "
+        "describe it as that. Write no new <d> blocks or quoted lines for it.",
     ),
     "missing_references": (
         "the rewrite left out one of the reference inputs",
@@ -733,10 +734,10 @@ def _h3_dialogue_problem(
 
     With speech pinned as sound, the recording carries the words: leaving lines
     out is right, and any line written must still come from the user."""
-    from routes.prompt_enhancement import _h3_input_has_dialogue, _h3_pinned_speech
+    from routes.prompt_enhancement import _h3_input_has_dialogue, _h3_pinned_sound
 
     blocks = _H3_DIALOGUE_CONTENT_RE.findall(candidate)
-    speech_pinned = bool(_h3_pinned_speech(reference_manifest))
+    speech_pinned = bool(_h3_pinned_sound(reference_manifest))
     if not _h3_input_has_dialogue(source_prompt):
         if not blocks:
             return None

@@ -11,8 +11,9 @@ when its bytes are a library item (a workspace copy, a tool result), else to the
 sources recorded for those bytes, so chains flatten: a file made from a file made
 from library clips lists the clips. The ledger lives in the chat workspace.
 
-Arbitrary pixel work (PIL, numpy) is not seen here; the agent declares it with
-``sources=``.
+Arbitrary pixel work (PIL, numpy) is not seen here; code declares it with
+``stimma.record_sources(out, inputs)`` (a library such as seamkit, which encodes
+from raw frames) or with ``sources=`` on save.
 """
 from __future__ import annotations
 

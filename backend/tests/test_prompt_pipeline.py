@@ -389,13 +389,16 @@ class TestRunPromptPipeline:
         assert outcome["improved"] == "true"
         # The retry keeps the person talking; it only asks for no new lines.
         retry = attempts[1].instructions
-        assert "still talks" in retry and "no new <d> blocks" in retry
+        assert "still talk" in retry and "no new <d> blocks" in retry
+        # Pinned sound isn't always speech: narration and music keep their role.
+        assert "narration, music" in retry
         assert "nonverbal" not in retry
         # The rewriter's own instructions name the pinned span and ask for no lines.
         guidance = pe._h3_dialogue_guidance(attempts[0].prompt, attempts[0].h3_reference_manifest)
         assert "from 0.00 to 5.17 seconds" in guidance
         assert "no <d> blocks" in guidance
         assert "PRESERVING DIALOGUE" not in guidance
+        assert "music" in guidance and "lip-syncs" not in guidance
 
     async def test_h3_one_attempt_failure_names_the_attempt_count(
         self, generation_app, generation_db_session, monkeypatch

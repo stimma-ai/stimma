@@ -332,6 +332,9 @@ def test_h3_reference_guidance_describes_pinned_keyframes_in_words():
     assert "timeline-alignment instructions" not in guidance
     assert "They are not tags" in guidance
     assert "without saying how they look" in guidance
+    # A cut the user asks for stays; contradicting a pin only risks an unintended one.
+    assert "Keep every cut the request asks for" in guidance
+    assert "only reach" not in guidance and "one continuous take" not in guidance
 
 
 def test_h3_sound_only_pins_are_not_picture_pins():

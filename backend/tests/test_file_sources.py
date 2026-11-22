@@ -159,3 +159,49 @@ async def test_parallel_ffmpeg_calls_each_record_their_sources(db_session, tmp_p
         for i, (_, clip) in enumerate(clips):
             saved = await sdk.library.save(f"q{i}.mp4")
             assert await _lineage(session, saved["media_id"]) == [(clip, "derived")]
+
+
+async def test_a_file_encoded_from_raw_frames_keeps_the_sources_code_declares(db_session, tmp_path):
+    """Raw frames hide the clips from the ffmpeg trace; record_sources names them."""
+    async with db_session() as session:
+        sdk = _sdk(session, tmp_path)
+        _, a = await _clip(sdk, session, "a.mp4", color="red")
+        _, b = await _clip(sdk, session, "b.mp4", color="blue")
+        (tmp_path / "frames.rgb").write_bytes(bytes(64 * 48 * 3 * 12))
+        await sdk.ffmpeg("-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", "64x48",
+                         "-framerate", "24", "-i", "frames.rgb", "-c:v", "libx264", "-pix_fmt", "yuv420p", "out.mp4")
+        assert await sdk.record_sources("out.mp4", ["b.mp4", "a.mp4", "b.mp4"]) == [b, a]
+        saved = await sdk.library.save("out.mp4")
+        assert await _lineage(session, saved["media_id"]) == [(b, "derived"), (a, "derived")]
+        assert (await _meta(session, saved["media_id"]))["task_type"] == "video-stitch"
+        with pytest.raises(PermissionError):
+            await sdk.record_sources("out.mp4", ["../elsewhere.mp4"])
+        with pytest.raises(FileNotFoundError):
+            await sdk.record_sources("missing.mp4", [a])
+
+
+def _seamkit():
+    """The video-production stimpack's seamkit, from STIMMA_SKILLS_DIR or a sibling checkout."""
+    import importlib.util
+    import os
+    roots = [os.environ.get("STIMMA_SKILLS_DIR"), Path(__file__).resolve().parents[3] / "stimma-skills"]
+    for root in filter(None, roots):
+        path = Path(root) / "stimma-essentials/skills/video-production/lib/seamkit.py"
+        if path.is_file():
+            spec = importlib.util.spec_from_file_location("seamkit_lineage_test", path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+    pytest.skip("seamkit (stimma-skills) not available")
+
+
+async def test_a_seamkit_join_saves_with_its_clips_as_lineage(db_session, tmp_path, monkeypatch):
+    seamkit = _seamkit()
+    monkeypatch.chdir(tmp_path)  # run_code's cwd is the workspace
+    async with db_session() as session:
+        sdk = _sdk(session, tmp_path)
+        _, a = await _clip(sdk, session, "a.mp4", color="gray")
+        _, b = await _clip(sdk, session, "b.mp4", color="silver")
+        report = await seamkit.join(sdk, ["a.mp4", "b.mp4"], "take.mp4", repair=False)
+        saved = await sdk.library.save(report["out"])
+        assert await _lineage(session, saved["media_id"]) == [(a, "derived"), (b, "derived")]

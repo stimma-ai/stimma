@@ -1105,8 +1105,9 @@ class StimmaLibraryAPI:
         workspace path (``path=`` is an alias for a path item).
 
         sources=[media ids]: what the file was made from, shown in its history.
-        Files made with stimma.ffmpeg or join_video already list theirs; add
-        any you used in other code (PIL, numpy)."""
+        Files made with stimma.ffmpeg, join_video or noted with
+        stimma.record_sources already list theirs; add any you used in other
+        code (PIL, numpy)."""
         return await self._save_payload(item, tags, inspired_by, sources, path,
                                         materialize_asset=True)
 
@@ -1982,6 +1983,41 @@ class StimmaSDK:
         workspace. Raises on nonzero exit unless check=False.
         """
         return await self._run_av_tool("ffmpeg", args, timeout=timeout, check=check)
+
+    async def record_sources(self, out, inputs) -> list[int]:
+        """Note that the workspace file ``out`` was made from ``inputs``, in order.
+
+        For code that builds a file through intermediates stimma.ffmpeg can't
+        trace (raw frames, numpy, PIL). Inputs are workspace paths, ToolResults
+        or library media ids; a path resolves to its library item, or to the
+        sources already recorded for it. A later library save of ``out`` lists
+        them as its lineage. Returns the media ids recorded.
+        """
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+        from .file_sources import record_sources, sources_for_files
+
+        out_path = self._resolve_path(self._contain_av_token("record_sources", os.fspath(out)))
+        if not out_path.is_file():
+            raise FileNotFoundError(f"record_sources: {out} is not a file in the workspace")
+        items = [inputs] if isinstance(inputs, (str, os.PathLike, int, ToolResult)) else list(inputs)
+        ids: list[int] = []
+        async with async_sessionmaker(self.session.bind, expire_on_commit=False)() as own:
+            for item in items:
+                if isinstance(item, bool):
+                    raise TypeError("record_sources inputs are paths, ToolResults or media ids")
+                if isinstance(item, int):
+                    ids.append(item)
+                elif isinstance(item, ToolResult) and item.media_id is not None:
+                    ids.append(item.media_id)
+                else:
+                    path = item.path if isinstance(item, ToolResult) else item
+                    if not isinstance(path, (str, os.PathLike)):
+                        raise TypeError("record_sources inputs are paths, ToolResults or media ids")
+                    resolved = self._resolve_path(self._contain_av_token("record_sources", os.fspath(path)))
+                    ids.extend(await sources_for_files(own, self.workspace_dir, [resolved]))
+        ids = list(dict.fromkeys(ids))
+        await record_sources(self.workspace_dir, [out_path], ids)
+        return ids
 
     async def ffprobe(self, *args, timeout: float = 120.0, check: bool = True) -> AVToolResult:
         """Run ffprobe in the chat workspace to inspect media files."""
