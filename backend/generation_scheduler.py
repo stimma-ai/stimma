@@ -125,7 +125,7 @@ class GenerationScheduler:
                 job.worker_id = worker_id
 
                 # Try to assign in backend registry
-                if await self.backend_registry.assign_job(backend_name, job.id):
+                if await self.backend_registry.assign_job(backend_name, job.id, profile_id):
                     await session.commit()
 
                     # Update last served generator
@@ -140,7 +140,7 @@ class GenerationScheduler:
                     await session.rollback()
                     return None
 
-    async def on_job_completed(self, job_id: int, backend_name: str):
+    async def on_job_completed(self, job_id: int, backend_name: str, profile_id: str):
         """
         Callback when a job completes or fails.
 
@@ -151,7 +151,7 @@ class GenerationScheduler:
             backend_name: Name of the backend that processed the job
         """
         # Release the job from backend registry
-        await self.backend_registry.release_job(backend_name, job_id)
+        await self.backend_registry.release_job(backend_name, job_id, profile_id)
 
         # The worker loop will automatically pick up the next job
         # No explicit scheduling action needed here

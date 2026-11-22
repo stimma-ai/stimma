@@ -413,11 +413,12 @@ async def get_account_info():
     Fetches the latest balance info. Use this when displaying
     account details that need to be up-to-date.
     """
-    from auth_storage import load_auth_state, save_auth_state, clear_auth_state
+    from auth_storage import auth_generation, load_auth_state
     from firebase_auth import (
         AuthNetworkError,
         AuthRefreshError,
         AuthSessionExpiredError,
+        AuthSessionSupersededError,
         force_refresh_id_token,
         get_valid_id_token,
     )
@@ -429,6 +430,7 @@ async def get_account_info():
             detail=_auth_error("privacy_lockdown", disabled_message("Stimma account access")),
         )
 
+    generation = auth_generation()
     auth_state = load_auth_state()
     if not auth_state or not auth_state.get('refresh_token'):
         from routes.cloud import disconnect_cloud_internal
@@ -452,6 +454,15 @@ async def get_account_info():
             detail=_auth_error(
                 "cloud_unreachable",
                 "Couldn't reach Stimma. Check your connection and try again.",
+            ),
+        )
+    except AuthSessionSupersededError:
+        # A newer login (or a logout) replaced the one this request used.
+        raise HTTPException(
+            status_code=503,
+            detail=_auth_error(
+                "auth_temporarily_unavailable",
+                "Couldn't verify your Stimma session. Try again shortly.",
             ),
         )
     except AuthRefreshError:
@@ -502,6 +513,15 @@ async def get_account_info():
                 "Couldn't reach Stimma. Check your connection and try again.",
             ),
         )
+    except AuthSessionSupersededError:
+        # A newer login (or a logout) replaced the one this request used.
+        raise HTTPException(
+            status_code=503,
+            detail=_auth_error(
+                "auth_temporarily_unavailable",
+                "Couldn't verify your Stimma session. Try again shortly.",
+            ),
+        )
     except AuthRefreshError:
         raise HTTPException(
             status_code=502,
@@ -527,9 +547,16 @@ async def get_account_info():
                 ),
             )
         if e.response.status_code in (401, 403):
-            from routes.cloud import disconnect_cloud_internal
-            await disconnect_cloud_internal()
-            clear_auth_state()
+            from firebase_auth import clear_auth_after_session_expiry
+            if not await clear_auth_after_session_expiry(generation):
+                # A newer login replaced the one this request used: not a sign-out.
+                raise HTTPException(
+                    status_code=503,
+                    detail=_auth_error(
+                        "auth_temporarily_unavailable",
+                        "Couldn't verify your Stimma session. Try again shortly.",
+                    ),
+                )
             raise HTTPException(
                 status_code=401,
                 detail=_auth_error("session_expired", "Please sign in again."),

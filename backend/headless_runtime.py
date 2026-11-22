@@ -208,7 +208,11 @@ async def finish_login(custom_token, user):
         'ever_had_credits': bool(account.get('hasEverHadCredits', credits > 0)),
         'refresh_token': tokens['refresh_token'], 'id_token': tokens['id_token'],
         'id_token_expiry': tokens['expiry'],
-    })
+    }, new_login=True)
+    # The multi-device identity check caches our uid; a new login may be a
+    # different account.
+    from multi_device.auth import reset_own_account_uid
+    reset_own_account_uid()
     asyncio.create_task(connect_cloud_internal(tokens['id_token']))
     from cloud_events import get_cloud_events_client
     get_cloud_events_client().start()

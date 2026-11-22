@@ -1188,3 +1188,65 @@ async def test_store_hit_restores_media_ids_and_duration(tmp_path):
     assert eq2.result == 42
     assert eq2.result_media_ids == [42]
     assert eq2.execution_duration_ms == duration_ms
+
+
+@pytest.mark.asyncio
+async def test_http_resolve_offline_decrements_pending_task_count(client, db_session):
+    """An offline resolution keeps the flow's pending badge count in step."""
+    from sqlalchemy import select, update
+    from database import Flow
+    from flow_runtime import get_flow_state_db_path
+    from flow_runtime.graph import Equation, EquationStatus as S, EquationType as ET
+
+    flow_id = (await client.post("/api/flows", json={"name": "x-offline-count"})).json()["id"]
+    state_db = get_flow_state_db_path(flow_id)
+    eq = Equation(
+        key="r/hitl.select$0", equation_type=ET.HITL,
+        definition={"hitl_type": "select"}, dependencies=[], phase_path=[],
+    )
+    eq.status = S.AWAITING_INPUT
+    eq.inputs_hash = "cafef00d"
+    graph_db.insert_equation(state_db, eq)
+    task_id = graph_db.insert_task(
+        state_db, "r/hitl.select$0", "select", "pick", {"candidates": ["a", "b"], "count": 1},
+    )
+    async with db_session() as session:
+        await session.execute(update(Flow).where(Flow.id == flow_id).values(pending_task_count=1))
+        await session.commit()
+
+    r = await client.post(f"/api/tasks/{flow_id}:{task_id}/resolve", json={"resolution": "a"})
+    assert r.status_code == 200, r.text
+    async with db_session() as session:
+        count = await session.scalar(select(Flow.pending_task_count).where(Flow.id == flow_id))
+    assert count == 0
+
+
+@pytest.mark.asyncio
+async def test_stop_cancels_in_flight_evaluations(isolated_store_and_db):
+    """Stopping a flow abandons a running evaluation instead of waiting on it."""
+    db_path, store = isolated_store_and_db
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def hanging_tool(req: EvaluationRequest) -> EvaluationResult:
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    reg = EvaluatorRegistry()
+    reg.register("tool_call", hanging_tool)
+
+    @flow()
+    def r():
+        with phase("Run"):
+            return tool("gen", task_type="text-to-image", prompt="p")
+
+    runtime = FlowRuntime(202, db_path, flow_callable=r, evaluators=reg, store=store)
+    runtime.build_initial_graph()
+    await runtime.start()
+    await asyncio.wait_for(started.wait(), 3)
+    await asyncio.wait_for(runtime.stop(), 3)
+    assert cancelled.is_set()

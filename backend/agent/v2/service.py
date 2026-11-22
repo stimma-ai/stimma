@@ -29,7 +29,7 @@ from ..hitl import HumanActionRequired
 from .permissions import get_permission_decision, check_permission_for_call, check_stp_permission, apply_permission, apply_stp_permission, can_allow_whole_provider
 from .prompts import get_system_prompt
 from .tools.bash import get_shell_runtime_name
-from .tools_registry import get_tools_schema, get_tool, get_all_tools
+from .tools_registry import get_tools_schema, get_tool, get_all_tools, tool_arguments_error
 from .tools.notepad import format_notepad_for_prompt
 from .workspace import get_project_workspace, get_workspace_dir
 
@@ -64,6 +64,22 @@ def get_active_chat_ids() -> list[int]:
     from core.profile_context import get_current_profile
     profile_id = get_current_profile()
     return sorted(chat_id for profile, chat_id in _active_chat_executions if profile == profile_id)
+
+
+async def claim_chat_task(chat_id: int) -> None:
+    """Wait for any other run of this chat, then register the current task as it.
+
+    Nothing awaits between the last check and the claim, so a run that starts
+    afterwards (see _run_agent_background) waits for this one.
+    """
+    current = asyncio.current_task()
+    while True:
+        prev = get_active_task(chat_id)
+        if not prev or prev.done() or prev is current:
+            break
+        await asyncio.gather(prev, return_exceptions=True)
+    if current:
+        _active_chat_tasks[_chat_key(chat_id)] = current
 
 
 def get_active_task(chat_id: int) -> Optional[asyncio.Task]:
@@ -569,6 +585,8 @@ def _enrich_tool_args(fn_name: str, fn_arguments: str) -> str:
         args = json.loads(fn_arguments) if fn_arguments else {}
     except (json.JSONDecodeError, TypeError):
         return fn_arguments
+    if not isinstance(args, dict):
+        return fn_arguments
 
     if fn_name == "skill" and args.get("name"):
         from .stimpacks import load_skill
@@ -594,9 +612,10 @@ def _enrich_tool_args(fn_name: str, fn_arguments: str) -> str:
 
 def _parse_tool_args(raw_arguments: Optional[str]) -> dict:
     try:
-        return json.loads(raw_arguments) if raw_arguments else {}
+        parsed = json.loads(raw_arguments) if raw_arguments else {}
     except (json.JSONDecodeError, TypeError):
         return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def _dump_tool_args(arguments: dict) -> str:
@@ -993,17 +1012,34 @@ def _build_tool_prompt(fn_name: str, kwargs: dict) -> str:
     return f"Use tool: {fn_name}"
 
 
+def _execution_workspace_dir(chat: Chat) -> str | Path:
+    """Where this chat's tool calls run: a flow chat edits its flow's directory."""
+    if chat.flow_id is not None:
+        from flow_runtime import get_flow_dir
+        flow_dir = get_flow_dir(chat.flow_id)
+        if flow_dir.exists():
+            return str(flow_dir)
+    return get_workspace_dir(chat.id, chat.project_id)
+
+
 async def _needs_permission(
     fn_name: str,
     fn_arguments: str,
     chat: Chat,
     session: AsyncSession,
+    workspace_dir: str | Path | None = None,
 ) -> bool:
-    """Check if a tool call needs permission — handles both V2 gating and STP tool gating."""
+    """Check if a tool call needs permission — handles both V2 gating and STP tool gating.
+
+    workspace_dir is where the call will run; the bash preflight must check
+    that directory, not a default one.
+    """
     if fn_name == "bash" and await get_permission_decision("bash", chat, session) == "ask":
         from .workspace_commands import can_run_in_workspace
         args = _parse_tool_args(fn_arguments)
-        if can_run_in_workspace(str(args.get("command", "")), get_workspace_dir(chat.id)):
+        if workspace_dir is None:
+            workspace_dir = _execution_workspace_dir(chat)
+        if can_run_in_workspace(str(args.get("command", "")), workspace_dir):
             return False
     # V2 tool-level gating (bash, browse_web, run_code)
     if not await check_permission_for_call(fn_name, fn_arguments, chat, session):
@@ -1575,16 +1611,13 @@ async def _run_agentic_loop_inner(
     # broadcast) is shared with the main agent loop.
     if chat.flow_id is not None:
         from .flow_prompt import build_available_models_section, get_flow_system_prompt
-        from flow_runtime import get_flow_dir
         system_prompt = get_flow_system_prompt(
             additional_instructions=resolved_config.additional_instructions,
             global_memory=resolved_config.global_memory,
             project_memory=resolved_config.project_memory,
             available_models=await build_available_models_section(chat.project_id),
         )
-        flow_dir = get_flow_dir(chat.flow_id)
-        if flow_dir.exists():
-            workspace_dir = str(flow_dir)
+        workspace_dir = _execution_workspace_dir(chat)
     else:
         system_prompt = get_system_prompt(
             additional_instructions=resolved_config.additional_instructions,
@@ -1720,9 +1753,12 @@ async def _run_agentic_loop_inner(
             if fn_name == "finish":
                 continue
 
+            # Unusable arguments get an error result, never a prompt.
+            args_error = tool_arguments_error(fn_name, fn_arguments)
+
             # Permission check (the first one was already approved, but
             # remaining calls in the same batch might need prompting too)
-            if await _needs_permission(fn_name, fn_arguments, chat, session):
+            if not args_error and await _needs_permission(fn_name, fn_arguments, chat, session, workspace_dir):
                 remaining = pending_tool_calls[pending_tool_calls.index(tc_data):]
                 remaining = remaining[1:]  # exclude current one
                 try:
@@ -1752,6 +1788,20 @@ async def _run_agentic_loop_inner(
                 "chat_id": chat_id,
                 "item": call_item.to_dict(),
             })
+
+            if args_error:
+                result_item = ChatItem(
+                    chat_id=chat_id,
+                    item_type="tool_result",
+                    tool_call_id=tool_call_id,
+                    tool_result=args_error,
+                )
+                session.add(result_item)
+                await session.commit()
+                await ws_manager.broadcast("chat_item_created", {
+                    "chat_id": chat_id, "item": result_item.to_dict(),
+                })
+                continue
 
             if fn_name == "ask_user":
                 ask_args = _parse_tool_args(fn_arguments)
@@ -1783,6 +1833,9 @@ async def _run_agentic_loop_inner(
                 call_item_id=call_item.id,
                 shown_media_ids=shown_media_ids,
                 enabled_stimpacks=list(_invoked_skills) if _invoked_skills else None,
+                # A delegate that pauses must know the calls after it.
+                parent_turn=start_turn,
+                parent_remaining=pending_tool_calls[index + 1:],
                 effective_model_slug=effective_model_slug,
             )
             # Track newly invoked skills
@@ -2036,8 +2089,12 @@ async def _run_agentic_loop_inner(
                         "llm_provider_state": resp.provider_state,
                     })
 
+                # Unusable arguments get an error result, never a prompt.
+                args_error = tool_arguments_error(fn_name, fn_arguments)
+
                 # Permission check before execution
-                if resp.finish_reason != FinishReason.LENGTH and await _needs_permission(fn_name, fn_arguments or "", chat, session):
+                if (resp.finish_reason != FinishReason.LENGTH and not args_error
+                        and await _needs_permission(fn_name, fn_arguments or "", chat, session, workspace_dir)):
                     try:
                         await _pause_for_permission(
                             fn_name, fn_arguments, tool_call_id,
@@ -2066,7 +2123,7 @@ async def _run_agentic_loop_inner(
                     "item": call_item.to_dict(),
                 })
 
-                if resp.finish_reason == FinishReason.LENGTH:
+                if resp.finish_reason == FinishReason.LENGTH or args_error:
                     result_item = ChatItem(
                         chat_id=chat_id,
                         item_type="tool_result",
@@ -2074,7 +2131,7 @@ async def _run_agentic_loop_inner(
                         tool_result=(
                             "This call was cut off at the output limit and was not run. "
                             "Split the work into smaller steps, then try again."
-                        ),
+                        ) if resp.finish_reason == FinishReason.LENGTH else args_error,
                     )
                     session.add(result_item)
                     await session.commit()
@@ -2330,15 +2387,20 @@ async def _resume_delegate_after_permission(
         resume_pending_tool=resume_pending_tool,
         resume_remaining_tools=delegate_state.get("remaining_tools", []),
         resume_created_media_ids=delegate_state.get("created_media_ids", []),
+        resume_invoked_skills=delegate_state.get("invoked_skills"),
     )
 
-    # Save the delegate result as a tool_result ChatItem (the delegate call itself)
+    # Save the delegate result as a tool_result ChatItem (the delegate call
+    # itself). It must answer the model's own call id, or history repair
+    # drops it as an orphan and the model reads the delegate as interrupted.
     parent_item_id = delegate_state.get("parent_item_id")
     if parent_item_id:
+        parent_call = await session.get(ChatItem, parent_item_id)
         result_item = ChatItem(
             chat_id=chat_id,
             item_type="tool_result",
-            tool_call_id=f"delegate_{parent_item_id}",
+            tool_call_id=(parent_call.tool_call_id if parent_call and parent_call.tool_call_id
+                          else f"delegate_{parent_item_id}"),
             tool_result=result if isinstance(result, str) else str(result),
             parent_item_id=None,  # top-level result for the delegate call
         )
@@ -2364,8 +2426,15 @@ async def resume_after_hitl(
     response_data: Dict[str, Any],
     session: AsyncSession,
     ws_manager: WebSocketManager,
+    response_persisted: bool = False,
+    expected_tool_call_id: Optional[str] = None,
 ) -> None:
-    """Resume v2 agent after a permission HITL response."""
+    """Resume v2 agent after a permission HITL response.
+
+    response_persisted: the caller already saved the hitl_response item.
+    expected_tool_call_id: the answered request's call; the saved resume
+    point must still be that call.
+    """
     from ..hitl import parse_human_response, ToolPermissionResponse
 
     chat_id = chat.id
@@ -2389,19 +2458,23 @@ async def resume_after_hitl(
     if not pending:
         log.warning(f"Chat {chat_id}: No _v2_pending state for resume")
         return
+    if expected_tool_call_id and pending.get("tool_call_id") != expected_tool_call_id:
+        log.warning(f"Chat {chat_id}: resume point moved to another call; not resuming")
+        return
 
     # Save HITL response ChatItem
-    response_item = ChatItem(
-        chat_id=chat_id,
-        item_type="hitl_response",
-        item_metadata=json.dumps(response_data),
-    )
-    session.add(response_item)
-    await session.commit()
-    await ws_manager.broadcast("chat_item_created", {
-        "chat_id": chat_id,
-        "item": response_item.to_dict(),
-    })
+    if not response_persisted:
+        response_item = ChatItem(
+            chat_id=chat_id,
+            item_type="hitl_response",
+            item_metadata=json.dumps(response_data),
+        )
+        session.add(response_item)
+        await session.commit()
+        await ws_manager.broadcast("chat_item_created", {
+            "chat_id": chat_id,
+            "item": response_item.to_dict(),
+        })
 
     # Clear pending state
     chat.generation_settings = json.dumps(gen_settings)
@@ -2453,7 +2526,7 @@ async def resume_after_hitl(
 
     try:
         _raise_if_interrupted(chat_id)
-        workspace_dir = get_workspace_dir(chat_id, chat.project_id)
+        workspace_dir = _execution_workspace_dir(chat)
         project_workspace_dir = get_project_workspace(chat.project_id)
 
         # Resolve model slug for this chat
@@ -2541,8 +2614,9 @@ async def resume_after_hitl(
 
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "completed"})
 
-    except _PermissionPause:
-        # Paused again for another permission
+    except (_PermissionPause, HumanActionRequired):
+        # Paused again for another permission (a resumed delegate raises
+        # HumanActionRequired directly)
         pass
 
     except (_AgentInterrupted, asyncio.CancelledError):
@@ -2576,8 +2650,15 @@ async def resume_after_ask_user(
     response_data: Dict[str, Any],
     session: AsyncSession,
     ws_manager: WebSocketManager,
+    response_persisted: bool = False,
+    expected_tool_call_id: Optional[str] = None,
 ) -> None:
-    """Resume v2 agent after the user answers an ask_user prompt."""
+    """Resume v2 agent after the user answers an ask_user prompt.
+
+    response_persisted: the caller already saved the hitl_response item.
+    expected_tool_call_id: the answered request's call; the saved resume
+    point must still be that call.
+    """
     chat_id = chat.id
     await session.refresh(chat)
 
@@ -2598,14 +2679,19 @@ async def resume_after_ask_user(
     if not pending:
         log.warning(f"Chat {chat_id}: No _v2_ask_pending state for resume")
         return
+    if expected_tool_call_id and pending.get("tool_call_id") != expected_tool_call_id:
+        log.warning(f"Chat {chat_id}: resume point moved to another call; not resuming")
+        return
 
     # Save HITL response ChatItem
-    response_item = ChatItem(
-        chat_id=chat_id,
-        item_type="hitl_response",
-        item_metadata=json.dumps(response_data),
-    )
-    session.add(response_item)
+    response_item = None
+    if not response_persisted:
+        response_item = ChatItem(
+            chat_id=chat_id,
+            item_type="hitl_response",
+            item_metadata=json.dumps(response_data),
+        )
+        session.add(response_item)
 
     # Save tool_result ChatItem so the LLM sees the user's answer
     result_item = ChatItem(
@@ -2620,10 +2706,11 @@ async def resume_after_ask_user(
     chat.generation_settings = json.dumps(gen_settings)
     await session.commit()
 
-    await ws_manager.broadcast("chat_item_created", {
-        "chat_id": chat_id,
-        "item": response_item.to_dict(),
-    })
+    if response_item is not None:
+        await ws_manager.broadcast("chat_item_created", {
+            "chat_id": chat_id,
+            "item": response_item.to_dict(),
+        })
     await ws_manager.broadcast("chat_item_created", {
         "chat_id": chat_id,
         "item": result_item.to_dict(),
@@ -2646,7 +2733,8 @@ async def resume_after_ask_user(
         )
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "completed"})
 
-    except _PermissionPause:
+    except (_PermissionPause, HumanActionRequired):
+        # Paused again, possibly inside a delegate run from the remaining calls
         pass
 
     except (_AgentInterrupted, asyncio.CancelledError):

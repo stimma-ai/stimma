@@ -439,6 +439,67 @@ async def test_marking_a_trashed_asset_restores_it(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_bulk_marker_and_tag_edits_batch_queries_and_notify_only_changes(
+    client, db_session
+):
+    """Select-all edits must not cost per-Asset queries or per-Asset events for no-ops."""
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    from tests.helpers.ws import MockWebSocketManager
+
+    async with db_session() as session:
+        asset_ids = []
+        for i in range(60):
+            media = await create_media_item(session, file_hash=f"bulk-org-{i}")
+            asset_ids.append((await create_asset_from_media(session, media_id=media.id)).id)
+        marker = Marker(name="Bulk org", icon_svg="<svg />", color="#fff")
+        session.add(marker)
+        await session.flush()
+        session.add(AssetMarker(asset_id=asset_ids[0], marker_id=marker.id, source="manual"))
+        marker_id = marker.id
+        await session.commit()
+
+    statements: list[str] = []
+
+    def count(_conn, _cursor, statement, *_args):
+        # Lookups, not the inserts of new rows, are what scaled per Asset.
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    async def run(path, body):
+        statements.clear()
+        ws = MockWebSocketManager()
+        event.listen(Engine, "before_cursor_execute", count)
+        try:
+            with patch("routes.assets.ws_manager", ws):
+                response = await client.post(path, json=body)
+        finally:
+            event.remove(Engine, "before_cursor_execute", count)
+        assert response.status_code == 200, response.text
+        return response.json(), len(statements), ws
+
+    def updated(ws):
+        return {d["asset_id"] for _, d in ws.get_broadcasts("media_updated")}
+
+    mark = {"marker_id": marker_id, "add": True}
+    small, small_count, _ = await run("/api/assets/batch/markers", {"asset_ids": asset_ids[30:40], **mark})
+    big, big_count, ws = await run("/api/assets/batch/markers", {"asset_ids": asset_ids, **mark})
+    assert big["changed"] == 49  # 0 was already marked, 30-39 just were
+    assert big_count - small_count <= 5, (small_count, big_count)
+    assert updated(ws) == set(asset_ids) - {asset_ids[0], *asset_ids[30:40]}
+    again, _, ws = await run("/api/assets/batch/markers", {"asset_ids": asset_ids, **mark})
+    assert again["changed"] == 0 and updated(ws) == set()
+
+    tag = {"tag_texts": ["bulk-org"], "remove_tag_ids": []}
+    _, small_count, _ = await run("/api/assets/batch/tags", {"asset_ids": asset_ids[:10], **tag})
+    tagged, big_count, ws = await run("/api/assets/batch/tags", {"asset_ids": asset_ids, **tag})
+    assert tagged["added"] == 50
+    assert big_count - small_count <= 5, (small_count, big_count)
+    assert updated(ws) == set(asset_ids[10:])
+
+
+@pytest.mark.asyncio
 async def test_revision_history_can_restore_an_old_version_as_a_new_latest_version(
     client, db_session
 ):
@@ -762,6 +823,51 @@ async def test_asset_browser_similarity_returns_asset_identity(client, db_sessio
     )
     assert ids_response.status_code == 200, ids_response.text
     assert set(ids_response.json()["ids"]) == {reference_asset.id, match_asset.id}
+
+@pytest.mark.asyncio
+async def test_asset_browser_similarity_pages_follow_ranking(client, db_session):
+    """Ranking on light rows then loading one page keeps order, totals and pages."""
+    tag = f"simpage-{datetime.utcnow().timestamp()}"
+    async with db_session() as session:
+        base = np.zeros(512, dtype=np.float32)
+        base[0] = 1
+        reference = await create_media_item(session, file_hash=f"{tag}-ref")
+        reference.set_embedding(base)
+        reference.created_date = datetime(2020, 1, 1)
+        expected = [reference.id]
+        for i in range(1, 6):
+            media = await create_media_item(session, file_hash=f"{tag}-{i}")
+            embedding = base.copy()
+            embedding[1] = 0.05 * i  # Farther from the reference as i grows
+            media.created_date = datetime(2020, 1, 1) + timedelta(days=i)
+            media.set_embedding(embedding / np.linalg.norm(embedding))
+            expected.append(media.id)
+        for media_id in expected:
+            await create_asset_from_media(session, media_id=media_id)
+        await session.commit()
+
+    params = {
+        "similar_to": str(reference.id),
+        "similarity_threshold": 0.9,
+        "sort_by": "similarity",
+        "page_size": 2,
+        "media_ids": ",".join(map(str, expected)),  # Ignore other tests' rows
+    }
+    seen = []
+    for page in (1, 2, 3, 4):
+        response = await client.get("/api/assets/browse", params={**params, "page": page})
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["total"] == 6
+        seen.extend(item["media_id"] for item in payload["items"])
+        assert all("similarity_score" in item for item in payload["items"])
+    assert seen == expected
+
+    created = await client.get(
+        "/api/assets/browse", params={**params, "sort_by": "created_asc", "page_size": 6}
+    )
+    assert [item["media_id"] for item in created.json()["items"]] == expected
+
 
 @pytest.mark.asyncio
 async def test_asset_trash_restore_preserves_revision_and_clears_expiration(
@@ -1838,6 +1944,74 @@ async def test_large_asset_batch_prescrubs_and_checkpoints_once(
             )
         )
     assert statuses == ["completed"] * len(asset_ids)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failing_step",
+    ["prepare_asset_reference_deletion", "permanently_delete_asset"],
+)
+async def test_one_failing_asset_does_not_stall_empty_trash(
+    client, db_session, failing_step
+):
+    """A persistent per-Asset error fails that operation only; the rest finish."""
+    import asset_deletion_service
+    from delete_operations import _process_profile, retry_failed_delete_operations
+
+    async with db_session() as session:
+        roots = []
+        for _ in range(6):
+            media = await create_media_item(session)
+            roots.append(await create_asset_from_media(session, media_id=media.id))
+        for asset in roots:
+            asset.state = "trashed"
+            asset.deleted_at = datetime.utcnow()
+        asset_ids = [asset.id for asset in roots]
+        await session.commit()
+    culprit = asset_ids[2]
+
+    with patch("delete_operations.ensure_delete_worker_started", new=AsyncMock()):
+        response = await client.post(
+            "/api/assets/batch/permanent", json={"asset_ids": asset_ids}
+        )
+    assert response.status_code == 202, response.text
+
+    real = getattr(asset_deletion_service, failing_step)
+
+    async def flaky(session, *args, **kwargs):
+        targets = args[0] if args else kwargs.get("asset_id")
+        if culprit in (targets if isinstance(targets, list) else [targets]):
+            raise RuntimeError("corrupt reference")
+        return await real(session, *args, **kwargs)
+
+    async def operations():
+        async with db_session() as session:
+            return {
+                op.asset_id: op
+                for op in await session.scalars(
+                    select(DeleteOperation).where(DeleteOperation.asset_id.in_(asset_ids))
+                )
+            }
+
+    async def drain():
+        for _ in range(40):
+            await _process_profile("default")
+            if all(op.status in {"completed", "failed"} for op in (await operations()).values()):
+                return
+
+    with patch(f"asset_deletion_service.{failing_step}", new=flaky):
+        await drain()
+    ops = await operations()
+    assert ops[culprit].status == "failed"
+    assert "corrupt reference" in (ops[culprit].last_error or "")
+    assert {a: op.status for a, op in ops.items() if a != culprit} == {
+        a: "completed" for a in asset_ids if a != culprit
+    }
+
+    async with db_session() as session:
+        assert await retry_failed_delete_operations(session, "default") >= 1
+    await drain()
+    assert (await operations())[culprit].status == "completed"
 
 
 @pytest.mark.asyncio

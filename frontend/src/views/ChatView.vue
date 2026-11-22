@@ -1073,6 +1073,7 @@
                 v-if="isActiveHITLRequest(item)"
                 :fit="docked"
                 :chat-id="chat?.id ?? chatId"
+                :request-item-id="item.id"
                 :action="parseHITLAction(item)"
                 @responded="handleHITLResponded"
                 @view-image="(mediaId, slot) => openSlideshow(mediaId, item.id, slot)"
@@ -1491,6 +1492,7 @@ import { useEntityMove } from '../composables/useEntityMove'
 import { useCompare } from '../composables/useCompare'
 import ConnectionError from '../components/ConnectionError.vue'
 import HITLContainer from '../components/hitl/HITLContainer.vue'
+import { findHitlResponseItem, hitlResponseData } from '../utils/hitlResponses'
 import AskUserPrompt from '../components/hitl/AskUserPrompt.vue'
 import PlanApproval from '../components/hitl/PlanApproval.vue'
 import V2PermissionPrompt from '../components/hitl/V2PermissionPrompt.vue'
@@ -2056,14 +2058,8 @@ function parseAnalysisData(item) {
 function isActiveHITLRequest(item) {
   const action = parseHITLAction(item)
   if (!action || action.closed) return false // closed: its code stopped while it waited
-  const itemIdx = items.value.findIndex(i => i.id === item.id)
-  if (itemIdx < 0) return false
-  for (let i = itemIdx + 1; i < items.value.length; i++) {
-    if (items.value[i].item_type === 'hitl_response') {
-      return false
-    }
-  }
-  return true
+  if (!items.value.some(i => i.id === item.id)) return false
+  return !findHitlResponseItem(items.value, item)
 }
 
 function shouldShowHITLRequest(item) {
@@ -2080,22 +2076,7 @@ function shouldShowHITLRequest(item) {
 
 function findHITLResponse(requestItem) {
   if (parseHITLAction(requestItem)?.closed) return { approved: false, interrupted: true }
-  const itemIdx = items.value.findIndex(i => i.id === requestItem.id)
-  if (itemIdx < 0) return null
-  for (let i = itemIdx + 1; i < items.value.length; i++) {
-    if (items.value[i].item_type === 'hitl_response') {
-      const meta = items.value[i].item_metadata
-      try {
-        const parsed = typeof meta === 'string' ? JSON.parse(meta) : meta
-        // v2_tool_permission stores response flat: { approved, scope }
-        // plan_approval stores it nested: { response: { approved, ... } }
-        return parsed?.response || parsed || null
-      } catch {
-        return null
-      }
-    }
-  }
-  return null
+  return hitlResponseData(findHitlResponseItem(items.value, requestItem))
 }
 
 function getToolCallErrorMessage(toolCallItem) {

@@ -398,7 +398,7 @@ class FlowRun:
         self._reset_stale_computing()
 
     async def stop(self) -> None:
-        """Stop scheduling and end the loop. Awaits in-flight equations."""
+        """Stop scheduling and end the loop. Cancels in-flight equations."""
         self._state = RunState.FINISHED
         self._wakeup.set()
         self._paused_event.set()
@@ -2288,6 +2288,9 @@ class FlowRun:
     async def _drain_in_flight(self) -> None:
         if not self._in_flight:
             return
+        # Stopping abandons running evaluations; cancel them rather than wait.
+        for task in self._in_flight.values():
+            task.cancel()
         await asyncio.gather(*self._in_flight.values(), return_exceptions=True)
         self._in_flight.clear()
 

@@ -742,12 +742,29 @@ def _write_auth_state_json(path: Path, state: AuthState) -> None:
         raise
 
 
-def save_auth_state(state: AuthState) -> None:
+_auth_generation = 0
+
+
+def auth_generation() -> int:
+    """Changes whenever a login ends or a new one starts.
+
+    A token refresh captures it before awaiting Firebase and drops its result
+    if it changed meanwhile, so a refresh started under one login can neither
+    resurrect a signed-out session nor clear the login that replaced it.
+    """
+    return _auth_generation
+
+
+def save_auth_state(state: AuthState, *, new_login: bool = False) -> None:
     """Save auth state to disk.
 
     Uses atomic writes (write to temp file, then rename) to avoid corruption.
-    Token fields are stripped before writing JSON.
+    Token fields are stripped before writing JSON. ``new_login`` marks a fresh
+    sign-in, which supersedes any refresh still in flight for the old one.
     """
+    global _auth_generation
+    if new_login:
+        _auth_generation += 1
     path = _get_auth_state_path()
 
     refresh_token = state.get('refresh_token')
@@ -831,6 +848,8 @@ def load_auth_state() -> Optional[AuthState]:
 
 def clear_auth_state() -> None:
     """Delete auth state file and local auth tokens (logout/session expiry)."""
+    global _auth_generation
+    _auth_generation += 1
     path = _get_auth_state_path()
 
     _clear_refresh_token()

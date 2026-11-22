@@ -757,7 +757,7 @@ async function handleDebugForceFfmpegMissingUpdate(enabled) {
 }
 
 // Profile handlers
-async function handleProfileUpdate({ profileId, data }) {
+async function handleProfileUpdate({ profileId, data, pin = null }) {
   // Optimistic update
   if (settings.value) {
     const profiles = settings.value.profiles.map(p =>
@@ -767,7 +767,7 @@ async function handleProfileUpdate({ profileId, data }) {
   }
   // Fire-and-forget
   try {
-    await renameProfile(profileId, data.name)
+    await renameProfile(profileId, data.name, pin)
   } catch (err) {
     console.error('Failed to update profile:', err)
   }
@@ -787,7 +787,7 @@ async function handleProfileCreate(name) {
   }
 }
 
-async function handleProfileDelete(profileId) {
+async function handleProfileDelete(profileId, pin = null) {
   // Store for potential revert
   const originalProfiles = settings.value?.profiles || []
   // Optimistic delete
@@ -799,7 +799,7 @@ async function handleProfileDelete(profileId) {
   }
   // Fire-and-forget
   try {
-    await deleteProfile(profileId)
+    await deleteProfile(profileId, pin)
     await loadProfiles()
   } catch (err) {
     console.error('Failed to delete profile:', err)

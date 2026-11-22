@@ -788,7 +788,19 @@ async def bulk_move_collection_items(
             session, media_id=media_id, asset_id=asset_id
         )
     media_ids_set = set(request.media_ids)
-    asset_ids_set = set(request.asset_ids) | set(mapped.values())
+    # Keep request order (it becomes display order) and move only live Assets:
+    # a trashed or purged id must neither move membership nor hit the FK.
+    requested_asset_ids = list(dict.fromkeys([*request.asset_ids, *mapped.values()]))
+    live_asset_ids = set(
+        await session.scalars(
+            select(Asset.id).where(
+                Asset.id.in_(requested_asset_ids),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+            )
+        )
+    ) if requested_asset_ids else set()
+    move_asset_ids = [a for a in requested_asset_ids if a in live_asset_ids]
     already_in_collection = set(await _collection_asset_ids(session, collection.id))
 
     sections_result = await session.execute(
@@ -808,12 +820,12 @@ async def bulk_move_collection_items(
                 CollectionItem.media_id.in_(media_ids_set),
             )
         )
-        if asset_ids_set:
+        if move_asset_ids:
             asset_rows = list(
                 await session.scalars(
                     select(CollectionAssetItem).where(
                         CollectionAssetItem.collection_section_id == section.id,
-                        CollectionAssetItem.asset_id.in_(asset_ids_set),
+                        CollectionAssetItem.asset_id.in_(move_asset_ids),
                         CollectionAssetItem.deleted_at.is_(None),
                     )
                 )
@@ -834,12 +846,12 @@ async def bulk_move_collection_items(
         await session.scalars(
             select(CollectionAssetItem.asset_id).where(
                 CollectionAssetItem.collection_section_id == target_section.id,
-                CollectionAssetItem.asset_id.in_(asset_ids_set),
+                CollectionAssetItem.asset_id.in_(move_asset_ids),
                 CollectionAssetItem.deleted_at.is_(None),
             )
         )
     )
-    for asset_id in asset_ids_set:
+    for asset_id in move_asset_ids:
         if asset_id in existing_asset_ids:
             continue
         session.add(
@@ -854,12 +866,12 @@ async def bulk_move_collection_items(
     await record_media_actions(
         session,
         ADDED_TO_COLLECTION,
-        [(media_for_asset.get(a), a) for a in asset_ids_set if a not in already_in_collection],
+        [(media_for_asset.get(a), a) for a in move_asset_ids if a not in already_in_collection],
         collection_detail(collection),
     )
 
     attached_asset_ids = await _attach_assets_to_collection_project(
-        session, collection, asset_ids_set
+        session, collection, move_asset_ids
     )
     collection.updated_at = datetime.utcnow()
     await session.commit()
@@ -869,7 +881,7 @@ async def bulk_move_collection_items(
         )
     _track_collection_event(
         "collection_items_moved", collection.id,
-        {"count": len(asset_ids_set)},
+        {"count": len(move_asset_ids)},
     )
     payload = await _serialize_collection(collection, session)
     await ws_manager.broadcast("collection_items_changed", {"collection_id": collection.id, "collection": payload.model_dump()})

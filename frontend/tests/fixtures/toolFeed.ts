@@ -8,6 +8,7 @@ import { useGenerationJobs } from '../../src/composables/useGenerationJobs'
 const app = createApp({
   setup() {
     const feed = useGenerationJobs({ taskType: null, generatorInstanceId: 'tool-test:feed@@guid' })
+    ;(window as any).feed = feed
     onMounted(async () => {
       await feed.init()
       window.feedInitialized = true

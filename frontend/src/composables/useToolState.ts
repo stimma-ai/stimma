@@ -716,13 +716,17 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
 
   // Track active watchers for cleanup
   let watchStopHandles: WatchStopHandle[] = []
+  // Bumped by stopWatching, so watchers queued before it never attach.
+  let watchToken = 0
 
   // Start watching for changes to save
   function startWatchingChanges() {
     // Stop any existing watchers first to prevent stacking (e.g. on profile switch)
     stopWatching()
     followRemoteChanges()
+    const token = watchToken
     nextTick(() => {
+      if (token !== watchToken) return
       watchStopHandles.push(
         watch([globalPrefs, modelParams, toolLoras, toolChain, uiState], debouncedSaveState, { deep: true })
       )
@@ -737,6 +741,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
 
   // Stop all active watchers and clear pending debounce
   function stopWatching() {
+    watchToken++
     unsubscribeRemote?.()
     unsubscribeRemote = null
     for (const stop of watchStopHandles) {

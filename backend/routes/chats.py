@@ -561,11 +561,10 @@ async def _run_agent_background(
     # abort), wait for it to finish instead of letting run_agent's concurrency
     # guard drop this run — a dropped run means a committed user message the
     # agent never answers.
-    from agent.v2.service import get_active_task
-    prev_task = get_active_task(chat_id)
-    if prev_task and not prev_task.done() and prev_task is not asyncio.current_task():
-        log.info(f"Chat {chat_id}: waiting for previous agent run to finish before starting")
-        await asyncio.gather(prev_task, return_exceptions=True)
+    # Claiming before any database await also makes a HITL resume that
+    # starts meanwhile wait for this run.
+    from agent.v2.service import claim_chat_task
+    await claim_chat_task(chat_id)
 
     try:
         async with db.async_session_maker() as session:
@@ -2404,6 +2403,7 @@ class HITLResponseRequest(PydanticBaseModel):
     text: Optional[str] = None  # Natural language input to be interpreted
     selected_tool_id: Optional[str] = None  # For tool permission: user-selected tool
     scope: Optional[str] = None  # Permission scope: 'once' | 'chat' | 'always' | 'provider'
+    request_item_id: Optional[int] = None  # The hitl_request chat item being answered
 
 
 async def _interpret_plan_response(text: str) -> dict:
@@ -2453,6 +2453,100 @@ Return ONLY the JSON, no other text."""
         return {"approved": False, "refinement": text}
 
 
+def _hitl_response_request_id(item: ChatItem) -> Optional[int]:
+    """The request a hitl_response answers, or None for one saved before ids."""
+    try:
+        meta = json.loads(item.item_metadata or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(meta, dict):
+        return None
+    return meta.get("request_item_id") or meta.get("_mcp_interaction_id")
+
+
+async def _find_pending_hitl(
+    session: AsyncSession, chat_id: int, request_item_id: Optional[int]
+) -> tuple[Optional[ChatItem], Optional[dict]]:
+    """The request being answered and its action, if it is still unanswered.
+
+    With request_item_id, that exact request; without (older clients), the
+    newest one. A response answers the request it names; a response saved
+    before responses named their request answers every request before it.
+    """
+    query = (
+        select(ChatItem)
+        .where(ChatItem.chat_id == chat_id)
+        .where(ChatItem.item_type == "hitl_request")
+    )
+    if request_item_id is not None:
+        query = query.where(ChatItem.id == request_item_id)
+    else:
+        query = query.order_by(ChatItem.created_at.desc()).limit(1)
+    hitl_item = (await session.execute(query)).scalar_one_or_none()
+    if not hitl_item or not hitl_item.item_metadata:
+        return hitl_item, None
+    responses = (await session.scalars(
+        select(ChatItem)
+        .where(ChatItem.chat_id == chat_id)
+        .where(ChatItem.item_type == "hitl_response")
+        .where(ChatItem.id > hitl_item.id)
+    )).all()
+    if any(_hitl_response_request_id(r) in (None, hitl_item.id) for r in responses):
+        return hitl_item, None
+    try:
+        action = json.loads(hitl_item.item_metadata) if isinstance(hitl_item.item_metadata, str) else hitl_item.item_metadata
+    except json.JSONDecodeError:
+        action = None
+    return hitl_item, action if isinstance(action, dict) else None
+
+
+# Check-and-record of an answer is serialized per chat, so a double click (or
+# a desktop and an MCP answer at once) records one answer and resumes once.
+_hitl_answer_locks: dict[tuple[str, int], asyncio.Lock] = {}
+
+
+def _hitl_answer_lock(chat_id: int) -> asyncio.Lock:
+    from core.profile_context import get_current_profile
+    return _hitl_answer_locks.setdefault((get_current_profile(), chat_id), asyncio.Lock())
+
+
+async def _resume_after_hitl_background(
+    chat_id: int,
+    response_data: dict,
+    action_type: Optional[str],
+    profile_id: str,
+    tool_call_id: Optional[str] = None,
+) -> None:
+    """Resume the agent after an answer, in its own session (see _run_agent_background)."""
+    from database_registry import get_database_registry
+    from core.profile_context import set_current_profile
+
+    set_current_profile(profile_id)
+    db = get_database_registry().get_database(profile_id)
+    # Never resume while another run of this chat is still going, and hold
+    # the chat from here on, so a message sent meanwhile waits for us.
+    from agent.v2.service import claim_chat_task
+    await claim_chat_task(chat_id)
+    try:
+        async with db.async_session_maker() as session:
+            chat = await session.get(Chat, chat_id)
+            if not chat:
+                return
+            from agent import resume_agent_after_hitl
+            await resume_agent_after_hitl(
+                chat=chat,
+                response_data=response_data,
+                session=session,
+                ws_manager=ws_manager,
+                action_type=action_type,
+                response_persisted=True,
+                tool_call_id=tool_call_id,
+            )
+    except Exception as e:
+        # The resume surfaces its own errors as chat items; this is a backstop.
+        log.error(f"HITL resume error for chat {chat_id}: {e}", exc_info=True)
+
+
 @router.post("/{chat_id}/human-response")
 async def submit_human_response(
     chat_id: int,
@@ -2463,7 +2557,23 @@ async def submit_human_response(
     Submit a human response to a pending HITL request.
 
     This endpoint is called when the user responds to an approval prompt,
-    choice selection, feedback request, or question.
+    choice selection, feedback request, or question. It records the answer
+    and returns; the agent resumes in the background.
+    """
+    return await apply_human_response(chat_id, request, session, wait=False)
+
+
+async def apply_human_response(
+    chat_id: int,
+    request: HITLResponseRequest,
+    session: AsyncSession,
+    *,
+    wait: bool,
+):
+    """Record an answer to a pending HITL request and resume the agent.
+
+    wait=True runs the resumed turn before returning (MCP computes the job's
+    state from its result); otherwise it runs in the background.
     """
     log.info(
         f"human-response endpoint called for chat {chat_id}",
@@ -2479,87 +2589,67 @@ async def submit_human_response(
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    # Find pending HITL action from most recent hitl_request chat item
-    # (New architecture stores HITL in chat items, not working_context)
-    hitl_result = await session.execute(
-        select(ChatItem)
-        .where(ChatItem.chat_id == chat_id)
-        .where(ChatItem.item_type == "hitl_request")
-        .order_by(ChatItem.created_at.desc())
-        .limit(1)
-    )
-    hitl_item = hitl_result.scalar_one_or_none()
+    async with _hitl_answer_lock(chat_id):
+        # The request is a hitl_request chat item: the one the user answered,
+        # or the newest when the client didn't say.
+        hitl_item, pending_action = await _find_pending_hitl(session, chat_id, request.request_item_id)
+        if isinstance(pending_action, dict) and pending_action.get("closed"):
+            # Its code was stopped while it waited: nothing to answer.
+            return {"success": True}
 
-    pending_action = None
-    if hitl_item and hitl_item.item_metadata:
-        # Check if this HITL request already has a response
-        response_result = await session.execute(
-            select(ChatItem)
-            .where(ChatItem.chat_id == chat_id)
-            .where(ChatItem.item_type == "hitl_response")
-            .where(ChatItem.created_at > hitl_item.created_at)
-            .limit(1)
-        )
-        if response_result.scalar_one_or_none():
-            # Already responded - treat as no pending action
-            pass
-        else:
-            try:
-                pending_action = json.loads(hitl_item.item_metadata) if isinstance(hitl_item.item_metadata, str) else hitl_item.item_metadata
-            except json.JSONDecodeError:
-                pass
-            if isinstance(pending_action, dict) and pending_action.get("closed"):
-                # Its code was stopped while it waited: nothing to answer.
-                return {"success": True}
+        # Fall back to working_context for backward compatibility
+        if not pending_action and request.request_item_id is None:
+            context_data = {}
+            if chat.generation_settings:
+                try:
+                    settings = json.loads(chat.generation_settings)
+                    context_data = settings.get("working_context", {})
+                except json.JSONDecodeError:
+                    pass
+            pending_action = context_data.get("pending_human_action")
 
-    # Fall back to working_context for backward compatibility
-    if not pending_action:
-        context_data = {}
-        if chat.generation_settings:
-            try:
-                settings = json.loads(chat.generation_settings)
-                context_data = settings.get("working_context", {})
-            except json.JSONDecodeError:
-                pass
-        pending_action = context_data.get("pending_human_action")
+        log.debug(f"pending_action: {pending_action is not None}, type: {pending_action.get('type') if pending_action else 'none'}")
+        if not pending_action:
+            raise HTTPException(status_code=400, detail="No pending HITL action")
 
-    log.debug(f"pending_action: {pending_action is not None}, type: {pending_action.get('type') if pending_action else 'none'}")
-    if not pending_action:
-        raise HTTPException(status_code=400, detail="No pending HITL action")
+        # If natural language text provided for plan_approval, interpret it with LLM
+        if request.text and pending_action.get("type") == "plan_approval":
+            interpreted = await _interpret_plan_response(request.text)
+            request.approved = interpreted.get("approved")
+            request.refinement = interpreted.get("refinement")
 
-    # If natural language text provided for plan_approval, interpret it with LLM
-    if request.text and pending_action.get("type") == "plan_approval":
-        interpreted = await _interpret_plan_response(request.text)
-        request.approved = interpreted.get("approved")
-        request.refinement = interpreted.get("refinement")
+        # Build response data dict
+        response_data = {}
+        if request.approved is not None:
+            response_data["approved"] = request.approved
+        if request.selected_media_ids is not None:
+            response_data["selected_media_ids"] = request.selected_media_ids
+        if request.item_feedback is not None:
+            response_data["item_feedback"] = request.item_feedback
+        if request.answer is not None:
+            response_data["answer"] = request.answer
+        if request.action is not None:
+            response_data["action"] = request.action
+        if request.refinement is not None:
+            response_data["refinement"] = request.refinement
+        if request.selected_tool_id is not None:
+            response_data["selected_tool_id"] = request.selected_tool_id
+        if request.scope is not None:
+            response_data["scope"] = request.scope
+        if hitl_item is not None:
+            # Saved on the response, so the right card resolves.
+            response_data["request_item_id"] = hitl_item.id
 
-    # Build response data dict
-    response_data = {}
-    if request.approved is not None:
-        response_data["approved"] = request.approved
-    if request.selected_media_ids is not None:
-        response_data["selected_media_ids"] = request.selected_media_ids
-    if request.item_feedback is not None:
-        response_data["item_feedback"] = request.item_feedback
-    if request.answer is not None:
-        response_data["answer"] = request.answer
-    if request.action is not None:
-        response_data["action"] = request.action
-    if request.refinement is not None:
-        response_data["refinement"] = request.refinement
-    if request.selected_tool_id is not None:
-        response_data["selected_tool_id"] = request.selected_tool_id
-    if request.scope is not None:
-        response_data["scope"] = request.scope
-
-    # In-process permission gate (STP tool call made from inside run_code): the turn
-    # is parked on a future, NOT unwound. Resolve the future in place instead of
-    # replaying the turn (replay would re-run every tool call before the gated one).
-    v2_args = pending_action.get("v2_tool_args", {}) if isinstance(pending_action, dict) else {}
-    inprocess_id = v2_args.get("_inprocess_request_id")
-    if inprocess_id:
-        from agent.v2.tool_permission_gate import is_pending_permission, resolve_pending_permission
-        if is_pending_permission(inprocess_id):
+        # In-process permission gate (STP tool call made from inside run_code): the turn
+        # is parked on a future, NOT unwound. Resolve the future in place instead of
+        # replaying the turn (replay would re-run every tool call before the gated one).
+        v2_args = pending_action.get("v2_tool_args", {}) if isinstance(pending_action, dict) else {}
+        inprocess_id = v2_args.get("_inprocess_request_id")
+        if inprocess_id:
+            from agent.v2.tool_permission_gate import is_pending_permission, resolve_pending_permission
+            if not is_pending_permission(inprocess_id):
+                # Its call is gone. Never hand this answer to another request.
+                raise HTTPException(status_code=409, detail="This request is no longer waiting for an answer.")
             scope = request.scope or "once"
             approved = bool(request.approved)
             # Persist chat/always grants using this request's session (the parked
@@ -2573,7 +2663,9 @@ async def submit_human_response(
             resp_item = ChatItem(
                 chat_id=chat_id,
                 item_type="hitl_response",
-                item_metadata=json.dumps({"approved": approved, "scope": scope}),
+                item_metadata=json.dumps({
+                    "approved": approved, "scope": scope, "request_item_id": hitl_item.id,
+                }),
             )
             session.add(resp_item)
             await session.commit()
@@ -2593,19 +2685,60 @@ async def submit_human_response(
             resolve_pending_permission(inprocess_id, {"approved": approved, "scope": scope})
             return {"success": True}
 
+        # An unwound turn keeps one saved resume point; it must belong to
+        # this request, or the answer would resume a different call.
+        action_type = pending_action.get("type")
+        slot_key = {"v2_tool_permission": "_v2_pending", "ask_user": "_v2_ask_pending"}.get(action_type)
+        if slot_key and hitl_item is not None:
+            try:
+                slot = json.loads(chat.generation_settings or "{}").get(slot_key)
+            except (json.JSONDecodeError, AttributeError):
+                slot = None
+            if not isinstance(slot, dict) or (
+                pending_action.get("tool_call_id")
+                and slot.get("tool_call_id") != pending_action.get("tool_call_id")
+            ):
+                raise HTTPException(status_code=409, detail="This request is no longer waiting for an answer.")
+
+        # Record the answer now, so the card resolves at once and a second
+        # click finds it answered.
+        response_persisted = slot_key is not None
+        if response_persisted:
+            response_item = ChatItem(
+                chat_id=chat_id,
+                item_type="hitl_response",
+                item_metadata=json.dumps(response_data),
+            )
+            session.add(response_item)
+            await session.commit()
+            await ws_manager.broadcast("chat_item_created", {
+                "chat_id": chat_id,
+                "item": response_item.to_dict(),
+            })
+
     # Resume agent with the response
     log.debug(
         "Calling resume_agent_after_hitl",
         response_fields=sorted(response_data),
     )
-    from agent import resume_agent_after_hitl
-    await resume_agent_after_hitl(
-        chat=chat,
-        response_data=response_data,
-        session=session,
-        ws_manager=ws_manager,
-    )
-    log.info(f"resume_agent_after_hitl completed")
+    if wait or not response_persisted:
+        from agent import resume_agent_after_hitl
+        await resume_agent_after_hitl(
+            chat=chat,
+            response_data=response_data,
+            session=session,
+            ws_manager=ws_manager,
+            action_type=action_type,
+            response_persisted=response_persisted,
+            tool_call_id=pending_action.get("tool_call_id"),
+        )
+        log.info("resume_agent_after_hitl completed")
+    else:
+        from core.profile_context import get_current_profile
+        asyncio.create_task(_resume_after_hitl_background(
+            chat_id, response_data, action_type, get_current_profile(),
+            pending_action.get("tool_call_id"),
+        ))
 
     return {"success": True}
 

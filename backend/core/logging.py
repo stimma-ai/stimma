@@ -12,11 +12,11 @@ _logging_configured = False
 _file_handler = None
 
 
-_PIN_QUERY = re.compile(r"([?&]pin=)[^&\s\"']*", re.IGNORECASE)
+_PIN_QUERY = re.compile(r"([?&]pin=|/pin/)[^&/\s\"']*", re.IGNORECASE)
 
 
 def redact_pin_query(text: str) -> str:
-    """Mask a profile PIN carried in a URL query (``?pin=`` / ``&pin=``)."""
+    """Mask a profile PIN carried in a URL (``?pin=`` / ``&pin=`` / ``/pin/``)."""
     return _PIN_QUERY.sub(r"\1[redacted]", text)
 
 
@@ -29,7 +29,7 @@ class RedactPinQueryFilter(logging.Filter):
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
-        if isinstance(record.msg, str) and "pin=" in record.msg.lower():
+        if isinstance(record.msg, str) and ("pin=" in record.msg.lower() or "/pin/" in record.msg.lower()):
             record.msg = redact_pin_query(record.msg)
         if isinstance(record.args, tuple) and record.args:
             record.args = tuple(

@@ -115,8 +115,8 @@ let scrollRequest = 0
 const itemsCache = ref(new Map())
 const loadingChunks = ref(new Set())
 
-// Flag to skip scroll animation after prepend adjustment
-const skipNextScroll = ref(false)
+// The index shift a prepend adjustment expects, so it can skip that scroll
+let prependShift = null
 
 // Calculate total width
 const totalWidth = computed(() => {
@@ -338,20 +338,25 @@ watch(() => props.totalCount, (newCount, oldCount) => {
       // Cancel any in-progress smooth scroll by doing an instant scroll to the new position
       scrollContainer.value.scrollTo({ left: newScrollLeft, behavior: 'instant' })
       scrollLeft.value = newScrollLeft
-      skipNextScroll.value = true
+      // The parent moves currentIndex by the same count to keep its item;
+      // that one shift needs no scroll (the position is already right).
+      prependShift = { from: props.currentIndex, to: props.currentIndex + addedCount }
     }
   }
   // Update tracked ID after potential adjustment
   updateFirstVisibleItemId()
 }, { flush: 'sync' })
 
+// A prepend's index shift arrives in the same update or not at all; a later
+// navigation must still scroll.
+watch(() => props.totalCount, () => { prependShift = null }, { flush: 'post' })
+
 // Watch currentIndex and scroll to it
-watch(() => props.currentIndex, (newIndex) => {
-  // Skip if we just did a prepend adjustment (scroll position already correct)
-  if (skipNextScroll.value) {
-    skipNextScroll.value = false
-    return
-  }
+watch(() => props.currentIndex, (newIndex, oldIndex) => {
+  const shift = prependShift
+  prependShift = null
+  // Skip the prepend's own shift (scroll position already correct)
+  if (shift && oldIndex === shift.from && newIndex === shift.to) return
   scrollToIndex(newIndex)
 })
 

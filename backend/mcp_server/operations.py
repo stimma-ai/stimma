@@ -61,6 +61,7 @@ ID_KINDS = {
     "user_tool_id": "custom_tool",
     "item_id": "chat_item",
     "chat_item_id": "chat_item",
+    "request_item_id": "chat_item",
 }
 PRIVATE_FIELDS = {
     "_mcp_interaction_id",

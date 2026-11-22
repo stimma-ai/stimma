@@ -41,6 +41,8 @@ const dirMap = {
 
 function handleKeydown(e) {
   if (e.defaultPrevented || hasEscapeLayer()) return
+  // Leave shortcuts (Cmd/Ctrl+W closes the tab) to the app.
+  if (e.metaKey || e.ctrlKey || e.altKey) return
   if (e.target?.closest?.('input, textarea, [contenteditable="true"]')) return
   const dir = dirMap[e.key]
   if (dir) {
@@ -51,6 +53,8 @@ function handleKeydown(e) {
   }
 
   if (e.key === 'Enter') {
+    // A focused button or link handles its own Enter.
+    if (e.target?.closest?.('button, a[href], select, [role="button"], [role="link"], [role="menuitem"], [role="option"], [role="tab"], [role="checkbox"], [role="switch"]')) return
     e.preventDefault()
     e.stopPropagation()
     if (lineageTreeRef.value?.hasDetailOpen?.()) {

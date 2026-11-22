@@ -13,7 +13,7 @@ import traceback
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from core.logging import get_logger
+from core.logging import get_logger, redact_pin_query
 from core.profile_context import get_current_profile
 from core.request_metrics import get_request_metrics_collector
 
@@ -49,10 +49,11 @@ class SlowtraceMiddleware(BaseHTTPMiddleware):
     """Middleware that logs detailed diagnostics for slow requests."""
 
     async def dispatch(self, request: Request, call_next):
-        path = request.url.path
+        # Package covers carry a PIN in the path, <img> URLs in the query.
+        path = redact_pin_query(request.url.path)
         method = request.method
         skip_logging = _skip_detailed_logging(path)
-        metric_path = _resolve_metric_path(request)
+        metric_path = redact_pin_query(_resolve_metric_path(request))
 
         start_time = time.monotonic()
         start_wall = time.time()
@@ -67,7 +68,7 @@ class SlowtraceMiddleware(BaseHTTPMiddleware):
         if not skip_logging:
             # Capture pre-request state for detailed slow traces.
             profile_id = _safe_get_profile()
-            query_string = str(request.url.query) if request.url.query else None
+            query_string = redact_pin_query("?" + str(request.url.query))[1:] if request.url.query else None
             content_length = request.headers.get("content-length")
             content_type = request.headers.get("content-type")
 

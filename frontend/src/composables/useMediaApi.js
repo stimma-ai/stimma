@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { getCurrentProfileId, getCurrentDbGuid } from './useProfile'
 import { getApiBase } from '../apiConfig'
+import { getCachedPin } from './usePinLock'
 import { useDesktopDownload } from './useDesktopDownload'
 import { useTheme } from './useTheme'
 import { addToast } from './useToasts'
@@ -66,6 +67,14 @@ export function useMediaApi() {
 
   const { resolvedTheme } = useTheme()
 
+  // <img> and <video> cannot send the PIN header, so a PIN-protected
+  // profile's media URLs carry its PIN in the query. Others are unchanged.
+  function withPin(url) {
+    const pin = getCachedPin(getCurrentProfileId())
+    if (!pin) return url
+    return `${url}${url.includes('?') ? '&' : '?'}pin=${encodeURIComponent(pin)}`
+  }
+
   function getThumbnailUrl(fileHashOrMediaId, size = null, options = {}) {
     const dbGuid = getCurrentDbGuid()
     const isMediaId = typeof fileHashOrMediaId === 'number'
@@ -79,9 +88,9 @@ export function useMediaApi() {
       urlParams.append('theme', resolvedTheme.value)
       const params = `?${urlParams.toString()}`
       if (isMediaId) {
-        return `${getAPIBase()}/db/${dbGuid}/media/${fileHashOrMediaId}/thumbnail${params}`
+        return withPin(`${getAPIBase()}/db/${dbGuid}/media/${fileHashOrMediaId}/thumbnail${params}`)
       }
-      return `${getAPIBase()}/db/${dbGuid}/thumbnail/${fileHashOrMediaId}${params}`
+      return withPin(`${getAPIBase()}/db/${dbGuid}/thumbnail/${fileHashOrMediaId}${params}`)
     }
     // Fallback to old format if db_guid not yet loaded
     const profileId = getCurrentProfileId()
@@ -90,9 +99,9 @@ export function useMediaApi() {
     if (mode !== 'crop') urlParams.append('mode', mode)
     urlParams.append('theme', resolvedTheme.value)
     if (isMediaId) {
-      return `${getAPIBase()}/media/${fileHashOrMediaId}/thumbnail?${urlParams.toString()}`
+      return withPin(`${getAPIBase()}/media/${fileHashOrMediaId}/thumbnail?${urlParams.toString()}`)
     }
-    return `${getAPIBase()}/thumbnail/${fileHashOrMediaId}?${urlParams.toString()}`
+    return withPin(`${getAPIBase()}/thumbnail/${fileHashOrMediaId}?${urlParams.toString()}`)
   }
 
   function getMediaFileUrl(fileHashOrMediaId) {
@@ -102,16 +111,16 @@ export function useMediaApi() {
     if (dbGuid) {
       // New db_guid URL format (globally unique, cache-safe)
       if (isMediaId) {
-        return `${getAPIBase()}/db/${dbGuid}/media/${fileHashOrMediaId}/file`
+        return withPin(`${getAPIBase()}/db/${dbGuid}/media/${fileHashOrMediaId}/file`)
       }
-      return `${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHashOrMediaId}/file`
+      return withPin(`${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHashOrMediaId}/file`)
     }
     // Fallback to old format if db_guid not yet loaded
     const profileId = getCurrentProfileId()
     if (isMediaId) {
-      return `${getAPIBase()}/media/${fileHashOrMediaId}/file?profile=${profileId}`
+      return withPin(`${getAPIBase()}/media/${fileHashOrMediaId}/file?profile=${profileId}`)
     }
-    return `${getAPIBase()}/media/by-hash/${fileHashOrMediaId}/file?profile=${profileId}`
+    return withPin(`${getAPIBase()}/media/by-hash/${fileHashOrMediaId}/file?profile=${profileId}`)
   }
 
   // A named delivery variant ('screen' | 'full') of an image, by hash. The
@@ -121,8 +130,8 @@ export function useMediaApi() {
   function getImageVariantUrl(fileHash, tier) {
     const dbGuid = getCurrentDbGuid()
     const version = `v=${IMAGE_VARIANT_URL_VERSION}`
-    if (dbGuid) return `${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHash}/variant/${tier}?${version}`
-    return `${getAPIBase()}/media/by-hash/${fileHash}/variant/${tier}?profile=${getCurrentProfileId()}&${version}`
+    if (dbGuid) return withPin(`${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHash}/variant/${tier}?${version}`)
+    return withPin(`${getAPIBase()}/media/by-hash/${fileHash}/variant/${tier}?profile=${getCurrentProfileId()}&${version}`)
   }
 
   /**
@@ -148,25 +157,26 @@ export function useMediaApi() {
   function getSvgDocumentUrl(mediaId) {
     const dbGuid = getCurrentDbGuid()
     if (dbGuid) {
-      return `${getAPIBase()}/db/${dbGuid}/media/${mediaId}/svg`
+      return withPin(`${getAPIBase()}/db/${dbGuid}/media/${mediaId}/svg`)
     }
-    return `${getAPIBase()}/media/${mediaId}/svg?profile=${getCurrentProfileId()}`
+    return withPin(`${getAPIBase()}/media/${mediaId}/svg?profile=${getCurrentProfileId()}`)
   }
 
   function getMseLoopUrls(fileHash) {
     const dbGuid = getCurrentDbGuid()
     if (dbGuid) {
       const base = `${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHash}/mse-loop`
+      // The playback URL's query rides into its HLS playlists and parts.
       return {
-        manifest: base,
-        playback: `${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHash}/playback`,
-        init: `${base}/init`,
-        segment: `${base}/segment`,
+        manifest: withPin(base),
+        playback: withPin(`${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHash}/playback`),
+        init: withPin(`${base}/init`),
+        segment: withPin(`${base}/segment`),
       }
     }
     const profileId = getCurrentProfileId()
     const base = `${getAPIBase()}/media/by-hash/${fileHash}/mse-loop`
-    const query = `?profile=${encodeURIComponent(profileId)}`
+    const query = withPin(`?profile=${encodeURIComponent(profileId)}`)
     return {
       manifest: `${base}${query}`,
       playback: `${getAPIBase()}/media/by-hash/${fileHash}/playback${query}`,

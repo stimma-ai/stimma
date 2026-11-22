@@ -97,16 +97,18 @@ async def record_media_actions(
         return
     media_of: dict[int, int] = {}
     asset_of: dict[int, int] = {}
-    if missing := {a for m, a in pairs if m is None}:
-        media_of = dict((await session.execute(
+    from utils.sql_chunks import sql_in_chunks
+
+    for chunk in sql_in_chunks({a for m, a in pairs if m is None}):
+        media_of.update((await session.execute(
             select(Asset.id, AssetRevision.primary_media_id)
             .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
-            .where(Asset.id.in_(missing))
+            .where(Asset.id.in_(chunk))
         )).all())
-    if missing := {m for m, a in pairs if a is None}:
-        asset_of = dict((await session.execute(
+    for chunk in sql_in_chunks({m for m, a in pairs if a is None}):
+        asset_of.update((await session.execute(
             select(AssetRevision.primary_media_id, AssetRevision.asset_id)
-            .where(AssetRevision.primary_media_id.in_(missing))
+            .where(AssetRevision.primary_media_id.in_(chunk))
         )).all())
     payload = json.dumps(detail) if detail else None
     now = datetime.utcnow()

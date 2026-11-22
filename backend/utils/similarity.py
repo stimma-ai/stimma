@@ -168,7 +168,7 @@ async def filter_items_by_face_similarity(
     similarity_threshold: float | None = None,
 ) -> tuple[list[MediaItem], dict[int, float]]:
     """
-    Filter media items by face similarity.
+    Filter media items (anything with a Media ``id``) by face similarity.
 
     An image can contain multiple faces, so each candidate item receives the best
     cosine score across all reference face embeddings and all candidate faces.
@@ -186,12 +186,17 @@ async def filter_items_by_face_similarity(
     if not item_ids:
         return [], {}
 
-    result = await session.execute(
-        select(Face)
-        .where(Face.media_id.in_(item_ids))
-        .where(Face.auraface_embedding.isnot(None))
-    )
-    candidate_faces = result.scalars().all()
+    from utils.sql_chunks import sql_in_chunks
+
+    candidate_faces = []
+    for chunk in sql_in_chunks(dict.fromkeys(item_ids)):
+        candidate_faces.extend(
+            await session.scalars(
+                select(Face)
+                .where(Face.media_id.in_(chunk))
+                .where(Face.auraface_embedding.isnot(None))
+            )
+        )
 
     faces_by_media_id: dict[int, list[np.ndarray]] = {}
     for face in candidate_faces:

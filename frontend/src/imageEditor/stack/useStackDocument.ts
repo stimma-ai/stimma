@@ -442,6 +442,12 @@ export function useStackDocument() {
     )
   }
 
+  /** A gesture ended: the next edit starts its own undo step, even with the same key. */
+  function breakCoalescing() {
+    const last = journal.value[journal.value.length - 1] as (JournalEntry & { _coalesceKey?: string }) | undefined
+    if (last) delete last._coalesceKey
+  }
+
   function setReferenceImages(opId: string, images: ModelReferenceImage[]) {
     const op = opById(opId) as any
     if (!op || op.class !== 'patch') return
@@ -735,6 +741,7 @@ export function useStackDocument() {
     replaceEdits,
     setEnabled,
     setParams,
+    breakCoalescing,
     setReferenceImages,
     setRegions,
     setLabel,

@@ -886,6 +886,13 @@ async def lifespan(app: FastAPI):
     try:
         log.info("startup begin")
 
+        # Finish removing profiles deleted while their files were in use.
+        from routes.settings import remove_deleted_profile_dirs
+        try:
+            remove_deleted_profile_dirs()
+        except Exception as e:
+            log.warning("deleted profile cleanup failed", error_type=type(e).__name__)
+
         # Run database migrations for all profiles FIRST
         log.info("running migrations")
         run_all_migrations()

@@ -122,13 +122,13 @@ class FeatureFlagClient:
         if self._started:
             return
         self._started = True
-        self._flags = _load_cache()
         if is_privacy_lockdown():
-            log.info(
-                "feature_flags: Privacy Lockdown active, no fetch, call-site defaults only",
-                cached_count=len(self._flags),
-            )
+            # Lockdown means call-site defaults only, not flags cached from
+            # an earlier cloud fetch.
+            self._flags = {}
+            log.info("feature_flags: Privacy Lockdown active, no fetch, call-site defaults only")
             return
+        self._flags = _load_cache()
         self._refresh_event = asyncio.Event()
         self._poll_task = asyncio.create_task(self._poll_loop())
         log.info("feature_flags started", cached_count=len(self._flags))
@@ -154,6 +154,9 @@ class FeatureFlagClient:
         # Initial fetch shortly after startup.
         await asyncio.sleep(0.5)
         while True:
+            # Clear before fetching: a refresh() that lands mid-fetch (e.g. a
+            # sign-in change) must trigger another fetch, not be swallowed.
+            self._refresh_event.clear()
             try:
                 await self._fetch_once()
             except asyncio.CancelledError:
@@ -162,7 +165,6 @@ class FeatureFlagClient:
                 log.exception("feature_flags: fetch iteration failed")
             # Sleep until the next interval or an explicit refresh request.
             try:
-                self._refresh_event.clear()
                 await asyncio.wait_for(
                     self._refresh_event.wait(), timeout=FETCH_INTERVAL_SECONDS
                 )

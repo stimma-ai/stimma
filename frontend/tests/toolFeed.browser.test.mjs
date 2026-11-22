@@ -105,3 +105,31 @@ test('a generated asset returns to the tool feed when trash is undone', async t 
   await expect(page.locator('li.job')).toHaveCount(1)
   assert.deepEqual(errors, [])
 })
+
+test('initializing a feed again reloads it without stacking another set of listeners', async t => {
+  const { page, server, errors } = await openFeed(t)
+  await expect.poll(() => page.evaluate(() => window.feedInitialized === true)).toBe(true)
+  // A profile switch or a retry runs init on the same feed.
+  await page.evaluate(() => window.feed.init())
+  await page.evaluate(() => window.feed.init())
+  const reads = server.jobReads
+  server.broadcast('assets_restored', { asset_ids: [42] })
+  await expect.poll(() => server.jobReads).toBe(reads + 1)
+  await page.waitForTimeout(300)
+  assert.equal(server.jobReads, reads + 1)
+  assert.deepEqual(errors, [])
+})
+
+test('a feed cleaned up during its first read stays quiet, and refuses another init', async t => {
+  const { page, server, errors } = await openFeed(t, { holdFirstRead: true })
+  await expect.poll(() => typeof server.releaseRead).toBe('function')
+  await page.evaluate(() => window.feed.cleanup())
+  server.releaseRead()
+  await expect.poll(() => page.evaluate(() => window.feedInitialized === true)).toBe(true)
+  await page.evaluate(() => window.feed.init())
+  const reads = server.jobReads
+  server.broadcast('assets_restored', { asset_ids: [42] })
+  await page.waitForTimeout(300)
+  assert.equal(server.jobReads, reads)
+  assert.deepEqual(errors, [])
+})

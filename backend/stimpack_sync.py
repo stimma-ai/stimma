@@ -23,7 +23,8 @@ SYNC_INTERVAL_SECONDS = 6 * 60 * 60
 _locks: dict[str, asyncio.Lock] = {}
 
 
-def _lock(profile_id: str) -> asyncio.Lock:
+def profile_lock(profile_id: str) -> asyncio.Lock:
+    """Serializes every marketplace install/update for one profile."""
     return _locks.setdefault(profile_id, asyncio.Lock())
 
 
@@ -47,10 +48,10 @@ async def sync_profile(profile_id: str) -> dict:
     from routes import stimpack_marketplace as market
     installed: list[str] = []
     updated: list[str] = []
-    async with _lock(profile_id):
+    async with profile_lock(profile_id):
         with ProfileScope(profile_id):
             try:
-                installed = list((await market.run_auto_install()).get("installed") or [])
+                installed = list((await market.auto_install_packs(profile_id)).get("installed") or [])
             except Exception as e:
                 log.warning(f"Stimpack auto-install failed for profile {profile_id}: {e}")
             try:
@@ -63,7 +64,7 @@ async def sync_profile(profile_id: str) -> dict:
                 if not name:
                     continue
                 try:
-                    await market.update_from_marketplace(name)
+                    await market.update_pack(name, profile_id)
                     updated.append(name)
                 except Exception as e:
                     log.warning(f"Stimpack update of '{name}' failed for profile {profile_id}: {e}")

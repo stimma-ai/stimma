@@ -178,7 +178,7 @@ test('a saved copy of what was sent doesn\'t come back after being acknowledged'
   server.fail = false
   await page.evaluate(() => window.workspace.detachProfile())
   await expect.poll(() => server.writes.length).toBe(1)
-  assert.equal(await page.evaluate(P => localStorage.getItem(`${P}workspace_outbox`), P), null)
+  await expect.poll(() => page.evaluate(P => localStorage.getItem(`${P}workspace_outbox`), P)).toBeNull()
 })
 
 test('a tool state change arriving tells listeners what was held before', async t => {
@@ -252,4 +252,186 @@ test('a failed upload is retried next launch', async t => {
   await activate(page)
   assert.equal(server.migrations.length, 1)
   assert.equal(await page.evaluate(P => localStorage.getItem(`${P}workspace_migrated`), P), 'claimed')
+})
+
+test('a batch whose answer was lost is resent whole under its id, and a duplicate rereads', async t => {
+  const { page, server } = await fixture(t, { serverDocs: [{ namespace: 'kv', key: 'k', value: { a: 1 }, rev: 2 }] })
+  await activate(page)
+  // The server commits the first send, but its answer never arrives.
+  let lose = true
+  await page.route('**/api/workspace/docs', async route => {
+    const body = route.request().postDataJSON()
+    server.writes.push(body)
+    if (lose) {
+      lose = false
+      return route.abort()
+    }
+    const duplicate = server.writes.filter(w => w.batch_id === body.batch_id).length > 1
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ changes: [], duplicate }) })
+  })
+  await page.evaluate(P => window.workspace.syncedStorage.setItem(`${P}k`, JSON.stringify({ a: 2 })), P)
+  await expect.poll(() => server.writes.length).toBe(1)
+  // A newer local edit doesn't fold into the batch already sent.
+  await page.evaluate(P => window.workspace.syncedStorage.setItem(`${P}k`, JSON.stringify({ a: 2, b: 3 }), { delayMs: 0 }), P)
+  // Meanwhile another device replaced the value the lost batch wrote.
+  server.docs = [{ namespace: 'kv', key: 'k', value: { a: 9 }, rev: 4 }]
+  const reads = server.reads
+  await page.evaluate(() => window.workspace.rehydrate())
+  await expect.poll(() => server.writes.length, { timeout: 6000 }).toBeGreaterThanOrEqual(3)
+  const [first, resent, next] = server.writes
+  assert.ok(first.batch_id)
+  assert.equal(resent.batch_id, first.batch_id)
+  assert.deepEqual(resent.ops, first.ops)
+  assert.notEqual(next.batch_id, first.batch_id)
+  assert.deepEqual(next.ops, [{ namespace: 'kv', key: 'k', set: { b: 3 }, unset: [] }])
+  await expect.poll(() => server.reads).toBeGreaterThan(reads + 1)
+})
+
+test('a saved outbox keeps a sent batch\'s id, and folds repeated ops for one document', async t => {
+  const outbox = JSON.stringify([
+    { batch: 'sent-1', ops: [{ namespace: 'kv', key: 'k', set: { a: 2 }, unset: [] }] },
+    { namespace: 'kv', key: 'j', set: { x: 1 }, unset: [] },
+    { namespace: 'kv', key: 'j', set: { y: 2 }, unset: [] },
+  ])
+  const { page, server } = await fixture(t, {
+    local: { [`${P}workspace_outbox`]: outbox },
+    serverDocs: [
+      { namespace: 'kv', key: 'k', value: { a: 1 }, rev: 2 },
+      { namespace: 'kv', key: 'j', value: {}, rev: 2 },
+    ],
+  })
+  await activate(page)
+  assert.deepEqual(await page.evaluate(() => window.workspace.getDoc('kv', 'j')), { x: 1, y: 2 })
+  await expect.poll(() => server.writes.length).toBe(2)
+  assert.equal(server.writes[0].batch_id, 'sent-1')
+  assert.deepEqual(server.writes[1].ops, [{ namespace: 'kv', key: 'j', set: { x: 1, y: 2 }, unset: [] }])
+})
+
+test('a reread or refetch left running by a profile switch touches nothing in the next profile', async t => {
+  const { page, server } = await fixture(t, { serverDocs: [{ namespace: 'kv', key: 'k', value: { a: 1 }, rev: 2 }] })
+  await activate(page)
+  let releaseRead, releaseDoc
+  await page.route('**/api/workspace', async route => {
+    if (route.request().headers()['x-profile-id'] === PROFILE) await new Promise(resolve => { releaseRead = resolve })
+    return route.fallback()
+  })
+  await page.route('**/api/workspace/docs/kv/big', async route => {
+    await new Promise(resolve => { releaseDoc = resolve })
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ namespace: 'kv', key: 'big', value: 'old profile', rev: 50 }) })
+  })
+  void page.evaluate(() => window.workspace.rehydrate())
+  await expect.poll(() => typeof releaseRead).toBe('function')
+  await page.evaluate(() => window.workspace.handleWorkspaceEvent({ origin: 'other', changes: [
+    { namespace: 'kv', key: 'k', rev: 3, set: { a: 5 }, unset: [] },
+    { namespace: 'kv', key: 'big', rev: 50, refetch: true },
+  ] }))
+  await expect.poll(() => typeof releaseDoc).toBe('function')
+  // The next profile holds `k` too; the old read's bookkeeping mustn't hide it.
+  server.docs = [{ namespace: 'kv', key: 'k', value: { other: true }, rev: 1 }]
+  await page.evaluate(() => window.workspace.setCurrentProfileId('profile-other'))
+  await expect.poll(() => page.evaluate(() => window.workspace.getDoc('kv', 'k'))).toEqual({ other: true })
+  releaseDoc()
+  releaseRead()
+  await page.waitForTimeout(200)
+  assert.equal(await page.evaluate(() => window.workspace.getDoc('kv', 'big')), undefined)
+  assert.deepEqual(await page.evaluate(() => window.workspace.getDoc('kv', 'k')), { other: true })
+})
+
+test('what a switch leaves unsent is saved at once, and resent under its id next visit', async t => {
+  const { page, server } = await fixture(t, { serverDocs: [{ namespace: 'kv', key: 'k', value: { a: 1 }, rev: 2 }] })
+  await activate(page)
+  server.fail = true
+  await page.evaluate(([P]) => {
+    const { syncedStorage, setCurrentProfileId } = window.workspace
+    syncedStorage.setItem(`${P}k`, JSON.stringify({ a: 2 }), { delayMs: 60000 })
+    setCurrentProfileId('profile-other')
+  }, [P])
+  // Saved before any answer, so a reload straight after the switch keeps it.
+  const saved = JSON.parse(await page.evaluate(P => localStorage.getItem(`${P}workspace_outbox`), P))
+  assert.equal(saved.length, 1)
+  assert.ok(saved[0].batch)
+  server.fail = false
+  await page.reload()
+  await page.evaluate(PROFILE => localStorage.setItem('profileId', PROFILE), PROFILE)
+  await page.addScriptTag({ content: code })
+  await activate(page)
+  await expect.poll(() => server.writes.length).toBe(1)
+  assert.equal(server.writes[0].batch_id, saved[0].batch)
+  await expect.poll(() => page.evaluate(P => localStorage.getItem(`${P}workspace_outbox`), P)).toBeNull()
+})
+
+test('a write left behind that lands while the window is back reading that profile is read again', async t => {
+  const { page, server } = await fixture(t, { serverDocs: [{ namespace: 'kv', key: 'k', value: { a: 1 }, rev: 2 }] })
+  await activate(page)
+  let releaseWrite, written
+  const landed = new Promise(resolve => { written = resolve })
+  await page.route('**/api/workspace/docs', async route => {
+    server.writes.push(route.request().postDataJSON())
+    await new Promise(resolve => { releaseWrite = resolve })
+    server.docs = [{ namespace: 'kv', key: 'k', value: { a: 2 }, rev: 3 }]
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ changes: [] }) })
+    written()
+  })
+  // The read on returning is taken before the write lands, and arrives after its answer.
+  let stale = true
+  await page.route('**/api/workspace', async route => {
+    if (route.request().headers()['x-profile-id'] !== PROFILE || !stale) return route.fallback()
+    stale = false
+    const before = server.docs
+    releaseWrite()
+    await landed
+    await new Promise(resolve => setTimeout(resolve, 100))
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ docs: before, closed_tabs: [], migration: { claimed: false } }) })
+  })
+  await page.evaluate(([P]) => {
+    const { syncedStorage, setCurrentProfileId } = window.workspace
+    syncedStorage.setItem(`${P}k`, JSON.stringify({ a: 2 }), { delayMs: 60000 })
+    setCurrentProfileId('profile-other')
+  }, [P])
+  await expect.poll(() => typeof releaseWrite).toBe('function')
+  await page.evaluate(PROFILE => window.workspace.setCurrentProfileId(PROFILE), PROFILE)
+  await expect.poll(() => page.evaluate(() => window.workspace.getDoc('kv', 'k'))).toEqual({ a: 2 })
+  assert.equal(server.writes.length, 1)
+})
+
+test('a write acknowledged while a reread is out isn\'t undone by that reread', async t => {
+  const { page, server } = await fixture(t, { serverDocs: [{ namespace: 'kv', key: 'k', value: { a: 1 }, rev: 2 }] })
+  await activate(page)
+  const before = server.docs
+  let releaseRead
+  await page.route('**/api/workspace', async route => {
+    await new Promise(resolve => { releaseRead = resolve })
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ docs: before, closed_tabs: [], migration: { claimed: false } }) })
+  })
+  void page.evaluate(() => window.workspace.rehydrate())
+  await expect.poll(() => typeof releaseRead).toBe('function')
+  await page.evaluate(P => window.workspace.syncedStorage.removeItem(`${P}k`), P)
+  await expect.poll(() => server.writes.length).toBe(1)
+  await page.waitForTimeout(100)
+  releaseRead()
+  await page.waitForTimeout(200)
+  assert.equal(await page.evaluate(() => window.workspace.getDoc('kv', 'k')), undefined)
+})
+
+test('a reread that skipped a just-acknowledged document reads again for its other fields', async t => {
+  const { page, server } = await fixture(t, { serverDocs: [{ namespace: 'kv', key: 'k', value: { a: 1, b: 1 }, rev: 2 }] })
+  await activate(page)
+  let releaseRead
+  let first = true
+  await page.route('**/api/workspace', async route => {
+    if (!first) return route.fallback()
+    first = false
+    // Taken before this client's write of `a`, carrying another client's `b`.
+    const body = JSON.stringify({ docs: [{ namespace: 'kv', key: 'k', value: { a: 1, b: 2 }, rev: 3 }], closed_tabs: [], migration: { claimed: false } })
+    await new Promise(resolve => { releaseRead = resolve })
+    return route.fulfill({ contentType: 'application/json', body })
+  })
+  void page.evaluate(() => window.workspace.rehydrate())
+  await expect.poll(() => typeof releaseRead).toBe('function')
+  await page.evaluate(P => window.workspace.syncedStorage.setItem(`${P}k`, JSON.stringify({ a: 5, b: 1 })), P)
+  await expect.poll(() => server.writes.length).toBe(1)
+  server.docs = [{ namespace: 'kv', key: 'k', value: { a: 5, b: 2 }, rev: 4 }]
+  await page.waitForTimeout(100)
+  releaseRead()
+  await expect.poll(() => page.evaluate(() => window.workspace.getDoc('kv', 'k'))).toEqual({ a: 5, b: 2 })
 })

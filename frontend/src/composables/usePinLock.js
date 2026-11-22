@@ -343,6 +343,10 @@ function clearCachedPin(profileId) {
   persistPinCache()
   invalidateSettingsSnapshots()
   scheduleIdleDeadline()
+  // The live-update socket stops presenting it too.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('pin-cleared', { detail: { profileId } }))
+  }
 }
 
 /**

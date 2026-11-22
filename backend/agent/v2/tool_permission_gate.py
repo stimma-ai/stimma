@@ -25,6 +25,7 @@ beyond registry cleanup.
 from __future__ import annotations
 
 import asyncio
+import uuid
 import json
 
 from sqlalchemy import select
@@ -48,11 +49,19 @@ class ToolPermissionDenied(Exception):
 # request_id -> Future[{"approved": bool, "scope": str}]. Single backend process,
 # single event loop → a module-level dict is a safe in-process registry.
 _PENDING: dict[str, asyncio.Future] = {}
+# Concurrent calls to one tool in one chat share a gate. Each gate (and its
+# card) gets its own request id, so an old card can never answer a new gate.
+_LIVE_GATES: dict[str, str] = {}
 
 
 def _request_id(chat_id: int, tool_id: str) -> str:
     from core.profile_context import get_current_profile
     return f"{get_current_profile()}:{chat_id}:{tool_id}"
+
+
+def _live_request_id(chat_id: int, tool_id: str) -> str | None:
+    """The request id of the gate now waiting for this chat and tool, if any."""
+    return _LIVE_GATES.get(_request_id(chat_id, tool_id))
 
 
 def is_pending_permission(request_id: str) -> bool:
@@ -258,35 +267,45 @@ async def ensure_tool_permission(
         raise ToolPermissionDenied(f"Tool '{tool_id}' is blocked in tool permissions.")
 
     # decision == "ask": block on the card
-    request_id = _request_id(chat_id, tool_id)
-    fut = _PENDING.get(request_id)
+    gate_key = _request_id(chat_id, tool_id)
+    request_id = _LIVE_GATES.get(gate_key)
+    fut = _PENDING.get(request_id) if request_id else None
     raised_card = False
     if fut is None or fut.done():
         raised_card = True
         # We are the first (or a new) request for this tool in this run — create the card.
+        request_id = f"{gate_key}:{uuid.uuid4().hex[:12]}"
         fut = asyncio.get_event_loop().create_future()
         _PENDING[request_id] = fut
-        meta = _resolve_display_meta(tool_id, kwargs, task_type)
-        await _create_permission_card(
-            session_maker=session_maker,
-            chat_id=chat_id,
-            tool_id=tool_id,
-            request_id=request_id,
-            display_name=meta["display_name"],
-            provider_name=meta["provider_name"],
-            provider_id=meta["provider_id"],
-            task_type=meta["task_type"],
-            inputs=meta["inputs"],
-        )
+        _LIVE_GATES[gate_key] = request_id
     # else: a concurrent gather branch already raised the card — await the same future.
 
     try:
+        if raised_card:
+            meta = _resolve_display_meta(tool_id, kwargs, task_type)
+            await _create_permission_card(
+                session_maker=session_maker,
+                chat_id=chat_id,
+                tool_id=tool_id,
+                request_id=request_id,
+                display_name=meta["display_name"],
+                provider_name=meta["provider_name"],
+                provider_id=meta["provider_id"],
+                task_type=meta["task_type"],
+                inputs=meta["inputs"],
+            )
         result = await fut
     finally:
         # Cancellation (interrupt/stop) unwinds here — clean up so a later run re-asks.
+        if raised_card and not fut.done():
+            # Stopped while saving or showing the card: no later call may join
+            # this gate, and calls sharing it stop with it.
+            fut.cancel()
         if _PENDING.get(request_id) is fut:
             _PENDING.pop(request_id, None)
-        if raised_card and (fut.cancelled() or not fut.done()):
+        if _LIVE_GATES.get(gate_key) == request_id:
+            _LIVE_GATES.pop(gate_key, None)
+        if raised_card and fut.cancelled():
             # Nothing waits on the card anymore (its code was stopped): show it
             # as resolved, so Allow can't answer a call that is gone.
             await _close_permission_card(session_maker, chat_id, request_id)

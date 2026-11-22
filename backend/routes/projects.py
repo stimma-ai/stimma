@@ -4,7 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_db_session
@@ -89,42 +89,48 @@ async def _serialize_project(project: Project, session: AsyncSession) -> Project
 
 @router.get("", response_model=list[ProjectSummaryResponse])
 async def list_projects(session: AsyncSession = Depends(get_db_session)):
+    # Independent correlated counts: joining chats, collections and assets in
+    # one query multiplies their rows before COUNT(DISTINCT) can collapse them.
+    chat_count = (
+        select(func.count(Chat.id))
+        .where(Chat.project_id == Project.id, Chat.deleted_at.is_(None))
+        .correlate(Project)
+        .scalar_subquery()
+    )
+    collection_count = (
+        select(func.count(Collection.id))
+        .where(Collection.project_id == Project.id, Collection.deleted_at.is_(None))
+        .correlate(Project)
+        .scalar_subquery()
+    )
+    asset_count = (
+        select(func.count(func.distinct(MediaItem.id)))
+        .select_from(ProjectAsset)
+        .join(Asset, Asset.id == ProjectAsset.asset_id)
+        .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+        .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
+        .where(
+            ProjectAsset.project_id == Project.id,
+            ProjectAsset.deleted_at.is_(None),
+            Asset.state == "active",
+            Asset.deleted_at.is_(None),
+            MediaItem.deleted_at.is_(None),
+            or_(
+                MediaItem.file_unavailable.is_(False),
+                MediaItem.file_unavailable.is_(None),
+            ),
+        )
+        .correlate(Project)
+        .scalar_subquery()
+    )
     result = await session.execute(
         select(
             Project,
-            func.count(func.distinct(Chat.id)).label("chat_count"),
-            func.count(func.distinct(Collection.id)).label("collection_count"),
-            func.count(func.distinct(MediaItem.id)).label("asset_count"),
-        )
-        .outerjoin(Chat, and_(Chat.project_id == Project.id, Chat.deleted_at.is_(None)))
-        .outerjoin(Collection, and_(Collection.project_id == Project.id, Collection.deleted_at.is_(None)))
-        .outerjoin(
-            ProjectAsset,
-            (ProjectAsset.project_id == Project.id)
-            & ProjectAsset.deleted_at.is_(None),
-        )
-        .outerjoin(
-            Asset,
-            and_(
-                Asset.id == ProjectAsset.asset_id,
-                Asset.state == "active",
-                Asset.deleted_at.is_(None),
-            ),
-        )
-        .outerjoin(AssetRevision, AssetRevision.id == Asset.current_revision_id)
-        .outerjoin(
-            MediaItem,
-            and_(
-                MediaItem.id == AssetRevision.primary_media_id,
-                MediaItem.deleted_at.is_(None),
-                or_(
-                    MediaItem.file_unavailable.is_(False),
-                    MediaItem.file_unavailable.is_(None),
-                ),
-            ),
+            chat_count.label("chat_count"),
+            collection_count.label("collection_count"),
+            asset_count.label("asset_count"),
         )
         .where(Project.deleted_at.is_(None))
-        .group_by(Project.id)
         .order_by(Project.updated_at.desc(), Project.id.desc())
     )
     return [

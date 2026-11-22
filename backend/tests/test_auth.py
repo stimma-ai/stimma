@@ -13,6 +13,8 @@ Tests cover:
 import pytest
 import json
 import os
+import asyncio
+
 import httpx
 from httpx import AsyncClient
 from unittest.mock import patch, AsyncMock, MagicMock
@@ -413,6 +415,12 @@ class TestAuthStorage:
 # Tests: Firebase refresh classification
 # ---------------------------------------------------------------------------
 
+def _bump_generation():
+    """Stand-in for clear_auth_state that, like it, ends the current login."""
+    import auth_storage
+    auth_storage._auth_generation += 1
+
+
 class TestFirebaseRefreshHandling:
     """Tests for expired/revoked vs transient token refresh failures."""
 
@@ -440,6 +448,7 @@ class TestFirebaseRefreshHandling:
              patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
             with pytest.raises(AuthSessionExpiredError):
                 await get_valid_id_token(raise_on_failure=True)
+            await asyncio.sleep(0)  # cloud disconnect runs in the teardown task
 
         assert load_auth_state() is None
         assert not (data_dir / "cloud_auth.json").exists()
@@ -468,6 +477,93 @@ class TestFirebaseRefreshHandling:
         assert (data_dir / "cloud_auth.json").exists()
         assert store.token == "refresh-secret"
         assert load_auth_state()["refresh_token"] == "refresh-secret"
+
+
+    async def test_refresh_finishing_after_logout_does_not_resurrect_the_session(self, auth_storage_env):
+        from auth_storage import clear_auth_state, load_auth_state, save_auth_state
+        from firebase_auth import get_valid_id_token
+
+        store, data_dir = auth_storage_env
+        save_auth_state({"user": {"uid": "u1"}, "refresh_token": "old-refresh", "id_token_expiry": 0})
+
+        async def refresh_then_logout(refresh_token):
+            clear_auth_state()  # the user signs out while Firebase answers
+            return {"id_token": "fresh", "refresh_token": "rotated", "expiry": 9e9}
+
+        with patch("firebase_auth.refresh_id_token", side_effect=refresh_then_logout):
+            assert await get_valid_id_token() is None
+
+        assert load_auth_state() is None
+        assert store.token is None
+
+    async def test_old_refresh_failing_does_not_clear_a_newer_login(self, auth_storage_env):
+        from auth_storage import load_auth_state, save_auth_state
+        from firebase_auth import force_refresh_id_token
+
+        store, data_dir = auth_storage_env
+        save_auth_state({"user": {"uid": "u1"}, "refresh_token": "old-refresh", "id_token_expiry": 0})
+
+        request = httpx.Request("POST", "https://securetoken.googleapis.com/v1/token")
+        response = httpx.Response(400, json={"error": {"message": "INVALID_REFRESH_TOKEN"}}, request=request)
+
+        async def new_login_then_fail(refresh_token):
+            save_auth_state(
+                {"user": {"uid": "u2"}, "refresh_token": "new-refresh", "id_token_expiry": 0},
+                new_login=True,
+            )
+            raise httpx.HTTPStatusError("invalid refresh", request=request, response=response)
+
+        with patch("firebase_auth.refresh_id_token", side_effect=new_login_then_fail), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
+            assert await force_refresh_id_token() is None
+
+        assert load_auth_state()["refresh_token"] == "new-refresh"
+        disconnect.assert_not_awaited()
+
+    async def test_superseded_refresh_failure_raises_superseded_not_expired(self, auth_storage_env):
+        from auth_storage import save_auth_state
+        from firebase_auth import AuthSessionSupersededError, get_valid_id_token
+
+        save_auth_state({"user": {"uid": "u1"}, "refresh_token": "old-refresh", "id_token_expiry": 0})
+        request = httpx.Request("POST", "https://securetoken.googleapis.com/v1/token")
+        response = httpx.Response(400, json={"error": {"message": "INVALID_REFRESH_TOKEN"}}, request=request)
+
+        async def new_login_then_fail(refresh_token):
+            save_auth_state({"user": {"uid": "u2"}, "refresh_token": "new-refresh"}, new_login=True)
+            raise httpx.HTTPStatusError("invalid refresh", request=request, response=response)
+
+        with patch("firebase_auth.refresh_id_token", side_effect=new_login_then_fail):
+            with pytest.raises(AuthSessionSupersededError):
+                await get_valid_id_token(raise_on_failure=True)
+
+    async def test_session_expiry_stops_multi_device(self, auth_storage_env):
+        from auth_storage import save_auth_state
+        from firebase_auth import get_valid_id_token
+
+        save_auth_state({"user": {"uid": "u1"}, "refresh_token": "bad-refresh", "id_token_expiry": 0})
+        request = httpx.Request("POST", "https://securetoken.googleapis.com/v1/token")
+        response = httpx.Response(400, json={"error": {"message": "INVALID_REFRESH_TOKEN"}}, request=request)
+        error = httpx.HTTPStatusError("invalid refresh", request=request, response=response)
+
+        with patch("firebase_auth.refresh_id_token", new_callable=AsyncMock, side_effect=error), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock), \
+             patch("multi_device.service.stop_after_session_expiry", new_callable=AsyncMock) as stop:
+            assert await get_valid_id_token() is None
+            await asyncio.sleep(0)  # the teardown runs in its own task
+        stop.assert_awaited_once()
+
+    async def test_stale_expiry_does_not_clear_a_newer_login(self, auth_storage_env):
+        from auth_storage import auth_generation, load_auth_state, save_auth_state
+        from firebase_auth import clear_auth_after_session_expiry
+
+        save_auth_state({"user": {"uid": "u1"}, "refresh_token": "old-refresh"})
+        generation = auth_generation()
+        save_auth_state({"user": {"uid": "u2"}, "refresh_token": "new-refresh"}, new_login=True)
+        with patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
+            await clear_auth_after_session_expiry(generation)
+            await asyncio.sleep(0)
+        assert load_auth_state()["refresh_token"] == "new-refresh"
+        disconnect.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
@@ -662,8 +758,9 @@ class TestAccountInfo:
              patch("firebase_auth.force_refresh_id_token", new_callable=AsyncMock, return_value="fresh-tok"), \
              patch("cloud_api.fetch_user_account", new_callable=AsyncMock, side_effect=[first_error, second_error]), \
              patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as mock_disconnect, \
-             patch("auth_storage.clear_auth_state") as mock_clear:
+             patch("auth_storage.clear_auth_state", side_effect=_bump_generation) as mock_clear:
             response = await auth_client.get("/api/auth/account")
+            await asyncio.sleep(0)
 
         assert response.status_code == 401
         assert response.json()["detail"] == {
@@ -672,6 +769,39 @@ class TestAccountInfo:
         }
         mock_clear.assert_called_once()
         mock_disconnect.assert_awaited_once()
+
+    async def test_account_rejection_after_a_new_login_is_not_a_sign_out(self, auth_client: AsyncClient):
+        import auth_storage
+        request = httpx.Request("GET", "https://stimma.ai/api/auth/me")
+        response401 = httpx.Response(401, json={"error": "Invalid token"}, request=request)
+
+        async def old_token_rejected(token):
+            auth_storage._auth_generation += 1  # a new login lands meanwhile
+            raise httpx.HTTPStatusError("invalid token", request=request, response=response401)
+
+        with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
+             patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value="tok"), \
+             patch("firebase_auth.force_refresh_id_token", new_callable=AsyncMock, return_value="fresh-tok"), \
+             patch("cloud_api.fetch_user_account", side_effect=old_token_rejected), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as mock_disconnect, \
+             patch("auth_storage.clear_auth_state") as mock_clear:
+            response = await auth_client.get("/api/auth/account")
+            await asyncio.sleep(0)
+
+        assert response.status_code == 503
+        mock_clear.assert_not_called()
+        mock_disconnect.assert_not_awaited()
+
+    async def test_superseded_refresh_failure_is_not_a_sign_out(self, auth_client: AsyncClient):
+        from firebase_auth import AuthSessionSupersededError
+
+        async def old_refresh_fails(**kwargs):
+            raise AuthSessionSupersededError("old session")
+
+        with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
+             patch("firebase_auth.get_valid_id_token", side_effect=old_refresh_fails):
+            response = await auth_client.get("/api/auth/account")
+        assert response.status_code == 503
 
     async def test_account_cloud_failure(self, auth_client: AsyncClient):
         """Test account info when cloud API fails returns 502."""

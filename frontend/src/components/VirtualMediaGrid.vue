@@ -978,6 +978,7 @@ function handleItemClick(itemId, index, event) {
     return
   }
 
+  rangeRequest++
   // Cmd/Ctrl-click to toggle selection (like checkbox click)
   if (event.metaKey || event.ctrlKey) {
     emit('toggle-selection', itemId, index)
@@ -1005,6 +1006,7 @@ function handleCheckboxClick(itemId, index, event) {
     return
   }
 
+  rangeRequest++
   // Track whether this click is selecting or deselecting (before the toggle)
   const wasSelected = isSelected(itemId)
   lastClickedAction.value = wasSelected ? 'deselect' : 'select'
@@ -1093,19 +1095,38 @@ function closeEmptySpaceMenu() {
   showEmptySpaceMenu.value = false
 }
 
-function handleRangeSelection(endIndex) {
+// A newer click or selection change makes a range still loading stale.
+let rangeRequest = 0
+watch(() => props.selectedItemIds, () => { rangeRequest++ }, { deep: true })
+
+async function handleRangeSelection(endIndex) {
   if (lastClickedIndex.value === null) {
     return
   }
+  const request = ++rangeRequest
 
   // Get the range of indices
   const start = Math.min(lastClickedIndex.value, endIndex)
   const end = Math.max(lastClickedIndex.value, endIndex)
+  const action = lastClickedAction.value
+
+  // A long range can cross pages that were never scrolled into view; load
+  // them first so the selection covers every item between the two clicks.
+  const missingPages = new Set()
+  for (let i = start; i <= end; i++) {
+    if (!itemsCache.value.has(i)) missingPages.add(Math.floor(i / 200))
+  }
+  if (missingPages.size) {
+    await Promise.all([...missingPages].map(page => loadPage(page)))
+    if (request !== rangeRequest) return
+  }
 
   // Collect all item IDs in the range
   const idsToSelect = []
   for (let i = start; i <= end; i++) {
     const item = itemsCache.value.get(i)
+    // A page that still failed to load would select a range with holes.
+    if (!item) return
     const identity = assetIdOf(item)
     if (identity) {
       idsToSelect.push(identity)
@@ -1114,7 +1135,7 @@ function handleRangeSelection(endIndex) {
 
   // Emit the range of IDs to select/deselect
   if (idsToSelect.length > 0) {
-    emit('shift-click-range', { ids: idsToSelect, endIndex, action: lastClickedAction.value })
+    emit('shift-click-range', { ids: idsToSelect, endIndex, action })
   }
 
   lastClickedIndex.value = endIndex

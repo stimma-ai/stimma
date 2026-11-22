@@ -575,3 +575,55 @@ class TestChainStepResolutionAdaptation:
                 "settings": {}, "resolutionLock": "auto"}
         seen = await self._run_step(generation_db_session, monkeypatch, tmp_path, step)
         assert (seen["width"], seen["height"]) == (720, 1280)
+
+
+async def test_concurrent_retries_spawn_one_chain(generation_app, generation_db_session, monkeypatch, tmp_path):
+    """Two Retry clicks on one paused run must not start two chain tasks."""
+    from postprocessing import executor
+
+    base = await _make_base_media(generation_db_session, tmp_path, "chain_double_retry.png")
+    async with generation_db_session() as session:
+        run = PostProcessingChainRun(
+            job_id=99100, base_media_id=base.id, chain=json.dumps([{"kind": "filter"}]),
+            step_index=0, step_count=1, step_results=json.dumps([{"status": "failed"}]),
+            status="paused", last_good_media_id=base.id,
+        )
+        session.add(run)
+        await session.commit()
+        run_id = run.id
+
+    spawned = []
+    monkeypatch.setattr(executor, "_spawn", lambda *args: spawned.append(args))
+    results = await asyncio.gather(
+        executor.retry_chain_run(run_id, "default", None),
+        executor.retry_chain_run(run_id, "default", None),
+    )
+    assert sorted(results) == [False, True]
+    assert len(spawned) == 1
+
+
+async def test_chain_tasks_are_keyed_by_profile():
+    """Equal run ids in two profiles are separate tasks; a finished task only
+    removes its own entry."""
+    from postprocessing import executor
+
+    gate = asyncio.Event()
+
+    async def fake_run(run_id, profile_id, *_):
+        await gate.wait()
+
+    original = executor._run_chain
+    executor._run_chain = fake_run
+    try:
+        executor._spawn(7, "p1", None, None)
+        executor._spawn(7, "p2", None, None)
+        assert executor.cancel_chain_run(7, "p1") is True
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert ("p1", 7) not in executor._running_tasks
+        assert ("p2", 7) in executor._running_tasks
+    finally:
+        executor._run_chain = original
+        gate.set()
+        await asyncio.sleep(0)
+        executor._running_tasks.pop(("p2", 7), None)

@@ -61,6 +61,19 @@ class TestProjectsApi:
         global_collections = (await client.get("/api/collections")).json()
         assert all(item["id"] != collection["id"] for item in global_collections)
 
+    async def test_list_counts_chats_collections_and_assets_independently(self, client, seeded_media):
+        project = (await client.post("/api/projects", json={"name": "Counts"})).json()
+        for _ in range(3):
+            await client.post("/api/chats", json={"project_id": project["id"]})
+        for name in ("A", "B"):
+            await client.post("/api/collections", json={"name": name, "project_id": project["id"]})
+        await client.post(
+            f"/api/projects/{project['id']}/assets",
+            json={"media_ids": [m.id for m in seeded_media]},
+        )
+        listed = next(p for p in (await client.get("/api/projects")).json() if p["id"] == project["id"])
+        assert (listed["chat_count"], listed["collection_count"], listed["asset_count"]) == (3, 2, 2)
+
     async def test_rejects_invalid_project_ids(self, client):
         chat_response = await client.post("/api/chats", json={"project_id": 999999})
         assert chat_response.status_code == 404

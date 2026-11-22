@@ -39,7 +39,7 @@ _VIDEO_OUTPUT_TASKS = {"image-to-video", "upscale-video"}
 
 # Track in-flight chain tasks so they aren't garbage collected.
 # In-flight chain tasks, keyed by run id so a run can be cancelled by id.
-_running_tasks: dict[int, asyncio.Task] = {}
+_running_tasks: dict[tuple[str, int], asyncio.Task] = {}  # (profile_id, run_id); run ids are profile-local
 
 
 def _filter_accepts(filter_id: Any) -> set[str]:
@@ -219,17 +219,24 @@ async def retry_chain_run(chain_run_id: int, profile_id: str, websocket_manager)
         run = result.scalar_one_or_none()
         if not run or run.status not in ("paused", "failed"):
             return False
+        job_instance_id = await _base_job_instance_id(session, run.job_id)
         # Reset the failed step back to queued and resume.
         step_results = json.loads(run.step_results or "[]")
         if run.step_index < len(step_results):
             step_results[run.step_index] = {"status": "queued"}
-        await session.execute(
+        # Conditional claim: of two concurrent retries only one spawns.
+        claimed = await session.execute(
             update(PostProcessingChainRun)
-            .where(PostProcessingChainRun.id == chain_run_id)
+            .where(
+                PostProcessingChainRun.id == chain_run_id,
+                PostProcessingChainRun.status.in_(("paused", "failed")),
+                PostProcessingChainRun.deleted_at.is_(None),
+            )
             .values(status="running", error=None, step_results=json.dumps(step_results))
         )
         await session.commit()
-        job_instance_id = await _base_job_instance_id(session, run.job_id)
+        if not claimed.rowcount:
+            return False
 
     log.info(f"[postproc] Retrying chain run {chain_run_id} from step {run.step_index}")
     try:
@@ -279,11 +286,18 @@ async def _base_job_instance_id(session, job_id: int) -> Optional[str]:
 
 def _spawn(run_id: int, profile_id: str, job_instance_id: Optional[str], websocket_manager) -> None:
     task = asyncio.create_task(_run_chain(run_id, profile_id, job_instance_id, websocket_manager))
-    _running_tasks[run_id] = task
-    task.add_done_callback(lambda t, rid=run_id: _running_tasks.pop(rid, None))
+    key = (profile_id, run_id)
+    _running_tasks[key] = task
+
+    def _done(t, key=key):
+        # Remove only this task; a retry may already have registered a newer one.
+        if _running_tasks.get(key) is t:
+            _running_tasks.pop(key, None)
+
+    task.add_done_callback(_done)
 
 
-def cancel_chain_run(run_id: int) -> bool:
+def cancel_chain_run(run_id: int, profile_id: str) -> bool:
     """Cancel a chain run's in-flight task, if one is live in this process.
 
     Cancelling the task raises CancelledError inside the running step's
@@ -292,7 +306,7 @@ def cancel_chain_run(run_id: int) -> bool:
     don't support interruption simply no-op (fire-and-forget). Returns True if
     a live task was signalled; False if there was nothing running (already
     done, or orphaned by a restart)."""
-    task = _running_tasks.get(run_id)
+    task = _running_tasks.get((profile_id, run_id))
     if task and not task.done():
         task.cancel()
         return True

@@ -88,7 +88,11 @@ function heightFor(l: Level): number | null {
   // Body padding is part of what the content needs to show whole.
   return Math.min(full, Math.max(chromeH(), Math.min(cap, chromeH() + bodyNaturalPx.value)))
 }
+// availableH() reads layout, which Vue can't track: the observer bumps this
+// when the parent or its chrome resizes (keyboard, fold, rotation).
+const layoutTick = ref(0)
 const style = computed(() => {
+  void layoutTick.value
   if (dragPx.value !== null) return { height: `${dragPx.value}px`, transition: 'none' }
   const h = heightFor(level.value)
   if (h === null) return { height: `${collapsedPx.value ?? 112}px` }
@@ -266,7 +270,14 @@ onMounted(() => {
   // Non-passive: the drawer must be able to cancel the scroll it claims.
   rootEl.value?.addEventListener('touchmove', onTouchMove, { passive: false })
   if (typeof ResizeObserver !== 'undefined') {
-    observer = new ResizeObserver(() => measure())
+    observer = new ResizeObserver(() => { measure(); layoutTick.value++ })
+    const parent = rootEl.value?.parentElement
+    if (parent) {
+      observer.observe(parent)
+      for (const sibling of Array.from(parent.children)) {
+        if ((sibling as HTMLElement).dataset.drawerChrome !== undefined) observer.observe(sibling)
+      }
+    }
     if (promptEl.value) observer.observe(promptEl.value)
     if (stripEl.value) observer.observe(stripEl.value)
     if (innerEl.value) observer.observe(innerEl.value)

@@ -892,10 +892,13 @@ async def check_media_existence(
         return {"existing_ids": [], "missing_ids": []}
 
     # Query for existing IDs (including trashed - they still exist, just in trash)
-    result = await session.execute(
-        select(MediaItem.id).where(MediaItem.id.in_(media_ids))
-    )
-    existing_set = set(row[0] for row in result.all())
+    from utils.sql_chunks import sql_in_chunks
+
+    existing_set: set[int] = set()
+    for chunk in sql_in_chunks(dict.fromkeys(media_ids)):
+        existing_set.update(
+            await session.scalars(select(MediaItem.id).where(MediaItem.id.in_(chunk)))
+        )
 
     existing_ids = [mid for mid in media_ids if mid in existing_set]
     missing_ids = [mid for mid in media_ids if mid not in existing_set]

@@ -558,6 +558,17 @@ def _settings_pin_hash(profile_id: str) -> Optional[str]:
     return profile.pin_hash if profile is not None else None
 
 
+def _settings_pin_unlocked(profile_id: str, pin_hash: str) -> bool:
+    """Whether the profile is still unlocked: its PIN was accepted within its
+    idle timeout. A socket's proof lapses with it, so a client that locked or
+    went quiet stops receiving the profile's frames."""
+    from config import get_settings
+    from core.middleware import has_verified_pin
+    profile = get_settings().get_profile(profile_id)
+    timeout = profile.pin_idle_timeout_minutes if profile is not None else 30
+    return has_verified_pin(profile_id, pin_hash, timeout)
+
+
 class _Entry:
     """A queue slot. Replaced or shed entries become tombstones in place, so
     removing one never scans the queue. A tombstone drops its frame at once,
@@ -587,8 +598,10 @@ class ClientConnection:
         hard_max_bytes: int = CLIENT_HARD_MAX_BYTES,
         send_timeout: float = CLIENT_SEND_TIMEOUT_SECONDS,
         required_pin_hash: Optional[Callable[[str], Any]] = None,
+        pin_unlocked: Callable[[str, str], bool] = _settings_pin_unlocked,
     ):
         self.websocket = websocket
+        self._pin_unlocked = pin_unlocked
         # profile_id -> the profile's current PIN hash (None when open).
         # Rechecked just before each tagged frame is written, so a frame
         # queued before a PIN was added or changed is never sent on a proof
@@ -647,11 +660,14 @@ class ClientConnection:
         """Whether this socket may receive frames tagged with ``profile_id``.
 
         ``required_pin_hash`` is the profile's current PIN hash (None when it
-        has no PIN). A proof made against an older hash no longer counts.
+        has no PIN). A proof made against an older hash no longer counts, nor
+        one whose profile has idled out since.
         """
         if profile_id is None or required_pin_hash is None:
             return True
-        return self.pin_proofs.get(profile_id) == required_pin_hash
+        if self.pin_proofs.get(profile_id) != required_pin_hash:
+            return False
+        return self._pin_unlocked(profile_id, required_pin_hash)
 
     def frame_for(self, frame: OutboundFrame, required_pin_hash: Any = None) -> Optional[OutboundFrame]:
         """The form of a broadcast frame this client receives, if any.
@@ -854,8 +870,10 @@ class WebSocketManager:
         hard_max_bytes: int = CLIENT_HARD_MAX_BYTES,
         send_timeout: float = CLIENT_SEND_TIMEOUT_SECONDS,
         pin_hash_for: Callable[[str], Optional[str]] = _settings_pin_hash,
+        pin_unlocked: Callable[[str, str], bool] = _settings_pin_unlocked,
     ):
         self._clients: Dict[int, ClientConnection] = {}
+        self._pin_unlocked = pin_unlocked
         # profile_id -> its current PIN hash, or None for an open profile.
         self._pin_hash_for = pin_hash_for
         self._client_limits = dict(
@@ -930,7 +948,8 @@ class WebSocketManager:
         if client is None:
             client = ClientConnection(
                 websocket, self._client_failed,
-                required_pin_hash=self.required_pin_hash, **self._client_limits,
+                required_pin_hash=self.required_pin_hash, pin_unlocked=self._pin_unlocked,
+                **self._client_limits,
             )
             self._clients[id(websocket)] = client
         if scope is not None:

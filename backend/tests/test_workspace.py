@@ -128,6 +128,26 @@ class TestDocs:
         assert response.status_code == 422
         assert ("kv", "first") not in await docs(client)
 
+    async def test_resent_batch_is_applied_once(self, client: AsyncClient):
+        """A batch committed before its answer was lost must not undo a later edit."""
+        await write(client, {"namespace": "kv", "key": "k", "value": {"prompt": "cat"}})
+        batch = {"origin": "a", "batch_id": f"batch-{uuid.uuid4()}", "ops": [{"namespace": "kv", "key": "k", "set": {"prompt": "dog"}}]}
+        first = await client.post("/api/workspace/docs", json=batch)
+        assert first.status_code == 200 and first.json()["changes"]
+        await write(client, {"namespace": "kv", "key": "k", "set": {"prompt": "bird"}}, origin="b")
+        ws = MockWebSocketManager()
+        with patch(PATCH_TARGET, ws):
+            again = await client.post("/api/workspace/docs", json=batch)
+        assert again.status_code == 200
+        assert again.json() == {"changes": [], "duplicate": True}
+        assert ws.broadcasts == []
+        assert (await docs(client))[("kv", "k")]["value"] == {"prompt": "bird"}
+
+    async def test_refused_batch_is_not_remembered(self, client: AsyncClient):
+        batch = {"batch_id": f"batch-{uuid.uuid4()}", "ops": [{"namespace": "Bad!", "key": "k", "value": 1}]}
+        assert (await client.post("/api/workspace/docs", json=batch)).status_code == 422
+        assert (await client.post("/api/workspace/docs", json=batch)).status_code == 422
+
     async def test_closed_tabs_are_reported_newest_first(self, client: AsyncClient):
         for tab_id in ("chat:1", "chat:2"):
             await write(client, {"namespace": "tab", "key": tab_id, "value": tab(tab_id)})
@@ -322,6 +342,27 @@ class TestBlobs:
         await write(client, {"namespace": "blob", "key": "removed", "deleted": True})
         await client.put("/api/workspace/blobs/removed", content=b"old", params={"if_absent": True})
         assert (await client.get("/api/workspace/blobs/removed")).status_code == 404
+
+    async def test_client_cannot_point_a_blob_doc_at_a_file(self, client: AsyncClient, db):
+        import workspace_service as service
+
+        for value in ({"hash": "../../config.yaml", "size": 1}, {"size": 1}):
+            response = await client.post("/api/workspace/docs", json={"ops": [
+                {"namespace": "blob", "key": "evil", "value": value},
+            ]})
+            assert response.status_code == 422
+        migrated = await client.post("/api/workspace/migrate", json={"client_id": "desktop-blob", "docs": [
+            {"namespace": "blob", "key": "evil", "value": {"hash": "../../config.yaml"}},
+        ]})
+        assert migrated.json()["stats"]["dropped"] == [{"key": "evil", "reason": "malformed"}]
+        assert (await client.get("/api/workspace/blobs/evil")).status_code == 404
+
+        # A malformed doc already stored reads as missing and doesn't stop cleanup.
+        db.add(WorkspaceDoc(namespace="blob", key="old", value='{"size": 3}', rev=1,
+                            created_at=datetime.utcnow(), updated_at=datetime.utcnow()))
+        await db.commit()
+        assert (await client.get("/api/workspace/blobs/old")).status_code == 404
+        await service.purge_expired(db, "default")
 
     async def test_missing_blob_is_404(self, client: AsyncClient):
         assert (await client.get("/api/workspace/blobs/nothing")).status_code == 404

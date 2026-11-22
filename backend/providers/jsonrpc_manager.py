@@ -391,6 +391,9 @@ class JsonRpcProviderManager:
                 backend_name,
                 max_concurrent=provider.max_concurrent
             )
+            # Queued jobs may have been waiting for this backend.
+            from generation_queue import get_generation_queue
+            get_generation_queue().wake_workers()
 
             # Update state - success clears error and resets retry count
             state.provider = provider

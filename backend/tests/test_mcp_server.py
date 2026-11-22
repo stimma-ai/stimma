@@ -420,6 +420,37 @@ async def test_agent_runtime_ids_are_profile_scoped(mcp_app):
         service._clear_interrupt(42)
 
 
+async def test_download_link_dies_with_pin_idle_timeout(mcp_http, monkeypatch):
+    import io
+    import bcrypt
+    from PIL import Image
+    from urllib.parse import quote
+    from config import get_settings
+    from mcp_server.access import access
+
+    profile = get_settings().get_profile("default")
+    monkeypatch.setattr(profile, "pin_hash", bcrypt.hashpw(b"1234", bcrypt.gensalt(rounds=4)).decode())
+    await rpc(mcp_http, "access_open", {"pin": "1234"})
+    data = io.BytesIO()
+    Image.new("RGB", (8, 8), "green").save(data, format="PNG")
+    uploaded = await mcp_http.post(
+        "/mcp/profiles/default/upload", content=data.getvalue(), headers={"X-Filename": "idle.png"}
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    export = body(await rpc(mcp_http, "media_export", {"ref": uploaded.json()["media_ref"]}))
+    url = "/mcp/profiles/default/download/" + quote(export["transfer_handle"], safe="")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=mcp_http._transport.app), base_url="http://test"
+    ) as anonymous:
+        assert (await anonymous.get(url)).status_code == 200
+        unlock = access.unlocks["default", "one"]
+        before = unlock.last_activity
+        assert (await anonymous.get(url)).status_code == 200
+        assert unlock.last_activity == before  # Redeeming is not activity.
+        unlock.last_activity -= 3600
+        assert (await anonymous.get(url)).status_code == 403
+
+
 async def test_upload_preview_download_range_and_relock(mcp_http):
     import io
     from PIL import Image
@@ -1250,7 +1281,14 @@ async def test_delegated_receipt_excludes_intermediates_and_resets_on_followup(m
     async def fake_run(**kwargs):
         nonlocal calls
         session, chat = kwargs["session"], kwargs["chat"]
-        assert "unmet requirements" in kwargs["user_message"]
+        # The agent reads the persisted message, not user_message.
+        from sqlalchemy import select
+        latest = await session.scalar(
+            select(ChatItem.message_text)
+            .where(ChatItem.chat_id == chat.id, ChatItem.item_type == "user_message")
+            .order_by(ChatItem.id.desc()).limit(1)
+        )
+        assert "show(role='final')" in latest and "unmet requirements" in latest
         if calls == 0:
             session.add(ChatItem(chat_id=chat.id, item_type="media_display", show_role="intermediate", media_ids=json.dumps([mids[1]])))
             session.add(ChatItem(chat_id=chat.id, item_type="media_display", show_role="final", media_ids=json.dumps([mids[0]])))

@@ -22,6 +22,7 @@
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { getApiBase } from '../../apiConfig'
 import { getCurrentDbGuid, getCurrentProfileId } from '../../composables/useProfile'
+import { getCachedPin } from '../../composables/usePinLock'
 
 const props = defineProps({
   mediaId: {
@@ -60,7 +61,13 @@ const coverUrl = computed(() => {
   if (!props.mediaId) return ''
   const dbGuid = getCurrentDbGuid()
   if (dbGuid) {
-    return `${getApiBase()}/db/${dbGuid}/media/${props.mediaId}/package-file/index.html`
+    // The cover loads its files by relative URL, which drops any query, so a
+    // PIN-protected profile's PIN rides in the path (hex: one safe segment).
+    const pin = getCachedPin(getCurrentProfileId())
+    const pinSegment = pin
+      ? `/pin/${Array.from(new TextEncoder().encode(pin), b => b.toString(16).padStart(2, '0')).join('')}`
+      : ''
+    return `${getApiBase()}/db/${dbGuid}${pinSegment}/media/${props.mediaId}/package-file/index.html`
   }
   return `${getApiBase()}/media/${props.mediaId}/package-file/index.html?profile=${encodeURIComponent(getCurrentProfileId())}`
 })

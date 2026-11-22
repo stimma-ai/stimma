@@ -202,6 +202,16 @@ async def get_package_file_by_db_guid(
     return await _serve_bundle_file(session, media_id, path, download=download)
 
 
+@router.get("/db/{db_guid}/pin/{pin_hex}/media/{media_id}/package-file/{path:path}")
+async def get_package_file_by_db_guid_with_pin(
+    db_guid: str, pin_hex: str, media_id: int, path: str, download: bool = False,
+    session: AsyncSession = Depends(get_db_session_by_guid),
+):
+    """The same, for a PIN-protected profile. The PIN rides in the path (the
+    middleware checks it) so the cover's relative URLs carry it too."""
+    return await _serve_bundle_file(session, media_id, path, download=download)
+
+
 @router.get("/media/{media_id}/package-cover")
 async def get_package_cover(media_id: int, session: AsyncSession = Depends(get_db_session)):
     """The cover with previews inlined (self-contained), for thumbnails and previews."""

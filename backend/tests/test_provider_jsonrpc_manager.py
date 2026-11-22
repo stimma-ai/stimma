@@ -609,3 +609,20 @@ class TestSidecarProviders:
 
         await mgr.stop()
         assert not sidecar.running
+
+
+async def test_connect_wakes_generation_workers():
+    """Jobs queued while a provider was offline run as soon as it registers."""
+    mgr = TestSidecarProviders._manager()
+    mgr._providers["fake"] = ProviderState(config={"id": "fake", "type": "websocket", "url": "ws://x"})
+    provider = MagicMock()
+    provider.connect = AsyncMock()
+    provider.list_tools = AsyncMock(return_value=[])
+    provider.max_concurrent = 1
+    provider.provider_name = "fake"
+    queue = MagicMock()
+    with patch("providers.jsonrpc_manager.create_provider_from_config", return_value=provider), \
+         patch("generation_queue.get_generation_queue", return_value=queue), \
+         patch("utils.websocket.ws_manager.broadcast", AsyncMock()):
+        assert await mgr._connect_provider("fake") is True
+    queue.wake_workers.assert_called_once()

@@ -1,12 +1,13 @@
 """Asset-first identity and contextual-Media APIs used during cutover."""
 
 import asyncio
+from typing import NamedTuple
 from collections import defaultdict
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import Integer, case, func, literal, or_, select
+from sqlalchemy import Integer, case, func, literal, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from asset_service import (
@@ -22,6 +23,8 @@ from asset_association_service import (
     detach_asset_from_project,
     set_asset_marker,
     set_asset_tag,
+    set_assets_marker,
+    set_assets_tags,
 )
 from core.profile_context import get_current_profile
 from core.logging import get_logger
@@ -74,7 +77,9 @@ from utils.query_builder import (
     asset_unused_predicate,
     build_filtered_query,
     media_is_imported,
+    path_has_prefix,
 )
+from utils.sql_chunks import sql_in_chunks
 from utils.websocket import ws_manager
 
 
@@ -202,6 +207,16 @@ async def _browser_projections(session: AsyncSession, rows) -> list[dict]:
         )
         result.append(item)
     return result
+
+
+class _RankRow(NamedTuple):
+    """Similarity ranking row; ``id`` is the Media id (what face scoring keys on)."""
+
+    asset_id: int
+    id: int
+    clip_embedding: bytes | None
+    created_date: datetime | None
+    indexed_date: datetime | None
 
 
 def _asset_browser_base(state: str):
@@ -412,6 +427,7 @@ async def browse_assets(
     random_seed: int | None = None,
     scope: str | None = None,
     media_ids: str | None = None,
+    ranked_only: bool = Query(False, include_in_schema=False),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Asset browser projection; identity is Asset, payload fields are current Media.
@@ -484,17 +500,33 @@ async def browse_assets(
             parse_similarity_ids,
         )
 
-        rows = (await session.execute(query)).all()
-        media_items = [row[2] for row in rows]
+        # Rank on ids, embeddings and sort keys only; full rows (and their
+        # projections) are loaded for the requested page alone.
+        rows = [
+            _RankRow(*row)
+            for row in (
+                await session.execute(
+                    query.with_only_columns(
+                        Asset.id,
+                        MediaItem.id,
+                        MediaItem.clip_embedding
+                        if similar_face_to is None
+                        else literal(None),
+                        MediaItem.created_date,
+                        MediaItem.indexed_date,
+                    )
+                )
+            ).all()
+        ]
         scores: dict[int, float] = {}
         reference_ids: list[int] = []
         if similar_face_to is not None:
             reference_ids = parse_similarity_ids(similar_face_to, "similar_face_to")
             matched, scores = await filter_items_by_face_similarity(
-                session, media_items, reference_ids, similarity_threshold
+                session, rows, reference_ids, similarity_threshold
             )
             matched_ids = {media.id for media in matched}
-            rows = [row for row in rows if row[2].id in matched_ids]
+            rows = [row for row in rows if row.id in matched_ids]
         else:
             from clip_service import CLIP_EMBEDDING_DIM, get_clip_service
             import numpy as np
@@ -537,12 +569,15 @@ async def browse_assets(
             valid_rows = []
             raw_scores = []
             for row in rows:
-                media = row[2]
-                embedding = media.get_embedding()
+                embedding = (
+                    None
+                    if row.clip_embedding is None
+                    else np.frombuffer(row.clip_embedding, dtype=np.float32)
+                )
                 if embedding is None or embedding.shape[0] != CLIP_EMBEDDING_DIM:
                     continue
                 score = float(clip.compute_similarity(query_embedding, embedding))
-                scores[media.id] = score
+                scores[row.id] = score
                 raw_scores.append(score)
                 valid_rows.append(row)
             threshold = similarity_threshold if similarity_threshold is not None else floor
@@ -557,44 +592,63 @@ async def browse_assets(
             rows = [
                 row
                 for row in valid_rows
-                if row[2].id in reference_ids or scores[row[2].id] >= threshold
+                if row.id in reference_ids or scores[row.id] >= threshold
             ]
 
         if sort_by == "created_asc":
-            rows.sort(key=lambda row: row[2].created_date or row[2].indexed_date)
+            rows.sort(key=lambda row: row.created_date or row.indexed_date)
         elif sort_by == "created_desc":
             rows.sort(
-                key=lambda row: row[2].created_date or row[2].indexed_date,
+                key=lambda row: row.created_date or row.indexed_date,
                 reverse=True,
             )
         elif sort_by == "edited_desc":
-            markers_by_media = await implicit_markers_by_media(
-                session, [row[2].id for row in rows]
-            )
+            markers_by_media: dict = {}
+            for chunk in sql_in_chunks([row.id for row in rows]):
+                markers_by_media.update(await implicit_markers_by_media(session, chunk))
             edited_asset_ids = [
-                row[0].id for row in rows if markers_by_media[row[2].id]
+                row.asset_id for row in rows if markers_by_media.get(row.id)
             ]
             edited_at = {}
-            if edited_asset_ids:
-                edited_at = dict(
+            for chunk in sql_in_chunks(edited_asset_ids):
+                edited_at.update(
                     (
                         await session.execute(
                             select(
                                 Asset.id,
                                 latest_edited_revision_at(Asset.id),
-                            ).where(Asset.id.in_(edited_asset_ids))
+                            ).where(Asset.id.in_(chunk))
                         )
                     ).all()
                 )
             rows.sort(
-                key=lambda row: edited_at.get(row[0].id) or row[2].indexed_date,
+                key=lambda row: edited_at.get(row.asset_id) or row.indexed_date,
                 reverse=True,
             )
         else:
-            rows.sort(key=lambda row: scores.get(row[2].id, -1), reverse=True)
+            rows.sort(key=lambda row: scores.get(row.id, -1), reverse=True)
         total = len(rows)
         offset = (page - 1) * page_size
-        page_rows = rows[offset:offset + page_size]
+        page_keys = [(row.asset_id, row.id) for row in rows[offset:offset + page_size]]
+        if ranked_only:
+            # Internal select-all/facet callers need identities, not projections.
+            return {"ranked": page_keys, "total": total}
+        # Load the page by Asset id alone: replaying the request's filters
+        # would add their binds again, and a revision saved since ranking
+        # must not drop an Asset that ``total`` still counts.
+        full_rows = {}
+        page_asset_ids = list(dict.fromkeys(asset_id for asset_id, _ in page_keys))
+        if page_asset_ids:
+            for row in (
+                await session.execute(
+                    select(Asset, AssetRevision, MediaItem)
+                    .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+                    .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
+                    .where(Asset.id.in_(page_asset_ids))
+                )
+            ).all():
+                full_rows[row[0].id] = row
+        page_rows = [full_rows[a] for a, _ in page_keys if a in full_rows]
         items = await _browser_projections(session, page_rows)
         for item in items:
             if item["media_id"] in scores:
@@ -742,6 +796,7 @@ async def browse_asset_ids(
         result = await browse_assets(
             page=1,
             page_size=10_000_000,
+            ranked_only=True,
             state=state,
             prompt_query=prompt_query,
             media_types=media_types,
@@ -781,7 +836,7 @@ async def browse_asset_ids(
             scope=scope,
             session=session,
         )
-        return {"ids": [item["asset_id"] for item in result["items"]]}
+        return {"ids": [asset_id for asset_id, _ in result["ranked"]]}
 
     effective_projects = ",".join(
         part for part in (project_ids, str(project_id) if project_id is not None else None) if part
@@ -841,6 +896,7 @@ async def _similarity_media_ids_for_facets(
     result = await browse_assets(
         page=1,
         page_size=10_000_000,
+        ranked_only=True,
         state=state,
         project_id=project_id,
         similar_to=similar_to,
@@ -852,7 +908,7 @@ async def _similarity_media_ids_for_facets(
         scope=scope,
         session=session,
     )
-    return [item["media_id"] for item in result["items"]]
+    return [media_id for _, media_id in result["ranked"]]
 
 
 def _asset_facet_query(
@@ -1118,7 +1174,7 @@ async def get_asset_filter_counts(
             session,
             facet("folders").where(
                 StorageObject.kind == "external",
-                StorageObject.external_path.startswith(prefix),
+                path_has_prefix(StorageObject.external_path, prefix),
             ),
         )
 
@@ -1375,6 +1431,23 @@ async def remove_asset_marker(
     return {"status": "success", "markers": markers}
 
 
+async def _live_asset_ids(session: AsyncSession, asset_ids) -> list[int]:
+    """Active, undeleted ids among ``asset_ids`` in request order, chunked for SQLite."""
+    ids = list(dict.fromkeys(asset_ids))
+    live: set[int] = set()
+    for chunk in sql_in_chunks(ids):
+        live.update(
+            await session.scalars(
+                select(Asset.id).where(
+                    Asset.id.in_(chunk),
+                    Asset.state == "active",
+                    Asset.deleted_at.is_(None),
+                )
+            )
+        )
+    return [a for a in ids if a in live]
+
+
 @router.post("/batch/markers")
 async def bulk_asset_markers(
     request: AssetMarkerBatchRequest,
@@ -1387,33 +1460,27 @@ async def bulk_asset_markers(
     # removing one only applies to live Assets.
     restored_ids: list[int] = []
     if request.add:
-        restored_ids = list(
-            await session.scalars(
-                select(Asset.id).where(
-                    Asset.id.in_(request.asset_ids), Asset.state == "trashed"
+        # Same effect as restore_asset, one guarded UPDATE per chunk: only
+        # rows still in Trash at write time are restored.
+        now = datetime.utcnow()
+        for chunk in sql_in_chunks(dict.fromkeys(request.asset_ids)):
+            restored_ids.extend(
+                await session.scalars(
+                    update(Asset)
+                    .where(Asset.id.in_(chunk), Asset.state == "trashed")
+                    .values(
+                        state="active", deleted_at=None, expires_at=None, updated_at=now
+                    )
+                    .returning(Asset.id)
                 )
             )
-        )
-        for asset_id in restored_ids:
-            await restore_asset(session, asset_id=asset_id)
-    valid_ids = set(
-        await session.scalars(
-            select(Asset.id).where(
-                Asset.id.in_(request.asset_ids),
-                Asset.state == "active",
-                Asset.deleted_at.is_(None),
-            )
-        )
+    valid_ids = await _live_asset_ids(session, request.asset_ids)
+    changed_ids, expired_ids = await set_assets_marker(
+        session,
+        asset_ids=valid_ids,
+        marker_id=request.marker_id,
+        add=request.add,
     )
-    changed_ids = []
-    for asset_id in valid_ids:
-        if await set_asset_marker(
-            session,
-            asset_id=asset_id,
-            marker_id=request.marker_id,
-            add=request.add,
-        ):
-            changed_ids.append(asset_id)
     changed = len(changed_ids)
     await record_media_actions(
         session, media_actions.RESTORED, [(None, a) for a in restored_ids]
@@ -1425,10 +1492,12 @@ async def bulk_asset_markers(
         media_actions.marker_detail(marker),
     )
     await session.commit()
-    if changed or request.add:
+    # Notify only Assets whose marker, expiry, or trash state changed.
+    notify_ids = {*changed_ids, *expired_ids, *restored_ids}
+    if notify_ids:
         await broadcast_asset_organization_updated(
             session,
-            valid_ids,
+            notify_ids,
             ws_manager,
             fields=("markers", "expires_at") if request.add else ("markers",),
         )
@@ -1498,37 +1567,22 @@ async def bulk_asset_tags(
     request: AssetTagBatchRequest,
     session: AsyncSession = Depends(get_db_session),
 ):
-    valid_ids = list(
-        await session.scalars(
-            select(Asset.id).where(
-                Asset.id.in_(request.asset_ids),
-                Asset.state == "active",
-                Asset.deleted_at.is_(None),
-            )
-        )
-    )
+    valid_ids = await _live_asset_ids(session, request.asset_ids)
     tags = [await _find_or_create_tag(session, text) for text in request.tag_texts]
     requested_add = any(tag is not None for tag in tags)
-    added = removed = 0
-    for asset_id in valid_ids:
-        for tag in tags:
-            if tag is not None:
-                added += int(
-                    await set_asset_tag(
-                        session, asset_id=asset_id, tag_id=tag.id, add=True
-                    )
-                )
-        for tag_id in request.remove_tag_ids:
-            removed += int(
-                await set_asset_tag(
-                    session, asset_id=asset_id, tag_id=tag_id, add=False
-                )
-            )
+    added, removed, changed_ids, expired_ids = await set_assets_tags(
+        session,
+        asset_ids=valid_ids,
+        add_tag_ids=[tag.id for tag in tags if tag is not None],
+        remove_tag_ids=request.remove_tag_ids,
+    )
     await session.commit()
-    if added or removed or requested_add:
+    # Notify only Assets whose tags or expiry changed.
+    notify_ids = changed_ids | expired_ids
+    if notify_ids:
         await broadcast_asset_organization_updated(
             session,
-            valid_ids,
+            notify_ids,
             ws_manager,
             fields=("tags", "expires_at") if requested_add else ("tags",),
         )
@@ -1544,15 +1598,7 @@ async def add_assets_to_project(
     project = await session.get(Project, project_id)
     if project is None or project.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Project not found")
-    valid_ids = list(
-        await session.scalars(
-            select(Asset.id).where(
-                Asset.id.in_(request.asset_ids),
-                Asset.state == "active",
-                Asset.deleted_at.is_(None),
-            )
-        )
-    )
+    valid_ids = await _live_asset_ids(session, request.asset_ids)
     for asset_id in valid_ids:
         await attach_asset_to_project(session, project_id, asset_id)
     await session.commit()

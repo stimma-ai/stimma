@@ -368,3 +368,31 @@ test('entering a PIN replaces a socket that did not present it, once', () => {
   assert.equal(sockets.length, 3)
   assert.equal(new URL(sockets[2].url).searchParams.get('pin'), '1234')
 })
+
+test('locking replaces a socket that presented the PIN with one that does not', () => {
+  const pins = new Map([['profile-a', '1234']])
+  const { sockets, window } = websocketHarness({ profile: 'profile-a', url: 'ws://server/ws', pins })
+  sockets[0].open()
+  assert.equal(new URL(sockets[0].url).searchParams.get('pin'), '1234')
+
+  // Another profile locking changes nothing here.
+  window.dispatchEvent(new CustomEvent('pin-cleared', { detail: { profileId: 'profile-b' } }))
+  assert.equal(sockets.length, 1)
+
+  for (const event of ['pin-auto-locked', 'pin-cleared']) {
+    pins.set('profile-a', '1234')
+    const live = sockets.at(-1)
+    live.open()
+    window.dispatchEvent(new CustomEvent('pin-cached', { detail: { profileId: 'profile-a' } }))
+    pins.delete('profile-a')
+    const count = sockets.length
+    window.dispatchEvent(new CustomEvent(event, { detail: { profileId: 'profile-a' } }))
+    assert.equal(sockets.length, count + 1, event)
+    assert.equal(sockets[count - 1].closed, true)
+    assert.equal(new URL(sockets.at(-1).url).searchParams.get('pin'), null)
+    // A socket that presents no PIN is left alone.
+    sockets.at(-1).open()
+    window.dispatchEvent(new CustomEvent(event, { detail: { profileId: 'profile-a' } }))
+    assert.equal(sockets.length, count + 1)
+  }
+})

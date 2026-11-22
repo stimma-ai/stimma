@@ -94,8 +94,12 @@ export function setCloudBaseUrl(url) {
  * Apply an account payload pushed by the backend (account_updated websocket
  * event) to the shared cloudUser state. Same shape as /api/auth/account.
  */
+// Counts accepted pushes. A read that started before one is older than it.
+let pushVersion = 0
+
 export function applyCloudAccount(data) {
   if (!data || typeof data !== 'object') return
+  pushVersion++
   cloudUser.value = {
     ...data,
     credits: data.credits ?? data.balanceCents ?? 0,
@@ -131,12 +135,15 @@ async function readCloudAccount() {
 
   isCloudLoading.value = true
   cloudError.value = null
+  const readFor = pushVersion
+  const superseded = () => readFor !== pushVersion
 
   try {
     const response = await fetch('/api/auth/account')
 
     if (!response.ok) {
       const error = await readAccountError(response)
+      if (superseded()) return cloudUser.value
       cloudError.value = error
       // A remote server refusing this device's session is a connection
       // problem the native shell repairs, not a signed-out account.
@@ -149,6 +156,7 @@ async function readCloudAccount() {
     }
 
     const data = await response.json()
+    if (superseded()) return cloudUser.value
 
     // Handle both old (balanceCents) and new (credits) field names
     cloudUser.value = {
@@ -158,6 +166,7 @@ async function readCloudAccount() {
     return cloudUser.value
   } catch (error) {
     console.error('Failed to fetch cloud account:', error)
+    if (superseded()) return cloudUser.value
     cloudError.value = {
       code: 'cloud_unreachable',
       message: "Couldn't reach your Stimma account. Check your connection and try again.",

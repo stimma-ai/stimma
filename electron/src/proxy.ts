@@ -373,10 +373,11 @@ export const DEVICE_SESSION_HEADER = 'x-stimma-device-session'
 
 /**
  * A request URL fit for the log. WebSocket and <img> requests carry the
- * profile PIN in the query (browsers cannot set headers on them).
+ * profile PIN in the query (browsers cannot set headers on them), and
+ * package covers in the path (/pin/<hex>/).
  */
 export function loggableUrl(url: string | undefined): string {
-  return (url ?? '').replace(/([?&]pin=)[^&#]*/gi, '$1[redacted]')
+  return (url ?? '').replace(/([?&]pin=|\/pin\/)[^&#/?]*/gi, '$1[redacted]')
 }
 
 /**

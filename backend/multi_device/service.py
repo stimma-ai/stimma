@@ -186,6 +186,27 @@ async def sign_out() -> None:
     revoke_all_sessions()
 
 
+async def stop_after_session_expiry() -> None:
+    """The account session expired: same local teardown as sign_out().
+
+    No registry call, since the account token is already dead and refreshing
+    it is exactly what failed. Never raises.
+    """
+    try:
+        if server.is_serving():
+            await server.stop_serving()
+    except Exception as exc:
+        log.warning("multi-device: failed to stop serving after session expiry", error=str(exc))
+    registry.stop_heartbeat()
+    revoke_all_sessions()
+    try:
+        if get_settings().multi_device.serving:
+            _patch_multi_device(serving=False)
+    except Exception as exc:
+        log.warning("multi-device: failed to persist serving off after session expiry", error=str(exc))
+    await notify_devices_changed()
+
+
 async def rename(name: str) -> dict:
     """Set this device's display name and republish it."""
     ensure_persisted_identity()

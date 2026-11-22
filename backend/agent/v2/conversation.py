@@ -511,11 +511,7 @@ def _item_to_message(item: ChatItem) -> Dict[str, Any] | None:
         # historical tool_calls and 400 the WHOLE conversation on one
         # malformed entry, bricking every later turn. Wrap irreparable args
         # instead of replaying them raw.
-        args = item.tool_args or "{}"
-        try:
-            json.loads(args)
-        except (ValueError, TypeError):
-            args = json.dumps({"_malformed_arguments": str(item.tool_args)[:2000]})
+        args = _replay_arguments(item.tool_args)
         tool_call = {
             "id": item.tool_call_id or "",
             "type": "function",
@@ -554,7 +550,15 @@ def _item_to_message(item: ChatItem) -> Dict[str, Any] | None:
             elif isinstance(state, dict) and state.get("kind") == "openai_chat_tool_batch":
                 state_calls = state.get("tool_calls")
                 if isinstance(state_calls, list) and state_calls:
-                    message["tool_calls"] = state_calls
+                    if not all(isinstance(call, dict) and call.get("id") for call in state_calls):
+                        # Saved before missing call ids were minted up front:
+                        # its results were stored under ids the batch never
+                        # carried, so replay this row's own call instead.
+                        return message
+                    # The batch keeps the provider's raw arguments; sanitize
+                    # them like the row's own, keeping ids and metadata.
+                    state = replayable_provider_state(state)
+                    message["tool_calls"] = state["tool_calls"]
                 message["_stimma_provider_state"] = state
         return message
 
@@ -587,6 +591,43 @@ def _item_to_message(item: ChatItem) -> Dict[str, Any] | None:
 
     # Skip: generated_media, media_grid, error, system, hitl_request, etc.
     return None
+
+
+def _replay_arguments(raw: Any) -> str:
+    """Tool-call arguments that are safe to replay.
+
+    Strict providers (Fireworks, OpenAI) validate historical tool_calls and
+    400 the WHOLE conversation on one malformed entry, bricking every later
+    turn. Wrap irreparable arguments instead of replaying them raw.
+    """
+    args = raw or "{}"
+    try:
+        parsed = json.loads(args)
+    except (ValueError, TypeError):
+        parsed = None
+    if not isinstance(parsed, dict):
+        # Torn JSON, or JSON that isn't an object (the call was never run).
+        args = json.dumps({"_malformed_arguments": str(raw)[:2000]})
+    return args
+
+
+def replayable_tool_calls(calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Copies of tool calls whose arguments are safe to replay; ids and metadata kept."""
+    return [
+        {**call, "function": {
+            **(call.get("function") or {}),
+            "arguments": _replay_arguments((call.get("function") or {}).get("arguments")),
+        }} if isinstance(call, dict) else call
+        for call in calls
+    ]
+
+
+def replayable_provider_state(state: Any) -> Any:
+    """A Chat Completions batch state with replay-safe arguments; others unchanged."""
+    if (isinstance(state, dict) and state.get("kind") == "openai_chat_tool_batch"
+            and isinstance(state.get("tool_calls"), list)):
+        return {**state, "tool_calls": replayable_tool_calls(state["tool_calls"])}
+    return state
 
 
 def _build_view_image_result(tool_call_id: str, marker: dict) -> dict:

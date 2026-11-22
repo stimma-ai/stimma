@@ -1,5 +1,6 @@
 """V2 tool registry with @tool decorator."""
 
+import json
 from dataclasses import dataclass, field
 from typing import Any, Callable, List, Dict, Optional
 
@@ -177,3 +178,27 @@ def get_tool(name: str, scope: Optional[str] = None) -> Optional[Tool]:
 def get_all_tools() -> Dict[str, Tool]:
     """Get all registered tools."""
     return dict(_tools)
+
+
+def tool_arguments_error(fn_name: str, raw_arguments: Any) -> Optional[str]:
+    """The tool result to record when a model's call arguments can't be used.
+
+    Models sometimes send torn JSON or a bare list or string. Such a call is
+    answered with an error the model can correct, before any permission check
+    or prompt is built from it, so it never stops the run.
+    """
+    if not raw_arguments:
+        return None
+    try:
+        parsed = json.loads(raw_arguments)
+    except (ValueError, TypeError):
+        return (
+            f"Error: The arguments for {fn_name} were not valid JSON, so the call was not run. "
+            "Send it again with a JSON object of arguments."
+        )
+    if not isinstance(parsed, dict):
+        return (
+            f"Error: The arguments for {fn_name} must be a JSON object, so the call was not run. "
+            "Send it again with a JSON object of arguments."
+        )
+    return None

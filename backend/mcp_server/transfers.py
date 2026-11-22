@@ -173,18 +173,14 @@ async def download(profile_id, handle_text):
         raise McpError(
             "not_found", "This download link is invalid or expired; call media_export again."
         ) from None
-    unlock = access.unlocks.get((profile_id, client_id))
-    if (
-        not unlock
-        or unlock.stamp != stamp
-        or grant != unlock.grant
-        or expires < time.time()
-    ):
+    caller = Caller(profile_id, client_id, db.db_guid, stamp)
+    # The live grant, idle timeout included; redeeming a link is not activity.
+    _, unlock = access._live(caller)
+    if not unlock or grant != unlock.grant or expires < time.time():
         raise McpError(
             "transfer_expired",
             "This download link expired; call media_export again for a new one.",
         )
-    caller = Caller(profile_id, client_id, db.db_guid, stamp)
     async with db.async_session_maker() as session:
         media = await media_row(caller, access.ref(caller, "media", media_id), session)
         path = Path(media.file_path)

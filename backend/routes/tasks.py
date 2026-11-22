@@ -177,6 +177,7 @@ async def resolve_task(
         )
 
     task_type = task_row["task_type"]
+    resolved_offline = False
     runtime = flow_registry.get_runtime(flow_id)
     if runtime is None:
         try:
@@ -262,9 +263,10 @@ async def resolve_task(
                     result_media_ids=[],
                     error=None,
                 )
-            graph_db.resolve_task(
+            resolved_offline = graph_db.resolve_task(
                 state_db, tid, {"action": action, "value": body.value},
-            )
+                require_pending=True,
+            ) is not None
     elif task_type in _HITL_TASK_TYPES:
         if body.resolution is None and body.action is None:
             # hitl.approve reject-via-bool=False is the common "missing-ish" case;
@@ -296,7 +298,7 @@ async def resolve_task(
                     pass
                 except EvaluatorError as exc:
                     raise HTTPException(status_code=400, detail=str(exc)) from exc
-            _resolve_offline(flow_id, tid, task_row, resolution, task_type)
+            resolved_offline = _resolve_offline(flow_id, tid, task_row, resolution, task_type)
         else:
             try:
                 await runtime.resolve_task(tid, resolution)
@@ -310,6 +312,15 @@ async def resolve_task(
             status_code=400,
             detail=f"unknown task_type {task_type!r}",
         )
+
+    if resolved_offline:
+        # No runtime broadcast happened; keep the pending badge count in step.
+        await flow_lifecycle._broadcast("flow_task_resolved", {
+            "flow_id": flow_id,
+            "task_id": tid,
+            "task_type": task_type,
+            "equation_key": task_row.get("equation_key"),
+        })
 
     # Return the updated row.
     state_db = get_flow_state_db_path(flow_id)
@@ -326,8 +337,9 @@ def _resolve_offline(
     task_row: dict[str, Any],
     resolution: Any,
     task_type: str,
-) -> None:
-    """Resolution path when no FlowRuntime is in memory.
+) -> bool:
+    """Resolution path when no FlowRuntime is in memory. Returns whether the
+    task was still pending and is now resolved.
 
     Writes the HITL result durably and marks the task resolved. The
     equation stays AWAITING_INPUT in state.db; next start() hydrates and
@@ -350,9 +362,13 @@ def _resolve_offline(
             ),
         )
     state_db = get_flow_state_db_path(flow_id)
+    # Claim the pending task first so a losing concurrent resolution never
+    # overwrites the stored decision.
+    if _gdb.resolve_task(state_db, tid, resolution, require_pending=True) is None:
+        return False
     inputs_hash = task_row.get("inputs_hash")
     if inputs_hash:
         _gdb.insert_hitl_result(
             state_db, task_row["equation_key"], inputs_hash, resolution,
         )
-    _gdb.resolve_task(state_db, tid, resolution)
+    return True

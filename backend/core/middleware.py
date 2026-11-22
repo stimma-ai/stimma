@@ -111,6 +111,53 @@ def clear_pin_cache(profile_id: str = None):
         }
 
 
+def request_pin(request: Request) -> str | None:
+    """The PIN a request offers: header, or query param for <img>/<video> URLs."""
+    return request.headers.get("X-Profile-PIN") or request.query_params.get("pin")
+
+
+def pin_denial(profile_id: str, pin: str | None) -> dict | None:
+    """None when ``pin`` opens ``profile_id`` (or it has no PIN), else the 403 body."""
+    profile_config = get_settings().get_profile(profile_id)
+    if not profile_config or not profile_config.pin_hash:
+        return None
+    if not pin:
+        return {"detail": "PIN required", "requires_pin": True, "profile_id": profile_id}
+    if not verify_pin(profile_id, pin, profile_config.pin_hash):
+        return {"detail": "Invalid PIN", "requires_pin": True, "profile_id": profile_id}
+    return None
+
+
+def require_profile_pin(request: Request, profile_id: str) -> None:
+    """Route guard for a request about ``profile_id``, which may not be the
+    caller's profile: its PIN comes in X-Target-Profile-PIN, or as usual."""
+    from fastapi import HTTPException
+
+    pin = request.headers.get("X-Target-Profile-PIN") or request_pin(request)
+    denial = pin_denial(profile_id, pin)
+    if denial is not None:
+        raise HTTPException(status_code=403, detail=denial)
+
+
+def _db_guid_pin(path: str) -> tuple[str | None, str | None]:
+    """(db_guid, path-carried PIN) for an /api/db/{guid}/... URL.
+
+    Package covers load their own files by relative URL, which drops the
+    query string, so their URL carries the PIN in the path instead:
+    /api/db/{guid}/pin/{hex PIN}/media/... (hex keeps any PIN one segment).
+    """
+    parts = path.split("/")
+    if len(parts) < 4 or not parts[3]:
+        return None, None
+    pin = None
+    if len(parts) > 5 and parts[4] == "pin":
+        try:
+            pin = bytes.fromhex(parts[5]).decode("utf-8")
+        except ValueError:
+            pin = None
+    return parts[3], pin
+
+
 class ProfileMiddleware(BaseHTTPMiddleware):
     """
     Middleware that extracts profile ID from request and sets context.
@@ -155,6 +202,7 @@ class ProfileMiddleware(BaseHTTPMiddleware):
             profile_id = request.query_params.get("profile")
 
         registry = get_database_registry()
+        no_store = False
 
         # For non-exempt routes, validate profile is provided and exists
         if not is_exempt:
@@ -171,31 +219,23 @@ class ProfileMiddleware(BaseHTTPMiddleware):
 
             # Check PIN for protected profiles (unless PIN-exempt route)
             if not is_pin_exempt:
-                settings = get_settings()
-                profile_config = settings.get_profile(profile_id)
-                if profile_config and profile_config.pin_hash:
-                    # Profile requires PIN (header or query param for img src URLs)
-                    pin = request.headers.get("X-Profile-PIN")
-                    if not pin:
-                        pin = request.query_params.get("pin")
-                    if not pin:
-                        return JSONResponse(
-                            status_code=403,
-                            content={
-                                "detail": "PIN required",
-                                "requires_pin": True,
-                                "profile_id": profile_id
-                            }
-                        )
-                    if not verify_pin(profile_id, pin, profile_config.pin_hash):
-                        return JSONResponse(
-                            status_code=403,
-                            content={
-                                "detail": "Invalid PIN",
-                                "requires_pin": True,
-                                "profile_id": profile_id
-                            }
-                        )
+                denial = pin_denial(profile_id, request_pin(request))
+                if denial is not None:
+                    return JSONResponse(status_code=403, content=denial)
+        elif path.startswith("/api/db/"):
+            # The URL names its database, so the PIN that matters is that
+            # database's profile's, whatever profile the caller is on.
+            db_guid, path_pin = _db_guid_pin(path)
+            target = registry.get_profile_by_db_guid(db_guid) if db_guid else None
+            if target:
+                denial = pin_denial(target, path_pin or request_pin(request))
+                if denial is not None:
+                    return JSONResponse(status_code=403, content=denial)
+                profile_id = target
+                target_config = get_settings().get_profile(target)
+                no_store = bool(target_config and target_config.pin_hash)
+            elif not profile_id or not registry.has_profile(profile_id):
+                profile_id = self._resolve_fallback_profile_id(registry)
         else:
             # For exempt routes, fall back to first available profile if missing/invalid
             if not profile_id or not registry.has_profile(profile_id):
@@ -205,6 +245,9 @@ class ProfileMiddleware(BaseHTTPMiddleware):
         token = profile_context.set(profile_id)
         try:
             response = await call_next(request)
+            if no_store:
+                # Never leave a protected profile's media in the HTTP cache.
+                response.headers["Cache-Control"] = "no-store"
             return response
         except Exception as e:
             # Log the full exception with traceback

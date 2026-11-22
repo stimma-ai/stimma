@@ -412,8 +412,13 @@ def insert_task(
         conn.close()
 
 
-def resolve_task(db_path: Path, task_id: int, resolution: Any) -> Optional[str]:
-    """Mark task resolved. Returns the equation_key of its equation, or None."""
+def resolve_task(
+    db_path: Path, task_id: int, resolution: Any, *, require_pending: bool = False,
+) -> Optional[str]:
+    """Mark task resolved. Returns the equation_key of its equation, or None.
+
+    With ``require_pending`` only a still-pending task is resolved, and None
+    is returned when nothing changed."""
     now = datetime.utcnow().isoformat()
     conn = _connect(db_path)
     try:
@@ -425,12 +430,13 @@ def resolve_task(db_path: Path, task_id: int, resolution: Any) -> Optional[str]:
         if row is None:
             return None
         equation_key = row[0]
-        conn.execute(
-            "UPDATE tasks SET status='resolved', resolution=?, resolved_at=? WHERE id=?",
+        changed = conn.execute(
+            "UPDATE tasks SET status='resolved', resolution=?, resolved_at=? WHERE id=?"
+            + (" AND status='pending'" if require_pending else ""),
             (json.dumps(resolution, default=str), now, task_id),
-        )
+        ).rowcount
         conn.commit()
-        return equation_key
+        return equation_key if changed or not require_pending else None
     finally:
         conn.close()
 

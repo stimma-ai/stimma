@@ -46,8 +46,8 @@
               @cancel="$emit('cancel-and-dismiss-batch', item.batch.batch_id)"
             />
             <BatchGroup
-              v-if="batchResultCells(item.batch).length > 0"
-              :cells="batchResultCells(item.batch)"
+              v-if="visibleCells(item.batch, batchResultCells(item.batch)).length > 0"
+              :cells="visibleCells(item.batch, batchResultCells(item.batch))"
               :total="item.batch.total"
               :completed-count="batchCompletedCount(item.batch)"
               :failed-count="batchFailedCount(item.batch)"
@@ -206,7 +206,7 @@
         <template v-else-if="item.type === 'media-batch-done'">
           <BatchGroup
             :data-reveal-key="item.key"
-            :cells="batchCells(item.batch)"
+            :cells="visibleCells(item.batch, batchCells(item.batch))"
             :total="item.batch.total"
             :completed-count="batchCompletedCount(item.batch)"
             :failed-count="batchFailedCount(item.batch)"
@@ -331,6 +331,7 @@ interface BatchInfo {
   completed: number
   failed: number
   inProgress: number
+  hiddenJobIds?: number[]  // dismissed cells: hidden, still counted
   output_set_id?: number
   output_set_hash?: string
   output_set_title?: string
@@ -577,6 +578,12 @@ function batchFailedCount(batch: BatchInfo): number {
 function batchTerminalCount(batch: BatchInfo): number {
   return batchCompletedCount(batch) + batchFailedCount(batch)
 }
+// Dismissed failed cells stay in the batch's counts but are not drawn. A
+// dismissed job that was retried elsewhere and succeeded shows again.
+function visibleCells(batch: BatchInfo, cells: BatchCell[]): BatchCell[] {
+  const hidden = batch.hiddenJobIds
+  return hidden?.length ? cells.filter(c => c.state !== 'failed' || !hidden.includes(c.job.id)) : cells
+}
 function batchResultCells(batch: BatchInfo): BatchCell[] {
   return batchCells(batch).filter(c => c.state === 'done' || c.state === 'failed')
 }
@@ -670,6 +677,7 @@ const unifiedDisplayItems = computed(() => {
   // until every member (incl. post-processing) is terminal.
   for (const batch of mediaBatches.value) {
     const done = batchIsComplete(batch)
+    if (done && visibleCells(batch, batchCells(batch)).length === 0) continue  // every cell dismissed
     const earliestJob = [...(batch.jobs || [])].sort((a, b) =>
       new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
     )[0]

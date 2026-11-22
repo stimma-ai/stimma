@@ -140,9 +140,11 @@ export function useSettingsApi() {
   /**
    * Delete a profile.
    * @param {string} profileId - The profile ID to delete
+   * @param {string|null} pin - Its PIN, when it has one
    */
-  async function deleteProfile(profileId) {
-    const response = await axios.delete(`${getAPIBase()}/settings/profiles/${profileId}`)
+  async function deleteProfile(profileId, pin = null) {
+    const headers = pin ? { 'X-Target-Profile-PIN': pin } : {}
+    const response = await axios.delete(`${getAPIBase()}/settings/profiles/${profileId}`, { headers })
     return response.data
   }
 
@@ -150,9 +152,11 @@ export function useSettingsApi() {
    * Rename a profile.
    * @param {string} profileId - The profile ID to rename
    * @param {string} newName - The new display name
+   * @param {string|null} pin - Its PIN, when it has one
    */
-  async function renameProfile(profileId, newName) {
-    const response = await axios.patch(`${getAPIBase()}/settings/profiles/${profileId}`, { name: newName })
+  async function renameProfile(profileId, newName, pin = null) {
+    const headers = pin ? { 'X-Target-Profile-PIN': pin } : {}
+    const response = await axios.patch(`${getAPIBase()}/settings/profiles/${profileId}`, { name: newName }, { headers })
     return response.data
   }
 

@@ -112,7 +112,7 @@ async def get_doc(session: AsyncSession, namespace: str, key: str) -> Optional[d
     return _doc_dict(row) if row is not None and row.deleted_at is None else None
 
 
-async def apply_ops(session: AsyncSession, ops: Iterable[dict]) -> list[dict]:
+async def apply_ops(session: AsyncSession, ops: Iterable[dict], *, blob_writes: bool = False) -> list[dict]:
     """Apply a batch of writes in the caller's transaction; returns what changed.
 
     An op has a namespace and key plus one of:
@@ -121,11 +121,16 @@ async def apply_ops(session: AsyncSession, ops: Iterable[dict]) -> list[dict]:
                      when the document is gone, so a late field update can't
                      resurrect half of something another client deleted
       deleted: true  soft-delete it
+
+    Blob documents point at files on disk, so only put_blob (``blob_writes``)
+    may create or edit them; anyone may delete one.
     """
     changes: list[dict] = []
     for op in ops:
         namespace, key = op["namespace"], op["key"]
         _validate_name(namespace, key)
+        if namespace == BLOB and not blob_writes and not op.get("deleted"):
+            raise WorkspaceError("Blob documents are written through the blob endpoint")
         row = await _get(session, namespace, key)
         now = datetime.utcnow()
 
@@ -185,6 +190,34 @@ def event_payload(changes: list[dict], origin: Optional[str]) -> dict:
             change = {"namespace": change["namespace"], "key": change["key"], "rev": change["rev"], "refetch": True}
         trimmed.append(change)
     return {"origin": origin, "changes": trimmed}
+
+
+_BATCHES_KEY = "workspace_recent_batches"
+# A client resends a batch whose answer it never got, possibly after a restart
+# or a later visit to the profile; this many recent ids catch that.
+RECENT_BATCH_LIMIT = 1000
+
+
+async def claim_batch(session: AsyncSession, batch_id: Optional[str]) -> bool:
+    """Record a batch about to be applied, in the caller's transaction. False when
+    it was applied before: applying it again would undo later writes."""
+    if not batch_id:
+        return True
+    row = await session.get(DatabaseMeta, _BATCHES_KEY)
+    try:
+        recent = json.loads(row.value) if row is not None else []
+    except ValueError:
+        recent = []
+    if not isinstance(recent, list):
+        recent = []
+    if batch_id in recent:
+        return False
+    recent = [*recent, batch_id][-RECENT_BATCH_LIMIT:]
+    if row is None:
+        session.add(DatabaseMeta(key=_BATCHES_KEY, value=_dumps(recent)))
+    else:
+        row.value = _dumps(recent)
+    return True
 
 
 async def snapshot(session: AsyncSession) -> dict:
@@ -313,6 +346,9 @@ async def _import_docs(session: AsyncSession, docs: list[dict]) -> tuple[list[di
     for doc in docs:
         namespace, key, value = doc["namespace"], _from_boards(doc["key"]), _from_boards(doc.get("value"))
         _validate_name(namespace, key)
+        if namespace == BLOB:
+            stats["dropped"].append({"key": key, "reason": "malformed"})
+            continue
         if namespace == TAB:
             if not isinstance(value, dict) or value.get("id") != key:
                 stats["dropped"].append({"key": key, "reason": "malformed"})
@@ -410,14 +446,26 @@ async def put_blob(session: AsyncSession, key: str, data: bytes, if_absent: bool
         staged = directory / f".{digest}.tmp"
         staged.write_bytes(data)
         staged.replace(target)
-    return await apply_ops(session, [{"namespace": BLOB, "key": key, "value": {"hash": digest, "size": len(data)}}])
+    return await apply_ops(
+        session, [{"namespace": BLOB, "key": key, "value": {"hash": digest, "size": len(data)}}], blob_writes=True
+    )
+
+
+_DIGEST_RE = re.compile(r"[0-9a-f]{64}")
+
+
+def _blob_digest(value: Any) -> Optional[str]:
+    """The file name a blob document points at, or None if it isn't a digest."""
+    digest = value.get("hash") if isinstance(value, dict) else None
+    return digest if isinstance(digest, str) and _DIGEST_RE.fullmatch(digest) else None
 
 
 async def get_blob(session: AsyncSession, key: str) -> Optional[bytes]:
     doc = await get_doc(session, BLOB, key)
-    if doc is None:
+    digest = _blob_digest(doc["value"]) if doc is not None else None
+    if digest is None:
         return None
-    path = blob_dir() / doc["value"]["hash"]
+    path = blob_dir() / digest
     return path.read_bytes() if path.exists() else None
 
 
@@ -453,11 +501,14 @@ async def purge_expired(session: AsyncSession, profile_id: str, now: Optional[da
             purged += 1
     await session.commit()
 
-    referenced = {
-        json.loads(value)["hash"]
-        for (value,) in (await session.execute(select(WorkspaceDoc.value).where(WorkspaceDoc.namespace == BLOB))).all()
-        if value
-    }
+    referenced = set()
+    for (value,) in (await session.execute(select(WorkspaceDoc.value).where(WorkspaceDoc.namespace == BLOB))).all():
+        try:
+            digest = _blob_digest(json.loads(value)) if value else None
+        except ValueError:
+            digest = None
+        if digest:
+            referenced.add(digest)
     files = 0
     directory = blob_dir(profile_id)
     if directory.exists():

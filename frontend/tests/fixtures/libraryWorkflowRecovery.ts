@@ -6,6 +6,7 @@ import GlobalSearchBox from '../../src/components/search/GlobalSearchBox.vue'
 import SearchResultsView from '../../src/views/SearchResultsView.vue'
 import UploadView from '../../src/views/UploadView.vue'
 import ToastContainer from '../../src/components/ToastContainer.vue'
+import JobsGrid from '../../src/components/generation/JobsGrid.vue'
 import { useGenerationJobs } from '../../src/composables/useGenerationJobs'
 import { useAssetTrash } from '../../src/composables/useAssetTrash'
 import { useProfile } from '../../src/composables/useProfile'
@@ -21,6 +22,7 @@ const router = createRouter({ history: createMemoryHistory(), routes: [
 ] })
 const settingsOpen = ref(false)
 const compareOpen = ref(false)
+const showGrid = new URLSearchParams(location.search).has('grid')
 const slider = ref(50)
 const left = { id: 101, file_hash: 'left', file_format: 'png', width: 512, height: 512 }
 const right = { id: 102, file_hash: 'right', file_format: 'png', width: 512, height: 512 }
@@ -37,6 +39,7 @@ const app = createApp({ setup() {
     h('div', { class: 'flex-1 min-h-0 flex flex-col' }, [h(RouterView)]),
     h(SettingsModal, { show: settingsOpen.value, onClose: () => { settingsOpen.value = false } }),
     compareOpen.value ? h(CompareMode, { leftItem: left, rightItem: right, onClose: () => { compareOpen.value = false }, 'onUpdate:slider-position': (value: number) => { slider.value = value } }) : null,
+    showGrid ? h('section', { 'data-test-grid': '' }, [h(JobsGrid, { jobs: jobs.jobs.value, batchJobs: jobs.batchJobs.value })]) : null,
     h(ToastContainer),
   ])
 } })

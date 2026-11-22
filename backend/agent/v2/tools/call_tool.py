@@ -990,7 +990,7 @@ async def execute_call_tool(
                 status_checker=_status_checker,
             )
     except asyncio.CancelledError:
-        await queue.cancel_job(job_id)
+        await queue.cancel_job(job_id, profile_id=get_current_profile())
         raise
 
     # 8. Handle failure

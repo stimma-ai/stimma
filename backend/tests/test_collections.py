@@ -136,6 +136,33 @@ class TestCollectionsApi:
         )
         assert removed.status_code == 200
 
+    async def test_bulk_move_keeps_order_and_skips_dead_assets(self, client, db_session, seeded_media):
+        async with db_session() as session:
+            assets = [
+                await create_asset_from_media(session, media_id=m.id) for m in seeded_media
+            ]
+            a, b, c = (x.id for x in assets)
+            assets[2].deleted_at = assets[2].created_at  # trashed
+            await session.commit()
+
+        collection = (await client.post("/api/collections", json={"name": "Bulk"})).json()
+        target = (await client.post(
+            f"/api/collections/{collection['id']}/sections", json={"name": "T"}
+        )).json()["id"]
+        response = await client.post(
+            f"/api/collections/{collection['id']}/items/bulk-move",
+            json={"media_ids": [], "asset_ids": [b, 999999, c, a], "to_section_id": target},
+        )
+        assert response.status_code == 200, response.text
+
+        async with db_session() as session:
+            rows = (await session.scalars(
+                select(CollectionAssetItem)
+                .where(CollectionAssetItem.collection_section_id == target)
+                .order_by(CollectionAssetItem.display_order)
+            )).all()
+        assert [r.asset_id for r in rows] == [b, a]
+
     async def test_move_item_into_section_where_it_already_exists_reorders_without_duplicate(self, client, seeded_media):
         collection = (await client.post("/api/collections", json={"name": "Working Set"})).json()
         collection_id = collection["id"]

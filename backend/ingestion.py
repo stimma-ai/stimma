@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import os
 from pathlib import Path
 from typing import Optional, List
@@ -68,6 +69,17 @@ def extract_ingestion_metadata(file_path: Path) -> tuple[dict, Optional[str], Op
     stimma_metadata = extract_stimma_metadata(file_path)
     return metadata, raw_metadata, parsed_prompt, stimma_metadata
 
+
+def _path_in_folder(file_path: str, folder_path: str) -> bool:
+    """True when ``file_path`` lies inside ``folder_path`` (not a sibling like ``/photos-old``)."""
+    separators = "/\\" if os.sep == "\\" else "/"
+    prefix = folder_path.rstrip(separators)
+    if not file_path.startswith(prefix):
+        return False
+    rest = file_path[len(prefix):]
+    return rest == "" or rest[0] in separators
+
+
 async def sync_auto_markers_for_items(
     session: AsyncSession,
     media_items: list[tuple[int, str]],  # List of (media_id, file_path)
@@ -118,7 +130,7 @@ async def sync_auto_markers_for_items(
         # Find which folder this file is in
         target_markers = set()
         for folder_path, marker_names in folder_markers.items():
-            if file_path.startswith(folder_path):
+            if _path_in_folder(file_path, folder_path):
                 target_markers = marker_names
                 break
 
@@ -647,6 +659,13 @@ class MediaIngestion:
 
         # Update settings reference
         self.settings = new_settings
+
+        # Face-detection parameters apply live: the detector and the version
+        # stamped on results change together (no await in between).
+        fd = new_settings.face_detection
+        self.face_detection_service.min_confidence = fd.min_confidence
+        self.face_detection_service.max_faces = fd.max_faces
+        self.config_mgr.apply_face_detection_settings(new_settings)
 
         # A config reload runs in a monitor task while the main ingestion loop
         # may be sleeping for up to five minutes. Adding a Source must wake that
@@ -1717,7 +1736,10 @@ class MediaIngestion:
             # Profile was removed while task was queued - expected during config reload
             log.debug(f"FACE: Skipping item {item_id}, profile '{profile_id}' was removed")
             return
+        # One snapshot per job, so the stamped version matches the parameters used.
         current_version = self.config_mgr.get_version('face_detection')
+        min_confidence = self.settings.face_detection.min_confidence
+        max_faces = self.settings.face_detection.max_faces
 
         try:
             # Mark as processing
@@ -1757,8 +1779,12 @@ class MediaIngestion:
                 loop = asyncio.get_event_loop()
                 faces = await loop.run_in_executor(
                     _io_executor,
-                    self.face_detection_service.detect_faces,
-                    image
+                    functools.partial(
+                        self.face_detection_service.detect_faces,
+                        image,
+                        min_confidence=min_confidence,
+                        max_faces=max_faces,
+                    ),
                 )
             finally:
                 # Close video frame if we extracted one
