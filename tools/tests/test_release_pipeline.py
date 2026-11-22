@@ -52,7 +52,7 @@ class FFmpegSetupTests(unittest.TestCase):
         self.script = str(ROOT / 'scripts/ci-install-ffmpeg.sh')
         metadata = subprocess.check_output(['bash', self.script, '--cache-metadata'], env=self.env, text=True)
         self.cache = Path(dict(line.split('=', 1) for line in metadata.splitlines())['path'])
-        self.stub('ffmpeg', 'test -f "$HOME/system-ready"')
+        self.stub('ffmpeg', 'test -f "$HOME/system-ready" && echo "ffmpeg version 7.1"')
         self.stub('ffprobe', 'test -f "$HOME/system-ready"')
         self.stub('curl', 'echo download >> "$HOME/calls"; exit 22')
         self.stub('apt-get', 'echo apt >> "$HOME/calls"; touch "$HOME/system-ready"')
