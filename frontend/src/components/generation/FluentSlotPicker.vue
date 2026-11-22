@@ -382,12 +382,12 @@ const ageLabel = (y: number) => (ageOpen.value && y === ageTop.value ? `${y}+` :
 const agePct = (y: number) => (ageTop.value > ageMin.value ? ((y - ageMin.value) / (ageTop.value - ageMin.value)) * 100 : 0)
 const lo = ref(0)
 const hi = ref(0)
-const moved = ref(false)   // a handle moved since the saved pick was shown
+const shown = ref([0, 0])   // where the handles stood when the saved pick was last shown
 function syncAge() {
-  moved.value = false
   const ys = pickedYearList.value
   lo.value = ys.length ? Math.min(Math.max(ys[0], ageMin.value), ageTop.value) : ageMin.value
   hi.value = ys.length ? Math.max(Math.min(ys.at(-1)!, ageTop.value), lo.value) : ageTop.value
+  shown.value = [lo.value, hi.value]
 }
 // Keyed by value: a pool refresh mid-drag must not snap the handles back.
 watch(() => `${pickedYearList.value.join()}|${ageMin.value}|${ageTop.value}`, syncAge, { immediate: true })
@@ -395,7 +395,7 @@ const rangeYears = (a: number, b: number) => ageYears.value.filter(y => y >= a &
 // Picks the slider can't show as one range (saved before it): its hull, said as they are.
 const ageMixed = computed(() => {
   const ys = pickedYearList.value
-  return !moved.value && ys.length > 0 && ys.join() !== rangeYears(lo.value, hi.value).join()
+  return lo.value === shown.value[0] && hi.value === shown.value[1] && ys.length > 0 && ys.join() !== rangeYears(lo.value, hi.value).join()
 })
 const ageReadout = computed(() => {
   if (ageMixed.value) return ageText.value
@@ -412,13 +412,11 @@ const ageTicks = computed(() => {
 function onLo(e: Event) {
   const el = e.target as HTMLInputElement
   lo.value = Math.min(Number(el.value), hi.value)
-  moved.value = true
   el.value = String(lo.value)
 }
 function onHi(e: Event) {
   const el = e.target as HTMLInputElement
   hi.value = Math.max(Number(el.value), lo.value)
-  moved.value = true
   el.value = String(hi.value)
 }
 function commitAge() {
