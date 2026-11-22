@@ -551,3 +551,42 @@ def test_lora_notes_file_appears_changes_and_goes_away(tmp_path: Path):
     tool_fs.materialize_tool_fs(reg, tmp_path, enum_threshold=100)
     assert not list((root / "lora-notes").iterdir())
     assert not any("lora-notes/" in p.read_text() for p in (root / "tools").rglob("*.py"))
+
+
+@pytest.mark.asyncio
+async def test_listed_names_import_even_when_the_live_registry_moved(tmp_path: Path):
+    """A tool listed under a provider suffix keeps that name at run time.
+
+    With two providers listing the same tool, the second copy is listed with a
+    suffix. If the first provider drops out of the live registry before the code
+    runs, rebuilding names from the registry would rename the second copy and
+    the listed import would fail.
+    """
+    full = _registry()
+    tool_fs.materialize_tool_fs(full, tmp_path)
+    listed = tool_fs.build_manifest(full).by_module["text_to_image"]
+    suffixed = next(fn for fn, b in listed.items() if b.tool_id == "replicate:flux-klein-9b")
+    assert suffixed != "flux_klein_9b"
+
+    moved = FakeRegistry(
+        [t for t in full.tools if t[0] != "comfyui:flux-klein-9b"]
+        + [("comfyui:new-tool", None, FakeDescriptor(
+            name="New", description="Added after the catalog was written.",
+            task_types=["text-to-image"], parameter_schema=_t2i_schema()))]
+    )
+    calls: list[str] = []
+
+    class FakeSDK:
+        async def _dispatch_tool(self, tool_id, _task_type=None, **kwargs):
+            calls.append(tool_id)
+
+    m = tool_fs.listed_manifest(moved, tmp_path)
+    mod = tool_fs.build_tools_namespace(FakeSDK(), m)["stimma.tools.text_to_image"]
+    await getattr(mod, suffixed)(prompt="x")
+    await getattr(mod, "flux_klein_9b")(prompt="x")
+    await getattr(mod, "new_tool")(prompt="x")
+    assert calls == ["replicate:flux-klein-9b", "comfyui:flux-klein-9b", "comfyui:new-tool"]
+
+    # No snapshot yet: bind from the live registry.
+    assert tool_fs.listed_manifest(moved, tmp_path / "empty").by_module["text_to_image"]["flux_klein_9b"].tool_id \
+        == "replicate:flux-klein-9b"

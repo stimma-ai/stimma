@@ -583,7 +583,8 @@ async def execute_call_tool(
     provider_tool = registry.get_tool(tool_id)
     if not provider_tool:
         raise ValueError(
-            f"Tool '{tool_id}' not found. Browse .stimma/tools/ (or import from stimma.tools.<category>) for valid tools."
+            f"Tool '{tool_id}' isn't available right now: its provider isn't connected or no longer "
+            "offers it. Browse .stimma/tools/ for another copy of the same tool or another tool."
         )
 
     provider, tool_descriptor = provider_tool

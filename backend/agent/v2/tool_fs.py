@@ -195,6 +195,43 @@ def build_manifest(registry) -> Manifest:
     return Manifest(by_module=by_module)
 
 
+def listed_manifest(registry, workspace_dir: str | Path | None) -> Manifest:
+    """The manifest the agent was shown, for binding ``stimma.tools``.
+
+    Function names depend on which providers list a tool at the moment the
+    catalog is built (a second provider's copy gets a suffix). Rebuilding them
+    from the live registry when code runs can rename or drop a tool the stubs
+    list, so a listed name fails to import. Bind from the snapshot written with
+    the stubs instead: every listed name keeps its tool. Tools that appeared
+    since are added under their live names where those are free.
+    """
+    live = build_manifest(registry)
+    path = Path(workspace_dir) / ".stimma" / ".manifest.json" if workspace_dir else None
+    try:
+        snapshot = json.loads(path.read_text(encoding="utf-8"))["tools"] if path and path.is_file() else None
+    except Exception as e:
+        log.warning(f"tool_fs: unreadable catalog snapshot {path}: {e}")
+        snapshot = None
+    if not snapshot:
+        return live
+    descriptors = {b.tool_id: b.descriptor for b in live.iter_bindings()}
+    by_module: dict[str, dict[str, ToolBinding]] = {}
+    for module, funcs in snapshot.items():
+        for fn, entry in funcs.items():
+            by_module.setdefault(module, {})[fn] = ToolBinding(
+                func_name=fn,
+                module=module,
+                task_type=entry["task_type"],
+                tool_id=entry["tool_id"],
+                descriptor=descriptors.get(entry["tool_id"]),
+            )
+    for b in live.iter_bindings():
+        funcs = by_module.setdefault(b.module, {})
+        if b.func_name not in funcs and all(x.tool_id != b.tool_id for x in funcs.values()):
+            funcs[b.func_name] = b
+    return Manifest(by_module=by_module)
+
+
 # ── JSON Schema -> Python type rendering ────────────────────────────────────
 
 _MEDIA_HINTS = ("input_image", "image", "media", "mask", "audio", "video")

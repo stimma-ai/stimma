@@ -3622,15 +3622,15 @@ async def run_code_in_sandbox(
         *coros, return_exceptions=return_exceptions,
     )
 
-    # Build the `stimma.tools.<task>` import namespace from the live tool
-    # registry, bound to this sdk instance. These modules mirror the read-only
-    # `.stimma/tools/` stubs the agent browses — same source of truth, so the
-    # signature it `cat`s is the function it `await`s.
+    # Build the `stimma.tools.<task>` import namespace, bound to this sdk
+    # instance, from the same manifest snapshot as the read-only `.stimma/tools/`
+    # stubs the agent browses, so every listed name imports and the signature
+    # it `cat`s is the function it `await`s.
     _tools_namespace: dict[str, Any] = {}
     try:
         from providers.registry import ProviderRegistry
-        from .tool_fs import build_manifest, build_tools_namespace
-        _tool_manifest = build_manifest(ProviderRegistry.get_instance())
+        from .tool_fs import build_tools_namespace, listed_manifest
+        _tool_manifest = listed_manifest(ProviderRegistry.get_instance(), workspace_dir)
         _tools_namespace = build_tools_namespace(worker_sdk, _tool_manifest)
     except Exception as e:
         log.warning(f"run_code: failed to build stimma.tools namespace: {e}")
