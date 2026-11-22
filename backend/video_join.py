@@ -96,8 +96,10 @@ async def join_video(sdk, segments, out="joined.mp4"):
     args = ["-v", "error", "-y", *files, "-filter_complex", ";".join(filters), "-map", "[v]"]
     if audio:
         args += ["-map", "[a]", "-c:a", "aac"]
+    # Inputs are checked constant-rate and trimmed by frame: keep their timestamps. FFmpeg 7's
+    # default CFR muxing otherwise duplicates a frame at the -t boundary.
     args += ["-c:v", "libx264", "-crf", "18", "-preset", "fast", "-pix_fmt", "yuv420p",
-             "-t", str(float(total/fps)), "-movflags", "+faststart", str(output)]
+             "-fps_mode:v", "passthrough", "-t", str(float(total/fps)), "-movflags", "+faststart", str(output)]
     await sdk.ffmpeg(*args)
     check = await sdk.ffprobe("-v", "error", "-select_streams", "v:0", "-show_entries", "stream=nb_frames", "-of", "json", str(output))
     actual = int(json.loads(check.stdout)["streams"][0]["nb_frames"])
