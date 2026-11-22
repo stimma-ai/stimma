@@ -150,6 +150,11 @@ jobs:
       - name: Lint backend
         run: tools/stimma lint backend
 
+      # Video tests need a modern FFmpeg; self-hosted images ship an old one.
+      - name: Install FFmpeg
+        timeout-minutes: 6
+        uses: ./.github/actions/setup-ffmpeg
+
       - name: Prepare test scratch
         run: python3 scripts/ci-test-scratch.py
 

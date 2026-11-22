@@ -38,10 +38,18 @@ install_static() (
   cp "$scratch/$BUILD/ffmpeg" "$scratch/$BUILD/ffprobe" "$scratch/$BUILD/GPLv3.txt" "$CACHE_DIR/"
 )
 
-# Keep preprovisioned runners on their existing toolchain. Hosted runners use
-# the pinned build even if their image happens to contain another version.
-if [ "${RUNNER_ENVIRONMENT:-}" != github-hosted ] && \
-    ffmpeg -version >/dev/null 2>&1 && ffprobe -version >/dev/null 2>&1; then
+# Major version of the ffmpeg on PATH, or 0 when absent or unparseable.
+system_major() {
+  local v
+  v=$(ffmpeg -version 2>/dev/null | sed -n '1s/^ffmpeg version n\{0,1\}\([0-9][0-9]*\).*/\1/p')
+  echo "${v:-0}"
+}
+
+# Keep preprovisioned runners on their existing toolchain when it is modern
+# enough for the video tests (6+). Hosted runners use the pinned build even if
+# their image happens to contain another version.
+if [ "${RUNNER_ENVIRONMENT:-}" != github-hosted ] && [ "$(system_major)" -ge 6 ] && \
+    ffprobe -version >/dev/null 2>&1; then
   echo 'Using preinstalled FFmpeg and ffprobe'
 elif [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ]; then
   if ! usable "$CACHE_DIR"; then
