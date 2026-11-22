@@ -333,18 +333,24 @@ def _prompt_h3_context(
                 "kind": "audio",
                 "index": index,
             })
-        # Pinned keyframes sit on the output timeline, not in the tag list:
-        # unlabeled, so they are described in words rather than tagged.
-        for item in parameters.get("keyframes") or []:
-            if not isinstance(item, dict):
-                continue
-            try:
-                at = float(item.get("at") or 0.0)
-                length = float(item.get("length") or 0.0)
-            except (TypeError, ValueError):
-                continue
-            if at < 0 and duration:
-                at = max(0.0, duration + at)
+    # Pinned keyframes sit on the output timeline, not in the tag list:
+    # unlabeled, so they are described in words rather than tagged. Any task
+    # can pin sound alone; only reference-to-video also describes pinned pictures.
+    for item in parameters.get("keyframes") or []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            at = float(item.get("at") or 0.0)
+            length = float(item.get("length") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if at < 0 and duration:
+            at = max(0.0, duration + at)
+        if _keyframe_is_sound_only(item):
+            if not length and duration:
+                length = max(0.0, duration - at)
+            manifest.append({"kind": "keyframe", "at": at, "length": length, "sound": True, "picture": False})
+        elif is_ref2va:
             manifest.append({
                 "kind": "keyframe",
                 "at": at,
@@ -352,6 +358,18 @@ def _prompt_h3_context(
                 "sound": bool(item.get("sound")) and length > 0,
             })
     return task, duration, media_ids, generate_audio, manifest
+
+
+def _keyframe_is_sound_only(item: Dict[str, Any]) -> bool:
+    """A keyframe that pins sound and no picture: an audio file, or a video with `picture: false`."""
+    if item.get("picture") is False:
+        return True
+    media = item.get("media")
+    if not isinstance(media, str):
+        return False
+    import mimetypes
+
+    return (mimetypes.guess_type(media)[0] or "").startswith("audio/")
 
 
 async def _retain_generation_inputs(

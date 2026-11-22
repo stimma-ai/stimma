@@ -92,3 +92,18 @@ test('library video restoration preserves identity even for a single frame', () 
   assert.equal(item.isVideo, true)
   assert.equal(item.from, 0)
 })
+
+test('sound-only pins survive a round trip with their span', () => {
+  const wire = [
+    { media: '/lib/k2.png', at: 0 },
+    { media: '/lib/speech.wav', at: 0, from: 5.125, length: 5.167 },
+    { media: 'media:43', at: 1, from: 2, picture: false, sound: true },
+  ]
+  const items = fromWire(wire, undefined, 5)
+  assert.deepEqual(items.map(i => !!i.soundOnly), [false, true, true])
+  assert.deepEqual(toWire(items, 5), [
+    { media: '/lib/k2.png', at: 0 },
+    { media: '/lib/speech.wav', at: 0, from: 5.125, length: 5.167 },
+    { media: 'media:43', at: 1, from: 2, picture: false, sound: true },
+  ])
+})

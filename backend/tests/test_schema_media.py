@@ -134,3 +134,57 @@ async def test_queue_records_keyframe_lineage():
         {"media_id": 41, "file_path": "/lib/a.png", "role": "keyframe"},
         {"media_id": 42, "file_path": "/lib/b.mp4", "role": "keyframe"},
     ]
+
+
+AUDIO_KEYFRAMES_SCHEMA = {"properties": {"keyframes": {
+    "type": "array", "x-control": "keyframes", "x-audio": True,
+    "items": {"type": "object", "required": ["media", "at"], "properties": {
+        "media": {"type": "string", "x-media": ["image", "video", "audio"]},
+        "at": {"type": "number"}, "from": {"type": "number"}, "length": {"type": "number"},
+        "picture": {"type": "boolean"},
+    }},
+}}}
+
+
+@pytest.mark.asyncio
+async def test_audio_keyframes_flow_through_generic_media_paths(tmp_path):
+    """Declaring "audio" in a keyframe's `x-media` is all the app needs: library ids
+    resolve, the file uploads as itself (no soundtrack extraction for a mixed field),
+    and lineage records it as a keyframe."""
+    queue = GenerationQueue()
+
+    async def fake_lookup(_session, media_id):
+        return {41: "/lib/k2.png", 42: str(tmp_path / "speech.wav"), 43: str(tmp_path / "take.mp4")}.get(media_id)
+
+    with patch.object(queue, "_resolve_media_id_to_path", new=AsyncMock(side_effect=fake_lookup)), \
+            patch("media_sidecars.companions_for_media", new=AsyncMock(return_value=[])):
+        resolved = await queue._resolve_nested_media_ids(None, {"keyframes": [
+            {"media": 41, "at": 0}, {"media": 42, "at": 0, "from": 5.125, "length": 5.17},
+            {"media": 43, "at": 0, "picture": False},
+        ]}, AUDIO_KEYFRAMES_SCHEMA)
+    assert [k["media"] for k in resolved["keyframes"]] == [
+        "/lib/k2.png", str(tmp_path / "speech.wav"), str(tmp_path / "take.mp4")]
+    assert resolved["keyframes"][1]["from"] == 5.125
+
+    (tmp_path / "speech.wav").write_bytes(b"RIFF\x24\x00\x00\x00WAVEfmt " + b"0" * 32)
+    (tmp_path / "take.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"0" * 32)
+    provider = JsonRpcProvider(StdioProviderConfig(id="test", command="noop"))
+    provider.upload_asset = AsyncMock(side_effect=["asset-speech", "asset-take"])
+    with patch("providers.jsonrpc._transcode_av_to", new=AsyncMock()) as transcode:
+        out = await provider._upload_input_assets({"keyframes": resolved["keyframes"][1:]}, AUDIO_KEYFRAMES_SCHEMA)
+    assert [k["media"] for k in out["keyframes"]] == ["asset-speech", "asset-take"]
+    assert out["keyframes"][1]["picture"] is False
+    transcode.assert_not_awaited()
+    assert provider.upload_asset.await_args_list[0].args[1].startswith("audio/")
+
+    @asynccontextmanager
+    async def session_maker():
+        yield None
+
+    db = type("Db", (), {"async_session_maker": staticmethod(session_maker)})()
+    params = {"keyframes": resolved["keyframes"], "keyframes_media_ids": [41, 42, 43]}
+    with patch.object(queue, "_get_db", return_value=db), \
+            patch.object(queue, "_get_inherited_lineage", new=AsyncMock(return_value=[])):
+        lineage = await queue._nested_lineage(params, AUDIO_KEYFRAMES_SCHEMA, "profile")
+    assert [(i["media_id"], i["role"]) for i in lineage["source_inputs"]] == [
+        (41, "keyframe"), (42, "keyframe"), (43, "keyframe")]

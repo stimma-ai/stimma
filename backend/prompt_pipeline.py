@@ -662,7 +662,7 @@ def _h3_context_ir_problem(
     if positions[0] < 0 or positions != sorted(positions):
         return "format"
     if source_prompt is not None:
-        dialogue_problem = _h3_dialogue_problem(prompt, source_prompt)
+        dialogue_problem = _h3_dialogue_problem(prompt, source_prompt, reference_manifest)
         if dialogue_problem:
             return dialogue_problem
     stripped = prompt.strip()
@@ -716,15 +716,23 @@ def _h3_dialogue_is_grounded(candidate: str, source_prompt: str) -> bool:
     return _h3_dialogue_problem(candidate, source_prompt) is None
 
 
-def _h3_dialogue_problem(candidate: str, source_prompt: str) -> Optional[str]:
-    """Reject H3 dialogue that is absent from or adds words to the user input."""
-    from routes.prompt_enhancement import _h3_input_has_dialogue
+def _h3_dialogue_problem(
+    candidate: str,
+    source_prompt: str,
+    reference_manifest: Optional[List[Dict[str, Any]]] = None,
+) -> Optional[str]:
+    """Reject H3 dialogue that is absent from or adds words to the user input.
+
+    With speech pinned as sound, the recording carries the words: leaving lines
+    out is right, and any line written must still come from the user."""
+    from routes.prompt_enhancement import _h3_input_has_dialogue, _h3_pinned_speech
 
     blocks = _H3_DIALOGUE_CONTENT_RE.findall(candidate)
     if not _h3_input_has_dialogue(source_prompt):
         return "dialogue_invented" if blocks else None
+    speech_pinned = bool(_h3_pinned_speech(reference_manifest))
     if not blocks:
-        return "dialogue_missing"
+        return None if speech_pinned else "dialogue_missing"
 
     normalized_source = _normalized_h3_dialogue(source_prompt)
     grounded = all(
@@ -732,7 +740,9 @@ def _h3_dialogue_problem(candidate: str, source_prompt: str) -> Optional[str]:
         and normalized in normalized_source
         for block in blocks
     )
-    return None if grounded else "dialogue_changed"
+    if grounded:
+        return None
+    return "dialogue_invented" if speech_pinned else "dialogue_changed"
 
 
 async def _translate_with_verbatim_protection(

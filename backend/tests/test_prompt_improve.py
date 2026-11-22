@@ -334,6 +334,23 @@ def test_h3_reference_guidance_describes_pinned_keyframes_in_words():
     assert "without saying how they look" in guidance
 
 
+def test_h3_sound_only_pins_are_not_picture_pins():
+    manifest = [
+        {"label": "Picture 1", "kind": "image", "index": 0},
+        {"kind": "keyframe", "at": 0.0, "length": 0.0, "sound": False},
+        {"kind": "keyframe", "at": 0.0, "length": 5.17, "sound": True, "picture": False},
+    ]
+
+    guidance = _h3_task_guidance("ref2va", 8, manifest)
+
+    assert "- at 0.00 seconds: a still frame" in guidance
+    assert "5.17-second clip" not in guidance
+    spoken = _h3_dialogue_guidance('a baker says "Hello."', manifest)
+    assert "PINNED SOUND" in spoken and "from 0.00 to 5.17 seconds" in spoken
+    assert "word for word" in spoken
+    assert "Add no other spoken" in _h3_dialogue_guidance("a baker talks", manifest)
+
+
 def test_h3_audio_disabled_keeps_schema_but_forces_na():
     guidance = _h3_audio_guidance(False)
     assert "overall_soundscape: N/A" in guidance

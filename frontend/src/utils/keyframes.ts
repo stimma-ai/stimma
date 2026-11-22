@@ -1,7 +1,7 @@
 /**
  * Keyframes: stills or short clips pinned at times on a video tool's output
  * (STP `x-control: "keyframes"`). The tool view keeps rich items for display
- * and editing; `toWire` produces the `{media, at, from, length, sound}` objects
+ * and editing; `toWire` produces the `{media, at, from, length, sound, picture}` objects
  * the tool schema declares.
  */
 
@@ -36,6 +36,8 @@ export interface KeyframeItem {
   /** Clip length in seconds; 0/undefined pins a single frame. */
   length?: number
   sound?: boolean
+  /** Sound alone over a span: an audio file, or a video's soundtrack (`picture: false`). */
+  soundOnly?: boolean
   /** Seconds into the output. */
   at: number
   /** Start/End pins follow the timeline's ends when the duration changes. */
@@ -50,6 +52,7 @@ export interface WireKeyframe {
   from?: number
   length?: number
   sound?: boolean
+  picture?: boolean
 }
 
 export function keyframesConfigFromSchema(name: string, schema: any): KeyframesConfig {
@@ -93,6 +96,13 @@ export function toWire(items: KeyframeItem[], duration: number): WireKeyframe[] 
   return [...items]
     .sort((a, b) => effectiveAt(a, duration) - effectiveAt(b, duration))
     .map((item) => {
+      if (item.soundOnly) {
+        const wire: WireKeyframe = { media: item.mediaId != null ? `media:${item.mediaId}` : item.path, at: round3(item.at) }
+        if (item.from !== undefined) wire.from = round3(item.from)
+        if (item.length) wire.length = round3(item.length)
+        if (item.isVideo) Object.assign(wire, { picture: false, sound: true })
+        return wire
+      }
       const clip = isClip(item)
       const wire: WireKeyframe = {
         media: item.mediaId != null ? `media:${item.mediaId}` : item.isVideo ? (item.sourcePath || item.path) : item.path,
@@ -123,12 +133,21 @@ export function fromWire(wire: unknown, mediaIds: unknown, duration: number): Ke
   return wire
     .filter((w): w is WireKeyframe => !!w && typeof w === 'object' && typeof (w as any).media === 'string')
     .map((w, i) => {
+      const mediaId = /^media:\d+$/.test(w.media) ? Number(w.media.slice(6)) : typeof ids[i] === 'number' ? ids[i] : undefined
+      if (w.picture === false || isAudioPath(w.media)) {
+        return {
+          id: newKeyframeId(), mediaId, path: w.media, isVideo: w.picture === false, soundOnly: true,
+          from: w.from !== undefined ? Number(w.from) || 0 : undefined,
+          length: w.length ? Number(w.length) : undefined,
+          at: Number(w.at) || 0, anchor: null,
+        }
+      }
       const clip = !!(w.length && w.length > 0)
       const isVideo = clip || isVideoPath(w.media) || w.from !== undefined
       const at = Number(w.at) || 0
       return {
         id: newKeyframeId(),
-        mediaId: /^media:\d+$/.test(w.media) ? Number(w.media.slice(6)) : typeof ids[i] === 'number' ? ids[i] : undefined,
+        mediaId,
         path: w.media,
         isVideo,
         sourcePath: isVideo ? w.media : undefined,
@@ -164,6 +183,12 @@ const VIDEO_EXT = /\.(mp4|mov|avi|mkv|webm|m4v)$/i
 
 export function isVideoPath(path: string): boolean {
   return VIDEO_EXT.test(path)
+}
+
+const AUDIO_EXT = /\.(wav|mp3|m4a|flac|ogg|opus|aac)$/i
+
+export function isAudioPath(path: string): boolean {
+  return AUDIO_EXT.test(path)
 }
 
 function round3(n: number): number {

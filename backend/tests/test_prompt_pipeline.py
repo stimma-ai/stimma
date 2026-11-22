@@ -351,6 +351,49 @@ class TestRunPromptPipeline:
         assert "<d>[English] Fresh bread!</d>" in out
         assert "dropped the spoken lines" in attempts[1].instructions
 
+    async def test_h3_pinned_speech_is_described_not_quoted(
+        self, generation_app, generation_db_session, monkeypatch
+    ):
+        """Speech pinned as sound carries the words: the rewriter is told so, a rewrite
+        with no lines passes on the first attempt, and an invented line is refused."""
+        import routes.prompt_enhancement as pe
+
+        attempts = []
+        replies = [
+            "integrated_multimodal_description: [Shot 1] A baker (S1) says: "
+            "<d>[English] Knead it slowly.</d>\n\noverall_soundscape: Room tone.\n\nnon_diegetic_music: N/A",
+            "integrated_multimodal_description: [Shot 1] A baker talks warmly to the camera, "
+            "lips moving with her words.\n\noverall_soundscape: Room tone.\n\nnon_diegetic_music: N/A",
+        ]
+
+        async def fake_improve(request, session):
+            attempts.append(request)
+            return pe.ImprovePromptResponse(improved_prompt=replies[len(attempts) - 1])
+
+        monkeypatch.setattr(pe, "improve_prompt", fake_improve)
+        manifest = [{"kind": "keyframe", "at": 0.0, "length": 5.17, "sound": True, "picture": False}]
+        outcome = {}
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "a baker speaks to the camera about kneading",
+            {"autoImprove": {"enabled": True}},
+            model="minimax-h3-t2v",
+            is_video=True,
+            h3_task="t2va",
+            h3_duration=5,
+            h3_reference_manifest=manifest,
+            outcome=outcome,
+        )
+        assert len(attempts) == 2
+        assert "<d>" not in out and "lips moving" in out
+        assert outcome["improved"] == "true"
+        assert "did not supply" in attempts[1].instructions
+        # The rewriter's own instructions name the pinned span and ask for no lines.
+        guidance = pe._h3_dialogue_guidance(attempts[0].prompt, attempts[0].h3_reference_manifest)
+        assert "from 0.00 to 5.17 seconds" in guidance
+        assert "no <d> blocks" in guidance
+        assert "PRESERVING DIALOGUE" not in guidance
+
     async def test_h3_one_attempt_failure_names_the_attempt_count(
         self, generation_app, generation_db_session, monkeypatch
     ):

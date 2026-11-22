@@ -273,6 +273,24 @@ class TestPromptPipelineRouting:
             ("Audio 4", "audio"),
         ]
 
+    def test_h3_context_marks_sound_only_pins(self):
+        keyframes = [
+            {"media": "/lib/k2.png", "at": 0},
+            {"media": "/lib/speech.wav", "at": 0, "from": 5.125, "length": 5.17},
+            {"media": "/lib/take.mp4", "at": 1, "picture": False, "sound": True},
+            {"media": "/lib/clip.mp4", "at": -1, "length": 0.92, "sound": True},
+        ]
+        _, _, _, _, manifest = generation_routes._prompt_h3_context(
+            {"input_images": ["k2.png"], "keyframes": keyframes, "duration": 5}, "image-to-video")
+        # Image-to-video lists only the sound pins; the pictures are its own frames.
+        assert manifest == [
+            {"kind": "keyframe", "at": 0.0, "length": 5.17, "sound": True, "picture": False},
+            {"kind": "keyframe", "at": 1.0, "length": 4.0, "sound": True, "picture": False},
+        ]
+        _, _, _, _, manifest = generation_routes._prompt_h3_context(
+            {"input_images": ["k2.png"], "keyframes": keyframes, "duration": 5}, "reference-to-video")
+        assert [m.get("picture", True) for m in manifest if m["kind"] == "keyframe"] == [True, False, False, True]
+
     def test_h3_context_supports_named_last_frame_only(self):
         assert generation_routes._prompt_h3_context({
             "last_frame": "last.png",

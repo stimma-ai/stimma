@@ -55,7 +55,7 @@
             ]"
           >
             <MediaImage
-              v-if="!item.isVideo && item.mediaId"
+              v-if="item.mediaId && (!item.isVideo || item.soundOnly)"
               :media-id="item.mediaId"
               :file-hash="item.hash"
               :thumbnail="true"
@@ -112,7 +112,7 @@
         <div class="w-[168px] flex-none">
           <div class="relative w-full aspect-video rounded-media overflow-hidden bg-matte cursor-zoom-in" @click="viewItem(selected)">
             <video
-              v-if="selected.isVideo && videoUrl(selected)"
+              v-if="selected.isVideo && !selected.soundOnly && videoUrl(selected)"
               :ref="setPreviewVideo"
               :src="videoUrl(selected)"
               class="w-full h-full object-contain"
@@ -137,7 +137,7 @@
           </div>
         </div>
 
-        <div v-if="selected.isVideo" class="flex-1 min-w-[260px] space-y-1.5">
+        <div v-if="selected.isVideo && !selected.soundOnly" class="flex-1 min-w-[260px] space-y-1.5">
           <div class="flex items-center gap-2">
             <SegmentedControl
               v-if="lengths.length"
@@ -381,7 +381,7 @@ function withProfile(url: string): string {
   return `${url}&profile=${encodeURIComponent(profileId)}${pin ? `&pin=${encodeURIComponent(pin)}` : ''}`
 }
 function thumbUrl(item: KeyframeItem): string {
-  const still = item.thumbPath || (item.isVideo ? '' : item.path)
+  const still = item.thumbPath || (item.isVideo || item.soundOnly ? '' : item.path)
   if (!still) return ''
   return withProfile(`${getApiBase()}/generate/reference-file?path=${encodeURIComponent(still)}`)
 }

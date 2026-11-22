@@ -463,7 +463,7 @@ def _h3_task_guidance(
         mapping = "\n".join(entries) or "- No references were supplied."
         pins = []
         for item in reference_manifest or []:
-            if item.get("kind") != "keyframe":
+            if item.get("kind") != "keyframe" or item.get("picture") is False:
                 continue
             at = float(item.get("at") or 0.0)
             length = float(item.get("length") or 0.0)
@@ -579,7 +579,37 @@ def _h3_input_has_dialogue(prompt: str) -> bool:
     )
 
 
-def _h3_dialogue_guidance(prompt: str) -> str:
+def _h3_pinned_speech(reference_manifest: Optional[List[Dict[str, Any]]]) -> List[Tuple[float, float]]:
+    """(start, end) seconds of every span whose sound is pinned without a picture."""
+    spans = []
+    for item in reference_manifest or []:
+        if item.get("kind") == "keyframe" and item.get("picture") is False:
+            at = float(item.get("at") or 0.0)
+            spans.append((at, at + float(item.get("length") or 0.0)))
+    return spans
+
+
+def _h3_dialogue_guidance(prompt: str, reference_manifest: Optional[List[Dict[str, Any]]] = None) -> str:
+    spans = _h3_pinned_speech(reference_manifest)
+    if spans:
+        times = ", ".join(
+            f"from {start:.2f} to {end:.2f} seconds" if end > start else f"from {start:.2f} seconds on"
+            for start, end in spans
+        )
+        pinned = (
+            f"PINNED SOUND: The speech and sound {times} come from a supplied recording, and the "
+            "picture lip-syncs to it and keeps its timing. Describe who is speaking there and how: "
+            "their delivery, expression and mouth moving with the words. Leave the words themselves "
+            "to the recording: no <d> blocks, quoted lines or speaker IDs for that time, since a "
+            "written line would compete with the recorded one."
+        )
+        if not _h3_input_has_dialogue(prompt):
+            return pinned + " Add no other spoken, sung or narrated words."
+        return (
+            pinned + " Other words the user supplied keep these rules: use only spoken, sung, "
+            "narrated, or voiceover words explicitly supplied by the user, word for word, inside "
+            "<d>[Language] ...</d>, and never compose a line."
+        )
     if not _h3_input_has_dialogue(prompt):
         return (
             "NO DIALOGUE: The user's input contains no requested spoken, sung, narrated, or "
@@ -1213,7 +1243,7 @@ async def style_guide(request: "ImprovePromptRequest", session,
         "{h3_audio_guidance}", _h3_audio_guidance(request.h3_generate_audio)
     )
     system_prompt = system_prompt.replace(
-        "{h3_dialogue_guidance}", _h3_dialogue_guidance(request.prompt)
+        "{h3_dialogue_guidance}", _h3_dialogue_guidance(request.prompt, request.h3_reference_manifest)
     )
     system_prompt = system_prompt.replace(
         "{protected_text_guidance}",
