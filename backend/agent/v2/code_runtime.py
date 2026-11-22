@@ -12,6 +12,7 @@ import json
 import math
 import os
 import random
+import statistics
 import time
 import re
 import traceback
@@ -1526,6 +1527,8 @@ class StimmaTasksAPI:
         (the backend: e.g. a local ComfyUI or a cloud provider),
         ``generating_for_s``, ``elapsed_s``, and ``media_id`` once done.
         ``counts.waiting`` is calls in the code that haven't been made yet.
+        ``state`` is running, completed or failed; a failed task has ``error``,
+        the reason its code stopped (an import or a tool error, say).
         A long task lists every unfinished item but only its latest finished
         ones; ``earlier_items_finished`` counts the rest, and ``counts`` covers all.
         """
@@ -1563,6 +1566,72 @@ class StimmaTasksAPI:
         together each already has its next job.
         """
         return 2 * await self.capacity(tool)
+
+    async def run_time(self, tool, recent: int = 20) -> dict[str, Any]:
+        """How long ``tool`` takes per call on this install, from its recent runs.
+
+        Reads the compute time the tool reported for its last ``recent``
+        finished generations here. Returns ``typical_s`` (the median, seconds),
+        ``fastest_s``, ``slowest_s``, ``runs`` (how many it's based on) and
+        ``recent``: each run's seconds with the size settings it used
+        (duration, frames, width, height), newest first, so you can scale to
+        the settings you plan. A tool with no runs from its own provider uses
+        the same tool's runs from another, and says so in ``note``. Times
+        are per call; calls beyond ``capacity(tool)`` wait in the queue. With
+        no history, ``typical_s`` is None and ``note`` says so: estimate from
+        a similar tool, or say the time is unknown until the first call finishes.
+        """
+        tool_id = tool if isinstance(tool, str) else getattr(tool, "tool_id", None)
+        if not tool_id:
+            raise ValueError("Pass a tool function from stimma.tools, or a tool id.")
+        from sqlalchemy import select
+        from database import GenerationJob, MediaItem
+
+        async def finished(match):
+            return (await self._sdk.session.execute(
+                select(MediaItem.generation_metadata)
+                .join(GenerationJob, GenerationJob.result_media_id == MediaItem.id)
+                .where(match, GenerationJob.status == "completed")
+                .order_by(GenerationJob.completed_at.desc(), GenerationJob.id.desc())
+                .limit(max(1, int(recent)) * 3)
+            )).scalars().all()
+
+        rows = await finished(GenerationJob.tool_id == tool_id)
+        elsewhere = False
+        if not rows and ":" in tool_id:
+            # The same tool served by another provider (another GPU box) runs alike.
+            rows = await finished(GenerationJob.tool_id.like("%:" + tool_id.rsplit(":", 1)[1]))
+            elsewhere = bool(rows)
+        runs = []
+        for meta in rows:
+            try:
+                meta = json.loads(meta) if isinstance(meta, str) else (meta or {})
+            except (TypeError, ValueError):
+                continue
+            params = meta.get("parameters") or {}
+            seconds = meta.get("generation_time") or params.get("generation_time")
+            try:
+                seconds = float(seconds)
+            except (TypeError, ValueError):
+                continue
+            if seconds <= 0:
+                continue
+            run = {"seconds": round(seconds, 1)}
+            for key in ("duration", "frames", "num_frames", "length", "width", "height"):
+                if params.get(key) is not None:
+                    run[key] = params[key]
+            runs.append(run)
+            if len(runs) >= max(1, int(recent)):
+                break
+        if not runs:
+            return {"tool": tool_id, "typical_s": None, "runs": 0,
+                    "note": "No finished runs of this tool on this install yet, so there's no time to go on."}
+        times = sorted(r["seconds"] for r in runs)
+        out = {"tool": tool_id, "typical_s": round(statistics.median(times), 1),
+               "fastest_s": times[0], "slowest_s": times[-1], "runs": len(runs), "recent": runs[:5]}
+        if elsewhere:
+            out["note"] = "No runs from this provider yet; these are the same tool's runs from another one."
+        return out
 
     async def capacity(self, tool) -> int:
         """How many calls of ``tool`` generate at the same time; more wait in its queue.

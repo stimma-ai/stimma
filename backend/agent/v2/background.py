@@ -274,6 +274,7 @@ class BackgroundRun:
     reason: str
     wake: bool = True
     state: str = "running"  # running -> completed | failed
+    error: Optional[str] = None  # why it failed, as the notification says it
     started_at: float = field(default_factory=time.monotonic)
     finished_at: Optional[float] = None
     ws_manager: Any = None
@@ -288,6 +289,8 @@ class BackgroundRun:
             "counts": _counts(items, self.control.waiting),
             "items": _recent(items),
         }
+        if self.error:
+            snap["error"] = self.error
         if self.control.progress:
             snap["progress"] = dict(self.control.progress)
         if len(snap["items"]) < len(items):
@@ -460,6 +463,9 @@ async def _watch(run: BackgroundRun, on_finished) -> None:
     except Exception as e:
         output = f"Error: {type(e).__name__}: {e}"
         run.state = "failed"
+    if run.state == "failed":
+        # The first paragraph: the error itself, without the receipt or quick reference.
+        run.error = output.removeprefix("Error: ").strip().split("\n\n", 1)[0][:600]
     run.finished_at = time.monotonic()
     await _broadcast_state(run)
     await _broadcast(run, "background_task_finished")

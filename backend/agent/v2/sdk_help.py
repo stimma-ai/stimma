@@ -460,6 +460,21 @@ Wrap the workers of a run that keeps going. Size them with
         group="core",
         is_async=False,
     ),
+    "tasks.run_time": SDKMethodHelp(
+        name="tasks.run_time",
+        signature="await stimma.tasks.run_time(tool, recent=20) -> dict",
+        summary="How long one call of a tool takes on this install, from its recent runs.",
+        details="""\
+Returns typical_s (median seconds per call), fastest_s, slowest_s, runs and
+recent (each run's seconds with its duration/frames/width/height, newest first).
+Use it to state a cost before long work: calls / capacity(tool) waves, each
+about typical_s, scaled to the settings you plan. With no history typical_s is
+None and note says so; say the time is unknown until the first call finishes.
+Sits with stimma.tasks.capacity(tool) (calls that run at once) and
+stimma.tasks.workers(tool) (workers that keep its GPUs busy).""",
+        group="core",
+        is_async=True,
+    ),
     "detect_faces": SDKMethodHelp(
         name="detect_faces",
         signature="await stimma.detect_faces(media_id, *, wait=True, timeout=60) -> list[dict]",
@@ -739,7 +754,7 @@ _GROUP_LABELS = {
     "ai": "AI",
 }
 _GROUP_DESCRIPTIONS = {
-    "core": "generated tools, parallel batches, progress, shared project paths",
+    "core": "generated tools, parallel batches, progress, run times, shared project paths",
     "display": "show, show_grid",
     "library": "search, browse, get, by_hash, save, export, lineage, regeneration",
     "contact_sheets": "present work for review in the chat's panel and read the user's review",

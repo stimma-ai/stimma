@@ -381,6 +381,32 @@ async def test_a_gather_of_workers_has_no_count(session, test_chat, tmp_path, fa
 
 
 @pytest.mark.asyncio
+async def test_a_failed_task_reads_as_failed_with_its_reason(session, test_chat, tmp_path):
+    from agent.v2.code_runtime import StimmaTasksAPI
+
+    finished = asyncio.get_running_loop().create_future()
+
+    async def on_finished(run, output):
+        finished.set_result(run)
+
+    turn = asyncio.create_task(run_code_detachable(
+        "import asyncio\nawait asyncio.sleep(0.3)\nraise ValueError('no_such_tool is gone')",
+        session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+        _on_background_finished=on_finished, _ws_manager=_RecordingWs(),
+    ))
+    await _until(lambda: bg.get_foreground(test_chat.id) is not None)
+    run_id = await bg.request_detach(test_chat.id, wake=False)
+    await asyncio.wait_for(turn, 2)
+    await asyncio.wait_for(finished, 3)
+
+    sdk = StimmaSDK(session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+                    project_workspace_dir=None, interrupt_checker=lambda: False)
+    task = await asyncio.wait_for(StimmaTasksAPI(sdk).get(run_id), 1)
+    assert task["state"] == "failed"
+    assert "no_such_tool" in task["error"] and "quick reference" not in task["error"]
+
+
+@pytest.mark.asyncio
 async def test_capacity_reads_the_tools_backend(monkeypatch, session, test_chat, tmp_path):
     from agent.v2.code_runtime import StimmaTasksAPI
 
@@ -448,3 +474,45 @@ def test_a_walrus_inside_a_lambda_is_not_a_top_level_name():
     ))
     _globals_to_nonlocals(tree.body[0])
     assert "nonlocal x" not in ast.unparse(tree)
+
+
+@pytest.mark.asyncio
+async def test_run_time_reads_recent_generation_times(session, test_chat, tmp_path):
+    import json
+    from datetime import datetime, timedelta
+    from database import GenerationJob, MediaItem
+    from agent.v2.code_runtime import StimmaTasksAPI
+
+    start = datetime(2026, 1, 1)
+
+    async def finished_run(n, tool_id, seconds, **params):
+        media = MediaItem(file_path=f"/tmp/run-time-{n}.mp4", file_hash=f"run-time-{n}", file_size=1,
+                          file_format="mp4", width=960, height=544, megapixels=0.5,
+                          generation_metadata=json.dumps({"parameters": {"generation_time": seconds, **params}}))
+        session.add(media)
+        await session.flush()
+        session.add(GenerationJob(status="completed", task_type="image-to-video", generator_type="stp",
+                                  generator_name="box", model_name="h3", parameters="{}", folder_path="/tmp",
+                                  tool_id=tool_id, result_media_id=media.id,
+                                  completed_at=start + timedelta(minutes=n)))
+
+    await finished_run(1, "gpu0:h3-i2v", 100, duration=5)
+    await finished_run(2, "gpu0:h3-i2v", 120, duration=5)
+    await finished_run(3, "gpu0:h3-i2v", 300, duration=10)
+    await finished_run(4, "gpu0:other", 9)
+    await session.commit()
+
+    sdk = StimmaSDK(session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+                    project_workspace_dir=None, interrupt_checker=lambda: False)
+    tasks = StimmaTasksAPI(sdk)
+    t = await tasks.run_time("gpu0:h3-i2v")
+    assert (t["typical_s"], t["fastest_s"], t["slowest_s"], t["runs"]) == (120, 100, 300, 3)
+    assert t["recent"][0] == {"seconds": 300, "duration": 10}  # newest first, with its settings
+    assert "note" not in t
+
+    # The same tool on another GPU box borrows those runs, and says so.
+    other_box = await tasks.run_time("gpu1:h3-i2v")
+    assert other_box["typical_s"] == 120 and "another" in other_box["note"]
+
+    none = await tasks.run_time("gpu0:never-run")
+    assert none["typical_s"] is None and none["runs"] == 0 and none["note"]
