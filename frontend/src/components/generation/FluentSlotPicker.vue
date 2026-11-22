@@ -21,13 +21,13 @@
       </div>
       <div :style="{ maxHeight: listMax }" class="shrink-0 overflow-y-auto overscroll-contain px-1.5 pb-1.5 flex flex-col gap-px" data-list>
         <template v-if="filter === 'age'">
-          <div class="px-2 pb-1 flex flex-col" data-age-range>
+          <div class="px-2 pb-1 flex flex-col">
             <div class="pt-1 text-center text-xl font-semibold text-content tabular-nums" aria-live="polite" data-age-readout>{{ ageReadout }}</div>
             <div v-if="ageTop > ageMin" class="age-range relative h-10 coarse:h-12 mt-1">
               <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-overlay-medium"></div>
               <div class="absolute top-1/2 -translate-y-1/2 h-1 rounded-full bg-selection" :style="{ left: `${agePct(lo)}%`, width: `${agePct(hi) - agePct(lo)}%` }"></div>
-              <input type="range" aria-label="Youngest age" data-age-lo :min="ageMin" :max="ageTop" step="1" :value="lo" :aria-valuetext="ageLabel(lo)" :class="loOnTop ? 'z-20' : 'z-10'" @input="onLo" @change="commitAge" />
-              <input type="range" aria-label="Oldest age" data-age-hi :min="ageMin" :max="ageTop" step="1" :value="hi" :aria-valuetext="ageLabel(hi)" class="z-[15]" @input="onHi" @change="commitAge" />
+              <input type="range" aria-label="Youngest age" :min="ageMin" :max="ageTop" step="1" :value="lo" :aria-valuetext="ageLabel(lo)" :class="loOnTop ? 'z-20' : 'z-10'" @input="onLo" @change="commitAge" />
+              <input type="range" aria-label="Oldest age" :min="ageMin" :max="ageTop" step="1" :value="hi" :aria-valuetext="ageLabel(hi)" class="z-[15]" @input="onHi" @change="commitAge" />
             </div>
             <div v-if="ageTop > ageMin" class="age-ticks relative h-4 text-[11px] text-content-muted tabular-nums">
               <span v-for="t in ageTicks" :key="t" class="absolute -translate-x-1/2" :style="{ left: `${agePct(t)}%` }">{{ ageLabel(t) }}</span>
@@ -376,23 +376,26 @@ const pickedYearList = computed(() => pickedYears(st.value?.seeds, person.value?
 const ageYears = computed(() => [...new Set(stages.value.flatMap(a => a.years))].sort((x, z) => x - z))
 const ageMin = computed(() => ageYears.value[0] ?? 0)
 const ageMax = computed(() => ageYears.value.at(-1) ?? 0)
-const ageOpen = computed(() => stages.value.some(a => a.id === '80+') && ageMin.value < 80 && ageMax.value > 80)
+const ageOpen = computed(() => stages.value.some(a => a.id === '80+') && ageMax.value > 80)
 const ageTop = computed(() => (ageOpen.value ? 80 : ageMax.value))
 const ageLabel = (y: number) => (ageOpen.value && y === ageTop.value ? `${y}+` : `${y}`)
 const agePct = (y: number) => (ageTop.value > ageMin.value ? ((y - ageMin.value) / (ageTop.value - ageMin.value)) * 100 : 0)
 const lo = ref(0)
 const hi = ref(0)
+const moved = ref(false)   // a handle moved since the saved pick was shown
 function syncAge() {
+  moved.value = false
   const ys = pickedYearList.value
   lo.value = ys.length ? Math.min(Math.max(ys[0], ageMin.value), ageTop.value) : ageMin.value
   hi.value = ys.length ? Math.max(Math.min(ys.at(-1)!, ageTop.value), lo.value) : ageTop.value
 }
-watch([pickedYearList, ageMin, ageTop], syncAge, { immediate: true })
+// Keyed by value: a pool refresh mid-drag must not snap the handles back.
+watch(() => `${pickedYearList.value.join()}|${ageMin.value}|${ageTop.value}`, syncAge, { immediate: true })
 const rangeYears = (a: number, b: number) => ageYears.value.filter(y => y >= a && y <= (b === ageTop.value ? ageMax.value : b))
 // Picks the slider can't show as one range (saved before it): its hull, said as they are.
 const ageMixed = computed(() => {
   const ys = pickedYearList.value
-  return ys.length > 0 && ys.join() !== rangeYears(lo.value, hi.value).join()
+  return !moved.value && ys.length > 0 && ys.join() !== rangeYears(lo.value, hi.value).join()
 })
 const ageReadout = computed(() => {
   if (ageMixed.value) return ageText.value
@@ -409,11 +412,13 @@ const ageTicks = computed(() => {
 function onLo(e: Event) {
   const el = e.target as HTMLInputElement
   lo.value = Math.min(Number(el.value), hi.value)
+  moved.value = true
   el.value = String(lo.value)
 }
 function onHi(e: Event) {
   const el = e.target as HTMLInputElement
   hi.value = Math.max(Number(el.value), lo.value)
+  moved.value = true
   el.value = String(hi.value)
 }
 function commitAge() {

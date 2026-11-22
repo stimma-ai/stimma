@@ -774,6 +774,10 @@ for (const width of [390, 900]) test(`numeric ages, custom ranges and presets at
   await expect.poll(selected).toEqual({ years: [28, 29, 30, 31, 32, 33, 34, 35] })
   await expect(readout).toHaveText('28–35')
   await shot(`age-ranges-${width}`)
+  // Mid-drag the readout follows the handle; nothing is saved until release.
+  await card.getByLabel('Youngest age').evaluate(el => { el.value = '30'; el.dispatchEvent(new Event('input', { bubbles: true })) })
+  await expect(readout).toHaveText('30–35')
+  await expect.poll(selected).toEqual({ years: [28, 29, 30, 31, 32, 33, 34, 35] })
   // A handle can't pass the other: the range closes to one year.
   await card.getByLabel('Youngest age').fill('38')
   await expect.poll(selected).toEqual({ years: [35] })
