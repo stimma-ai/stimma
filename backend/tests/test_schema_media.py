@@ -188,3 +188,35 @@ async def test_audio_keyframes_flow_through_generic_media_paths(tmp_path):
         lineage = await queue._nested_lineage(params, AUDIO_KEYFRAMES_SCHEMA, "profile")
     assert [(i["media_id"], i["role"]) for i in lineage["source_inputs"]] == [
         (41, "keyframe"), (42, "keyframe"), (43, "keyframe")]
+
+
+@pytest.mark.asyncio
+async def test_queue_resolves_digit_string_ids_in_keyframes_and_top_level_pickers():
+    """A library id given as a digit string ("3") resolves like the int, both in
+    nested keyframes and in any top-level media picker the schema declares."""
+    queue = GenerationQueue()
+    schema = {"properties": {
+        **AUDIO_KEYFRAMES_SCHEMA["properties"],
+        "voice_refs": {"type": "array", "x-control": "audio_picker", "items": {"type": "string"}},
+        "first_frame": {"type": "string", "x-control": "image_picker"},
+        "prompt": {"type": "string"},
+    }}
+
+    async def fake_lookup(_session, media_id):
+        return {3: "/lib/clip.mp4", 4: "/lib/voice.wav", 5: "/lib/frame.png"}.get(media_id)
+
+    with patch.object(queue, "_resolve_media_id_to_path", new=AsyncMock(side_effect=fake_lookup)), \
+            patch("media_sidecars.companions_for_media", new=AsyncMock(return_value=[])):
+        out = await queue._resolve_nested_media_ids(None, {
+            "keyframes": [{"media": "3", "at": 0}],
+            "voice_refs": ["4", "/already/a.wav"],
+            "first_frame": "5",
+            "prompt": "7",
+        }, schema)
+        assert out["keyframes"][0]["media"] == "/lib/clip.mp4"
+        assert out["voice_refs"] == ["/lib/voice.wav", "/already/a.wav"]
+        assert out["first_frame"] == "/lib/frame.png"
+        assert out["prompt"] == "7"  # not a media field
+
+        with pytest.raises(ValueError, match="Media 99 is unavailable"):
+            await queue._resolve_nested_media_ids(None, {"voice_refs": ["99"]}, schema)

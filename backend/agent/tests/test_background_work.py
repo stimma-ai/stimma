@@ -228,6 +228,40 @@ async def test_runs_in_one_workspace_share_cwd_while_others_wait(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_a_run_waiting_for_the_cwd_stops_when_cancelled_and_says_why_it_waits(tmp_path):
+    from agent.v2.code_runtime import CodeRunStopped
+    first, second = tmp_path / "a", tmp_path / "b"
+    first.mkdir()
+    second.mkdir()
+    held, release = asyncio.Event(), asyncio.Event()
+
+    async def long_run():
+        async with _code_workspace(first):
+            held.set()
+            await release.wait()
+
+    background = asyncio.create_task(long_run())
+    await held.wait()
+    control = RunControl()
+
+    async def other_run():
+        async with _code_workspace(second, should_stop=lambda: control.stop_requested,
+                                   on_wait=control.set_waiting_for_workspace):
+            pass
+
+    other = asyncio.create_task(other_run())
+    await asyncio.sleep(0.05)
+    assert "another chat" in control.waiting_for
+    await control.cancel()
+    with pytest.raises(CodeRunStopped):
+        await asyncio.wait_for(other, 2)  # ends while the other chat still holds the cwd
+    assert control.waiting_for is None
+    assert not background.done()
+    release.set()
+    await background
+
+
+@pytest.mark.asyncio
 async def test_items_say_what_they_make_for_the_task_bar(session, test_chat, tmp_path, fake_generation):
     _, releases = fake_generation
     control = RunControl()
@@ -516,3 +550,13 @@ async def test_run_time_reads_recent_generation_times(session, test_chat, tmp_pa
 
     none = await tasks.run_time("gpu0:never-run")
     assert none["typical_s"] is None and none["runs"] == 0 and none["note"]
+
+    # Planned settings pick out matching runs; a string setting matches a number.
+    five = await tasks.run_time("gpu0:h3-i2v", duration="5")
+    assert (five["typical_s"], five["runs"], five["matched_settings"]) == (110, 2, True)
+    assert "note" not in five
+
+    # No run with those settings: the overall figures, and a note that says so.
+    fifteen = await tasks.run_time("gpu0:h3-i2v", duration=15, width=960)
+    assert (fifteen["typical_s"], fifteen["runs"], fifteen["matched_settings"]) == (120, 3, False)
+    assert "duration=15" in fifteen["note"]

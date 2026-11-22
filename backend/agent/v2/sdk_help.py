@@ -462,20 +462,22 @@ Wrap the workers of a run that keeps going. Size them with
     ),
     "tasks.run_time": SDKMethodHelp(
         name="tasks.run_time",
-        signature="await stimma.tasks.run_time(tool, recent=20) -> dict",
+        signature="await stimma.tasks.run_time(tool, recent=20, **settings) -> dict",
         summary="How long one call of a tool takes on this install, from its recent runs.",
         details="""\
-Returns typical_s (median seconds per call), fastest_s, slowest_s, runs and
-recent (each run's seconds with its duration/frames/width/height, newest first).
-Use it to state a cost before long work: independent calls of comparable
-settings take about ceil(calls / capacity(tool)) waves of typical_s each; calls
-that wait on earlier ones add their own run times, and queueing and model loads
-add more. Longer or larger outputs take longer, by an amount that depends on the
-settings and hardware, so scale from recent runs like the ones you plan
-(recent lists their settings). With no history typical_s is
-None and note says so; say the time is unknown until the first call finishes.
-Sits with stimma.tasks.capacity(tool) (calls that run at once) and
-stimma.tasks.workers(tool) (workers that keep its GPUs busy).""",
+Pass the settings you plan as keywords, e.g. run_time(tool, duration=5,
+width=960, height=544), and the figures come from recent runs with those
+settings. Returns typical_s (median seconds per call), fastest_s, slowest_s,
+runs and recent (each run's seconds with its duration/frames/width/height,
+newest first). When no recent run matched, matched_settings is False, the
+figures cover all its recent runs and note says so: scale from the settings in
+recent. Use it to state a cost before long work: independent calls take about
+ceil(calls / capacity(tool)) waves of typical_s each; calls that wait on
+earlier ones add their own run times, and queueing and model loads add more.
+With no history typical_s is None and note says so; say the time is unknown
+until the first call finishes. Sits with stimma.tasks.capacity(tool) (calls
+that run at once) and stimma.tasks.workers(tool) (workers that keep its GPUs
+busy).""",
         group="core",
         is_async=True,
     ),

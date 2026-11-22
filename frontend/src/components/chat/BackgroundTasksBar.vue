@@ -60,6 +60,7 @@ export interface BackgroundTask {
   counts: BackgroundTaskCounts
   items?: { kind?: string }[]
   progress?: BackgroundTaskProgress
+  waiting_for?: string | null
 }
 
 defineProps<{ tasks: BackgroundTask[]; chatId?: number | null }>()

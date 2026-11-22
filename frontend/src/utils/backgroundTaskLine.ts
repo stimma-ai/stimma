@@ -34,6 +34,8 @@ interface TaskLike {
   counts?: Partial<BackgroundTaskCounts>
   items?: { kind?: string }[]
   progress?: BackgroundTaskProgress | null
+  /** Set while the task's code hasn't started because another chat's code runs. */
+  waiting_for?: string | null
 }
 
 const NOUNS: Record<string, string> = {
@@ -59,6 +61,10 @@ export function backgroundTaskLine(task: TaskLike): BackgroundTaskLine {
 
   const declared = p && !p.open && n(p.total) > 0
   const title = task.label || p?.title || (started ? `Generating ${made(task)}` : 'Working…')
+
+  if (task.waiting_for) {
+    return { title, summary: `Waiting for ${task.waiting_for}`, fraction: null }
+  }
 
   if (declared) {
     const total = n(p!.total)

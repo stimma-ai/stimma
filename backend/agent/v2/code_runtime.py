@@ -75,8 +75,19 @@ _code_cwd_states = WeakKeyDictionary()
 _code_cwd_owner: ContextVar[dict | None] = ContextVar("code_cwd_owner", default=None)
 
 
+class CodeRunStopped(Exception):
+    """A run was stopped while it waited for the working directory."""
+
+
 @asynccontextmanager
-async def _code_workspace(workspace: Path):
+async def _code_workspace(workspace: Path, *, should_stop=None, on_wait=None):
+    """Hold the process working directory at ``workspace`` for a code run.
+
+    While another workspace holds it, the run waits; ``should_stop`` is
+    checked as it waits so a cancelled or interrupted run ends there
+    (raising ``CodeRunStopped``), and ``on_wait(waiting)`` is told when the
+    wait starts and ends so the run can say why nothing is happening.
+    """
     workspace = workspace.resolve()
     owner = _code_cwd_owner.get()
     if owner is not None and owner["active"]:
@@ -91,7 +102,22 @@ async def _code_workspace(workspace: Path):
         _code_cwd_states[loop] = state
     cond = state["cond"]
     async with cond:
-        await cond.wait_for(lambda: state["workspace"] in (None, workspace))
+        waited = False
+        try:
+            while state["workspace"] not in (None, workspace):
+                if should_stop is not None and should_stop():
+                    raise CodeRunStopped()
+                if not waited:
+                    waited = True
+                    if on_wait is not None:
+                        on_wait(True)
+                try:
+                    await asyncio.wait_for(cond.wait(), timeout=0.5)
+                except asyncio.TimeoutError:
+                    pass
+        finally:
+            if waited and on_wait is not None:
+                on_wait(False)
         if state["workspace"] is None:
             state["previous"] = Path.cwd()
             os.chdir(workspace)
@@ -1530,6 +1556,8 @@ class StimmaTasksAPI:
         ``counts.waiting`` is calls in the code that haven't been made yet.
         ``state`` is running, completed or failed; a failed task has ``error``,
         the reason its code stopped (an import or a tool error, say).
+        ``waiting_for`` is there while its code hasn't started because another
+        chat's code is running; cancelling still ends it straight away.
         A long task lists every unfinished item but only its latest finished
         ones; ``earlier_items_finished`` counts the rest, and ``counts`` covers all.
         """
@@ -1568,19 +1596,22 @@ class StimmaTasksAPI:
         """
         return 2 * await self.capacity(tool)
 
-    async def run_time(self, tool, recent: int = 20) -> dict[str, Any]:
+    async def run_time(self, tool, recent: int = 20, **settings) -> dict[str, Any]:
         """How long ``tool`` takes per call on this install, from its recent runs.
 
-        Reads the compute time the tool reported for its last ``recent``
-        finished generations here. Returns ``typical_s`` (the median, seconds),
-        ``fastest_s``, ``slowest_s``, ``runs`` (how many it's based on) and
-        ``recent``: each run's seconds with the size settings it used
-        (duration, frames, width, height), newest first, so you can scale to
-        the settings you plan. A tool with no runs from its own provider uses
-        the same tool's runs from another, and says so in ``note``. Times
-        are per call; calls beyond ``capacity(tool)`` wait in the queue. With
-        no history, ``typical_s`` is None and ``note`` says so: estimate from
-        a similar tool, or say the time is unknown until the first call finishes.
+        Pass the settings you plan as keywords (``duration=5``, ``width=960``,
+        ``height=544``, any of the tool's parameters) and the figures come from
+        its recent runs with those settings. Returns ``typical_s`` (the median,
+        seconds), ``fastest_s``, ``slowest_s``, ``runs`` (how many it's based on)
+        and ``recent``: each run's seconds with its size settings (duration,
+        frames, width, height), newest first. When no recent run used the
+        settings you passed, the figures cover all its recent runs and ``note``
+        says so; scale from the settings listed in ``recent``. A tool with no
+        runs from its own provider uses the same tool's runs from another, and
+        says so in ``note``. Times are per call; calls beyond ``capacity(tool)``
+        wait in the queue. With no history, ``typical_s`` is None and ``note``
+        says so: estimate from a similar tool, or say the time is unknown until
+        the first call finishes.
         """
         tool_id = tool if isinstance(tool, str) else getattr(tool, "tool_id", None)
         if not tool_id:
@@ -1588,13 +1619,18 @@ class StimmaTasksAPI:
         from sqlalchemy import select
         from database import GenerationJob, MediaItem
 
+        recent = max(1, int(recent))
+        # Scan further back when filtering on settings, so a match a few runs
+        # back is still found.
+        scan = recent * 3 if not settings else max(recent * 3, 200)
+
         async def finished(match):
             return (await self._sdk.session.execute(
                 select(MediaItem.generation_metadata)
                 .join(GenerationJob, GenerationJob.result_media_id == MediaItem.id)
                 .where(match, GenerationJob.status == "completed")
                 .order_by(GenerationJob.completed_at.desc(), GenerationJob.id.desc())
-                .limit(max(1, int(recent)) * 3)
+                .limit(scan)
             )).scalars().all()
 
         rows = await finished(GenerationJob.tool_id == tool_id)
@@ -1603,7 +1639,17 @@ class StimmaTasksAPI:
             # The same tool served by another provider (another GPU box) runs alike.
             rows = await finished(GenerationJob.tool_id.like("%:" + tool_id.rsplit(":", 1)[1]))
             elsewhere = bool(rows)
-        runs = []
+
+        def same(planned, used) -> bool:
+            if used is None:
+                return False
+            try:
+                return abs(float(planned) - float(used)) < 1e-6
+            except (TypeError, ValueError):
+                return str(planned) == str(used)
+
+        size_keys = ("duration", "frames", "num_frames", "length", "width", "height")
+        runs, matching = [], []
         for meta in rows:
             try:
                 meta = json.loads(meta) if isinstance(meta, str) else (meta or {})
@@ -1618,20 +1664,34 @@ class StimmaTasksAPI:
             if seconds <= 0:
                 continue
             run = {"seconds": round(seconds, 1)}
-            for key in ("duration", "frames", "num_frames", "length", "width", "height"):
+            for key in (*size_keys, *(k for k in settings if k not in size_keys)):
                 if params.get(key) is not None:
                     run[key] = params[key]
-            runs.append(run)
-            if len(runs) >= max(1, int(recent)):
+            if len(runs) < recent:
+                runs.append(run)
+            if settings and len(matching) < recent and all(same(v, params.get(k)) for k, v in settings.items()):
+                matching.append(run)
+            if len(runs) >= recent and (not settings or len(matching) >= recent):
                 break
         if not runs:
             return {"tool": tool_id, "typical_s": None, "runs": 0,
                     "note": "No finished runs of this tool on this install yet, so there's no time to go on."}
+        notes = []
+        if settings and matching:
+            runs = matching
+        elif settings:
+            planned = ", ".join(f"{k}={v!r}" for k, v in settings.items())
+            notes.append(f"No recent run used {planned}, so these figures cover all its recent runs; "
+                         "scale from the settings listed in recent.")
+        if elsewhere:
+            notes.append("No runs from this provider yet; these are the same tool's runs from another one.")
         times = sorted(r["seconds"] for r in runs)
         out = {"tool": tool_id, "typical_s": round(statistics.median(times), 1),
                "fastest_s": times[0], "slowest_s": times[-1], "runs": len(runs), "recent": runs[:5]}
-        if elsewhere:
-            out["note"] = "No runs from this provider yet; these are the same tool's runs from another one."
+        if settings:
+            out["matched_settings"] = bool(matching)
+        if notes:
+            out["note"] = " ".join(notes)
         return out
 
     async def capacity(self, tool) -> int:
@@ -3818,7 +3878,12 @@ async def run_code_in_sandbox(
     sdk = sdk_instance
     try:
         fn = await asyncio.to_thread(_exec_wrapper)
-        async with _code_workspace(workspace_dir):
+
+        def _stop_while_waiting() -> bool:
+            return sdk._control.stop_requested or bool(callable(interrupt_checker) and interrupt_checker())
+
+        async with _code_workspace(workspace_dir, should_stop=_stop_while_waiting,
+                                   on_wait=sdk._control.set_waiting_for_workspace):
             worker = CodeWorker(fn)
             task = worker.start()
             interrupted = False
@@ -3873,6 +3938,12 @@ async def run_code_in_sandbox(
 
         await sdk.flush()
         await sdk._finalize_progress("completed")
+    except CodeRunStopped:
+        # Stopped before its code started: nothing ran, nothing to show.
+        return (
+            "Stopped: the task was canceled before its code started."
+            if sdk._control.stop_requested else "Error: execution interrupted by user"
+        ), sdk.get_llm_usage()
     except asyncio.CancelledError:
         # Propagate cancellation — the agent loop handles cleanup
         try:

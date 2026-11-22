@@ -1600,7 +1600,7 @@ class GenerationQueue:
         # Keys that contain single values (file path or media ID)
         single_keys = {'mask'}
         # Keys that contain arrays
-        array_keys = {'input_images', 'input_videos'}
+        array_keys = {'input_images', 'input_videos', 'input_audios'}
 
         def _coerce_media_id(value):
             return self._coerce_media_ref(value)
@@ -1686,6 +1686,19 @@ class GenerationQueue:
             return resolved or value
 
         processed = await map_media_leaves(parameters, schema, resolve)
+        # Top-level media pickers (any name: the schema's `x-control` says it's
+        # media) take library ids the same way, as ints or digit strings.
+        from utils.schema_media import PICKER_KINDS
+        for name, prop in ((schema or {}).get("properties") or {}).items():
+            if not isinstance(prop, dict) or prop.get("x-media") is not None:
+                continue
+            if prop.get("x-control") not in PICKER_KINDS or name not in processed:
+                continue
+            value = processed[name]
+            if isinstance(value, list):
+                processed[name] = [await resolve(v, prop, (name, i)) for i, v in enumerate(value)]
+            elif value is not None:
+                processed[name] = await resolve(value, prop, (name,))
         if bindings:
             processed["_media_sidecars"] = bindings
         return processed

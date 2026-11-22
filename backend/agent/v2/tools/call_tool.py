@@ -354,7 +354,7 @@ async def _resolve_input_media_ref(img: Any, label: str, kwargs: dict, metadata_
     if not isinstance(img, str):
         return img, None
     if img.isdigit():
-        return img, int(img)
+        return int(img), int(img)
     # Tolerate a `media:<id>` / `media_<id>` reference — the agent
     # reasonably reaches for it, and silently dropping it surfaces
     # downstream as the opaque "No input media provided".

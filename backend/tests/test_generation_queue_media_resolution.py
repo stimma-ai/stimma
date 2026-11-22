@@ -118,3 +118,9 @@ async def test_lineage_resolves_digit_string_media_id_in_input_videos(queue):
 
     assert out["source_inputs"][0]["media_id"] == 9651
     assert out["source_inputs"][0]["file_path"] == "/tmp/vid.mp4"
+
+
+@pytest.mark.asyncio
+async def test_resolves_digit_string_media_id_in_input_audios(queue):
+    out = await _resolve(queue, {"input_audios": ["7658", 999]})
+    assert out["input_audios"] == ["/tmp/a.png", "/tmp/b.png"]

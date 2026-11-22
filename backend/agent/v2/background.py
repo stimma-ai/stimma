@@ -86,6 +86,9 @@ class RunControl:
         # {"title", "done", "failed", "total"} or {"title", "open": True}.
         self.progress: Optional[dict[str, Any]] = None
         self.session_maker = session_maker
+        # Set while the run's code waits for another chat's code to finish
+        # (they take turns holding the process working directory).
+        self.waiting_for: Optional[str] = None
         # Job ids are profile-local; cancels must stay in the owning profile.
         from core.profile_context import get_current_profile
         self.profile_id = get_current_profile()
@@ -113,6 +116,9 @@ class RunControl:
         else:
             item.state = "failed"
             item.error = f"{type(error).__name__}: {error}"[:300]
+
+    def set_waiting_for_workspace(self, waiting: bool) -> None:
+        self.waiting_for = "another chat's code to finish" if waiting else None
 
     def should_cancel(self, item: CallItem) -> bool:
         return item.cancel_requested or self.cancel_new
@@ -291,6 +297,8 @@ class BackgroundRun:
         }
         if self.error:
             snap["error"] = self.error
+        if self.control.waiting_for:
+            snap["waiting_for"] = self.control.waiting_for
         if self.control.progress:
             snap["progress"] = dict(self.control.progress)
         if len(snap["items"]) < len(items):
@@ -447,7 +455,7 @@ async def _watch(run: BackgroundRun, on_finished) -> None:
         if run.task.done():
             break
         snap = await run.snapshot()
-        marker = json.dumps([snap["counts"], snap.get("progress")], sort_keys=True)
+        marker = json.dumps([snap["counts"], snap.get("progress"), snap.get("waiting_for")], sort_keys=True)
         if marker != last:
             last = marker
             await _broadcast(run, "background_task_updated")

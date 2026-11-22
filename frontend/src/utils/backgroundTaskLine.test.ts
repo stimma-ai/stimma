@@ -65,3 +65,8 @@ test('durations', () => {
   assert.equal(shortDuration(3600), '1h')
   assert.equal(shortDuration(4320), '1h 12m')
 })
+
+test('a task whose code waits on another chat says so', () => {
+  const line = backgroundTaskLine({ label: 'Anchor stills', counts: counts({}), waiting_for: "another chat's code to finish" })
+  assert.deepEqual(line, { title: 'Anchor stills', summary: "Waiting for another chat's code to finish", fraction: null })
+})

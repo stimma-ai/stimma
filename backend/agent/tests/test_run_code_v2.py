@@ -797,6 +797,37 @@ async def test_concurrent_code_keeps_relative_image_paths_in_its_workspace(sessi
 
 
 @pytest.mark.asyncio
+async def test_stop_reaches_code_still_waiting_for_another_chats_workspace(session, test_chat, tmp_path):
+    import asyncio
+    from agent.v2.code_runtime import _code_workspace
+
+    busy, mine = tmp_path / "busy", tmp_path / "mine"
+    busy.mkdir()
+    mine.mkdir()
+    held, release = asyncio.Event(), asyncio.Event()
+    stop = False
+
+    async def other_chat():
+        async with _code_workspace(busy):
+            held.set()
+            await release.wait()
+
+    holder = asyncio.create_task(other_chat())
+    await held.wait()
+    run = asyncio.create_task(run_code(
+        code="print('ran')", session=session, chat_id=test_chat.id, workspace_dir=mine,
+        interrupt_checker=lambda: stop,
+    ))
+    await asyncio.sleep(0.1)
+    assert not run.done()
+    stop = True
+    result = await asyncio.wait_for(run, 3)  # the other chat still holds the cwd
+    assert "interrupted" in result and "ran" not in result
+    release.set()
+    await holder
+
+
+@pytest.mark.asyncio
 async def test_code_workspace_restores_after_cancellation_and_allows_nested_calls(tmp_path):
     import asyncio
     from agent.v2.code_runtime import _code_workspace
