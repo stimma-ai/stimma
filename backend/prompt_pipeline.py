@@ -562,6 +562,14 @@ _H3_PROBLEM_FEEDBACK: Dict[str, Tuple[str, str, str]] = {
         "Your previous rewrite added spoken words the user did not supply. Use no <d> blocks "
         "and no speaker IDs; describe only visible, nonverbal performance.",
     ),
+    "dialogue_over_pinned_speech": (
+        "the rewrite kept writing spoken lines over the supplied speech",
+        "Describe who speaks and how, without quoting words: the supplied speech already says "
+        "them. Then retry.",
+        "Your previous rewrite wrote spoken lines where the supplied recording already sets the "
+        "words. The person still talks there: describe who speaks, their delivery and expression, "
+        "and their mouth moving with the words, but write no new <d> blocks or quoted lines for it.",
+    ),
     "missing_references": (
         "the rewrite left out one of the reference inputs",
         "Make sure the prompt says what each reference input is for. Then retry.",
@@ -728,9 +736,11 @@ def _h3_dialogue_problem(
     from routes.prompt_enhancement import _h3_input_has_dialogue, _h3_pinned_speech
 
     blocks = _H3_DIALOGUE_CONTENT_RE.findall(candidate)
-    if not _h3_input_has_dialogue(source_prompt):
-        return "dialogue_invented" if blocks else None
     speech_pinned = bool(_h3_pinned_speech(reference_manifest))
+    if not _h3_input_has_dialogue(source_prompt):
+        if not blocks:
+            return None
+        return "dialogue_over_pinned_speech" if speech_pinned else "dialogue_invented"
     if not blocks:
         return None if speech_pinned else "dialogue_missing"
 
@@ -742,7 +752,7 @@ def _h3_dialogue_problem(
     )
     if grounded:
         return None
-    return "dialogue_invented" if speech_pinned else "dialogue_changed"
+    return "dialogue_over_pinned_speech" if speech_pinned else "dialogue_changed"
 
 
 async def _translate_with_verbatim_protection(

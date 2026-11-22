@@ -291,6 +291,27 @@ class TestPromptPipelineRouting:
             {"input_images": ["k2.png"], "keyframes": keyframes, "duration": 5}, "reference-to-video")
         assert [m.get("picture", True) for m in manifest if m["kind"] == "keyframe"] == [True, False, False, True]
 
+    async def test_h3_context_knows_library_audio_by_its_kind(self, generation_db_session):
+        # Pins that name library media by id: the library says which one is sound,
+        # whatever its id looks like.
+        async with generation_db_session() as session:
+            speech = await create_media_item(session, file_path=Path("/managed/objects/take-voice"),
+                                             file_hash="pinned-speech-audio", file_format="wav")
+            still = await create_media_item(session, file_path=Path("/managed/objects/k3"),
+                                            file_hash="pinned-speech-still", file_format="png")
+            await session.commit()
+        keyframes = [
+            {"media": still.id, "at": 0},
+            {"media": speech.id, "at": 0, "from": 5.125, "length": 5.17},
+            {"media": str(still.id), "at": -1},
+        ]
+        parameters = {"input_images": ["k2.png"], "keyframes": keyframes, "duration": 5}
+        audio_ids = await generation_routes.keyframe_audio_media_ids(parameters, "default")
+        assert audio_ids == {speech.id}
+        _, _, _, _, manifest = generation_routes._prompt_h3_context(parameters, "image-to-video", audio_ids)
+        assert manifest == [{"kind": "keyframe", "at": 0.0, "length": 5.17, "sound": True, "picture": False}]
+        assert await generation_routes.keyframe_audio_media_ids({"keyframes": [{"media": "k.png"}]}) == frozenset()
+
     def test_h3_context_supports_named_last_frame_only(self):
         assert generation_routes._prompt_h3_context({
             "last_frame": "last.png",

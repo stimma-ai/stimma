@@ -387,7 +387,10 @@ class TestRunPromptPipeline:
         assert len(attempts) == 2
         assert "<d>" not in out and "lips moving" in out
         assert outcome["improved"] == "true"
-        assert "did not supply" in attempts[1].instructions
+        # The retry keeps the person talking; it only asks for no new lines.
+        retry = attempts[1].instructions
+        assert "still talks" in retry and "no new <d> blocks" in retry
+        assert "nonverbal" not in retry
         # The rewriter's own instructions name the pinned span and ask for no lines.
         guidance = pe._h3_dialogue_guidance(attempts[0].prompt, attempts[0].h3_reference_manifest)
         assert "from 0.00 to 5.17 seconds" in guidance
@@ -958,6 +961,12 @@ def test_h3_problem_codes_and_text_free_stats():
         body.format(line="Hello."), "t2va", 5, source_prompt="a baker opens the shop"
     ) == "dialogue_invented"
     assert pp._h3_context_ir_problem("no fields here", "t2va", 5) == "format"
+
+    pinned = [{"kind": "keyframe", "at": 0.0, "length": 5.0, "sound": True, "picture": False}]
+    assert pp._h3_context_ir_problem(
+        body.format(line="Hello."), "t2va", 5, source_prompt="a baker talks", reference_manifest=pinned
+    ) == "dialogue_over_pinned_speech"
+    assert "nonverbal" not in pp._H3_PROBLEM_FEEDBACK["dialogue_over_pinned_speech"][2]
 
     stats = pp._h3_dialogue_stats(body.format(line="Fresh warm bread."), source)
     assert stats == "dialogue_blocks=1 ungrounded=1 source_quotes=1"

@@ -269,10 +269,11 @@ async def prepare_prompt(
         )
 
     from core.profile_context import get_current_profile
-    from routes.generation import native_prompt_format, prompt_enhance_context
+    from routes.generation import keyframe_audio_media_ids, native_prompt_format, prompt_enhance_context
 
     profile_id = get_current_profile()
-    ctx = prompt_enhance_context(job_params, tool_id, task_type, None)
+    ctx = prompt_enhance_context(job_params, tool_id, task_type, None,
+                                 await keyframe_audio_media_ids(job_params, profile_id))
     format_label = native_prompt_format(tool_id, task_type)
     structured = _structured(ctx["mode"], prompt)
 

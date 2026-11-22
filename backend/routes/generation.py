@@ -271,7 +271,8 @@ def _prompt_input_image_paths(parameters: Dict[str, Any]) -> List[Optional[str]]
 
 
 def _prompt_h3_context(
-    parameters: Dict[str, Any], effective_task: Optional[str] = None
+    parameters: Dict[str, Any], effective_task: Optional[str] = None,
+    audio_media_ids: frozenset = frozenset(),
 ) -> tuple[str, Optional[float], List[Optional[int]], bool, List[Dict[str, Any]]]:
     """Derive H3's task and its exact model-visible reference presentation."""
     input_images = parameters.get("input_images")
@@ -346,7 +347,7 @@ def _prompt_h3_context(
             continue
         if at < 0 and duration:
             at = max(0.0, duration + at)
-        if _keyframe_is_sound_only(item):
+        if _keyframe_is_sound_only(item, audio_media_ids):
             if not length and duration:
                 length = max(0.0, duration - at)
             manifest.append({"kind": "keyframe", "at": at, "length": length, "sound": True, "picture": False})
@@ -360,11 +361,43 @@ def _prompt_h3_context(
     return task, duration, media_ids, generate_audio, manifest
 
 
-def _keyframe_is_sound_only(item: Dict[str, Any]) -> bool:
-    """A keyframe that pins sound and no picture: an audio file, or a video with `picture: false`."""
+def _keyframe_media_id(media: Any) -> Optional[int]:
+    """The library media id a keyframe names, if it names one rather than a file."""
+    if isinstance(media, int) and not isinstance(media, bool):
+        return media
+    if isinstance(media, str) and media.strip().isdigit():
+        return int(media.strip())
+    return None
+
+
+async def keyframe_audio_media_ids(parameters: Dict[str, Any], profile_id: Optional[str] = None) -> frozenset:
+    """Library media ids among the keyframes whose media is audio, from the library's own record."""
+    ids = {
+        media_id for item in parameters.get("keyframes") or [] if isinstance(item, dict)
+        if (media_id := _keyframe_media_id(item.get("media"))) is not None
+    }
+    if not ids:
+        return frozenset()
+    from utils.query_builder import AUDIO_FORMATS
+
+    db = get_database_registry().get_database(profile_id or get_current_profile())
+    async with db.async_session_maker() as session:
+        rows = await session.execute(
+            select(MediaItem.id).where(MediaItem.id.in_(ids), MediaItem.file_format.in_(AUDIO_FORMATS))
+        )
+        return frozenset(rows.scalars().all())
+
+
+def _keyframe_is_sound_only(item: Dict[str, Any], audio_media_ids: frozenset = frozenset()) -> bool:
+    """A keyframe that pins sound and no picture: audio media, or a video with `picture: false`.
+
+    Library media is known by its recorded kind (``audio_media_ids``); a file by its type."""
     if item.get("picture") is False:
         return True
     media = item.get("media")
+    media_id = _keyframe_media_id(media)
+    if media_id is not None:
+        return media_id in audio_media_ids
     if not isinstance(media, str):
         return False
     import mimetypes
@@ -600,10 +633,12 @@ def prompt_enhance_context(
     tool_id: str,
     task_type: Optional[str],
     prompt_options: Optional[Dict[str, Any]],
+    audio_media_ids: frozenset = frozenset(),
 ) -> Dict[str, Any]:
     """Everything the enhancer needs to know about this generation, in one place:
     the model and its style, video/audio, the input images, the canvas. Used by the
-    per-image enhancer and by the slots path alike."""
+    per-image enhancer and by the slots path alike. ``audio_media_ids`` names the
+    keyframes' library media that is audio (``keyframe_audio_media_ids``)."""
     from model_family import model_family
     from prompt_pipeline import is_ideogram4
     from routes.prompt_enhancement import enhancement_mode
@@ -612,7 +647,7 @@ def prompt_enhance_context(
     family = model_family(model)
     h3: tuple = (None, None, [], True, [])
     if family == "minimax-h3":
-        h3 = _prompt_h3_context(parameters, effective_task)
+        h3 = _prompt_h3_context(parameters, effective_task, audio_media_ids)
     input_media_ids: List[Optional[int]] = []
     if family in ("qwen-image-2.1", "flux-3-klein", "minimax-h3-image"):
         input_media_ids = _prompt_input_media_ids(parameters)
@@ -690,7 +725,8 @@ async def _apply_generation_prompt_pipeline(
 
     profile_id = get_current_profile()
     db = get_database_registry().get_database(profile_id)
-    ctx = prompt_enhance_context(parameters, tool_id, task_type, prompt_options)
+    ctx = prompt_enhance_context(parameters, tool_id, task_type, prompt_options,
+                                 await keyframe_audio_media_ids(parameters, profile_id))
     model, model_vendor = ctx["model"], ctx["model_vendor"]
     from lora_notes import lora_context_for, prepend_missing_triggers
     raw = bool((prompt_options or {}).get("raw"))
