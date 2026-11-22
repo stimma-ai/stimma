@@ -2,8 +2,8 @@
   <!-- A slot's picker, open under its row in the list. Its variants are the writer's full
        texts, the words it keeps shown quieter; nothing ticked is any of them. A click ticks or
        unticks one (ctrl- or cmd-click too) and is where a range starts; shift-click sets every
-       shown variant from there to here the way that one was left. A person adds Age (by life
-       stage or single years), Gender and Descent rows above the list; their picks narrow the
+       shown variant from there to here the way that one was left. A person adds Age (one range on a
+       slider), Gender and Descent rows above the list; their picks narrow the
        list to the variants written from those seeds, and when few match, more are written for
        them. A slim foot holds More and a search that opens in place. A list of the user's own
        `{a|b}` opens here too, on its options. -->
@@ -21,61 +21,26 @@
       </div>
       <div :style="{ maxHeight: listMax }" class="shrink-0 overflow-y-auto overscroll-contain px-1.5 pb-1.5 flex flex-col gap-px" data-list>
         <template v-if="filter === 'age'">
-          <form v-if="!stage" class="px-2 pb-2 flex flex-col gap-2" @submit.prevent="applyAgeRange">
-            <label v-if="agePresets.length" class="text-[11px] text-content-tertiary">Marketing preset
-              <select class="mt-1 w-full bg-surface text-content text-xs rounded-md px-2 py-1.5 coarse:min-h-11 outline-none focus-visible:ring-1 focus-visible:ring-selection/60" aria-label="Marketing age preset" :value="''" @change="applyPreset">
-                <option value="" disabled>Choose ages</option>
-                <option v-for="p in agePresets" :key="p[0]" :value="p.join('-')">{{ p[0] === 65 ? '65+' : `${p[0]}–${p[1]}` }}</option>
-              </select>
-            </label>
-            <div class="flex items-end gap-2">
-              <label class="min-w-0 flex-1 text-[11px] text-content-tertiary">From
-                <input v-model="rangeFrom" type="number" min="0" max="110" step="1" required aria-label="Minimum age" class="mt-1 w-full bg-surface text-content text-xs rounded-md px-2 py-1.5 coarse:min-h-11 outline-none focus-visible:ring-1 focus-visible:ring-selection/60" />
-              </label>
-              <label class="min-w-0 flex-1 text-[11px] text-content-tertiary">To
-                <input v-model="rangeTo" type="number" min="0" max="110" step="1" required aria-label="Maximum age" class="mt-1 w-full bg-surface text-content text-xs rounded-md px-2 py-1.5 coarse:min-h-11 outline-none focus-visible:ring-1 focus-visible:ring-selection/60" />
-              </label>
-              <button type="submit" class="px-2 py-1.5 coarse:min-h-11 rounded-md text-xs text-accent hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60">Apply</button>
+          <div class="px-2 pb-1 flex flex-col" data-age-range>
+            <div class="pt-1 text-center text-xl font-semibold text-content tabular-nums" aria-live="polite" data-age-readout>{{ ageReadout }}</div>
+            <div v-if="ageTop > ageMin" class="age-range relative h-10 coarse:h-12 mt-1">
+              <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-overlay-medium"></div>
+              <div class="absolute top-1/2 -translate-y-1/2 h-1 rounded-full bg-selection" :style="{ left: `${agePct(lo)}%`, width: `${agePct(hi) - agePct(lo)}%` }"></div>
+              <input type="range" aria-label="Youngest age" data-age-lo :min="ageMin" :max="ageTop" step="1" :value="lo" :aria-valuetext="ageLabel(lo)" :class="loOnTop ? 'z-20' : 'z-10'" @input="onLo" @change="commitAge" />
+              <input type="range" aria-label="Oldest age" data-age-hi :min="ageMin" :max="ageTop" step="1" :value="hi" :aria-valuetext="ageLabel(hi)" class="z-[15]" @input="onHi" @change="commitAge" />
             </div>
-            <p v-if="rangeError" role="alert" class="text-[11px] text-content-secondary">{{ rangeError }}</p>
-          </form>
-          <template v-if="stage || stages.length === 1">
-            <button v-if="stage" type="button" :class="rowClass" :data-stage-all="stage.id" @click="set(toggleStage(st, stage.id, pool))">
-              <span :class="tickClass"><CheckIcon v-if="stagePicked(stage.id)" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
-              <span class="flex-1 text-content">All {{ stage.label.toLowerCase() }}</span>
-            </button>
-            <template v-else>
-              <button type="button" :class="rowClass" data-age-any @click="set(clearSeed(st, 'age', pool))">
-                <span :class="tickClass"><CheckIcon v-if="!ageText" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
-                <span class="flex-1 text-content-secondary">Any</span>
-              </button>
-              <div class="px-2 pt-2 pb-1 text-[11px] font-semibold text-content-tertiary">{{ rangeOf(stages[0]) }}</div>
-            </template>
-            <div class="grid grid-cols-6 gap-1 px-1 pt-1" data-years>
+            <div v-if="ageTop > ageMin" class="age-ticks relative h-4 text-[11px] text-content-muted tabular-nums">
+              <span v-for="t in ageTicks" :key="t" class="absolute -translate-x-1/2" :style="{ left: `${agePct(t)}%` }">{{ ageLabel(t) }}</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5 pt-3">
+              <button type="button" :class="[chipClass, !pickedYearList.length ? chipOn : chipOff]" data-age-any @click="set(clearSeed(st, 'age', pool))">Any</button>
               <button
-                v-for="y in (stage || stages[0]).years" :key="y" type="button" :data-year="y"
-                :aria-pressed="yearOn(y)"
-                :class="['py-1.5 coarse:py-2.5 rounded-md text-xs coarse:text-[13px] tabular-nums outline-none focus-visible:ring-1 focus-visible:ring-selection/60', yearOn(y) ? 'bg-selection/15 text-selection font-medium' : 'text-content hover:bg-overlay-subtle']"
-                @click="set(toggleYear(st, y, pool))"
-              >{{ y }}</button>
+                v-for="p in agePresets" :key="p.label" type="button" :data-age-preset="p.label"
+                :class="[chipClass, pickedYearList.length && !ageMixed && lo === p.lo && hi === p.hi ? chipOn : chipOff]"
+                @click="lo = p.lo; hi = p.hi; commitAge()"
+              >{{ p.label }}</button>
             </div>
-          </template>
-          <template v-else>
-            <button type="button" :class="rowClass" data-age-any @click="set(clearSeed(st, 'age', pool))">
-              <span :class="tickClass"><CheckIcon v-if="!ageText" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
-              <span class="flex-1 text-content-secondary">Any</span>
-            </button>
-            <div v-for="a in stages" :key="a.id" class="flex items-stretch rounded-md hover:bg-overlay-subtle">
-              <button type="button" :class="[rowClass, 'flex-1 min-w-0 hover:bg-transparent']" :data-stage="a.id" @click="set(toggleStage(st, a.id, pool))">
-                <span :class="tickClass"><CheckIcon v-if="stageOn(a)" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
-                <span class="flex-1 min-w-0 text-content tabular-nums">{{ rangeOf(a) }}</span>
-                <span class="shrink-0 text-[11px] text-selection tabular-nums">{{ stageNote(a) }}</span>
-              </button>
-              <button type="button" class="shrink-0 px-2 rounded-md text-content-muted hover:text-content outline-none focus-visible:ring-1 focus-visible:ring-selection/60" :aria-label="`${a.label} by year`" :data-stage-open="a.id" @click="stage = a">
-                <ChevronRightIcon class="w-3.5 h-4" />
-              </button>
-            </div>
-          </template>
+          </div>
         </template>
         <template v-else-if="filter === 'gender'">
           <button type="button" :class="rowClass" data-gender-any @click="set(clearSeed(st, 'gender', pool))">
@@ -206,7 +171,7 @@ import Spinner from '../ui/Spinner.vue'
 import { matchesQuery } from '../../utils/programVocab'
 import {
   ageItems, cap, clearSeed, descentItems, genderItems, hasSeeds, keptPieces, lineString, lookOf, optionsOf,
-  pickedHeritages, pickedYears, setPicked, shownVariants, slotFailed, toggleGender, toggleHeritage, toggleRegion, toggleStage, toggleValue, toggleYear,
+  pickedHeritages, pickedYears, setPicked, shownVariants, slotFailed, toggleGender, toggleHeritage, toggleRegion, toggleValue,
   yearOfAge, setAgeRange,
 } from '../../utils/programChoices'
 import type { AgePicker, ChoiceState, Variant } from '../../utils/programWire'
@@ -244,18 +209,12 @@ function set(next: ChoiceState | null) {
 
 const filter = ref<'age' | 'gender' | 'descent' | null>(null)
 const region = ref<{ id: string; values: string[] } | null>(null)
-const stage = ref<Stage | null>(null)
 const query = ref('')
-const rangeFrom = ref<number | string>('')
-const rangeTo = ref<number | string>('')
-const rangeError = ref('')
-watch([() => props.id, filter], () => { rangeFrom.value = ''; rangeTo.value = ''; rangeError.value = '' })
-watch(() => props.id, () => { filter.value = null; region.value = null; stage.value = null; query.value = '' })
-watch(filter, () => { query.value = ''; region.value = null; stage.value = null; searching.value = false })
+watch(() => props.id, () => { filter.value = null; region.value = null; query.value = '' })
+watch(filter, () => { query.value = ''; region.value = null; searching.value = false })
 
 function back() {
   if (region.value) region.value = null
-  else if (stage.value) stage.value = null
   else filter.value = null
   query.value = ''
 }
@@ -270,7 +229,7 @@ const filters = computed(() => [
 ])
 const backLabel = computed(() => {
   if (filter.value === 'descent') return region.value ? region.value.id : 'Descent'
-  if (filter.value === 'age') return stage.value ? `Age ${rangeOf(stage.value)}` : 'Age'
+  if (filter.value === 'age') return 'Age'
   return 'Gender'
 })
 
@@ -406,35 +365,74 @@ const genders = computed(() => {
   const g = person.value?.gender
   return g?.fits?.length ? g.fits : g?.options || []
 })
-// Age: the stages this person may be; a stage's single years.
+// Age: the stages this person may be.
 const stages = computed<Stage[]>(() => {
   const a = person.value?.age
   const ok = new Set(a?.options || [])
   return (a?.stages || []).filter(x => !ok.size || ok.has(x.id))
 })
-const rangeOf = (a: Stage) => (a.id === '80+' && a.span[0] === 80 && a.span[1] === 110 ? '80+' : a.span[0] === a.span[1] ? `${a.span[0]}` : `${a.span[0]}–${a.span[1]}`)
 const pickedYearList = computed(() => pickedYears(st.value?.seeds, person.value?.age))
-const stagePicked = (id: string) => stages.value.find(a => a.id === id)?.years.every(y => pickedYearList.value.includes(y)) || false
-const stageOn = (a: Stage) => a.years.some(y => pickedYearList.value.includes(y))
-const yearOn = (y: number) => pickedYearList.value.includes(y)
-const agePresets = computed(() => [[18, 24], [25, 34], [35, 44], [45, 54], [55, 64], [65, 110]]
-  .filter(([lo, hi]) => setAgeRange(null, lo, hi, pool.value) !== undefined))
-function applyAgeRange() {
-  const next = rangeFrom.value === '' || rangeTo.value === '' ? undefined
-    : setAgeRange(st.value, Number(rangeFrom.value), Number(rangeTo.value), pool.value)
-  rangeError.value = next === undefined ? 'Choose a complete range allowed by this prompt.' : ''
-  if (next !== undefined) set(next)
+// One range on a slider. The oldest band ("80+") is one stop at its end, not thirty.
+const ageYears = computed(() => [...new Set(stages.value.flatMap(a => a.years))].sort((x, z) => x - z))
+const ageMin = computed(() => ageYears.value[0] ?? 0)
+const ageMax = computed(() => ageYears.value.at(-1) ?? 0)
+const ageOpen = computed(() => stages.value.some(a => a.id === '80+') && ageMin.value < 80 && ageMax.value > 80)
+const ageTop = computed(() => (ageOpen.value ? 80 : ageMax.value))
+const ageLabel = (y: number) => (ageOpen.value && y === ageTop.value ? `${y}+` : `${y}`)
+const agePct = (y: number) => (ageTop.value > ageMin.value ? ((y - ageMin.value) / (ageTop.value - ageMin.value)) * 100 : 0)
+const lo = ref(0)
+const hi = ref(0)
+function syncAge() {
+  const ys = pickedYearList.value
+  lo.value = ys.length ? Math.min(Math.max(ys[0], ageMin.value), ageTop.value) : ageMin.value
+  hi.value = ys.length ? Math.max(Math.min(ys.at(-1)!, ageTop.value), lo.value) : ageTop.value
 }
-function applyPreset(e: Event) {
-  const [lo, hi] = (e.target as HTMLSelectElement).value.split('-').map(Number)
-  rangeFrom.value = lo
-  rangeTo.value = hi
-  applyAgeRange()
+watch([pickedYearList, ageMin, ageTop], syncAge, { immediate: true })
+const rangeYears = (a: number, b: number) => ageYears.value.filter(y => y >= a && y <= (b === ageTop.value ? ageMax.value : b))
+// Picks the slider can't show as one range (saved before it): its hull, said as they are.
+const ageMixed = computed(() => {
+  const ys = pickedYearList.value
+  return ys.length > 0 && ys.join() !== rangeYears(lo.value, hi.value).join()
+})
+const ageReadout = computed(() => {
+  if (ageMixed.value) return ageText.value
+  if (!pickedYearList.value.length && lo.value === ageMin.value && hi.value === ageTop.value) return 'Any age'
+  return lo.value === hi.value ? ageLabel(lo.value) : hi.value === ageTop.value && ageOpen.value ? `${lo.value}+` : `${lo.value}–${hi.value}`
+})
+// The higher handle stays on top, but when both sit together at the top only the low one can move.
+const loOnTop = computed(() => lo.value === hi.value && lo.value > (ageMin.value + ageTop.value) / 2)
+const ageTicks = computed(() => {
+  const out = [ageMin.value]
+  for (let d = Math.ceil((ageMin.value + 1) / 10) * 10; d < ageTop.value; d += 10) if (d - ageMin.value >= 6 && ageTop.value - d >= 6) out.push(d)
+  return [...out, ageTop.value]
+})
+function onLo(e: Event) {
+  const el = e.target as HTMLInputElement
+  lo.value = Math.min(Number(el.value), hi.value)
+  el.value = String(lo.value)
 }
-function stageNote(a: Stage) {
-  if (stagePicked(a.id)) return ''
-  return pickedYearList.value.filter(y => a.years.includes(y)).sort((x, z) => x - z).join(', ')
+function onHi(e: Event) {
+  const el = e.target as HTMLInputElement
+  hi.value = Math.max(Number(el.value), lo.value)
+  el.value = String(hi.value)
 }
+function commitAge() {
+  if (lo.value === ageMin.value && hi.value === ageTop.value) {
+    if (pickedYearList.value.length) set(clearSeed(st.value, 'age', pool.value))
+    return
+  }
+  const ys = rangeYears(lo.value, hi.value)
+  const next = ys.length ? setAgeRange(st.value, ys[0], ys.at(-1)!, pool.value) : undefined
+  if (next === undefined) syncAge()
+  else set(next)
+}
+const agePresets = computed(() => [[18, 24], [25, 34], [35, 44], [45, 54], [55, 64], [65, Infinity]]
+  .map(([a, b]) => ({ label: b === Infinity ? `${a}+` : `${a}–${b}`, lo: a, hi: b === Infinity ? ageTop.value : b }))
+  .filter(p => p.lo >= ageMin.value && p.lo <= p.hi && p.hi <= ageTop.value && !(p.lo === ageMin.value && p.hi === ageTop.value)
+    && setAgeRange(null, p.lo, p.hi === ageTop.value ? ageMax.value : p.hi, pool.value) !== undefined))
+const chipClass = 'px-2.5 py-1 coarse:py-2 rounded-full text-xs tabular-nums outline-none focus-visible:ring-1 focus-visible:ring-selection/60'
+const chipOn = 'bg-selection/15 text-selection font-medium'
+const chipOff = 'bg-surface text-content-secondary hover:text-content'
 
 // Esc steps back out: the search, then a drill-in, then the picker.
 function onKey(e: KeyboardEvent) {
@@ -459,3 +457,27 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKey, true)
 })
 </script>
+
+<style scoped>
+/* Two native range inputs share one track: only their thumbs take the pointer. The inputs
+   overhang the track by half a thumb so a thumb's center lands on the fill's ends and ticks. */
+.age-range, .age-ticks { --thumb: 20px; margin-inline: calc(var(--thumb) / 2); }
+@media (pointer: coarse) { .age-range, .age-ticks { --thumb: 28px; } }
+.age-range input {
+  position: absolute; top: 50%; left: calc(var(--thumb) / -2); width: calc(100% + var(--thumb)); height: var(--thumb);
+  margin: 0; transform: translateY(-50%); background: transparent; pointer-events: none; -webkit-appearance: none; appearance: none; outline: none;
+}
+.age-range input::-webkit-slider-runnable-track { height: var(--thumb); background: transparent; }
+.age-range input::-moz-range-track { height: var(--thumb); background: transparent; }
+.age-range input::-webkit-slider-thumb {
+  -webkit-appearance: none; pointer-events: auto; cursor: grab; width: var(--thumb); height: var(--thumb); border-radius: 9999px;
+  background: #fff; border: 1px solid rgb(0 0 0 / 0.15); box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+.age-range input::-moz-range-thumb {
+  pointer-events: auto; cursor: grab; width: var(--thumb); height: var(--thumb); border-radius: 9999px;
+  background: #fff; border: 1px solid rgb(0 0 0 / 0.15); box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+.age-range input:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgb(var(--color-selection-rgb) / 0.5); }
+.age-range input:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px rgb(var(--color-selection-rgb) / 0.5); }
+.age-range input:active::-webkit-slider-thumb { cursor: grabbing; }
+</style>
