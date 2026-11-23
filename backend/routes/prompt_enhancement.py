@@ -436,6 +436,46 @@ def _audio_guidance(*, audio_conditioned: bool, image_variant: bool) -> str:
     )
 
 
+# Whatever a picture or a pinned clip shows is set already. A second description of it,
+# even a slightly different one, is what makes H3 jump or cut to reconcile the two.
+_H3_DONT_REDESCRIBE = (
+    "Do not describe what the pictures show: the people and how they look, their clothes, the "
+    "place, the light, the colors or the framing. Where the request describes any of these, leave "
+    "that description out unless the request asks to change it; keep what it has them do and say."
+)
+
+
+def _h3_pins_guidance(seconds: float, reference_manifest: Optional[List[Dict[str, Any]]]) -> str:
+    """The pinned pictures and clips on the target timeline, for any task."""
+    pins = []
+    for item in reference_manifest or []:
+        if item.get("kind") != "keyframe" or item.get("picture") is False:
+            continue
+        at = float(item.get("at") or 0.0)
+        length = float(item.get("length") or 0.0)
+        if length > 0:
+            what = f"a {length:.2f}-second clip" + (" with its sound" if item.get("sound") else "")
+        else:
+            what = "a still frame"
+        where = "the end" if seconds and at >= seconds else f"{min(at, seconds or at):.2f} seconds"
+        pins.append(f"- at {where}: {what}")
+    if not pins:
+        return ""
+    return (
+        "\nThe target video is also pinned to these moments on its timeline. They are not tags. "
+        "Each pin sets everything it shows at its time: the people and how they look, their clothes, "
+        "the place, the light, the framing and the camera position. You cannot see them; refer to "
+        "them by their time and never describe what they show, because a second description that "
+        "differs from the picture makes the model cut or jump to it. Where the request describes "
+        "how the people, their clothes or the place look, leave that out too: the pin already shows "
+        "it. Write only what changes from "
+        "each pin: the action, and any camera or subject movement the request asks for. A clip "
+        "pinned at the start is the opening of this same take: begin with what happens next and "
+        "keep it one unbroken shot unless the request asks for a cut. Keep every cut the request "
+        "asks for:\n" + "\n".join(pins)
+    )
+
+
 def _h3_task_guidance(
     task: Optional[str],
     duration: Optional[float],
@@ -444,6 +484,7 @@ def _h3_task_guidance(
     """Exact MiniMax H3 Context-IR alignment rules for the active task."""
     seconds = max(0.0, float(duration or 0.0))
     end_time = f"{seconds:.2f}"
+    pins = _h3_pins_guidance(seconds, reference_manifest)
     if task == "ref2va":
         entries = []
         for item in reference_manifest or []:
@@ -461,18 +502,6 @@ def _h3_task_guidance(
                 meaning = "standalone reference audio"
             entries.append(f"- <{label}>: {meaning}")
         mapping = "\n".join(entries) or "- No references were supplied."
-        pins = []
-        for item in reference_manifest or []:
-            if item.get("kind") != "keyframe" or item.get("picture") is False:
-                continue
-            at = float(item.get("at") or 0.0)
-            length = float(item.get("length") or 0.0)
-            if length > 0:
-                what = f"a {length:.2f}-second clip" + (" with its sound" if item.get("sound") else "")
-            else:
-                what = "a still frame"
-            where = "the end" if seconds and at >= seconds else f"{min(at, seconds or at):.2f} seconds"
-            pins.append(f"- at {where}: {what}")
         guidance = (
             "This is REF2VA. "
             + ("Do not write first-frame or last-frame alignment headers. " if pins else
@@ -481,33 +510,26 @@ def _h3_task_guidance(
             "the exact presentation order below; these tags are positional and must not be renamed, "
             "renumbered, swapped, or described as keyframes:\n"
             f"{mapping}\n"
-            "Use every listed tag at least once in integrated_multimodal_description. State concretely "
-            "what identity, appearance, style, motion, camera behavior, or voice each reference controls. "
+            "Use every listed tag at least once in integrated_multimodal_description. Say what each "
+            "reference controls (identity, appearance, style, motion, camera behavior or voice) by "
+            "naming its tag, as in \"the woman from <Picture 1>\", and leave what it looks like to the "
+            "reference: do not describe a referenced person's face, hair, build or clothes, or a "
+            "referenced place, unless the request changes it. "
             "A paired <Audio N> appears immediately before its matching <Video N> in the model input, "
             "but they remain distinct tags and should be assigned distinct audio/video roles."
         )
         if pins:
-            guidance += (
-                "\nThe target video is also pinned to these moments on its timeline. They are not tags. "
-                "Each pin fixes the picture at its time: the framing, the camera position and where "
-                "everyone is. You cannot see them, so refer to them by their time without saying how they "
-                "look, and invent no framing, distance or pose for those moments. Between pins, describe "
-                "the action and any camera or subject movement the request asks for. Keep every cut the "
-                "request asks for. Where the shot is continuous, a framing, distance or pose that "
-                "contradicts a pinned picture makes an unintended cut to it more likely. Reference images "
-                "set identity and appearance here, not the framing:\n"
-                + "\n".join(pins)
-            )
+            guidance += pins + "\nReference images set identity and appearance here, not the framing."
         return guidance
     if task == "i2va":
         return (
             "This is I2VA. The output MUST begin with this exact line, followed by one blank line:\n"
             "For the target video, at 0.00 seconds into the target video, <Picture 1> "
             "(from [Shot 1]) is fully referenced.\n"
-            "Start Shot 1 by anchoring its style, subjects, composition, scene, colors, key objects, "
-            "and spatial relationships to Picture 1, then describe action onset, continuous development, "
-            "and the result or reaction. Preserve visual identity and layout. "
-            "Where the request describes a person, their clothes or the place differently from the pictures, the pictures are right: keep what the request has them do and say, and leave out the description it contradicts."
+            "Picture 1 already sets the style, the subjects, the place, the colors and the composition. "
+            "Start Shot 1 from it by referring to what it shows, as in \"the woman in Picture 1\", "
+            "then describe what changes from it: action onset, continuous development, and the result "
+            "or reaction, and how the camera behaves. " + _H3_DONT_REDESCRIBE + pins
         )
     if task == "fl2va":
         return (
@@ -518,7 +540,7 @@ def _h3_task_guidance(
             "Replace N with the actual final shot number (normally 1). Describe the observable path from "
             "Picture 1 through intermediate changes until pose, objects, composition, camera, and lighting "
             "land on Picture 2 at the end; do not merely describe two static images. "
-            "Where the request describes a person, their clothes or the place differently from the pictures, the pictures are right: keep what the request has them do and say, and leave out the description it contradicts."
+            + _H3_DONT_REDESCRIBE + pins
         )
     if task == "l2va":
         return (
@@ -527,11 +549,12 @@ def _h3_task_guidance(
             f"aligns with the {end_time}-second mark of the target video.\n"
             "Replace N with the actual final shot number. Infer a plausible preceding state and describe "
             "a continuous path that converges on Picture 1's exact final composition. "
-            "Where the request describes a person, their clothes or the place differently from the pictures, the pictures are right: keep what the request has them do and say, and leave out the description it contradicts."
+            + _H3_DONT_REDESCRIBE + pins
         )
     return (
         "This is T2VA. Do not add an image-alignment instruction; begin directly with "
         "integrated_multimodal_description. Build the complete audiovisual timeline from the user's text."
+        + pins
     )
 
 

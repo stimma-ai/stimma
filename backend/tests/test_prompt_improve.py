@@ -331,7 +331,7 @@ def test_h3_reference_guidance_describes_pinned_keyframes_in_words():
     assert "- at the end: a still frame" in guidance
     assert "timeline-alignment instructions" not in guidance
     assert "They are not tags" in guidance
-    assert "without saying how they look" in guidance
+    assert "never describe what they show" in guidance
     # A cut the user asks for stays; contradicting a pin only risks an unintended one.
     assert "Keep every cut the request asks for" in guidance
     assert "only reach" not in guidance and "one continuous take" not in guidance
@@ -795,3 +795,16 @@ def test_h3_image_generation_context_has_no_video_format(monkeypatch, task, para
     assert context["enhance"]["h3_duration"] is None
     assert context["enhance"]["is_video"] is False
     assert gen.native_prompt_format("comfyui:minimax-h3-image", task) == "MiniMax H3 Image"
+
+
+def test_h3_continuation_from_a_pinned_clip_describes_only_what_changes():
+    # Text-to-video continuing a pinned clip: the rewriter learns the pin is there and
+    # must not re-describe it; first-frame tasks get the same rule for their pictures.
+    manifest = [{"kind": "keyframe", "at": 0.0, "length": 1.62, "sound": True}]
+    guidance = _h3_task_guidance("t2va", 15, manifest)
+    assert "- at 0.00 seconds: a 1.62-second clip with its sound" in guidance
+    assert "opening of this same take" in guidance
+    assert "never describe what they show" in guidance
+    assert "pinned" not in _h3_task_guidance("t2va", 15, [])
+    for task in ("i2va", "fl2va", "l2va"):
+        assert "Do not describe what the pictures show" in _h3_task_guidance(task, 15, [])

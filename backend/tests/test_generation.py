@@ -282,14 +282,17 @@ class TestPromptPipelineRouting:
         ]
         _, _, _, _, manifest = generation_routes._prompt_h3_context(
             {"input_images": ["k2.png"], "keyframes": keyframes, "duration": 5}, "image-to-video")
-        # Image-to-video lists only the sound pins; the pictures are its own frames.
+        # Every task lists its picture pins too, so the rewriter knows not to describe them.
         assert manifest == [
+            {"kind": "keyframe", "at": 0.0, "length": 0.0, "sound": False},
             {"kind": "keyframe", "at": 0.0, "length": 5.17, "sound": True, "picture": False},
             {"kind": "keyframe", "at": 1.0, "length": 4.0, "sound": True, "picture": False},
+            {"kind": "keyframe", "at": 4.0, "length": 0.92, "sound": True},
         ]
-        _, _, _, _, manifest = generation_routes._prompt_h3_context(
-            {"input_images": ["k2.png"], "keyframes": keyframes, "duration": 5}, "reference-to-video")
-        assert [m.get("picture", True) for m in manifest if m["kind"] == "keyframe"] == [True, False, False, True]
+        for task in ("text-to-video", "reference-to-video"):
+            _, _, _, _, manifest = generation_routes._prompt_h3_context(
+                {"input_images": ["k2.png"], "keyframes": keyframes, "duration": 5}, task)
+            assert [m.get("picture", True) for m in manifest if m["kind"] == "keyframe"] == [True, False, False, True]
 
     async def test_h3_context_knows_library_audio_by_its_kind(self, generation_db_session):
         # Pins that name library media by id: the library says which one is sound,
@@ -309,7 +312,9 @@ class TestPromptPipelineRouting:
         audio_ids = await generation_routes.keyframe_audio_media_ids(parameters, "default")
         assert audio_ids == {speech.id}
         _, _, _, _, manifest = generation_routes._prompt_h3_context(parameters, "image-to-video", audio_ids)
-        assert manifest == [{"kind": "keyframe", "at": 0.0, "length": 5.17, "sound": True, "picture": False}]
+        assert [m for m in manifest if m.get("picture") is False] == [
+            {"kind": "keyframe", "at": 0.0, "length": 5.17, "sound": True, "picture": False}]
+        assert len(manifest) == 3
         assert await generation_routes.keyframe_audio_media_ids({"keyframes": [{"media": "k.png"}]}) == frozenset()
 
     def test_h3_context_counts_library_ids_like_paths(self):

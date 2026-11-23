@@ -338,8 +338,7 @@ def _prompt_h3_context(
                 "index": index,
             })
     # Pinned keyframes sit on the output timeline, not in the tag list:
-    # unlabeled, so they are described in words rather than tagged. Any task
-    # can pin sound alone; only reference-to-video also describes pinned pictures.
+    # unlabeled, so they are described in words rather than tagged.
     for item in parameters.get("keyframes") or []:
         if not isinstance(item, dict):
             continue
@@ -354,7 +353,7 @@ def _prompt_h3_context(
             if not length and duration:
                 length = max(0.0, duration - at)
             manifest.append({"kind": "keyframe", "at": at, "length": length, "sound": True, "picture": False})
-        elif is_ref2va:
+        else:
             manifest.append({
                 "kind": "keyframe",
                 "at": at,
