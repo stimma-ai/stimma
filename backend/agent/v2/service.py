@@ -477,6 +477,8 @@ async def _finalize_thinking_item(
         "thinking_status": "completed",
         "thinking_content": reasoning or "",
         "thinking_duration_seconds": round(duration_seconds, 2),
+        # The row was created when the call started; this is when the reply landed.
+        "finished_at": datetime.utcnow().isoformat(),
     }
     metadata["llm_call_size"] = {
         "context_tokens": int(context_tokens),

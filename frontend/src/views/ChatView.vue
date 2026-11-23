@@ -587,7 +587,7 @@
           <div v-else-if="item.item_type === 'assistant_message' && (hasThinking(item) || getDisplayText(item))" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
-              :sent-at="item.created_at"
+              :sent-at="getReplyTime(item)"
               align="left"
               :show-thumbs="true"
               :thumb-agent-context="chat?.flow_id ? 'flow' : 'main'"
@@ -1516,6 +1516,7 @@ import PlanVisualization from '../components/PlanVisualization.vue'
 import NotepadDisplay from '../components/chat/NotepadDisplay.vue'
 import TraceModal from '../components/chat/TraceModal.vue'
 import { copyToClipboard } from '../utils/clipboard'
+import { parseServerTime } from '../utils/timeFormat'
 import { addToast, reportActionError } from '../composables/useToasts'
 import { useAuth } from '../composables/useAuth'
 import { useAvailableModels } from '../composables/useAvailableModels'
@@ -4720,6 +4721,17 @@ async function handleToggleMarker({ mediaId, marker }) {
 function getItemMetadata(item) {
   if (!item || !item.item_metadata) return null
   return typeof item.item_metadata === 'string' ? JSON.parse(item.item_metadata) : item.item_metadata
+}
+
+// An assistant row is created when its model call starts and filled in when the
+// reply lands, so its created_at is the start. Older rows lack finished_at.
+function getReplyTime(item) {
+  const meta = getItemMetadata(item)
+  if (meta?.finished_at) return meta.finished_at
+  const elapsed = Number(meta?.thinking_duration_seconds) // this call's wall time
+  const start = parseServerTime(item.created_at)
+  if (start && elapsed > 0) return new Date(start + elapsed * 1000).toISOString()
+  return item.created_at
 }
 
 function hasThinking(item) {

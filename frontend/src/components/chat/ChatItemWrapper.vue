@@ -77,7 +77,7 @@
         :datetime="sentAtIso"
         :title="sentAtFull"
         :class="align === 'left' ? 'ml-auto pl-3' : 'pl-1.5'"
-        class="chat-item-time text-[11px] leading-none text-content-muted tabular-nums whitespace-nowrap select-none"
+        class="text-[11px] leading-none text-content-muted tabular-nums whitespace-nowrap select-none"
       >{{ sentAtLabel }}</time>
     </div>
   </div>
