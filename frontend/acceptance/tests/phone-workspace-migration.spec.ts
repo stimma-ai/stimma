@@ -11,9 +11,17 @@ async function newProfile(page: Page): Promise<{ id: string }> {
     data: JSON.stringify({ name: `Migrate ${Date.now().toString(36)}` }),
   } as RequestInit);
   const id = created.id ?? created.profile!.id;
-  // A new profile is usable once the config reload behind it has landed.
-  await expect.poll(async () => (await page.request.get('/api/workspace', { headers: { 'X-Profile-ID': id } })).ok()).toBe(true);
-  await expect.poll(async () => JSON.stringify(await apiJSON(page, '/api/profiles'))).toContain(id);
+  // The POST saves the config. The backend watcher registers the profile after
+  // migrating its fresh SQLite database, which can take several seconds in CI.
+  const started = Date.now();
+  await expect.poll(async () => {
+    const response = await page.request.get('/api/workspace', { headers: { 'X-Profile-ID': id } });
+    return response.status();
+  }, { message: 'The new profile serves workspace requests after database setup', timeout: 15000 }).toBe(200);
+  const elapsed = Date.now() - started;
+  if (elapsed > 5000) console.log(`Acceptance profile became ready after ${elapsed} ms`);
+  const { profiles } = await apiJSON<{ profiles: { id: string }[] }>(page, '/api/profiles');
+  expect(profiles.map(profile => profile.id)).toContain(id);
   return { id };
 }
 

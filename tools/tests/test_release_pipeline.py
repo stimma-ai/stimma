@@ -211,21 +211,40 @@ class PublicationTests(unittest.TestCase):
             self.assertIn('stimma-test', workflow(name)['jobs']['quality-gate']['with']['runs_on'])
         self.assertNotIn('runs_on', workflow('ci.yml')['jobs']['quality-gate']['with'])
 
-    def test_prepared_browser_setup_never_installs_system_packages(self):
+    def test_browser_setup_installs_system_packages_only_after_an_unprepared_launch_failure(self):
         action = yaml.load((ROOT / '.github/actions/setup-playwright/action.yml').read_text(), Loader=yaml.BaseLoader)
-        install = action['runs']['steps'][0]['run']
+        install, verify = (step['run'] for step in action['runs']['steps'])
+        install_browser = 'playwright install chromium'
+        install_deps = 'playwright install-deps chromium'
         with tempfile.TemporaryDirectory() as tmp:
-            stub = Path(tmp) / 'npx'
-            stub.write_text('#!/bin/sh\nprintf "%s\\n" "$*"\n')
-            stub.chmod(0o755)
-            for prepared, expected in [('1', '--no-install playwright install chromium'),
-                                       ('', '--no-install playwright install --with-deps chromium')]:
-                with self.subTest(prepared=prepared):
-                    result = subprocess.run(['bash', '-e', '-c', install], check=True,
-                                            capture_output=True, text=True,
-                                            env={**os.environ, 'PATH': tmp + os.pathsep + os.environ['PATH'],
-                                                 'STIMMA_PREPROVISIONED': prepared})
-                    self.assertEqual(result.stdout.strip(), expected)
+            npx = Path(tmp) / 'npx'
+            npx.write_text('#!/bin/sh\nprintf "%s %s %s\\n" "$2" "$3" "$4"\ntouch "$DEPS_READY"\n')
+            npx.chmod(0o755)
+            node = Path(tmp) / 'node'
+            node.write_text('#!/bin/sh\necho launch\n[ "$NEEDS_DEPS" = 0 ] || [ -f "$DEPS_READY" ]\n')
+            node.chmod(0o755)
+            deps_ready = Path(tmp) / 'deps-ready'
+            env = {**os.environ, 'PATH': tmp + os.pathsep + os.environ['PATH'],
+                   'DEPS_READY': str(deps_ready)}
+            result = subprocess.run(['bash', '-e', '-c', install], check=True,
+                                    capture_output=True, text=True, env=env)
+            self.assertEqual(result.stdout.strip(), install_browser)
+            for prepared, needs_deps, expected, status in [
+                ('1', '0', ['launch'], 0),
+                ('1', '1', ['launch'], 1),
+                ('', '0', ['launch'], 0),
+                ('', '1', ['launch', install_deps, 'launch'], 0),
+            ]:
+                with self.subTest(prepared=prepared, needs_deps=needs_deps):
+                    deps_ready.unlink(missing_ok=True)
+                    result = subprocess.run(
+                        ['bash', '-e', '-c', verify], capture_output=True, text=True,
+                        env={**env, 'STIMMA_PREPROVISIONED': prepared, 'NEEDS_DEPS': needs_deps},
+                    )
+                    commands = [line for line in result.stdout.splitlines()
+                                if line == 'launch' or line.startswith('playwright')]
+                    self.assertEqual(commands, expected)
+                    self.assertEqual(result.returncode, status)
         jobs = workflow('quality-gate.yml')['jobs']
         for name in ['frontend-tests', 'acceptance-tests']:
             steps = jobs[name]['steps']
