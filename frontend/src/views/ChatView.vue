@@ -497,6 +497,7 @@
           <div v-else-if="item.item_type === 'user_message'" class="flex justify-end">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="right"
               :class="editingItemId === item.id ? 'max-w-[80%]' : getSheetReview(item) ? 'w-full max-w-[440px]' : 'max-w-[50%]'"
               :show-actions="editingItemId !== item.id"
@@ -586,6 +587,7 @@
           <div v-else-if="item.item_type === 'assistant_message' && (hasThinking(item) || getDisplayText(item))" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               :show-thumbs="true"
               :thumb-agent-context="chat?.flow_id ? 'flow' : 'main'"
@@ -653,6 +655,7 @@
           <div v-else-if="item.item_type === 'error' && isLLMSetupError(item)" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -700,6 +703,7 @@
           <div v-else-if="item.item_type === 'error' && INSUFFICIENT_BALANCE_ERROR_TYPES.has(item.item_metadata?.error_type)" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -743,6 +747,7 @@
           <div v-else-if="item.item_type === 'error' && item.item_metadata?.error_type === 'quota_exceeded'" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -774,6 +779,7 @@
           <div v-else-if="item.item_type === 'error' && item.item_metadata?.error_type === 'content_filtered'" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -800,6 +806,7 @@
           <div v-else-if="item.item_type === 'error'" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -841,6 +848,7 @@
           <div v-else-if="item.item_type === 'system'" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -930,6 +938,7 @@
           >
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -959,6 +968,7 @@
             <ChatItemWrapper
               :class="getStagedItemArtifact(item) || getSheetItem(item) ? '' : 'w-full'"
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -995,6 +1005,7 @@
           <div v-else-if="item.item_type === 'progress_display'" class="flex justify-start w-1/2 min-w-[280px]">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -1011,6 +1022,7 @@
           <div v-else-if="item.item_type === 'grid_generation'" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -1029,6 +1041,7 @@
           <div v-else-if="item.item_type === 'scored_results'" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -1045,6 +1058,7 @@
           <div v-else-if="item.item_type === 'analysis_result'" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
@@ -1061,6 +1075,7 @@
           <div v-else-if="item.item_type === 'hitl_request' && shouldShowHITLRequest(item)" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               :class="docked ? 'w-full min-w-0' : ''"
               align="left"
               :show-actions="true"
@@ -1127,6 +1142,7 @@
           <div v-else class="flex justify-center">
             <ChatItemWrapper
               :item-id="item.id"
+              :sent-at="item.created_at"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"

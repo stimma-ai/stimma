@@ -10,7 +10,7 @@
     <!-- Actions row (outside bubble, appears on hover) -->
     <div
       v-if="showActions"
-      class="flex gap-1 mt-1"
+      class="flex items-center gap-1 mt-1"
       :class="[
         align === 'left' ? 'justify-start' : 'justify-end',
         hovered ? 'visible' : 'invisible'
@@ -71,22 +71,35 @@
           <BugAntIcon class="w-3.5 h-3.5" />
         </button>
       </Tooltip>
+      <!-- When it was sent: always the right end of the row -->
+      <time
+        v-if="sentAtLabel"
+        :datetime="sentAtIso"
+        :title="sentAtFull"
+        :class="align === 'left' ? 'ml-auto pl-3' : 'pl-1.5'"
+        class="chat-item-time text-[11px] leading-none text-content-muted tabular-nums whitespace-nowrap select-none"
+      >{{ sentAtLabel }}</time>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { TrashIcon, BugAntIcon, PencilSquareIcon, ArrowPathRoundedSquareIcon } from '@heroicons/vue/24/outline'
 import { devModeRef } from '../../appConfig'
 import ChatThumbButtons from '@stimma/chat-thumb-buttons'
 import Tooltip from '../ui/Tooltip.vue'
+import { formatFullTime, formatMessageTime, parseServerTime } from '../../utils/timeFormat'
 
 const hovered = ref(false)
 
-defineProps({
+const props = defineProps({
   itemId: {
     type: Number,
+    default: null
+  },
+  sentAt: {
+    type: String,
     default: null
   },
   align: {
@@ -117,6 +130,17 @@ defineProps({
     type: Object,
     default: null
   }
+})
+
+// Recomputed on hover so "today" vs "Yesterday" stays right in a chat left open overnight.
+const sentAtLabel = computed(() => {
+  void hovered.value
+  return formatMessageTime(props.sentAt)
+})
+const sentAtFull = computed(() => formatFullTime(props.sentAt))
+const sentAtIso = computed(() => {
+  const ms = parseServerTime(props.sentAt)
+  return ms ? new Date(ms).toISOString() : null
 })
 
 const emit = defineEmits(['edit', 'replay', 'delete', 'delete-from-here', 'debug', 'branch'])

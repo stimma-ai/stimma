@@ -76,6 +76,43 @@ export function formatDate(value, { year = 'auto' } = {}) {
 }
 
 /**
+ * When a chat message was sent, in the viewer's local time: "3:42 PM" today,
+ * "Yesterday 3:42 PM", then "Nov 21, 3:42 PM" (year added outside this year).
+ * Accepts the backend's naive-UTC strings.
+ *
+ * @param {string|null} value - server timestamp
+ * @param {number} [now] - epoch ms to compare against (tests)
+ * @returns {string} '' for a falsy or invalid value
+ */
+export function formatMessageTime(value, now = Date.now()) {
+  const ms = parseServerTime(value)
+  if (!ms) return ''
+  const date = new Date(ms)
+  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const startOfDay = new Date(date)
+  startOfDay.setHours(0, 0, 0, 0)
+  const days = Math.round((today.getTime() - startOfDay.getTime()) / 86400000)
+  if (days === 0) return time
+  if (days === 1) return `Yesterday ${time}`
+  return `${formatDate(date)}, ${time}`
+}
+
+/**
+ * The full local date and time of a server timestamp, for hover titles:
+ * "Sunday, November 23, 2026 at 3:42:07 PM".
+ *
+ * @param {string|null} value - server timestamp
+ * @returns {string} '' for a falsy or invalid value
+ */
+export function formatFullTime(value) {
+  const ms = parseServerTime(value)
+  if (!ms) return ''
+  return new Date(ms).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'medium' })
+}
+
+/**
  * Format an estimated number of seconds for compact progress UI.
  *
  * @param {number|string|null} seconds
