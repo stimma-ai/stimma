@@ -222,6 +222,9 @@ export function useGenerationStatus() {
     onWebSocketEvent('generation_job_started', (data) => {
       const jobId = data?.job?.id
       if (jobId == null) return
+      // A worker can announce a start for a job cancelled under it, after
+      // the cancel event; that job is not running.
+      if (['completed', 'failed', 'cancelled'].includes(data.job.status)) return
       const fullJob = { ...data.job, generator_instance_id: data.job.generator_instance_id || data?.generator_instance_id }
       journal?.push({ type: 'started', id: jobId, bucket: bucketFor(fullJob), phase: phaseFor(fullJob, true) })
       const known = jobPhases.value.get(jobId)

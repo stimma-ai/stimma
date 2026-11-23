@@ -122,3 +122,14 @@ test('a job that starts while the snapshot is read is still counted', async () =
   f.emit('generation_job_completed', { job: { id: 5, generator_instance_id: 'tool-p_t' } })
   assert.deepEqual(f.state.activeJobsByInstanceId.value, {})
 })
+
+test('a start announced after its job was cancelled changes nothing', () => {
+  const f = fixture(false)
+  const { isToolStalled } = f.state.status
+  f.emit('generation_job_queued', { job: { id: 1, generator_instance_id: 'tool-p_t' } })
+  f.emit('generation_job_queued', { job: { id: 2, generator_instance_id: 'tool-p_t' } })
+  f.emit('generation_job_cancelled', { job: { id: 1, generator_instance_id: 'tool-p_t' } })
+  f.emit('generation_job_started', { job: { id: 1, status: 'cancelled', generator_instance_id: 'tool-p_t' } })
+  assert.deepEqual(f.state.activeJobsByInstanceId.value, { 'tool-p_t': 1 })
+  assert.equal(isToolStalled('p:t'), true)
+})

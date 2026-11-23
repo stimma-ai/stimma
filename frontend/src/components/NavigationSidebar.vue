@@ -1374,9 +1374,10 @@ function isContextTab(tab: WorkspaceTab) {
 const pinnedTabs = computed(() => allPinnedTabs.value.filter(isContextTab))
 const openTabs = computed(() => allOpenTabs.value.filter(isContextTab))
 // Held per tab, so the handoff between one job and the next (on any of the
-// tab's clients) never flashes the stalled clock.
+// tab's clients) never flashes the stalled clock. Every tab, not just this
+// project's, so switching projects does not restart a hold.
 const stalledTabIds = holdKeys(
-  () => new Set([...pinnedTabs.value, ...openTabs.value].filter(isTabStalledNow).map(tab => tab.id)),
+  () => new Set([...allPinnedTabs.value, ...allOpenTabs.value].filter(isTabStalledNow).map(tab => tab.id)),
   3000,
 )
 const isTabStalled = (tab: WorkspaceTab) => stalledTabIds.value.has(tab.id)
