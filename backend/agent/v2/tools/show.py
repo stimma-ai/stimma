@@ -601,6 +601,7 @@ async def _auto_save_path(
                 if project_id is not None:
                     from project_service import attach_media_to_project
                     await attach_media_to_project(session, project_id, existing)
+                    await session.commit()
                 return existing
 
         raw = await save_workspace_file(

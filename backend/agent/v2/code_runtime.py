@@ -3454,6 +3454,8 @@ class StimmaSDK:
                 if self.project_id is not None:
                     from project_service import attach_media_to_project
                     await attach_media_to_project(session, self.project_id, existing)
+                    # As a save would: the card is written through another session.
+                    await session.commit()
                 saved_ids.append(existing)
                 continue
             if digest and not await sources_for_file(session, self.workspace_dir, full):
