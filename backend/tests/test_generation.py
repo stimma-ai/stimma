@@ -312,6 +312,22 @@ class TestPromptPipelineRouting:
         assert manifest == [{"kind": "keyframe", "at": 0.0, "length": 5.17, "sound": True, "picture": False}]
         assert await generation_routes.keyframe_audio_media_ids({"keyframes": [{"media": "k.png"}]}) == frozenset()
 
+    def test_h3_context_counts_library_ids_like_paths(self):
+        # An agent's call passes library media ids, not paths: same task and tags.
+        assert generation_routes._prompt_h3_context({
+            "input_images": [123],
+            "input_media_ids": [123],
+            "duration": 6.5,
+        }) == ("i2va", 6.5, [123], True, [])
+        _, _, _, _, manifest = generation_routes._prompt_h3_context({
+            "input_images": [101, "two.png"],
+            "input_media_ids": [101, 102],
+            "keyframes": [{"media": 101, "at": 0}],
+            "duration": 9,
+        }, "reference-to-video")
+        assert [item.get("label") for item in manifest] == ["Picture 1", "Picture 2", None]
+        assert generation_routes._count_value([True, False]) == 0
+
     def test_h3_context_supports_named_last_frame_only(self):
         assert generation_routes._prompt_h3_context({
             "last_frame": "last.png",

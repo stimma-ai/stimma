@@ -85,6 +85,9 @@ def _count_value(value: Any) -> int:
         return 0
     if isinstance(value, str):
         return 1 if value.strip() else 0
+    # A library media id (what an agent's call passes) is one concrete item too.
+    if isinstance(value, int) and not isinstance(value, bool):
+        return 1
     return 0
 
 
