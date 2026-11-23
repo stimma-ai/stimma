@@ -109,8 +109,6 @@ async function reconcileJobs() {
     const active = new Map()
     const phases = new Map()
     for (const job of pages.flat()) {
-      // Live again: a retry whose queue event this page missed.
-      settledJobIds.delete(job.id)
       if (!active.has(job.id)) active.set(job.id, bucketFor(job))
       const phase = phaseFor(job, job.status === 'processing')
       if (phase.instanceId || phase.chatId) phases.set(job.id, phase)
@@ -131,6 +129,8 @@ async function reconcileJobs() {
       }
     }
     jobPhases.value = phases
+    // Live again: a retry whose queue event this page missed.
+    for (const id of active.keys()) settledJobIds.delete(id)
     const tasks = {}, instances = {}
     countedJobs.clear()
     for (const [id, bucket] of active) {
