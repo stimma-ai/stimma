@@ -1151,6 +1151,7 @@ import EntityIcon from './EntityIcon.vue'
 import RenameSheet from './compact/RenameSheet.vue'
 import StatusDot from './ui/StatusDot.vue'
 import Spinner from './ui/Spinner.vue'
+import { holdKeys } from '../utils/heldKeys.js'
 import Tooltip from './ui/Tooltip.vue'
 import ActionMenu from './ActionMenu.vue'
 import WorkspaceTabsContextMenu from './WorkspaceTabsContextMenu.vue'
@@ -1372,6 +1373,13 @@ function isContextTab(tab: WorkspaceTab) {
 }
 const pinnedTabs = computed(() => allPinnedTabs.value.filter(isContextTab))
 const openTabs = computed(() => allOpenTabs.value.filter(isContextTab))
+// Held per tab, so the handoff between one job and the next (on any of the
+// tab's clients) never flashes the stalled clock.
+const stalledTabIds = holdKeys(
+  () => new Set([...pinnedTabs.value, ...openTabs.value].filter(isTabStalledNow).map(tab => tab.id)),
+  3000,
+)
+const isTabStalled = (tab: WorkspaceTab) => stalledTabIds.value.has(tab.id)
 const editorTabs = computed(() => allEditorTabs.value.filter(isContextTab))
 const visibleTabIds = computed(() => allTabs.value.filter(isContextTab).map(t => t.id))
 // Drag-drop state
@@ -1795,7 +1803,7 @@ function isTabGenerating(tab: WorkspaceTab): boolean {
 }
 
 // Working, but everything it is waiting on sits in the generation queue.
-function isTabStalled(tab: WorkspaceTab): boolean {
+function isTabStalledNow(tab: WorkspaceTab): boolean {
   if (tab.type === 'tool') {
     return tab.feedScope ? isFeedScopeStalled(tab.feedScope) : isToolStalled(tab.entityId, tab.projectId ?? null)
   }

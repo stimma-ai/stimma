@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 
 function fixture(mobile, initialJobs = []) {
   const source = readFileSync(new URL('../src/composables/useGenerationStatus.js', import.meta.url), 'utf8')
@@ -9,8 +9,8 @@ function fixture(mobile, initialJobs = []) {
   const handlers = new Map()
   let jobs = initialJobs
   let gate = null
-  const make = new Function('ref', 'computed', 'watch', 'mobileRecoveryEnabled', 'useWebSocket', 'fetch', 'window', `${source}; useGenerationStatus(); return { activeJobsByInstanceId, reconcileJobs, status: useGenerationStatus() }`)
-  const state = make(ref, computed, watch, mobile, () => ({ on: (name, fn) => handlers.set(name, fn) }),
+  const make = new Function('ref', 'computed', 'mobileRecoveryEnabled', 'useWebSocket', 'fetch', 'window', `${source}; useGenerationStatus(); return { activeJobsByInstanceId, reconcileJobs, status: useGenerationStatus() }`)
+  const state = make(ref, computed, mobile, () => ({ on: (name, fn) => handlers.set(name, fn) }),
     async url => { const snapshot = jobs; await gate; return { ok: true, json: async () => ({ jobs: snapshot.filter(job => job.status === new URL(url, "http://fixture").searchParams.get("status")) }) } }, new EventTarget())
   return { state, emit: (name, data) => handlers.get(name)?.(data), setJobs: value => { jobs = value }, hold: () => { let open; gate = new Promise(resolve => { open = resolve }); return () => { gate = null; open() } } }
 }
@@ -68,57 +68,38 @@ test('desktop rebuilds its counts from the server once the socket is back', asyn
 
 const settle = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-test('a tool whose jobs all sit in the queue reads stalled only after the hold', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] })
+test('a tool whose jobs all sit in the queue reads stalled until one starts', () => {
   const f = fixture(false)
   const { isToolStalled } = f.state.status
   f.emit('generation_job_queued', { job: { id: 1, generator_instance_id: 'tool-p_t@@a' } })
-  await Promise.resolve()
-  assert.equal(isToolStalled('p:t'), false)
-  t.mock.timers.tick(3000)
   assert.equal(isToolStalled('p:t'), true)
-  // Starting clears it at once.
   f.emit('generation_job_started', { job: { id: 1, generator_instance_id: 'tool-p_t@@a' } })
-  await Promise.resolve()
   assert.equal(isToolStalled('p:t'), false)
 })
 
-test('a quick handoff between jobs never reads stalled', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] })
+test('one tab across two clients is stalled only while neither is moving', () => {
   const f = fixture(false)
-  const { isToolStalled } = f.state.status
-  f.emit('generation_job_queued', { job: { id: 1, generator_instance_id: 'tool-p_t' } })
-  f.emit('generation_job_started', { job: { id: 1, generator_instance_id: 'tool-p_t' } })
-  f.emit('generation_job_queued', { job: { id: 2, generator_instance_id: 'tool-p_t' } })
-  f.emit('generation_job_completed', { job: { id: 1, generator_instance_id: 'tool-p_t' } })
-  await Promise.resolve()
-  t.mock.timers.tick(500)
-  f.emit('generation_job_started', { job: { id: 2, generator_instance_id: 'tool-p_t' } })
-  await Promise.resolve()
-  t.mock.timers.tick(5000)
-  assert.equal(isToolStalled('p:t'), false)
+  const { isFeedScopeStalled } = f.state.status
+  f.emit('generation_job_queued', { job: { id: 1, generator_instance_id: 'tool-p_t@@a' } })
+  f.emit('generation_job_queued', { job: { id: 2, generator_instance_id: 'tool-p_t@@b' } })
+  f.emit('generation_job_started', { job: { id: 2, generator_instance_id: 'tool-p_t@@b' } })
+  assert.equal(isFeedScopeStalled('p_t'), false)
+  f.emit('generation_job_completed', { job: { id: 2, generator_instance_id: 'tool-p_t@@b' } })
+  assert.equal(isFeedScopeStalled('p_t'), true)
 })
 
-test('a chat whose generations wait in the queue reads stalled, again after a requeue', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] })
+test('a chat whose generations wait in the queue reads stalled, again after a requeue', () => {
   const f = fixture(false)
   const { isChatGenerationStalled } = f.state.status
   const job = { id: 7, generator_instance_id: 'agent', output_context_kind: 'chat', output_context_id: '42' }
   f.emit('generation_job_queued', { job })
-  await Promise.resolve()
-  t.mock.timers.tick(3000)
   assert.equal(isChatGenerationStalled(42), true)
   f.emit('generation_job_started', { job })
-  await Promise.resolve()
   assert.equal(isChatGenerationStalled(42), false)
   // A requeue (provider dropped) puts it back to waiting.
   f.emit('generation_job_queued', { job })
-  await Promise.resolve()
-  t.mock.timers.tick(3000)
   assert.equal(isChatGenerationStalled(42), true)
   f.emit('generation_job_completed', { job })
-  await Promise.resolve()
-  t.mock.timers.tick(5000)
   assert.equal(isChatGenerationStalled(42), false)
 })
 
@@ -126,4 +107,18 @@ test('a page loaded mid-generation learns of jobs already in flight', async () =
   const f = fixture(false, [{ id: 1, status: 'processing', generator_instance_id: 'tool-p_t' }])
   await settle(10)
   assert.deepEqual(f.state.activeJobsByInstanceId.value, { 'tool-p_t': 1 })
+})
+
+test('a job that starts while the snapshot is read is still counted', async () => {
+  const f = fixture(false)
+  await settle(10)
+  const release = f.hold()
+  const reconciled = f.state.reconcileJobs()
+  // Queued before the page loaded; started between the status reads.
+  f.emit('generation_job_started', { job: { id: 5, generator_instance_id: 'tool-p_t' } })
+  release()
+  await reconciled
+  assert.deepEqual(f.state.activeJobsByInstanceId.value, { 'tool-p_t': 1 })
+  f.emit('generation_job_completed', { job: { id: 5, generator_instance_id: 'tool-p_t' } })
+  assert.deepEqual(f.state.activeJobsByInstanceId.value, {})
 })

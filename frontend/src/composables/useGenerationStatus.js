@@ -1,5 +1,5 @@
 import { mobileRecoveryEnabled } from './useMobileRecovery.js'
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useWebSocket } from './useWebSocket'
 
 // Shared state across all instances - track by task type and generator instance
@@ -23,12 +23,6 @@ const countedJobs = new Map()
 // nothing of its own running. Separate from the counts above, which also
 // cover jobs whose queue event predates this connection.
 const jobPhases = ref(new Map())
-// Keys ('i:<instance>' / 'c:<chat>') that have been stalled for at least
-// STALL_HOLD_MS. The hold keeps the handoff between one job finishing and
-// the next starting from flashing the stalled icon.
-const STALL_HOLD_MS = 3000
-const stalledKeys = ref(new Set())
-const stallTimers = new Map()
 let initialized = false
 let pendingWorkEpoch = 0
 let recoverySequence = 0
@@ -44,6 +38,9 @@ function phaseFor(job, started) {
 }
 
 function setPhase(id, phase) {
+  // Only jobs that a tool or chat row can show.
+  if (phase && !phase.instanceId && !phase.chatId) phase = null
+  if (!phase && !jobPhases.value.has(id)) return
   const next = new Map(jobPhases.value)
   if (phase) next.set(id, phase)
   else next.delete(id)
@@ -66,6 +63,9 @@ const activityByKey = computed(() => {
   return byKey
 })
 
+// Instances ('i:<id>') and chats ('c:<id>') with work waiting in the queue
+// and none of it moving. Raw: the sidebar holds a tab's state before showing
+// it, so the handoff between one job and the next never flashes the icon.
 const rawStalledKeys = computed(() => {
   const keys = new Set()
   for (const [key, a] of activityByKey.value) {
@@ -75,26 +75,6 @@ const rawStalledKeys = computed(() => {
     keys.add(key)
   }
   return keys
-})
-
-watch(rawStalledKeys, (raw) => {
-  let changed = false
-  const held = new Set(stalledKeys.value)
-  for (const key of held) {
-    if (!raw.has(key)) { held.delete(key); changed = true }
-  }
-  for (const [key, timer] of stallTimers) {
-    if (!raw.has(key)) { clearTimeout(timer); stallTimers.delete(key) }
-  }
-  for (const key of raw) {
-    if (held.has(key) || stallTimers.has(key)) continue
-    stallTimers.set(key, setTimeout(() => {
-      stallTimers.delete(key)
-      if (!rawStalledKeys.value.has(key)) return
-      stalledKeys.value = new Set([...stalledKeys.value, key])
-    }, STALL_HOLD_MS))
-  }
-  if (changed) stalledKeys.value = held
 })
 
 function bucketFor(job) {
@@ -122,16 +102,19 @@ async function reconcileJobs() {
     const phases = new Map()
     for (const job of pages.flat()) {
       if (!active.has(job.id)) active.set(job.id, bucketFor(job))
-      phases.set(job.id, phaseFor(job, job.status === 'processing'))
+      const phase = phaseFor(job, job.status === 'processing')
+      if (phase.instanceId || phase.chatId) phases.set(job.id, phase)
     }
     // Replay by job id: idempotent whether or not the snapshot already saw an event.
     for (const event of events) {
       if (event.type === 'queued') {
         if (!active.has(event.id)) active.set(event.id, event.bucket)
-        phases.set(event.id, event.phase)
+        if (event.phase.instanceId || event.phase.chatId) phases.set(event.id, event.phase)
       } else if (event.type === 'started') {
+        // It may have moved from queued to processing between the reads.
+        if (!active.has(event.id)) active.set(event.id, event.bucket)
         const phase = phases.get(event.id) || event.phase
-        phases.set(event.id, { ...phase, started: true })
+        if (phase.instanceId || phase.chatId) phases.set(event.id, { ...phase, started: true })
       } else {
         active.delete(event.id)
         phases.delete(event.id)
@@ -240,9 +223,16 @@ export function useGenerationStatus() {
       const jobId = data?.job?.id
       if (jobId == null) return
       const fullJob = { ...data.job, generator_instance_id: data.job.generator_instance_id || data?.generator_instance_id }
-      journal?.push({ type: 'started', id: jobId, phase: phaseFor(fullJob, true) })
+      journal?.push({ type: 'started', id: jobId, bucket: bucketFor(fullJob), phase: phaseFor(fullJob, true) })
       const known = jobPhases.value.get(jobId)
       setPhase(jobId, known ? { ...known, started: true } : phaseFor(fullJob, true))
+      // Queued before this page learned of it: count it now.
+      if (!countedJobs.has(jobId)) {
+        const bucket = bucketFor(fullJob)
+        countedJobs.set(jobId, bucket)
+        if (bucket.instanceId) incrementInstanceCount(activeJobsByInstanceId, bucket.instanceId)
+        else activeJobsByTaskType.value[bucket.taskType] = (activeJobsByTaskType.value[bucket.taskType] || 0) + 1
+      }
     })
 
     // Listen for job settle events (decrement). Only jobs we actually counted
@@ -389,12 +379,12 @@ export function useGenerationStatus() {
   }
 
   // Stalled: this tool's work is waiting in the generation queue and none of
-  // it is moving — no job of its own started, no prompt work under way —
-  // and that has held for STALL_HOLD_MS. Any instance that is moving makes
-  // the whole tab busy, not stalled.
+  // it is moving — no job of its own started, no prompt work under way. Any
+  // instance that is moving makes the whole tab busy, not stalled. Raw state;
+  // the caller holds it before showing it.
   const stalledAmong = (matches) => {
     let stalled = false
-    for (const key of stalledKeys.value) {
+    for (const key of rawStalledKeys.value) {
       if (key.startsWith('i:') && matches(key.slice(2))) { stalled = true; break }
     }
     if (!stalled) return false
@@ -407,8 +397,8 @@ export function useGenerationStatus() {
     stalledAmong(instanceId => instanceMatchesTool(instanceId, toolId, projectId))
   const isFeedScopeStalled = (feedScope) =>
     stalledAmong(instanceId => instanceMatchesFeedScope(instanceId, feedScope))
-  // The chat's generations are all waiting in the queue (same hold).
-  const isChatGenerationStalled = (chatId) => stalledKeys.value.has(`c:${chatId}`)
+  // The chat's generations are all waiting in the queue.
+  const isChatGenerationStalled = (chatId) => rawStalledKeys.value.has(`c:${chatId}`)
 
   // Computed for total active jobs (backwards compatible)
   const activeJobCount = computed(() => {
