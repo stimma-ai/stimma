@@ -135,6 +135,15 @@ async def test_load_everything_then_save_everything_keeps_each_source(studio):
     assert [await _sources(studio["session"], m) for m in saved] == [[r] for r in studio["results"]]
 
 
+async def test_an_image_saved_straight_from_code_keeps_its_source(studio):
+    result = studio["results"][0]
+    printed = await studio["run"](
+        f"crop = Image.open((await stimma.library.get({result})).path).crop((0, 0, 9, 9))\n"
+        "print(json.dumps((await stimma.library.save(crop))['media_id']))\n"
+    )
+    assert await _sources(studio["session"], _printed_json(printed)) == [result]
+
+
 async def test_several_sources_are_a_new_thing_made_of_them(studio):
     a, b = studio["results"][:2]
     result = await studio["run"](

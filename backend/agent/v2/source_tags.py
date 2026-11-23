@@ -111,10 +111,11 @@ class SourcedArray(numpy.ndarray):
         setattr(self, _ATTR, getattr(obj, _ATTR, None) or ())
 
     def __array_ufunc__(self, ufunc, method, *inputs, out=None, **kwargs):
-        keys = _collect((*inputs, *(out or ())))
-        inputs = tuple(i.view(numpy.ndarray) if isinstance(i, SourcedArray) else i for i in inputs)
+        keys = _collect((*inputs, *(out or ()), *kwargs.values()))
+        inputs = tuple(_plain(i) for i in inputs)
+        kwargs = {name: _plain(value) for name, value in kwargs.items()}  # where=mask
         if out is not None:
-            kwargs["out"] = tuple(o.view(numpy.ndarray) if isinstance(o, SourcedArray) else o for o in out)
+            kwargs["out"] = tuple(_plain(o) for o in out)
         result = getattr(ufunc, method)(*inputs, **kwargs)
         if out is not None:
             # In place (a += b): hand back the caller's own arrays, retagged.
@@ -132,8 +133,12 @@ class SourcedArray(numpy.ndarray):
     def __setitem__(self, index, value):
         super().__setitem__(index, value)
         extra = sources_of(value)
-        if extra:
-            tag(self, (*sources_of(self), *extra))
+        target = self
+        while extra and isinstance(target, numpy.ndarray):
+            # A view shares its pixels with the array it was cut from.
+            if isinstance(target, SourcedArray):
+                tag(target, (*sources_of(target), *extra))
+            target = target.base
 
     def __reduce__(self):
         # Pickles and np.save as a plain array.
@@ -142,6 +147,10 @@ class SourcedArray(numpy.ndarray):
 
 # Printed like any other array: repr() names the class.
 SourcedArray.__name__ = "array"
+
+
+def _plain(value: Any) -> Any:
+    return value.view(numpy.ndarray) if isinstance(value, SourcedArray) else value
 
 
 def _retag(result: Any, keys: tuple[Key, ...]) -> Any:
@@ -159,9 +168,8 @@ def _retag(result: Any, keys: tuple[Key, ...]) -> Any:
 def _array_entry(func):
     """np.array / np.asarray: an array made from a tagged image keeps its tag."""
     @functools.wraps(func)
-    def wrapper(obj, *args, **kwargs):
-        result = func(obj, *args, **kwargs)
-        return _retag(result, _collect([obj]))
+    def wrapper(*args, **kwargs):
+        return _retag(func(*args, **kwargs), _collect((*args[:1], kwargs.get("object"), kwargs.get("a"))))
     return wrapper
 
 

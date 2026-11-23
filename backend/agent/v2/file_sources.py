@@ -133,16 +133,19 @@ async def record_sources(workspace_dir: Path | str | None, outputs: Sequence[Pat
         _write_ledger(workspace_dir, {d: _entry(sources, base if base in sources else None) for d in digests})
 
 
-async def library_ids_by_hash(session, digests: Sequence[str]) -> dict[str, int]:
+async def library_ids_by_hash(session, digests: Sequence[str], *, available: bool = False) -> dict[str, int]:
+    """Library items by content hash. ``available``: only ones whose file can
+    be read (to show the item itself, not just name it as a source)."""
     if not digests:
         return {}
-    rows = await session.execute(
-        select(MediaItem.file_hash, MediaItem.id).where(
-            MediaItem.file_hash.in_(list(set(digests))),
-            MediaItem.deleted_at.is_(None),
-            MediaItem.deletion_pending_at.is_(None),
-        ).order_by(MediaItem.id.desc())
+    query = select(MediaItem.file_hash, MediaItem.id).where(
+        MediaItem.file_hash.in_(list(set(digests))),
+        MediaItem.deleted_at.is_(None),
+        MediaItem.deletion_pending_at.is_(None),
     )
+    if available:
+        query = query.where((MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None)))  # noqa: E712
+    rows = await session.execute(query.order_by(MediaItem.id.desc()))
     found: dict[str, int] = {}
     for file_hash, media_id in rows.all():
         found.setdefault(file_hash, media_id)

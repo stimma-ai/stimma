@@ -1166,6 +1166,11 @@ class StimmaLibraryAPI:
             fname = f"composed_{digest}.png"
             img_path = self._sdk.workspace_dir / fname
             png_compatible(item).save(img_path, format="PNG")
+            # This write is the platform's, on the app loop: record what the
+            # image carried ourselves.
+            from .file_sources import note_written
+            from .source_tags import sources_of
+            note_written(self._sdk.workspace_dir, img_path, sources_of(item))
             item = str(img_path)
         provenance = None
         if isinstance(item, ToolResult):
@@ -3444,8 +3449,11 @@ class StimmaSDK:
         for path in paths:
             full = Path(path) if Path(path).is_absolute() else Path(self.workspace_dir) / path
             digest = await asyncio.to_thread(file_digest, full)
-            existing = (await library_ids_by_hash(session, [digest])).get(digest) if digest else None
+            existing = (await library_ids_by_hash(session, [digest], available=True)).get(digest) if digest else None
             if existing is not None:
+                if self.project_id is not None:
+                    from project_service import attach_media_to_project
+                    await attach_media_to_project(session, self.project_id, existing)
                 saved_ids.append(existing)
                 continue
             if digest and not await sources_for_file(session, self.workspace_dir, full):

@@ -74,6 +74,14 @@ def test_arrays_made_from_images_carry_the_tag_through_numpy(pair):
     }
     assert {name: sorted(sources_of(v)) for name, v in both.items()} == dict.fromkeys(both, ["A", "B"])
     assert sources_of(Image.fromarray((arr * 0.5).astype(np.uint8))) == ("A",)
+    # A mask cut from one image steering math on another counts as both.
+    assert sorted(sources_of(np.add(arr, 1, where=brr > 0))) == ["A", "B"]
+    # Writing through a view changes the array it was cut from.
+    whole = arr.copy()
+    tile = whole[:, :8]
+    tile[:] = brr[:, :8]
+    assert sorted(sources_of(whole)) == ["A", "B"]
+    assert sources_of(np.array(object=a)) == sources_of(np.asarray(a=a)) == ("A",)
 
 
 def test_what_is_not_pixels_carries_no_tag(pair):

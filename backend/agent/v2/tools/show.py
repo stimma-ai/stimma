@@ -587,18 +587,21 @@ async def _auto_save_path(
     try:
         from ..file_sources import file_digest, library_ids_by_hash
 
-        full = Path(path) if Path(path).is_absolute() else Path(workspace_dir or ".") / path
-        digest = await asyncio.to_thread(file_digest, full)
-        if digest and session:
-            existing = (await library_ids_by_hash(session, [digest])).get(digest)
-            if existing is not None:
-                return existing
-
         project_id = None
         if chat_id and session:
             from database import Chat
             chat = await session.get(Chat, chat_id)
             project_id = chat.project_id if chat is not None else None
+
+        full = Path(path) if Path(path).is_absolute() else Path(workspace_dir or ".") / path
+        digest = await asyncio.to_thread(file_digest, full)
+        if digest and session:
+            existing = (await library_ids_by_hash(session, [digest], available=True)).get(digest)
+            if existing is not None:
+                if project_id is not None:
+                    from project_service import attach_media_to_project
+                    await attach_media_to_project(session, project_id, existing)
+                return existing
 
         raw = await save_workspace_file(
             session=session,
