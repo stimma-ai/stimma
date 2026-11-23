@@ -26,7 +26,8 @@ test('older messages carry the day', () => {
   const older = new Date(YEAR, 10, 20, 9, 5)
   assert.equal(formatMessageTime(naiveUtc(older), NOW), `${formatDate(older)}, ${clock(older)}`)
   const lastYear = new Date(YEAR - 1, 10, 20, 9, 5)
-  assert.match(formatMessageTime(naiveUtc(lastYear), NOW), new RegExp(String(YEAR - 1)))
+  const lastYearDate = lastYear.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  assert.equal(formatMessageTime(naiveUtc(lastYear), NOW), `${lastYearDate}, ${clock(lastYear)}`)
 })
 
 test('local midnight, not UTC midnight, splits days', () => {
@@ -40,5 +41,6 @@ test('missing or bad values render nothing', () => {
   assert.equal(formatMessageTime(null, NOW), '')
   assert.equal(formatMessageTime('nope', NOW), '')
   assert.equal(formatFullTime(''), '')
-  assert.notEqual(formatFullTime(naiveUtc(new Date(YEAR, 10, 23, 14, 42, 7))), '')
+  const sent = new Date(YEAR, 10, 23, 14, 42, 7)
+  assert.equal(formatFullTime(naiveUtc(sent)), sent.toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'medium' }))
 })
