@@ -411,7 +411,8 @@
                     <span class="flex-1 min-w-0 truncate text-sm" @dblclick.stop="!isMobile && startInlineRename(tab)">
                       {{ getToolTabTitle(tab) }}
                     </span>
-                    <Spinner v-if="isTabGenerating(tab)" size="sm" hue="border-t-blue-500" />
+                    <span v-if="isTabStalled(tab)" class="flex flex-shrink-0" title="Waiting in the generation queue"><ClockIcon class="h-3.5 w-3.5 text-amber-500" /></span>
+                    <Spinner v-else-if="isTabGenerating(tab)" size="sm" hue="border-t-blue-500" />
                     <StatusDot
                       v-else-if="unseenKindFor(tab.id)"
                       :bucket="unseenKindFor(tab.id) === 'error' ? 'failed' : 'running'"
@@ -531,8 +532,13 @@
                   </span>
                   <!-- Working: spinner. The dot is reserved for "finished since
                        you last looked". -->
+                  <span
+                    v-if="tab.type === 'chat' && isTabStalled(tab)"
+                    class="flex flex-shrink-0 self-center"
+                    title="Waiting in the generation queue"
+                  ><ClockIcon class="h-3.5 w-3.5 text-amber-500" /></span>
                   <Spinner
-                    v-if="isTabGenerating(tab) && tab.type !== 'flow' && tab.type !== 'tool'"
+                    v-else-if="isTabGenerating(tab) && tab.type !== 'flow' && tab.type !== 'tool'"
                     size="sm"
                     hue="border-t-blue-500"
                     class="self-center"
@@ -726,7 +732,8 @@
                     <span class="flex-1 min-w-0 truncate text-sm" @dblclick.stop="!isMobile && startInlineRename(tab)">
                       {{ getToolTabTitle(tab) }}
                     </span>
-                    <Spinner v-if="isTabGenerating(tab)" size="sm" hue="border-t-blue-500" />
+                    <span v-if="isTabStalled(tab)" class="flex flex-shrink-0" title="Waiting in the generation queue"><ClockIcon class="h-3.5 w-3.5 text-amber-500" /></span>
+                    <Spinner v-else-if="isTabGenerating(tab)" size="sm" hue="border-t-blue-500" />
                     <StatusDot
                       v-else-if="unseenKindFor(tab.id)"
                       :bucket="unseenKindFor(tab.id) === 'error' ? 'failed' : 'running'"
@@ -847,8 +854,13 @@
                   </span>
                   <!-- Working: spinner. The dot is reserved for "finished since
                        you last looked". -->
+                  <span
+                    v-if="tab.type === 'chat' && isTabStalled(tab)"
+                    class="flex flex-shrink-0 self-center"
+                    title="Waiting in the generation queue"
+                  ><ClockIcon class="h-3.5 w-3.5 text-amber-500" /></span>
                   <Spinner
-                    v-if="isTabGenerating(tab) && tab.type !== 'flow' && tab.type !== 'tool'"
+                    v-else-if="isTabGenerating(tab) && tab.type !== 'flow' && tab.type !== 'tool'"
                     size="sm"
                     hue="border-t-blue-500"
                     class="self-center"
@@ -1263,7 +1275,7 @@ onUpdated(() => nextTick(updateNavEdge))
 onUnmounted(() => navResizeObserver?.disconnect())
 
 // Generation status
-const { isToolActive: isToolGenerating, isFeedScopeActive } = useGenerationStatus()
+const { isToolActive: isToolGenerating, isFeedScopeActive, isToolStalled, isFeedScopeStalled, isChatGenerationStalled } = useGenerationStatus()
 
 // Finished-while-away dots (blue = done, red = failed)
 const { unseenKindFor } = useUnseenActivity()
@@ -1779,6 +1791,15 @@ function isTabGenerating(tab: WorkspaceTab): boolean {
     return tab.feedScope ? isFeedScopeActive(tab.feedScope) : isToolGenerating(tab.entityId, tab.projectId ?? null)
   }
   if (tab.type === 'chat') return isChatWorking(tab.entityId)
+  return false
+}
+
+// Working, but everything it is waiting on sits in the generation queue.
+function isTabStalled(tab: WorkspaceTab): boolean {
+  if (tab.type === 'tool') {
+    return tab.feedScope ? isFeedScopeStalled(tab.feedScope) : isToolStalled(tab.entityId, tab.projectId ?? null)
+  }
+  if (tab.type === 'chat') return isChatWorking(tab.entityId) && isChatGenerationStalled(tab.entityId)
   return false
 }
 
