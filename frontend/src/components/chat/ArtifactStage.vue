@@ -413,6 +413,10 @@ function toggleAudition() {
   auditionProgress.value = 0
   if (el.paused) void el.play().catch(() => stopAudition())
 }
+// The speaker's hover slider moves the pass that is playing.
+watch(videoVolume, (volume) => {
+  if (auditionActive.value && videoRef.value) videoRef.value.volume = Math.max(0.05, volume)
+})
 // Whether the clip has a sound track: unknown (null) until the browser can
 // tell, which it does once a little of the quiet loop has played.
 const hasAudio = ref<boolean | null>(null)
@@ -530,9 +534,10 @@ function onKeydown(event: KeyboardEvent) {
   } else if (event.key === ' ' && heroKind.value === 'video' && !target?.closest?.('button,a,summary')) {
     event.preventDefault()
     videoTransport.togglePlayback()
-  } else if (event.key === 'Enter' && heroOpensSlideshow.value && !target?.closest?.('button,a,summary')) {
+  } else if (event.key === 'Enter' && canOpenSlideshow.value && !target?.closest?.('button,a,summary')) {
     event.preventDefault()
-    onHeroClick()
+    stopAudition()
+    openSlideshow()
   }
 }
 
