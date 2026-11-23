@@ -23,6 +23,14 @@ const countedJobs = new Map()
 // nothing of its own running. Separate from the counts above, which also
 // cover jobs whose queue event predates this connection.
 const jobPhases = ref(new Map())
+// Jobs that settled recently. A worker can announce a start for a job that
+// was cancelled under it, after the cancel event; that start is stale. A
+// retry requeues the same id, which clears it. Bounded, oldest first.
+const settledJobIds = new Set()
+function rememberSettled(id) {
+  settledJobIds.add(id)
+  if (settledJobIds.size > 500) settledJobIds.delete(settledJobIds.values().next().value)
+}
 let initialized = false
 let pendingWorkEpoch = 0
 let recoverySequence = 0
@@ -190,6 +198,7 @@ export function useGenerationStatus() {
       const jobId = data?.job?.id
       const fullJob = { ...data?.job, generator_instance_id: data?.job?.generator_instance_id || data?.generator_instance_id }
       if (jobId != null) {
+        settledJobIds.delete(jobId)
         journal?.push({ type: 'queued', id: jobId, bucket: bucketFor(fullJob), phase: phaseFor(fullJob, false) })
         // A requeue (provider disconnect) puts a started job back to waiting.
         setPhase(jobId, phaseFor(fullJob, false))
@@ -222,9 +231,7 @@ export function useGenerationStatus() {
     onWebSocketEvent('generation_job_started', (data) => {
       const jobId = data?.job?.id
       if (jobId == null) return
-      // A worker can announce a start for a job cancelled under it, after
-      // the cancel event; that job is not running.
-      if (['completed', 'failed', 'cancelled'].includes(data.job.status)) return
+      if (settledJobIds.has(jobId) || ['completed', 'failed', 'cancelled'].includes(data.job.status)) return
       const fullJob = { ...data.job, generator_instance_id: data.job.generator_instance_id || data?.generator_instance_id }
       journal?.push({ type: 'started', id: jobId, bucket: bucketFor(fullJob), phase: phaseFor(fullJob, true) })
       const known = jobPhases.value.get(jobId)
@@ -245,6 +252,7 @@ export function useGenerationStatus() {
     const onJobSettled = (label) => (data) => {
       const jobId = data?.job?.id
       if (jobId != null) {
+        rememberSettled(jobId)
         journal?.push({ type: 'settled', id: jobId })
         if (jobPhases.value.has(jobId)) setPhase(jobId, null)
       }
