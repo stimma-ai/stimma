@@ -113,7 +113,7 @@ const VERDICT_ORDER = ['up', 'down', 's5', 's4', 's3', 's2', 's1']
 export function sentReviewLayout(items: SentReviewItem[]): { rows: SentReviewRow[]; groups: SentReviewGroup[] } {
   const all = items.map(item => ({ ...item, mark: sentReviewMark(item) }))
   if (all.filter(verdictKey).length <= REVIEW_GROUP_AFTER) return { rows: all, groups: [] }
-  const groups = VERDICT_ORDER.flatMap(key => {
+  const groups = VERDICT_ORDER.flatMap<SentReviewGroup>(key => {
     const members = all.filter(item => verdictKey(item) === key)
     if (!members.length) return []
     if (key === 'up') return [{ key, title: 'Kept', mark: { thumb: 'up' as const }, items: members }]

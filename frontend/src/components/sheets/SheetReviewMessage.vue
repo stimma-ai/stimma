@@ -9,7 +9,7 @@
       <span class="min-w-0 break-words">Review of {{ review.title || 'the contact sheet' }}</span>
     </button>
     <ul v-if="rows.length" class="m-0 list-none space-y-1.5 p-0">
-      <li v-for="(item, index) in rows" :key="index" class="flex items-center gap-2 text-[12.5px]">
+      <li v-for="(item, index) in rows" :key="index" class="flex gap-2 text-[12.5px]" :class="item.mark ? 'items-center' : 'items-start'">
         <span class="h-8 w-8 flex-none overflow-hidden rounded-media bg-matte">
           <MediaImage
             v-if="item.media_id"
@@ -50,7 +50,7 @@
           v-for="(item, index) in group.items"
           :key="index"
           class="h-10 w-10 flex-none overflow-hidden rounded-media bg-matte"
-          :title="item.about || undefined"
+          :title="[item.about, ...(item.mark?.labels || [])].filter(Boolean).join(' · ') || undefined"
         >
           <MediaImage
             v-if="item.media_id"
@@ -108,12 +108,13 @@ const RatingMark = defineComponent({
     return () => {
       const size = markProps.small ? 'h-3.5 w-3.5' : 'h-4 w-4'
       const marks = []
-      if (markProps.mark.thumb === 'up') marks.push(h(HandThumbUpIcon, { class: `${size} text-accent-hi`, 'aria-label': 'Thumbs up' }))
-      if (markProps.mark.thumb === 'down') marks.push(h(HandThumbDownIcon, { class: `${size} text-red-400`, 'aria-label': 'Thumbs down' }))
+      if (markProps.mark.thumb === 'up') marks.push(h(HandThumbUpIcon, { class: `${size} text-accent-hi` }), h('span', { class: 'sr-only' }, 'Thumbs up'))
+      if (markProps.mark.thumb === 'down') marks.push(h(HandThumbDownIcon, { class: `${size} text-red-400` }), h('span', { class: 'sr-only' }, 'Thumbs down'))
       if (markProps.mark.stars) {
-        marks.push(h('span', { class: 'inline-flex items-center gap-0.5 tabular-nums text-content', 'aria-label': `${markProps.mark.stars} of 5 stars` }, [
+        marks.push(h('span', { class: 'inline-flex items-center gap-0.5 tabular-nums text-content' }, [
           h(StarIcon, { class: `${markProps.small ? 'h-3 w-3' : 'h-3.5 w-3.5'} text-amber-400` }),
-          String(markProps.mark.stars),
+          h('span', { 'aria-hidden': 'true' }, String(markProps.mark.stars)),
+          h('span', { class: 'sr-only' }, `${markProps.mark.stars} of 5 stars`),
         ]))
       }
       return marks.length ? h('span', { class: 'flex flex-none items-center gap-1.5' }, marks) : null
