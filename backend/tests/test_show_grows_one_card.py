@@ -79,7 +79,6 @@ async def test_a_shown_workspace_file_does_not_hold_back_later_results(db_sessio
     async with db_session() as session:
         sdk = StimmaSDK(session=session, chat_id=chat_id, workspace_dir=tmp_path,
                         project_workspace_dir=None, interrupt_checker=lambda: False)
-        sdk._session_media_ids.append(media_id)  # the file is an edit of it: lineage is looked up
         sdk.show("crop.png", role="intermediate", title="Crops")
         sdk.show(media_id, role="intermediate", title="Generated")
         await sdk._flush_display_live()

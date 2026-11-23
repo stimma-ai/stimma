@@ -271,9 +271,52 @@ test('editor and agent-edit steps offer no "use these settings"', () => {
   const p = buildProvenance(generated(), { tools })
   assert.ok(p.steps[0].settings)
   assert.equal(p.steps[1].settings, null)
-  const agent = buildProvenance({ id: 2, generation_metadata: { task_type: 'agent_edit', tool_id: 'a:b' } })
+  const agent = buildProvenance({ id: 2, generation_metadata: { task_type: 'agent_edit', tool_id: 'a:b', source_inputs: [{ media_id: 1, role: 'source_image' }] } })
   assert.equal(agent.steps[0].tool, 'Edited by agent')
   assert.equal(agent.steps[0].settings, null)
+  const composed = buildProvenance({ id: 3, generation_metadata: { task_type: 'agent_compose', tool_id: 'a:b' } })
+  assert.equal(composed.steps[0].settings, null)
+})
+
+test('an agent edit of one file reads "Edited by agent"', () => {
+  const prov = buildProvenance({
+    id: 60,
+    generation_metadata: {
+      task_type: 'agent_edit',
+      source: 'agent_v2_run_code',
+      source_inputs: [{ media_id: 7, role: 'source_image' }],
+      lineage_trace: [{ media_id: 7, task_type: 'text-to-image' }],
+    },
+  }, { tools })
+  assert.equal(prov.steps[0].tool, 'Edited by agent')
+  assert.equal(prov.steps.length, 2)
+})
+
+test('an old agent edit with no inputs reads "Made by agent"', () => {
+  const prov = buildProvenance({ id: 61, generation_metadata: { task_type: 'agent_edit', source: 'agent_v2_run_code' } }, { tools })
+  assert.equal(prov.steps[0].tool, 'Made by agent')
+})
+
+test('an agent composition lists its inputs in one step', () => {
+  const prov = buildProvenance({
+    id: 62,
+    generation_metadata: {
+      task_type: 'agent_compose',
+      source: 'agent_v2_run_code',
+      source_inputs: [{ media_id: 1, role: 'image' }, { media_id: 2, role: 'image' }, { media_id: 3, role: 'input_audio' }],
+      lineage_trace: [],
+    },
+  }, { tools })
+  assert.equal(prov.steps.length, 1)
+  assert.equal(prov.steps[0].tool, 'Made by agent')
+  assert.deepEqual(prov.steps[0].inputs.map(i => i.mediaId), [1, 2, 3])
+})
+
+test('a file the agent made from nothing reads "Made by agent"; other code files keep their label', () => {
+  const agent = buildProvenance({ id: 63, generation_metadata: { task_type: 'code', source: 'agent_v2_run_code' } }, { tools })
+  assert.equal(agent.steps[0].tool, 'Made by agent')
+  const other = buildProvenance({ id: 64, generation_metadata: { task_type: 'code', source: 'stimma' } }, { tools })
+  assert.equal(other.steps[0].tool, 'Code')
 })
 
 test('a video stitched in agent code lists its clips, in order, as inputs', () => {

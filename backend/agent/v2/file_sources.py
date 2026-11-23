@@ -1,9 +1,9 @@
-"""Which library media a workspace file was made from, recorded at the SDK boundary.
+"""Which library media a workspace file was made from, recorded as the file is written.
 
-The agent composes media with ``stimma.ffmpeg`` and ``stimma.join_video`` and then
-saves the result with ``library save``. Without a record, that save reads as an
-import. Here the platform notes, per output file, the library media that went in,
-so a later save inherits them.
+The agent makes media in code (Pillow, NumPy, ``stimma.ffmpeg``,
+``stimma.join_video``) and then shows or saves the result. Here the platform
+notes, per output file, the library media that went into that file, so the save
+inherits exactly those. Nothing is guessed from what else the run touched.
 
 Records are keyed by the file's content hash, not its path: a copy or rename
 keeps its sources, an overwrite drops them. An input resolves to library media
@@ -11,9 +11,10 @@ when its bytes are a library item (a workspace copy, a tool result), else to the
 sources recorded for those bytes, so chains flatten: a file made from a file made
 from library clips lists the clips. The ledger lives in the chat workspace.
 
-Arbitrary pixel work (PIL, numpy) is not seen here; code declares it with
-``stimma.record_sources(out, inputs)`` (a library such as seamkit, which encodes
-from raw frames) or with ``sources=`` on save.
+Images saved from Pillow record the sources their data carried
+(``source_tags``); ffmpeg runs record theirs from the command. Anything else
+(raw frames, an external encoder) is declared with
+``stimma.record_sources(out, inputs)`` or with ``sources=`` on save.
 """
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ import hashlib
 import json
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -86,34 +88,52 @@ def _dedupe(ids: Iterable[Any]) -> list[int]:
     return list(dict.fromkeys(int(i) for i in ids if isinstance(i, int) and not isinstance(i, bool)))
 
 
-def recorded_sources(workspace_dir: Path | str | None, digest: str | None) -> list[int]:
-    if workspace_dir is None or not digest:
-        return []
-    entry = _read_ledger(workspace_dir)["files"].get(digest) or {}
-    return _dedupe(entry.get("sources") or [])
+_ledger_lock = threading.Lock()
 
 
-async def record_sources(workspace_dir: Path | str | None, outputs: Sequence[Path], sources: Sequence[int]) -> None:
-    """Note that each output file was made from ``sources`` (library media ids)."""
+def _write_ledger(workspace_dir: Path | str, entries: dict[str, dict[str, Any]]) -> None:
+    """Merge entries into the ledger. Agent code saves from its own thread while
+    the app loop records ffmpeg runs, hence the lock."""
+    from providers.result_receipt import atomic_json
+    with _ledger_lock:
+        ledger = _read_ledger(workspace_dir)
+        ledger["files"].update(entries)
+        try:
+            atomic_json(str(_ledger_path(workspace_dir)), ledger)
+        except OSError as e:
+            log.warning(f"[file-sources] could not record sources: {e}")
+
+
+def _entry(sources: Iterable[Any], base: Any = None) -> dict[str, Any]:
+    entry: dict[str, Any] = {"sources": list(sources)}
+    if base is not None:
+        entry["base"] = base
+    return entry
+
+
+def note_written(workspace_dir: Path | str, path: Path, keys: Iterable[int | str]) -> None:
+    """A file was just written from data carrying these source keys (media ids
+    or content hashes of files; see ``source_tags``). Synchronous: called from
+    inside the save."""
+    digest = file_digest(Path(path))
+    keys = [k for k in dict.fromkeys(keys) if k != digest]
+    if digest and keys:
+        _write_ledger(workspace_dir, {digest: _entry(keys)})
+
+
+async def record_sources(workspace_dir: Path | str | None, outputs: Sequence[Path], sources: Sequence[int],
+                         base: int | None = None) -> None:
+    """Note that each output file was made from ``sources`` (library media ids).
+    ``base`` names the one it is a changed version of, when there are several."""
     sources = _dedupe(sources)
     if workspace_dir is None or not outputs or not sources:
         return
     digests = [d for d in await asyncio.to_thread(lambda: [file_digest(Path(p)) for p in outputs]) if d]
-    if not digests:
-        return
-    # Read-modify-write without an await in between, so concurrent tasks on the
-    # event loop can't interleave and drop each other's entries.
-    ledger = _read_ledger(workspace_dir)
-    for digest in digests:
-        ledger["files"][digest] = {"sources": sources}
-    from providers.result_receipt import atomic_json
-    try:
-        atomic_json(str(_ledger_path(workspace_dir)), ledger)
-    except OSError as e:
-        log.warning(f"[file-sources] could not record sources: {e}")
+    if digests:
+        _write_ledger(workspace_dir, {d: _entry(sources, base if base in sources else None) for d in digests})
 
 
-async def _library_ids_by_hash(session, digests: Sequence[str]) -> dict[str, int]:
+async def library_ids_by_hash(session, digests: Sequence[str]) -> dict[str, int]:
     if not digests:
         return {}
     rows = await session.execute(
@@ -129,26 +149,62 @@ async def _library_ids_by_hash(session, digests: Sequence[str]) -> dict[str, int
     return found
 
 
+async def _resolve(session, workspace_dir: Path | str | None, keys: Sequence[Any]) -> list[int]:
+    """Source keys as library media ids, in order. A media id is itself; a
+    content hash is the library item with those bytes, else the sources recorded
+    for those bytes, so chains flatten to library media."""
+    files = _read_ledger(workspace_dir)["files"] if workspace_dir is not None else {}
+
+    def recorded(digest: str) -> list[Any]:
+        return list((files.get(digest) or {}).get("sources") or [])
+
+    # Every hash reachable through the ledger, for one library lookup.
+    reachable: dict[str, None] = {}
+    pending = [k for k in keys if isinstance(k, str)]
+    while pending:
+        digest = pending.pop()
+        if digest not in reachable:
+            reachable[digest] = None
+            pending.extend(k for k in recorded(digest) if isinstance(k, str))
+    library = await library_ids_by_hash(session, list(reachable))
+
+    out: list[int] = []
+
+    def expand(key: Any, seen: frozenset[str]) -> None:
+        if isinstance(key, int) and not isinstance(key, bool):
+            out.append(key)
+        elif isinstance(key, str):
+            if key in library:
+                out.append(library[key])
+            elif key not in seen:
+                for inner in recorded(key):
+                    expand(inner, seen | {key})
+
+    for key in keys:
+        expand(key, frozenset())
+    return list(dict.fromkeys(out))
+
+
 async def sources_for_files(session, workspace_dir: Path | str | None, paths: Sequence[Path]) -> list[int]:
     """Library media behind these files, in input order (see module docstring)."""
     digests = await asyncio.to_thread(lambda: [file_digest(Path(p)) for p in paths])
-    library = await _library_ids_by_hash(session, [d for d in digests if d])
-    out: list[int] = []
-    for digest in digests:
-        if not digest:
-            continue
-        if digest in library:
-            out.append(library[digest])
-        else:
-            out.extend(recorded_sources(workspace_dir, digest))
-    return _dedupe(out)
+    return await _resolve(session, workspace_dir, [d for d in digests if d])
+
+
+async def _saved_file_sources(session, workspace_dir: Path | str | None, path: Path) -> tuple[list[int], int | None]:
+    digest = await asyncio.to_thread(file_digest, Path(path))
+    if workspace_dir is None or not digest:
+        return [], None
+    entry = _read_ledger(workspace_dir)["files"].get(digest) or {}
+    sources = await _resolve(session, workspace_dir, entry.get("sources") or [])
+    base = entry.get("base")
+    return sources, base if base in sources else None
 
 
 async def sources_for_file(session, workspace_dir: Path | str | None, path: Path) -> list[int]:
     """Recorded sources of a file about to be saved. A file that is itself a
     library item has none of its own: saving it again is not a derivation."""
-    digest = await asyncio.to_thread(file_digest, Path(path))
-    return recorded_sources(workspace_dir, digest)
+    return (await _saved_file_sources(session, workspace_dir, path))[0]
 
 
 # --- ffmpeg argv --------------------------------------------------------------
@@ -271,13 +327,37 @@ def _kind(fmt: str | None) -> str:
     return "image"
 
 
-async def build_edit_provenance(session, source_media_ids: list[int], *, output_format: str | None = None) -> dict[str, Any]:
-    """Provenance for a file made in agent code from library media, with the
-    sources' own history inherited as lineage_trace.
+def _trace_entry(media_id: int, gen: dict) -> dict[str, Any]:
+    parameters = dict(gen.get("parameters") or {})
+    if parameters.get("seed") is None and gen.get("seed") is not None:
+        parameters["seed"] = gen["seed"]
+    return {
+        "media_id": media_id,
+        "task_type": gen.get("task_type"),
+        "tool_id": gen.get("tool_id"),
+        "model": gen.get("model"),
+        "generator": gen.get("generator"),
+        "prompt": gen.get("prompt"),
+        "negative_prompt": gen.get("negative_prompt"),
+        "parameters": parameters,
+        "generated_at": gen.get("generated_at"),
+        "source_inputs": gen.get("source_inputs") if isinstance(gen.get("source_inputs"), list) else [],
+        "seed": gen.get("seed"),
+    }
 
-    A video made from two or more videos is a stitch: its sources are its clips,
-    in order. Anything else is an agent edit of its sources.
+
+async def build_edit_provenance(session, source_media_ids: list[int], *, output_format: str | None = None,
+                                base: int | None = None) -> dict[str, Any]:
+    """Provenance for a file made in agent code from library media.
+
+    Made from one thing, it is an edit of it: the source's own history carries
+    on as ``lineage_trace`` and reads as one line. Made from several, it is a
+    new thing with those as its inputs (a video of two or more videos is a
+    stitch of its clips): each input keeps its own history, none of it is this
+    file's. ``base`` names the one input a several-source file is a changed
+    version of, which makes it an edit of that one with the rest as inputs.
     """
+    source_media_ids = list(dict.fromkeys(source_media_ids))
     provenance: dict[str, Any] = {"task_type": "agent_edit", "source_media_ids": source_media_ids}
     if not source_media_ids:
         return provenance
@@ -286,79 +366,63 @@ async def build_edit_provenance(session, source_media_ids: list[int], *, output_
     if not source_items:
         return provenance
 
+    if len(source_media_ids) == 1:
+        base = source_media_ids[0]
+    elif base not in source_media_ids:
+        base = None
+    if base is not None and base != source_media_ids[0]:
+        source_media_ids = [base, *(mid for mid in source_media_ids if mid != base)]
+        provenance["source_media_ids"] = source_media_ids
+
     video_sources = [mid for mid in source_media_ids if mid in source_items and _kind(source_items[mid].file_format) == "video"]
-    stitched = _kind(output_format) == "video" and len(set(video_sources)) >= 2
+    stitched = base is None and _kind(output_format) == "video" and len(video_sources) >= 2
     if stitched:
         provenance["task_type"] = "video-stitch"
+    elif base is None:
+        provenance["task_type"] = "agent_compose"
 
-    seen_trace_ids: set[int] = set()
     lineage_trace: list[dict] = []
-    for mid in source_media_ids:
-        source_item = source_items.get(mid)
-        if not source_item:
-            continue
-        source_gen: dict = {}
-        if source_item.generation_metadata:
+    base_item = source_items.get(base) if base is not None else None
+    if base_item is not None:
+        base_gen: dict = {}
+        if base_item.generation_metadata:
             try:
-                source_gen = json.loads(source_item.generation_metadata)
+                base_gen = json.loads(base_item.generation_metadata)
             except (TypeError, json.JSONDecodeError):
                 pass
-        for entry in (source_gen.get("lineage_trace") or []):
-            entry_id = entry.get("media_id")
-            if entry_id and entry_id not in seen_trace_ids:
-                seen_trace_ids.add(entry_id)
-                lineage_trace.append(entry)
-        if mid not in seen_trace_ids:
-            seen_trace_ids.add(mid)
-            source_parameters = dict(source_gen.get("parameters") or {})
-            if source_parameters.get("seed") is None and source_gen.get("seed") is not None:
-                source_parameters["seed"] = source_gen["seed"]
-            lineage_trace.append({
-                "media_id": mid,
-                "task_type": source_gen.get("task_type"),
-                "tool_id": source_gen.get("tool_id"),
-                "model": source_gen.get("model"),
-                "generator": source_gen.get("generator"),
-                "prompt": source_gen.get("prompt"),
-                "negative_prompt": source_gen.get("negative_prompt"),
-                "parameters": source_parameters,
-                "generated_at": source_gen.get("generated_at"),
-                "source_inputs": source_gen.get("source_inputs") if isinstance(source_gen.get("source_inputs"), list) else [],
-                "seed": source_gen.get("seed"),
-            })
+        lineage_trace = [e for e in (base_gen.get("lineage_trace") or []) if isinstance(e, dict) and e.get("media_id") != base]
+        lineage_trace.append(_trace_entry(base, base_gen))
+        # An edit carries its source's tool, for tool lineage propagation.
+        if base_gen.get("tool_id"):
+            provenance["tool_id"] = base_gen["tool_id"]
     provenance["lineage_trace"] = lineage_trace
 
     def role(mid: int) -> str:
         kind = _kind(source_items[mid].file_format)
-        if stitched and kind == "video":
-            return "clip"
-        return {"video": "input_video", "audio": "input_audio"}.get(kind, "source_image")
+        if kind == "video":
+            return "clip" if stitched else "input_video"
+        if kind == "audio":
+            return "input_audio"
+        return "source_image" if mid == base else "image"
 
     provenance["source_inputs"] = [
         {"media_id": mid, "role": role(mid), "file_path": source_items[mid].file_path}
         for mid in source_media_ids if mid in source_items
     ]
-    if not stitched:
-        # An edit carries its primary source's tool, for tool lineage propagation.
-        primary_item = source_items.get(source_media_ids[0])
-        if primary_item and primary_item.generation_metadata:
-            try:
-                primary_gen = json.loads(primary_item.generation_metadata)
-                if primary_gen.get("tool_id"):
-                    provenance["tool_id"] = primary_gen["tool_id"]
-            except (TypeError, json.JSONDecodeError):
-                pass
     return provenance
 
 
 async def provenance_for_saved_file(session, workspace_dir: Path | str | None, path: Path,
-                                    explicit: Sequence[int] | None = None) -> dict[str, Any] | None:
+                                    explicit: Sequence[int] | None = None,
+                                    based_on: int | None = None) -> dict[str, Any] | None:
     """Provenance for ``library save`` of a workspace file: recorded sources plus
     any the caller declared (declared first). None when there are none."""
-    sources = _dedupe(list(explicit or []) + await sources_for_file(session, workspace_dir, path))
+    recorded, recorded_base = await _saved_file_sources(session, workspace_dir, path)
+    sources = _dedupe([*([based_on] if based_on is not None else []), *(explicit or []), *recorded])
     if not sources:
         return None
     fmt = Path(path).suffix.lstrip(".").lower()
-    base = await build_edit_provenance(session, sources, output_format=fmt)
+    base = await build_edit_provenance(session, sources, output_format=fmt,
+                                       base=based_on if based_on is not None else recorded_base)
     base.setdefault("tool_id", None)
     return {**base, "parameters": {}, "seed": None}

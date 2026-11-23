@@ -682,13 +682,13 @@ async function fetchTree() {
 function formatEdgeLabel(edge) {
   if (!edge) return ''
   if (edge.relationship_type === 'inspired') return 'Remixed'
-  const labels = { 'image-to-image': 'Edited', 'video-to-video': 'Video edited', 'text-to-image': 'Generated', 'upscale': 'Upscaled', 'upscale-image': 'Upscaled', 'upscale-video': 'Upscaled', 'video-extend': 'Extended', 'video-stitch': 'Stitched', 'grid-creation': 'Grid', 'set-creation': 'Set', 'image-editor': 'Edited' }
+  const labels = { 'image-to-image': 'Edited', 'video-to-video': 'Video edited', 'text-to-image': 'Generated', 'upscale': 'Upscaled', 'upscale-image': 'Upscaled', 'upscale-video': 'Upscaled', 'video-extend': 'Extended', 'video-stitch': 'Stitched', 'grid-creation': 'Grid', 'set-creation': 'Set', 'image-editor': 'Edited', 'agent_edit': 'Edited by agent', 'agent_compose': 'Made by agent' }
   return labels[edge.task_type] || formatTaskTypeLabel(edge.task_type?.replace(/^.*:/, '') || '')
 }
 
 function formatNodeLabel(taskType) {
   if (!taskType) return ''
-  const labels = { 'image-to-image': 'Edited', 'video-to-video': 'Video edited', 'text-to-image': 'Generated', 'upscale': 'Upscaled', 'upscale-image': 'Upscaled', 'upscale-video': 'Upscaled', 'video-extend': 'Extended', 'video-stitch': 'Stitched', 'grid-creation': 'Grid', 'set-creation': 'Set', 'image-editor': 'Edited' }
+  const labels = { 'image-to-image': 'Edited', 'video-to-video': 'Video edited', 'text-to-image': 'Generated', 'upscale': 'Upscaled', 'upscale-image': 'Upscaled', 'upscale-video': 'Upscaled', 'video-extend': 'Extended', 'video-stitch': 'Stitched', 'grid-creation': 'Grid', 'set-creation': 'Set', 'image-editor': 'Edited', 'agent_edit': 'Edited by agent', 'agent_compose': 'Made by agent' }
   return labels[taskType] || formatTaskTypeLabel(taskType.replace(/^.*:/, ''))
 }
 

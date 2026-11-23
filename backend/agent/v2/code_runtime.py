@@ -253,6 +253,13 @@ ALLOWED_MODULES: dict[str, Any] = {
 }
 
 
+# Agent code gets NumPy whose arrays remember the images they were made from.
+from .source_tags import sandbox_numpy as _sandbox_numpy  # noqa: E402
+
+_SANDBOX_NUMPY = _sandbox_numpy()
+ALLOWED_MODULES["numpy"] = _SANDBOX_NUMPY
+
+
 # Human-readable list of the sandbox's allow-list, for embedding in agent
 # prompts. Keep in sync with ``ALLOWED_MODULES`` above — both the main
 # agent's ``run_code`` description and the flow agent's ``code()`` /
@@ -696,6 +703,12 @@ class ControlNetInput:
     height: int
 
 
+# Media a file can be "made from": saving one of these with no recorded source
+# is worth a note. Text, data and bundles are not.
+_SOURCED_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff",
+                     ".mp4", ".mov", ".webm", ".mkv", ".m4v", ".mp3", ".wav", ".flac", ".m4a", ".ogg"}
+
+
 @dataclass
 class ToolResult:
     path: Path
@@ -718,7 +731,9 @@ class ToolResult:
 
     def open(self) -> Image.Image:
         from utils.image_ops import open_oriented
-        return open_oriented(self.path)
+        from .source_tags import tag
+        image = open_oriented(self.path)
+        return tag(image, (self.media_id,)) if self.media_id is not None else image
 
     def __getitem__(self, key: str) -> Any:
         """Allow dict-style access (result['media_id']) alongside dot notation."""
@@ -1126,19 +1141,21 @@ class StimmaLibraryAPI:
         inspired_by: int | Sequence[int] | None = None,
         sources: int | Sequence[int] | None = None,
         path: "str | Path | None" = None,
+        based_on: int | None = None,
     ) -> dict[str, Any]:
         """Save to the library. Accepts a ToolResult, a PIL Image, or a
         workspace path (``path=`` is an alias for a path item).
 
-        sources=[media ids]: what the file was made from, shown in its history.
-        Files made with stimma.ffmpeg, join_video or noted with
-        stimma.record_sources already list theirs; add any you used in other
-        code (PIL, numpy)."""
+        What the file was made from is already known for images opened and
+        saved with PIL or numpy, and for stimma.ffmpeg and join_video outputs.
+        sources=[media ids] adds any that could not be seen. based_on=media id
+        names the one source a file made from several is a changed version of
+        (a photo with a logo added is based on the photo)."""
         return await self._save_payload(item, tags, inspired_by, sources, path,
-                                        materialize_asset=True)
+                                        materialize_asset=True, based_on=based_on)
 
     async def _save_payload(self, item=None, tags=None, inspired_by=None,
-                            sources=None, path=None, *, materialize_asset=False):
+                            sources=None, path=None, *, materialize_asset=False, based_on=None):
         if item is None:
             item = path
         if item is None:
@@ -1164,9 +1181,9 @@ class StimmaLibraryAPI:
             # (prompt, model, generator, every parameter). The library copy must
             # say exactly the same thing, whichever surface asked for the run:
             # tool view, agent, Flow or MCP all land here.
+            origin_gen: dict = {}
             if item.media_id is not None:
                 origin = await self._sdk.session.get(MediaItem, item.media_id)
-                origin_gen = {}
                 if origin is not None and origin.generation_metadata:
                     try:
                         origin_gen = json.loads(origin.generation_metadata)
@@ -1182,16 +1199,25 @@ class StimmaLibraryAPI:
                             provenance[key] = origin_gen[key]
                     provenance["task_type"] = origin_gen.get("task_type") or provenance["task_type"]
                     provenance["tool_id"] = origin_gen.get("tool_id") or provenance["tool_id"]
-            # Build lineage_trace and structured source_inputs from input sources
-            if item.input_media_ids:
-                base = await self._sdk._build_edit_provenance(item.input_media_ids)
+            # Inputs and history are the tool's own record of them. A result
+            # with no record gets them rebuilt from its first input.
+            if isinstance(origin_gen.get("source_inputs"), list) and origin_gen["source_inputs"]:
+                provenance["source_inputs"] = origin_gen["source_inputs"]
+                provenance["lineage_trace"] = origin_gen.get("lineage_trace") or []
+            elif item.input_media_ids:
+                base = await self._sdk._build_edit_provenance(item.input_media_ids, base=item.input_media_ids[0])
                 provenance["lineage_trace"] = base.get("lineage_trace", [])
                 provenance["source_inputs"] = base.get("source_inputs", [])
             path = item.path
         else:
-            # Recorded sources (stimma.ffmpeg, join_video) plus declared ones;
-            # save_workspace_file resolves both.
+            # Recorded sources (image tags, stimma.ffmpeg, join_video) plus
+            # declared ones; save_workspace_file resolves both.
             path = Path(item)
+            full = self._sdk._resolve_path(path)
+            if not sources and based_on is None and full.is_file():
+                from .file_sources import sources_for_file
+                if not await sources_for_file(self._sdk.session, self._sdk.workspace_dir, full):
+                    self._sdk._note_unsourced(full)
 
         raw = await save_workspace_file(
             session=self._sdk.session,
@@ -1204,6 +1230,7 @@ class StimmaLibraryAPI:
             materialize_asset=materialize_asset,
             sources=None if provenance is not None else (
                 [sources] if isinstance(sources, int) else list(sources or [])),
+            based_on=None if provenance is not None else based_on,
         )
         if isinstance(raw, str) and raw.startswith("Error:"):
             raise RuntimeError(raw[6:].strip())
@@ -1447,7 +1474,6 @@ class PackageDraft:
         media, _asset = await self._builder.save()
         self._builder.cleanup()
         self.media_id = media.id
-        self._sdk._session_media_ids.append(media.id)
         return media.id
 
 
@@ -1819,7 +1845,6 @@ class StimmaSDK:
         workspace_dir: Path,
         project_workspace_dir: Path | None,
         interrupt_checker,
-        session_media_ids: list[int] | None = None,
         project_id: int | None = None,
         effective_model_slug: str | None = None,
         control: "Any | None" = None,  # background.RunControl
@@ -1847,7 +1872,8 @@ class StimmaSDK:
         self._tool_results: list[ToolResult] = []
         self._tool_failures: list[dict[str, Any]] = []
         self._tool_cancellations: list[dict[str, Any]] = []
-        self._session_media_ids: list[int] = session_media_ids if session_media_ids is not None else []
+        self._source_tracking = None
+        self._unsourced_noted: set[str] = set()
         self._shown_media_ids: list[int] = []
         self._shown_labels: list[str] = []  # "path→media_id" / "media_id" per shown item, for the result receipt
         # (title, role) -> the card this run showed it in; later shows with the
@@ -2044,14 +2070,16 @@ class StimmaSDK:
         """
         return await self._run_av_tool("ffmpeg", args, timeout=timeout, check=check)
 
-    async def record_sources(self, out, inputs) -> list[int]:
+    async def record_sources(self, out, inputs, based_on=None) -> list[int]:
         """Note that the workspace file ``out`` was made from ``inputs``, in order.
 
-        For code that builds a file through intermediates stimma.ffmpeg can't
-        trace (raw frames, numpy, PIL). Inputs are workspace paths, ToolResults
-        or library media ids; a path resolves to its library item, or to the
-        sources already recorded for it. A later library save of ``out`` lists
-        them as its lineage. Returns the media ids recorded.
+        For files whose sources can't be seen: built from raw frames or bytes,
+        by an encoder of your own, or outside PIL and numpy. Inputs are
+        workspace paths, ToolResults or library media ids; a path resolves to
+        its library item, or to the sources already recorded for it. Showing or
+        saving ``out`` then lists them in its history. ``based_on`` (one of the
+        inputs) names the one ``out`` is a changed version of, when there are
+        several. Returns the media ids recorded.
         """
         from sqlalchemy.ext.asyncio import async_sessionmaker
         from .file_sources import record_sources, sources_for_files
@@ -2075,8 +2103,22 @@ class StimmaSDK:
                         raise TypeError("record_sources inputs are paths, ToolResults or media ids")
                     resolved = self._resolve_path(self._contain_av_token("record_sources", os.fspath(path)))
                     ids.extend(await sources_for_files(own, self.workspace_dir, [resolved]))
+            base_ids: list[int] = []
+            if isinstance(based_on, ToolResult) and based_on.media_id is not None:
+                base_ids = [based_on.media_id]
+            elif isinstance(based_on, int) and not isinstance(based_on, bool):
+                base_ids = [based_on]
+            elif based_on is not None:
+                base_path = based_on.path if isinstance(based_on, ToolResult) else based_on
+                if not isinstance(base_path, (str, os.PathLike)):
+                    raise TypeError("record_sources based_on is a path, ToolResult or media id")
+                resolved = self._resolve_path(self._contain_av_token("record_sources", os.fspath(base_path)))
+                base_ids = await sources_for_files(own, self.workspace_dir, [resolved])
         ids = list(dict.fromkeys(ids))
-        await record_sources(self.workspace_dir, [out_path], ids)
+        base = base_ids[0] if len(base_ids) == 1 else None
+        if base is not None and base not in ids:
+            ids.insert(0, base)
+        await record_sources(self.workspace_dir, [out_path], ids, base=base)
         return ids
 
     async def ffprobe(self, *args, timeout: float = 120.0, check: bool = True) -> AVToolResult:
@@ -2449,9 +2491,7 @@ class StimmaSDK:
         if result.get("input_note"):
             (self._stdout_print or print)(f"[{tool_id}] {result['input_note']}")
         self._tool_results.append(tool_result)
-        # Also propagate to session-level tracking so subsequent tool calls see it
         if tool_result.media_id is not None:
-            self._session_media_ids.append(tool_result.media_id)
             # Auto-add preview to any active progress tracker
             for tracker in self._progress_trackers:
                 if not tracker._completed:
@@ -2576,7 +2616,6 @@ class StimmaSDK:
                     workspace_dir=str(self.workspace_dir),
                     project_workspace_dir=str(self.project_workspace_dir) if self.project_workspace_dir else None,
                     interrupt_checker=self.interrupt_checker,
-                    session_media_ids=list(self._session_media_ids),
                     parent_item_id=None,
                     ws_manager=None,
                 )
@@ -3393,36 +3432,29 @@ class StimmaSDK:
                     self._display_receipts.append(str(receipt))
 
     async def _auto_save_paths(self, paths: list[str], session=None) -> list[int]:
-        """Save workspace paths to library with lineage from tracked tool results."""
+        """Save shown workspace paths to the library, each with the sources
+        recorded for that file. A path whose bytes already are a library item
+        (an untouched tool result, a copy) is that item, not a new one."""
         if not paths:
             return []
+        from .file_sources import file_digest, library_ids_by_hash, sources_for_file
 
-        # Collect source media_ids from tool results in this run_code execution
-        source_media_ids = [
-            tr.media_id for tr in self._tool_results if tr.media_id is not None
-        ]
-        # Add session-level context from earlier tool calls in the agentic loop
-        source_media_ids.extend(self._session_media_ids)
-        # Deduplicate while preserving order
-        source_media_ids = list(dict.fromkeys(source_media_ids))
-
-        # Build provenance from the primary source's generation metadata
-        provenance = await self._build_edit_provenance(source_media_ids, session=session)
-
-        from .file_sources import sources_for_file
-
+        session = session or self.session
         saved_ids: list[int] = []
         for path in paths:
-            # A file with recorded sources (stimma.ffmpeg, join_video) is saved
-            # with those; the run's tool results are only a guess.
             full = Path(path) if Path(path).is_absolute() else Path(self.workspace_dir) / path
-            recorded = await sources_for_file(session or self.session, self.workspace_dir, full)
+            digest = await asyncio.to_thread(file_digest, full)
+            existing = (await library_ids_by_hash(session, [digest])).get(digest) if digest else None
+            if existing is not None:
+                saved_ids.append(existing)
+                continue
+            if digest and not await sources_for_file(session, self.workspace_dir, full):
+                self._note_unsourced(full)
             raw = await save_workspace_file(
-                session=session or self.session,
+                session=session,
                 path=path,
                 workspace_dir=self.workspace_dir,
                 save_tags=None,
-                provenance=None if recorded else provenance,
                 project_id=self.project_id,
             )
             if isinstance(raw, str) and not raw.startswith("Error:"):
@@ -3432,10 +3464,25 @@ class StimmaSDK:
                 log.warning(f"[flush] Auto-save failed for {path}: {raw}")
         return saved_ids
 
-    async def _build_edit_provenance(self, source_media_ids: list[int], session=None) -> dict[str, Any]:
+    def _note_unsourced(self, path: Path) -> None:
+        """Tell the code, on its own output, that a media file it made from
+        opened images is being saved with no record of which ones."""
+        tracking = self._source_tracking
+        if tracking is None or not tracking.opened or path.suffix.lower() not in _SOURCED_SUFFIXES:
+            return
+        name = path.relative_to(self.workspace_dir).as_posix() if path.is_relative_to(self.workspace_dir) else path.name
+        if name in self._unsourced_noted:
+            return
+        self._unsourced_noted.add(name)
+        (self._stdout_print or print)(
+            f"[sources] {name} is saved without a record of what it was made from. If it was made "
+            f"from library media, call await stimma.record_sources({name!r}, [inputs]) before showing or saving it."
+        )
+
+    async def _build_edit_provenance(self, source_media_ids: list[int], session=None, base: int | None = None) -> dict[str, Any]:
         """Build provenance for an agent-edited file with inherited lineage_trace."""
         from .file_sources import build_edit_provenance
-        return await build_edit_provenance(session or self.session, source_media_ids)
+        return await build_edit_provenance(session or self.session, source_media_ids, base=base)
 
     async def _resolve_media_or_path(self, value: str | Path | int) -> Path:
         if isinstance(value, int):
@@ -3715,7 +3762,6 @@ async def run_code_in_sandbox(
     workspace_dir: Path,
     project_workspace_dir: Path | None,
     interrupt_checker,
-    session_media_ids: list[int] | None = None,
     shown_media_ids: set[int] | None = None,
     enabled_stimpacks: list[str] | None = None,
     project_id: int | None = None,
@@ -3739,7 +3785,6 @@ async def run_code_in_sandbox(
         workspace_dir=workspace_dir,
         project_workspace_dir=project_workspace_dir,
         interrupt_checker=interrupt_checker,
-        session_media_ids=session_media_ids,
         project_id=project_id,
         effective_model_slug=effective_model_slug,
         control=control,
@@ -3828,8 +3873,8 @@ async def run_code_in_sandbox(
         "re": re,
         "Path": Path,
         "Image": Image,
-        "np": numpy,
-        "numpy": numpy,
+        "np": _SANDBOX_NUMPY,
+        "numpy": _SANDBOX_NUMPY,
     }
 
     # Repair smart punctuation (em/en dashes, curly quotes) that LLMs love to
@@ -3884,7 +3929,11 @@ async def run_code_in_sandbox(
 
         async with _code_workspace(workspace_dir, should_stop=_stop_while_waiting,
                                    on_wait=sdk._control.set_waiting_for_workspace):
-            worker = CodeWorker(fn)
+            # The worker copies this context: images its code opens are tagged
+            # with their source, and images it saves record theirs.
+            from .source_tags import tracking
+            with tracking(workspace_dir) as sdk._source_tracking:
+                worker = CodeWorker(fn)
             task = worker.start()
             interrupted = False
             try:

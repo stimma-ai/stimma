@@ -646,6 +646,8 @@ interface StepSource {
   prompt_program?: unknown
   prompt_direct?: unknown
   loras?: GenerationMetadata['loras']
+  /** Who recorded the step ("agent_v2_run_code"); lineage-trace entries don't carry it. */
+  source?: string | null
 }
 
 const DETAIL_LEVELS: Record<string, string> = { fill: 'Medium detail', expand: 'High detail' }
@@ -681,12 +683,18 @@ function filledPromptOf(source: StepSource): { pieces: ProvenancePromptPiece[] |
 /** Steps that weren't a tool run you can reopen with settings (the editor). */
 const NOT_REPLAYABLE_TOOLS = new Set(['builtin:stimma:image-editor'])
 
+/** Files the agent wrote in code: an edit of one source, or a new file from several (or none). */
+const AGENT_TASK_TYPES = new Set(['agent_edit', 'agent_compose'])
+
 function stepToolName(
   source: StepSource,
+  inputCount: number,
   imported: boolean,
   toolName: (id: string) => string,
 ): string {
-  if (source.task_type === 'agent_edit') return 'Edited by agent'
+  if (source.task_type === 'agent_edit') return inputCount > 0 ? 'Edited by agent' : 'Made by agent'
+  if (source.task_type === 'agent_compose') return 'Made by agent'
+  if (source.task_type === 'code' && !source.tool_id && str(source.source)?.startsWith('agent_v2')) return 'Made by agent'
   if (source.tool_id) return toolName(source.tool_id)
   if (source.task_type === 'filter') return 'Filter'
   if (imported || !source.task_type) return 'Imported'
@@ -706,7 +714,8 @@ function buildStep(
   },
 ): ProvenanceStep {
   const params = stepParameters(source)
-  const tool = stepToolName(source, ctx.imported, ctx.toolName)
+  const inputs = buildInputs(source.source_inputs)
+  const tool = stepToolName(source, inputs.length, ctx.imported, ctx.toolName)
   const model = str(source.model)
   const prompt = str(source.prompt) || str(source.prompt_preview)
   const negativePrompt = str(source.negative_prompt) || str(params.negative_prompt)
@@ -726,13 +735,12 @@ function buildStep(
   }
 
   const loras = normalizeLoras(params.loras ?? params.selected_loras ?? (ctx.imported ? source.loras : null))
-  const inputs = buildInputs(source.source_inputs)
   const editSteps = buildEditSteps(params.stack, ctx.toolName)
   const edits = editSteps.map(step => step.name).filter(Boolean)
   const postProcessing = chainNames(params.post_processing_chain, ctx.toolName, ctx.filterLabel)
 
   const toolId = str(source.tool_id)
-  const settings: ProvenanceSettings | null = toolId && !NOT_REPLAYABLE_TOOLS.has(toolId) && source.task_type !== 'agent_edit'
+  const settings: ProvenanceSettings | null = toolId && !NOT_REPLAYABLE_TOOLS.has(toolId) && !AGENT_TASK_TYPES.has(str(source.task_type) ?? '')
     ? {
         toolId,
         mediaId: ctx.mediaId,

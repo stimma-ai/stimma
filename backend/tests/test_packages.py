@@ -305,7 +305,7 @@ async def test_draft_inspection_and_workspace_preview_before_save(db_session, tm
     workspace.mkdir()
     async with db_session() as session:
         master = await _media(session, tmp_path / "master.png")
-        sdk = SimpleNamespace(session=session, workspace_dir=workspace, chat_id=None, project_id=None, _session_media_ids=[])
+        sdk = SimpleNamespace(session=session, workspace_dir=workspace, chat_id=None, project_id=None)
         pkg = PackageDraft(sdk, "Mixed")
         try:
             member = await pkg.add_member(master.id)
@@ -324,7 +324,6 @@ async def test_draft_inspection_and_workspace_preview_before_save(db_session, tm
             pkg.set_cover('<stimma-media ref="tiles/ios/tile-256.png"></stimma-media><stimma-files ref="r2"></stimma-files>')
             authored = workspace / await pkg.preview()
             assert pkg.media_id is None
-            assert sdk._session_media_ids == []
             assert "tiles/ios/tile-256.png" in (authored / "index.html").read_text()
             # Preview files are disposable copies, never the authoritative run.
             output = manifest["runs"][0]["files"][0]

@@ -94,7 +94,6 @@ async def run_code_detachable(code: str, *, background: bool = False, **kwargs) 
                 workspace_dir=workspace_dir,
                 project_workspace_dir=kwargs.get("project_workspace_dir"),
                 interrupt_checker=interrupt_checker,
-                session_media_ids=kwargs.get("session_media_ids"),
                 shown_media_ids=kwargs.get("_shown_media_ids"),
                 enabled_stimpacks=kwargs.get("_enabled_stimpacks"),
                 project_id=kwargs.get("project_id"),

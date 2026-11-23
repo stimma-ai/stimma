@@ -703,7 +703,6 @@ async def _resolve_ask_option_media(
     workspace_dir: str | None,
     session: AsyncSession,
     chat_id: int,
-    session_media_ids: Optional[list[int]],
     project_workspace_dir: str | None = None,
 ) -> Optional[list]:
     """Give ask_user options a library `media_id` the UI can render.
@@ -731,7 +730,7 @@ async def _resolve_ask_option_media(
             opt = {k: v for k, v in opt.items() if k != "media_id"}
         if isinstance(opt, dict) and opt.get("path") and opt.get("media_id") is None:
             media_id = await _auto_save_path(
-                str(opt["path"]), workspace_dir, session, chat_id, session_media_ids,
+                str(opt["path"]), workspace_dir, session, chat_id,
                 project_workspace_dir=project_workspace_dir,
             )
             opt = {k: v for k, v in opt.items() if k != "path"}
@@ -750,7 +749,6 @@ async def _pause_for_ask_user(
     question_args: dict,
     remaining_tool_calls: Optional[list] = None,
     workspace_dir: str | None = None,
-    session_media_ids: Optional[list[int]] = None,
     project_workspace_dir: str | None = None,
 ) -> None:
     """Pause execution and create a HITL request for ask_user."""
@@ -758,14 +756,14 @@ async def _pause_for_ask_user(
 
     question = question_args.get("question", "")
     ask_options = await _resolve_ask_option_media(
-        question_args.get("options"), workspace_dir, session, chat.id, session_media_ids,
+        question_args.get("options"), workspace_dir, session, chat.id,
         project_workspace_dir,
     )
     ask_questions = question_args.get("questions")
     if ask_questions:
         ask_questions = [
             {**q, "options": await _resolve_ask_option_media(
-                q.get("options"), workspace_dir, session, chat.id, session_media_ids,
+                q.get("options"), workspace_dir, session, chat.id,
                 project_workspace_dir,
             )} if isinstance(q, dict) else q
             for q in ask_questions
@@ -819,7 +817,6 @@ async def _execute_tool_call(
     project_workspace_dir: str | None,
     session: AsyncSession,
     ws_manager: WebSocketManager,
-    session_media_ids: list[int] | None = None,
     chat: Optional[Chat] = None,
     call_item_id: Optional[int] = None,
     shown_media_ids: set[int] | None = None,
@@ -850,7 +847,6 @@ async def _execute_tool_call(
         try:
             kwargs = json.loads(fn_arguments) if fn_arguments else {}
             kwargs["_tool_scope"] = scope
-            kwargs["session_media_ids"] = session_media_ids if session_media_ids is not None else []
             if shown_media_ids is not None:
                 kwargs["_shown_media_ids"] = shown_media_ids
             # Pass model slug to all tools that may call the LLM
@@ -908,12 +904,6 @@ async def _execute_tool_call(
         result_str = f"Error: Unknown tool '{fn_name}'"
 
     _raise_if_interrupted(chat_id)
-
-    # Track media_ids produced by call_tool for lineage across tool calls
-    if session_media_ids is not None and fn_name == "call_tool" and "<result media_id=" in result_str:
-        match = re.search(r"<result media_id=(\d+)", result_str)
-        if match:
-            session_media_ids.append(int(match.group(1)))
 
     # Build tool_result metadata
     result_metadata_dict = {}
@@ -1519,7 +1509,6 @@ async def _run_agentic_loop(
     max_turns: int,
     start_turn: int = 0,
     pending_tool_calls: Optional[list] = None,
-    session_media_ids: Optional[list[int]] = None,
     turn_stats: Optional[dict] = None,
     artifact_context: Optional[dict] = None,
 ) -> None:
@@ -1537,7 +1526,6 @@ async def _run_agentic_loop(
             start_turn=start_turn,
             turn_stats=turn_stats,
             pending_tool_calls=pending_tool_calls,
-            session_media_ids=session_media_ids,
             artifact_context=artifact_context,
         )
 
@@ -1549,7 +1537,6 @@ async def _run_agentic_loop_inner(
     max_turns: int,
     start_turn: int = 0,
     pending_tool_calls: Optional[list] = None,
-    session_media_ids: Optional[list[int]] = None,
     turn_stats: Optional[dict] = None,
     artifact_context: Optional[dict] = None,
 ) -> None:
@@ -1558,8 +1545,6 @@ async def _run_agentic_loop_inner(
     Args:
         pending_tool_calls: If resuming mid-turn, the remaining serialized
             tool calls to execute before calling the LLM again.
-        session_media_ids: Mutable list accumulating media_ids produced by
-            call_tool across tool calls, used for lineage tracking.
         turn_stats: Optional mutable dict the caller uses for the
             agent_turn_completed telemetry event (tool count, resolved LLM
             config, last visible content for refusal classification).
@@ -1574,8 +1559,6 @@ async def _run_agentic_loop_inner(
         turn_stats = {}
     workspace_dir = get_workspace_dir(chat_id, chat.project_id)
     project_workspace_dir = get_project_workspace(chat.project_id)
-    if session_media_ids is None:
-        session_media_ids = []
     shown_media_ids: set[int] = set()
     resolved_config = await resolve_agent_config(chat, session)
 
@@ -1820,7 +1803,6 @@ async def _run_agentic_loop_inner(
                     question_args=ask_args,
                     remaining_tool_calls=updated_remaining,
                     workspace_dir=workspace_dir,
-                    session_media_ids=session_media_ids,
                     project_workspace_dir=str(project_workspace_dir) if project_workspace_dir else None,
                 )
                 return
@@ -1830,7 +1812,6 @@ async def _run_agentic_loop_inner(
             await _execute_tool_call(
                 fn_name, fn_arguments, tool_call_id,
                 chat_id, workspace_dir, str(project_workspace_dir) if project_workspace_dir else None, session, ws_manager,
-                session_media_ids=session_media_ids,
                 chat=chat,
                 call_item_id=call_item.id,
                 shown_media_ids=shown_media_ids,
@@ -2156,7 +2137,6 @@ async def _run_agentic_loop_inner(
                         question_args=ask_args,
                         remaining_tool_calls=updated_remaining,
                         workspace_dir=workspace_dir,
-                        session_media_ids=session_media_ids,
                     )
                     return
 
@@ -2167,7 +2147,6 @@ async def _run_agentic_loop_inner(
                     await _execute_tool_call(
                         fn_name, fn_arguments, tool_call_id,
                         chat_id, workspace_dir, str(project_workspace_dir) if project_workspace_dir else None, session, ws_manager,
-                        session_media_ids=session_media_ids,
                         chat=chat,
                         call_item_id=call_item.id,
                         shown_media_ids=shown_media_ids,
@@ -2365,7 +2344,6 @@ async def _resume_delegate_after_permission(
     )
 
     # Resume the delegate loop from saved state
-    session_media_ids = delegate_state.get("session_media_ids", [])
     result, _usage = await _run_delegate_loop(
         task=delegate_state.get("task", ""),
         context=delegate_state.get("context"),
@@ -2376,7 +2354,6 @@ async def _resume_delegate_after_permission(
         workspace_dir=workspace_dir,
         project_workspace_dir=str(get_project_workspace(chat.project_id)) if chat.project_id else None,
         interrupt_checker=lambda: _is_interrupted(chat_id),
-        session_media_ids=session_media_ids,
         parent_item_id=delegate_state.get("parent_item_id"),
         ws_manager=ws_manager,
         chat=chat,
@@ -2419,7 +2396,6 @@ async def _resume_delegate_after_permission(
         max_turns=_max_turns_for_chat(chat),
         start_turn=delegate_state.get("parent_turn", 0),
         pending_tool_calls=delegate_state.get("parent_remaining", []),
-        session_media_ids=session_media_ids,
     )
 
 
@@ -2573,7 +2549,6 @@ async def resume_after_hitl(
             })
 
             _raise_if_interrupted(chat_id)
-            session_media_ids: list[int] = []
             shown_media_ids: set[int] = set()
 
             # Resolve invoked skills from conversation history for run_code lib
@@ -2596,7 +2571,6 @@ async def resume_after_hitl(
             await _execute_tool_call(
                 pending["tool_name"], pending["fn_arguments"], tool_call_id,
                 chat_id, workspace_dir, str(project_workspace_dir) if project_workspace_dir else None, session, ws_manager,
-                session_media_ids=session_media_ids,
                 chat=chat,
                 call_item_id=call_item.id,
                 shown_media_ids=shown_media_ids,
@@ -2611,7 +2585,6 @@ async def resume_after_hitl(
                 max_turns=_max_turns_for_chat(chat),
                 start_turn=pending.get("turn", 0),
                 pending_tool_calls=pending.get("remaining_tool_calls"),
-                session_media_ids=session_media_ids,
             )
 
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "completed"})

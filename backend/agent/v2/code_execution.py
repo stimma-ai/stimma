@@ -39,7 +39,9 @@ class SDKBridge:
 
     async def call(self, method, args, kwargs):
         async def invoke():
-            return await method(*args, **kwargs)
+            from .source_tags import untracked
+            with untracked():
+                return await method(*args, **kwargs)
 
         completed = concurrent.futures.Future()
         owner_task = []

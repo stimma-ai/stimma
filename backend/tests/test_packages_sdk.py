@@ -69,7 +69,6 @@ async def test_package_draft_from_sandbox_sdk(db_session, tmp_path):
         assert member_media is not None and member_media.file_hash == manifest["members"][0]["hash"]
         edges = list(await session.scalars(select(MediaLineage).where(MediaLineage.media_id == media_id)))
         assert [e.source_media_id for e in edges] == [member_media.id]
-        assert media_id in sdk._session_media_ids
         status = await sdk.packages.status(media_id)
         assert status["stale"] is False
 

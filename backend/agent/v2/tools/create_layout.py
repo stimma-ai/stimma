@@ -130,7 +130,7 @@ async def create_layout(
                 session=session,
                 bundle_path=bundle_path,
                 index_path=index_path,
-                session_media_ids=kwargs.get("session_media_ids"),
+                workspace_dir=kwargs.get("workspace_dir"),
                 project_id=kwargs.get("project_id"),
             )
             return json.dumps({"media_id": media_id, "bundle": bundle_name})
@@ -146,7 +146,7 @@ async def _save_to_library(
     session,
     bundle_path: Path,
     index_path: Path,
-    session_media_ids: list[int] | None = None,
+    workspace_dir: Path | str | None = None,
     project_id: int | None = None,
 ) -> int:
     """Save the layout bundle to the library and return the media_id."""
@@ -176,26 +176,12 @@ async def _save_to_library(
     file_hash = hashlib.sha256(index_path.read_bytes()).hexdigest()
     file_size = index_path.stat().st_size
 
-    # Build provenance — start with explicit session media, then auto-detect
-    # from image references in the HTML so lineage is tracked without relying
-    # on the agent to declare them.
-    source_ids = list(session_media_ids or [])
-    source_id_set = set(source_ids)
-
-    # Resolve image filenames referenced in the HTML to media_ids
+    # A layout is made of the media its HTML shows: each referenced file is
+    # the library item with those bytes, or what that file was made from.
+    from ..file_sources import sources_for_files
     html_content = index_path.read_text(encoding="utf-8")
-    for ref in extract_all_refs(html_content):
-        basename = os.path.basename(ref)
-        result = await session.execute(
-            select(MediaItem.id)
-            .where(MediaItem.file_path.like(f"%/{basename}"))
-            .order_by(MediaItem.id.desc())
-            .limit(1)
-        )
-        row = result.scalar_one_or_none()
-        if row and row not in source_id_set:
-            source_ids.append(row)
-            source_id_set.add(row)
+    referenced = [index_path.parent / ref for ref in dict.fromkeys(extract_all_refs(html_content))]
+    source_ids = await sources_for_files(session, workspace_dir, [p for p in referenced if p.is_file()])
     gen_meta = build_generation_metadata(
         task_type="layout",
         source="agent_v2_create_layout",

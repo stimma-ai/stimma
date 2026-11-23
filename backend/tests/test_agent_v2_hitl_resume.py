@@ -203,7 +203,7 @@ async def test_delegate_runs_the_call_allowed_once_then_checks_the_next(db_sessi
             await delegate._run_delegate_loop(
                 task="Tidy", context=None, specialist=None, max_turns=3, session=session,
                 chat_id=chat.id, workspace_dir=str(tmp_path), project_workspace_dir=None,
-                interrupt_checker=lambda: False, session_media_ids=[], parent_item_id=None,
+                interrupt_checker=lambda: False, parent_item_id=None,
                 ws_manager=MockWebSocketManager(), chat=chat,
                 resume_messages=[
                     {"role": "assistant", "content": None, "tool_calls": [_call("c0", "bash", '{"command": "ls')]},
@@ -249,7 +249,7 @@ async def test_delegate_answers_unusable_arguments_and_loads_skills_into_its_his
         result, _ = await delegate._run_delegate_loop(
             task="Brand it", context=None, specialist=None, max_turns=4, session=session,
             chat_id=chat.id, workspace_dir=str(tmp_path), project_workspace_dir=None,
-            interrupt_checker=lambda: False, session_media_ids=[], ws_manager=MockWebSocketManager(), chat=None,
+            interrupt_checker=lambda: False, ws_manager=MockWebSocketManager(), chat=None,
         )
     assert result == "Done."
     messages = sent[1]

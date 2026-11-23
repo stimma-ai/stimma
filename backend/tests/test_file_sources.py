@@ -95,8 +95,13 @@ async def test_declared_sources_add_to_recorded_ones(db_session, tmp_path):
         await sdk.ffmpeg("-v", "error", "-y", "-i", "a.mp4", "-vf", "negate", "edit.mp4")
         saved = await sdk.library.save("edit.mp4", sources=[logo.id])
         assert await _lineage(session, saved["media_id"]) == [(logo.id, "derived"), (a, "derived")]
+        # Two sources and no word on which it is a version of: made of both.
         meta = await _meta(session, saved["media_id"])
-        assert meta["task_type"] == "agent_edit"
+        assert meta["task_type"] == "agent_compose"
+        assert meta["lineage_trace"] == []
+        based = await sdk.library.save("edit.mp4", sources=[logo.id], based_on=a)
+        assert await _lineage(session, based["media_id"]) == [(a, "derived"), (logo.id, "derived")]
+        assert (await _meta(session, based["media_id"]))["task_type"] == "agent_edit"
         with pytest.raises(RuntimeError, match="not found"):
             await sdk.library.save("edit.mp4", sources=[999999])
 

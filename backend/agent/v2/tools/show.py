@@ -1,5 +1,6 @@
 """Display media to the user in chat."""
 
+import asyncio
 import json
 import shutil
 import uuid
@@ -152,10 +153,9 @@ async def show(
     rows: list[dict[str, Any]] = []
 
     # Auto-save workspace paths to library so shown media is always persisted
-    session_media_ids = kwargs.get("session_media_ids")
     for item_path in normalized_paths:
         saved_id = await _auto_save_path(
-            item_path, workspace_dir, session, chat_id, session_media_ids,
+            item_path, workspace_dir, session, chat_id,
             project_workspace_dir=kwargs.get("project_workspace_dir"),
         )
         if saved_id is not None:
@@ -577,31 +577,22 @@ async def _auto_save_path(
     workspace_dir: str | None,
     session: AsyncSession,
     chat_id: int | None = None,
-    session_media_ids: list[int] | None = None,
     project_workspace_dir: str | None = None,
 ) -> int | None:
-    """Save a workspace file to library with lineage. Returns media_id on success, None on failure."""
+    """Save a shown workspace file to the library, with the sources recorded
+    for it. A file whose bytes already are a library item is that item.
+    Returns media_id on success, None on failure."""
     from .library import save_workspace_file
-    from ..code_runtime import StimmaSDK
 
     try:
-        # Build provenance with lineage from session-level media tracking
-        from ..file_sources import sources_for_file
+        from ..file_sources import file_digest, library_ids_by_hash
 
-        provenance: dict[str, Any] | None = {"task_type": "agent_edit"}
-        source_ids = list(session_media_ids or [])
         full = Path(path) if Path(path).is_absolute() else Path(workspace_dir or ".") / path
-        if session and await sources_for_file(session, workspace_dir, full):
-            # Recorded sources (stimma.ffmpeg, join_video) beat the session guess.
-            provenance, source_ids = None, []
-        if source_ids and chat_id and session:
-            sdk = StimmaSDK(
-                session=session, chat_id=chat_id,
-                workspace_dir=Path(workspace_dir) if workspace_dir else Path("."),
-                project_workspace_dir=Path(project_workspace_dir) if project_workspace_dir else None,
-                interrupt_checker=lambda: False,
-            )
-            provenance = await sdk._build_edit_provenance(source_ids)
+        digest = await asyncio.to_thread(file_digest, full)
+        if digest and session:
+            existing = (await library_ids_by_hash(session, [digest])).get(digest)
+            if existing is not None:
+                return existing
 
         project_id = None
         if chat_id and session:
@@ -614,7 +605,6 @@ async def _auto_save_path(
             path=path,
             workspace_dir=Path(workspace_dir) if workspace_dir else None,
             save_tags=None,
-            provenance=provenance,
             project_id=project_id,
         )
         if isinstance(raw, str) and not raw.startswith("Error:"):

@@ -138,7 +138,6 @@ async def create_svg(
             svg_path=svg_path,
             width=doc.width,
             height=doc.height,
-            session_media_ids=kwargs.get("session_media_ids"),
             project_id=kwargs.get("project_id"),
         )
     except Exception as e:
@@ -283,7 +282,6 @@ async def _save_to_library(
     svg_path: Path,
     width: int,
     height: int,
-    session_media_ids: list[int] | None = None,
     project_id: int | None = None,
 ) -> int:
     """Save the SVG document to the library and return the media_id."""
@@ -292,7 +290,7 @@ async def _save_to_library(
     import shutil
 
     from core.profile_context import get_current_profile
-    from database import MediaItem, MediaLineage
+    from database import MediaItem
 
     profile_id = get_current_profile()
     output_folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
@@ -310,12 +308,9 @@ async def _save_to_library(
     dest_path = Path(dest)
 
     file_bytes = dest_path.read_bytes()
-    source_ids = list(session_media_ids or [])
-
     gen_meta = build_generation_metadata(
         task_type="vector",
         source="agent_v2_create_svg",
-        source_inputs=[{"media_id": mid, "role": "source_image"} for mid in source_ids],
     )
 
     media_item = MediaItem(
@@ -350,15 +345,6 @@ async def _save_to_library(
         profile_id=profile_id,
         remove_source=True,
     )
-
-    for idx, source_media_id in enumerate(source_ids):
-        session.add(MediaLineage(
-            media_id=media_item.id,
-            source_media_id=source_media_id,
-            source_order=idx,
-            task_type="vector",
-            relationship_type="derived",
-        ))
 
     if project_id is not None:
         from project_service import attach_media_to_project

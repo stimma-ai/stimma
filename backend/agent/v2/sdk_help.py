@@ -344,17 +344,21 @@ or info.path.""",
     ),
     "library.save": SDKMethodHelp(
         name="library.save",
-        signature="await stimma.library.save(item, tags=None, sources=None, inspired_by=None)",
+        signature="await stimma.library.save(item, tags=None, sources=None, inspired_by=None, based_on=None)",
         summary="Save workspace files or generated results to the media library.",
         details="""\
 Library save is explicit. `show(..., role="final")` also commits a durable
 Asset, while `role="intermediate"` only retains Media in the chat for viewing
 (work-in-progress, downloaded reference material).
 Use save when the user asks to keep something without presenting it.
-`item` accepts a ToolResult, a PIL Image, or a workspace path. When saving an
-image you composed or edited in code (an Image or path rather than a
-ToolResult), pass sources=[media_id, ...] for the images it was made from so
-the derivation shows up in lineage. ToolResults carry their own provenance.""",
+`item` accepts a ToolResult, a PIL Image, or a workspace path. What a file was
+made from is followed for you: images you open and change with PIL or numpy,
+and stimma.ffmpeg and join_video outputs, already know their sources. A file
+made from one thing shows as an edit of it; made from several, as a new thing
+with those as inputs. sources=[media_id, ...] adds any that could not be seen
+(the run's output says when a file has none). based_on=media_id names the one
+source a file made from several is a changed version of, such as a photo with
+a logo added. ToolResults carry their own history.""",
         group="library",
         is_async=True,
     ),
@@ -737,14 +741,16 @@ Example:
     ),
     "record_sources": SDKMethodHelp(
         name="record_sources",
-        signature="await stimma.record_sources(out, inputs) -> list[int]",
+        signature="await stimma.record_sources(out, inputs, based_on=None) -> list[int]",
         summary="Note which inputs a workspace file was made from, so saving it keeps that history.",
         details="""\
-Files written by stimma.ffmpeg and join_video already know their sources. Call
-this for a file built through steps they can't follow (raw frames, numpy, PIL).
-inputs is an ordered list of workspace paths, ToolResults or media ids; a path
-counts as its library item, or as the sources already noted for it. A later
-library.save(out) lists them as its lineage. Returns the media ids noted.""",
+Images opened and saved with PIL or numpy, and stimma.ffmpeg and join_video
+outputs, already know their sources. Call this for a file built some other way
+(raw frames or bytes, your own encoder). inputs is an ordered list of workspace
+paths, ToolResults or media ids; a path counts as its library item, or as the
+sources already noted for it. Showing or saving out then lists them in its
+history. based_on names the one input out is a changed version of, when there
+are several. Returns the media ids noted.""",
         group="image",
         is_async=True,
     ),

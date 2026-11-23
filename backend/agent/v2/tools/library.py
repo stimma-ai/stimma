@@ -1038,7 +1038,7 @@ async def resolve_params_from(
         ToolParameter("cursor", "string", "Opaque cursor for browse_options pagination", required=False),
         ToolParameter("path", "string", "Workspace filename to save (save action)", required=False),
         ToolParameter("save_tags", "array", "Tags to apply on save — only when the user explicitly requests tagging", required=False, items={"type": "string"}),
-        ToolParameter("sources", "array", "Save: media this file was made from, so its history shows them. Files made with stimma.ffmpeg or join_video already list theirs; add any you used in other code.", required=False, items={"type": "integer"}),
+        ToolParameter("sources", "array", "Save: media this file was made from, so its history shows them. Images made with PIL or numpy and files made with stimma.ffmpeg or join_video already list theirs; add any that could not be seen.", required=False, items={"type": "integer"}),
         ToolParameter("marker_name", "string", "Marker name (marker action). Markers are a FIXED, curated set (typically 'favorite' and 'library' — the saved-for-later flag) — you cannot create new ones. Use operation='list' if unsure which names exist; 'add' only applies an existing marker.", required=False),
         ToolParameter("collection_name", "string", "Collection name (collection action)", required=False),
         ToolParameter("collection_id", "integer", "Collection ID (collection action)", required=False),
@@ -1098,7 +1098,7 @@ async def library(
         "lineage": {"media_id", "media_ids", "direction", "relationship", "filters", "limit", "offset"},
     }
     if action in query_actions:
-        context_keys = {"session", "workspace_dir", "project_workspace_dir", "project_id", "chat_id", "session_media_ids", "interrupt_checker"}
+        context_keys = {"session", "workspace_dir", "project_workspace_dir", "project_id", "chat_id", "interrupt_checker"}
         unknown = [key for key in kwargs if key not in context_keys and not key.startswith("_")]
         if unknown:
             raise ValueError(f"Unknown library arguments: {sorted(unknown)}. Put supported criteria in filters; see browse_schema.")
@@ -1449,12 +1449,14 @@ async def save_workspace_file(
     metadata_source: str = "agent_v2_run_code",
     materialize_asset: bool = False,
     sources: Optional[List[int]] = None,
+    based_on: Optional[int] = None,
 ) -> str:
     """Save a workspace file as library media.
 
     Without explicit ``provenance``, the file's lineage is the library media
-    recorded as going into it (stimma.ffmpeg, join_video) plus any ``sources``
-    the caller declares; with none of either it lands as a plain file.
+    recorded as going into it (image tags, stimma.ffmpeg, join_video) plus any
+    ``sources`` the caller declares; with none of either it lands as a plain
+    file. ``based_on`` names the one source it is a changed version of.
     """
     if not path:
         return "Error: path is required for save action"
@@ -1470,10 +1472,12 @@ async def save_workspace_file(
         return f"Error: {e}"
     if provenance is None and not source.is_dir():
         from ..file_sources import provenance_for_saved_file
-        missing = await _missing_media_ids(session, sources)
+        if based_on is not None and (isinstance(based_on, bool) or not isinstance(based_on, int)):
+            return "Error: based_on must be a library media id"
+        missing = await _missing_media_ids(session, [*(sources or []), *([based_on] if based_on is not None else [])])
         if missing:
             return f"Error: sources not found in the library: {missing}"
-        provenance = await provenance_for_saved_file(session, workspace_dir, source, sources)
+        provenance = await provenance_for_saved_file(session, workspace_dir, source, sources, based_on=based_on)
 
     is_layout_bundle = source.is_dir() and source.name.lower().endswith('.stimmalayout')
     is_package_bundle = source.is_dir() and source.name.lower().endswith('.stimmapackage')
@@ -1844,12 +1848,15 @@ async def resolve_or_import_input_file(
     if row:
         return row[0]
 
+    from ..file_sources import sources_for_file
     result = await save_workspace_file(
         session,
         abs_path,
         workspace_dir,
         save_tags=None,
-        provenance={"task_type": "imported"},
+        # A file the code made from library media keeps that history, so the
+        # tool's result stays connected to it. Anything else is an import.
+        provenance=None if await sources_for_file(session, workspace_dir, Path(abs_path)) else {"task_type": "imported"},
         project_id=project_id,
         metadata_source="agent_v2_tool_input",
     )

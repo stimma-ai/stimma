@@ -272,24 +272,41 @@ Common task_type values and their meanings:
 
 ## Agent-composed media
 
-Media the agent builds in code from library media (ffmpeg concat, trims, muxes,
-`join_video`) is recorded at the SDK boundary, not reconstructed later:
+Media the agent builds in code from library media is recorded per file, from
+what actually went into that file. Nothing is inferred from what else the run
+or the turn touched: a file with no known source has none.
 
+- Images follow their data (`agent/v2/source_tags.py`). An image the code opens
+  is tagged with where it came from; the tag travels with the pixels through
+  Pillow and NumPy, operations over several images carry all their tags, and
+  saving records the tag for the written file. Order of work does not matter:
+  ten results loaded up front and saved one by one each keep their own source.
+  Data that leaves Pillow and NumPy (raw bytes, an external encoder, the `bash`
+  tool) loses its tag.
 - `stimma.ffmpeg` notes which library media each output file was made from. An
   input counts when its bytes are a library item (a workspace copy, a tool
   result) or a file already recorded this way, so chains flatten to the library
   media: a file made from a file made from clips lists the clips. Concat lists,
   `concat:` inputs and image sequences are read.
 - `stimma.join_video` (seamkit's state-preserving join) records its segments.
-- `library save` of such a file (the tool action or `stimma.library.save`)
-  writes `derived` edges to those sources. `sources=[media ids]` adds any the
-  platform could not see (PIL/numpy work is never traced).
+- Showing or saving such a file (`show`, the `library` save action,
+  `stimma.library.save`, a workspace file passed as a tool input) writes
+  `derived` edges to those sources. `sources=[media ids]` and
+  `stimma.record_sources` add any the platform could not see. When code that
+  opened images saves a media file with no source, the run's output says so.
+- A shown path whose bytes already are a library item is that item, not a copy.
 
 Records are keyed by content hash in the chat workspace, so copies and renames
-keep their sources and an overwrite drops them. A video made from two or more
-videos is saved as `video-stitch` with `source_inputs` role `clip`, in order;
-anything else is `agent_edit` with roles `input_video`, `input_audio` or
-`source_image`.
+keep their sources and an overwrite drops them.
+
+What a file is recorded as depends on how many things it was made from:
+
+| Sources | `task_type` | `source_inputs` roles | `lineage_trace` |
+|---------|-------------|-----------------------|-----------------|
+| One | `agent_edit` | `source_image`, `input_video` or `input_audio` | The source's history, then the source: one line |
+| Several | `agent_compose` (`video-stitch` for a video of 2+ videos, role `clip`) | `image`, `input_video`, `input_audio` | Empty: each input keeps its own history |
+| Several, one named with `based_on` | `agent_edit` | The base first (`source_image`), the rest as above | The base's history |
+| None | `code` | None | Empty |
 
 ## Edge Cases
 

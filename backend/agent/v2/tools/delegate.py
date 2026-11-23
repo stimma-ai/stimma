@@ -98,7 +98,6 @@ async def delegate_tool(
     workspace_dir: str = kwargs.get("workspace_dir")
     project_workspace_dir: str | None = kwargs.get("project_workspace_dir")
     interrupt_checker = kwargs.get("interrupt_checker", lambda: False)
-    session_media_ids: list[int] = kwargs.get("session_media_ids", [])
     parent_item_id: int | None = kwargs.get("_parent_item_id")
     ws_manager: WebSocketManager | None = kwargs.get("_ws_manager")
     parent_turn: int = kwargs.get("_parent_turn", 0)
@@ -149,7 +148,6 @@ async def delegate_tool(
             workspace_dir=workspace_dir,
             project_workspace_dir=project_workspace_dir,
             interrupt_checker=interrupt_checker,
-            session_media_ids=session_media_ids,
             parent_item_id=parent_item_id,
             ws_manager=ws_manager,
             chat=chat,
@@ -379,7 +377,6 @@ async def _run_delegate_loop_inner(
     workspace_dir: str,
     project_workspace_dir: str | None,
     interrupt_checker,
-    session_media_ids: list[int],
     parent_item_id: int | None = None,
     ws_manager: WebSocketManager | None = None,
     chat: Chat | None = None,
@@ -589,7 +586,6 @@ async def _run_delegate_loop_inner(
                     "specialist": specialist,
                     "max_turns": max_turns,
                     "delegate_turn": turn,
-                    "session_media_ids": session_media_ids,
                     "created_media_ids": created_media_ids,
                     "parent_item_id": parent_item_id,
                     "remaining_tools": remaining_tools,
@@ -634,7 +630,6 @@ async def _run_delegate_loop_inner(
                     cumulative_usage["tool_call_count"] = cumulative_usage.get("tool_call_count", 0) + 1
                     try:
                         kwargs = json.loads(fn_arguments) if fn_arguments else {}
-                        kwargs["session_media_ids"] = session_media_ids
                         # Skill invokes load into this delegate's history, and
                         # run_code can import the loaded skills' lib modules.
                         kwargs["_injected_messages"] = injected_messages
@@ -657,12 +652,6 @@ async def _run_delegate_loop_inner(
                         result_str = f"Error: {e}"
                 else:
                     result_str = f"Error: Unknown tool '{fn_name}'"
-
-            # Track media_ids for lineage
-            if fn_name == "call_tool" and isinstance(result_str, str) and "<result media_id=" in result_str:
-                match = re.search(r"<result media_id=(\d+)", result_str)
-                if match:
-                    session_media_ids.append(int(match.group(1)))
 
             # Track create_layout media_ids so the parent can show() them
             if fn_name == "create_layout" and isinstance(result_str, str):
