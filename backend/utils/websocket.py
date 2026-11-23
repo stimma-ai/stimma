@@ -254,6 +254,9 @@ _JOB_SUMMARY_FIELDS = (
     "result_media_id",
     "result_asset_id",
     "error",
+    # Which chat a job belongs to, for that chat's "waiting in the queue" state.
+    "output_context_kind",
+    "output_context_id",
 )
 # Per-chat detail that only an open view of that chat renders. Chat list and
 # activity summaries (chat_updated, agent_started/stopped,

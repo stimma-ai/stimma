@@ -545,3 +545,19 @@ async def test_profile_details_reach_only_clients_scoped_to_that_profile():
     await manager.drain()
     assert gamma.of("processing_stats") == [aggregate]
     assert beta.of("processing_stats")[-1] == aggregate
+
+
+async def test_job_summary_names_the_chat_it_belongs_to():
+    """The sidebar marks a chat as waiting in the queue from summaries alone."""
+    manager = WebSocketManager()
+    phone = Socket()
+    manager.attach(phone, scoped("A"))
+    await manager.broadcast("generation_job_queued", {
+        "job": {**job(1, "queued", generator="agent"), "output_context_kind": "chat", "output_context_id": "7"},
+        "generator_instance_id": "agent", "profile_id": "A",
+    })
+    await manager.drain()
+    summary = phone.of("generation_job_queued")[0]
+    assert summary["detail"] == "summary"
+    assert summary["job"]["output_context_kind"] == "chat"
+    assert summary["job"]["output_context_id"] == "7"
