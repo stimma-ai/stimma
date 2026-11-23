@@ -6,7 +6,8 @@
     <!-- Main content area with explicit scroll -->
     <div
       ref="scrollContainerRef"
-      class="flex-1 overflow-auto p-6 pt-20 min-h-0 custom-scrollbar"
+      :class="inPanel ? 'p-3' : 'p-6 pt-20'"
+      class="flex-1 overflow-auto min-h-0 custom-scrollbar"
     >
       <div v-if="loading" class="flex items-center justify-center h-full text-content-tertiary">
         Loading set...
@@ -48,6 +49,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
             </svg>
           </div>
+          <TileMarkerToggles v-if="item.resolved && mediaIdOf(item.resolved) != null" :media-id="mediaIdOf(item.resolved)" />
           <button
             v-if="item.resolved && !item.resolved.asset_id && !item.resolved.saved_asset_id"
             class="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-950/80 text-content-muted opacity-0 transition-all hover:text-content group-hover:opacity-100 disabled:opacity-100"
@@ -70,6 +72,8 @@ import { ref, watch, onMounted } from 'vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
 import { MediaImage } from '../media'
+import TileMarkerToggles from '../media/TileMarkerToggles.vue'
+import { useMarkers } from '../../composables/useMarkers'
 import axios from 'axios'
 import { useOwnerProject } from '../../composables/useProjectScope'
 import { useAssetApi } from '../../composables/useAssetApi'
@@ -79,10 +83,16 @@ const props = defineProps({
   mediaId: {
     type: Number,
     required: true
+  },
+  // In the artifact panel there is no slideshow chrome to clear at the top.
+  inPanel: {
+    type: Boolean,
+    default: false
   }
 })
 
 const emit = defineEmits(['select-item', 'loaded'])
+const { loadMarkersForMedia } = useMarkers()
 
 const { getThumbnailUrl } = useMediaApi()
 
@@ -126,6 +136,7 @@ async function loadContent() {
     title.value = data.title || ''
     description.value = data.description || ''
     items.value = data.items || []
+    loadMarkersForMedia(items.value.map(item => mediaIdOf(item.resolved)).filter(id => id != null))
 
     emit('loaded', { title: title.value, description: description.value })
   } catch (e) {

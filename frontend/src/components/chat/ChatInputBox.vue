@@ -75,9 +75,10 @@
 
       <!-- Action bar: two groups, the model on the left and the utilities with
            send on the right. The utilities (attach, skills, voice) are one
-           cluster; send stands apart from it. -->
+           cluster; send stands apart from it. In a narrow chat the model
+           shows as its icon alone, so the two groups never overlap. -->
       <div
-        class="flex items-center justify-between gap-3 px-2 pb-2 pt-2 coarse:pb-1.5 coarse:pt-1"
+        class="@container/inputbar flex items-center justify-between gap-3 px-2 pb-2 pt-2 coarse:pb-1.5 coarse:pt-1"
         :class="agentUnavailable ? 'border-t border-edge-subtle' : ''"
       >
         <!-- Left: model picker -->

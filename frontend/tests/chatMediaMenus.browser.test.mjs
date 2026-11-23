@@ -97,15 +97,14 @@ test('the artifact panel owns its keys only while it has focus and nothing is ov
   assert.equal(await page.evaluate(() => window.chatMenus.events.closed), 1)
 })
 
-test('clicking the artifact video plays it; the slideshow opens from its button', async t => {
+test('clicking the artifact video opens the slideshow; it has no separate button', async t => {
   const page = await fixture(t, '?kind=mp4')
   const stage = page.getByTestId('artifact-stage')
   const video = stage.locator('video')
   await expect(video).toBeAttached()
-  assert.equal(await video.evaluate(el => el.parentElement.className.includes('cursor-zoom-in')), false)
+  assert.equal(await video.evaluate(el => el.parentElement.className.includes('cursor-zoom-in')), true)
+  await expect(stage.getByRole('button', { name: 'Open slideshow' })).toHaveCount(0)
   await video.click({ position: { x: 50, y: 50 } })
-  assert.deepEqual(await page.evaluate(() => window.chatMenus.events.slideshow), [])
-  await stage.getByRole('button', { name: 'Open slideshow' }).click()
   assert.deepEqual(await page.evaluate(() => window.chatMenus.events.slideshow), [501])
 })
 

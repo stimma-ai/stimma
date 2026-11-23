@@ -8,7 +8,8 @@
     <!-- Main content area with explicit scroll -->
     <div
       ref="scrollContainerRef"
-      class="flex-1 overflow-x-auto overflow-y-auto p-4 pt-20 min-h-0 custom-scrollbar"
+      :class="inPanel ? 'p-3' : 'p-4 pt-20'"
+      class="flex-1 overflow-x-auto overflow-y-auto min-h-0 custom-scrollbar"
     >
       <div v-if="loading" class="flex items-center justify-center h-full text-content-tertiary">
         Loading grid...
@@ -105,6 +106,10 @@
                       </svg>
                     </div>
 
+                    <TileMarkerToggles
+                      v-if="!multiSelectMode && mediaIdOf(getCellContent(rowIdx - 1, colIdx - 1)?.resolved) != null"
+                      :media-id="mediaIdOf(getCellContent(rowIdx - 1, colIdx - 1).resolved)"
+                    />
                     <button
                       v-if="isEmbeddedCell(getCellContent(rowIdx - 1, colIdx - 1))"
                       class="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-950/80 text-content-muted opacity-0 transition-all hover:text-content group-hover:opacity-100 disabled:opacity-100"
@@ -145,6 +150,8 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { MediaImage } from '../media'
+import TileMarkerToggles from '../media/TileMarkerToggles.vue'
+import { useMarkers } from '../../composables/useMarkers'
 import axios from 'axios'
 import { useAssetApi } from '../../composables/useAssetApi'
 import { addToast } from '../../composables/useToasts'
@@ -168,8 +175,14 @@ const props = defineProps({
   multiSelectMode: {
     type: Boolean,
     default: false
+  },
+  // In the artifact panel there is no slideshow chrome to clear at the top.
+  inPanel: {
+    type: Boolean,
+    default: false
   }
 })
+const { loadMarkersForMedia } = useMarkers()
 
 const emit = defineEmits(['back', 'select-cell', 'selection-change', 'loaded'])
 
@@ -306,6 +319,7 @@ async function loadContent() {
       const key = `${cell.row}-${cell.col}`
       cellMap.value.set(key, cell)
     }
+    loadMarkersForMedia(cells.value.map(cell => mediaIdOf(cell.resolved)).filter(id => id != null))
 
     emit('loaded', { title: title.value, description: description.value })
   } catch (e) {

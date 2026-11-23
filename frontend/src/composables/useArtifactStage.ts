@@ -36,8 +36,10 @@ export interface ArtifactMeta {
   title?: string | null
 }
 
-export const STAGE_MIN_WIDTH = 280
-export const STAGE_MAX_WIDTH = 700
+// The divider sets the chat column's width. Each side keeps a minimum and the
+// chat has no maximum: a wide screen can give the chat whatever it likes.
+export const CHAT_MIN_WIDTH = 320
+export const PANEL_MIN_WIDTH = 320
 const STAGE_DEFAULT_WIDTH = 420
 
 export function parseArtifactMeta(item: any): ArtifactMeta | null {
@@ -312,7 +314,7 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
       const stored = localStorage.getItem(widthKey(id))
       if (stored != null) {
         const parsed = Number(stored)
-        if (Number.isFinite(parsed)) width.value = Math.min(STAGE_MAX_WIDTH, Math.max(STAGE_MIN_WIDTH, parsed))
+        if (Number.isFinite(parsed)) width.value = Math.max(CHAT_MIN_WIDTH, parsed)
       }
       const st = readState(id)
       dismissedAssetId.value = st?.dismissedAssetId ?? null
@@ -346,7 +348,13 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
     e.preventDefault()
     stopResize?.()
     const startX = e.clientX
-    const startWidth = width.value
+    // The handle sits between the chat column and the panel, in their row. The
+    // column may be narrower than the stored width when the window shrank.
+    const handle = e.currentTarget as HTMLElement | null
+    const row = handle?.parentElement
+    const column = handle?.previousElementSibling as HTMLElement | null
+    const startWidth = column?.offsetWidth || width.value
+    const maxWidth = row ? Math.max(CHAT_MIN_WIDTH, row.clientWidth - (handle?.offsetWidth || 0) - PANEL_MIN_WIDTH) : Infinity
     const prevUserSelect = document.body.style.userSelect
     const prevCursor = document.body.style.cursor
     document.body.style.userSelect = 'none'
@@ -358,7 +366,7 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
       ev.preventDefault()
       // Handle sits on the chat column's right edge: dragging right widens the chat.
       const delta = ev.clientX - startX
-      width.value = Math.min(STAGE_MAX_WIDTH, Math.max(STAGE_MIN_WIDTH, startWidth + delta))
+      width.value = Math.round(Math.min(maxWidth, Math.max(CHAT_MIN_WIDTH, startWidth + delta)))
     }
     function onUp() {
       document.body.style.userSelect = prevUserSelect

@@ -1,6 +1,6 @@
 <template>
   <!-- Focus anywhere in the panel gives it the keys: ←/→ step versions, Space
-       plays and pauses a video, Escape closes. -->
+       plays and pauses a video, Enter opens the slideshow, Escape closes. -->
   <div ref="rootRef" tabindex="-1" class="flex-1 min-w-0 bg-matte flex flex-col relative overflow-hidden outline-none" data-testid="artifact-stage" @keydown="onKeydown">
     <!-- Header -->
     <div v-if="!isEmpty" class="flex flex-wrap items-center gap-2.5 px-3.5 py-2 border-b border-edge-subtle bg-surface/60 flex-shrink-0">
@@ -11,6 +11,7 @@
           <template v-else>{{ kindLabel }}<template v-if="revisions.length"> · {{ versionSubline }}</template></template>
         </div>
       </div>
+      <StageMarkers v-if="!workspaceFile && viewedRevision?.media_id != null" :media-id="viewedRevision.media_id" :narrow="narrow" />
 
       <div class="ml-auto flex flex-wrap items-center justify-end gap-0.5 min-w-0" :class="workspaceArchive ? 'w-full' : ''">
         <!-- The kebab is the same menu the artwork's right-click gives, anchored
@@ -86,7 +87,7 @@
           >
             {{ loading ? 'Setting…' : 'Set as latest' }}
           </button>
-          <IconButton v-if="canOpenSlideshow" title="Open slideshow" aria-label="Open slideshow" @click="openSlideshow"><ArrowsPointingOutIcon class="w-4 h-4" /></IconButton>
+          <IconButton v-if="canOpenSlideshow && !heroOpensSlideshow" title="Open slideshow" aria-label="Open slideshow" @click="openSlideshow"><ArrowsPointingOutIcon class="w-4 h-4" /></IconButton>
           <IconButton v-if="heroKind !== 'package' && heroKind !== 'sheet'" title="Download" aria-label="Download" @click="downloadRevision"><ArrowDownTrayIcon class="w-4 h-4" /></IconButton>
           <div ref="overflowButtonRef" class="flex">
             <IconButton title="Actions" @click="onOverflowClick">
@@ -130,6 +131,24 @@
           :chat-id="chatId ?? null"
           class="flex-1 min-h-0"
         />
+        <!-- A set or grid is worked in place: its tiles take markers, and a
+             click on one opens the slideshow over the members. -->
+        <SetOverview
+          v-else-if="heroKind === 'set'"
+          :key="'set-' + viewedRevision.media_id"
+          :media-id="viewedRevision.media_id"
+          in-panel
+          class="flex-1 min-h-0 !bg-transparent"
+          @select-item="onSetItemSelect"
+        />
+        <GridViewer
+          v-else-if="heroKind === 'grid'"
+          :key="'grid-' + viewedRevision.media_id"
+          :media-id="viewedRevision.media_id"
+          in-panel
+          class="flex-1 min-h-0 !bg-transparent"
+          @select-cell="onGridCellSelect"
+        />
         <div
           v-else
           class="relative flex-1 min-h-0 rounded-media overflow-hidden"
@@ -149,24 +168,26 @@
               ref="videoRef"
               :key="viewedRevision.media_id"
               :poster="getThumbnailUrl(viewedRevision.media_id, 1024, { mode: 'fit' })"
-              :muted="videoMuted"
+              muted
               class="w-full h-full object-contain"
               playsinline
-              @click="videoTransport.togglePlayback()"
+              @timeupdate="onVideoTime"
             />
             <VideoTransportBar
               :transport="videoTransport"
+              @click.stop
               class="absolute left-1/2 -translate-x-1/2 bottom-6 w-[620px] max-w-[75%] z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] cursor-default"
             >
-              <button
-                type="button"
-                class="bg-transparent border-none text-white/60 cursor-pointer p-1 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white flex-shrink-0"
-                :title="videoMuted ? 'Unmute' : 'Mute'"
-                @click="toggleVideoMute"
-              >
-                <SpeakerXMarkIcon v-if="videoMuted" class="w-icon-nav h-icon-nav" />
-                <SpeakerWaveIcon v-else class="w-icon-nav h-icon-nav" />
-              </button>
+              <!-- The panel's video is an ambient loop, like the chat's media
+                   strip: sound is one pass from the top, then quiet again. -->
+              <VideoAuditionControl
+                v-if="hasAudio !== false"
+                quiet
+                class="flex-shrink-0"
+                :active="auditionActive"
+                :progress="auditionProgress"
+                @toggle="toggleAudition"
+              />
             </VideoTransportBar>
           </template>
           <MediaImage
@@ -200,7 +221,7 @@ import FileActions from './FileActions.vue'
 import FileViewer from '../viewers/FileViewer.vue'
 import Button from '../ui/Button.vue'
 import { fileUrl, fileSize, dragWorkspaceFile, fileKind, type WorkspaceFile } from '../../utils/fileRefs'
-import { computed, ref, watch, onBeforeUnmount, onActivated, onDeactivated } from 'vue'
+import { computed, ref, watch, onBeforeUnmount, onMounted, onActivated, onDeactivated } from 'vue'
 import {
   ChevronDownIcon,
   EllipsisVerticalIcon,
@@ -228,7 +249,10 @@ import { getMediaType } from '../../utils/mediaTypes'
 import type { ArtifactRevision } from '../../composables/useArtifactStage'
 import { toProjectId } from '../../utils/projectScope'
 import VideoTransportBar from '../media/VideoTransportBar.vue'
-import { SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/vue/24/solid'
+import VideoAuditionControl from '../viewers/VideoAuditionControl.vue'
+import SetOverview from '../viewers/SetOverview.vue'
+import GridViewer from '../viewers/GridViewer.vue'
+import StageMarkers from './StageMarkers.vue'
 import { useVideoTransport } from '../../composables/useVideoTransport'
 import { useMediaPlayback, useManagedMediaElement } from '../../composables/useMediaPlayback'
 import { mobileAutoplayAllowed } from '../../composables/useMobilePlaybackLifecycle'
@@ -258,6 +282,7 @@ const emit = defineEmits<{
   'jump-newest': []
   'set-latest': []
   'open-slideshow': [mediaId: number]
+  'open-members': [mediaIds: number[], index: number]
 }>()
 
 const { getThumbnailUrl, getMediaFileUrl, getMseLoopUrls, getMediaItem } = useMediaApi()
@@ -307,7 +332,8 @@ const heroKind = computed(() => {
 
 // --- Video hero: seamless loop + filmstrip transport, same as the slideshow ---
 
-const { videoMuted, videoVolume, toggleVideoMute } = useMediaPlayback()
+// The audition plays at the slideshow's video volume (the speaker's hover slider).
+const { videoVolume } = useMediaPlayback()
 const videoRef = ref<HTMLVideoElement | null>(null)
 useManagedMediaElement(videoRef)
 
@@ -340,9 +366,10 @@ function destroyMsePlayback() {
 
 watch([videoRef, videoHash, videoActive, () => props.active], ([element, fileHash, active, surfaceActive]) => {
   destroyMsePlayback()
+  stopAudition()
+  hasAudio.value = null
   if (!element || !fileHash || !active || surfaceActive === false) return
-  element.muted = videoMuted.value
-  element.volume = videoVolume.value
+  element.muted = true
   const playback = new MseLoopPlayback(element, getMseLoopUrls(fileHash), {
     shouldPlay: () => videoActive.value && props.active !== false && mobileAutoplayAllowed.value,
     onError: (error: unknown) => {
@@ -362,12 +389,50 @@ watch([videoRef, videoHash, videoActive, () => props.active], ([element, fileHas
 }, { flush: 'post' })
 onBeforeUnmount(destroyMsePlayback)
 
-watch(videoMuted, (muted) => {
+// Sound is an audition: one pass from the top with sound, then back to the
+// quiet loop. The loop never ends, so the pass ends when time wraps or runs out.
+const auditionActive = ref(false)
+const auditionProgress = ref(0)
+let auditionLast = 0
+function stopAudition() {
+  auditionActive.value = false
+  auditionProgress.value = 0
+  if (videoRef.value) videoRef.value.muted = true
+}
+function toggleAudition() {
   const el = videoRef.value
   if (!el) return
-  el.muted = muted
-  if (!muted) el.volume = videoVolume.value
-})
+  if (auditionActive.value) { stopAudition(); return }
+  if (msePlayback) msePlayback.seekLogical(0)
+  else el.currentTime = 0
+  // The speaker's slider floor: a pass with sound is never silent.
+  el.volume = Math.max(0.05, videoVolume.value)
+  el.muted = false
+  auditionLast = 0
+  auditionActive.value = true
+  auditionProgress.value = 0
+  if (el.paused) void el.play().catch(() => stopAudition())
+}
+// Whether the clip has a sound track: unknown (null) until the browser can
+// tell, which it does once a little of the quiet loop has played.
+const hasAudio = ref<boolean | null>(null)
+function detectAudio(el: any) {
+  if (hasAudio.value !== null) return
+  if (typeof el.mozHasAudio === 'boolean') hasAudio.value = el.mozHasAudio
+  else if (el.audioTracks) hasAudio.value = el.audioTracks.length > 0
+  else if (typeof el.webkitAudioDecodedByteCount === 'number' && el.currentTime > 0.5) hasAudio.value = el.webkitAudioDecodedByteCount > 0
+}
+function onVideoTime() {
+  const el = videoRef.value
+  if (!el) return
+  detectAudio(el)
+  if (!auditionActive.value) return
+  const t = msePlayback?.logicalCurrentTime ?? el.currentTime
+  const d = videoTransport.duration.value || el.duration || 0
+  if (t + 0.05 < auditionLast || (d > 0 && t >= d - 0.05)) { stopAudition(); return }
+  auditionLast = t
+  auditionProgress.value = d > 0 ? t / d : 0
+}
 
 const videoTransport = useVideoTransport({
   video: videoRef,
@@ -382,21 +447,57 @@ const showDimensionChip = computed(() =>
 )
 
 // A package's cover and a contact sheet are pages you read in place; the
-// slideshow is the surface they must never land on.
-const canOpenSlideshow = computed(() => !!props.viewedRevision && heroKind.value !== 'package' && heroKind.value !== 'sheet')
+// slideshow is the surface they must never land on. A set or grid opens it
+// over its members, from the tile clicked.
+const canOpenSlideshow = computed(() => !!props.viewedRevision && !['package', 'sheet', 'set', 'grid'].includes(heroKind.value))
 // Documents, audio and text sit in the file viewer, which has controls of its own.
 const heroUsesFileViewer = computed(() => !!props.viewedRevision
-  && !['layout', 'vector', 'sprite', 'package', 'sheet', 'video'].includes(heroKind.value)
+  && !['layout', 'vector', 'sprite', 'package', 'sheet', 'video', 'set', 'grid'].includes(heroKind.value)
   && fileKind(props.viewedRevision.file_format) !== 'image')
-// A click on the picture zooms it into the slideshow. A video's click plays and
-// pauses it instead; the header's button still opens the slideshow.
-const heroOpensSlideshow = computed(() => canOpenSlideshow.value && heroKind.value !== 'video' && !heroUsesFileViewer.value)
+// A click on the artwork opens the slideshow, a video's too: play and pause
+// sit on its transport bar and Space. A layout is a live page whose clicks stay
+// inside its frame, so it keeps the header's button.
+const heroOpensSlideshow = computed(() => canOpenSlideshow.value && heroKind.value !== 'layout' && !heroUsesFileViewer.value)
 function openSlideshow() {
   if (canOpenSlideshow.value && props.viewedRevision) emit('open-slideshow', props.viewedRevision.media_id)
 }
 function onHeroClick() {
-  if (heroOpensSlideshow.value) openSlideshow()
+  if (!heroOpensSlideshow.value) return
+  stopAudition()
+  openSlideshow()
 }
+function mediaIdOf(media: any): number | null {
+  return media?.id ?? media?.media_id ?? null
+}
+function openMembers(members: any[], clicked: any) {
+  const ids: number[] = []
+  let index = 0
+  for (const member of members) {
+    const id = mediaIdOf(member?.resolved)
+    if (id == null) continue
+    if (member === clicked) index = ids.length
+    ids.push(id)
+  }
+  if (ids.length) emit('open-members', ids, index)
+}
+function onSetItemSelect({ item, setData }: any) {
+  openMembers(setData?.items || [], item)
+}
+// Row by row, as the grid reads.
+function onGridCellSelect({ cell, gridData }: any) {
+  const ordered = [...(gridData?.cells || [])].sort((a: any, b: any) => a.row - b.row || a.col - b.col)
+  openMembers(ordered, cell)
+}
+
+// A narrow panel folds the header's markers.
+const narrow = ref(false)
+let resizeObserver: ResizeObserver | null = null
+onMounted(() => {
+  if (typeof ResizeObserver === 'undefined' || !rootRef.value) return
+  resizeObserver = new ResizeObserver(([entry]) => { narrow.value = entry.contentRect.width < 520 })
+  resizeObserver.observe(rootRef.value)
+})
+onBeforeUnmount(() => resizeObserver?.disconnect())
 
 const rootRef = ref<HTMLElement | null>(null)
 // Widgets that use the arrows themselves keep them; any control keeps Space.
@@ -429,6 +530,9 @@ function onKeydown(event: KeyboardEvent) {
   } else if (event.key === ' ' && heroKind.value === 'video' && !target?.closest?.('button,a,summary')) {
     event.preventDefault()
     videoTransport.togglePlayback()
+  } else if (event.key === 'Enter' && heroOpensSlideshow.value && !target?.closest?.('button,a,summary')) {
+    event.preventDefault()
+    onHeroClick()
   }
 }
 

@@ -40,7 +40,7 @@
       class="flex flex-1 flex-col min-h-0 min-w-0 transition-[flex-grow] duration-[180ms] ease-out"
       :class="artifactStage.resizing.value ? '!transition-none' : ''"
       :style="(!narrow || (embedded && artifactStage.workspaceFile.value)) && !isCompact
-        ? { flex: `${stageSqueezesChat ? '0 0' : '1 1'} ${artifactStage.width.value}px` }
+        ? { flex: `${stageSqueezesChat ? '0 1' : '1 1'} ${artifactStage.width.value}px`, minWidth: `${CHAT_MIN_WIDTH}px` }
         : {}"
     >
       <!-- Chat + Settings horizontal row -->
@@ -1367,12 +1367,12 @@
           <div
             v-if="artifactStage.stageOpen.value && artifactStage.collectionItemId.value != null"
             :ref="el => { mediaCollections.panel.target.value = el }"
-            class="flex min-w-0 flex-1 flex-col overflow-hidden bg-matte compact:absolute compact:inset-0 compact:z-chrome"
+            class="flex min-w-[320px] flex-1 flex-col overflow-hidden bg-matte compact:absolute compact:inset-0 compact:z-chrome compact:min-w-0"
           />
           <ArtifactStage
             :active="!slideshowState.active"
             v-else-if="artifactStage.stageOpen.value"
-            class="compact:absolute compact:inset-0 compact:z-chrome"
+            class="min-w-[320px] compact:absolute compact:inset-0 compact:z-chrome compact:min-w-0"
             :workspace-file="artifactStage.workspaceFile.value"
             :chat-id="chatId"
             :project-id="chat ? (chat.project_id ?? null) : undefined"
@@ -1390,6 +1390,7 @@
             @jump-newest="artifactStage.jumpToNewest"
             @set-latest="artifactStage.setAsLatest"
             @open-slideshow="openArtifactSlideshow"
+            @open-members="openMemberSlideshow"
           />
         </Transition>
       </template>
@@ -1492,7 +1493,7 @@ import SheetChatChip from '../components/sheets/SheetChatChip.vue'
 import SheetReviewMessage from '../components/sheets/SheetReviewMessage.vue'
 import SheetSlideshowReviewBar from '../components/sheets/SheetSlideshowReviewBar.vue'
 import { SHEET_SLIDESHOW } from '../components/sheets/useContactSheet'
-import { useArtifactStage, parseArtifactMeta, pinnedRevisionFor } from '../composables/useArtifactStage'
+import { useArtifactStage, parseArtifactMeta, pinnedRevisionFor, CHAT_MIN_WIDTH, PANEL_MIN_WIDTH } from '../composables/useArtifactStage'
 import GridGenerationDisplay from '../components/chat/GridGenerationDisplay.vue'
 import ProgressDisplay from '../components/chat/ProgressDisplay.vue'
 import AnalysisResult from '../components/chat/AnalysisResult.vue'
@@ -3147,6 +3148,15 @@ function openArtifactSlideshow(mediaId) {
     openSlideshow(mediaId)
     return
   }
+  enterEntrySlideshow(entries, index)
+}
+// A set or grid in the panel opens the slideshow over its members, from the
+// one clicked; closing it leaves the panel on the set.
+function openMemberSlideshow(mediaIds, index) {
+  if (!mediaIds?.length) return
+  enterEntrySlideshow(mediaIds.map((id, i) => ({ id, revisionId: null, key: `member:${i}:${id}`, label: '' })), index)
+}
+function enterEntrySlideshow(entries, index) {
   sheetSlideshow.value = null
   artifactSlideshow.value = entries
   slideshowReturn = null
@@ -5771,7 +5781,7 @@ function pinStage(el, width) {
 // parent's width is known. Arity 1 keeps Vue on CSS transition timing.
 function freezeStageForEnter(el) {
   if (isCompact.value || !el.parentElement) { stageSqueezesChat.value = true; return }
-  pinStage(el, el.parentElement.clientWidth - artifactStage.width.value - STAGE_HANDLE_WIDTH)
+  pinStage(el, Math.max(PANEL_MIN_WIDTH, el.parentElement.clientWidth - artifactStage.width.value - STAGE_HANDLE_WIDTH))
   onTransitionFrame(() => { stageSqueezesChat.value = true })
 }
 function freezeStageForLeave(el) {

@@ -1,5 +1,5 @@
 <template>
-  <div class="relative" ref="container">
+  <div class="relative min-w-0" ref="container">
     <button
       type="button"
       :disabled="triggerDisabled"
@@ -21,7 +21,7 @@
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
       </svg>
       <ModelVendorIcon v-else-if="currentIconModel" :model="currentIconModel" size="sm" />
-      <span v-if="modelReady" class="truncate max-w-[150px]">
+      <span v-if="modelReady" class="truncate max-w-[150px] [@container_inputbar_(max-width:24rem)]:hidden">
         {{ currentDisplayName }}<span v-if="currentReasoningLabel" class="text-content-muted"> · {{ currentReasoningLabel }}</span>
       </span>
       <svg
