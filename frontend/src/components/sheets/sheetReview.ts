@@ -65,3 +65,60 @@ export function isEmptyAnswer(value: unknown): boolean {
   if (typeof value === 'object') return Object.values(value as object).every(isEmptyAnswer)
   return false
 }
+
+/** One line of a sent review, as the backend describes it for the chat card. */
+export interface SentReviewItem extends MediaReview {
+  kind: string
+  id: string
+  text?: string
+  question?: string
+  about?: string | null
+  media_id?: number | null
+}
+export type SentReviewRow = SentReviewItem & { mark: MediaReview | null }
+export interface SentReviewGroup { key: string; title: string; mark: MediaReview; items: SentReviewRow[] }
+
+/** Past this many rated pictures, the card shows strips per verdict instead of rows. */
+export const REVIEW_GROUP_AFTER = 10
+
+/** The mark a sent rating carries. Reviews sent before ratings had fields only have the words. */
+export function sentReviewMark(item: SentReviewItem): MediaReview | null {
+  if (item.kind === 'stars') {
+    const stars = Number(/^(\d)/.exec(item.text || '')?.[1] || 0)
+    return stars ? { stars } : null
+  }
+  if (item.kind !== 'rating') return null
+  if (item.thumb || item.stars || item.labels?.length) {
+    return { thumb: item.thumb, stars: item.stars, labels: item.labels }
+  }
+  const text = item.text || ''
+  const thumb = /thumbs (up|down)/.exec(text)?.[1] as MediaReview['thumb']
+  const stars = Number(/(\d) of 5 stars/.exec(text)?.[1] || 0) || undefined
+  const labels = /labeled (.+)$/.exec(text)?.[1].split(', ')
+  return thumb || stars || labels ? { thumb, stars, labels } : null
+}
+
+function verdictKey(item: SentReviewRow) {
+  if (item.kind !== 'rating') return null
+  if (item.mark?.thumb) return item.mark.thumb
+  return item.mark?.stars ? `s${item.mark.stars}` : null
+}
+
+const VERDICT_ORDER = ['up', 'down', 's5', 's4', 's3', 's2', 's1']
+
+/**
+ * Rows for the card, plus strips once there are many rated pictures: kept,
+ * dropped, then stars best first. Unrated answers and comments stay rows.
+ */
+export function sentReviewLayout(items: SentReviewItem[]): { rows: SentReviewRow[]; groups: SentReviewGroup[] } {
+  const all = items.map(item => ({ ...item, mark: sentReviewMark(item) }))
+  if (all.filter(verdictKey).length <= REVIEW_GROUP_AFTER) return { rows: all, groups: [] }
+  const groups = VERDICT_ORDER.flatMap(key => {
+    const members = all.filter(item => verdictKey(item) === key)
+    if (!members.length) return []
+    if (key === 'up') return [{ key, title: 'Kept', mark: { thumb: 'up' as const }, items: members }]
+    if (key === 'down') return [{ key, title: 'Dropped', mark: { thumb: 'down' as const }, items: members }]
+    return [{ key, title: '', mark: { stars: Number(key.slice(1)) }, items: members }]
+  })
+  return { rows: all.filter(item => !verdictKey(item)), groups }
+}

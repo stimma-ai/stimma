@@ -577,6 +577,25 @@ def media_review_text(value: Any) -> str:
     return "; ".join(parts)
 
 
+def media_review_fields(value: Any) -> dict[str, Any]:
+    """A picture's quick review as fields, so the chat card can draw it."""
+    if not isinstance(value, dict):
+        return {}
+    fields: dict[str, Any] = {}
+    if value.get("thumb") in ("up", "down"):
+        fields["thumb"] = value["thumb"]
+    try:
+        stars = int(value.get("stars") or 0)
+    except (TypeError, ValueError):
+        stars = 0
+    if stars:
+        fields["stars"] = min(stars, 5)
+    labels = [str(label) for label in value.get("labels") or [] if label]
+    if labels:
+        fields["labels"] = labels
+    return fields
+
+
 async def review_rows(session: AsyncSession, asset_id: int) -> list[ContactSheetReview]:
     return list(await session.scalars(
         select(ContactSheetReview)
@@ -692,7 +711,7 @@ def describe_review_rows(rows: Iterable[ContactSheetReview], components: dict[st
         elif tag in {"stimma-media", "stimma-compare"}:
             caption, media_id = _media_label(component)
             item.update(kind="rating", text=media_review_text(value) or "rating cleared",
-                        about=caption or None, media_id=media_id)
+                        about=caption or None, media_id=media_id, **media_review_fields(value))
         elif row.anchor == SHEET_ANCHOR:
             item.update(kind="feedback", text=str(value or "") or "(cleared)")
         elif tag == "stimma-check":

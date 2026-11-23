@@ -233,7 +233,10 @@ async def test_publish_open_revise_and_review(client, db_session, tmp_path, no_a
         assert "- Overall feedback: Cooler overall." in message.message_text
         assert f'- Approved for the shop, for "Ridge" (media {a.id}) [ok-hero]: yes' in message.message_text
         assert f'- Comment on "Ridge" (media {a.id}) [hero]: Love this grey.' in message.message_text
-        assert json.loads(message.item_metadata)["contact_sheet_review"]["asset_id"] == asset.id
+        card = json.loads(message.item_metadata)["contact_sheet_review"]
+        assert card["asset_id"] == asset.id
+        rated = next(item for item in card["items"] if item["kind"] == "rating")
+        assert rated["stars"] == 4 and rated["labels"] == ["Hero"] and "thumb" not in rated
         again = await client.post(f"/api/contact-sheets/{asset.id}/review/send", json={"chat_id": chat.id})
         assert again.json() == {"sent": 0, "delivery": None}
         # Overall feedback is said once: the box is empty for the next round.
