@@ -129,7 +129,13 @@ test('descent: a region picked whole takes over its heritages; un-picking one in
   assert.equal(clearSeed(s, 'descent', pool), null)
   // Partly picked, the region's box picks it whole; picking its last heritage does the same.
   assert.deepEqual(toggleRegion(s, 'East Asia', pool), { seeds: { descent: { groups: { region: ['East Asia'] } } } })
-  assert.deepEqual(toggleHeritage(s, 'Japanese', pool), { seeds: { descent: { groups: { region: ['East Asia'] } } } })
+  assert.deepEqual(toggleHeritage(s, 'Japanese', pool, true), { seeds: { descent: { groups: { region: ['East Asia'] } } } })
+  assert.deepEqual(toggleHeritage(s, 'Japanese', pool), { seeds: { descent: { values: ['Korean', 'Chinese', 'Japanese'] } } })
+  // Where the slot allows one heritage of a region, picking it takes the region; un-picking clears.
+  const one: ChoicePool = { ...pool, person: { ...pool.person!, descent: { ...pool.person!.descent!, fits: ['Korean', 'Swedish', 'Danish'] } } }
+  const k = toggleHeritage(null, 'Korean', one, true)
+  assert.deepEqual(k, { seeds: { descent: { groups: { region: ['East Asia'] } } } })
+  assert.equal(toggleHeritage(k, 'Korean', one, true), null)
 })
 
 test('age: a stage picked whole covers its years; a year inside it narrows the stage to that year', () => {

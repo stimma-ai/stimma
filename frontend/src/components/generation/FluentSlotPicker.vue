@@ -53,7 +53,7 @@
           </button>
         </template>
         <template v-else-if="query.trim()">
-          <button v-for="h in heritageMatches" :key="h.name" type="button" :class="rowClass" :data-heritage="h.name" @click="set(toggleHeritage(st, h.name, pool))">
+          <button v-for="h in heritageMatches" :key="h.name" type="button" :class="rowClass" :data-heritage="h.name" @click="set(toggleHeritage(st, h.name, pool, true))">
             <span :class="tickClass"><span :class="boxClass(heritagePicked(h.name) || regionPicked(h.region) ? 'on' : 'off')"><CheckIcon v-if="heritagePicked(h.name) || regionPicked(h.region)" class="w-2.5 h-2.5" stroke-width="3" /></span></span>
             <span class="flex-1 text-content">{{ h.name }}</span>
             <span class="shrink-0 text-[11px] text-content-muted">{{ h.region }}</span>
@@ -61,7 +61,7 @@
           <div v-if="!heritageMatches.length" class="px-2 py-1.5 text-xs text-content-muted">No matches</div>
         </template>
         <template v-else-if="region">
-          <button v-for="h in region.values" :key="h" type="button" :class="rowClass" :data-heritage="h" @click="set(toggleHeritage(st, h, pool))">
+          <button v-for="h in region.values" :key="h" type="button" :class="rowClass" :data-heritage="h" @click="set(toggleHeritage(st, h, pool, true))">
             <span :class="tickClass"><span :class="boxClass(heritagePicked(h) || regionPicked(region.id) ? 'on' : 'off')"><CheckIcon v-if="heritagePicked(h) || regionPicked(region.id)" class="w-2.5 h-2.5" stroke-width="3" /></span></span>
             <span class="flex-1 text-content">{{ h }}</span>
           </button>

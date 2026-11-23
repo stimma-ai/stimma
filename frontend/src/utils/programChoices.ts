@@ -260,19 +260,19 @@ function withSeeds(s: ChoiceState | null | undefined, seeds: ChoiceSeeds, pool: 
 const flip = (xs: string[] | undefined, x: string) => (xs || []).includes(x) ? (xs || []).filter(v => v !== x) : [...(xs || []), x]
 
 /** Pick a heritage, or un-pick it. In a region picked whole, un-picking one leaves the rest. */
-export function toggleHeritage(s: ChoiceState | null | undefined, heritage: string, pool: ChoicePool | null | undefined): ChoiceState | null {
+export function toggleHeritage(s: ChoiceState | null | undefined, heritage: string, pool: ChoicePool | null | undefined, whole = false): ChoiceState | null {
   const descent = pool?.person?.descent
+  const fits = descent?.fits?.length ? new Set(descent.fits) : null
   let values = [...(s?.seeds?.descent?.values || [])]
   let regions = [...(s?.seeds?.descent?.groups?.region || [])]
-  const whole = descent?.parts.find(p => regions.includes(p.id) && p.values.includes(heritage))
-  if (whole) {
-    regions = regions.filter(r => r !== whole.id)
-    values = uniq([...values, ...whole.values.filter(h => h !== heritage)])
+  const picked = descent?.parts.find(p => regions.includes(p.id) && p.values.includes(heritage))
+  if (picked) {
+    regions = regions.filter(r => r !== picked.id)
+    values = uniq([...values, ...picked.values.filter(h => h !== heritage && (!fits || fits.has(h)))])
   } else {
     values = flip(values, heritage)
-    // Every heritage of its region the slot allows now picked: the region is picked whole.
-    const part = descent?.parts.find(p => p.values.includes(heritage))
-    const fits = descent?.fits?.length ? new Set(descent.fits) : null
+    // `whole`: every heritage of its region the slot allows now picked, the region is picked whole.
+    const part = whole ? descent?.parts.find(p => p.values.includes(heritage)) : undefined
     const members = part ? part.values.filter(h => !fits || fits.has(h)) : []
     if (part && members.length && members.every(h => values.includes(h))) {
       regions = uniq([...regions, part.id])

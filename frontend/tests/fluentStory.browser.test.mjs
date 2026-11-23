@@ -807,7 +807,7 @@ for (const theme of ['dark', 'light']) test(`descent: a region’s box picks it 
   await expect.poll(seeds).toBeUndefined()
   // The name opens the region: no "All" row inside, just its heritages.
   await card.locator('[data-region="Europe"]').click()
-  await expect(card.locator('[data-heritage]')).toHaveText(['Irish', 'Swedish'])
+  await expect(card.locator('[data-list] button')).toHaveText(['Irish', 'Swedish'])
   await card.locator('[data-heritage="Irish"]').click()
   await card.locator('[data-back]').click()
   await expect(box('Europe')).toHaveAttribute('aria-checked', 'mixed')
