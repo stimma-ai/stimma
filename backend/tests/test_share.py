@@ -766,6 +766,35 @@ async def test_provenance_v2_request_publishes_v3(db_session, root):
     assert sidecar == {"version": 3, "steps": [{"tool": "Flux 2 Pro", "edits": ["Crop"]}], "thumbnails": {}}
 
 
+async def test_provenance_publishes_the_filled_in_prompt(db_session, root):
+    pieces = [
+        {"text": "a woman in "},
+        {"text": "thin-rimmed glasses", "kind": "slot", "from": "glasses"},
+        {"text": " on a "},
+        {"text": "window seat", "kind": "list", "from": "{couch|window seat}", "extra": "dropped"},
+        {"text": " near ", "kind": "nonsense", "from": "ignored"},
+    ]
+    step = {"tool": "Krea 2", "prompt": "A woman in glasses.", "originalPrompt": "a woman in <glasses>",
+            "filledPrompt": pieces, "detail": "High detail", "improved": True}
+    async with db_session() as session:
+        sidecar = await build_public_sidecar(session, parse_provenance({"version": 3, "steps": [step]}))
+        out = sidecar["steps"][0]
+        assert out["filledPrompt"] == [
+            {"text": "a woman in "},
+            {"text": "thin-rimmed glasses", "kind": "slot", "from": "glasses"},
+            {"text": " on a "},
+            {"text": "window seat", "kind": "list", "from": "{couch|window seat}"},
+            {"text": " near "},
+        ]
+        assert out["detail"] == "High detail" and out["improved"] is True
+
+        # Whole or not at all: a path anywhere in it, or more than a prompt's length, drops it.
+        for bad in ([{"text": "see /home/someone/pics/a.png"}], [{"text": "x" * 8001}], [{"text": "  "}]):
+            sidecar = await build_public_sidecar(session, parse_provenance(
+                {"version": 3, "steps": [{**step, "filledPrompt": bad, "improved": False}]}))
+            assert "filledPrompt" not in sidecar["steps"][0] and "improved" not in sidecar["steps"][0]
+
+
 # Create (end to end through the route) ────────────────────────────────────────
 
 async def _image_media(db_session, root: Path, name: str):

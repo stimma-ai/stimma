@@ -5,8 +5,9 @@ import { build } from 'vite'
 import { chromium, expect } from '@playwright/test'
 import config from '../vite.config.js'
 
-// The media info panel's prompt: the one the image was made from, with a switch
-// to the prompt as typed (in the editor's syntax colors) only when they differ.
+// The media info panel's prompt: one plain block when there's one version; when the
+// image was made from a different prompt than the one typed, each version on a rail
+// (You wrote, Filled in, Improved), the earlier ones a line each until opened.
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
   root: fileURLToPath(new URL('..', import.meta.url)),
@@ -34,74 +35,104 @@ async function open(t, name, { width = 384, viewport = { width: 900, height: 800
   return { page, panel: page.locator('[data-panel]'), shot }
 }
 
-test('one prompt: no switch, the plain prompt as before', async t => {
+test('one prompt: the plain prompt as before', async t => {
   const { panel, shot } = await open(t, 'single')
-  await expect(panel.getByRole('radiogroup')).toHaveCount(0)
+  await expect(panel.locator('[data-testid="prompt-stages"]')).toHaveCount(0)
   await expect(panel.locator('[data-testid="prompt-block"] p')).toHaveText(await panel.page().evaluate(() => window.MADE))
   await shot('single-desktop')
 })
 
-test('the same prompt twice: no switch', async t => {
+test('the same prompt twice: one block', async t => {
   const { panel } = await open(t, 'identical')
-  await expect(panel.getByRole('radiogroup')).toHaveCount(0)
+  await expect(panel.locator('[data-testid="prompt-stages"]')).toHaveCount(0)
   await expect(panel.locator('[data-testid="prompt-block"]')).toHaveCount(1)
-  await expect(panel.getByText('As typed')).toHaveCount(0)
+  await expect(panel.getByText('You wrote')).toHaveCount(0)
 })
+
+const stage = (panel, key) => panel.locator(`[data-stage="${key}"]`)
+const stageText = (panel, key) => stage(panel, key).locator('p')
 
 for (const [label, opts] of [
   ['desktop', {}],
   ['compact', { width: 390, viewport: { width: 390, height: 844 } }],
   ['desktop-light', { theme: 'light' }],
 ]) {
-  test(`two prompts (${label}): the made-from prompt first, as typed one switch away`, async t => {
+  test(`typed and improved (${label}): the improved prompt whole, what was typed one line until opened`, async t => {
     const { page, panel, shot } = await open(t, 'pair', opts)
     const [made, typed] = await page.evaluate(() => [window.MADE, window.TYPED])
-    const text = panel.locator('[data-testid="prompt-block"] p')
-    const switcher = panel.getByRole('radiogroup', { name: 'Prompt version' })
-    await expect(switcher.getByRole('radio', { name: 'Prompt' })).toHaveAttribute('aria-checked', 'true')
-    await expect(text).toHaveText(made)
-    await expect(text.locator('[data-syntax]')).toHaveCount(0)
+    await expect(stage(panel, 'filled')).toHaveCount(0)
+    await expect(stage(panel, 'final')).toContainText('Improved')
+    await expect(stageText(panel, 'final')).toHaveText(made)
+    await expect(stageText(panel, 'typed')).toHaveText(typed)
     await expect(panel.getByText('Original prompt')).toHaveCount(0)
-    await shot(`pair-made-${label}`)
 
-    // The sections below move only by the text's own height.
-    const factsTop = async () => (await panel.getByText('Seed').boundingBox()).y
-    const textHeight = async () => (await text.boundingBox()).height
-    const [top0, h0] = [await factsTop(), await textHeight()]
-
-    await switcher.getByRole('radio', { name: 'As typed' }).click()
-    await expect(switcher.getByRole('radio', { name: 'As typed' })).toHaveAttribute('aria-checked', 'true')
-    await expect(text).toHaveText(typed)
+    // Closed: one line. The header opens it, in the editor's syntax colors.
+    const typedLine = stageText(panel, 'typed')
+    const lineHeight = async () => (await typedLine.boundingBox()).height
+    assert.ok(await lineHeight() < 24, 'closed: a single line')
+    await shot(`pair-closed-${label}`)
+    const header = stage(panel, 'typed').getByRole('button', { name: 'You wrote' })
+    await expect(header).toHaveAttribute('aria-expanded', 'false')
+    await header.click()
+    await expect(header).toHaveAttribute('aria-expanded', 'true')
+    assert.ok(await lineHeight() > 40, 'open: the whole prompt')
     for (const kind of ['wildcard', 'named-wildcard', 'verbatim', 'comment']) {
-      await expect(text.locator(`[data-syntax="${kind}"]`).first()).toBeVisible()
+      await expect(typedLine.locator(`[data-syntax="${kind}"]`).first()).toBeVisible()
     }
-    assert.deepEqual(await text.locator('[data-syntax="wildcard"]').allTextContents(), ['{yellow|red|navy}', '{rainy|foggy}', '{Lisbon|Porto}'])
-    await expect(text.locator('[data-syntax="named-wildcard"]')).toHaveText('{{hairstyle}}')
-    await expect(text.locator('[data-syntax="verbatim"]')).toHaveText('[ohwx woman]')
-    await expect(text.locator('[data-syntax="comment"]')).toHaveText('# keep her face the same between images, vary the street')
-    assert.ok(Math.abs((await factsTop() - top0) - (await textHeight() - h0)) < 1, 'only the prompt text changes height')
-    await shot(`pair-typed-${label}`)
+    assert.deepEqual(await typedLine.locator('[data-syntax="wildcard"]').allTextContents(), ['{yellow|red|navy}', '{rainy|foggy}', '{Lisbon|Porto}'])
+    await expect(typedLine.locator('[data-syntax="named-wildcard"]')).toHaveText('{{hairstyle}}')
+    await shot(`pair-open-${label}`)
 
-    // A click on the text copies the one shown.
-    await text.click()
+    // A click on a stage's text copies that version.
+    await typedLine.click()
     await expect.poll(() => page.evaluate(() => window.copied.at(-1))).toBe(typed)
-    await switcher.getByRole('radio', { name: 'Prompt' }).click()
-    await text.click()
+    await stageText(panel, 'final').click()
     await expect.poll(() => page.evaluate(() => window.copied.at(-1))).toBe(made)
 
-    // Keyboard: the switch is reachable and flips with Space.
-    await switcher.getByRole('radio', { name: 'As typed' }).focus()
-    await page.keyboard.press('Space')
-    await expect(text).toHaveText(typed)
+    // Keyboard: the header closes with Enter.
+    await header.focus()
+    await page.keyboard.press('Enter')
+    await expect(header).toHaveAttribute('aria-expanded', 'false')
   })
 }
 
+test('Fluent: typed, filled in with its values marked, improved at its detail level', async t => {
+  const { page, panel, shot } = await open(t, 'fluent')
+  const fluent = await page.evaluate(() => window.FLUENT)
+  assert.deepEqual(await panel.locator('[data-stage]').evaluateAll(els => els.map(el => el.dataset.stage)), ['typed', 'filled', 'final'])
+  await expect(stage(panel, 'final')).toContainText('Improved · High detail')
+  await expect(stageText(panel, 'final')).toHaveText(fluent.improved)
+  await expect(stageText(panel, 'typed').locator('[data-syntax="slot"]')).toHaveText(['<glasses>', '<a sunlit loft>'])
+  const filled = stageText(panel, 'filled')
+  await expect(filled).toHaveText(fluent.filled)
+  await expect(filled.locator('[data-syntax="slot"]')).toHaveText(['thin-rimmed glasses', 'a converted brick loft at golden hour'])
+  await expect(filled.locator('[data-syntax="wildcard"]')).toHaveText('window seat')
+  await expect(filled.locator('[data-syntax="slot"]').first()).toHaveAttribute('title', '<glasses>')
+  await shot('fluent-closed')
+  await stage(panel, 'filled').getByRole('button', { name: 'Filled in' }).click()
+  await stage(panel, 'typed').getByRole('button', { name: 'You wrote' }).click()
+  await shot('fluent-open')
+  await stage(panel, 'filled').hover()
+  await stage(panel, 'filled').getByRole('button', { name: 'Copy' }).click()
+  await expect.poll(() => page.evaluate(() => window.copied.at(-1))).toBe(fluent.filled)
+})
+
+test('filled in but not improved: the filled prompt is the last stage', async t => {
+  const { page, panel } = await open(t, 'filledOnly')
+  const fluent = await page.evaluate(() => window.FLUENT)
+  assert.deepEqual(await panel.locator('[data-stage]').evaluateAll(els => els.map(el => el.dataset.stage)), ['typed', 'final'])
+  await expect(stage(panel, 'final')).toContainText('Filled in')
+  await expect(stage(panel, 'final')).not.toContainText('Improved')
+  await expect(stageText(panel, 'final')).toHaveText(fluent.filled)
+  await expect(stageText(panel, 'final').locator('[data-syntax="wildcard"]')).toHaveText('window seat')
+})
+
 test('the editor marks the typed prompt as the read-only view does', async t => {
   const { page, panel } = await open(t, 'pair')
-  await panel.getByRole('radio', { name: 'As typed' }).click()
+  await panel.getByRole('button', { name: 'You wrote' }).click()
   const view = {}
   for (const kind of ['wildcard', 'named-wildcard', 'verbatim', 'comment']) {
-    view[kind] = await panel.locator(`[data-syntax="${kind}"]`).allTextContents()
+    view[kind] = await stageText(panel, 'typed').locator(`[data-syntax="${kind}"]`).allTextContents()
   }
   await page.evaluate(() => window.mountEditor(window.TYPED, 'enhance', ['hairstyle']))
   const editor = page.locator('[data-editor] .cm-content')

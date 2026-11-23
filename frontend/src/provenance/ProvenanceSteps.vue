@@ -34,11 +34,14 @@
         <!-- What the editor did, when this step came out of the editor -->
         <EditSteps :steps="step.editSteps" />
 
-        <!-- The prompt the image was made from; when the user typed it
-             differently, a switch shows that version in its place. -->
-        <PromptBlock
-          :text="step.prompt || step.originalPrompt"
-          :as-typed="step.prompt ? step.originalPrompt : null"
+        <!-- The prompt the image was made from; when it was written differently
+             (typed, filled in, improved), each version on a small rail. -->
+        <PromptStages
+          :prompt="step.prompt"
+          :typed="step.originalPrompt"
+          :filled="step.filledPrompt"
+          :detail="step.detail"
+          :improved="step.improved"
           :label="promptLabels ? 'Prompt' : ''"
         />
         <PromptBlock :text="step.negativePrompt" label="Negative prompt" />
@@ -66,6 +69,7 @@ import { computed } from 'vue'
 import { ChevronRightIcon } from '@heroicons/vue/24/outline'
 import EditSteps from './EditSteps.vue'
 import PromptBlock from './PromptBlock.vue'
+import PromptStages from './PromptStages.vue'
 import ProvenanceInputs from './ProvenanceInputs.vue'
 import StepIcon from './StepIcon.vue'
 import Tip from './Tip.vue'

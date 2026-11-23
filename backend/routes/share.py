@@ -402,6 +402,8 @@ def _provenance_texts(provenance) -> list[str]:
     texts: list[str] = []
     for step in provenance.steps if provenance is not None else []:
         texts.extend([step.prompt, step.negativePrompt, step.originalPrompt])
+        if step.filledPrompt:
+            texts.append("".join(piece.text for piece in step.filledPrompt))
     return texts
 
 

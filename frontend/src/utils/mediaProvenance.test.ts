@@ -292,3 +292,70 @@ test('a video stitched in agent code lists its clips, in order, as inputs', () =
   assert.deepEqual(own.inputs.map(i => [i.mediaId, i.roleLabel]), [[11, 'Clip'], [12, 'Clip'], [13, 'Input audio']])
   assert.equal(own.settings, null)
 })
+
+function fluentImage(run: Record<string, unknown>, meta: Record<string, unknown> = {}) {
+  return {
+    id: 50,
+    generation_metadata: {
+      version: 3, source: 'stimma', task_type: 'text-to-image', tool_id: 'acme:flux-pro',
+      prompt: 'A woman in thin-rimmed glasses sits on a window seat, golden light.',
+      prompt_metadata: { original_prompt: 'a woman in <glasses> on a {couch|window seat}', auto_improve_enabled: true },
+      prompt_program: run,
+      ...meta,
+    },
+  }
+}
+
+const FILLED = 'a woman in thin-rimmed glasses on a window seat'
+const FLUENT_RUN = {
+  version: 'slots-3', level: 'expand',
+  draws: [
+    { id: 's1', value: 'thin-rimmed glasses', source: 'variant', about: 'glasses' },
+    { id: 'l1', value: 'window seat', source: 'list', label: '{couch|window seat}' },
+  ],
+  view: { text: FILLED, spans: [[11, 30, 's1'], [36, 47, 'l1']] },
+}
+
+test('a Fluent image: the filled-in prompt with each value marked, and its detail level', () => {
+  const [own] = buildProvenance(fluentImage(FLUENT_RUN), { tools }).steps
+  assert.deepEqual(own.filledPrompt, [
+    { text: 'a woman in ' },
+    { text: 'thin-rimmed glasses', kind: 'slot', from: 'glasses' },
+    { text: ' on a ' },
+    { text: 'window seat', kind: 'list', from: '{couch|window seat}' },
+  ])
+  assert.equal(own.detail, 'High detail')
+  assert.equal(own.improved, true)
+  assert.equal(own.originalPrompt, 'a woman in <glasses> on a {couch|window seat}')
+
+  // The judge's rolls: the one whose image this is.
+  const rolled = buildProvenance(fluentImage({ ...FLUENT_RUN, level: 'fill', fix: { chosen: 0, rounds: [
+    { text: FILLED, spans: [[11, 30, 's1'], [36, 47, 'l1']], values: { s1: 'thin-rimmed glasses' } },
+    { text: 'a woman in gold aviators on a window seat', spans: [[11, 24, 's1'], [30, 41, 'l1']], values: { s1: 'gold aviators' } },
+  ] } }), { tools }).steps[0]
+  assert.equal(rolled.filledPrompt?.map(p => p.text).join(''), FILLED)
+  assert.equal(rolled.detail, 'Medium detail')
+})
+
+test('Direct runs fill in plain text; classic Enhance has nothing filled but is improved', () => {
+  const direct = buildProvenance(fluentImage({}, { prompt_program: undefined, prompt_direct: { filled: FILLED, level: 'fill' } }), { tools }).steps[0]
+  assert.deepEqual(direct.filledPrompt, [{ text: FILLED }])
+  assert.equal(direct.detail, 'Medium detail')
+  const classic = buildProvenance(fluentImage({}, { prompt_program: undefined }), { tools }).steps[0]
+  assert.equal(classic.filledPrompt, null)
+  assert.equal(classic.detail, null)
+  assert.equal(classic.improved, true)
+  const raw = buildProvenance(generated(), { tools }).steps[0]
+  assert.equal(raw.filledPrompt, null)
+  assert.equal(raw.improved, false)
+})
+
+test('public provenance carries the filled-in prompt, never a path in it', () => {
+  const [own] = toPublicProvenance(buildProvenance(fluentImage(FLUENT_RUN), { tools }))!.steps
+  assert.deepEqual(own.filledPrompt, buildProvenance(fluentImage(FLUENT_RUN), { tools }).steps[0].filledPrompt)
+  assert.equal(own.detail, 'High detail')
+  assert.equal(own.improved, true)
+  const pathy = { ...FLUENT_RUN, view: { text: 'a woman in /home/someone/x.png', spans: [] } }
+  assert.equal(toPublicProvenance(buildProvenance(fluentImage(pathy), { tools }))!.steps[0].filledPrompt, undefined)
+  assert.equal(toPublicProvenance(buildProvenance(generated(), { tools }))!.steps[0].improved, undefined)
+})

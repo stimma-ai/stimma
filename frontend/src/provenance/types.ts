@@ -56,6 +56,14 @@ export interface ViewEditStep {
   thumb: unknown
 }
 
+/** A run of a filled-in prompt: the user's own text, or a value filled into a slot or list. */
+export interface ViewPromptPiece {
+  text: string
+  kind?: 'slot' | 'list'
+  /** What the value filled: a slot's words, or the list. */
+  from?: string
+}
+
 export interface ViewStep {
   key: string
   /** Display name of whatever made this step. Always set. */
@@ -68,6 +76,12 @@ export interface ViewStep {
   prompt: string | null
   negativePrompt: string | null
   originalPrompt: string | null
+  /** The prompt with its slots and lists filled in for this image, before it was improved. */
+  filledPrompt: ViewPromptPiece[] | null
+  /** How much the improver added ("High detail"), or null. */
+  detail: string | null
+  /** The prompt was improved (rewritten for the model) before it was sent. */
+  improved: boolean
   /** Params, post-processing chain and LoRAs, in that order. */
   facts: ViewFact[]
   inputs: ViewInput[]
@@ -110,6 +124,9 @@ export interface PublishedStep {
   prompt?: string | null
   negativePrompt?: string | null
   originalPrompt?: string | null
+  filledPrompt?: ViewPromptPiece[]
+  detail?: string | null
+  improved?: boolean
   facts?: PublishedFact[]
   loras?: { name: string; weight?: number | null }[]
   inputs?: PublishedInput[]

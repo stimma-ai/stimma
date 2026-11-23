@@ -120,3 +120,31 @@ test('only data-URI images are used as thumbnails', () => {
     },
   }), { t0: 'data:image/webp;base64,AAAA' })
 })
+
+test('the share page shows the same prompt stages as the app: typed, filled in, improved', () => {
+  const fluent = {
+    ...media,
+    generation_metadata: {
+      ...media.generation_metadata,
+      lineage_trace: [],
+      prompt_metadata: { original_prompt: 'same harbor at <time of day>', auto_improve_enabled: true },
+      prompt_program: {
+        level: 'expand',
+        draws: [{ id: 's1', value: 'blue hour', source: 'variant', about: 'time of day' }],
+        view: { text: 'same harbor at blue hour', spans: [[15, 24, 's1']] },
+      },
+    },
+  }
+  const app = viewFromProvenance(buildProvenance(fluent, { tools })).steps[0]
+  const pub = viewFromPublished(publish(toPublicProvenance(buildProvenance(fluent, { tools }))!)).steps[0]
+  for (const step of [app, pub]) {
+    assert.equal(step.originalPrompt, 'same harbor at <time of day>')
+    assert.deepEqual(step.filledPrompt, [{ text: 'same harbor at ' }, { text: 'blue hour', kind: 'slot', from: 'time of day' }])
+    assert.equal(step.detail, 'High detail')
+    assert.equal(step.improved, true)
+  }
+  // A malformed piece drops the filled-in prompt rather than rendering part of it.
+  const bad = viewFromPublished({ version: 3, steps: [{ tool: 'X', prompt: 'p', filledPrompt: [{ text: 'a' }, { kind: 'slot' }] }] })
+  assert.equal(bad.steps[0].filledPrompt, null)
+  assert.equal(bad.steps[0].improved, false)
+})

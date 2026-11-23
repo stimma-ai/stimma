@@ -60,6 +60,8 @@ MAX_EDIT_STEPS = 24
 MAX_FILE_FACTS = 12
 MAX_FILE_LABEL = 40
 MAX_FILE_VALUE = 80
+MAX_PROMPT_PIECES = 200
+MAX_PIECE_FROM = 100
 
 _ICON_RE = re.compile(r"^[a-z0-9-]{1,40}$")
 
@@ -143,6 +145,15 @@ class ProvenanceLora(_Lenient):
         return v
 
 
+class ProvenancePromptPiece(_Lenient):
+    """A run of the filled-in prompt: the user's text, or a value filled into a slot or list."""
+
+    text: str
+    kind: Optional[str] = None
+    # "from" is a Python keyword; the wire name stays "from".
+    source: Optional[str] = Field(default=None, alias="from")
+
+
 class ProvenanceStep(_Lenient):
     tool: str
     icon: Optional[str] = None
@@ -151,6 +162,9 @@ class ProvenanceStep(_Lenient):
     prompt: Optional[str] = None
     negativePrompt: Optional[str] = None
     originalPrompt: Optional[str] = None
+    filledPrompt: list[ProvenancePromptPiece] = Field(default_factory=list)
+    detail: Optional[str] = None
+    improved: bool = False
     facts: list[ProvenanceFact] = Field(default_factory=list)
     loras: list[ProvenanceLora] = Field(default_factory=list)
     inputs: list[ProvenanceInput] = Field(default_factory=list)
@@ -300,6 +314,27 @@ async def _cached_library_thumbnail(session: AsyncSession, media: MediaItem) -> 
 
 # Published shape (desktop backend -> cloud) ───────────────────────────────────
 
+def _public_filled_prompt(pieces: list[ProvenancePromptPiece]) -> Optional[list[dict[str, str]]]:
+    """The filled-in prompt as published: whole or not at all (never a path, never over a
+    prompt's length). Its text keeps its own spacing: the pieces join into the prompt."""
+    if not pieces or len(pieces) > MAX_PROMPT_PIECES:
+        return None
+    joined = "".join(p.text for p in pieces)
+    if not joined.strip() or len(joined) > MAX_PROMPT or looks_like_path(joined):
+        return None
+    out: list[dict[str, str]] = []
+    for piece in pieces:
+        entry = {"text": piece.text}
+        if piece.kind in ("slot", "list"):
+            entry["kind"] = piece.kind
+            source = _clean_text(piece.source, MAX_PIECE_FROM)
+            if source:
+                entry["from"] = source
+        out.append(entry)
+    return out
+
+
+
 async def build_public_sidecar(
     session: AsyncSession, provenance: ProvenanceRequest
 ) -> Optional[dict[str, Any]]:
@@ -341,6 +376,14 @@ async def build_public_sidecar(
             value = _clean_text(getattr(step, field), cap)
             if value:
                 out[field] = value
+        filled = _public_filled_prompt(step.filledPrompt)
+        if filled:
+            out["filledPrompt"] = filled
+        detail = _clean_text(step.detail, MAX_LABEL)
+        if detail:
+            out["detail"] = detail
+        if step.improved:
+            out["improved"] = True
 
         facts = []
         for fact in step.facts:

@@ -20,6 +20,7 @@ function step(over: Partial<ViewStep>): ViewStep {
   return {
     key: 'self', tool: 'Flux.2 Klein 9B', icon: 'text-to-image', date: new Date(Date.now() - 3 * 3600e3).toISOString(),
     imported: false, prompt: null, negativePrompt: null, originalPrompt: null,
+    filledPrompt: null, detail: null, improved: false,
     facts: [
       { key: 'seed', label: 'Seed', value: '1844120931', mono: true, truncate: false },
       { key: 'steps', label: 'Steps', value: '4', mono: true, truncate: false },
@@ -30,9 +31,23 @@ function step(over: Partial<ViewStep>): ViewStep {
   }
 }
 
+// A Fluent image: the typed prompt's slots and list filled in, then improved.
+const fluentTyped = 'a woman in <glasses>, sitting on a {velvet couch|window seat} in <a sunlit loft>'
+const fluentFilled = [
+  { text: 'a woman in ' },
+  { text: 'thin-rimmed glasses', kind: 'slot' as const, from: 'glasses' },
+  { text: ', sitting on a ' },
+  { text: 'window seat', kind: 'list' as const, from: '{velvet couch|window seat}' },
+  { text: ' in ' },
+  { text: 'a converted brick loft at golden hour', kind: 'slot' as const, from: 'a sunlit loft' },
+]
+const fluentImproved = 'A woman in thin-rimmed glasses sits on a cushioned window seat in a converted brick loft. Warm golden-hour light rakes low across exposed brick, catching dust in the air; soft falloff into amber shadow. Shot on 50mm, shallow depth of field, natural film grain.'
+
 const CASES: Record<string, ViewStep[]> = {
   single: [step({ prompt: made })],
-  pair: [step({ prompt: made, originalPrompt: typed })],
+  pair: [step({ prompt: made, originalPrompt: typed, improved: true })],
+  fluent: [step({ prompt: fluentImproved, originalPrompt: fluentTyped, filledPrompt: fluentFilled, detail: 'High detail', improved: true })],
+  filledOnly: [step({ prompt: fluentFilled.map(p => p.text).join(''), originalPrompt: fluentTyped, filledPrompt: fluentFilled })],
   identical: [step({ prompt: made, originalPrompt: `${made}  ` })],
 }
 
@@ -59,6 +74,7 @@ let app: ReturnType<typeof createApp> | null = null
 }
 ;(window as any).TYPED = typed
 ;(window as any).MADE = made
+;(window as any).FLUENT = { typed: fluentTyped, filled: fluentFilled.map(p => p.text).join(''), improved: fluentImproved }
 
 // The prompt editor itself, to hold its highlighting to the read-only view's.
 const Editor = defineComponent({

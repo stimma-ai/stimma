@@ -55,6 +55,9 @@ export function viewStepFromProvenance(step: ProvenanceStep): ViewStep {
     prompt: step.prompt,
     negativePrompt: step.negativePrompt,
     originalPrompt: step.originalPrompt,
+    filledPrompt: step.filledPrompt,
+    detail: step.detail,
+    improved: step.improved,
     facts: stepFactRows(step),
     inputs: step.inputs.map(viewInput),
     editSteps: step.editSteps.map(edit => ({

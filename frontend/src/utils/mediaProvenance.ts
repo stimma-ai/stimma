@@ -23,6 +23,7 @@
 
 import { toolDisplayName, type ToolLikeRecord } from './toolDisplay.ts'
 import { formatDuration } from './mediaTypes.ts'
+import { promptProgramRolls } from './promptProgramRolls.ts'
 import { summarizeStack } from '../imageEditor/stack/stackSummary.ts'
 import {
   factRow,
@@ -102,6 +103,14 @@ export interface ProvenanceSettings {
   sourceInputs: GenerationSourceInput[]
 }
 
+/** A run of the filled-in prompt: the user's own text, or a value filled into a slot or list. */
+export interface ProvenancePromptPiece {
+  text: string
+  kind?: 'slot' | 'list'
+  /** What the value filled: a slot's words, or the list. */
+  from?: string
+}
+
 export interface ProvenanceStep {
   key: string
   /** The media this step produced (the item itself for step 0). */
@@ -121,6 +130,13 @@ export interface ProvenanceStep {
   negativePrompt: string | null
   /** Pre-enhancement prompt when it differs from the rendered one. */
   originalPrompt: string | null
+  /** The prompt with its slots and lists filled in for this image, before it was
+      improved (Fluent and Direct runs), or null. */
+  filledPrompt: ProvenancePromptPiece[] | null
+  /** How much the improver added ("High detail"), or null. */
+  detail: string | null
+  /** The prompt was improved (rewritten for the model) before it was sent. */
+  improved: boolean
   /** Parameter facts (Model row first when it says more than the tool name). */
   facts: ProvenanceFact[]
   loras: ProvenanceLora[]
@@ -627,7 +643,39 @@ interface StepSource {
   generated_at?: string | null
   source_inputs?: GenerationSourceInput[]
   prompt_metadata?: GenerationMetadata['prompt_metadata']
+  prompt_program?: unknown
+  prompt_direct?: unknown
   loras?: GenerationMetadata['loras']
+}
+
+const DETAIL_LEVELS: Record<string, string> = { fill: 'Medium detail', expand: 'High detail' }
+
+/**
+ * The prompt as filled in for this image, from the run record: Fluent's
+ * (`prompt_program`: its text with each value's span) or Direct's
+ * (`prompt_direct.filled`, plain text). Null when nothing was filled.
+ */
+function filledPromptOf(source: StepSource): { pieces: ProvenancePromptPiece[] | null; detail: string | null } {
+  const run = source.prompt_program && typeof source.prompt_program === 'object' ? source.prompt_program as Record<string, any> : null
+  const direct = source.prompt_direct && typeof source.prompt_direct === 'object' ? source.prompt_direct as Record<string, any> : null
+  const detail = DETAIL_LEVELS[String((run || direct)?.level ?? '')] ?? null
+  if (run) {
+    const rolls = promptProgramRolls(run)
+    const roll = rolls.find(r => r.used) ?? rolls[rolls.length - 1]
+    if (!roll) return { pieces: null, detail }
+    const draws = new Map<string, Record<string, any>>()
+    for (const d of Array.isArray(run.draws) ? run.draws : []) if (d && typeof d.id === 'string') draws.set(d.id, d)
+    const pieces = roll.pieces.map((piece): ProvenancePromptPiece => {
+      if (!piece.id) return { text: piece.text }
+      const draw = draws.get(piece.id)
+      const kind = draw?.source === 'list' ? 'list' : 'slot'
+      const from = str(draw?.about) || str(draw?.label)
+      return from ? { text: piece.text, kind, from } : { text: piece.text, kind }
+    })
+    return { pieces, detail }
+  }
+  const filled = str(direct?.filled)
+  return { pieces: filled ? [{ text: filled }] : null, detail }
 }
 
 /** Steps that weren't a tool run you can reopen with settings (the editor). */
@@ -664,6 +712,7 @@ function buildStep(
   const negativePrompt = str(source.negative_prompt) || str(params.negative_prompt)
   const original = str(source.prompt_metadata?.original_prompt)
   const originalPrompt = original && original.trim() !== (prompt || '').trim() ? original : null
+  const filled = filledPromptOf(source)
 
   const facts: ProvenanceFact[] = []
   // The model row only when it says more than the step header already does.
@@ -709,6 +758,9 @@ function buildStep(
     prompt,
     negativePrompt,
     originalPrompt,
+    filledPrompt: filled.pieces,
+    detail: filled.detail,
+    improved: !!filled.detail || source.prompt_metadata?.auto_improve_enabled === true,
     facts,
     loras,
     inputs,
@@ -822,6 +874,12 @@ export interface PublicProvenanceStep {
   prompt?: string | null
   negativePrompt?: string | null
   originalPrompt?: string | null
+  /** The prompt as filled in for this image, before it was improved. */
+  filledPrompt?: ProvenancePromptPiece[]
+  /** How much the improver added ("High detail"). */
+  detail?: string
+  /** The prompt was improved before it was sent. */
+  improved?: boolean
   facts?: PublicProvenanceFact[]
   loras?: PublicProvenanceLora[]
   inputs?: PublicProvenanceInput[]
@@ -852,7 +910,30 @@ export const PUBLIC_PROVENANCE_LIMITS = {
   fileFacts: 12,
   fileLabel: 40,
   fileValue: 80,
+  promptPieces: 200,
+  pieceFrom: 100,
 } as const
+
+/** The filled-in prompt for publishing: capped like a prompt, or nothing when any part looks like a path. */
+function publicFilledPrompt(pieces: ProvenancePromptPiece[] | null): ProvenancePromptPiece[] | null {
+  const L = PUBLIC_PROVENANCE_LIMITS
+  if (!pieces?.length || pieces.length > L.promptPieces) return null
+  const out: ProvenancePromptPiece[] = []
+  let total = 0
+  for (const piece of pieces) {
+    if (looksLikeAbsolutePath(piece.text)) return null
+    total += piece.text.length
+    if (total > L.prompt) return null
+    const entry: ProvenancePromptPiece = { text: piece.text }
+    if (piece.kind === 'slot' || piece.kind === 'list') {
+      entry.kind = piece.kind
+      const from = cap(piece.from, L.pieceFrom)
+      if (from) entry.from = from
+    }
+    out.push(entry)
+  }
+  return out.some(piece => piece.text.trim()) ? out : null
+}
 
 /** File facts that say what the file is, never what it is called or where it lives. */
 const PUBLIC_FILE_FACTS = new Set(['format', 'resolution', 'duration', 'size', 'fps', 'sample_rate'])
@@ -941,6 +1022,11 @@ function publicStep(step: ProvenanceStep): PublicProvenanceStep | null {
   if (negativePrompt) out.negativePrompt = negativePrompt
   const originalPrompt = cap(step.originalPrompt, L.prompt)
   if (originalPrompt) out.originalPrompt = originalPrompt
+  const filledPrompt = publicFilledPrompt(step.filledPrompt)
+  if (filledPrompt) out.filledPrompt = filledPrompt
+  const detail = cap(step.detail, L.label)
+  if (detail) out.detail = detail
+  if (step.improved) out.improved = true
   if (facts.length) out.facts = facts.slice(0, L.facts)
   if (loras.length) out.loras = loras
   if (inputs.length) out.inputs = inputs

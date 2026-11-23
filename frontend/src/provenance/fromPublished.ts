@@ -8,7 +8,7 @@
  */
 
 import { factKeyFromLabel, factRow, ICON_KEY, loraRow, normalizeDate } from './format.ts'
-import type { ProvenanceView, ViewEditStep, ViewFact, ViewInput, ViewStep } from './types.ts'
+import type { ProvenanceView, ViewEditStep, ViewFact, ViewInput, ViewPromptPiece, ViewStep } from './types.ts'
 
 const THUMB_KEY = /^t\d{1,4}$/
 
@@ -38,6 +38,24 @@ function facts(raw: unknown): ViewFact[] {
     out.push(factRow(factKeyFromLabel(label), label, value, value.length > 16))
   }
   return out
+}
+
+/** A filled-in prompt's pieces; null unless every piece reads cleanly. */
+function pieces(raw: unknown): ViewPromptPiece[] | null {
+  if (!Array.isArray(raw) || !raw.length) return null
+  const out: ViewPromptPiece[] = []
+  for (const item of raw) {
+    const piece = obj(item)
+    if (!piece || typeof piece.text !== 'string') return null
+    const entry: ViewPromptPiece = { text: piece.text }
+    if (piece.kind === 'slot' || piece.kind === 'list') {
+      entry.kind = piece.kind
+      const from = text(piece.from)
+      if (from) entry.from = from
+    }
+    out.push(entry)
+  }
+  return out.some(p => p.text.trim()) ? out : null
 }
 
 function step(raw: Record<string, unknown>, index: number): ViewStep | null {
@@ -96,6 +114,9 @@ function step(raw: Record<string, unknown>, index: number): ViewStep | null {
     prompt: text(raw.prompt),
     negativePrompt: text(raw.negativePrompt),
     originalPrompt: text(raw.originalPrompt),
+    filledPrompt: pieces(raw.filledPrompt),
+    detail: text(raw.detail),
+    improved: raw.improved === true,
     facts: rows,
     inputs,
     editSteps,
