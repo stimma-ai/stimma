@@ -139,3 +139,16 @@ test('a start announced after its job was cancelled changes nothing', () => {
   f.emit('generation_job_started', { job: { id: 1, status: 'processing', generator_instance_id: 'tool-p_t' } })
   assert.equal(isToolStalled('p:t'), false)
 })
+
+test('a retry the page missed while away can start once the server lists it', async () => {
+  const f = fixture(false)
+  await settle(10)
+  f.emit('generation_job_queued', { job: { id: 1, generator_instance_id: 'tool-p_t' } })
+  f.emit('generation_job_failed', { job: { id: 1, generator_instance_id: 'tool-p_t' } })
+  f.emit('websocket_disconnected')
+  f.setJobs([{ id: 1, status: 'queued', generator_instance_id: 'tool-p_t' }])
+  await f.state.reconcileJobs()
+  f.emit('generation_job_started', { job: { id: 1, status: 'processing', generator_instance_id: 'tool-p_t' } })
+  assert.equal(f.state.status.isToolStalled('p:t'), false)
+  assert.deepEqual(f.state.activeJobsByInstanceId.value, { 'tool-p_t': 1 })
+})

@@ -109,6 +109,8 @@ async function reconcileJobs() {
     const active = new Map()
     const phases = new Map()
     for (const job of pages.flat()) {
+      // Live again: a retry whose queue event this page missed.
+      settledJobIds.delete(job.id)
       if (!active.has(job.id)) active.set(job.id, bucketFor(job))
       const phase = phaseFor(job, job.status === 'processing')
       if (phase.instanceId || phase.chatId) phases.set(job.id, phase)
@@ -297,6 +299,7 @@ export function useGenerationStatus() {
         activeJobsByTaskType.value = {}
         activeJobsByInstanceId.value = {}
         jobPhases.value = new Map()
+        settledJobIds.clear()
       })
       window.addEventListener('profile-changed', () => { void reconcileJobs() })
     }
