@@ -844,10 +844,11 @@ async def _apply_generation_prompt_pipeline(
         # sent and what the improver did.
         updated["prompt_program"] = {**program_run, "level": level, "sent": processed_prompt,
                                      "improve": outcome or {}}
-    elif filled is not None:
-        # Direct, improved: the prompt as filled, what was sent and what the improver did.
-        updated["prompt_direct"] = {"filled": filled, "level": level, "sent": processed_prompt,
-                                    "improve": outcome or {}}
+    elif filled is not None or fluent:
+        # Direct, improved (or Fluent with nothing to draw, whose prompt goes as written):
+        # the prompt as filled, its Detail level, what was sent and what the improver did.
+        updated["prompt_direct"] = {"filled": filled if filled is not None else prompt, "level": level,
+                                    "sent": processed_prompt, "improve": outcome or {}}
     # Trigger words for every LoRA this run uses, at the front when missing (Fluent and
     # Direct; never Raw, and never inside a structured format).
     structured = ctx["mode"] == "minimax-h3" or (ctx["mode"] == "ideogram" and enhance_on)

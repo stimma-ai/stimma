@@ -207,6 +207,15 @@ async def test_direct_at_medium_is_improved_with_its_drawn_values_kept(tool):
     assert "prompt_program" not in out
 
 
+async def test_fluent_with_nothing_to_draw_records_its_detail_level(tool):
+    # No slots or lists: Fluent has no draw record, but the info panel still shows the level.
+    out = await _submit("a red fox asleep in fresh snow", level="expand", direct=False, program={"enabled": True})
+    assert "prompt_program" not in out
+    record = out["prompt_direct"]
+    assert record["filled"] == "a red fox asleep in fresh snow" and record["level"] == "expand"
+    assert record["sent"] == out["prompt"]
+
+
 async def test_direct_at_high_asks_for_high(tool):
     out = await _submit(level="expand")
     assert tool[0].level == "expand" and out["prompt_direct"]["level"] == "expand"

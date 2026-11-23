@@ -117,6 +117,12 @@ test('Fluent: typed, filled in with its values marked, improved at its detail le
   await expect.poll(() => page.evaluate(() => window.copied.at(-1))).toBe(fluent.filled)
 })
 
+test('nothing filled in (the prompt as typed): typed, then improved at its level', async t => {
+  const { panel } = await open(t, 'plainFluent')
+  assert.deepEqual(await panel.locator('[data-stage]').evaluateAll(els => els.map(el => el.dataset.stage)), ['typed', 'final'])
+  await expect(stage(panel, 'final')).toContainText('Improved · High detail')
+})
+
 test('filled in but not improved: the filled prompt is the last stage', async t => {
   const { page, panel } = await open(t, 'filledOnly')
   const fluent = await page.evaluate(() => window.FLUENT)
