@@ -49,6 +49,7 @@ const CASES: Record<string, ViewStep[]> = {
   fluent: [step({ prompt: fluentImproved, originalPrompt: fluentTyped, filledPrompt: fluentFilled, detail: 'High detail', improved: true })],
   filledOnly: [step({ prompt: fluentFilled.map(p => p.text).join(''), originalPrompt: fluentTyped, filledPrompt: fluentFilled })],
   plainFluent: [step({ prompt: fluentImproved, originalPrompt: 'a woman on a window seat', filledPrompt: [{ text: 'a woman on a window seat' }], detail: 'High detail', improved: true })],
+  cleanedOnly: [step({ prompt: 'a woman on a window seat', originalPrompt: 'a woman on a {window seat|couch}\n# keep it candid', filledPrompt: [{ text: 'a woman on a ' }, { text: 'window seat', kind: 'list' }, { text: '\n# keep it candid' }] })],
   identical: [step({ prompt: made, originalPrompt: `${made}  ` })],
 }
 

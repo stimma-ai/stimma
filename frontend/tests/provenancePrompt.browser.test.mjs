@@ -123,6 +123,13 @@ test('nothing filled in (the prompt as typed): typed, then improved at its level
   await expect(stage(panel, 'final')).toContainText('Improved · High detail')
 })
 
+test('filled in, then sent without improving: the last stage says Sent', async t => {
+  const { panel } = await open(t, 'cleanedOnly')
+  assert.deepEqual(await panel.locator('[data-stage]').evaluateAll(els => els.map(el => el.dataset.stage)), ['typed', 'filled', 'final'])
+  await expect(stage(panel, 'final')).toContainText('Sent')
+  await expect(panel.getByText('Improved')).toHaveCount(0)
+})
+
 test('filled in but not improved: the filled prompt is the last stage', async t => {
   const { page, panel } = await open(t, 'filledOnly')
   const fluent = await page.evaluate(() => window.FLUENT)

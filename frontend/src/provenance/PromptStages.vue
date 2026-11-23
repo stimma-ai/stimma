@@ -133,7 +133,7 @@ const stages = computed<Stage[]>(() => {
   }
   if (filledIsFinal && filled) {
     out.push({ key: 'final', label: 'Filled in', text: final, pieces: filledPieces(filled), final: true })
-  } else if (props.improved || filled) {
+  } else if (props.improved) {
     out.push({ key: 'final', label: 'Improved', note: props.detail || undefined, text: final, pieces: [{ text: final }], final: true })
   } else {
     out.push({ key: 'final', label: 'Sent', text: final, pieces: [{ text: final }], final: true })

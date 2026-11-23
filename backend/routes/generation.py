@@ -844,8 +844,8 @@ async def _apply_generation_prompt_pipeline(
         # sent and what the improver did.
         updated["prompt_program"] = {**program_run, "level": level, "sent": processed_prompt,
                                      "improve": outcome or {}}
-    elif filled is not None or fluent:
-        # Direct, improved (or Fluent with nothing to draw, whose prompt goes as written):
+    elif filled is not None or (fluent and level != "off"):
+        # Direct, improved (or Fluent improved with nothing to draw, its prompt as written):
         # the prompt as filled, its Detail level, what was sent and what the improver did.
         updated["prompt_direct"] = {"filled": filled if filled is not None else prompt, "level": level,
                                     "sent": processed_prompt, "improve": outcome or {}}

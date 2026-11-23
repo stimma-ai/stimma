@@ -214,6 +214,9 @@ async def test_fluent_with_nothing_to_draw_records_its_detail_level(tool):
     record = out["prompt_direct"]
     assert record["filled"] == "a red fox asleep in fresh snow" and record["level"] == "expand"
     assert record["sent"] == out["prompt"]
+    # Off is never improved, so there is no level to show.
+    off = await _submit("a red fox\n# keep it candid", level="off", direct=False, program={"enabled": True})
+    assert "prompt_direct" not in off and "prompt_program" not in off
 
 
 async def test_direct_at_high_asks_for_high(tool):
