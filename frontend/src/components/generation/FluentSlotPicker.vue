@@ -54,33 +54,38 @@
         </template>
         <template v-else-if="query.trim()">
           <button v-for="h in heritageMatches" :key="h.name" type="button" :class="rowClass" :data-heritage="h.name" @click="set(toggleHeritage(st, h.name, pool))">
-            <span :class="tickClass"><CheckIcon v-if="heritagePicked(h.name) || regionPicked(h.region)" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
+            <span :class="tickClass"><span :class="boxClass(heritagePicked(h.name) || regionPicked(h.region) ? 'on' : 'off')"><CheckIcon v-if="heritagePicked(h.name) || regionPicked(h.region)" class="w-2.5 h-2.5" stroke-width="3" /></span></span>
             <span class="flex-1 text-content">{{ h.name }}</span>
             <span class="shrink-0 text-[11px] text-content-muted">{{ h.region }}</span>
           </button>
           <div v-if="!heritageMatches.length" class="px-2 py-1.5 text-xs text-content-muted">No matches</div>
         </template>
         <template v-else-if="region">
-          <button type="button" :class="rowClass" :data-region-any="region.id" @click="set(toggleRegion(st, region.id, pool))">
-            <span :class="tickClass"><CheckIcon v-if="regionPicked(region.id)" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
-            <span class="flex-1 text-content">All {{ region.id }}</span>
-          </button>
           <button v-for="h in region.values" :key="h" type="button" :class="rowClass" :data-heritage="h" @click="set(toggleHeritage(st, h, pool))">
-            <span :class="tickClass"><CheckIcon v-if="heritagePicked(h) || regionPicked(region.id)" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
+            <span :class="tickClass"><span :class="boxClass(heritagePicked(h) || regionPicked(region.id) ? 'on' : 'off')"><CheckIcon v-if="heritagePicked(h) || regionPicked(region.id)" class="w-2.5 h-2.5" stroke-width="3" /></span></span>
             <span class="flex-1 text-content">{{ h }}</span>
           </button>
         </template>
         <template v-else>
+          <!-- Any is nothing chosen: a round mark, not one of the boxes. -->
           <button type="button" :class="rowClass" data-descent-any @click="set(clearSeed(st, 'descent', pool))">
-            <span :class="tickClass"><CheckIcon v-if="!descentText" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
+            <span :class="tickClass"><span :class="['w-3.5 h-3.5 rounded-full border-[1.5px] flex items-center justify-center', descentText ? 'border-content-muted' : 'border-selection']"><span v-if="!descentText" class="w-1.5 h-1.5 rounded-full bg-selection" /></span></span>
             <span class="flex-1 text-content-secondary">Any</span>
           </button>
-          <button v-for="r in regions" :key="r.id" type="button" :class="rowClass" :data-region="r.id" @click="region = r">
-            <span :class="tickClass"><CheckIcon v-if="regionPicked(r.id) || r.values.some(heritagePicked)" class="w-3.5 h-3.5 text-selection" stroke-width="2.5" /></span>
-            <span class="flex-1 min-w-0 text-content">{{ r.id }}</span>
-            <span class="shrink-0 text-[11px] text-selection">{{ regionNote(r) }}</span>
-            <ChevronRightIcon class="w-3.5 h-4 shrink-0 text-content-muted" />
-          </button>
+          <!-- A region's box picks it whole, or clears it; its name opens it, to pick heritages. -->
+          <div v-for="r in regions" :key="r.id" class="flex items-stretch rounded-md hover:bg-overlay-subtle">
+            <button type="button" class="group/box shrink-0 pl-2 pr-1 coarse:min-w-11 flex items-start justify-center rounded-md outline-none focus-visible:ring-1 focus-visible:ring-selection/60" :aria-label="regionState(r) === 'on' ? `Clear ${r.id}` : `All ${r.id}`" :aria-checked="regionState(r) === 'on' ? 'true' : regionState(r) === 'mixed' ? 'mixed' : 'false'" role="checkbox" :data-region-box="r.id" @click="set(toggleRegion(st, r.id, pool))">
+              <span class="py-1.5 coarse:py-2.5 flex"><span :class="[tickClass, 'h-4']"><span :class="[boxClass(regionState(r)), regionState(r) === 'off' ? 'group-hover/box:border-content' : '']">
+                <CheckIcon v-if="regionState(r) === 'on'" class="w-2.5 h-2.5" stroke-width="3" />
+                <MinusIcon v-else-if="regionState(r) === 'mixed'" class="w-3 h-3" stroke-width="3.5" />
+              </span></span></span>
+            </button>
+            <button type="button" :class="[rowClass, 'flex-1 min-w-0 pl-1 hover:bg-transparent']" :data-region="r.id" @click="region = r">
+              <span class="flex-1 min-w-0 text-content">{{ r.id }}</span>
+              <span class="shrink-0 text-[11px] text-selection">{{ regionNote(r) }}</span>
+              <ChevronRightIcon class="w-3.5 h-4 shrink-0 text-content-muted" />
+            </button>
+          </div>
         </template>
       </div>
     </template>
@@ -165,7 +170,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ArrowPathIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, PlusIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, MinusIcon, PlusIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import SearchField from '../ui/SearchField.vue'
 import Spinner from '../ui/Spinner.vue'
 import { matchesQuery } from '../../utils/programVocab'
@@ -189,6 +194,11 @@ const emit = defineEmits<{
 const rowClass = 'w-full flex items-start gap-2 px-2 py-1.5 coarse:py-2.5 rounded-md text-left text-xs coarse:text-[13px] cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60'
 const subRowClass = 'grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)_auto] items-start gap-x-3 w-full px-2 py-1.5 coarse:py-2.5 rounded-md text-left text-xs coarse:text-[13px] leading-snug cursor-pointer hover:bg-overlay-subtle outline-none focus-visible:ring-1 focus-visible:ring-selection/60'
 const tickClass = 'shrink-0 w-3.5 h-4 flex items-center justify-center'
+// A heritage or region box: an outline when off, so it reads as clickable; a dash when some.
+function boxClass(state: 'on' | 'mixed' | 'off') {
+  return ['w-3.5 h-3.5 rounded-[4px] border-[1.5px] flex items-center justify-center',
+    state === 'on' ? 'bg-selection border-selection text-surface' : state === 'mixed' ? 'bg-selection/20 border-selection text-selection' : 'border-content-muted'].join(' ')
+}
 const footClass = 'flex items-center gap-1.5 px-2 py-1 coarse:py-2 text-xs rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle disabled:opacity-50 disabled:pointer-events-none'
 
 const listRef = ref<HTMLElement | null>(null)
@@ -355,8 +365,12 @@ const regions = computed(() => {
 const heritageMatches = computed(() => regions.value.flatMap(r => r.values.map(name => ({ name, region: r.id }))).filter(h => matchesQuery(h.name, query.value)))
 const regionPicked = (r: string) => !!st.value?.seeds?.descent?.groups?.region?.includes(r)
 const heritagePicked = (h: string) => !!st.value?.seeds?.descent?.values?.includes(h)
+function regionState(r: { id: string; values: string[] }): 'on' | 'mixed' | 'off' {
+  if (regionPicked(r.id)) return 'on'
+  return r.values.some(heritagePicked) ? 'mixed' : 'off'
+}
 function regionNote(r: { id: string; values: string[] }) {
-  if (regionPicked(r.id)) return 'all'
+  if (regionPicked(r.id)) return ''
   const on = r.values.filter(heritagePicked)
   return on.length > 2 ? `${on[0]} +${on.length - 1}` : on.join(', ')
 }

@@ -56,7 +56,7 @@ function readSlots(prompt, modes = {}) {
 }
 const variantsOf = (id, words) => (VARIANTS[id] || [`a ${words}`, `an old ${words}`, `a small ${words}`]).map(text => ({ text, seeds: {} }))
 
-async function open(t, { theme = 'dark', width = 900, height = 760, mobile = false, start = '', dev = false, run = null, failing = [], kindFails = [], age = null } = {}) {
+async function open(t, { theme = 'dark', width = 900, height = 760, mobile = false, start = '', dev = false, run = null, failing = [], kindFails = [], age = null, descent = null } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2, hasTouch: mobile, isMobile: mobile, colorScheme: theme })
@@ -119,7 +119,7 @@ async function open(t, { theme = 'dark', width = 900, height = 760, mobile = fal
       const read = readSlots(body.prompt)
       return json({ choices: Object.fromEntries(read.slots.map((sl) => {
         const variants = failed.has(sl.words) ? [] : variantsOf(sl.id, sl.words).filter(v => !removed.has(v.text))
-        return [sl.id, { kind: 'variants', state: failed.has(sl.words) ? 'as_written' : 'ready', more: false, variants, options: variants.map(v => v.text), chosen: body.choices?.[sl.id] || null, ...(age && sl.kind === 'person' ? { person: { age } } : {}) }]
+        return [sl.id, { kind: 'variants', state: failed.has(sl.words) ? 'as_written' : 'ready', more: false, variants, options: variants.map(v => v.text), chosen: body.choices?.[sl.id] || null, ...(sl.kind === 'person' && (age || descent) ? { person: { ...(age ? { age } : {}), ...(descent ? { descent } : {}) } } : {}) }]
       })), more: [] })
     }
     if (url.endsWith('/prompt-programs/preview')) return json({ prompt: 'A dorm room with a 21-year-old Irish man with a buzz cut', draws: [{ id: 'young_man', value: MEN[1] }] })
@@ -789,4 +789,43 @@ for (const width of [390, 900]) test(`numeric ages, custom ranges and presets at
   await expect(readout).toHaveText('Any age')
   const overflow = await card.evaluate(el => el.scrollWidth > el.clientWidth)
   assert.equal(overflow, false)
+})
+
+for (const theme of ['dark', 'light']) test(`descent: a region’s box picks it whole or clears it, its name opens it; some picked shows a dash, ${theme}`, async t => {
+  const descent = { label: 'Descent', parts: [{ id: 'East Asia', values: ['Korean', 'Japanese', 'Chinese'] }, { id: 'Europe', values: ['Irish', 'Swedish'] }] }
+  const { page, mark, card, shot } = await open(t, { theme, start: 'a <young man>', descent })
+  await mark(1).click()
+  await card.locator('[data-filter="descent"]').click()
+  const seeds = () => page.evaluate(() => window.options().programChoices?.young_man?.seeds?.descent)
+  const box = r => card.locator(`[data-region-box="${r}"]`)
+  await expect(box('East Asia')).toHaveAttribute('aria-checked', 'false')
+  // The box takes the region whole, and clears it.
+  await box('East Asia').click()
+  await expect.poll(seeds).toEqual({ groups: { region: ['East Asia'] } })
+  await expect(box('East Asia')).toHaveAttribute('aria-checked', 'true')
+  await box('East Asia').click()
+  await expect.poll(seeds).toBeUndefined()
+  // The name opens the region: no "All" row inside, just its heritages.
+  await card.locator('[data-region="Europe"]').click()
+  await expect(card.locator('[data-heritage]')).toHaveText(['Irish', 'Swedish'])
+  await card.locator('[data-heritage="Irish"]').click()
+  await card.locator('[data-back]').click()
+  await expect(box('Europe')).toHaveAttribute('aria-checked', 'mixed')
+  await shot(`descent-mixed-${theme}`)
+  // A dash fills to the whole region; picking the last heritage one by one does the same.
+  await box('Europe').click()
+  await expect.poll(seeds).toEqual({ groups: { region: ['Europe'] } })
+  await box('Europe').click()
+  await card.locator('[data-region="Europe"]').click()
+  await card.locator('[data-heritage="Irish"]').click()
+  await card.locator('[data-heritage="Swedish"]').click()
+  await expect.poll(seeds).toEqual({ groups: { region: ['Europe'] } })
+  await card.locator('[data-back]').click()
+  await box('East Asia').click()
+  await shot(`descent-regions-${theme}`)
+  await card.locator('[data-descent-any]').click()
+  await expect.poll(seeds).toBeUndefined()
+  await card.locator('[data-region="East Asia"]').click()
+  await card.locator('[data-heritage="Korean"]').click()
+  await shot(`descent-inside-${theme}`)
 })

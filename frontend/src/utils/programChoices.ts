@@ -268,11 +268,22 @@ export function toggleHeritage(s: ChoiceState | null | undefined, heritage: stri
   if (whole) {
     regions = regions.filter(r => r !== whole.id)
     values = uniq([...values, ...whole.values.filter(h => h !== heritage)])
-  } else values = flip(values, heritage)
+  } else {
+    values = flip(values, heritage)
+    // Every heritage of its region the slot allows now picked: the region is picked whole.
+    const part = descent?.parts.find(p => p.values.includes(heritage))
+    const fits = descent?.fits?.length ? new Set(descent.fits) : null
+    const members = part ? part.values.filter(h => !fits || fits.has(h)) : []
+    if (part && members.length && members.every(h => values.includes(h))) {
+      regions = uniq([...regions, part.id])
+      values = values.filter(h => !part.values.includes(h))
+    }
+  }
   return withSeeds(s, { ...(s?.seeds || {}), descent: { values, groups: { region: regions } } }, pool)
 }
 
-/** Pick a region whole, or un-pick it. Picked whole, its heritages picked one by one go. */
+/** Pick a region whole, or un-pick it. Picked whole, its heritages picked one by one go.
+ * Partly picked, it is picked whole. */
 export function toggleRegion(s: ChoiceState | null | undefined, region: string, pool: ChoicePool | null | undefined): ChoiceState | null {
   const members = new Set(pool?.person?.descent?.parts.find(p => p.id === region)?.values || [])
   const regions = s?.seeds?.descent?.groups?.region || []
