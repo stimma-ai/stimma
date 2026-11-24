@@ -704,8 +704,8 @@ async def _refresh_stale_chatgpt_catalog():
             continue
         ids = {model.model_id for model in provider.models}
         if provider.id in _chatgpt_catalog_refreshed or (
-            {"gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna"}.issubset(ids)
-            and not any(model.startswith("gpt-5.") for model in ids)
+            {"gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-terra", "gpt-6-luna"}.issubset(ids)
+            and not any(model.startswith("gpt-5.") or model in {"gpt-6-astra", "gpt-6.1-sol"} for model in ids)
         ):
             continue
         if not chatgpt_auth.is_signed_in():
@@ -1589,7 +1589,8 @@ async def _sync_chatgpt_provider(access_token: str) -> LLMProviderConfig:
         model = chatgpt_model(provider.id, entry)
         prior = previous.get(model.id)
         if prior is None:
-            retired = {"gpt-6.1-sol": ("gpt-5.6-sol",),
+            retired = {"gpt-6.2-astra": ("gpt-6-astra",),
+                       "gpt-6.2-sol": ("gpt-6.1-sol", "gpt-5.6-sol"),
                        "gpt-6.1-terra": ("gpt-5.6-terra",),
                        "gpt-6-luna": ("gpt-5.6-luna",)}.get(model.model_id, ())
             prior = next((previous[f"{provider.id}:{old}"] for old in retired

@@ -170,8 +170,8 @@ async def test_new_provider_is_visible_to_immediate_followup_read(monkeypatch):
 def test_branded_provider_contracts_match_current_model_series():
     openai = branded_models("openai", "openai-test")
     assert [model.model_id for model in openai] == [
-        "gpt-6-astra",
-        "gpt-6.1-sol",
+        "gpt-6.2-astra",
+        "gpt-6.2-sol",
         "gpt-6.1-terra",
         "gpt-6-luna",
     ]
@@ -845,7 +845,7 @@ async def test_adding_openai_key_checks_models_and_stores_branded_contracts(monk
     monkeypatch.setattr(models_route, "_save_providers", lambda providers, *_: saved.extend(providers))
 
     async def discover(_provider):
-        return [{"id": model_id} for model_id in ("gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna")]
+        return [{"id": model_id} for model_id in ("gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-terra", "gpt-6-luna")]
 
     monkeypatch.setattr(models_route, "_discover_provider_models", discover)
     response = await models_route.create_llm_provider(
@@ -854,8 +854,8 @@ async def test_adding_openai_key_checks_models_and_stores_branded_contracts(monk
     assert response["api_key"] == "***"
     assert response["api_key_set"] is True
     assert [model["model_id"] for model in response["models"]] == [
-        "gpt-6-astra",
-        "gpt-6.1-sol",
+        "gpt-6.2-astra",
+        "gpt-6.2-sol",
         "gpt-6.1-terra",
         "gpt-6-luna",
     ]
@@ -1303,12 +1303,17 @@ def test_saved_openai_provider_gains_astra_and_migrates_retired_models():
     provider = LLMProviderConfig.model_validate({
         "id": "saved", "kind": "openai", "name": "OpenAI",
         "base_url": "https://api.openai.com/v1", "api_key": "test",
-        "models": [{"id": "saved:gpt-5.6-sol", "model_id": "gpt-5.6-sol",
-                    "name": "Old Sol", "enabled": False,
-                    "extra_system_prompt": "Keep this instruction"}],
+        "models": [
+            {"id": "saved:gpt-6-astra", "model_id": "gpt-6-astra",
+             "name": "Old Astra", "extra_system_prompt": "Keep Astra prompt"},
+            {"id": "saved:gpt-5.6-sol", "model_id": "gpt-5.6-sol",
+             "name": "Old Sol", "enabled": False,
+             "extra_system_prompt": "Keep this instruction"},
+        ],
     })
-    assert [m.model_id for m in provider.models] == ["gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna"]
+    assert [m.model_id for m in provider.models] == ["gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-terra", "gpt-6-luna"]
     assert provider.models[0].reasoning.mode == "required"
+    assert provider.models[0].extra_system_prompt == "Keep Astra prompt"
     assert provider.models[1].enabled is False
     assert provider.models[1].extra_system_prompt == "Keep this instruction"
 
@@ -1317,7 +1322,7 @@ def test_saved_openai_provider_gains_astra_and_migrates_retired_models():
 async def test_stale_chatgpt_catalog_refreshes_from_account(monkeypatch):
     provider = LLMProviderConfig(id="plan", kind="chatgpt", name="ChatGPT",
         base_url="https://chatgpt.com/backend-api/codex",
-        models=[LLMProviderModelConfig(id="plan:gpt-5.6-sol", model_id="gpt-5.6-sol", name="Old Sol")])
+        models=[LLMProviderModelConfig(id="plan:gpt-6.1-sol", model_id="gpt-6.1-sol", name="Old Sol")])
     monkeypatch.setattr(models_route, "get_settings", lambda: SimpleNamespace(llm_providers=[provider]))
     import chatgpt_auth
     monkeypatch.setattr(chatgpt_auth, "is_signed_in", lambda: True)

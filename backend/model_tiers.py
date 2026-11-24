@@ -120,8 +120,8 @@ CURATED_TIERS: dict[str, str] = {
     "claude-sonnet-5-5": BALANCED,
     "claude-haiku-5-5": FAST,
     # OpenAI
-    "gpt-6-astra": DEEP,
-    "gpt-6.1-sol": BALANCED,
+    "gpt-6.2-astra": DEEP,
+    "gpt-6.2-sol": BALANCED,
     "gpt-6.1-terra": BALANCED,
     "gpt-6-luna": FAST,
     # Google
@@ -141,7 +141,7 @@ CURATED_TIERS: dict[str, str] = {
 # after the size parse. Order within each tuple does not matter; DEEP is checked
 # before FAST so "opus-mini"-style names (vendor marketing, not a real pattern)
 # land deep rather than fast.
-_DEEP_MARKERS = ("opus", "-sol", "-pro", "-max", "thinking", "reasoner", "-r1")
+_DEEP_MARKERS = ("opus", "-astra", "-sol", "-pro", "-max", "thinking", "reasoner", "-r1")
 _FAST_MARKERS = ("haiku", "flash", "lite", "mini", "nano", "small", "turbo", "-luna")
 
 # Parameter counts in a model id: "70b", "8x22b", "qwen3-235b-a22b". The first

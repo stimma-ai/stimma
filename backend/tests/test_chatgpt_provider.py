@@ -90,9 +90,9 @@ class TestModelConfig:
 
     def test_only_astra_and_sol_and_luna_are_exposed(self):
         """Older families are on the plan but deliberately not offered."""
-        for slug in ("gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"):
+        for slug in ("gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-terra", "gpt-6-luna"):
             assert is_supported_chatgpt_model(slug), slug
-        for slug in ("gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex-spark"):
+        for slug in ("gpt-6-astra", "gpt-6.1-sol", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex-spark"):
             assert not is_supported_chatgpt_model(slug), slug
 
     def test_ladder_includes_the_max_rung(self):
@@ -103,7 +103,7 @@ class TestModelConfig:
         ]
 
     def test_astra_has_required_reasoning_and_full_context_fallback(self):
-        model = chatgpt_model("p", {"id": "gpt-6-astra"})
+        model = chatgpt_model("p", {"id": "gpt-6.2-astra"})
         assert model.reasoning.levels == CHATGPT_ASTRA_REASONING_LEVELS
         assert model.reasoning.mode == "required"
         assert model.reasoning.quick_task == "low"
@@ -714,8 +714,10 @@ class TestCatalogFiltering:
         import routes.models as models_route
 
         live_catalog = [
-            {"id": "gpt-6-astra", "name": "GPT-6 Astra"},
+            {"id": "gpt-6.2-astra", "name": "GPT-6.2 Astra"},
             {"id": "gpt-6-luna", "name": "GPT-6 Luna"},
+            {"id": "gpt-6.2-sol", "name": "GPT-6.2 Sol"},
+            {"id": "gpt-6-astra", "name": "GPT-6 Astra"},
             {"id": "gpt-6.1-sol", "name": "GPT-6.1 Sol"},
             {"id": "gpt-5.5", "name": "GPT-5.5"},
             {"id": "gpt-5.4-mini", "name": "GPT-5.4-Mini"},
@@ -734,7 +736,7 @@ class TestCatalogFiltering:
 
         provider = await models_route._sync_chatgpt_provider(_access_token())
 
-        assert [m.model_id for m in provider.models] == ["gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol"]
+        assert [m.model_id for m in provider.models] == ["gpt-6.2-astra", "gpt-6-luna", "gpt-6.2-sol"]
         assert saved["providers"] == [provider]
 
     @pytest.mark.asyncio

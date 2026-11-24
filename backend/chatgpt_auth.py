@@ -702,8 +702,8 @@ def request_headers(access_token: str) -> dict[str, str]:
 # list is authoritative: OpenAI adds and retires Codex-backend slugs often, and
 # a stale hardcoded list surfaces models that 400 on selection.
 FALLBACK_MODELS: list[dict[str, Any]] = [
-    {"id": "gpt-6-astra", "name": "GPT-6 Astra"},
-    {"id": "gpt-6.1-sol", "name": "GPT-6.1 Sol"},
+    {"id": "gpt-6.2-astra", "name": "GPT-6.2 Astra"},
+    {"id": "gpt-6.2-sol", "name": "GPT-6.2 Sol"},
     {"id": "gpt-6.1-terra", "name": "GPT-6.1 Terra"},
     {"id": "gpt-6-luna", "name": "GPT-6 Luna"},
 ]

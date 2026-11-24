@@ -40,7 +40,9 @@ def test_retired_model_aliases_normalize_to_minimax(monkeypatch):
 
     assert llm_resolver.normalize_model_slug("agent-max") == "stimma:minimax-m3"
     assert llm_resolver.normalize_model_slug("default") == "stimma:minimax-m3"
-    assert llm_resolver.normalize_model_slug("stimma:gpt-6.1-sol") == "stimma:gpt-6.1-sol"
+    assert llm_resolver.normalize_model_slug("stimma:gpt-6.2-sol") == "stimma:gpt-6.2-sol"
+    assert llm_resolver.normalize_model_slug("stimma:gpt-6.1-sol") == "stimma:gpt-6.2-sol"
+    assert llm_resolver.normalize_model_slug("stimma:gpt-6-astra") == "stimma:gpt-6.2-astra"
     assert (
         llm_resolver.resolve_chat_model_slug("agent-max", None, "auto")
         == "stimma:minimax-m3"
@@ -1250,7 +1252,9 @@ def test_retired_api_key_selection_uses_same_provider(monkeypatch):
     from types import SimpleNamespace
     monkeypatch.setattr(llm_resolver, "get_settings", lambda: SimpleNamespace(
         llm_providers=[SimpleNamespace(id="key", kind="openai")]))
-    assert llm_resolver.normalize_model_slug("key:gpt-5.6-sol") == "key:gpt-6.1-sol"
+    assert llm_resolver.normalize_model_slug("key:gpt-6-astra") == "key:gpt-6.2-astra"
+    assert llm_resolver.normalize_model_slug("key:gpt-6.1-sol") == "key:gpt-6.2-sol"
+    assert llm_resolver.normalize_model_slug("key:gpt-5.6-sol") == "key:gpt-6.2-sol"
     assert llm_resolver.normalize_model_slug("key:gpt-5.6-terra") == "key:gpt-6.1-terra"
     assert llm_resolver.normalize_model_slug("key:gpt-5.6-luna") == "key:gpt-6-luna"
 
@@ -1298,7 +1302,7 @@ async def _available_models_with_cloud(monkeypatch, providers):
 
     catalog = [
         {"slug": f"stimma:{model_id}", "name": model_id, "model_vendor": "openai", "canonical_model_id": f"openai:{model_id}"}
-        for model_id in ("gpt-6-astra", "gpt-6.1-sol")
+        for model_id in ("gpt-6.2-astra", "gpt-6.2-sol")
     ]
     settings = _stub_settings(
         cloud=SimpleNamespace(base_url="https://cloud.example"),
@@ -1342,35 +1346,35 @@ async def _available_models_with_cloud(monkeypatch, providers):
 @pytest.mark.asyncio
 async def test_picker_leads_with_chatgpt_then_key_then_stimma(monkeypatch):
     payload, models = await _available_models_with_cloud(monkeypatch, [
-        _route_provider("openrouter", "openai/gpt-6.1-sol"),
-        _route_provider("openai", "gpt-6.1-sol"),
-        _route_provider("chatgpt", "gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra"),
+        _route_provider("openrouter", "openai/gpt-6.2-sol"),
+        _route_provider("openai", "gpt-6.2-sol"),
+        _route_provider("chatgpt", "gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-terra"),
     ])
 
-    assert not models["chatgpt-1:gpt-6.1-sol"].get("collapsed")
-    for slug in ("openai-1:gpt-6.1-sol", "openrouter-1:openai/gpt-6.1-sol", "stimma:gpt-6.1-sol"):
+    assert not models["chatgpt-1:gpt-6.2-sol"].get("collapsed")
+    for slug in ("openai-1:gpt-6.2-sol", "openrouter-1:openai/gpt-6.2-sol", "stimma:gpt-6.2-sol"):
         assert models[slug]["collapsed"] is True
-        assert models[slug]["preferred_slug"] == "chatgpt-1:gpt-6.1-sol"
+        assert models[slug]["preferred_slug"] == "chatgpt-1:gpt-6.2-sol"
     # Auto lands on the route the picker leads with, not the one billed to credits.
-    assert payload["models"][0]["resolved_slug"] == "chatgpt-1:gpt-6-astra"
+    assert payload["models"][0]["resolved_slug"] == "chatgpt-1:gpt-6.2-astra"
 
 
 @pytest.mark.asyncio
 async def test_key_outranks_stimma_without_chatgpt(monkeypatch):
-    payload, models = await _available_models_with_cloud(monkeypatch, [_route_provider("openai", "gpt-6.1-sol")])
+    payload, models = await _available_models_with_cloud(monkeypatch, [_route_provider("openai", "gpt-6.2-sol")])
 
-    assert not models["openai-1:gpt-6.1-sol"].get("collapsed")
-    assert models["stimma:gpt-6.1-sol"]["preferred_slug"] == "openai-1:gpt-6.1-sol"
-    assert payload["models"][0]["resolved_slug"] == "openai-1:gpt-6-astra"
+    assert not models["openai-1:gpt-6.2-sol"].get("collapsed")
+    assert models["stimma:gpt-6.2-sol"]["preferred_slug"] == "openai-1:gpt-6.2-sol"
+    assert payload["models"][0]["resolved_slug"] == "openai-1:gpt-6.2-astra"
 
 
 @pytest.mark.asyncio
 async def test_broken_provider_does_not_hide_a_working_route(monkeypatch):
     _, models = await _available_models_with_cloud(monkeypatch, [
-        _route_provider("chatgpt", "gpt-6.1-sol", last_test_passed=False),
+        _route_provider("chatgpt", "gpt-6.2-sol", last_test_passed=False),
     ])
 
-    assert not models["stimma:gpt-6.1-sol"].get("collapsed")
+    assert not models["stimma:gpt-6.2-sol"].get("collapsed")
 
 
 @pytest.mark.asyncio

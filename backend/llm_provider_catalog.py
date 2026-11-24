@@ -159,8 +159,8 @@ GEMINI_REASONING = _reasoning(
 
 BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
     "openai": [
-        {"model_id": "gpt-6-astra", "name": "GPT-6 Astra", "context": 1_050_000, "reasoning": ASTRA_REASONING},
-        {"model_id": "gpt-6.1-sol", "name": "GPT-6.1 Sol", "context": 1_050_000, "reasoning": ASTRA_REASONING},
+        {"model_id": "gpt-6.2-astra", "name": "GPT-6.2 Astra", "context": 1_050_000, "reasoning": ASTRA_REASONING},
+        {"model_id": "gpt-6.2-sol", "name": "GPT-6.2 Sol", "context": 1_050_000, "reasoning": ASTRA_REASONING},
         {"model_id": "gpt-6.1-terra", "name": "GPT-6.1 Terra", "context": 1_050_000, "reasoning": OPENAI_REASONING},
         {"model_id": "gpt-6-luna", "name": "GPT-6 Luna", "context": 1_050_000, "reasoning": OPENAI_REASONING},
     ],
@@ -238,7 +238,7 @@ BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
 # each additional family is another effort ladder to keep verified against an
 # undocumented surface, and they are superseded for every role Stimma uses.
 # Restricting the route keeps one ladder true instead of four drifting ones.
-CHATGPT_SUPPORTED_PREFIXES = ("gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna")
+CHATGPT_SUPPORTED_PREFIXES = ("gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-terra", "gpt-6-luna")
 
 # Supported effort ladders from the official model contracts. The plan catalog
 # may narrow these per account. Astra and Sol require thinking; Terra and Luna permit off.
@@ -254,8 +254,8 @@ CHATGPT_REASONING_WIRE = {
 }
 CHATGPT_ASTRA_REASONING_LEVELS = ["low", "medium", "high", "xhigh", "max"]
 CHATGPT_MODEL_DEFAULTS: tuple[tuple[str, list[str], int], ...] = (
-    ("gpt-6-astra", CHATGPT_ASTRA_REASONING_LEVELS, 1_050_000),
-    ("gpt-6.1-sol", CHATGPT_ASTRA_REASONING_LEVELS, 1_050_000),
+    ("gpt-6.2-astra", CHATGPT_ASTRA_REASONING_LEVELS, 1_050_000),
+    ("gpt-6.2-sol", CHATGPT_ASTRA_REASONING_LEVELS, 1_050_000),
     ("gpt-6.1-terra", CHATGPT_REASONING_LEVELS, 1_050_000),
     ("gpt-6-luna", CHATGPT_REASONING_LEVELS, 1_050_000),
 )

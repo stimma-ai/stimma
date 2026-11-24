@@ -22,8 +22,8 @@ class TestTierFor:
         ("stimma:claude-opus-5-5", DEEP),
         ("stimma:claude-sonnet-5-5", BALANCED),
         ("stimma:claude-haiku-5-5", FAST),
-        ("stimma:gpt-6-astra", DEEP),
-        ("stimma:gpt-6.1-sol", BALANCED),
+        ("stimma:gpt-6.2-astra", DEEP),
+        ("stimma:gpt-6.2-sol", BALANCED),
         ("stimma:gpt-6-luna", FAST),
         ("stimma:kimi-k2.7", DEEP),
         ("stimma:minimax-m3", BALANCED),
@@ -94,7 +94,7 @@ class TestSelectAutoModels:
             c("stimma:claude-opus-5-5", vendor="anthropic"),
             c("stimma:claude-sonnet-5-5", vendor="anthropic"),
             c("stimma:claude-haiku-5-5", vendor="anthropic"),
-            c("stimma:gpt-6.1-sol", vendor="openai"),
+            c("stimma:gpt-6.2-sol", vendor="openai"),
             c("stimma:minimax-m3", vendor="minimax"),
         ])
         assert chosen["chat"] == "stimma:claude-opus-5-5"
@@ -114,12 +114,12 @@ class TestSelectAutoModels:
 
     def test_openai_only_install(self):
         chosen = select_auto_models([
-            c("openai:gpt-6-astra", vendor="openai", model_id="gpt-6-astra"),
-            c("openai:gpt-6.1-sol", vendor="openai", model_id="gpt-6.1-sol"),
+            c("openai:gpt-6.2-astra", vendor="openai", model_id="gpt-6.2-astra"),
+            c("openai:gpt-6.2-sol", vendor="openai", model_id="gpt-6.2-sol"),
             c("openai:gpt-6-luna", vendor="openai", model_id="gpt-6-luna"),
         ])
-        assert chosen["chat"] == "openai:gpt-6-astra"
-        assert chosen["tool_assistant"] == "openai:gpt-6.1-sol"
+        assert chosen["chat"] == "openai:gpt-6.2-astra"
+        assert chosen["tool_assistant"] == "openai:gpt-6.2-sol"
         assert chosen["quick_task"] == "openai:gpt-6-luna"
 
     def test_multiple_local_models_span_tiers(self):

@@ -17,7 +17,9 @@ LEGACY_LLM_MODEL_SLUGS = {
     "default": "stimma:minimax-m3",
     "stimma:claude-opus-4.8": "stimma:claude-opus-5-5",
     "stimma:claude-opus-5": "stimma:claude-opus-5-5",
-    "stimma:gpt-5.6-sol": "stimma:gpt-6.1-sol",
+    "stimma:gpt-6-astra": "stimma:gpt-6.2-astra",
+    "stimma:gpt-6.1-sol": "stimma:gpt-6.2-sol",
+    "stimma:gpt-5.6-sol": "stimma:gpt-6.2-sol",
     "stimma:gpt-5.6-terra": "stimma:gpt-6.1-terra",
     "stimma:gpt-5.6-luna": "stimma:gpt-6-luna",
     "stimma:claude-fable-5": "stimma:claude-fable-5-2",
@@ -34,7 +36,8 @@ LEGACY_LLM_MODEL_SLUGS = {
 LEGACY_LLM_REASONING_LEVELS = {
     "stimma:minimax-m3": {"off", "high"},
     "stimma:claude-opus-5-5": {"low", "medium", "high", "xhigh", "max"},
-    "stimma:gpt-6.1-sol": {"low", "medium", "high", "xhigh", "max"},
+    "stimma:gpt-6.2-astra": {"low", "medium", "high", "xhigh", "max"},
+    "stimma:gpt-6.2-sol": {"low", "medium", "high", "xhigh", "max"},
     "stimma:gpt-6.1-terra": {"off", "low", "medium", "high", "xhigh", "max"},
     "stimma:gpt-6-luna": {"off", "low", "medium", "high", "xhigh", "max"},
     # Fable kept one ladder across 5, 5.1 and 5.2, so every saved level carries.
@@ -399,7 +402,8 @@ class LLMProviderConfig(BaseModel):
             return self
         from llm_provider_catalog import branded_models
         previous = {model.model_id: model for model in self.models}
-        replacements = {"gpt-6.1-sol": ("gpt-5.6-sol",),
+        replacements = {"gpt-6.2-astra": ("gpt-6-astra",),
+                        "gpt-6.2-sol": ("gpt-6.1-sol", "gpt-5.6-sol"),
                         "gpt-6.1-terra": ("gpt-5.6-terra",),
                         "claude-fable-5-2": ("claude-fable-5-1", "claude-fable-5"),
                         "gpt-6-luna": ("gpt-5.6-luna",),
