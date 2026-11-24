@@ -9,7 +9,6 @@ const saved = (extra: Record<string, any> = {}) => ({
   ...extra,
 })
 const ctx = (extra: Partial<PromptOptionsContext> = {}): PromptOptionsContext => ({
-  fluentOn: true,
   llmUnconfigured: false,
   toolHasPrompt: true,
   unsupported: false,
@@ -80,14 +79,6 @@ test('tools without a prompt never enhance or translate', () => {
   const out = shapePromptOptions(saved({ translate: { enabled: true, language: 'fr' } }), ctx({ toolHasPrompt: false, unsupported: true }))
   assert.equal(out.autoImprove.enabled, false)
   assert.equal(out.translate.enabled, false)
-})
-
-test('without the feature, newer settings are dropped and Enhance goes as saved', () => {
-  const out = shapePromptOptions(saved({ raw: true, direct: true, loraTriggers: false, loraNotes: false }), ctx({ fluentOn: false, llmUnconfigured: true, program: undefined }))
-  assert.equal(out.raw, undefined)
-  assert.equal(out.direct, undefined)
-  assert.equal(out.loraTriggers, undefined)
-  assert.equal(out.autoImprove.enabled, true, 'classic Enhance fails visibly with no model')
 })
 
 test('prepare errors: only no response means the chat model is unreachable', () => {

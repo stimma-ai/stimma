@@ -437,9 +437,6 @@ def fix_judge(model_dir: str, threads: int = 0) -> OnnxJudge:
 
 DEFAULT_JUDGE = "default"          # fix_model naming the pinned pick judge (prompt_programs.pick_judge)
 OFF = ("", "off", "none")
-# Release branches whose Tool View offers Fluent: frontend promptBrand.ts `fluentEnabled`
-# (widen both together).
-FLUENT_BRANCHES = ("dev", "canary")
 
 
 def fix_mode(model: Optional[str]) -> str:
@@ -467,16 +464,8 @@ def kick_judge(cfg: Any = None) -> None:
 
 
 def preload_judge() -> None:
-    """At launch: start getting the pinned judge in any build that offers Fluent, so it's
-    ready, or on its way, by the first image. Privacy Lockdown applies as to every model
-    download. Never blocks."""
-    try:
-        from user_agent import get_app_branch
-        if get_app_branch() not in FLUENT_BRANCHES:
-            return
-    except Exception as e:
-        log.debug(f"[fluent-fix] no app branch, not preloading the pick judge: {e}")
-        return
+    """At launch: start getting the pinned judge so it's ready, or on its way, by the first
+    image. Privacy Lockdown applies as to every model download. Never blocks."""
     kick_judge()
 
 

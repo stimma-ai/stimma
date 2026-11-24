@@ -117,9 +117,9 @@ class TestDirectByDefault:
         assert out.params["prompt"] == "a cat" and not seen
 
 
-class TestSameWhetherOrNotToolViewHasTheFeature:
-    """The feature's switch is the app build (dev/canary today). Without vary, nothing an
-    agent, MCP client or flow sends depends on it: no prepared program, same prompt."""
+class TestSameAcrossReleaseBranches:
+    """Without vary, nothing an agent, MCP client or flow sends depends on the release
+    branch: no prepared program, same prompt."""
 
     @pytest.mark.parametrize("branch", ["dev", "canary", "beta", "production"])
     @pytest.mark.parametrize("enhance", ["auto", True, False])

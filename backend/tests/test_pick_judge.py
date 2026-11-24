@@ -133,6 +133,17 @@ def test_the_committed_pin_is_the_trained_judge():
     assert len(m["selftest"]["p_wrong"]) == len(m["selftest"]["items"])
 
 
+@pytest.mark.parametrize("branch", ["dev", "canary", "beta", "production"])
+def test_preload_judge_kicks_on_all_branches(branch, monkeypatch):
+    import user_agent
+    from prompt_programs import fix
+    monkeypatch.setattr(user_agent, "_app_branch", branch)
+    kicked = []
+    monkeypatch.setattr(fix, "kick_judge", lambda cfg=None: kicked.append(branch))
+    fix.preload_judge()
+    assert kicked == [branch]
+
+
 # --------------------------------------------------------------------------- first use never waits
 
 def test_while_it_downloads_the_stand_in_judges_and_then_the_pinned_judge_does(release, stand_in):

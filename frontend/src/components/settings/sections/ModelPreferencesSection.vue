@@ -71,7 +71,7 @@
           </template>
           <Toggle :model-value="flowsEnabled" :disabled="savingFlowsPreference" label="Enable Flows" @update:model-value="updateFlows" />
         </SettingRow>
-        <SettingRow v-if="fluentEnabled && devModeRef" :label="`${PROMPT_BRAND} judge`" :divider="true">
+        <SettingRow v-if="devModeRef" :label="`${PROMPT_BRAND} judge`" :divider="true">
           <div class="flex items-center gap-2" data-fluent-judge>
             <span v-if="judge.status === 'downloading' && judge.percent != null" class="text-xs text-content-tertiary tabular-nums">{{ judge.percent }}%</span>
             <StatusDot v-if="judge.status !== 'off'" :bucket="judgeBucket(judge.status)" :title="judge.error || judge.version" />
@@ -94,7 +94,7 @@ import StatusDot from '../../ui/StatusDot.vue'
 import axios from 'axios'
 import { onMounted, ref } from 'vue'
 import { getApiBase } from '../../../apiConfig'
-import { PROMPT_BRAND, fluentEnabled } from '../../generation/promptBrand'
+import { PROMPT_BRAND } from '../../generation/promptBrand'
 import { setGenerationPreviews, imagePreviewsRef as imagePreviews, videoPreviewsRef as videoPreviews, devModeRef } from '../../../appConfig'
 
 // Fluent judge (dev mode only): on is the pinned judge the app downloads on demand (the chat
@@ -107,7 +107,7 @@ function judgeBucket(status) {
   return 'failed'
 }
 async function loadJudge() {
-  if (!fluentEnabled.value || !devModeRef.value) return
+  if (!devModeRef.value) return
   try {
     const { data } = await axios.get(`${getApiBase()}/prompt-programs/fix-judge`)
     judge.value = data

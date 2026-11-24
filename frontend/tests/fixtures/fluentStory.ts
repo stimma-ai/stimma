@@ -81,7 +81,7 @@ const App = defineComponent({
     async function generate() {
       await program.ensureReady()
       const shaped = shapePromptOptions(promptOptions.value, {
-        fluentOn: true, llmUnconfigured: false, toolHasPrompt: true, unsupported: program.unsupported.value,
+        llmUnconfigured: false, toolHasPrompt: true, unsupported: program.unsupported.value,
         enhance: { model: 'krea-2', mode: 'prose' }, program: program.payload(),
       })
       const { data } = await axios.post('/api/generate', { tool_id: 'local/krea-2', parameters: { prompt: prompt.value }, promptOptions: shaped })

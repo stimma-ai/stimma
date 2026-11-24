@@ -6,10 +6,10 @@ manifest; its files live at `<models mirror>/pick-judge/<version>/` and are cach
 under `<cache>/models/pick-judge/<version>/` (model_cache.ensure_bundle). Versions are
 immutable, so a cached, verified version is used with no network at all.
 
-A draw never waits for the download. The download starts at launch in builds that
-offer Fluent (`kick()`, from the app's startup) and again at the first draw that
-needs a judge; until the judge is loaded, or when it can't be had, `ready()` returns
-None and the fix pass asks the Tool View model instead (prompt_programs.llm_judge).
+A draw never waits for the download. The download starts at launch (`kick()`, from
+the app's startup) and again at the first draw that needs a judge; until the judge is loaded,
+or when it can't be had, `ready()` returns None and the fix pass asks the Tool View model
+instead (prompt_programs.llm_judge).
 The judge can't be had when:
 
     offline / server error / hash mismatch   "unavailable": retried in the background,

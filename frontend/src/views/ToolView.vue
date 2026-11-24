@@ -316,10 +316,10 @@
             :placeholder="promptPlaceholder"
             :programs="promptProgram.status.value !== 'off'"
             :suggest-context="promptSuggestContext"
-            :prompt-control="fluentOn"
+            prompt-control
             :slot-marks="promptProgram.marks.value"
           >
-            <template v-if="fluentOn" #mode="{ openHelp }"><FluentControl
+            <template #mode="{ openHelp }"><FluentControl
               :program="promptProgram"
               :raw="rawMode"
               :direct="directMode"
@@ -341,7 +341,6 @@
             /></template>
           </AIPromptEditor>
           <FluentSlotList
-            v-if="fluentOn"
             class="mt-1"
             :program="promptProgram"
             :suggestions="aiPromptEditorRef?.suggestions"
@@ -1197,7 +1196,7 @@
     <JobInfoModal
       :show="showInfoModal"
       :job="infoModalJob"
-      :program-actions="fluentOn ? programRunActionsFor : null"
+      :program-actions="programRunActionsFor"
       @close="closeInfoModal"
       @program-replay="replayProgramRun"
       @program-use="(run: any, at: Element) => openUse(run, at)"
@@ -3474,7 +3473,7 @@ import { useLoraPool } from '../composables/useLoraPool'
 import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptProgram'
 import FluentSlotList from '../components/generation/FluentSlotList.vue'
 import FluentControl from '../components/generation/FluentControl.vue'
-import { PROMPT_BRAND, fluentEnabled } from '../components/generation/promptBrand'
+import { PROMPT_BRAND } from '../components/generation/promptBrand'
 import { firstStage, promptVaries, promptWrites, stageTile, type PromptStage, fallbackNotice, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
 import { useWildcards, useSegments } from '../composables/useWildcards'
 import UseFromImage from '../components/generation/UseFromImage.vue'
@@ -3664,7 +3663,8 @@ function handleRemixUseExactPrompt() {
     autoImprove: { ...globalPrefs.value.promptOptions.autoImprove, enabled: false },
     translate: { language: 'zh-Hans', ...globalPrefs.value.promptOptions.translate, enabled: false },
     // The exact prompt goes out as it was: Direct, so nothing reads it and varies it again.
-    ...(fluentOn.value ? { direct: true, raw: undefined } : {}),
+    direct: true,
+    raw: undefined,
   }
   suppressRemixDeactivation()
 }
@@ -3979,12 +3979,10 @@ const {
 // In Fluent the prompt is prepared once into a program and each run draws from it (no
 // model call per image); Detail level says how much it adds, in Direct too. Raw uses no
 // model, and with no chat model set up every run is Direct, as filled. See usePromptProgram.ts.
-// Fluent's modes, only where Fluent ships (promptBrand.ts).
-const fluentOn = fluentEnabled
-const rawMode = computed(() => fluentOn.value && !!globalPrefs.value.promptOptions?.raw)
-const directMode = computed(() => fluentOn.value && !!globalPrefs.value.promptOptions?.direct)
+const rawMode = computed(() => !!globalPrefs.value.promptOptions?.raw)
+const directMode = computed(() => !!globalPrefs.value.promptOptions?.direct)
 // What a run actually does: Direct when chosen, and whenever there's no chat model.
-const runsDirect = computed(() => fluentOn.value && !rawMode.value && (directMode.value || llmUnconfigured.value))
+const runsDirect = computed(() => !rawMode.value && (directMode.value || llmUnconfigured.value))
 // Increase Detail, stored as Enhance: Off is Enhance off; Medium and High are its two
 // levels (the setting predates Medium, so an enabled setting without a level is High).
 const enhanceLevel = computed<EnhanceLevel>(() => {
@@ -3996,7 +3994,7 @@ const AGENT_DETAIL_NAMES: Record<EnhanceLevel, string> = { off: 'off', fill: 'me
 const promptProgram = usePromptProgram({
   toolId: computed(() => fullToolIdFromProps || null),
   prompt: computed(() => globalPrefs.value.prompt || ''),
-  enabled: computed(() => fluentOn.value && !!hasPrompt.value && !rawMode.value && !runsDirect.value),
+  enabled: computed(() => !!hasPrompt.value && !rawMode.value && !runsDirect.value),
   projectId: projectScopeId,
   promptOptions: computed(() => globalPrefs.value.promptOptions),
   setPromptOptions: (next: any) => { globalPrefs.value.promptOptions = next },
@@ -4048,13 +4046,13 @@ function openUse(run: any, at: Element | DOMRect, stage = false) {
   useOpen.value = { run, anchor: at instanceof Element ? at.getBoundingClientRect() : at, stage }
 }
 const stageRun = computed<any | null>(() => generationJobParams(stageCurrentJob.value)?.prompt_program ?? null)
-const stageUse = computed(() => fluentOn.value && !!stageRun.value && programRunActionsFor(stageRun.value).use)
+const stageUse = computed(() => !!stageRun.value && programRunActionsFor(stageRun.value).use)
 // Another image on stage: the list opened from the one before closes.
 watch(() => stageCurrentJob.value?.id, () => { if (useOpen.value?.stage) useOpen.value = null })
 /** An image's run, when it can offer Use here. */
 function usableRun(job: any): any | null {
   const run = generationJobParams(job)?.prompt_program ?? null
-  return fluentOn.value && run && programRunActionsFor(run).use ? run : null
+  return run && programRunActionsFor(run).use ? run : null
 }
 // The result tiles' own action strip, and the menu on any of this view's images (a tile,
 // the stage, the slideshow).
@@ -5599,7 +5597,7 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
 
   // A {{name}} is a saved wildcard or prompt segment, in every way but Raw; one that isn't
   // saved can't be filled. Never send it through as literal text.
-  const unfillable = fluentOn.value && !rawMode.value && hasPrompt.value
+  const unfillable = !rawMode.value && hasPrompt.value
     ? unknownSmartNames(globalPrefs.value.prompt || '') : []
   // It's a mistake in the prompt, so the editor marks it (like a syntax error) and the
   // run waits; one quiet line says why, no toast.
@@ -5738,10 +5736,9 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
   // Enhance Prompt is family-aware: thread the tool's model + enhancement mode
   // into the generate-time pipeline. The backend picks the style from the model;
   // Ideogram (mode 'ideogram-json') runs as the post-resolve JSON step.
-  // How the prompt goes (utils/fluentSubmit.ts): the classic way without Fluent; Raw
-  // untouched; Direct, or no chat model, with no model; otherwise Fluent's program.
+  // How the prompt goes (utils/fluentSubmit.ts): Raw untouched; Direct, or no chat model,
+  // with no program; otherwise Fluent's program.
   const promptOptions = shapePromptOptions(capturedState.promptOptions, {
-    fluentOn: fluentOn.value,
     llmUnconfigured: llmUnconfigured.value,
     toolHasPrompt,
     unsupported: promptProgram.unsupported.value,
@@ -5783,8 +5780,8 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
   // (client_ref), so the job it queues retires this tile and no other.
   const runTile = options.runTile
     ?? (needsEnhancing ? openRunTile(null, prompt, capturedState.parameters || {}) : null)
-  // With the feature on, the tile says which step its prompt is on (Direct's too).
-  if (runTile && fluentOn.value) {
+  // The tile says which step its prompt is on (Direct's too).
+  if (runTile) {
     setTileStage(runTile, firstStage({
       varies: !!promptOptions?.program && promptVaries(promptProgram.status.value, promptProgram.program.value),
       writes: promptWrites(promptOptions),
@@ -6520,15 +6517,13 @@ function getStateContext(): Record<string, any> {
 
   if (hasPrompt.value) {
     ctx.prompt = globalPrefs.value.prompt || ''
-    // The prompt menu, in set_prompting's words. Builds without it have Enhance only.
-    ctx.prompt_options = fluentOn.value
-      ? {
-          mode: rawMode.value ? 'raw' : directMode.value ? 'direct' : 'vary',
-          mode_names: { vary: PROMPT_BRAND, direct: 'Direct', raw: 'Raw' },
-          ...(llmUnconfigured.value && !rawMode.value ? { note: 'No chat model is set up, so every run is direct.' } : {}),
-          detail: AGENT_DETAIL_NAMES[enhanceLevel.value],
-        }
-      : { enhance: globalPrefs.value.promptOptions?.autoImprove?.enabled ?? false }
+    // The prompt menu, in set_prompting's words.
+    ctx.prompt_options = {
+      mode: rawMode.value ? 'raw' : directMode.value ? 'direct' : 'vary',
+      mode_names: { vary: PROMPT_BRAND, direct: 'Direct', raw: 'Raw' },
+      ...(llmUnconfigured.value && !rawMode.value ? { note: 'No chat model is set up, so every run is direct.' } : {}),
+      detail: AGENT_DETAIL_NAMES[enhanceLevel.value],
+    }
   }
 
   // Parameters: current values + schema.
@@ -7111,7 +7106,6 @@ async function runTool(name: string, args: any): Promise<string> {
     case 'set_prompting': {
       const said: string[] = []
       if (args.mode != null) {
-        if (!fluentOn.value) return 'This build has no prompting modes; only detail applies (Enhance on or off).'
         const way = ({ vary: 'fluent', direct: 'direct', raw: 'raw' } as Record<string, string>)[String(args.mode)]
         if (!way) return `Unknown mode "${args.mode}". Use vary, direct or raw.`
         globalPrefs.value.promptOptions = { ...(globalPrefs.value.promptOptions || {}), raw: way === 'raw' || undefined, direct: way === 'direct' || undefined }
@@ -7120,12 +7114,8 @@ async function runTool(name: string, args: any): Promise<string> {
       if (args.detail != null) {
         const level = (Object.entries(AGENT_DETAIL_NAMES).find(([, name]) => name === String(args.detail)) || [])[0] as EnhanceLevel | undefined
         if (!level) return `Unknown detail "${args.detail}". Use off, medium or high.`
-        if (fluentOn.value) setDetailLevel(level)
-        else {
-          const po = globalPrefs.value.promptOptions || {}
-          globalPrefs.value.promptOptions = { ...po, autoImprove: { ...(po.autoImprove || { instructions: '' }), enabled: level !== 'off' } }
-        }
-        said.push(fluentOn.value ? `detail ${args.detail}` : `Enhance ${level === 'off' ? 'off' : 'on'}`)
+        setDetailLevel(level)
+        said.push(`detail ${args.detail}`)
       }
       return said.length ? said.join(', ') : 'Pass mode, detail, or both.'
     }

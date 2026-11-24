@@ -287,7 +287,7 @@ import { SparklesIcon, LanguageIcon, CheckIcon } from '@heroicons/vue/24/solid'
 import Caret from '../ui/Caret.vue'
 import OverflowButton from '../ui/OverflowButton.vue'
 import { useWildcards, useSegments } from '../../composables/useWildcards'
-import { PROMPT_BRAND, fluentEnabled } from './promptBrand'
+import { PROMPT_BRAND } from './promptBrand'
 import PromptTipSections from './PromptTipSections.vue'
 import { classicTips, fluentIntro, fluentTips } from './promptTips'
 import type { PromptSyntaxMode } from '../../composables/useCodeMirrorPrompt'
@@ -675,13 +675,12 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, ap
   })
 
 // --- How the prompt will be read: Raw, by a model (a program, or Enhance), or plain (no model) ---
-// Raw and the newer highlighting ship with Fluent (see promptBrand.ts). Raw is Tool
-// View's (its prompt menu); other editors have no Raw.
+// Raw is Tool View's (its prompt menu); other editors have no Raw.
 // A host with its own prompt control (Tool View's Fluent, in the mode slot) owns Enhance,
 // Raw and the syntax help's entry point.
 const slots = useSlots()
 const hasMode = computed(() => !!props.promptControl && !!slots.mode)
-const rawMode = computed(() => fluentEnabled.value && hasMode.value && !!props.promptOptions.raw)
+const rawMode = computed(() => hasMode.value && !!props.promptOptions.raw)
 // Slots vary here: Tool View's Fluent, preparing programs (not Direct, Raw or a format it
 // can't prepare).
 const fluentSlots = computed(() => hasMode.value && !!props.programs && !rawMode.value && !props.promptOptions.direct)
@@ -761,8 +760,7 @@ const tipsWay = computed(() =>
 const { wildcards } = useWildcards()
 const { segments } = useSegments()
 const syntaxMode = computed<PromptSyntaxMode>(() =>
-  !fluentEnabled.value ? 'enhance'
-    : rawMode.value ? 'raw'
+  rawMode.value ? 'raw'
     // Flow inputs don't run the prompt pipeline here; keep their highlighting as it was.
     : props.promptOptions.direct && hasMode.value ? 'plain'
     : props.hideAutoImprove || props.programs || (!llmUnconfigured.value && props.promptOptions.autoImprove?.enabled) ? 'enhance'

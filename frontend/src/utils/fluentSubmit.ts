@@ -17,8 +17,6 @@ export function effectiveWay(o: { raw: boolean; direct: boolean; llmUnconfigured
 }
 
 export interface PromptOptionsContext {
-  /** The feature ships in this build (promptBrand.ts). Off: the classic pipeline. */
-  fluentOn: boolean
   /** No chat model at all: the run is Direct whatever is saved. */
   llmUnconfigured: boolean
   toolHasPrompt: boolean
@@ -93,21 +91,16 @@ export function shownKey(program: { key?: string | null } | null | undefined, pr
 /** The promptOptions a submit sends, from the ones saved on the tool. */
 export function shapePromptOptions(saved: any, c: PromptOptionsContext): any {
   if (!saved) return saved
-  // Without the feature, settings a newer build saved (Raw, Direct, the LoRA choices)
-  // don't apply: the prompt goes the classic way.
-  const base = !c.fluentOn
-    ? (({ raw: _r, direct: _d, loraTriggers: _t, loraNotes: _n, ...rest }) => rest)(saved)
-    // The LoRA choices go explicitly; the backend only adds trigger words when asked to.
-    : { ...saved, ...loraChoices(saved) }
+  // The LoRA choices go explicitly; the backend only adds trigger words when asked to.
+  const base = { ...saved, ...loraChoices(saved) }
   if (base.raw) {
     return { ...base, raw: true, autoImprove: { ...base.autoImprove, enabled: false }, translate: { ...base.translate, enabled: false } }
   }
-  const way = c.fluentOn ? effectiveWay({ raw: false, direct: !!base.direct, llmUnconfigured: c.llmUnconfigured }) : null
+  const way = effectiveWay({ raw: false, direct: !!base.direct, llmUnconfigured: c.llmUnconfigured })
   // Tools with no prompt input have nothing to enhance or translate: stale UI state from
-  // another tool never reaches them. Classic builds send an enabled Enhance even with no
-  // chat model, so it fails visibly; with the feature on, no chat model means Direct, with
-  // nothing improved. Direct with a chat model is improved at Increase Detail, on every
-  // kind of prompt (an edit, a sound, MiniMax H3) but Ideogram's JSON.
+  // another tool never reaches them. With no chat model, the run is Direct, with nothing
+  // improved. Direct with a chat model is improved at Increase Detail, on every kind of
+  // prompt (an edit, a sound, MiniMax H3) but Ideogram's JSON.
   let enhanceOn = c.toolHasPrompt && !!base.autoImprove?.enabled
     && (way !== 'direct' || (!c.llmUnconfigured && c.directDetail !== false))
   // A tool that can't be prepared hides Increase Detail and says it writes a fuller prompt.
