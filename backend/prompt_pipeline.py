@@ -529,7 +529,7 @@ async def _improve_with_verbatim_protection(
     })
 
 
-_DEFAULT_FAILURE_ADVICE = "Retry or check the tool assistant model in Settings."
+_DEFAULT_FAILURE_ADVICE = "Retry or check the Tool Screen model in Settings."
 
 _SPAN_RETRY_HINT = (
     "Your previous rewrite changed or dropped a marked value. Copy each of these exactly as given, "

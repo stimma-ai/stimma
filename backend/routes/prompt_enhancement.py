@@ -1508,7 +1508,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                     raise HTTPException(status_code=502, detail={
                         "code": "prompt_enhancement_failed",
                         "message": "The tool assistant returned an empty prompt. Generation was not started. "
-                                   "Retry or check the tool assistant model in Settings.",
+                                   "Retry or check the Tool Screen model in Settings.",
                     })
                 # A prompt that needs nothing comes back unchanged on purpose.
                 if request.level or " ".join(improved_prompt.split()) != " ".join(request.prompt.split()):
@@ -1518,7 +1518,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                     raise HTTPException(status_code=502, detail={
                         "code": "prompt_enhancement_failed",
                         "message": "The tool assistant returned the original prompt unchanged after 3 attempts. "
-                                   "Generation was not started. Retry or check the tool assistant model in Settings.",
+                                   "Generation was not started. Retry or check the Tool Screen model in Settings.",
                     })
                 # Start afresh instead of putting the failed copy into history,
                 # which can encourage another identical answer. Keep the

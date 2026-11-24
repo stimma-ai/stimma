@@ -18,6 +18,7 @@ import { computed, onMounted } from 'vue'
 import { useAvailableModels } from '../../composables/useAvailableModels'
 import { resolveModelVendorId } from '../../utils/modelVendors'
 import { modelSourceLine } from '../../utils/modelFunding'
+import { PROMPT_BRAND } from '../generation/promptBrand'
 import SettingsDropdown from '../ui/SettingsDropdown.vue'
 
 const props = defineProps<{
@@ -46,8 +47,8 @@ const ROLES = [
   },
   {
     key: 'tool_assistant',
-    label: 'Tool Assistant',
-    description: 'The assistant on the tool screen.',
+    label: 'Tool Screen',
+    description: `Used for the assistant, prompt enhancement, and ${PROMPT_BRAND}.`,
   },
   {
     key: 'chat',
