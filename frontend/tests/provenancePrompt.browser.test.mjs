@@ -7,7 +7,7 @@ import config from '../vite.config.js'
 
 // The media info panel's prompt: one plain block when there's one version; when the
 // image was made from a different prompt than the one typed, each version on a rail
-// (You wrote, Filled in, Improved), the earlier ones a line each until opened.
+// (Original, Filled in, Improved), the earlier ones a line each until opened.
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
   root: fileURLToPath(new URL('..', import.meta.url)),
@@ -46,7 +46,7 @@ test('the same prompt twice: one block', async t => {
   const { panel } = await open(t, 'identical')
   await expect(panel.locator('[data-testid="prompt-stages"]')).toHaveCount(0)
   await expect(panel.locator('[data-testid="prompt-block"]')).toHaveCount(1)
-  await expect(panel.getByText('You wrote')).toHaveCount(0)
+  await expect(panel.getByText('Original')).toHaveCount(0)
 })
 
 const stage = (panel, key) => panel.locator(`[data-stage="${key}"]`)
@@ -71,7 +71,7 @@ for (const [label, opts] of [
     const lineHeight = async () => (await typedLine.boundingBox()).height
     assert.ok(await lineHeight() < 24, 'closed: a single line')
     await shot(`pair-closed-${label}`)
-    const header = stage(panel, 'typed').getByRole('button', { name: 'You wrote' })
+    const header = stage(panel, 'typed').getByRole('button', { name: 'Original' })
     await expect(header).toHaveAttribute('aria-expanded', 'false')
     await header.click()
     await expect(header).toHaveAttribute('aria-expanded', 'true')
@@ -110,7 +110,7 @@ test('Fluent: typed, filled in with its values marked, improved at its detail le
   await expect(filled.locator('[data-syntax="slot"]').first()).toHaveAttribute('title', '<glasses>')
   await shot('fluent-closed')
   await stage(panel, 'filled').getByRole('button', { name: 'Filled in' }).click()
-  await stage(panel, 'typed').getByRole('button', { name: 'You wrote' }).click()
+  await stage(panel, 'typed').getByRole('button', { name: 'Original' }).click()
   await shot('fluent-open')
   await stage(panel, 'filled').hover()
   await stage(panel, 'filled').getByRole('button', { name: 'Copy' }).click()
@@ -142,7 +142,7 @@ test('filled in but not improved: the filled prompt is the last stage', async t 
 
 test('the editor marks the typed prompt as the read-only view does', async t => {
   const { page, panel } = await open(t, 'pair')
-  await panel.getByRole('button', { name: 'You wrote' }).click()
+  await panel.getByRole('button', { name: 'Original' }).click()
   const view = {}
   for (const kind of ['wildcard', 'named-wildcard', 'verbatim', 'comment']) {
     view[kind] = await stageText(panel, 'typed').locator(`[data-syntax="${kind}"]`).allTextContents()

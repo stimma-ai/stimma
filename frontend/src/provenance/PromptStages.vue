@@ -127,7 +127,7 @@ const stages = computed<Stage[]>(() => {
   const filledIsFinal = !!filled && same(filledText, final)
 
   const out: Stage[] = []
-  if (typed) out.push({ key: 'typed', label: 'You wrote', text: typed, pieces: typedPieces(typed), final: false })
+  if (typed) out.push({ key: 'typed', label: 'Original', text: typed, pieces: typedPieces(typed), final: false })
   if (filled && !filledIsFinal && !(typed && same(filledText, typed))) {
     out.push({ key: 'filled', label: 'Filled in', text: filledText, pieces: filledPieces(filled), final: false })
   }
