@@ -73,6 +73,9 @@ ID_PREFIX = {
 }
 # This many yes/no checks with no picture is a list of questions, not a review.
 LOOSE_CHECK_LIMIT = 3
+# This many pictures outside a media group is a set shown one big picture at a time.
+LOOSE_MEDIA_LIMIT = 3
+_GROUP_TAG_RE = re.compile(r"<(/?)(stimma-media-group|stimma-media)\b", re.IGNORECASE)
 # Where rating= and labels= may be set: the sheet, or one section.
 REVIEW_SETTING_TAGS = frozenset({"stimma-review", "stimma-section"})
 RATING_STYLES = ("thumbs", "stars")
@@ -292,9 +295,28 @@ async def normalize_sheet_html(html: str, resolve_ref: RefResolver) -> Normalize
             'give the check for="<its stimma-media id>", or define labels the user can put on any picture '
             '(<stimma-review labels="A, B">). Every picture already has a thumbs up/down.'
         )
+    loose_media = _count_loose_media(normalized)
+    if loose_media >= LOOSE_MEDIA_LIMIT:
+        warnings.append(
+            f"{loose_media} pictures sit outside a <stimma-media-group>, so each shows on its own, large. "
+            "A picture on its own is for one hero; put a set of pictures in a stimma-media-group "
+            '(size="s" or "m" for many) so it reads at a glance. The user opens any picture full size.'
+        )
     if not components and not media_ids:
         warnings.append("This sheet has no kit elements, so there's nothing to review. Show media with <stimma-media ref=...>.")
     return NormalizedSheet(html=normalized, media_ids=media_ids, components=components, warnings=warnings)
+
+
+def _count_loose_media(html: str) -> int:
+    """How many stimma-media elements aren't inside a stimma-media-group."""
+    depth = loose = 0
+    for match in _GROUP_TAG_RE.finditer(html):
+        closing, tag = match.group(1), match.group(2).lower()
+        if tag == "stimma-media-group":
+            depth = max(0, depth - 1) if closing else depth + 1
+        elif not closing and depth == 0:
+            loose += 1
+    return loose
 
 
 class _ComponentParser(HTMLParser):

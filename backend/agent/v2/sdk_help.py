@@ -76,7 +76,10 @@ next. Compose on top of that. Anything about one
 picture goes on that picture (labels, or a check with for=); never ask the user
 to type which picture they mean, and don't add an "anything else?" field.
 
-Pictures are never cropped. No scripts or external URLs. Give components ids
+Pictures go in a stimma-media-group; one on its own is a featured picture,
+shown larger, for a single hero. Many pictures (a dataset, a frame pull) go in
+a group at size="s" or "m" so the set reads at a glance; the user opens any
+of them full size. Pictures are never cropped. No scripts or external URLs. Give components ids
 you'll keep: the user's answers and comments are tied to them.
 
   sheet = stimma.contact_sheets.new("Spring campaign directions")

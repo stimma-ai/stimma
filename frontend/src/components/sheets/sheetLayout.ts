@@ -41,6 +41,8 @@ export const GAP: Record<SheetSize, number> = { s: 4, m: 6, l: 8 }
 export const ROW: Record<SheetSize, number> = { s: 88, m: 190, l: 300 }
 /** Target column width for masonry and uniform. */
 export const COLUMN: Record<SheetSize, number> = { s: 110, m: 220, l: 320 }
+/** Tallest a picture outside a media group stands (a featured picture). */
+export const FEATURE_HEIGHT = 440
 /** One caption line, reserved until the real caption has been measured. */
 export const CAPTION = 22
 

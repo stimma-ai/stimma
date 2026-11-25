@@ -165,7 +165,7 @@ import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import { formatDuration, isVideo } from '../../utils/mediaTypes'
 import { mediaIdOfRef } from './sheetHtml'
 import { useSheetContext } from './useContactSheet'
-import type { Placement, SheetSize } from './sheetLayout'
+import { FEATURE_HEIGHT, type Placement, type SheetSize } from './sheetLayout'
 
 const props = defineProps<{ kid?: string; at: Record<string, any>; node: Element }>()
 const sheet = useSheetContext()
@@ -188,8 +188,14 @@ onMounted(async () => {
 const inGroup = computed(() => !!placement && props.node?.parentElement?.tagName === 'STIMMA-MEDIA-GROUP')
 const rect = computed(() => (inGroup.value ? placement!.value.rects[kid.value] ?? null : null))
 const small = computed(() => inGroup.value && groupSize?.value === 's')
+const ratio = computed(() => {
+  const w = member.value?.width, h = member.value?.height
+  return w && h ? w / h : 4 / 3
+})
 const outerStyle = computed(() => {
-  if (!inGroup.value) return undefined
+  // A picture on its own is a featured one: larger than a group's tiles, but
+  // still a sheet picture. Its full size is a click away in the slideshow.
+  if (!inGroup.value) return { maxWidth: `${Math.round(FEATURE_HEIGHT * ratio.value)}px` }
   const r = rect.value
   if (!r) return { display: 'none' }
   return { position: 'absolute' as const, left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px` }

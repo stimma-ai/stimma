@@ -85,12 +85,24 @@ async def test_normalize_lets_a_section_turn_the_rating_off_but_not_the_sheet():
 
 
 async def test_normalize_sends_a_list_of_loose_checks_back_to_the_pictures():
-    tiles = "".join(f'<stimma-media id="m{i}" ref="{i}"></stimma-media>' for i in range(1, 4))
+    tiles = ("<stimma-media-group>"
+             + "".join(f'<stimma-media id="m{i}" ref="{i}"></stimma-media>' for i in range(1, 4))
+             + "</stimma-media-group>")
     loose = "".join(f"<stimma-check>Keep image {i}</stimma-check>" for i in range(1, 4))
     sheet = await normalize_sheet_html(tiles + loose, _resolve_digits)
     assert any("3 checks aren't tied to a picture" in w for w in sheet.warnings)
     tied = "".join(f'<stimma-check for="m{i}">Keep</stimma-check>' for i in range(1, 4))
     sheet = await normalize_sheet_html(tiles + tied + "<stimma-check>Ready to publish</stimma-check>", _resolve_digits)
+    assert not sheet.warnings
+
+
+async def test_normalize_sends_a_set_of_lone_pictures_into_a_group():
+    lone = "".join(f'<stimma-media ref="{i}"></stimma-media>' for i in range(1, 4))
+    sheet = await normalize_sheet_html(lone, _resolve_digits)
+    assert any("3 pictures sit outside" in w for w in sheet.warnings)
+    hero = '<stimma-media ref="9"></stimma-media>'
+    grouped = '<stimma-media-group size="s">' + lone + "</stimma-media-group>"
+    sheet = await normalize_sheet_html(hero + grouped + hero.replace("9", "8"), _resolve_digits)
     assert not sheet.warnings
 
 
