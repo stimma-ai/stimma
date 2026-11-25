@@ -146,16 +146,20 @@ test('chat slideshow stays live and preserves the selected image across batches'
     .toHaveAttribute('src', new RegExp(`/${images[1].id}/`));
   expect(keyWarnings).toEqual([]);
   const strip = page.locator('.horizontal-virtual-scroller');
-  await expect(strip.locator('.scroll-item')).toHaveCount(15);
-  await expect(strip.locator('[title="Image 15"] .ring-selection')).toHaveCount(1);
+  const stripItems = strip.locator('.scroll-item');
+  await expect(stripItems).toHaveCount(15);
+  // Captions are populated asynchronously, so their fallback "Image N" labels
+  // are not stable. The selected final appearance is stable by position.
+  await expect(stripItems.nth(14).locator('.ring-selection')).toHaveCount(1);
   // Each appearance must retain its own thumbnail node when duplicate images reconcile.
-  await strip.getByTitle('Image 13', { exact: true }).click();
+  await expect(stripItems.nth(12).locator('img')).toHaveCount(1);
+  await stripItems.nth(12).click();
   await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
   await page.keyboard.press('ArrowRight');
   await expect(hero).toHaveAttribute('src', new RegExp(images[0].file_hash!));
   await page.keyboard.press('ArrowRight');
   await expect(hero).toHaveAttribute('src', new RegExp(images[1].file_hash!));
-  await expect(strip.locator('[title="Image 15"] .ring-selection')).toHaveCount(1);
+  await expect(stripItems.nth(14).locator('.ring-selection')).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath('live-chat-slideshow.png') });
 });
 
