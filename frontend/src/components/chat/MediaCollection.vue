@@ -5,7 +5,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   ArrowsPointingOutIcon, CheckCircleIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon,
-  EllipsisHorizontalIcon, InformationCircleIcon, Squares2X2Icon, XMarkIcon,
+  EllipsisHorizontalIcon, InformationCircleIcon, PhotoIcon, Squares2X2Icon, XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import IconButton from '../ui/IconButton.vue'
 import SegmentedControl from '../ui/SegmentedControl.vue'
@@ -432,18 +432,25 @@ onBeforeUnmount(() => {
     >
       <header
         v-if="hasHeader"
-        class="flex min-h-10 flex-none items-center gap-3 py-1 pl-3 pr-1.5 coarse:min-h-12"
+        class="flex min-h-10 flex-none items-center py-1 pl-3 pr-1.5 coarse:min-h-12"
         :class="[
+          isCompact ? 'gap-2' : 'gap-3',
           inPanel ? 'border-b border-edge-subtle bg-surface/60 pl-3.5' : 'rounded-t-lg',
           state.expanded && !inPanel ? 'sticky -top-4 z-chrome bg-surface compact:-top-3' : '',
         ]"
       >
         <div class="flex min-w-0 flex-1 items-center gap-2">
-          <span v-if="title" class="min-w-0 break-words text-sm font-medium leading-snug text-content-secondary line-clamp-2">{{ title }}</span>
-          <span v-if="!isSingle" class="flex-none font-mono text-xs tabular-nums text-content-muted">{{ count }}</span>
+          <span
+            v-if="title"
+            class="min-w-0 text-sm font-medium leading-snug text-content-secondary"
+            :class="isCompact ? 'truncate' : 'break-words line-clamp-2'"
+            :title="isCompact ? title : undefined"
+          >{{ title }}</span>
+          <span v-if="!isSingle && !(isCompact && runningCount)" class="flex-none font-mono text-xs tabular-nums text-content-muted">{{ count }}</span>
           <span v-if="runningCount" class="flex flex-none items-center gap-1.5 text-xs text-content-tertiary">
             <span class="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-blue-500"></span>
-            <span class="font-mono tabular-nums">{{ doneCount }} done</span>
+            <span v-if="isCompact" class="font-mono tabular-nums" :aria-label="`${doneCount} of ${count} done`">{{ doneCount }}/{{ count }}</span>
+            <span v-else class="font-mono tabular-nums">{{ doneCount }} done</span>
           </span>
           <button
             v-else-if="failedCount"
@@ -458,14 +465,25 @@ onBeforeUnmount(() => {
           >Working result</span>
         </div>
 
-        <div class="flex flex-none items-center gap-1">
+        <div class="flex flex-none items-center" :class="isCompact ? 'gap-0' : 'gap-1'">
           <Tooltip v-if="canCollapse && !isCoarsePointer" text="Back to three rows">
             <button type="button" class="flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content" @click="collapse">
               <ChevronUpIcon class="h-3.5 w-3.5" />Show fewer
             </button>
           </Tooltip>
+          <!-- Phones: one icon toggle instead of the two-label switch, so the title keeps the row. -->
+          <IconButton
+            v-if="!isSingle && isCompact"
+            :aria-label="state.view === 'grid' ? 'Show preview' : 'Show grid'"
+            class="!h-11 !w-11"
+            data-testid="media-collection-view-toggle"
+            @click="setView(state.view === 'grid' ? 'preview' : 'grid')"
+          >
+            <PhotoIcon v-if="state.view === 'grid'" class="h-icon-nav w-icon-nav" />
+            <Squares2X2Icon v-else class="h-icon-nav w-icon-nav" />
+          </IconButton>
           <SegmentedControl
-            v-if="!isSingle"
+            v-else-if="!isSingle"
             :model-value="state.view"
             :options="VIEWS"
             aria-label="Image layout"

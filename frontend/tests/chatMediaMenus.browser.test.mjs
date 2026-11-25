@@ -18,10 +18,10 @@ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 
 const browserItem = (assetId, mediaId) => ({ id: assetId, asset_id: assetId, media_id: mediaId, file_format: 'png', file_hash: `hash-${mediaId}`, width: 64, height: 64, deleted_at: null, has_clip_embedding: false, markers: [], tags: [] })
 
-async function fixture(t, query = '') {
+async function fixture(t, query = '', viewport = { width: 1400, height: 900 }) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
-  const page = await browser.newPage({ viewport: { width: 1400, height: 900 } })
+  const page = await browser.newPage({ viewport, hasTouch: viewport.width < 600 })
   page.setDefaultTimeout(5000)
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
@@ -170,4 +170,23 @@ test('collection keys stay with the control that has focus', async t => {
   await page.keyboard.press('Enter')
   await expect(collection.locator('[data-tile="19"]')).toBeVisible()
   assert.equal(await collection.getByRole('radio', { name: 'Grid' }).getAttribute('aria-checked'), 'true')
+})
+
+test('on a phone the collection header stays one compact row with an icon view toggle', async t => {
+  const title = 'Qwen 2.1 edit round: background and outfit swaps'
+  const page = await fixture(t, `?surface=collection&phone&count=8&running=2&view=preview&title=${encodeURIComponent(title)}`, { width: 412, height: 900 })
+  const collection = page.getByTestId('media-collection')
+  const header = collection.locator('header')
+  await expect(header).toContainText('6/8')
+  assert.equal(await collection.getByRole('radio').count(), 0)
+  // One line: the header is no taller than one touch row, and the title truncates.
+  const headerBox = await header.boundingBox()
+  assert.ok(headerBox.height <= 56, `header wraps: ${headerBox.height}px`)
+  const titleBox = await header.getByText(title).boundingBox()
+  assert.ok(titleBox.height < 24, 'title wraps')
+  const toggle = collection.getByTestId('media-collection-view-toggle')
+  assert.equal(await toggle.getAttribute('aria-label'), 'Show grid')
+  await toggle.click()
+  await expect(collection.locator('[data-tile="1"]')).toBeVisible()
+  assert.equal(await toggle.getAttribute('aria-label'), 'Show preview')
 })

@@ -28,15 +28,17 @@ createApp({
     provide(CHAT_MEDIA_COLLECTIONS, collections)
     // ?mixed: the second image is a chat-only working result with no asset.
     const mixed = params.has('mixed')
-    const rows = Array.from({ length: count }, (_, i) => ({ id: i + 1, output: { status: 'complete', media_id: 101 + i, asset_id: mixed && i === 1 ? null : 201 + i, file_format: 'png' } }))
+    // ?running=N: the last N images are still generating.
+    const running = Number(params.get('running') || 0)
+    const rows = Array.from({ length: count }, (_, i) => ({ id: i + 1, output: { status: i >= count - running ? 'generating' : 'complete', media_id: 101 + i, asset_id: mixed && i === 1 ? null : 201 + i, file_format: 'png' } }))
     const showStage = ref(params.get('surface') !== 'collection')
     const viewedRevision = computed(() => revisions.find(rev => rev.id === viewed.value) || null)
     Object.assign(window, { chatMenus: { menu: useMediaContextMenu(), events, collections, viewed, printed: [] as string[] } })
     window.print = () => { (window as any).chatMenus.printed.push(document.getElementById('stimma-print-overlay')?.innerHTML || '') }
     return () => h('div', { style: 'display:flex; height: 900px' }, [
-      h('div', { 'data-chat-scroller': '', style: 'height: 800px; width: 700px; overflow:auto' }, [
+      h('div', { 'data-chat-scroller': '', style: `height: 800px; width: ${params.has('phone') ? '100%' : '700px'}; overflow:auto` }, [
         h('textarea', { 'aria-label': 'Message', style: 'width: 300px' }),
-        h(MediaCollection, { rows, itemId: 1, onViewImage: (id: number) => events.opened.push(id) }),
+        h(MediaCollection, { rows, itemId: 1, title: params.get('title') || '', onViewImage: (id: number) => events.opened.push(id) }),
         collections.selection.selecting.value ? h(MediaSelectionBar) : null,
       ]),
       showStage.value ? h(ArtifactStage, {
