@@ -137,7 +137,7 @@ for (const phone of [false, true]) test(`chat video playback and toolbar (${phon
   }
   if (phone) {
     // Touch has no hover: Add stays on the tile; picking is a long press.
-    await page.getByRole('radio', { name: 'Grid' }).click()
+    await page.getByRole('button', { name: 'Show grid' }).click()
     const tile = page.locator('[data-tile="1"]')
     await expect(tile.getByRole('button', { name: 'Add to message' })).toBeVisible()
     await expect(tile.getByRole('checkbox')).toBeHidden()
