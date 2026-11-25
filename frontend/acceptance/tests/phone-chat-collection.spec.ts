@@ -60,7 +60,7 @@ test('a chat collection works by touch on a phone', async ({ page, context }) =>
   // Full screen keeps every image reachable and returns to the message.
   await collection.getByRole('button', { name: 'More options' }).click();
   await page.getByText('Open full screen').click();
-  await collection.getByRole('radio', { name: 'Grid' }).click();
+  await collection.getByRole('button', { name: 'Show grid' }).click();
   await expect(collection.locator('[data-tile]')).toHaveCount(12);
   await collection.getByRole('button', { name: 'Close panel' }).click();
   await expect(page.locator('[data-chat-scroller] [data-testid="media-collection"]')).toBeVisible();
