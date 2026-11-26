@@ -6344,6 +6344,17 @@ function setupWebSocketSubscriptions() {
   // Clean up any existing subscriptions first
   cleanupWebSocketSubscriptions()
 
+  // The staged artifact renamed or given a new version elsewhere (an element's
+  // viewer edits, a restore from the library): the panel follows.
+  wsUnsubscribes.push(onWsEvent('asset_current_revision_changed', (data) => {
+    const id = Number(data?.asset_id ?? data?.asset?.asset_id ?? data?.asset?.id)
+    if (id) artifactStage.refreshAsset(id)
+  }))
+  wsUnsubscribes.push(onWsEvent('assets_updated', (data) => {
+    if (!data?.fields?.includes('title')) return
+    for (const id of data.asset_ids || []) artifactStage.refreshAsset(Number(id))
+  }))
+
   // chat_item_created - new items added to chat
   wsUnsubscribes.push(onWsEvent('chat_item_created', (data) => {
     if (data.chat_id !== chatId.value) return

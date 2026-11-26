@@ -17,6 +17,8 @@ import router from '../../router'
 import { addToast, reportActionError } from '../../composables/useToasts'
 import { getChatDraft } from '../../composables/useChatDraft'
 import { useWorkingContext } from '../../composables/useWorkingContext'
+import { useWebSocket } from '../../composables/useWebSocket'
+import { applySavedElement } from './elementCache'
 
 export interface ElementMediaSlot {
   key: string
@@ -99,8 +101,24 @@ export function loadElement(mediaId: number, { force = false } = {}): Promise<El
   return request
 }
 
+// A rename made anywhere else (another window, the agent) reaches every cached
+// version of that element: reread them in place, so names never go stale.
+let followingRenames = false
+function followRenames() {
+  if (followingRenames) return
+  followingRenames = true
+  useWebSocket().on('assets_updated', (data: any) => {
+    if (!data?.fields?.includes('title')) return
+    const ids = new Set((data.asset_ids || []).map(Number))
+    for (const [id, detail] of cache) {
+      if (ids.has(detail.asset_id)) void loadElement(id, { force: true })
+    }
+  })
+}
+
 /** The element a media id names, loaded on demand and following saved edits. */
 export function useElement(mediaId: Ref<number | null | undefined>) {
+  followRenames()
   const element = shallowRef<ElementDetail | null>(cachedElement(mediaId.value))
   watch(() => [mediaId.value, elementUi.version, cache.get(Number(mediaId.value))] as const, async ([id]) => {
     if (id == null) { element.value = null; return }
@@ -113,7 +131,7 @@ export function useElement(mediaId: Ref<number | null | undefined>) {
   return element
 }
 
-/** Save a direct edit. The old version's media id keeps answering with the new state. */
+/** Save a direct edit to the element's current version. */
 export async function saveElement(mediaId: number, patch: { name?: string; cover_member_key?: string }) {
   const current = cachedElement(mediaId) || await loadElement(mediaId)
   if (!current) return null
@@ -122,12 +140,10 @@ export async function saveElement(mediaId: number, patch: { name?: string; cover
       ...patch,
       base_revision_id: current.revision_id,
     })
-    // A rename keeps the version; a new cover makes a new one. Either way every
-    // surface holding this element's current media id sees the saved state.
-    for (const [id, detail] of cache) {
-      if (detail.asset_id === data.asset_id && (id === Number(mediaId) || id === current.media_id)) cache.set(id, data)
-    }
-    cache.set(data.media_id, data)
+    // A rename keeps the version; a new cover makes a new one, and surfaces
+    // that follow the current version move to its media id. Earlier versions
+    // keep their own content and only take the new name.
+    applySavedElement(cache, data)
     elementUi.version++
     return data as ElementDetail
   } catch (error: any) {

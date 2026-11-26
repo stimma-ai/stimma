@@ -15,7 +15,7 @@
     </span>
     <span class="min-w-0 flex-1">
       <span class="flex items-center gap-1.5">
-        <span class="truncate text-[13px] font-semibold text-content">{{ artifact.title || content?.name || 'Element' }}</span>
+        <span class="truncate text-[13px] font-semibold text-content">{{ content?.name || artifact.title || 'Element' }}</span>
         <span v-if="inPanel" class="flex-none rounded-full border border-accent/40 px-1.5 py-px text-[9px] font-medium text-accent">in panel</span>
       </span>
       <span class="flex items-center gap-1 truncate text-[11px] text-content-muted">
@@ -50,5 +50,6 @@ const props = defineProps<{ artifact: ArtifactMeta; mediaId: number; inPanel?: b
 defineEmits<{ click: [] }>()
 const content = useElement(toRef(props, 'mediaId'))
 const kind = computed(() => kindLabel(content.value?.kind))
-const title = computed(() => props.artifact.title || content.value?.name || 'element')
+// The element's current name; the card's saved title only until it loads.
+const title = computed(() => content.value?.name || props.artifact.title || 'element')
 </script>

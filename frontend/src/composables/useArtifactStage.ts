@@ -252,11 +252,27 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
     if (latestRevisionId.value != null) viewedRevisionId.value = latestRevisionId.value
   }
 
+  let settingLatest = false
   async function setAsLatest() {
     if (assetId.value == null || viewedRevisionId.value == null || onNewest.value) return
-    await assetApi.restoreRevision(assetId.value, viewedRevisionId.value)
-    await syncAsset(assetId.value)
-    jumpToNewest()
+    settingLatest = true
+    try {
+      await assetApi.restoreRevision(assetId.value, viewedRevisionId.value)
+      await syncAsset(assetId.value)
+      jumpToNewest()
+    } finally {
+      settingLatest = false
+    }
+  }
+
+  // The staged asset changed outside this chat's transcript (renamed, or a new
+  // version made in a viewer): reload its title and versions. On the newest
+  // version the new one comes into view; a chosen older version stays put.
+  function refreshAsset(id: number) {
+    if (id !== assetId.value || settingLatest) return
+    syncAsset(id, { keepViewed: !onNewest.value }).catch((err) => {
+      console.error('[artifact-stage] failed to refresh asset', id, err)
+    })
   }
 
   // Auto-track: whenever the chat's active artifact asset changes, load its
@@ -423,6 +439,7 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
     viewRevision,
     jumpToNewest,
     setAsLatest,
+    refreshAsset,
     selectFromChip,
     startResize,
   }
