@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import Asset, AssetRevision, MediaElement, MediaItem
 from elements.manifest import ELEMENT_ASSET_TYPE, parse_manifest
+from utils.query_builder import asset_not_expired, browser_payload_visible
 
 
 async def record_media_elements(
@@ -152,8 +153,8 @@ async def elements_used_by(session: AsyncSession, media_id: int) -> list[dict[st
 async def element_outputs(session: AsyncSession, element_asset_id: int, *, limit: int = 8) -> dict[str, Any]:
     """Library items made with an element, newest first: ``{total, items}``.
 
-    Only items whose current version was made with it count, matching the
-    library's "made with" filter.
+    Only items whose current version was made with it count, and only ones the
+    library would show, matching its "made with" filter.
     """
     base = (
         select(Asset.id.label("asset_id"), MediaItem.id.label("media_id"), MediaItem.file_hash, MediaElement.created_at)
@@ -164,10 +165,11 @@ async def element_outputs(session: AsyncSession, element_asset_id: int, *, limit
         .where(
             MediaElement.element_asset_id == int(element_asset_id),
             MediaElement.deleted_at.is_(None),
-            MediaItem.deleted_at.is_(None),
-            AssetRevision.deleted_at.is_(None),
             Asset.deleted_at.is_(None),
             Asset.state == "active",
+            # The library's own visibility, so "Show all N" matches what it shows.
+            browser_payload_visible(),
+            asset_not_expired(),
         )
     )
     total = await session.scalar(select(func.count(func.distinct(base.subquery().c.asset_id))))

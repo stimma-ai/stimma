@@ -75,7 +75,9 @@ from utils.query_builder import (
     TEXT_FORMATS,
     VECTOR_FORMATS,
     VIDEO_FORMATS,
+    asset_not_expired,
     asset_unused_predicate,
+    browser_payload_visible,
     build_filtered_query,
     media_is_imported,
     path_has_prefix,
@@ -232,16 +234,11 @@ def _asset_browser_base(state: str):
         .where(
             Asset.state == state,
             deleted_condition,
-            AssetRevision.deleted_at.is_(None),
-            MediaItem.deleted_at.is_(None),
-            MediaItem.metadata_status == "completed",
-            or_(MediaItem.file_unavailable.is_(False), MediaItem.file_unavailable.is_(None)),
+            browser_payload_visible(),
         )
     )
     if state == "active":
-        query = query.where(
-            or_(Asset.expires_at.is_(None), Asset.expires_at > datetime.utcnow())
-        )
+        query = query.where(asset_not_expired())
     return query
 
 

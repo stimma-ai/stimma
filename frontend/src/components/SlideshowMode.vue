@@ -1441,7 +1441,7 @@ import NativeShareDialog from './NativeShareDialog.vue'
 import { desktop } from '../desktop'
 import { supportsNativeShare } from '../utils/nativeShare'
 import { ArrowUpTrayIcon, FilmIcon, LinkIcon, ChatBubbleLeftEllipsisIcon, PencilIcon, PhotoIcon } from '@heroicons/vue/24/outline'
-import { elementActions, showMadeWith } from './elements/useElements'
+import { elementActions, elementAssetIdOf, showMadeWith } from './elements/useElements'
 import { useShareDialog } from '../composables/useShareDialog'
 import HorizontalVirtualScroller from './HorizontalVirtualScroller.vue'
 import SlideshowMarkerControls from './SlideshowMarkerControls.vue'
@@ -5474,11 +5474,13 @@ async function handlePermanentDeleteCurrentItem() {
 }
 
 // An element's outputs in the library: from the info panel (asset id) or the ⋯ sheet.
+// Close first: a library reload asked for while the slideshow is open is
+// deferred, and closing would then drop it.
 async function showWhatItMade(elementAssetId) {
-  const onBrowse = router.currentRoute.value.name === 'browse'
-  if (elementAssetId != null) showMadeWith(elementAssetId)
-  else await elementActions.showWhatItMade(currentPayloadId.value)
-  if (onBrowse) close()
+  const assetId = elementAssetId ?? await elementAssetIdOf(currentPayloadId.value)
+  if (assetId == null) return
+  close()
+  await showMadeWith(assetId)
 }
 
 function findSimilar() {

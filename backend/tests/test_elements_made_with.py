@@ -86,3 +86,26 @@ async def test_trashed_outputs_and_elements_drop_out(db_session, client, tmp_pat
         (await session.get(Asset, mira)).state = "trashed"
         await session.commit()
     assert (await client.get(f"/api/elements/made-with/{kept[1]}")).json() == {"elements": []}
+
+
+@pytest.mark.asyncio
+async def test_outputs_count_only_what_the_library_shows(db_session, client, tmp_path):
+    from datetime import datetime, timedelta
+
+    from database import Asset, MediaItem
+
+    async with db_session() as session:
+        mira, _ = await _make_mira(session, tmp_path, tmp_path / "ws")
+        shown = await _made_with(session, tmp_path, "shown", [mira])
+        expired = await _made_with(session, tmp_path, "expired", [mira])
+        pending = await _made_with(session, tmp_path, "pending", [mira])
+        missing = await _made_with(session, tmp_path, "missing", [mira])
+        (await session.get(Asset, expired[0])).expires_at = datetime.utcnow() - timedelta(minutes=1)
+        (await session.get(MediaItem, pending[1])).metadata_status = "pending"
+        (await session.get(MediaItem, missing[1])).file_unavailable = True
+        await session.commit()
+
+    browsed = _browse_ids(await client.get("/api/assets/browse", params={"element_ids": str(mira)}))
+    outputs = (await client.get(f"/api/elements/{mira}/outputs")).json()
+    assert browsed == {shown[0]}
+    assert outputs["total"] == 1 and [i["asset_id"] for i in outputs["items"]] == [shown[0]]

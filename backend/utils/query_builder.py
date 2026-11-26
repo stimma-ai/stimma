@@ -114,6 +114,27 @@ def not_due_for_autodelete(now: Optional[datetime] = None):
     return true()
 
 
+def browser_payload_visible():
+    """An Asset's current revision and Media payload are fit to show in a browser.
+
+    Assumes the query joins the Asset's current AssetRevision and its primary
+    MediaItem. The library, trash and anything that counts library items
+    (an element's outputs) share it so their numbers agree.
+    """
+    return and_(
+        AssetRevision.deleted_at.is_(None),
+        MediaItem.deleted_at.is_(None),
+        MediaItem.metadata_status == "completed",
+        or_(MediaItem.file_unavailable.is_(False), MediaItem.file_unavailable.is_(None)),
+        MediaItem.ephemeral_run_id.is_(None),
+    )
+
+
+def asset_not_expired(now: Optional[datetime] = None):
+    """An active Asset whose auto-delete deadline hasn't passed."""
+    return or_(Asset.expires_at.is_(None), Asset.expires_at > (now or datetime.utcnow()))
+
+
 def media_is_imported():
     """Return the canonical predicate for an imported Media payload.
 

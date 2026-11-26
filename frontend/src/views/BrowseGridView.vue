@@ -1899,6 +1899,23 @@ watch(() => filters.sortBy, (newSort, oldSort) => {
   }
 })
 
+// Keep the Made with filter (and the project scope it opens with) in the URL,
+// so removing the chip sticks across a refresh and the link stays shareable.
+watch(() => [(filters.madeWith || []).join(','), !!filters.includeProjects], ([mw, includeProjects]) => {
+  if (initializing.value || route.name !== 'browse' || useExternalFilters) return
+  const nextQuery = { ...route.query }
+  if (mw) nextQuery.mw = mw
+  else delete nextQuery.mw
+  if (includeProjects && (mw || nextQuery.include_projects !== undefined)) nextQuery.include_projects = '1'
+  else delete nextQuery.include_projects
+  if (getRouteQuerySignature(nextQuery) === getRouteQuerySignature(route.query)) return
+  // These filters are already applied; don't re-apply the URL over the others.
+  lastAppliedRouteQuerySignature = getRouteQuerySignature(nextQuery)
+  router.replace({ query: nextQuery }).catch((error) => {
+    console.error('Failed to sync made-with query params:', error)
+  })
+})
+
 watch(() => route.query, async (query) => {
   if (initializing.value || route.name !== 'browse' || useExternalFilters) return
   await applyUrlFiltersFromQuery(query, { reload: true })

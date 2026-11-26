@@ -19,7 +19,6 @@ import { getChatDraft } from '../../composables/useChatDraft'
 import { useWorkingContext } from '../../composables/useWorkingContext'
 import { useWebSocket } from '../../composables/useWebSocket'
 import { applySavedElement, cachedVersionsOf } from './elementCache'
-import { useBrowseFilters } from '../../composables/useBrowseFilters'
 
 export interface ElementMediaSlot {
   key: string
@@ -162,10 +161,20 @@ export async function saveElement(mediaId: number, patch: { name?: string; cover
   }
 }
 
-/** The library, filtered to what an element (by asset id) made, across projects too. */
+/**
+ * The library, filtered to what an element (by asset id) made, across projects
+ * too. It goes to the whole library (`library=1`) even inside a project, and the
+ * filter rides in the URL so it can be shared and survives a refresh.
+ */
 export function showMadeWith(elementAssetId: number) {
-  useBrowseFilters('browse').setFilters({ madeWith: [Number(elementAssetId)], includeProjects: true })
-  if (router.currentRoute.value.name !== 'browse') void router.push({ name: 'browse' })
+  return router.push({ name: 'browse', query: { library: '1', include_projects: '1', mw: String(Number(elementAssetId)) } })
+}
+
+/** The element asset id for an element's media id, loading it if needed. */
+export async function elementAssetIdOf(mediaId: number | null | undefined): Promise<number | null> {
+  if (mediaId == null) return null
+  const el = cachedElement(mediaId) || await loadElement(mediaId)
+  return el?.asset_id ?? null
 }
 
 /** "Character" from the manifest's "character". */
@@ -200,12 +209,10 @@ export const elementActions = {
     await loadElement(mediaId)
     elementUi.renaming = Number(mediaId)
   },
-  /** Open the library on everything made with this element. Resolves once the filter is set. */
+  /** Open the library on everything made with this element. */
   async showWhatItMade(mediaId: number | null | undefined) {
-    if (mediaId == null) return
-    const el = cachedElement(mediaId) || await loadElement(mediaId)
-    if (!el) return
-    showMadeWith(el.asset_id)
+    const assetId = await elementAssetIdOf(mediaId)
+    if (assetId != null) await showMadeWith(assetId)
   },
   async setCover(mediaId: number | null | undefined) {
     if (mediaId == null) return
