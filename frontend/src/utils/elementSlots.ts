@@ -114,9 +114,11 @@ export function applyLoras(
  * tool's input images now, which the user's own images and the order picks landed in decide.
  */
 export function renderGuidance(guidance: string, selected: ResolvedRef[], items: SlotItem[]): string {
-  return guidance.replace(/\{ref:(\d+)\}/g, (_m, n) => {
+  return guidance.replace(/\{ref:(\d+)\}/g, (_m, n, offset: number) => {
     const ref = selected[Number(n) - 1]
     const index = ref ? items.findIndex(i => i.mediaId != null && i.mediaId === ref.media_id) : -1
-    return index >= 0 ? `image ${index + 1}` : 'a reference image'
+    const text = index >= 0 ? `image ${index + 1}` : 'a reference image'
+    // At the start of a sentence it starts with a capital.
+    return /(^|[.!?]\s+)$/.test(guidance.slice(0, offset)) ? text[0].toUpperCase() + text.slice(1) : text
   })
 }

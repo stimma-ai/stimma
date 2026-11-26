@@ -52,4 +52,5 @@ test('guidance numbers images as they stand in the slots, not in the order they 
     renderGuidance('Keep her face from {ref:1}; the stall is {ref:2}. Ignore {ref:5}.', selected, items),
     'Keep her face from image 3; the stall is image 2. Ignore a reference image.',
   )
+  assert.equal(renderGuidance('{ref:2} sets the mood. {ref:9} is gone.', selected, items), 'Image 2 sets the mood. A reference image is gone.')
 })
