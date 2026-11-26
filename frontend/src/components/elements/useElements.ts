@@ -18,7 +18,7 @@ import { addToast, reportActionError } from '../../composables/useToasts'
 import { getChatDraft } from '../../composables/useChatDraft'
 import { useWorkingContext } from '../../composables/useWorkingContext'
 import { useWebSocket } from '../../composables/useWebSocket'
-import { applySavedElement } from './elementCache'
+import { applySavedElement, cachedVersionsOf } from './elementCache'
 
 export interface ElementMediaSlot {
   key: string
@@ -101,18 +101,23 @@ export function loadElement(mediaId: number, { force = false } = {}): Promise<El
   return request
 }
 
-// A rename made anywhere else (another window, the agent) reaches every cached
-// version of that element: reread them in place, so names never go stale.
+// A rename made anywhere else (another window, an agent save that renames it
+// in a new version) reaches every cached version of that element: reread them
+// in place, so names never go stale.
 let followingRenames = false
 function followRenames() {
   if (followingRenames) return
   followingRenames = true
-  useWebSocket().on('assets_updated', (data: any) => {
-    if (!data?.fields?.includes('title')) return
-    const ids = new Set((data.asset_ids || []).map(Number))
-    for (const [id, detail] of cache) {
-      if (ids.has(detail.asset_id)) void loadElement(id, { force: true })
-    }
+  const reread = (assetIds: unknown[]) => {
+    for (const id of cachedVersionsOf(cache, assetIds)) void loadElement(id, { force: true })
+  }
+  const { on } = useWebSocket()
+  on('assets_updated', (data: any) => {
+    if (data?.fields?.includes('title')) reread(data.asset_ids || [])
+  })
+  on('asset_current_revision_changed', (data: any) => {
+    const id = data?.asset_id ?? data?.asset?.asset_id ?? data?.asset?.id
+    if (id != null) reread([id])
   })
 }
 

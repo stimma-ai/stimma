@@ -18,3 +18,9 @@ export function applySavedElement<T extends CachedElement>(cache: Map<number, T>
   }
   cache.set(saved.media_id, saved)
 }
+
+/** Media ids of every cached version of these elements (to reread after a rename elsewhere). */
+export function cachedVersionsOf(cache: Map<number, CachedElement>, assetIds: Iterable<unknown>): number[] {
+  const ids = new Set([...assetIds].map(Number))
+  return [...cache].filter(([, detail]) => ids.has(detail.asset_id)).map(([id]) => id)
+}

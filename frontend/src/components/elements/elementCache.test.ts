@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { applySavedElement } from './elementCache.ts'
+import { applySavedElement, cachedVersionsOf } from './elementCache.ts'
 
 const version = (media_id: number, cover: string, name = 'Mira', asset_id = 7) => ({ asset_id, media_id, name, cover })
 
@@ -18,4 +18,10 @@ test('a rename reaches every cached version of that element and no other', () =>
   assert.deepEqual([...cache.values()].map(e => [e.media_id, e.name, e.cover]), [
     [10, 'Mira K', 'face'], [11, 'Mira K', 'angry'], [20, 'Wen', 'x'],
   ])
+})
+
+test('a rename elsewhere rereads every cached version of that element, whatever event carried it', () => {
+  const cache = new Map([[10, version(10, 'face')], [11, version(11, 'angry')], [20, version(20, 'x', 'Wen', 8)]])
+  assert.deepEqual(cachedVersionsOf(cache, ['7']), [10, 11])
+  assert.deepEqual(cachedVersionsOf(cache, [9]), [])
 })
