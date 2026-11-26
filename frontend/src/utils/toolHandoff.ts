@@ -18,6 +18,10 @@ export interface ToolHandoffPlan {
   count: number
 }
 
+/** The tasks an element can steer: generation from a prompt (ToolView's Elements section). */
+const ELEMENT_TASK_TYPES = ['text-to-image', 'image-to-image', 'inpaint-image', 'outpaint-image', 'text-to-video',
+  'image-to-video', 'reference-to-video', 'video-to-video']
+
 function mediaTypeForItem(item: HandoffMediaItem): MediaType | null {
   if (item.is_audio) return 'audio'
   if (item.is_video) return 'video'
@@ -65,7 +69,7 @@ export function planToolHandoff({
   /** `count` is what a slot will hold after a targeted swap/add, not a batch. */
   targeted?: boolean
 }): ToolHandoffPlan {
-  const resolvedTypes = uniqueMediaTypes((mediaTypes ?? items.map(mediaTypeForItem)).map(type => type === 'element' ? 'image' : type))
+  const resolvedTypes = uniqueMediaTypes(mediaTypes ?? items.map(mediaTypeForItem))
   const selectionCount = count ?? items.length
 
   if (tool.availability && tool.availability !== 'available') {
@@ -79,6 +83,17 @@ export function planToolHandoff({
   }
   if (resolvedTypes.length === 0) {
     return { eligible: false, reason: 'Checking media compatibility…', mediaTypes: resolvedTypes, count: selectionCount }
+  }
+  // Elements attach to the tool's Elements section: any tool that generates from a prompt.
+  if (resolvedTypes.includes('element')) {
+    if (resolvedTypes.length > 1) {
+      return { eligible: false, reason: 'Send elements on their own', mediaTypes: resolvedTypes, count: selectionCount }
+    }
+    const tasks = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
+    const taskType = (requestedTaskType ? [requestedTaskType] : tasks).find(t => tasks.includes(t) && ELEMENT_TASK_TYPES.includes(t))
+    return taskType
+      ? { eligible: true, taskType, mediaTypes: resolvedTypes, count: selectionCount }
+      : { eligible: false, reason: 'Tool does not take elements', mediaTypes: resolvedTypes, count: selectionCount }
   }
   if (resolvedTypes.includes('grid')) {
     return { eligible: false, reason: 'Grids cannot be sent to tools', mediaTypes: resolvedTypes, count: selectionCount }

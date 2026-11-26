@@ -178,6 +178,29 @@ export function useSendToTool() {
     }
     effectiveTaskType = plan.taskType
 
+    // The destination was captured before any asynchronous input work.
+    const effectiveProjectId = projectId ?? null
+
+    // Resolve the target INSTANCE: an explicit one (sidebar row drop, menu
+    // instance pick) wins; otherwise the most-recently-active open instance
+    // matching (tool, project), opening a fresh one only when none exists.
+    // The pending-input key mirrors ToolView's scopedToolId() (project +
+    // instance suffixes) so sibling instances never race to consume a handoff.
+    const { resolveToolInstance } = useWorkspaceTabs()
+    const targetInstanceId = instanceId
+      ?? resolveToolInstance(tool.full_tool_id, effectiveProjectId).instanceId
+    const scopedToolId = toolInstanceScopedId(tool.full_tool_id, effectiveProjectId, targetInstanceId)
+    const storageKey = makeToolDbKey(scopedToolId, 'pending_input')
+    const targetRoute = (extra: Record<string, string>) =>
+      toolInstanceRoute(tool.full_tool_id, effectiveProjectId, targetInstanceId, extra)
+
+    // Elements go in the tool's Elements section (ToolView attaches them), not a media slot.
+    if (plan.mediaTypes.includes('element')) {
+      sessionStorage.setItem(storageKey, JSON.stringify({ elements: mediaItems.map(m => m.id) }))
+      router.push(targetRoute({ loadInput: Date.now().toString() }))
+      return
+    }
+
     // Batch detection: per the plan, N items in ONE media slot = a batch (run the
     // tool once per item). This holds whether the slot is single-valued or an
     // array (e.g. Flux's input_images): an array slot with multiple items is a
@@ -259,21 +282,6 @@ export function useSendToTool() {
       }
     }
 
-    // The destination was captured before any asynchronous input work.
-    const effectiveProjectId = projectId ?? null
-
-    // Resolve the target INSTANCE: an explicit one (sidebar row drop, menu
-    // instance pick) wins; otherwise the most-recently-active open instance
-    // matching (tool, project), opening a fresh one only when none exists.
-    // The pending-input key mirrors ToolView's scopedToolId() (project +
-    // instance suffixes) so sibling instances never race to consume a handoff.
-    const { resolveToolInstance } = useWorkspaceTabs()
-    const targetInstanceId = instanceId
-      ?? resolveToolInstance(tool.full_tool_id, effectiveProjectId).instanceId
-    const scopedToolId = toolInstanceScopedId(tool.full_tool_id, effectiveProjectId, targetInstanceId)
-    const storageKey = makeToolDbKey(scopedToolId, 'pending_input')
-    const targetRoute = (extra: Record<string, string>) =>
-      toolInstanceRoute(tool.full_tool_id, effectiveProjectId, targetInstanceId, extra)
 
     // Media-batch: run the single-input tool once per item in one slot. Mark the
     // slot as a batch; ToolView enters batch mode and Run submits one job per item.

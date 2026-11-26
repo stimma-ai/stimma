@@ -152,7 +152,7 @@ import { useMarkers } from '../../composables/useMarkers'
 import { useAssetApi } from '../../composables/useAssetApi'
 import { recentElementIds } from '../../composables/useToolElements'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
-import { kindLabel } from '../../utils/elementKinds'
+import { kindLabel } from '../elements/useElements'
 
 interface ElementRow {
   asset_id: number

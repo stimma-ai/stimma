@@ -4881,6 +4881,18 @@ async function loadTool(forceReload = false, silent = false) {
   }
 }
 
+/** Attach elements by their library media (Send to tool), at the version the library shows. */
+async function attachSentElements(mediaIds: number[]) {
+  for (const mediaId of mediaIds) {
+    try {
+      const { data } = await axios.get(`/api/elements/by-media/${mediaId}`)
+      toolElements.attach({ asset_id: data.asset_id, revision_id: data.revision_id, name: data.name, kind: data.kind, media_id: data.cover?.media_id || mediaId })
+    } catch (e) {
+      console.warn('[elements] could not attach a sent element', e)
+    }
+  }
+}
+
 // Load pending input from sessionStorage (used when sending media to this tool)
 function loadPendingInput() {
   if (!route.query.loadInput || !tool.value) {
@@ -4896,6 +4908,15 @@ function loadPendingInput() {
   try {
     const config = JSON.parse(pendingInput)
     sessionStorage.removeItem(storageKey)
+
+    // Elements sent from the library: attached in the Elements section.
+    if (Array.isArray(config.elements)) {
+      void attachSentElements(config.elements)
+      const restQuery = { ...route.query }
+      delete restQuery.loadInput
+      router.replace({ query: restQuery })
+      return
+    }
 
     // Media-batch: multi-select Send to Tool marked this slot as a batch. Enter
     // batch mode — items live in inputImages/inputVideos, Run submits one job

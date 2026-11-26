@@ -182,3 +182,12 @@ test('a catalog summary decides send-to eligibility exactly like the full tool',
   // The cases exercise both outcomes.
   assert.ok(ineligible > 0 && ineligible < tools.length * selections.length)
 })
+
+test('an element goes to any tool that generates from a prompt, and on its own', () => {
+  const t2i = { task_type: 'text-to-image', task_types: ['text-to-image'] }
+  const plan = planToolHandoff({ tool: t2i, mediaTypes: ['element'], count: 1 })
+  assert.equal(plan.eligible, true)
+  assert.equal(plan.taskType, 'text-to-image')
+  assert.equal(planToolHandoff({ tool: { task_type: 'upscale-image' }, mediaTypes: ['element'], count: 1 }).eligible, false)
+  assert.equal(planToolHandoff({ tool: t2i, mediaTypes: ['element', 'image'], count: 2 }).eligible, false)
+})

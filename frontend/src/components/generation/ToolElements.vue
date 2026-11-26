@@ -73,7 +73,7 @@ import MediaImage from '../media/MediaImage.vue'
 import Spinner from '../ui/Spinner.vue'
 import ElementPickerPopover, { type PickedElement } from './ElementPickerPopover.vue'
 import { injectToolElements } from '../../composables/useToolElements'
-import { kindLabel } from '../../utils/elementKinds'
+import { kindLabel } from '../elements/useElements'
 
 defineProps<{ projectId?: number | null }>()
 const emit = defineEmits<{ new: [] }>()
