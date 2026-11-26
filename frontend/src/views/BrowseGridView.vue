@@ -287,6 +287,7 @@ import { useMediaList } from '../composables/useMediaList'
 import { isSettingsLoaded } from '../appConfig'
 import { cloneDefaultBrowseFilters, normalizeBrowseFilters } from '../constants/browseFilters'
 import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
+import { createRouteQueryReplacer } from '../utils/routeQueryReplacer'
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
 import { PROJECT_ASSETS_CHANGED_EVENT, assetBrowseScope, projectAssetsChangeEffect } from '../utils/projectScope'
 
@@ -1784,6 +1785,7 @@ const browseFilterQueryKeys = new Set([
   'st', 'rs'
 ])
 let lastAppliedRouteQuerySignature = ''
+const replaceRouteQuery = createRouteQueryReplacer(router)
 
 function hasBrowseFilterQuery(query) {
   return Object.keys(query || {}).some(key => browseFilterQueryKeys.has(key))
@@ -1861,27 +1863,21 @@ async function applyUrlFiltersFromQuery(query, { reload = false } = {}) {
 function clearSimilarityRouteQuery() {
   if (route.name !== 'browse') return
 
-  const nextQuery = { ...route.query }
-  let changed = false
-
-  for (const key of ['sim', 'fsim', 'stt', 'st']) {
-    if (nextQuery[key] !== undefined) {
-      delete nextQuery[key]
+  replaceRouteQuery((query) => {
+    let changed = false
+    for (const key of ['sim', 'fsim', 'stt', 'st']) {
+      if (query[key] !== undefined) {
+        delete query[key]
+        changed = true
+      }
+    }
+    if (query.s === 'sim') {
+      delete query.s
       changed = true
     }
-  }
-
-  if (nextQuery.s === 'sim') {
-    delete nextQuery.s
-    changed = true
-  }
-
-  if (!changed) return
-
-  lastAppliedRouteQuerySignature = ''
-  router.replace({ query: nextQuery }).catch((error) => {
-    console.error('Failed to clear similarity query params:', error)
-  })
+    if (changed) lastAppliedRouteQuerySignature = ''
+    return changed
+  }, { reapply: true, onError: error => console.error('Failed to clear similarity query params:', error) })
 }
 
 function goToUpload() {
@@ -1903,17 +1899,17 @@ watch(() => filters.sortBy, (newSort, oldSort) => {
 // so removing the chip sticks across a refresh and the link stays shareable.
 watch(() => [(filters.madeWith || []).join(','), !!filters.includeProjects], ([mw, includeProjects]) => {
   if (initializing.value || route.name !== 'browse' || useExternalFilters) return
-  const nextQuery = { ...route.query }
-  if (mw) nextQuery.mw = mw
-  else delete nextQuery.mw
-  if (includeProjects && (mw || nextQuery.include_projects !== undefined)) nextQuery.include_projects = '1'
-  else delete nextQuery.include_projects
-  if (getRouteQuerySignature(nextQuery) === getRouteQuerySignature(route.query)) return
-  // These filters are already applied; don't re-apply the URL over the others.
-  lastAppliedRouteQuerySignature = getRouteQuerySignature(nextQuery)
-  router.replace({ query: nextQuery }).catch((error) => {
-    console.error('Failed to sync made-with query params:', error)
-  })
+  const entry = replaceRouteQuery((query) => {
+    const before = getRouteQuerySignature(query)
+    if (mw) query.mw = mw
+    else delete query.mw
+    if (includeProjects && (mw || query.include_projects !== undefined)) query.include_projects = '1'
+    else delete query.include_projects
+    return getRouteQuerySignature(query) !== before
+  }, { onError: error => console.error('Failed to sync made-with query params:', error) })
+  // These filters are already applied; don't re-apply the URL over the others,
+  // unless an earlier change in this batch asked for it (similarity cleanup).
+  if (entry && !entry.reapply) lastAppliedRouteQuerySignature = getRouteQuerySignature(entry.query)
 })
 
 watch(() => route.query, async (query) => {
