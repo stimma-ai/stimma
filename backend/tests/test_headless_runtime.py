@@ -129,3 +129,67 @@ headless_runtime.stop_helper_processes(grace=0.2)
         connection.execute('PRAGMA locking_mode=EXCLUSIVE')
         connection.execute('BEGIN EXCLUSIVE')
         connection.rollback()
+
+
+def test_stop_signal_to_the_server_alone_stops_its_helpers(tmp_path):
+    """A supervisor that signals and waits for only the server pid (installed
+    supervisors do) must find every database free once that pid exits. Uvicorn
+    re-raises the stop signal before run() returns, so this runs the real
+    Uvicorn with the lifespan's headless shutdown step."""
+    import os
+    import signal
+    import socket
+    import sqlite3
+    import subprocess
+    import sys
+    import time
+    from pathlib import Path
+    db, ready = tmp_path / 'stimma_v1.db', tmp_path / 'helper-ready'
+    with socket.socket() as probe:
+        probe.bind(('127.0.0.1', 0))
+        port = probe.getsockname()[1]
+    server = f'''
+import contextlib, os, subprocess, sys
+os.setpgrp()  # as backend/main.py does
+sys.path.insert(0, {str(Path(runtime.__file__).parent)!r})
+import uvicorn
+from fastapi import FastAPI
+import headless_runtime
+
+@contextlib.asynccontextmanager
+async def lifespan(app):
+    subprocess.Popen([sys.executable, '-c', """
+import signal, sqlite3, time
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+db = sqlite3.connect({str(db)!r})
+db.execute('PRAGMA journal_mode=WAL')
+db.execute('CREATE TABLE IF NOT EXISTS t (x)')
+db.execute('BEGIN')
+db.execute('INSERT INTO t VALUES (1)')
+open({str(ready)!r}, 'w').close()
+time.sleep(600)
+"""])
+    yield
+    await headless_runtime.shutdown()
+
+uvicorn.run(FastAPI(lifespan=lifespan), host='127.0.0.1', port={port}, log_config=None, timeout_graceful_shutdown=0)
+'''
+    proc = subprocess.Popen([sys.executable, '-c', server], env={**os.environ, 'STIMMA_HEADLESS': '1'})
+    try:
+        deadline = time.monotonic() + 60
+        while not ready.exists():
+            assert proc.poll() is None and time.monotonic() < deadline, 'server did not start'
+            time.sleep(0.05)
+        proc.send_signal(signal.SIGTERM)
+        proc.wait(timeout=60)
+        with sqlite3.connect(db, timeout=0.2) as connection:
+            connection.execute('PRAGMA locking_mode=EXCLUSIVE')
+            connection.execute('BEGIN EXCLUSIVE')
+            connection.rollback()
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass

@@ -1529,7 +1529,15 @@ async def lifespan(app: FastAPI):
         log.exception("error disposing databases")
 
     from utils.local_render import renderer
-    await renderer.close()
+    try:
+        await renderer.close()
+    finally:
+        # Last, once everything above has stopped what it owns: Uvicorn ends
+        # the process by re-raising the stop signal, so nothing after
+        # uvicorn.run() would get to run.
+        if os.environ.get("STIMMA_HEADLESS") == "1":
+            from headless_runtime import shutdown as headless_shutdown
+            await headless_shutdown()
     log.info("shutdown complete")
 
 

@@ -286,18 +286,22 @@ if __name__ == "__main__":
     # NOTE: We pass the app object directly (not "main:app" string) because
     # PyInstaller bundles the app and string imports don't work.
     from core.loopback_host import LoopbackHostGuard
-    uvicorn.run(
-        # Only the loopback listener checks Host; remote serving has its own gate.
-        LoopbackHostGuard(app, port),
-        host="127.0.0.1",
-        port=port,
-        reload=False,
-        # Shutdown is prompt everywhere: an update, restart or container stop
-        # cancels in-flight requests rather than waiting on long generations.
-        timeout_graceful_shutdown=0,
-        log_config=None,  # Disable uvicorn's logging config - we use our own
-    )
-    if HEADLESS:
-        # The next release migrates only databases nothing else has open.
-        from headless_runtime import stop_helper_processes
-        stop_helper_processes()
+    try:
+        uvicorn.run(
+            # Only the loopback listener checks Host; remote serving has its own gate.
+            LoopbackHostGuard(app, port),
+            host="127.0.0.1",
+            port=port,
+            reload=False,
+            # Shutdown is prompt everywhere: an update, restart or container stop
+            # cancels in-flight requests rather than waiting on long generations.
+            timeout_graceful_shutdown=0,
+            log_config=None,  # Disable uvicorn's logging config - we use our own
+        )
+    finally:
+        if HEADLESS:
+            # Normal shutdown already did this at the end of the lifespan (a
+            # stop signal ends the process before run() returns); this covers
+            # a failed startup, which has no shutdown phase.
+            from headless_runtime import stop_helper_processes
+            stop_helper_processes()

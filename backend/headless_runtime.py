@@ -340,3 +340,9 @@ def stop_helper_processes(grace=10.0, kill_wait=10.0):
             time.sleep(0.05)
         else:
             return
+
+
+async def shutdown():
+    """The lifespan's last shutdown step. It must run there: Uvicorn re-raises
+    the stop signal before uvicorn.run() returns, so the process ends first."""
+    await asyncio.to_thread(stop_helper_processes)
