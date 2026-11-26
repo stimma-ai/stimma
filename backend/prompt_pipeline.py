@@ -383,6 +383,7 @@ async def _improve_with_verbatim_protection(
     level: Optional[str] = None,
     outcome: Optional[Dict[str, Any]] = None,
     input_roles: Optional[List[Dict[str, Any]]] = None,
+    element_context: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Improve one prompt, keeping [verbatim] text and the values at `fixed_spans`
     ((start, end, ...) in `prompt`) exactly. `level` makes this the per-image
@@ -449,6 +450,7 @@ async def _improve_with_verbatim_protection(
             height=height,
             project_id=project_id,
             lora_context=lora_context or [],
+            element_context=element_context,
             level=level,
             marked=bool(values),
             input_roles=input_roles,
@@ -1010,6 +1012,7 @@ async def run_prompt_pipeline(
     level: Optional[str] = None,
     outcome: Optional[Dict[str, Any]] = None,
     input_roles: Optional[List[Dict[str, Any]]] = None,
+    element_context: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Run the full generate-time pipeline on a prompt, server-side.
 
@@ -1052,7 +1055,8 @@ async def run_prompt_pipeline(
     # A preload was enhanced without seeing the inputs, so it can't stand in for
     # a pass that is shown them (H3 frames, Qwen-Image-2.1 references).
     sees_inputs = h3_task is not None or any(m is not None for m in (input_media_ids or []))
-    if enhance_on and not ideogram_json_mode and not sees_inputs:
+    # A preload never saw the attached elements' instructions.
+    if enhance_on and not ideogram_json_mode and not sees_inputs and not element_context:
         preloaded_improved = _validated_prompt_preload(
             prompt_preload,
             prompt=prompt,
@@ -1106,6 +1110,7 @@ async def run_prompt_pipeline(
             lora_context=lora_context,
             fixed_spans=spans,
             input_roles=input_roles,
+            element_context=element_context,
         )
 
     # 3) Translate.

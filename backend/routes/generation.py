@@ -789,11 +789,16 @@ async def _apply_generation_prompt_pipeline(
         input_roles = to_json(await roles_for_submit(
             prompt=parameters["prompt"], instructions=(auto_improve.get("instructions") or "").strip() or None,
             count=ctx["enhance"].get("input_image_count", 0), project_id=project_id))
+    # The elements attached on the tool (elements/resolver.py): what Enhance and Fluent's
+    # per-image writer must keep. Enhance off sends the prompt as typed; the elements'
+    # references and LoRAs are already in the parameters either way.
+    element_context = _element_context(prompt_options, fluent) if enhance_on else None
     pipeline = dict(
         prompt_options=prompt_options,
         model=model,
         model_vendor=model_vendor,
         lora_context=lora_context,
+        element_context=element_context,
         **ctx["enhance"],
         profile_id=profile_id,
         project_id=project_id,
@@ -857,6 +862,22 @@ async def _apply_generation_prompt_pipeline(
     if not raw and add_triggers and not structured and isinstance(updated.get("prompt"), str):
         updated["prompt"] = prepend_missing_triggers(updated["prompt"], await lora_context_for(tool_id, updated, profile_id))
     return updated
+
+
+def _element_context(prompt_options: Optional[Dict[str, Any]], fluent: bool) -> Optional[Dict[str, Any]]:
+    """The run's element context, with each element's instructions as written for this writer."""
+    context = (prompt_options or {}).get("elementContext")
+    if not isinstance(context, dict) or not (context.get("elements") or context.get("guidance")):
+        return None
+    if not fluent:
+        return context
+    elements = []
+    for e in context.get("elements") or []:
+        if isinstance(e, dict) and isinstance(e.get("instructions"), dict):
+            texts = e["instructions"]
+            e = {**e, "instructions": {**texts, "enhance": texts.get("fluent") or texts.get("enhance") or ""}}
+        elements.append(e)
+    return {**context, "elements": elements}
 
 
 def _shape_lora_context(context: Optional[List[Dict[str, Any]]], triggers: bool, notes: bool) -> Optional[List[Dict[str, Any]]]:

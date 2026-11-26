@@ -101,6 +101,39 @@ async def get_element_by_media(media_id: int, session: AsyncSession = Depends(ge
         raise _http(exc)
 
 
+class ResolveRequest(BaseModel):
+    elements: list[dict] = []
+    tool_id: str
+    prompt: str = ""
+    parameters: dict = {}
+    task_type: Optional[str] = None
+    enhance_enabled: bool = True
+    overrides: dict = {}
+    project_id: Optional[int] = None
+
+
+@router.post("/elements/resolve")
+async def resolve_elements(body: ResolveRequest, session: AsyncSession = Depends(get_db_session)):
+    """Which reference images and LoRAs the attached elements put on a tool, for this prompt.
+
+    Never fails for model trouble: that answers with a plan made without the model.
+    """
+    from elements.resolver import resolve
+
+    return await resolve(
+        session,
+        elements=body.elements,
+        tool_id=body.tool_id,
+        prompt=body.prompt,
+        parameters=body.parameters,
+        task_type=body.task_type,
+        enhance_enabled=body.enhance_enabled,
+        overrides=body.overrides,
+        project_id=body.project_id,
+        profile_id=get_current_profile(),
+    )
+
+
 @router.get("/elements/{asset_id}")
 async def get_element(asset_id: int, session: AsyncSession = Depends(get_db_session)):
     try:

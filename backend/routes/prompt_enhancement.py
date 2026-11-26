@@ -768,6 +768,11 @@ def _medium_line(model: Optional[str], *, tags: bool) -> str:
     return "Say that it is a photo unless something in it implies another look or it is of a made thing (a logo, a poster)."
 
 
+def element_guidance_text(context: Optional[Dict[str, Any]], surface: str) -> str:
+    from elements.resolver import element_guidance_text as _text
+    return _text(context, surface)
+
+
 def _lora_guidance(lora_context: List[Dict[str, Any]], *, keyword_mode: bool = False) -> str:
     """The trigger words and notes of the LoRAs that are on for this image.
     keyword_mode: a tag list, where a trigger word is its own tag, not part of a sentence."""
@@ -946,6 +951,9 @@ class ImprovePromptRequest(BaseModel):
     # Trigger words and notes for the LoRAs this generation uses:
     # [{name, trigger_words, notes}]. See lora_notes.py.
     lora_context: List[Dict[str, Any]] = Field(default_factory=list)
+    # The elements attached on the tool: {guidance, elements: [{name, instructions: {enhance, ...}}]}.
+    # See elements/resolver.py.
+    element_context: Optional[Dict[str, Any]] = None
     # The detail level of the per-image improver: "off" (Yours), "fill" (Medium)
     # or "expand" (High). Absent for classic Improve, which aims for High but
     # never accepts the prompt back unchanged.
@@ -1291,7 +1299,8 @@ async def style_guide(request: "ImprovePromptRequest", session,
     system_prompt = (system_prompt.rstrip()
                      + (_references_guidance(edit_mode, roles or []) if references else "")
                      + _non_photo_model_guidance(request.model, mode)
-                     + _lora_guidance(request.lora_context, keyword_mode=(mode == "keyword")))
+                     + _lora_guidance(request.lora_context, keyword_mode=(mode == "keyword"))
+                     + element_guidance_text(request.element_context, "enhance"))
     system_prompt = re.sub(r"\n{3,}", "\n\n", system_prompt)
     return system_prompt, source_images_b64, mode
 
@@ -2020,6 +2029,17 @@ async def agent_step(request: AgentStepRequest):
         notes = dict(notes)
         skill_guidance = str(notes.pop("skill_guidance"))
         state_context["notes"] = notes
+    # Attached elements: their placements stay in the state; their instructions read as guidance.
+    element_guidance = ""
+    active = state_context.get("active_elements")
+    if isinstance(active, dict):
+        element_guidance = element_guidance_text(active, "tool_agent").strip()
+        state_context["active_elements"] = {
+            k: v for k, v in active.items() if k not in ("guidance",)
+        } | {"elements": [
+            {k: v for k, v in e.items() if k != "instructions"}
+            for e in active.get("elements") or [] if isinstance(e, dict)
+        ]}
     state_json = json.dumps(state_context, ensure_ascii=False, indent=2)
     state_reminder = (
         "<system-reminder>\n"
@@ -2030,6 +2050,15 @@ async def agent_step(request: AgentStepRequest):
         "</system-reminder>"
     )
     reminders = [state_reminder]
+    if element_guidance:
+        reminders.append(
+            "<system-reminder>\n"
+            "Elements attached on this tool (state_context.active_elements lists what each placed). "
+            "Weave their rules into the prompt when the user asks; a prompt-only element works "
+            "through the prompt's words.\n"
+            f"{element_guidance}\n"
+            "</system-reminder>"
+        )
     if skill_guidance:
         reminders.append(
             "<system-reminder>\n"

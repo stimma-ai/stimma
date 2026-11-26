@@ -99,3 +99,11 @@ async def scrub_element_lineage(session: AsyncSession, asset_ids: Iterable[int])
                 metadata.pop("elements")
             media.generation_metadata = json.dumps(metadata)
     await session.execute(delete(MediaElement).where(MediaElement.element_asset_id.in_(ids)))
+
+
+async def record_job_elements(session: AsyncSession, media_id: int, params: dict[str, Any]) -> list[dict[str, Any]]:
+    """A finished job's ``_elements`` (``[{asset_id, revision_id?, carrier?}]``), recorded on its output."""
+    specs = (params or {}).get("_elements")
+    if not isinstance(specs, list) or not specs:
+        return []
+    return await record_media_elements(session, media_id, [s for s in specs if isinstance(s, dict)])

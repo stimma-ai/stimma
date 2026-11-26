@@ -49,6 +49,7 @@ INTERNAL_PARAM_KEYS = frozenset({
     "_ephemeral_run_id",
     "_media_sidecars",
     "_run_id",
+    "_elements",
 })
 
 # Top-level keys every canonical metadata dict carries (excludes the optional

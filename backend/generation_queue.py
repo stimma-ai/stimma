@@ -4056,6 +4056,14 @@ class GenerationQueue:
                 await self._record_lineage(media_item.id, lineage_data.get('source_inputs', []), task_type, session)
             log.debug(f"Job {job.id}: TIMING - _record_lineage: {(_time.time() - _t1)*1000:.0f}ms")
 
+            # The elements the job ran with (ToolView sends them as _elements).
+            if not ephemeral_run_id and params.get('_elements'):
+                try:
+                    from elements.lineage import record_job_elements
+                    await record_job_elements(session, media_item.id, params)
+                except Exception as e:
+                    log.warning(f"Job {job.id}: could not record element lineage: {e}")
+
             # Record inspiration lineage if inspired_by_media_id is present
             # This adds an additional row (not replacing derived lineage) to track inspiration source
             inspired_by_media_id = params.get('inspired_by_media_id')
