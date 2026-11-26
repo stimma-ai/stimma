@@ -511,42 +511,52 @@ async def commit_element(
         shutil.rmtree(bundle, ignore_errors=True)
         raise
 
-    media = await _register_bundle(session, bundle=bundle, manifest=clean, profile_id=profile_id, origin_type=origin_type)
-    from container_service import commit_container_revision, create_container_asset_from_media
+    from asset_service import AssetServiceError
 
-    specs = element_member_specs(clean, missing_keys)
-    created = asset is None
-    if created:
-        asset = await create_container_asset_from_media(
-            session,
-            media_id=media.id,
-            container_type=ELEMENT_ASSET_TYPE,
-            members=specs,
-            title=name,
-            origin_type=origin_type,
-            idempotency_key=f"element:media:{media.id}",
-        )
-        if project_id is not None:
-            from asset_association_service import attach_asset_to_project
+    try:
+        media = await _register_bundle(session, bundle=bundle, manifest=clean, profile_id=profile_id, origin_type=origin_type)
+        from container_service import commit_container_revision, create_container_asset_from_media
 
-            await attach_asset_to_project(session, project_id, asset.id)
-        revision = await session.get(AssetRevision, asset.current_revision_id)
-    else:
-        revision = await commit_container_revision(
-            session,
-            asset_id=asset.id,
-            media_id=media.id,
-            members=specs,
-            parent_revision_id=asset.current_revision_id,
-            note=note,
-            idempotency_key=f"element:revision:{asset.id}:{media.id}",
-        )
-        # A name edited in element.json is a rename; otherwise the Asset title
-        # (which a rename in the library may have changed) stays the authority.
-        if previous is not None and name != (previous.get("name") or "").strip():
-            asset.title = name
-        asset.updated_at = datetime.utcnow()
-    await session.commit()
+        specs = element_member_specs(clean, missing_keys)
+        created = asset is None
+        if created:
+            asset = await create_container_asset_from_media(
+                session,
+                media_id=media.id,
+                container_type=ELEMENT_ASSET_TYPE,
+                members=specs,
+                title=name,
+                origin_type=origin_type,
+                idempotency_key=f"element:media:{media.id}",
+            )
+            if project_id is not None:
+                from asset_association_service import attach_asset_to_project
+
+                await attach_asset_to_project(session, project_id, asset.id)
+            revision = await session.get(AssetRevision, asset.current_revision_id)
+        else:
+            revision = await commit_container_revision(
+                session,
+                asset_id=asset.id,
+                media_id=media.id,
+                members=specs,
+                parent_revision_id=asset.current_revision_id,
+                note=note,
+                idempotency_key=f"element:revision:{asset.id}:{media.id}",
+            )
+            # A name edited in element.json is a rename; otherwise the Asset title
+            # (which a rename in the library may have changed) stays the authority.
+            if previous is not None and name != (previous.get("name") or "").strip():
+                asset.title = name
+            asset.updated_at = datetime.utcnow()
+        await session.commit()
+    except Exception as exc:
+        # Nothing half-saved: no Media row without its Asset, no stray bundle.
+        await session.rollback()
+        shutil.rmtree(bundle, ignore_errors=True)
+        if isinstance(exc, AssetServiceError):
+            raise ElementError(str(exc)) from exc
+        raise
     await session.refresh(asset)
     from storage_service import cleanup_staged_source
 
