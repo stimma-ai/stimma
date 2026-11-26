@@ -51,8 +51,13 @@ async def _assert_no_link_cycle(
     *,
     container_asset_id: int,
     linked_asset_id: int,
+    allow_unavailable: bool = False,
 ) -> None:
-    """Reject direct and transitive live-linked container cycles."""
+    """Reject direct and transitive live-linked container cycles.
+
+    ``allow_unavailable`` skips links to trashed or missing Assets instead of
+    refusing them: a restored revision keeps those as holes.
+    """
     pending = [linked_asset_id]
     visited: set[int] = set()
     while pending:
@@ -64,6 +69,8 @@ async def _assert_no_link_cycle(
         visited.add(asset_id)
         asset = await session.get(Asset, asset_id)
         if asset is None or asset.deleted_at is not None:
+            if allow_unavailable:
+                continue
             raise AssetServiceError("Linked Asset is unavailable")
         if asset.asset_type not in {"set", "grid"} or asset.current_revision_id is None:
             continue
@@ -874,8 +881,20 @@ async def carry_revision_members(
     source_revision_id: int,
     revision_id: int,
 ) -> list[ContainerMember]:
-    """Give ``revision_id`` the same members as ``source_revision_id`` (idempotent)."""
+    """Give ``revision_id`` the same members as ``source_revision_id`` (idempotent).
+
+    Links are checked against what the linked containers hold now, so a
+    restore can't make a container contain itself.
+    """
     members = await _revision_members(session, source_revision_id)
+    for member in members:
+        if member.linked_asset_id is not None:
+            await _assert_no_link_cycle(
+                session,
+                container_asset_id=asset_id,
+                linked_asset_id=int(member.linked_asset_id),
+                allow_unavailable=True,
+            )
     return await _populate_revision_members(
         session,
         container_asset_id=asset_id,

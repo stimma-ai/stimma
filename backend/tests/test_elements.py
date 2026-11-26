@@ -219,6 +219,10 @@ async def test_save_validation_errors_are_plain(db_session, tmp_path):
         out = await _tool(session, workspace, action="save", slug="mira")
         assert "used twice" in out
 
+        _edit_manifest(directory, media_menu=[{"key": "a", "embedded_media_id": "bad"}])
+        out = await _tool(session, workspace, action="save", slug="mira")
+        assert out.startswith("Error:") and "embedded_media_id must be a number" in out
+
         _edit_manifest(directory, media_menu=[{"key": "Bad Key", "asset_id": linked[0]}], cover_member_key="zzz")
         out = await _tool(session, workspace, action="save", slug="mira")
         assert "short lowercase name" in out and "cover_member_key 'zzz'" in out

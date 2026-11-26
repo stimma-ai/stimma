@@ -136,6 +136,8 @@ def validate_manifest(manifest: Any) -> tuple[list[str], list[str]]:
             errors.append(f"{where} has both asset_id and embedded_media_id; use one")
         elif entry.get("asset_id") is not None and linked is None:
             errors.append(f"{where}.asset_id must be a number")
+        elif entry.get("embedded_media_id") is not None and embedded is None:
+            errors.append(f"{where}.embedded_media_id must be a number")
         status = entry.get("status", "canonical")
         if status not in STATUSES:
             errors.append(f"{where}.status must be one of {', '.join(STATUSES)}")

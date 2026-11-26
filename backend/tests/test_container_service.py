@@ -186,3 +186,34 @@ async def test_container_title_comes_from_the_payload_seed_then_the_asset(db_ses
         content = await get_normalized_container_content(session, container_media=set_media)
         assert content["title"] == "Renamed"
         assert await container_title_for_media(session, media_id=set_media.id) == "Renamed"
+
+
+@pytest.mark.asyncio
+async def test_restoring_an_old_revision_cannot_create_a_link_cycle(db_session):
+    from asset_service import AssetServiceError, restore_revision_as_latest
+    from container_service import commit_container_revision
+
+    async with db_session() as session:
+        async def set_asset(members):
+            media = await create_media_item(session, file_format="stimmaset.json")
+            return await create_container_asset_from_media(
+                session, media_id=media.id, container_type="set", members=members
+            )
+
+        b = await set_asset([])
+        a = await set_asset([{"linked_asset_id": b.id}])
+        linked_revision = a.current_revision_id
+        # A drops B, then B links A: fine, there is no cycle now.
+        await commit_container_revision(
+            session, asset_id=a.id, media_id=(await create_media_item(session, file_format="stimmaset.json")).id,
+            members=[],
+        )
+        await commit_container_revision(
+            session, asset_id=b.id, media_id=(await create_media_item(session, file_format="stimmaset.json")).id,
+            members=[{"linked_asset_id": a.id}],
+        )
+        await session.commit()
+
+        # Bringing back A's version that linked B would make A contain itself.
+        with pytest.raises(AssetServiceError, match="cycle"):
+            await restore_revision_as_latest(session, asset_id=a.id, revision_id=linked_revision)
