@@ -369,6 +369,8 @@ async def test_app(temp_appdata_dir: Path):
         app.include_router(svg_media.router)
         app.include_router(sprite_media.router)
         app.include_router(package_media.router)
+        from routes import elements as element_routes
+        app.include_router(element_routes.router)
         app.include_router(contact_sheets.router)
         app.include_router(collections.router)
         from routes import home as home_routes

@@ -1377,6 +1377,30 @@ class MediaLineage(Base):
         }
 
 
+class MediaElement(Base):
+    """Which element revisions a generated Media was made with.
+
+    Kept apart from ``media_lineage`` so element provenance never reads as an
+    image-to-image source. ``generation_metadata["elements"]`` carries the same
+    facts inside the Media record itself.
+    """
+    __tablename__ = "media_elements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    media_id = Column(Integer, ForeignKey('media_items.id', ondelete='CASCADE'), nullable=False, index=True)
+    element_asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
+    element_revision_id = Column(Integer, ForeignKey('asset_revisions.id', ondelete='CASCADE'), nullable=False)
+    element_order = Column(Integer, nullable=False, default=0)
+    carrier = Column(String, nullable=True)  # e.g. 'lora+refs', 'refs', 'lora', 'text'
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index('idx_media_elements_asset', 'element_asset_id', 'created_at'),
+        {'sqlite_autoincrement': True},
+    )
+
+
 class MediaToolLineage(Base):
     """Denormalized junction table tracking all tools in a media item's lineage chain.
 

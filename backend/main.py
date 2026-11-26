@@ -166,6 +166,7 @@ from routes import (
     share,
     sprite_media,
     package_media,
+    elements as element_routes,
     contact_sheets,
     stimpack_marketplace,
     svg_media,
@@ -217,6 +218,7 @@ app.include_router(media_files.router)
 app.include_router(svg_media.router)
 app.include_router(sprite_media.router)
 app.include_router(package_media.router)
+app.include_router(element_routes.router)
 app.include_router(contact_sheets.router)
 app.include_router(preferences.router)
 app.include_router(projects.router)

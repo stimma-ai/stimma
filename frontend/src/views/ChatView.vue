@@ -2152,6 +2152,7 @@ const TOOL_DISPLAY_NAMES = {
   ask_user: 'Asking you',
   browse_web: 'Browsing web',
   library: null,         // Special: varies by action arg
+  element: null,         // Special: varies by action arg
   skill: null,           // Special: "Skill: <display_name>"
   stimpack: null,        // backward compat for old chats: "Skill: <display_name>"
   delegate: null,        // Special: shows specialist or truncated task
@@ -2182,6 +2183,14 @@ const LIBRARY_ACTION_NAMES = {
   tag: 'Tagging',
   marker: 'Marking',
   collection: 'Organizing collection',
+}
+
+// Element action → display copy
+const ELEMENT_ACTION_NAMES = {
+  list: 'Looking up elements',
+  open: 'Opening element',
+  init: 'Starting element',
+  save: 'Saving element',
 }
 
 // Infrastructure tools hidden from pill summary (still shown in expanded timeline)
@@ -2250,6 +2259,10 @@ function getToolCallDisplayName(toolCallItem) {
   if (toolCallItem.tool_name === 'library') {
     const action = (args.action || '').toLowerCase().trim()
     return LIBRARY_ACTION_NAMES[action] || 'Library'
+  }
+  if (toolCallItem.tool_name === 'element') {
+    const action = (args.action || '').toLowerCase().trim()
+    return ELEMENT_ACTION_NAMES[action] || 'Element'
   }
   return formatToolCallName(toolCallItem.tool_name)
 }

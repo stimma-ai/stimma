@@ -43,7 +43,7 @@ from sprite_document import (
     sprite_member_specs,
 )
 
-CONTAINER_TYPES = {"set", "grid", "sprite", "package", "sheet"}
+CONTAINER_TYPES = {"set", "grid", "sprite", "package", "sheet", "element"}
 
 
 async def _assert_no_link_cycle(
@@ -533,6 +533,15 @@ async def get_normalized_container_content(
             member["resolved"] = resolved_payload(entry) if entry is not None else None
         return result
 
+    if container_media.file_format == "stimmaelement":
+        # Element media slots are keyed by member key (member.title).
+        by_key = {entry["title"] or "": entry for entry in members}
+        result = json.loads(json.dumps(base))
+        for entry_data in result.get("media_menu") or []:
+            entry = by_key.get(entry_data.get("key"))
+            entry_data["resolved"] = resolved_payload(entry) if entry is not None else None
+        return result
+
     result = {key: value for key, value in base.items() if key not in {"items", "cells"}}
     result.setdefault("version", 1)
     if container_media.file_format == "stimmaset.json":
@@ -773,6 +782,14 @@ async def infer_structured_member_specs(
         if manifest is None:
             raise AssetServiceError("Package manifest is invalid")
         return await package_member_specs(session, manifest)
+    if container_media.file_format == "stimmaelement":
+        from elements.bundle import element_member_specs
+        from elements.manifest import parse_manifest as parse_element_manifest
+
+        manifest = parse_element_manifest(payload)
+        if manifest is None:
+            raise AssetServiceError("Element manifest is invalid")
+        return element_member_specs(manifest)
     records = payload.get('items') if container_media.file_format == 'stimmaset.json' else payload.get('cells')
     if not isinstance(records, list):
         raise AssetServiceError("Container manifest has no members")

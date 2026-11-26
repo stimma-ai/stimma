@@ -532,6 +532,11 @@ async def get_structured_content(
 
         return await manifest_for_media(session, media_item)
 
+    if file_format == 'stimmaelement':
+        from elements.bundle import bundle_manifest
+
+        return bundle_manifest(media_item)
+
     return None
 
 

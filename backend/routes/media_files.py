@@ -65,7 +65,7 @@ ID_KEYED_CACHE_HEADERS = {
     'Access-Control-Allow-Origin': '*',
 }
 
-THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout', 'stimmapackage', 'stimmasheet.html', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
+THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout', 'stimmapackage', 'stimmaelement', 'stimmasheet.html', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
 
 CONTAINER_IMAGE_FORMATS = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'}
 CONTAINER_VIDEO_FORMATS = {'mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'}
@@ -84,10 +84,12 @@ def _thumbnail_cache_key(
     """One cache identity for HTTP thumbnails and native drag previews."""
     fmt = item.file_format.lower()
     mtime = None
-    if fmt in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage'):
+    if fmt in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage', 'stimmaelement'):
         mtime_path = Path(item.file_path)
         if fmt in ('stimmalayout', 'stimmapackage'):
             mtime_path /= 'index.html'
+        elif fmt == 'stimmaelement':
+            mtime_path /= 'element.json'
         try:
             mtime = mtime_path.stat().st_mtime_ns
         except OSError:
@@ -158,6 +160,8 @@ def _source_path_exists(file_path: str, file_format: str) -> bool:
     path = Path(file_path)
     if file_format.lower() in ('stimmalayout', 'stimmapackage'):
         return path.is_dir() and (path / 'index.html').exists()
+    if file_format.lower() == 'stimmaelement':
+        return path.is_dir() and (path / 'element.json').exists()
     return path.exists()
 
 
@@ -1433,6 +1437,23 @@ def _generate_package_preview(
         return _generate_placeholder_thumbnail(size, 'default', palette=palette)
 
 
+def _generate_element_preview(file_path: str, size: int, palette=None) -> Image.Image:
+    """The element's cover, made into ``_tile.png`` when it was saved, on the package ground."""
+    palette = palette or THEME_PALETTES['dark']
+    tile_path = Path(file_path) / '_tile.png'
+    try:
+        if tile_path.is_file():
+            with Image.open(tile_path) as im:
+                tile = im.convert('RGBA')
+            tile.thumbnail((size, size), Image.LANCZOS)
+            canvas = Image.new('RGB', (size, size), palette['package_bg'])
+            canvas.paste(tile, ((size - tile.width) // 2, (size - tile.height) // 2), tile)
+            return canvas
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"Failed to generate element preview for {file_path}: {e}")
+    return _generate_placeholder_thumbnail(size, 'default', palette=palette)
+
+
 def _svg_render_box(width: int, height: int, target_long_side: int) -> tuple[int, int]:
     """Scale an SVG's intrinsic box so its long side is ``target_long_side``.
 
@@ -1818,6 +1839,11 @@ def _generate_thumbnail_sync(
 
         if format_lower == 'stimmasheet.html':
             img = _generate_sheet_preview(size, palette=palette, normalized_content=normalized_content)
+            _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
+            return True
+
+        if format_lower == 'stimmaelement':
+            img = _generate_element_preview(file_path, size, palette=palette)
             _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
             return True
 

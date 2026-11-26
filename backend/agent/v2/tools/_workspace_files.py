@@ -49,9 +49,10 @@ def ensure_skill_resources(workspace_dir: str | Path) -> None:
 def readonly_workspace_error(file_path: str, workspace_dir: str | None = None) -> str | None:
     """Return an error if file_path targets a read-only tree, else None.
 
-    Read-only trees: the generated ``.stimma/`` tool catalog, and any
+    Read-only trees: the generated ``.stimma/`` tool catalog, any
     marketplace-installed stimpack under ``skills/`` (a marketplace update
-    would overwrite edits; the agent forks instead).
+    would overwrite edits; the agent forks instead), and an element
+    checkout's ``media/`` copies and checkout record under ``elements/``.
     """
     normalized = (file_path or "").replace("\\", "/")
     normalized = "/".join(part for part in normalized.split("/") if part not in ("", "."))
@@ -69,6 +70,10 @@ def readonly_workspace_error(file_path: str, workspace_dir: str | None = None) -
             "automatically when the tool catalog changes."
         )
     parts = normalized.split("/")
+    from elements.workspace import readonly_error as element_readonly_error
+    element_err = element_readonly_error(parts)
+    if element_err:
+        return element_err
     if len(parts) >= 2 and parts[0] == SKILLS_MOUNT and parts[1]:
         try:
             from ..stimpacks import marketplace_pack_dir_names

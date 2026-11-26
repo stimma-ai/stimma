@@ -325,6 +325,9 @@ async def prepare_asset_reference_deletion(
         )
     )
     await _scrub_chat_asset_references(session, deleted_asset_ids)
+    from elements.lineage import scrub_element_lineage
+
+    await scrub_element_lineage(session, deleted_asset_ids)
     await session.execute(
         update(Asset)
         .where(
