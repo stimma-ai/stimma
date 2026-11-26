@@ -109,7 +109,9 @@ SUMMARY_METADATA_KEYS = (
 # media slots a tool has, how many items each takes, and what media it
 # accepts. The names are the media slots the frontend's send-to checks read
 # (MEDIA_INPUT_SLOT_DEFAULTS in utils/taskTypeIcons.ts, plus `mask`); any
-# parameter declaring `x-accept-media` is a media slot too. Defaults, enums,
+# parameter declaring `x-accept-media` is a media slot too. `prompt` says the tool
+# generates from a prompt, which decides whether an element can be sent to it
+# (toolTakesPrompt in toolSchemaUtils.ts). Defaults, enums,
 # descriptions, other parameters and layout stay with the full tool.
 OUTLINE_PARAMETER_NAMES = frozenset({
     "input_images",
@@ -122,6 +124,7 @@ OUTLINE_PARAMETER_NAMES = frozenset({
     "input_audios",
     "input_audio",
     "mask",
+    "prompt",
 })
 PARAMETER_OUTLINE_KEYS = (
     "type",

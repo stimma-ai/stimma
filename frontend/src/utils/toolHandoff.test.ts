@@ -183,11 +183,18 @@ test('a catalog summary decides send-to eligibility exactly like the full tool',
   assert.ok(ineligible > 0 && ineligible < tools.length * selections.length)
 })
 
-test('an element goes to any tool that generates from a prompt, and on its own', () => {
-  const t2i = { task_type: 'text-to-image', task_types: ['text-to-image'] }
-  const plan = planToolHandoff({ tool: t2i, mediaTypes: ['element'], count: 1 })
-  assert.equal(plan.eligible, true)
-  assert.equal(plan.taskType, 'text-to-image')
-  assert.equal(planToolHandoff({ tool: { task_type: 'upscale-image' }, mediaTypes: ['element'], count: 1 }).eligible, false)
-  assert.equal(planToolHandoff({ tool: t2i, mediaTypes: ['element', 'image'], count: 2 }).eligible, false)
+test('an element goes to any tool with a prompt, as ToolView shows its Elements section, and on its own', () => {
+  const withPrompt = (task_type: string, extra: Record<string, any> = {}) =>
+    ({ task_type, task_types: [task_type], parameter_outline: { properties: { prompt: { type: 'string' }, ...extra } } })
+  for (const task of ['text-to-image', 'video-extend', 'text-to-music', 'text-to-speech', 'text-to-audio']) {
+    const plan = planToolHandoff({ tool: withPrompt(task), mediaTypes: ['element'], count: 1 })
+    assert.equal(plan.eligible, true, task)
+    assert.equal(plan.taskType, task)
+  }
+  // No prompt, no Elements section.
+  const upscaler = { task_type: 'upscale-image', parameter_outline: { properties: { input_image: { type: 'string' } } } }
+  assert.equal(planToolHandoff({ tool: upscaler, mediaTypes: ['element'], count: 1 }).eligible, false)
+  // The full schema answers the same.
+  assert.equal(planToolHandoff({ tool: { task_type: 'text-to-image', parameter_schema: { properties: { prompt: {} } } }, mediaTypes: ['element'], count: 1 }).eligible, true)
+  assert.equal(planToolHandoff({ tool: withPrompt('text-to-image'), mediaTypes: ['element', 'image'], count: 2 }).eligible, false)
 })

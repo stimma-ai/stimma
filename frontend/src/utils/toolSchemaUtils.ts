@@ -13,8 +13,8 @@ export interface ToolSchemaSource {
 
 /**
  * A tool's parameter properties: from its full schema, else from a catalog
- * summary's outline. The outline keeps only the media slots and the keys
- * send-to checks read (type, item limits, x-control, x-accept-media), so it
+ * summary's outline. The outline keeps only the media slots, `prompt`, and the
+ * keys send-to checks read (type, item limits, x-control, x-accept-media), so it
  * answers these media questions the way the full schema would — and nothing
  * else (no defaults, enums or other parameters). Null when neither exists.
  */
@@ -24,6 +24,15 @@ export function toolParameterProperties(tool: ToolSchemaSource | null | undefine
   if (tool?.parameter_schema) return null
   const outline = tool?.parameter_outline?.properties
   return outline && typeof outline === 'object' ? outline : null
+}
+
+/**
+ * Whether the tool generates from a prompt: ToolView shows the prompt box and the Elements
+ * section, and elements can be sent to it. Null when nothing of its schema is known.
+ */
+export function toolTakesPrompt(tool: ToolSchemaSource | null | undefined): boolean | null {
+  const props = toolParameterProperties(tool)
+  return props ? 'prompt' in props : null
 }
 
 export interface MultiInputInfo {

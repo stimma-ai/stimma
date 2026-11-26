@@ -2,6 +2,7 @@ import { computed, type Ref, type ComputedRef } from 'vue'
 import { detectResolutionControls } from '../utils/resolutionControls'
 import type { ScaleFactorConstraints } from '../utils/resolutionControls'
 import { AUDIO_TASK_TYPES } from '../utils/taskTypeIcons'
+import { toolTakesPrompt } from '../utils/toolSchemaUtils'
 import type { ParamConstraint, ConstraintExpr } from '../utils/paramConstraints'
 import { keyframesConfigFromSchema, type KeyframesConfig } from '../utils/keyframes'
 
@@ -197,10 +198,7 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
   const hasAspectRatio = computed(() => resControls.value.hasAspectRatio)
   const hasMegapixels = computed(() => resControls.value.hasMegapixels)
 
-  const hasPrompt = computed(() => {
-    const props = tool.value?.parameter_schema?.properties || {}
-    return 'prompt' in props
-  })
+  const hasPrompt = computed(() => !!toolTakesPrompt(tool.value))
 
   const hasMask = computed(() => {
     const props = tool.value?.parameter_schema?.properties || {}
