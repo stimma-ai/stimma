@@ -76,6 +76,9 @@ const coverMedia = computed(() => (coverTarget.value?.media || []).filter(m => !
 
 const draftName = ref('')
 const nameInput = ref<HTMLInputElement | null>(null)
+// RenameSheet closes before it saves, so remember whose name it is.
+let openedFor: number | null = null
+watch(renameId, id => { if (id != null) openedFor = id })
 watch(renameTarget, async t => {
   if (!t || isCompact.value) return
   draftName.value = t.name
@@ -84,8 +87,9 @@ watch(renameTarget, async t => {
 })
 
 async function saveName(name: string) {
-  const id = renameId.value
+  const id = renameId.value ?? openedFor
   elementUi.renaming = null
+  openedFor = null
   if (id != null && name?.trim() && name.trim() !== cachedElement(id)?.name) await saveElement(id, { name: name.trim() })
 }
 async function saveCover(key: string) {

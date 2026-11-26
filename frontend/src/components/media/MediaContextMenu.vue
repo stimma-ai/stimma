@@ -1007,7 +1007,7 @@
 
 <script setup lang="ts">
 import { ChatBubbleLeftEllipsisIcon } from '@heroicons/vue/24/outline'
-import { elementActions } from '../elements/useElements'
+import { cachedElement, elementActions, loadElement } from '../elements/useElements'
 import { flowsEnabled } from '../../composables/useExperimentalFlows'
 import { useAssetTrash } from '../../composables/useAssetTrash'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
@@ -1417,7 +1417,8 @@ const selectionSummary = computed(() => {
   if (item.file_format) facts.push(String(item.file_format).split('.')[0].toUpperCase())
   }
   const kind = currentMediaType.value
-  return { title: item.title || kind.charAt(0).toUpperCase() + kind.slice(1), detail: facts.join(' · ') }
+  const name = item.asset_title || item.title || (isElement.value ? cachedElement(item.id)?.name : '')
+  return { title: name || kind.charAt(0).toUpperCase() + kind.slice(1), detail: facts.join(' · ') }
 })
 
 // Visibility state computed properties
@@ -1428,6 +1429,8 @@ const isPackage = computed(() => mediaItem.value?.file_format === 'stimmapackage
 const isSetOrGrid = computed(() => isSet.value || isGrid.value)
 // No single file to hand to the OS share sheet.
 const isElement = computed(() => mediaItem.value?.file_format === 'stimmaelement')
+// The sheet header names the element.
+watch(() => isElement.value && mediaItem.value?.id, id => { if (id) void loadElement(id) })
 const isMultiFileItem = computed(() => isSetOrGrid.value || isSprite.value || isPackage.value || isElement.value || mediaItem.value?.file_format === 'stimmalayout')
 const inCollection = computed(() => contextMenu.state.value.inCollection || false)
 const collectionSectionId = computed(() => contextMenu.state.value.collectionSectionId)
