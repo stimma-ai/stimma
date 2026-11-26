@@ -489,7 +489,8 @@ def _earlier(p: _Prompt) -> Dict[Tuple[str, int], Dict[str, Any]]:
             prev = p.store.get(key)
             # the same reader, model and vocabulary: its key is this prompt's key for its own text
             if not prev or prev.get("key") != key or _key(p.model, str(prev.get("prompt") or ""),
-                                                          prev.get("exact") or {}, _entry_modes(prev)) != key:
+                                                          prev.get("exact") or {}, _entry_modes(prev),
+                                                          str(prev.get("elements") or "")) != key:
                 continue
             parsed = parse(str(prev["prompt"]))
             got = prev.get("readings") or {}

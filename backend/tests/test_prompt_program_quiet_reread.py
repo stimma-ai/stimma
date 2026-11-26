@@ -108,6 +108,19 @@ def _bare(r: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in r.items() if k not in ("n", "seen")}
 
 
+async def test_with_elements_attached_a_slot_added_on_the_line_keeps_the_others_read(model):
+    elements = "## Old Wen\nGray stubble, a white towel on his right shoulder."
+    await slots.prepare(BEFORE, profile_id="p", elements=elements)
+    await slots.idle()
+    await P.writer_for("p").drain()
+    await slots.idle()
+    first = await slots.prepare(BEFORE, profile_id="p", start=False, elements=elements)
+    assert first["elements"] == elements and _states(first) == ["ready", "ready"]
+    look = await slots.prepare(AFTER, profile_id="p", start=False, shown=first["key"], elements=elements)
+    assert _states(look) == ["ready", "ready", "reading"]
+    assert look["slots"][0]["pool"] == first["slots"][0]["pool"]
+
+
 async def test_a_slot_added_on_the_line_keeps_the_others_read_with_one_small_check(model):
     first = await _ready(BEFORE)
     assert model.reads == ["elderly African man", "pet", "L1"] and model.narrows
