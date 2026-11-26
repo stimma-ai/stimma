@@ -93,3 +93,39 @@ async def test_read_side_flow_recovery_cannot_restart_during_maintenance(monkeyp
     flow = Mock()
     await FlowRuntime.start(flow)
     flow.build_initial_graph.assert_not_called()
+
+
+def test_headless_exit_stops_helpers_holding_the_database(tmp_path):
+    """The server outlives every process it started, so an old supervisor's
+    wait for the server alone is enough before the next release migrates."""
+    import sqlite3
+    import subprocess
+    import sys
+    from pathlib import Path
+    db, ready = tmp_path / 'stimma_v1.db', tmp_path / 'helper-ready'
+    server = f'''
+import os, subprocess, sys, time
+sys.path.insert(0, {str(Path(runtime.__file__).parent)!r})
+helper = subprocess.Popen([sys.executable, '-c', """
+import signal, sqlite3, time
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+db = sqlite3.connect({str(db)!r})
+db.execute('PRAGMA journal_mode=WAL')
+db.execute('CREATE TABLE IF NOT EXISTS t (x)')
+db.execute('BEGIN')
+db.execute('INSERT INTO t VALUES (1)')
+open({str(ready)!r}, 'w').close()
+time.sleep(600)
+"""])
+while not os.path.exists({str(ready)!r}):
+    time.sleep(0.05)
+import headless_runtime
+headless_runtime.stop_helper_processes(grace=0.2)
+'''
+    result = subprocess.run([sys.executable, '-c', server], env={**__import__('os').environ, 'STIMMA_HEADLESS': '1'},
+                            process_group=0, timeout=60)
+    assert result.returncode == 0
+    with sqlite3.connect(db, timeout=0.2) as connection:
+        connection.execute('PRAGMA locking_mode=EXCLUSIVE')
+        connection.execute('BEGIN EXCLUSIVE')
+        connection.rollback()

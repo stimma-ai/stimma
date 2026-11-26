@@ -284,3 +284,59 @@ async def startup():
         await apply_serving(True)
     else:
         start_login()
+
+
+def _group_members(pgid, exclude):
+    """Live (non-zombie) processes in a process group; zombies hold no files."""
+    members = []
+    for entry in Path('/proc').iterdir():
+        if not entry.name.isdigit() or int(entry.name) in exclude:
+            continue
+        try:
+            fields = (entry / 'stat').read_text().rsplit(')', 1)[1].split()
+        except (OSError, IndexError):
+            continue
+        if fields[0] != 'Z' and int(fields[2]) == pgid:
+            members.append(int(entry.name))
+    return members
+
+
+def stop_helper_processes(grace=10.0, kill_wait=10.0):
+    """Before exiting, stop everything this server started.
+
+    Tools, sidecars and agent shell commands can outlive their own shutdown
+    and keep a profile database open, and the next release only migrates
+    databases nothing else has open. The supervisor waits for this process,
+    so exiting only once the rest of its process group is gone makes an
+    update safe. Linux only, like the headless server.
+    """
+    import signal
+    import time
+    me = os.getpid()
+    if not ENABLED or os.getpgrp() != me or not Path('/proc/self/stat').exists():
+        return
+    exclude = {me}
+    # The multiprocessing resource tracker ignores SIGTERM, holds no database
+    # and exits by itself once this process closes its pipe.
+    try:
+        from multiprocessing import resource_tracker
+        tracker = getattr(resource_tracker._resource_tracker, '_pid', None)
+        if tracker:
+            exclude.add(tracker)
+    except Exception:
+        pass
+    for sig, wait in ((signal.SIGTERM, grace), (signal.SIGKILL, kill_wait)):
+        deadline = time.monotonic() + wait
+        signalled = set()
+        while members := _group_members(me, exclude):
+            for pid in set(members) - signalled:
+                try:
+                    os.kill(pid, sig)
+                except ProcessLookupError:
+                    pass
+                signalled.add(pid)
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.05)
+        else:
+            return

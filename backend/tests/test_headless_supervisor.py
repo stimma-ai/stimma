@@ -292,3 +292,84 @@ def test_startup_wait_ends_when_server_exits(monkeypatch, tmp_path):
     monkeypatch.setattr(instance, 'local', Mock(side_effect=ConnectionRefusedError()))
     with pytest.raises(RuntimeError, match='startup failed'):
         instance.start_child(release)
+
+
+# A server whose helper (a tool, sidecar or agent shell command) outlives it
+# and keeps the profile database open: the next release then refuses to migrate.
+_LEAKY_SERVER = '''
+import signal, sqlite3, subprocess, sys, time
+db, ready, term = sys.argv[1:4]
+helper = subprocess.Popen([sys.executable, '-c', f"""
+import signal, sqlite3, time
+signal.signal(signal.SIGTERM, signal.{term})
+db = sqlite3.connect({db!r})
+db.execute('PRAGMA journal_mode=WAL')
+db.execute('CREATE TABLE IF NOT EXISTS t (x)')
+db.execute('BEGIN')
+db.execute('INSERT INTO t VALUES (1)')
+open({ready!r}, 'w').close()
+time.sleep(600)
+"""])
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+time.sleep(600)
+'''
+
+
+def _start_leaky_server(tmp_path, term='SIG_DFL'):
+    import subprocess
+    import sys
+    import time
+    db, ready = tmp_path / 'stimma_v1.db', tmp_path / 'helper-ready'
+    script = tmp_path / 'server.py'
+    script.write_text(_LEAKY_SERVER)
+    child = subprocess.Popen([sys.executable, str(script), str(db), str(ready), term], process_group=0)
+    deadline = time.monotonic() + 20
+    while not ready.exists():
+        assert time.monotonic() < deadline and child.poll() is None
+        time.sleep(0.05)
+    return child, db
+
+
+def test_stop_child_waits_for_helpers_that_hold_the_database(tmp_path):
+    child, db = _start_leaky_server(tmp_path)
+    with pytest.raises(RuntimeError, match='still in use'):
+        supervisor.require_exclusive(db, timeout=0.2)
+    instance = supervisor.Supervisor()
+    instance.child = child
+    instance.stop_child()
+    assert child.returncode is not None
+    assert supervisor.group_members(child.pid) == []
+    supervisor.require_exclusive(db, timeout=0.2)
+
+
+def test_stop_group_kills_helpers_that_ignore_sigterm(tmp_path):
+    import os
+    import signal
+    child, db = _start_leaky_server(tmp_path, term='SIG_IGN')
+    os.kill(child.pid, signal.SIGTERM)
+    child.wait(timeout=20)
+    assert supervisor.group_members(child.pid)
+    supervisor.stop_group(child.pid, grace=0.2)
+    assert supervisor.group_members(child.pid) == []
+    supervisor.require_exclusive(db, timeout=0.2)
+
+
+def test_snapshot_refuses_a_database_still_in_use(monkeypatch, tmp_path):
+    import sqlite3
+    monkeypatch.setattr(supervisor, 'ROOT', tmp_path)
+    state = tmp_path / 'state'
+    (state / 'profile-a').mkdir(parents=True)
+    db = state / 'profile-a' / 'stimma_v1.db'
+    holder = sqlite3.connect(db)
+    holder.execute('PRAGMA locking_mode=EXCLUSIVE')
+    holder.execute('CREATE TABLE t (x)')
+    holder.execute('BEGIN EXCLUSIVE')
+    monkeypatch.setenv('STIMMA_DATA_DIR', str(state))
+    monkeypatch.setattr(supervisor, 'require_exclusive',
+                        lambda path, timeout=10.0, check=supervisor.require_exclusive: check(path, timeout=0.2))
+    try:
+        with pytest.raises(RuntimeError, match='stimma_v1.db'):
+            supervisor.Supervisor().snapshot()
+    finally:
+        holder.close()
+    supervisor.Supervisor().snapshot()

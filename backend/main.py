@@ -297,3 +297,7 @@ if __name__ == "__main__":
         timeout_graceful_shutdown=0,
         log_config=None,  # Disable uvicorn's logging config - we use our own
     )
+    if HEADLESS:
+        # The next release migrates only databases nothing else has open.
+        from headless_runtime import stop_helper_processes
+        stop_helper_processes()

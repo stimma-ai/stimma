@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from contextlib import closing
 import datetime as dt
 import fcntl
 import hashlib
@@ -146,6 +147,52 @@ def unpack(archive: Path, destination: Path):
         raise ValueError('Package has no server launcher')
 
 
+def group_members(pgid: int, exclude=()) -> list[int]:
+    """Live (non-zombie) processes in a process group; zombies hold no files."""
+    members = []
+    for entry in Path('/proc').iterdir():
+        if not entry.name.isdigit() or int(entry.name) in exclude:
+            continue
+        try:
+            fields = (entry / 'stat').read_text().rsplit(')', 1)[1].split()
+        except (OSError, IndexError):
+            continue
+        if fields[0] != 'Z' and int(fields[2]) == pgid:
+            members.append(int(entry.name))
+    return members
+
+
+def stop_group(pgid: int, grace=10.0, kill_wait=10.0, exclude=()):
+    """Stop what remains of a server's process group once the server is gone."""
+    for sig, wait in ((signal.SIGTERM, grace), (signal.SIGKILL, kill_wait)):
+        deadline = time.monotonic() + wait
+        signalled = set()
+        while members := group_members(pgid, exclude):
+            for pid in set(members) - signalled:
+                try:
+                    os.kill(pid, sig)
+                except ProcessLookupError:
+                    pass
+                signalled.add(pid)
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.05)
+        else:
+            return
+    raise RuntimeError('Server helper processes did not stop; update was not applied')
+
+
+def require_exclusive(path: Path, timeout=10.0):
+    """Fail unless nothing else has the database open, as migrations require."""
+    try:
+        with closing(sqlite3.connect(path, timeout=timeout)) as db:
+            db.execute('PRAGMA locking_mode=EXCLUSIVE')
+            db.execute('BEGIN EXCLUSIVE')
+            db.rollback()
+    except sqlite3.OperationalError as error:
+        raise RuntimeError(f'A database is still in use ({path.name}); update was not applied') from error
+
+
 SNAPSHOT_DB_SUFFIXES = ('.db', '.sqlite', '.sqlite3')
 # Payloads, caches, logs and per-item records are not configuration, and a
 # migration never needs them restored. Walking them dominated update downtime.
@@ -281,14 +328,24 @@ class Supervisor:
             raise RuntimeError('Cached app belongs to another BRANCH; choose the original branch or a new data volume')
         return path
 
-    def stop_child(self):
-        if self.child and self.child.poll() is None:
-            self.child.terminate()
+    def stop_child(self, timeout=110):
+        """Stop the server and everything it started.
+
+        The server leads its own process group. Its tools, sidecars and agent
+        shell commands can outlive it and keep a profile database open, which
+        makes the next release refuse to migrate, so the whole group must be
+        gone before this returns.
+        """
+        child = self.child
+        if child and child.poll() is None:
+            child.terminate()
             try:
-                self.child.wait(timeout=110)
+                child.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
                 # Never activate a new package while old workers may still be writing.
                 raise RuntimeError('Server did not stop cleanly; update was not applied')
+        if child:
+            stop_group(child.pid)
         self.child = None
 
     def snapshot(self):
@@ -320,8 +377,12 @@ class Supervisor:
                 target = dest / relative / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 if is_db:
+                    # The new release migrates only databases no one else has
+                    # open. Check now, while the old release can still resume.
+                    require_exclusive(source)
                     # SQLite's backup API includes any retained WAL transactions.
-                    with sqlite3.connect(source) as src, sqlite3.connect(target) as dst:
+                    # A connection's context manager commits; it does not close.
+                    with closing(sqlite3.connect(source)) as src, closing(sqlite3.connect(target)) as dst:
                         src.backup(dst)
                 else:
                     shutil.copy2(source, target)
@@ -345,7 +406,8 @@ class Supervisor:
         env['PATH'] = f"{release}/python/bin:" + env.get('PATH', '')
         bundle = 'ai.stimma.stimma' + (f'.{BRANCH}' if BRANCH != 'production' else '')
         self.child = subprocess.Popen([str(release / 'run.sh'), '--bundle-id', bundle,
-                                       '--port', str(self.local_port)], env=env, cwd=release)
+                                       '--port', str(self.local_port)], env=env, cwd=release,
+                                      process_group=0)
         self.status(status='starting', version=metadata['version'], serverStartedAt=time.time_ns())
         started = time.monotonic()
         next_notice = started + 300
