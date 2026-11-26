@@ -25,10 +25,12 @@ log = get_logger(__name__)
 def _menu_lines(manifest: dict) -> list[str]:
     lines = []
     for entry in manifest.get("media_menu") or []:
-        target = (
-            f"asset_id {entry['asset_id']}" if entry.get("asset_id") is not None
-            else f"media_id {entry.get('embedded_media_id')}"
-        )
+        if entry.get("asset_id") is not None:
+            target = f"asset_id {entry['asset_id']}"
+        elif entry.get("embedded_media_id") is not None:
+            target = f"media_id {entry['embedded_media_id']}"
+        else:
+            target = "no longer in the library"
         bits = [f"- {entry.get('key')} ({target}, {entry.get('status') or 'canonical'}"]
         if entry.get("conditional"):
             bits.append(", situational")
@@ -107,7 +109,7 @@ async def element_tool(
     force: Optional[bool] = None,
     **kwargs,
 ) -> str:
-    from elements.bundle import ElementError, bundle_manifest, element_asset, list_elements
+    from elements.bundle import ElementError, bundle_manifest, element_asset, list_elements, visible_manifest
     from elements.workspace import (
         init_element,
         list_checkouts,
@@ -165,7 +167,7 @@ async def element_tool(
                 return "Error: open needs the element's asset_id (see element(action=\"list\"))"
             checkout = await open_element(session, workspace_dir, int(asset_id))
             asset, revision, media = await element_asset(session, int(asset_id))
-            manifest = bundle_manifest(media)
+            manifest = await visible_manifest(session, revision.id, bundle_manifest(media))
             rendered = render_for_chat(checkout.directory)
             parts = [f"# {asset.title} ({manifest.get('kind') or 'element'}, version {revision.revision_number})"]
             if checkout.conflict:

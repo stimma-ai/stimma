@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 from dataclasses import dataclass, field
@@ -32,6 +33,7 @@ from elements.bundle import (
     copy_bundle_to,
     element_asset,
     slot_media,
+    visible_manifest,
 )
 from elements.manifest import (
     FILES_DIR,
@@ -61,8 +63,27 @@ class Checkout:
     notes: list[str] = field(default_factory=list)
 
 
+CHECKOUT_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
+
+
 def elements_root(workspace_dir: str | Path) -> Path:
-    return Path(workspace_dir) / ELEMENTS_MOUNT
+    """``elements/`` in the workspace; a link or anything resolving outside it is refused."""
+    workspace = Path(workspace_dir).resolve()
+    root = Path(workspace_dir) / ELEMENTS_MOUNT
+    if root.is_symlink() or (root.exists() and (not root.is_dir() or not root.resolve().is_relative_to(workspace))):
+        raise ElementError(f"{ELEMENTS_MOUNT}/ in this workspace must be a plain folder")
+    return root
+
+
+def _contained(workspace_dir: str | Path, directory: Path) -> Path:
+    """A checkout folder that is a real folder inside ``elements/``, with real files."""
+    root = elements_root(workspace_dir).resolve() if elements_root(workspace_dir).exists() else None
+    if directory.is_symlink() or (root is not None and directory.exists() and directory.resolve().parent != root):
+        raise ElementError(f"{ELEMENTS_MOUNT}/{directory.name}/ must be a plain folder")
+    for name in (MANIFEST_NAME, INSTRUCTIONS_NAME, CHECKOUT_META, FILES_DIR, MEDIA_DIR):
+        if (directory / name).is_symlink():
+            raise ElementError(f"{ELEMENTS_MOUNT}/{directory.name}/{name} must not be a link")
+    return directory
 
 
 def readonly_error(parts: list[str]) -> Optional[str]:
@@ -159,10 +180,14 @@ async def refresh_media(session: AsyncSession, directory: Path, manifest: dict[s
 def _checkout_dir_for(workspace_dir: str | Path, slug: str, asset_id: int) -> Path:
     """``elements/<slug>/``, or ``<slug>-<id>`` when another element already holds the slug."""
     root = elements_root(workspace_dir)
+    if not CHECKOUT_NAME_RE.match(slug):
+        slug = slugify(slug)
     for candidate in (root / slug, root / f"{slug}-{asset_id}"):
+        if candidate.is_symlink():
+            continue
         meta = _read_meta(candidate) if candidate.exists() else None
         if not candidate.exists() or (meta is not None and meta.get("asset_id") == asset_id):
-            return candidate
+            return _contained(workspace_dir, candidate)
     raise ElementError(f"{ELEMENTS_MOUNT}/{slug}/ is already in use in this workspace")
 
 
@@ -171,9 +196,9 @@ def find_checkout(workspace_dir: str | Path, asset_id: int) -> Optional[Path]:
     if not root.is_dir():
         return None
     for child in sorted(root.iterdir()):
-        meta = _read_meta(child) if child.is_dir() else None
+        meta = _read_meta(child) if child.is_dir() and not child.is_symlink() else None
         if meta is not None and meta.get("asset_id") == asset_id:
-            return child
+            return _contained(workspace_dir, child)
     return None
 
 
@@ -182,7 +207,7 @@ def list_checkouts(workspace_dir: str | Path) -> dict[int, str]:
     out: dict[int, str] = {}
     if root.is_dir():
         for child in sorted(root.iterdir()):
-            meta = _read_meta(child) if child.is_dir() else None
+            meta = _read_meta(child) if child.is_dir() and not child.is_symlink() else None
             if meta is not None and isinstance(meta.get("asset_id"), int):
                 out[meta["asset_id"]] = f"{ELEMENTS_MOUNT}/{child.name}"
     return out
@@ -195,7 +220,7 @@ async def open_element(session: AsyncSession, workspace_dir: str | Path, asset_i
     checkout has edits, the result carries a conflict notice instead.
     """
     asset, revision, media = await element_asset(session, asset_id)
-    manifest = bundle_manifest(media)
+    manifest = await visible_manifest(session, revision.id, bundle_manifest(media))
     directory = find_checkout(workspace_dir, asset.id) or _checkout_dir_for(
         workspace_dir, manifest.get("slug") or slugify(asset.title or ""), asset.id
     )
@@ -215,10 +240,10 @@ async def open_element(session: AsyncSession, workspace_dir: str | Path, asset_i
             )
         return Checkout(rel, directory, asset.id, revision.id, refreshed=False, notes=notes)
     await copy_bundle_to(media, directory)
-    edited = read_manifest(directory)
-    if asset.title and edited.get("name") != asset.title:
+    edited = await visible_manifest(session, revision.id, read_manifest(directory))
+    if asset.title:
         edited["name"] = asset.title
-        write_manifest(directory, edited)
+    write_manifest(directory, edited)
     notes = await refresh_media(session, directory, manifest)
     _write_meta(directory, asset_id=asset.id, base_revision_id=revision.id)
     return Checkout(rel, directory, asset.id, revision.id, notes=notes)
@@ -231,9 +256,10 @@ def init_element(
     if not SLUG_RE.match(slug):
         raise ElementError("slug must be lowercase letters, digits and '-' (for example 'mira')")
     directory = elements_root(workspace_dir) / slug
-    if directory.exists():
+    if directory.exists() or directory.is_symlink():
         raise ElementError(f"{ELEMENTS_MOUNT}/{slug}/ already exists; pick another slug or edit that one")
     directory.mkdir(parents=True)
+    _contained(workspace_dir, directory)
     manifest = new_manifest(name, kind, description, slug=slug)
     write_manifest(directory, manifest)
     (directory / INSTRUCTIONS_NAME).write_text(
@@ -251,15 +277,17 @@ def resolve_checkout(workspace_dir: str | Path, slug: str) -> Path:
     slug = (slug or "").strip().strip("/")
     if slug.startswith(f"{ELEMENTS_MOUNT}/"):
         slug = slug[len(ELEMENTS_MOUNT) + 1:]
-    if not slug or "/" in slug or slug in (".", ".."):
-        raise ElementError("slug names a folder under elements/, for example 'mira'")
+    if not CHECKOUT_NAME_RE.match(slug):
+        raise ElementError("slug names a folder under elements/: lowercase letters, digits and '-', for example 'mira'")
     directory = elements_root(workspace_dir) / slug
+    if directory.is_symlink():
+        raise ElementError(f"{ELEMENTS_MOUNT}/{slug}/ must be a plain folder")
     if not directory.is_dir():
         raise ElementError(
             f"{ELEMENTS_MOUNT}/{slug}/ doesn't exist. Use element(action=\"init\") to start one "
             "or element(action=\"open\") to check out a saved one."
         )
-    return directory
+    return _contained(workspace_dir, directory)
 
 
 async def save_checkout(

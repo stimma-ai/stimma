@@ -280,6 +280,22 @@ async def list_elements(
     return out
 
 
+async def visible_manifest(session: AsyncSession, revision_id: int, manifest: dict[str, Any]) -> dict[str, Any]:
+    """The manifest as it may be shown: a slot whose asset was removed carries no id.
+
+    The bundle is immutable and still names the removed asset; member rows are
+    what privacy deletion scrubs, so they decide what leaves the server.
+    """
+    rows = await _member_rows(session, revision_id)
+    out = json.loads(json.dumps(manifest))
+    for entry in out.get("media_menu") or []:
+        row = rows.get(entry.get("key"))
+        if row is not None and row.missing_linked_asset:
+            entry["asset_id"] = None
+            entry.pop("embedded_media_id", None)
+    return out
+
+
 # Membership ---------------------------------------------------------------------
 
 def element_member_specs(manifest: dict[str, Any], missing_keys: set[str] | frozenset[str] = frozenset()) -> list[dict[str, Any]]:
@@ -287,7 +303,7 @@ def element_member_specs(manifest: dict[str, Any], missing_keys: set[str] | froz
     specs = []
     for entry in manifest.get("media_menu") or []:
         key = entry.get("key")
-        if key in missing_keys:
+        if key in missing_keys or (entry.get("asset_id") is None and entry.get("embedded_media_id") is None):
             spec: dict[str, Any] = {"missing_linked_asset": True}
         elif entry.get("embedded_media_id") is not None:
             spec = {"embedded_media_id": int(entry["embedded_media_id"])}
@@ -433,6 +449,13 @@ async def commit_element(
             if await slot_media(session, entry) is None:
                 raise ElementError(f"media '{key}': media {entry['embedded_media_id']} is not in the library")
             continue
+        if entry.get("asset_id") is None:
+            row = previous_rows.get(key)
+            if row is not None and row.missing_linked_asset:
+                missing_keys.add(key)
+                warnings.append(f"media '{key}' is no longer in the library; its slot is kept empty")
+                continue
+            raise ElementError(f"media '{key}' needs an asset_id (a library asset)")
         linked, media = await _live_asset_media(session, int(entry["asset_id"]))
         if linked is not None and linked.asset_type == ELEMENT_ASSET_TYPE:
             raise ElementError(f"media '{key}': asset {entry['asset_id']} is an element; elements can't contain other elements")
@@ -471,6 +494,7 @@ async def commit_element(
         "media_menu": [
             {
                 **entry,
+                **({"asset_id": None} if entry["key"] in missing_keys else {}),
                 "labels": list(entry.get("labels") or []),
                 "status": entry.get("status") or "canonical",
                 "conditional": bool(entry.get("conditional", False)),
@@ -663,7 +687,7 @@ async def update_element(
         scratch = Path(tempfile.mkdtemp(prefix="stimma-element-edit-"))
         try:
             await copy_bundle_to(media, scratch)
-            edited = read_manifest(scratch)
+            edited = await visible_manifest(session, revision.id, read_manifest(scratch))
             edited["cover_member_key"] = cover_member_key
             edited["name"] = asset.title or edited.get("name")
             write_manifest(scratch, edited)

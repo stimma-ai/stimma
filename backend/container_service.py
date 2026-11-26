@@ -535,11 +535,16 @@ async def get_normalized_container_content(
 
     if container_media.file_format == "stimmaelement":
         # Element media slots are keyed by member key (member.title).
+        # Ids come from the member rows, which privacy deletion scrubs.
         by_key = {entry["title"] or "": entry for entry in members}
         result = json.loads(json.dumps(base))
         for entry_data in result.get("media_menu") or []:
             entry = by_key.get(entry_data.get("key"))
             entry_data["resolved"] = resolved_payload(entry) if entry is not None else None
+            if entry is None or (entry["linked_asset_id"] is None and entry_data.get("embedded_media_id") is None):
+                entry_data["asset_id"] = None
+            elif entry["linked_asset_id"] is not None:
+                entry_data["asset_id"] = entry["linked_asset_id"]
         return result
 
     result = {key: value for key, value in base.items() if key not in {"items", "cells"}}
@@ -860,6 +865,24 @@ def _carried_member(member: ContainerMember) -> dict[str, Any]:
         "title": member.title,
         "member_metadata": member.member_metadata,
     }
+
+
+async def carry_revision_members(
+    session: AsyncSession,
+    *,
+    asset_id: int,
+    source_revision_id: int,
+    revision_id: int,
+) -> list[ContainerMember]:
+    """Give ``revision_id`` the same members as ``source_revision_id`` (idempotent)."""
+    members = await _revision_members(session, source_revision_id)
+    return await _populate_revision_members(
+        session,
+        container_asset_id=asset_id,
+        revision_id=revision_id,
+        members=[_carried_member(m) for m in members],
+        check_links=False,
+    )
 
 
 async def _revision_members(

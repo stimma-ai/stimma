@@ -366,3 +366,86 @@ async def test_generation_lineage_records_and_scrubs(db_session, tmp_path):
         await session.refresh(output)
         assert "elements" not in json.loads(output.generation_metadata)
         assert await media_made_with(session, asset_id) == []
+
+
+@pytest.mark.asyncio
+async def test_removed_asset_id_is_not_shown_anywhere(db_session, client, tmp_path):
+    from asset_deletion_service import prepare_asset_reference_deletion
+
+    workspace = tmp_path / "ws"
+    async with db_session() as session:
+        asset_id, linked = await _make_mira(session, tmp_path, workspace)
+        gone = linked[1]
+        await prepare_asset_reference_deletion(session, [gone])
+        await session.commit()
+        media_id = (await client.get(f"/api/elements/{asset_id}")).json()["media_id"]
+
+    content = (await client.get(f"/api/media/{media_id}/content")).json()
+    slot = next(e for e in content["media_menu"] if e["key"] == "expr-angry")
+    assert slot["asset_id"] is None and slot["resolved"] is None and slot["usage_hint"]
+    assert content["media_menu"][0]["asset_id"] == linked[0]
+
+    async with db_session() as session:
+        other = tmp_path / "ws-fresh"
+        out = await _tool(session, other, action="open", asset_id=asset_id)
+        assert f"asset_id {gone}" not in out and "expr-angry (no longer in the library" in out
+        checked_out = json.loads((other / "elements/mira/element.json").read_text())
+        assert checked_out["media_menu"][1]["asset_id"] is None
+        saved = await _tool(session, other, action="save", slug="mira")
+        assert saved.startswith("Saved"), saved
+        asset = await session.get(Asset, asset_id)
+        bundle = Path((await session.get(MediaItem, (await session.get(AssetRevision, asset.current_revision_id)).primary_media_id)).file_path)
+        assert json.loads((bundle / "element.json").read_text())["media_menu"][1]["asset_id"] is None
+        # A slot with no asset that wasn't already empty is an error, not a silent hole.
+        _edit_manifest(other / "elements/mira", media_menu=[*checked_out["media_menu"], {"key": "new", "title": "x"}])
+        assert "media 'new' needs an asset_id" in await _tool(session, other, action="save", slug="mira")
+
+    # Setting the cover through the viewer doesn't bring the id back either.
+    response = await client.patch(f"/api/elements/{asset_id}", json={"cover_member_key": "face-front"})
+    assert response.status_code == 200
+    async with db_session() as session:
+        asset = await session.get(Asset, asset_id)
+        bundle = Path((await session.get(MediaItem, (await session.get(AssetRevision, asset.current_revision_id)).primary_media_id)).file_path)
+        assert gone not in [e.get("asset_id") for e in json.loads((bundle / "element.json").read_text())["media_menu"]]
+
+
+@pytest.mark.asyncio
+async def test_restoring_an_old_version_keeps_its_media(db_session, client, tmp_path):
+    workspace = tmp_path / "ws"
+    async with db_session() as session:
+        asset_id, linked = await _make_mira(session, tmp_path, workspace)
+        first = (await session.get(Asset, asset_id)).current_revision_id
+        _edit_manifest(workspace / "elements/mira", media_menu=[{"key": "only", "asset_id": linked[0]}], cover_member_key=None)
+        assert (await _tool(session, workspace, action="save", slug="mira")).startswith("Saved")
+
+    restored = await client.post(f"/api/assets/{asset_id}/revisions/{first}/restore")
+    assert restored.status_code == 200, restored.text
+    detail = (await client.get(f"/api/elements/{asset_id}")).json()
+    assert detail["revision_number"] == 3
+    assert [(m["key"], m["asset_id"], m["missing"]) for m in detail["media"]] == [
+        ("face-front", linked[0], False), ("expr-angry", linked[1], False)]
+
+
+@pytest.mark.asyncio
+async def test_checkouts_stay_inside_the_workspace(db_session, tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    (workspace / "elements").symlink_to(outside, target_is_directory=True)
+    async with db_session() as session:
+        out = await _tool(session, workspace, action="init", slug="mira", name="Mira")
+        assert out.startswith("Error:") and "plain folder" in out
+        assert list(outside.iterdir()) == []
+
+        good = tmp_path / "ws2"
+        await _tool(session, good, action="init", slug="mira", name="Mira")
+        for bad in ("..\\..\\x", "mira\\..", "../mira", "Mira"):
+            assert (await _tool(session, good, action="save", slug=bad)).startswith("Error:")
+        (outside / "evil").mkdir()
+        (good / "elements" / "evil").symlink_to(outside / "evil", target_is_directory=True)
+        assert "plain folder" in await _tool(session, good, action="save", slug="evil")
+        (good / "elements/mira/ELEMENT.md").unlink()
+        (outside / "secret.md").write_text("secret")
+        (good / "elements/mira/ELEMENT.md").symlink_to(outside / "secret.md")
+        assert "must not be a link" in await _tool(session, good, action="save", slug="mira")

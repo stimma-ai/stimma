@@ -483,13 +483,23 @@ async def restore_revision_as_latest(
     restored_media = MediaItem(**values)
     session.add(restored_media)
     await session.flush()
-    return await commit_revision(
+    revision = await commit_revision(
         session,
         asset_id=asset_id,
         media_id=restored_media.id,
         parent_revision_id=source_revision.id,
         note=f"Restored version {source_revision.revision_number}",
     )
+    # A container's members live on its revision rows, not in the payload, so
+    # the restored revision carries the source revision's members (and
+    # ownership of its embedded media) along with the cloned payload.
+    from container_service import CONTAINER_TYPES, carry_revision_members
+
+    if asset.asset_type in CONTAINER_TYPES:
+        await carry_revision_members(
+            session, asset_id=asset_id, source_revision_id=source_revision.id, revision_id=revision.id
+        )
+    return revision
 
 
 async def create_working_document(

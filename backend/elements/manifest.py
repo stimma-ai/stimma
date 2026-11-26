@@ -132,8 +132,10 @@ def validate_manifest(manifest: Any) -> tuple[list[str], list[str]]:
             where = f"media '{key}'"
         linked = _int_or_none(entry.get("asset_id"))
         embedded = _int_or_none(entry.get("embedded_media_id"))
-        if (linked is None) == (embedded is None):
-            errors.append(f"{where} needs an asset_id (a library asset)")
+        if linked is not None and embedded is not None:
+            errors.append(f"{where} has both asset_id and embedded_media_id; use one")
+        elif entry.get("asset_id") is not None and linked is None:
+            errors.append(f"{where}.asset_id must be a number")
         status = entry.get("status", "canonical")
         if status not in STATUSES:
             errors.append(f"{where}.status must be one of {', '.join(STATUSES)}")
