@@ -286,6 +286,8 @@ async def list_elements(
             if needle not in haystack:
                 continue
         menu = manifest.get("media_menu") or []
+        cover_entry = next((e for e in menu if e.get("key") == manifest.get("cover_member_key")), None)
+        cover_media = await slot_media(session, cover_entry) if cover_entry else None
         out.append({
             "asset_id": asset.id,
             "revision_id": revision.id,
@@ -300,6 +302,7 @@ async def list_elements(
             "lora_count": len(manifest.get("loras") or []),
             "file_count": len(manifest.get("files") or []),
             "cover_member_key": manifest.get("cover_member_key"),
+            "cover_media_id": cover_media.id if cover_media is not None else None,
             "created_at": asset.created_at.isoformat(),
             "updated_at": max(asset.updated_at, revision.created_at).isoformat(),
         })

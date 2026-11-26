@@ -46,6 +46,8 @@ const GLOBAL_PREF_DEFAULTS: Record<string, unknown> = {
   agentInstructions: '',
   batchMode: false,
   batchField: 'input_images',
+  // Attached elements and their picks (useToolElements.ts). Null: none.
+  elements: null,
 }
 const GLOBAL_PREF_KEYS = new Set(Object.keys(GLOBAL_PREF_DEFAULTS))
 
@@ -185,6 +187,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     // (and presets) — otherwise the items restore but the slot reverts to N refs.
     state.batchMode = globalPrefs.value.batchMode ?? false
     state.batchField = globalPrefs.value.batchField ?? 'input_images'
+    state.elements = globalPrefs.value.elements ?? null
 
     // Include ALL loras with their enabled state
     state.loras = toolLoras.value.map(l => ({
@@ -220,6 +223,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     globalPrefs.value.agentInstructions = state.agentInstructions ?? ''
     globalPrefs.value.batchMode = state.batchMode ?? false
     globalPrefs.value.batchField = state.batchField ?? 'input_images'
+    globalPrefs.value.elements = state.elements ?? null
 
     // Apply ALL model params from state (except ephemeral)
     for (const [key, value] of Object.entries(state)) {
@@ -464,6 +468,10 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       // default so loading an older state/preset doesn't read as modified.
       if (key === 'batchMode') {
         if ((currentState[key] ?? false) !== (base[key] ?? false)) return true
+        continue
+      }
+      if (key === 'elements') {
+        if (JSON.stringify(currentState[key] ?? null) !== JSON.stringify(base[key] ?? null)) return true
         continue
       }
       if (key === 'batchField') {

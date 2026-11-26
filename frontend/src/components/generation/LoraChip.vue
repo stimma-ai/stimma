@@ -20,6 +20,13 @@
     <div class="flex-1 min-w-0" :title="unavailable ? item.lora + ' — not available for this tool' : item.lora">
       <div class="flex items-center gap-1 compact:flex-wrap compact:gap-y-0.5">
         <span :class="['truncate text-[13px] compact:max-w-full', unavailable ? 'line-through' : (item.enabled ? 'font-medium' : '')]">{{ displayName.primary }}</span>
+        <!-- This LoRA came with an element. -->
+        <span
+          v-if="fromElement"
+          class="shrink-0 inline-flex items-center gap-0.5 text-[10px] leading-none px-1 py-0.5 rounded bg-overlay-subtle text-content-tertiary"
+          :title="fromElement.name"
+          data-element-lora-tag
+        ><PuzzlePieceIcon class="w-2.5 h-2.5" />{{ fromElement.name }}</span>
         <span
           v-for="chip in secondaryChips"
           :key="chip"
@@ -118,6 +125,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { PuzzlePieceIcon } from '@heroicons/vue/24/outline'
+import { injectToolElements } from '../../composables/useToolElements'
 import type { LoraPoolItem } from '../../composables/useLoraPool'
 import { getDirectoryPath } from '../../composables/useLoraDisplayNames'
 import ScrubValue from '../ui/ScrubValue.vue'
@@ -157,6 +166,9 @@ const emit = defineEmits<{
   (e: 'toggle-note'): void
   (e: 'insert-trigger', word: string): void
 }>()
+
+const toolElements = injectToolElements()
+const fromElement = computed(() => toolElements?.forLora(props.item.lora) ?? null)
 
 const directoryPath = computed(() => getDirectoryPath(props.item.lora))
 

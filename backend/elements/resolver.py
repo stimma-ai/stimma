@@ -34,7 +34,7 @@ log = get_logger(__name__)
 
 RESOLVER_VERSION = 1
 SURFACES = ("enhance", "fluent", "tool_agent")
-LLM_TIMEOUT_SECONDS = 25.0
+LLM_TIMEOUT_SECONDS = 40.0
 _MAX_REASON = 160
 
 AskModel = Callable[[list[dict[str, Any]]], Awaitable[str]]
@@ -375,8 +375,8 @@ leaves something open (an expression, a pose), prefer a neutral, versatile image
 instructions say otherwise). At most one per element unless its instructions ask for more.
 - guidance: two to four plain sentences for the writer who turns the prompt into the final text: \
 what must stay the same, what an active LoRA already draws and so must not be described, and what \
-each chosen reference image is for (refer to them in order as image 1, image 2 ...). No lists, no \
-headings.
+each chosen reference image is for (refer to them in order as image 1, image 2 ...). Name things \
+as a person would; never write keys, file names or the word LoRA. No lists, no headings.
 
 Reply with JSON only, exactly this shape:
 {"references": [{"element": 1, "key": "...", "why": "..."}], "loras": [{"element": 1, "key": "...", "weight": 0.8}], "guidance": "..."}"""
@@ -504,7 +504,7 @@ async def default_ask_model(messages: list[dict[str, Any]], project_id: Optional
 
     cfg = await get_effective_llm_config("tool_assistant", project_id)
     with llm_correlation_context("element-resolver"):
-        return await llm_complete_text(config=cfg, messages=messages, max_tokens=900, temperature=0.2,
+        return await llm_complete_text(config=cfg, messages=messages, max_tokens=2500, temperature=0.2,
                                        enable_thinking=False, retry_reasoning=False)
 
 
@@ -566,6 +566,26 @@ def _finish(plan: dict[str, Any], elements: list[Element], info: ToolInfo, param
     return {**plan, "resolved_guidance": guidance, "elements": out_elements, "warnings": warnings}
 
 
+async def _with_paths(session, result: dict[str, Any]) -> dict[str, Any]:
+    """Each chosen reference's file, as a tool slot takes it."""
+    from sqlalchemy import select
+
+    from database import MediaItem
+
+    ids = [r["media_id"] for r in result["selected_refs"] if r.get("media_id")]
+    if not ids:
+        return result
+    rows = {m.id: m for m in await session.scalars(select(MediaItem).where(MediaItem.id.in_(ids)))}
+    refs = []
+    for r in result["selected_refs"]:
+        media = rows.get(r.get("media_id"))
+        if media is None:
+            continue
+        refs.append({**r, "file_path": media.file_path, "file_hash": media.file_hash,
+                     "width": media.width, "height": media.height})
+    return {**result, "selected_refs": refs}
+
+
 async def resolve(
     session,
     *,
@@ -603,7 +623,7 @@ async def resolve(
     if not loaded or not needs_judgment(loaded, remaining):
         plan = deterministic_plan(loaded, remaining)
         result = _finish(plan, loaded, info, parameters, ov, warnings, enhance_enabled)
-        return {**result, "mode": "deterministic", "key": program_key(base_key)}
+        return await _with_paths(session, {**result, "mode": "deterministic", "key": program_key(base_key)})
 
     model = await model_fingerprint(project_id) if ask_model is None else "injected"
     key = program_key({**base_key, "prompt": " ".join((prompt or "").split()), "model": model})
@@ -614,7 +634,8 @@ async def resolve(
             store = None
     hit = _cached(store if use_store else None, key) if use_store else None
     if hit is not None:
-        return {**_finish(hit, loaded, info, parameters, ov, list(warnings), enhance_enabled), "mode": "cached", "key": key}
+        result = _finish(hit, loaded, info, parameters, ov, list(warnings), enhance_enabled)
+        return await _with_paths(session, {**result, "mode": "cached", "key": key})
 
     # One model call per key: a debounced re-resolve and Run's wait share it.
     pending = _inflight.get(key)
@@ -636,7 +657,8 @@ async def resolve(
     else:
         mode = "fallback"
         warnings = [*warnings, "Picked each element's main image; the assistant wasn't available."]
-    return {**_finish(plan, loaded, info, parameters, ov, warnings, enhance_enabled), "mode": mode, "key": key}
+    result = _finish(plan, loaded, info, parameters, ov, warnings, enhance_enabled)
+    return await _with_paths(session, {**result, "mode": mode, "key": key})
 
 
 async def _judge(elements: list[Element], info: ToolInfo, prompt: str, remaining: int,
@@ -651,7 +673,7 @@ async def _judge(elements: list[Element], info: ToolInfo, prompt: str, remaining
         plan, _w = parse_reply(reply, elements, remaining)
         if plan is not None:
             return plan, True
-        log.warning("[elements] resolver reply wasn't usable; using the main images")
+        log.warning(f"[elements] resolver reply wasn't usable; using the main images: {(reply or '')[:200]!r}")
     except asyncio.TimeoutError:
         log.warning("[elements] resolver timed out; using the main images")
     except Exception as exc:

@@ -414,6 +414,9 @@
           />
         </Teleport>
 
+        <!-- Elements on this tool, above the slots and LoRAs they fill. -->
+        <ToolElements v-if="elementsSupported" :project-id="projectScopeId" />
+
         <!-- Media Input (images or videos, unified picker). In batch mode the slot
              collapses to a representative stack with a count; the same prep
              controls apply uniformly to every item. -->
@@ -3472,6 +3475,8 @@ watch(() => videoImages.startImage, (newStart, oldStart) => {
 import { useLoraPool } from '../composables/useLoraPool'
 import { usePromptProgram, type EnhanceLevel } from '../composables/usePromptProgram'
 import FluentSlotList from '../components/generation/FluentSlotList.vue'
+import ToolElements from '../components/generation/ToolElements.vue'
+import { useToolElements, provideToolElements } from '../composables/useToolElements'
 import FluentControl from '../components/generation/FluentControl.vue'
 import { PROMPT_BRAND } from '../components/generation/promptBrand'
 import { firstStage, promptVaries, promptWrites, stageTile, type PromptStage, fallbackNotice, isPrepareFailureCode, programRunActions, shapePromptOptions } from '../utils/fluentSubmit'
@@ -3974,6 +3979,24 @@ const {
   tool,
   availableLoras,
 })
+
+// Elements ---------------------------------------------------------------------------
+// Attached elements fill reference slots and LoRAs for the prompt (useToolElements.ts).
+const elementsSupported = computed(() => hasPrompt.value)
+const elementRefsAllowed = () => mediaInputConfig.value?.paramKey === 'input_images' && !globalPrefs.value.batchMode && !hasMask.value
+const toolElements = useToolElements({
+  globalPrefs,
+  toolLoras,
+  toolId: () => tool.value?.full_tool_id ?? null,
+  taskType: () => tool.value?.task_type ?? null,
+  maxRefs: () => (elementRefsAllowed() ? mediaInputConfig.value?.max ?? 0 : 0),
+  refsAllowed: elementRefsAllowed,
+  parameters: () => ({
+    width: modelParams.value.width, height: modelParams.value.height, aspect_ratio: modelParams.value.aspect_ratio,
+  }),
+  projectId: () => projectScopeId.value ?? null,
+})
+provideToolElements(toolElements)
 
 // Prompt programs ----------------------------------------------------------------
 // In Fluent the prompt is prepared once into a program and each run draws from it (no
@@ -5670,6 +5693,11 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
     modelParams.value.seed = generateRandomSeed()
   }
 
+  // Attached elements: the run waits for the plan for the prompt as it is now, so the
+  // slots and LoRAs it reads below are never stale.
+  await toolElements.ensureResolved()
+  if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
+
   // Build state for payload builder
   const builderState: PayloadBuilderState = {
     globalPrefs: globalPrefs.value as any,
@@ -5760,6 +5788,11 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
     program: promptProgram.payload(options.programFixed, options.programDrawSeed),
   })
   const enhanceOn = !!promptOptions?.autoImprove?.enabled
+  // What the elements tell the prompt writers, and which elements the output was made with.
+  const elementContext = toolElements.elementContext()
+  if (promptOptions && elementContext) promptOptions.elementContext = elementContext
+  const jobElements = toolElements.jobElements(enhanceOn)
+  if (jobElements) capturedState.parameters._elements = jobElements
 
   // Ideogram JSON needs the real canvas so the model composes layout/bboxes for
   // the right aspect ratio (Ideogram 4 uses fixed width×height presets).
@@ -6506,6 +6539,9 @@ watch(() => tool.value?.full_tool_id, () => { void loadToolSkills() }, { immedia
 
 function getStateContext(): Record<string, any> {
   const ctx: Record<string, any> = {}
+
+  const activeElements = toolElements.agentState()
+  if (activeElements) ctx.active_elements = activeElements
 
   if (tool.value) {
     ctx.current_tool = {

@@ -231,6 +231,20 @@
                 </svg>
                 <span class="text-[10px] font-semibold text-white leading-none">{{ formatFrameTime(item._frameTime) }}</span>
               </div>
+              <!-- An element put this image here for this prompt (the frame-grab badge's
+                   grammar). Replacing the image, or Keep, makes it the user's. -->
+              <button
+                v-else-if="elementOf(item)"
+                type="button"
+                class="absolute bottom-1 left-1 z-chrome max-w-[calc(100%-0.5rem)] bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1 text-white"
+                :title="elementOf(item)!.name"
+                data-element-badge
+                @click.stop="openElementMenu(item, $event)"
+              >
+                <Spinner v-if="toolElements?.working.value" size="sm" class="flex-none !w-3 !h-3" />
+                <PuzzlePieceIcon v-else class="w-3 h-3 flex-none" />
+                <span class="truncate text-[10px] font-semibold leading-none">{{ elementOf(item)!.name }}</span>
+              </button>
 
             </div>
 
@@ -823,6 +837,8 @@
       @change="handleFileSelect"
     >
 
+    <ActionMenu v-if="elementMenu" :x="elementMenu.x" :y="elementMenu.y" :actions="elementMenuActions" @close="elementMenu = null" />
+
     <!-- In-app media picker: recents-first popover anchored to the add tile;
          "Browse Files…" inside it falls back to the OS dialog. -->
     <MediaPickerPopover
@@ -907,6 +923,9 @@ import { recordMediaInputUse, removeRecentMediaInput, type RecentInputKind } fro
 import { removeRecentMediaPick } from '../../composables/useRecentMediaPicks'
 import { getMediaType } from '../../utils/mediaTypes'
 import Spinner from '../ui/Spinner.vue'
+import { PuzzlePieceIcon } from '@heroicons/vue/24/outline'
+import ActionMenu from '../ActionMenu.vue'
+import { injectToolElements } from '../../composables/useToolElements'
 import { useViewport } from '../../composables/useViewport'
 import Modal from '../ui/Modal.vue'
 import { useOwnerProject } from '../../composables/useProjectScope'
@@ -1048,6 +1067,24 @@ const emit = defineEmits<{
   (e: 'suggest-aspect', dims: { width: number; height: number } | null, options?: { manual?: boolean }): void
   (e: 'explode'): void
 }>()
+
+// Elements on this tool: a slot an element filled carries its glyph and name.
+const toolElements = injectToolElements()
+const elementOf = (item: any) => (props.accept === 'image' ? toolElements?.forMedia(item?.mediaId) ?? null : null)
+const elementMenu = ref<{ x: number; y: number; item: any } | null>(null)
+function openElementMenu(item: any, e: MouseEvent) {
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  elementMenu.value = { x: r.left, y: r.bottom + 4, item }
+}
+const elementMenuActions = computed(() => {
+  const m = elementMenu.value
+  const el = m ? elementOf(m.item) : null
+  if (!m || !el) return []
+  return [
+    { label: 'Keep this image', action: () => toolElements?.keepMedia(m.item.mediaId) },
+    { label: `Open ${el.name}`, action: () => { if (el.media_id) emit('view-media', el.media_id) } },
+  ]
+})
 
 const API_BASE = '/api'
 // Uploaded references become assets in the tool tab's project.
