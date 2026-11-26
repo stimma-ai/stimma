@@ -95,6 +95,18 @@ async def test_read_side_flow_recovery_cannot_restart_during_maintenance(monkeyp
     flow.build_initial_graph.assert_not_called()
 
 
+def _kill_group(proc):
+    """Kill and reap a test server and whatever is left of its process group."""
+    import os
+    import signal
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    proc.kill()
+    proc.wait(timeout=20)
+
+
 def test_headless_exit_stops_helpers_holding_the_database(tmp_path):
     """The server outlives every process it started, so an old supervisor's
     wait for the server alone is enough before the next release migrates."""
@@ -122,13 +134,16 @@ while not os.path.exists({str(ready)!r}):
 import headless_runtime
 headless_runtime.stop_helper_processes(grace=0.2)
 '''
-    result = subprocess.run([sys.executable, '-c', server], env={**__import__('os').environ, 'STIMMA_HEADLESS': '1'},
-                            process_group=0, timeout=60)
-    assert result.returncode == 0
-    with sqlite3.connect(db, timeout=0.2) as connection:
-        connection.execute('PRAGMA locking_mode=EXCLUSIVE')
-        connection.execute('BEGIN EXCLUSIVE')
-        connection.rollback()
+    proc = subprocess.Popen([sys.executable, '-c', server], env={**__import__('os').environ, 'STIMMA_HEADLESS': '1'},
+                            process_group=0)
+    try:
+        assert proc.wait(timeout=60) == 0
+        with sqlite3.connect(db, timeout=0.2) as connection:
+            connection.execute('PRAGMA locking_mode=EXCLUSIVE')
+            connection.execute('BEGIN EXCLUSIVE')
+            connection.rollback()
+    finally:
+        _kill_group(proc)
 
 
 def test_stop_signal_to_the_server_alone_stops_its_helpers(tmp_path):
@@ -174,7 +189,10 @@ time.sleep(600)
 
 uvicorn.run(FastAPI(lifespan=lifespan), host='127.0.0.1', port={port}, log_config=None, timeout_graceful_shutdown=0)
 '''
-    proc = subprocess.Popen([sys.executable, '-c', server], env={**os.environ, 'STIMMA_HEADLESS': '1'})
+    # The server makes itself a group leader; owning the group here as well
+    # means a failed run can always be cleaned up.
+    proc = subprocess.Popen([sys.executable, '-c', server], env={**os.environ, 'STIMMA_HEADLESS': '1'},
+                            process_group=0)
     try:
         deadline = time.monotonic() + 60
         while not ready.exists():
@@ -187,9 +205,4 @@ uvicorn.run(FastAPI(lifespan=lifespan), host='127.0.0.1', port={port}, log_confi
             connection.execute('BEGIN EXCLUSIVE')
             connection.rollback()
     finally:
-        if proc.poll() is None:
-            proc.kill()
-        try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except (ProcessLookupError, PermissionError):
-            pass
+        _kill_group(proc)

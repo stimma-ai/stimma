@@ -315,23 +315,44 @@ time.sleep(600)
 '''
 
 
-def _start_leaky_server(tmp_path, term='SIG_DFL'):
+def _kill_group(proc):
+    """Kill and reap a test server and whatever is left of its process group."""
+    import os
+    import signal
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    proc.kill()
+    proc.wait(timeout=20)
+
+
+@pytest.fixture
+def leaky_server(tmp_path):
     import subprocess
     import sys
     import time
-    db, ready = tmp_path / 'stimma_v1.db', tmp_path / 'helper-ready'
-    script = tmp_path / 'server.py'
-    script.write_text(_LEAKY_SERVER)
-    child = subprocess.Popen([sys.executable, str(script), str(db), str(ready), term], process_group=0)
-    deadline = time.monotonic() + 20
-    while not ready.exists():
-        assert time.monotonic() < deadline and child.poll() is None
-        time.sleep(0.05)
-    return child, db
+    started = []
+
+    def start(term='SIG_DFL'):
+        db, ready = tmp_path / 'stimma_v1.db', tmp_path / 'helper-ready'
+        script = tmp_path / 'server.py'
+        script.write_text(_LEAKY_SERVER)
+        child = subprocess.Popen([sys.executable, str(script), str(db), str(ready), term], process_group=0)
+        started.append(child)
+        deadline = time.monotonic() + 20
+        while not ready.exists():
+            assert time.monotonic() < deadline and child.poll() is None
+            time.sleep(0.05)
+        return child, db
+
+    yield start
+    for child in started:
+        _kill_group(child)
 
 
-def test_stop_child_waits_for_helpers_that_hold_the_database(tmp_path):
-    child, db = _start_leaky_server(tmp_path)
+def test_stop_child_waits_for_helpers_that_hold_the_database(leaky_server):
+    child, db = leaky_server()
     with pytest.raises(RuntimeError, match='still in use'):
         supervisor.require_exclusive(db, timeout=0.2)
     instance = supervisor.Supervisor()
@@ -342,10 +363,10 @@ def test_stop_child_waits_for_helpers_that_hold_the_database(tmp_path):
     supervisor.require_exclusive(db, timeout=0.2)
 
 
-def test_stop_group_kills_helpers_that_ignore_sigterm(tmp_path):
+def test_stop_group_kills_helpers_that_ignore_sigterm(leaky_server):
     import os
     import signal
-    child, db = _start_leaky_server(tmp_path, term='SIG_IGN')
+    child, db = leaky_server(term='SIG_IGN')
     os.kill(child.pid, signal.SIGTERM)
     child.wait(timeout=20)
     assert supervisor.group_members(child.pid)
