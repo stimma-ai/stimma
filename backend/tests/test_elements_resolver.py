@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from elements.resolver import ToolInfo, element_guidance_text, resolve
+from elements.resolver import ToolInfo, element_guidance_text, fluent_element_text, resolve
 from prompt_programs.store import ProgramStore
 from tests.test_elements import _edit_manifest, _library_image, _png, _tool
 
@@ -110,7 +110,7 @@ async def test_model_shares_the_budget_and_bad_picks_are_dropped(db_session, tmp
                 {"element": 1, "key": "face-front"},
             ],
             "loras": [{"element": 1, "key": "mira-klein-v2", "weight": 0.7}, {"element": 2, "key": "nope"}],
-            "guidance": "Keep her bob. Image 1 shows her glare.",
+            "guidance": "Keep her bob. [image 1] shows her glare; [image 3] the street; [image 4] is cut.",
         })
         plan = await resolve(session, elements=[{"asset_id": mira}, {"asset_id": place}], tool_id="t",
                              prompt="Mira glaring across the market", info=_info(2), ask_model=model, use_store=False)
@@ -119,7 +119,9 @@ async def test_model_shares_the_budget_and_bad_picks_are_dropped(db_session, tmp
         (mira, "expr-angry"), (place, "street")]
     assert plan["selected_refs"][0]["reason"] == "She is furious"
     assert [(lo["lora_key"], lo["weight"]) for lo in plan["selected_loras"]] == [("mira-klein-v2", 0.7)]
-    assert plan["resolved_guidance"].startswith("Keep her bob")
+    # The model numbered its own list (a dropped pick included); the plan numbers its refs.
+    assert plan["resolved_guidance"] == ("Keep her bob. {ref:1} shows her glare; {ref:2} the street; "
+                                         "a reference image is cut.")
     user = model.calls[0][1]["content"]
     assert "Free reference image slots: 2." in user and "Mira glaring across the market" in user
     assert 'key "expr-angry"' in user and "use when: When the prompt asks for anger." in user
@@ -179,6 +181,47 @@ async def test_judged_plans_are_cached_and_fallbacks_are_not(db_session, tmp_pat
         changed = await resolve(session, ask_model=model, **{**args, "prompt": "Mira furious"})
     assert first["mode"] == "resolved" and second["mode"] == "cached" and changed["mode"] == "resolved"
     assert second["selected_refs"] == first["selected_refs"]
+    assert len(model.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_cached_plan_follows_the_menu_as_it_is_now(db_session, tmp_path):
+    from elements import resolver
+    store = ProgramStore(tmp_path / "store")
+    async with db_session() as session:
+        mira = await _element(session, tmp_path, "mira", MIRA_MEDIA, MIRA_LORA)
+        args = dict(elements=[{"asset_id": mira}], tool_id="t", prompt="Mira smiling", info=_info(2), store=store)
+        model = FakeModel({"references": [{"element": 1, "key": "expr-smile"}, {"element": 1, "key": "face-front"}],
+                           "loras": [], "guidance": "[image 1] for the smile, [image 2] for her face."})
+        first = await resolve(session, ask_model=model, **args)
+        # The stored plan holds media ids from when it was judged; a linked image has moved on since.
+        stored = store.get(first["key"])
+        stored["selected_refs"][0]["media_id"] = 987654
+        store.put(first["key"], stored)
+        resolver._memory.clear()
+        again = await resolve(session, ask_model=model, **args)
+        # A choice no longer on the menu (its image gone) is dropped, and its reference with it.
+        stored["selected_refs"][0]["member_key"] = "gone"
+        store.put(first["key"], stored)
+        resolver._memory.clear()
+        dropped = await resolve(session, ask_model=model, **args)
+    assert again["mode"] == "cached" and len(model.calls) == 1
+    assert [r["media_id"] for r in again["selected_refs"]] == [r["media_id"] for r in first["selected_refs"]]
+    assert again["selected_refs"][0]["file_path"]
+    assert [r["member_key"] for r in dropped["selected_refs"]] == ["face-front"]
+    assert dropped["resolved_guidance"] == "a reference image for the smile, {ref:1} for her face."
+
+
+@pytest.mark.asyncio
+async def test_plans_are_not_shared_across_profiles(db_session, tmp_path):
+    async with db_session() as session:
+        mira = await _element(session, tmp_path, "mira", MIRA_MEDIA, MIRA_LORA)
+        model = FakeModel({"references": [{"element": 1, "key": "expr-smile"}], "loras": [], "guidance": "g"})
+        args = dict(elements=[{"asset_id": mira}], tool_id="t", prompt="Mira smiling", info=_info(1), ask_model=model)
+        a = await resolve(session, profile_id="a", store=ProgramStore(tmp_path / "a"), **args)
+        b = await resolve(session, profile_id="b", store=ProgramStore(tmp_path / "b"), **args)
+        a2 = await resolve(session, profile_id="a", store=ProgramStore(tmp_path / "a"), **args)
+    assert (a["mode"], b["mode"], a2["mode"]) == ("resolved", "resolved", "cached")
     assert len(model.calls) == 2
 
 
@@ -254,3 +297,21 @@ async def test_job_elements_are_recorded_on_the_output(db_session, tmp_path):
         media = await session.get(MediaItem, output)
     assert [(r.element_asset_id, r.carrier) for r in rows] == [(mira, "refs")]
     assert json.loads(media.generation_metadata)["elements"] == entries
+
+
+def test_fluent_variant_writer_keeps_to_the_elements_and_pools_are_keyed_by_them():
+    from prompt_programs import variants as V
+    from prompt_programs.variant_pools import pool_key
+    context = {"guidance": "per-prompt, left out", "elements": [
+        {"name": "Old Wen", "instructions": {"fluent": "Gray stubble, a white towel on his shoulder.", "enhance": "x"}}]}
+    text = fluent_element_text(context)
+    assert text == "## Old Wen\nGray stubble, a white towel on his shoulder." and fluent_element_text(None) == ""
+    prompt = "<old man> at a noodle stall"
+    slot = V.Slot(words="old man", prompt=prompt, span=(0, 9), kind="free", elements=text)
+    user = V.messages(slot, V.draw_seeds(__import__("random").Random(1), V.Seeds(), 3, "old man"), V.Seeds())[1]["content"]
+    assert V.ELEMENTS_LINE in user and "Gray stubble, a white towel" in user
+    plain = V.messages(V.Slot(words="old man", prompt=prompt, span=(0, 9)), V.draw_seeds(
+        __import__("random").Random(1), V.Seeds(), 3, "old man"), V.Seeds())[1]["content"]
+    assert V.ELEMENTS_LINE not in plain
+    assert pool_key("m", "old man", prompt, []) != pool_key("m", "old man", prompt, [], elements="abc")
+    assert pool_key("m", "old man", prompt, []) == pool_key("m", "old man", prompt, [], elements="")

@@ -11,15 +11,16 @@
  * - Keep makes a pick the user's (pinned): it stays and counts against the budget;
  * - removing or replacing a pick excludes it, so it isn't put back.
  *
- * Re-resolving is immediate on attach/detach and overrides, debounced while typing.
- * Run waits for the current prompt's plan (ensureResolved), so stale refs never go out.
+ * Re-resolving is immediate on attach/detach, overrides and the user's own slot count,
+ * debounced while typing or changing parameters. Run waits for the plan made for the inputs
+ * as they are now (ensureResolved), so stale refs never go out.
  */
 
 import axios from 'axios'
 import { computed, inject, nextTick, provide, ref, watch, type InjectionKey, type Ref } from 'vue'
 import { makeStorageKey } from '../utils/storageKeys'
 import { syncedStorage } from '../utils/workspaceStore'
-import { applyLoras, applyRefs, type LoraItem, type LoraPick, type RefPick, type ResolvedLora, type ResolvedRef, type SlotItem } from '../utils/elementSlots'
+import { applyLoras, applyRefs, renderGuidance, type LoraItem, type LoraPick, type RefPick, type ResolvedLora, type ResolvedRef, type SlotItem } from '../utils/elementSlots'
 
 export type { ResolvedLora, ResolvedRef } from '../utils/elementSlots'
 
@@ -109,6 +110,9 @@ export function useToolElements(opts: ToolElementsOptions) {
   let spinnerTimer: ReturnType<typeof setTimeout> | null = null
   let applying = false
   let generation = 0
+  // The inputs (inputKey) the current plan, and the request in flight, were made for.
+  let planKey: string | null = null
+  let inflightKey: string | null = null
 
   function write(next: ElementsPrefs) {
     opts.globalPrefs.value.elements = next.attached.length || next.kept.length ? next : null
@@ -186,7 +190,9 @@ export function useToolElements(opts: ToolElementsOptions) {
       if (!item || !item.enabled) goneLoras.push(pick)
       else if (Math.abs(item.weight - pick.weight) > 1e-6) keptLoras.push(pick)
     }
-    const keptGone = p.kept.filter(k => k.kind === 'ref' ? !slotIds.has(k.mediaId) : !loras.some(l => l.lora === k.path && l.enabled))
+    const keptGone = p.kept.filter(k => k.kind === 'ref'
+      ? opts.refsAllowed() && !slotIds.has(k.mediaId)
+      : !loras.some(l => l.lora === k.path && l.enabled))
     if (!goneRefs.length && !goneLoras.length && !keptLoras.length && !keptGone.length) return
     write({
       ...p,
@@ -200,6 +206,8 @@ export function useToolElements(opts: ToolElementsOptions) {
         ...p.excluded,
         ...goneRefs.map(r => ({ element_asset_id: r.element_asset_id, key: r.member_key, kind: 'ref' as const })),
         ...goneLoras.map(l => ({ element_asset_id: l.element_asset_id, key: l.lora_key, kind: 'lora' as const })),
+        // A kept pick the user then removed (or a kept LoRA they switched off) isn't put back either.
+        ...keptGone.map(k => ({ element_asset_id: k.element_asset_id, key: k.key, kind: k.kind })),
       ],
     })
   }
@@ -231,6 +239,19 @@ export function useToolElements(opts: ToolElementsOptions) {
         excluded_loras: p.excluded.filter(k => k.kind === 'lora').map(k => pair(k, 'lora_key')),
       },
     }
+  }
+
+  /** What a plan depends on: the request, less the revisions a plan reports back. */
+  function inputKey(body = requestBody()) {
+    return JSON.stringify({ ...body, elements: body.elements.map(e => e.asset_id) })
+  }
+
+  /** The inputs changed: the request in flight answers for inputs that are gone. */
+  function invalidate() {
+    generation++
+    inflight = null
+    inflightKey = null
+    working.value = false
   }
 
   function apply(result: ResolutionPlan) {
@@ -270,29 +291,36 @@ export function useToolElements(opts: ToolElementsOptions) {
         apply({ mode: 'deterministic', key: '', selected_refs: [], selected_loras: [], resolved_guidance: '', warnings: [], elements: [] })
       }
       plan.value = null
+      planKey = null
       return null
     }
+    const body = requestBody()
+    const key = inputKey(body)
     if (spinnerTimer) clearTimeout(spinnerTimer)
     spinnerTimer = setTimeout(() => { if (gen === generation && inflight) working.value = true }, 150)
     const request = (async () => {
       try {
-        const { data } = await axios.post('/api/elements/resolve', requestBody())
-        if (gen !== generation) return inflight ? await inflight : plan.value
+        const { data } = await axios.post('/api/elements/resolve', body)
+        if (gen !== generation) return plan.value   // the inputs moved on; Run's gate asks again
         apply(data as ResolutionPlan)
+        planKey = key
         if ((data as ResolutionPlan).warnings?.length) console.info('[elements]', (data as ResolutionPlan).warnings.join(' '))
         return data as ResolutionPlan
       } catch (e) {
         // Resolving never blocks a run: the slots stay as they are.
         console.warn('[elements] resolve failed', e)
+        if (gen === generation) planKey = key
         return plan.value
       } finally {
         if (gen === generation) {
           working.value = false
           inflight = null
+          inflightKey = null
         }
       }
     })()
     inflight = request
+    inflightKey = key
     return request
   }
 
@@ -302,23 +330,43 @@ export function useToolElements(opts: ToolElementsOptions) {
     timer = setTimeout(() => { timer = null; void resolveNow() }, debounceMs)
   }
 
-  /** Run's gate: the plan for the prompt as it is now. */
+  /** Run's gate: the plan made for the inputs (prompt, slots, parameters) as they are now. */
   async function ensureResolved(): Promise<ResolutionPlan | null> {
-    if (!prefs.value.attached.length) return null
-    if (timer) return resolveNow()
-    if (inflight) return inflight
-    if (!plan.value) return resolveNow()
+    // An answer can land after another edit: look again (a few times at most; never blocks a run).
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (!prefs.value.attached.length || !opts.toolId()) return null
+      reconcile()
+      const key = inputKey()
+      if (key === planKey) {
+        if (timer) { clearTimeout(timer); timer = null }
+        if (inflight && inflightKey !== key) invalidate()
+        return plan.value
+      }
+      await (inflight && inflightKey === key ? inflight : resolveNow())
+    }
     return plan.value
   }
 
-  // Immediate on attach/detach, Keep, tool switch and the user's slot edits; debounced on typing.
-  const structuralKey = computed(() => JSON.stringify({
-    a: prefs.value.attached.map(a => a.asset_id),
-    k: prefs.value.kept, x: prefs.value.excluded,
-    t: opts.toolId(), e: !!opts.globalPrefs.value.promptOptions?.autoImprove?.enabled,
-  }))
+  // Immediate on attach/detach, Keep, tool switch and the user's slot edits (what they own sets
+  // the budget); debounced while typing or changing the size. Any change voids the request in
+  // flight at once, so Run never takes a plan made for inputs that are gone.
+  const structuralKey = computed(() => {
+    const body = requestBody()
+    return JSON.stringify({
+      a: prefs.value.attached.map(a => a.asset_id),
+      k: prefs.value.kept, x: prefs.value.excluded,
+      t: opts.toolId(), e: body.enhance_enabled, u: body.overrides.user_ref_count,
+    })
+  })
   watch(structuralKey, () => schedule(true))
-  watch(() => opts.globalPrefs.value.prompt, () => { if (prefs.value.attached.length) schedule(false) })
+  watch(
+    () => JSON.stringify([opts.globalPrefs.value.prompt || '', opts.parameters()]),
+    () => {
+      if (!prefs.value.attached.length) return
+      if (inflight) invalidate()
+      schedule(false)
+    },
+  )
   watch(
     () => [((opts.globalPrefs.value.inputImages || []) as SlotItem[]).map(i => i.mediaId), opts.toolLoras.value.map(l => [l.lora, l.weight, l.enabled])],
     () => { if (!applying) reconcile() },
@@ -330,9 +378,22 @@ export function useToolElements(opts: ToolElementsOptions) {
     const current = plan.value
     if (!current || !current.elements.length) return null
     return {
-      guidance: current.resolved_guidance || '',
+      guidance: guidance(current),
       elements: current.elements.map(e => ({ asset_id: e.asset_id, name: e.name, instructions: e.instructions })),
     }
+  }
+
+  /** The plan's guidance, its image references numbered as the images stand in the slots now. */
+  function guidance(current: ResolutionPlan | null) {
+    if (!current?.resolved_guidance) return ''
+    return renderGuidance(current.resolved_guidance, current.selected_refs, (opts.globalPrefs.value.inputImages || []) as SlotItem[])
+  }
+
+  /** What Fluent's variant writer keeps to: each element's own instructions, no per-prompt guidance. */
+  function fluentContext() {
+    const current = plan.value
+    if (!current || !current.elements.length) return null
+    return { elements: current.elements.map(e => ({ name: e.name, instructions: { fluent: e.instructions?.fluent || '' } })) }
   }
 
   /** The job's _elements: which elements it ran with, and how each reached the output. */
@@ -354,7 +415,7 @@ export function useToolElements(opts: ToolElementsOptions) {
     const current = plan.value
     if (!prefs.value.attached.length) return null
     return {
-      guidance: current?.resolved_guidance || '',
+      guidance: guidance(current),
       warnings: current?.warnings || [],
       elements: prefs.value.attached.map(a => {
         const e = current?.elements.find(x => x.asset_id === a.asset_id)
@@ -371,7 +432,7 @@ export function useToolElements(opts: ToolElementsOptions) {
 
   return {
     attached, plan, working, attach, detach, forMedia, forLora, keepMedia,
-    ensureResolved, resolveNow, elementContext, jobElements, agentState,
+    ensureResolved, resolveNow, elementContext, fluentContext, jobElements, agentState,
   }
 }
 

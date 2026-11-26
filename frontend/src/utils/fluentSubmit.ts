@@ -46,6 +46,9 @@ export interface PrepareInputs {
   /** {slot id: 'one' | 'kind'}: the slots the user chose to flesh out or vary. A prepare is read
       with them, so a change means preparing again. */
   modes?: Record<string, 'one' | 'kind'>
+  /** The tool's attached elements as Fluent's variant writer keeps to them
+      ({elements: [{name, instructions: {fluent}}]}): a change means preparing again. */
+  elements?: { elements: Array<{ name: string; instructions: { fluent: string } }> } | null
 }
 
 /** The body of a prepare (and options, pools, preview) request. */
@@ -55,6 +58,7 @@ export function prepareBody(i: PrepareInputs, extra: Record<string, any> = {}): 
     prompt: i.prompt || '',
     project_id: i.projectId ?? null,
     ...(i.modes && Object.keys(i.modes).length ? { choices: Object.fromEntries(Object.entries(i.modes).map(([id, mode]) => [id, { mode }])) } : {}),
+    ...(i.elements?.elements?.length ? { element_context: i.elements } : {}),
     ...extra,
   }
 }
@@ -62,7 +66,8 @@ export function prepareBody(i: PrepareInputs, extra: Record<string, any> = {}): 
 /** Everything but the prompt text that decides the program: a change means preparing again. */
 export function prepareSettingsSig(i: PrepareInputs): string {
   const modes = i.modes && Object.keys(i.modes).length ? Object.fromEntries(Object.entries(i.modes).sort(([a], [b]) => a.localeCompare(b))) : null
-  return JSON.stringify(modes ? { tool: i.toolId, modes } : { tool: i.toolId })
+  const elements = i.elements?.elements?.length ? i.elements.elements : null
+  return JSON.stringify({ tool: i.toolId, ...(modes ? { modes } : {}), ...(elements ? { elements } : {}) })
 }
 
 /** Whether the prompt in the box still has to be sent for reading: it is stale, or a look-up

@@ -50,6 +50,8 @@ interface Options {
   /** Whether the caret is in the prompt box: an edit there is typing, and nothing is read or
       looked up until it pauses (`TYPING_IDLE_MS`), the caret leaves the slot, or the box. */
   inPrompt?: () => boolean
+  /** The tool's attached elements, as Fluent's variant writer keeps to them (useToolElements.fluentContext). */
+  elements?: () => PrepareInputs['elements']
 }
 
 /** How long typing in the prompt pauses before it is read: long enough to ride over a breath
@@ -74,6 +76,7 @@ export function usePromptProgram(o: Options) {
     prompt: o.prompt.value || '',
     projectId: o.projectId.value,
     modes: chosenModes(states.value),
+    elements: o.elements?.() ?? null,
   })
   /** Everything but the prompt text: a prompt prepared under the same settings can still run. */
   const settingsSig = computed(() => prepareSettingsSig(inputs()))

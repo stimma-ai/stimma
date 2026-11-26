@@ -943,6 +943,8 @@ CORE_NOTE = ("The cores are random values of a list, and some won't fit this pro
              "variant with another value of the same kind that fits.")
 
 
+ELEMENTS_LINE = ("The user attached these elements to the picture. What they fix holds in every variant: "
+                 "never write a trait, look or detail that contradicts them, and vary only what they leave open.")
 ONE_LINE = ("This part names one specific thing, not a kind of thing: every variant is that same thing, and contains "
             "exactly {keep}, with the same spelling and capitals, plus a few words of its own that show it one particular "
             "way: its state, condition, angle, moment, details or surroundings (\"Golden Gate Bridge\" -> \"the Golden "
@@ -997,6 +999,7 @@ class Slot:
     category: str = ""             # checked with valid_category
     one: bool = False              # it names one specific thing (reader: names "one"): every word kept as typed
     kind_of: str = ""              # a named thing the user chose to vary: variants are other members of this kind
+    elements: str = ""             # what the elements attached on the tool fix (elements.resolver.fluent_element_text)
 
     @property
     def n(self) -> int:
@@ -1057,6 +1060,8 @@ def messages(slot: Slot, drawn: Drawn, seeds: Seeds, have: Sequence[str] = ()) -
                      f'The whole part is the category "{cat}": every variant is one particular {cat}, its kind or its look '
                      f'described its own way, still a {cat}: never something else like it or found near it.')
     lines += minors_lines(seeds)
+    if slot.elements:
+        lines += ["", ELEMENTS_LINE, slot.elements, ""]
     lines += [] if slot.one else list(seeds.notes)   # the chosen options' and answered questions' notes (several people, a face elsewhere)
     if kind is not None and kind.note:
         lines.append(kind.note)   # the kind's own (a light part), in every first turn, seeded or not

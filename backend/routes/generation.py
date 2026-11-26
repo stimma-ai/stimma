@@ -504,7 +504,7 @@ async def _batch_prompt_preflight(parameters: Dict[str, Any], request) -> None:
         return
     from prompt_programs.choices import modes
     await _read_slots(prompt, profile_id=get_current_profile(), project_id=request.project_id,
-                      modes=modes(program_opts.get("choices")))
+                      modes=modes(program_opts.get("choices")), elements=_fluent_elements(options))
 
 
 def _child_failure_message(e: BaseException) -> str:
@@ -816,6 +816,7 @@ async def _apply_generation_prompt_pipeline(
             prompt, program_opts, project_id=project_id, profile_id=profile_id,
             hot_draws_for=generator_instance_id if forever else None,
             improve_ahead=improve_ahead, ahead=ahead,
+            elements=_fluent_elements(prompt_options),
         )
     filled: Optional[str] = None
     if direct_improve:
@@ -864,6 +865,12 @@ async def _apply_generation_prompt_pipeline(
     return updated
 
 
+def _fluent_elements(prompt_options: Optional[Dict[str, Any]]) -> str:
+    """What the run's attached elements fix, as Fluent's variant writer is told it."""
+    from elements.resolver import fluent_element_text
+    return fluent_element_text((prompt_options or {}).get("elementContext"))
+
+
 def _element_context(prompt_options: Optional[Dict[str, Any]], fluent: bool) -> Optional[Dict[str, Any]]:
     """The run's element context, with each element's instructions as written for this writer."""
     context = (prompt_options or {}).get("elementContext")
@@ -902,7 +909,7 @@ def _slots_failed(e: Exception) -> HTTPException:
 
 
 async def _read_slots(prompt: str, *, profile_id: Optional[str], project_id: Optional[int],
-                      modes: Optional[Dict[str, str]] = None) -> Optional[Dict[str, Any]]:
+                      modes: Optional[Dict[str, str]] = None, elements: str = "") -> Optional[Dict[str, Any]]:
     """The prompt's slots as they stand now (prompt_programs.slots.current): never waits on the
     slot reader or narrowing, and starts reading whatever isn't read yet for later images. Only
     a prompt too long to read fails, as _slots_failed. `modes`: the slots the user chose to flesh
@@ -911,7 +918,7 @@ async def _read_slots(prompt: str, *, profile_id: Optional[str], project_id: Opt
     from prompt_programs.program import ProgramError
 
     try:
-        return await slots.current(prompt, profile_id=profile_id, project_id=project_id, modes=modes)
+        return await slots.current(prompt, profile_id=profile_id, project_id=project_id, modes=modes, elements=elements)
     except ProgramError as e:
         raise _slots_failed(e) from None
 
@@ -925,6 +932,7 @@ async def _run_slots(
     hot_draws_for: Optional[str] = None,
     improve_ahead: Optional[Dict[str, Any]] = None,
     ahead: Optional[Dict[str, Any]] = None,
+    elements: str = "",
 ) -> Tuple[Optional[Dict[str, Any]], str, Optional[List[Tuple[int, int, str]]]]:
     """One image's draw of its prompt's slots and lists: (the record stored with the image,
     the filled prompt, where each drawn value stands in it). The filled prompt is the
@@ -943,7 +951,8 @@ async def _run_slots(
     from prompt_programs.program import ProgramError, draw_seed, model_failure, spans_of
 
     choices = dict(program_opts.get("choices") or {})
-    entry = await _read_slots(prompt, profile_id=profile_id, project_id=project_id, modes=modes(choices))
+    entry = await _read_slots(prompt, profile_id=profile_id, project_id=project_id, modes=modes(choices),
+                              elements=elements)
     if not entry or not entry.get("key"):
         return None, prompt, None
     attach_writer(entry, profile_id)

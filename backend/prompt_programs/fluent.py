@@ -129,7 +129,8 @@ def slot_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", pr
     span = slot.get("span") or [0, 0]
     sl = Slot(words=slot["words"], prompt=str(entry.get("prompt") or ""), span=(int(span[0]), int(span[1])),
               kind=str(slot.get("kind") or "free"), category=str(slot.get("category") or ""),
-              one=bool(slot.get("one")), kind_of=str(slot.get("kind_of") or ""))
+              one=bool(slot.get("one")), kind_of=str(slot.get("kind_of") or ""),
+              elements=str(entry.get("elements") or ""))
     return Job(key=str(slot["pool"]), slot=sl, seeds=seeds_of(record), project_id=project_id, model=model)
 
 
@@ -163,7 +164,8 @@ def early_job(entry: Dict[str, Any], slot: Dict[str, Any], *, model: str = "", p
     span = slot.get("span") or [0, 0]
     sl = Slot(words=slot["words"], prompt=str(entry.get("prompt") or ""), span=(int(span[0]), int(span[1])),
               kind=str(slot.get("kind") or "free"), category=str(slot.get("category") or ""),
-              one=bool(slot.get("one")), kind_of=str(slot.get("kind_of") or ""))
+              one=bool(slot.get("one")), kind_of=str(slot.get("kind_of") or ""),
+              elements=str(entry.get("elements") or ""))
     return Job(key=str(slot["pool"]), slot=sl, seeds=seeds, role="early", project_id=project_id, model=model)
 
 

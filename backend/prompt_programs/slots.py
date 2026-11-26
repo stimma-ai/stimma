@@ -303,6 +303,9 @@ class _Prompt:
     shown: Optional[str] = None
     # slot number -> how the user chose it to vary ("one": flesh it out; "kind": vary it)
     modes: Dict[int, str] = field(default_factory=dict)
+    # What the tool's attached elements fix (elements.resolver.fluent_element_text): the variant
+    # writer keeps to it, and the entry and its pools are keyed by it.
+    elements: str = ""
 
     @property
     def root(self) -> str:
@@ -327,7 +330,13 @@ class _Prompt:
         return out
 
 
-def _key(model: Optional[str], masked: str, exact: Dict[str, str], modes: Optional[Dict[int, str]] = None) -> str:
+def _elements_mark(elements: str) -> str:
+    import hashlib
+    return hashlib.sha256(elements.encode("utf-8")).hexdigest()[:16] if elements else ""
+
+
+def _key(model: Optional[str], masked: str, exact: Dict[str, str], modes: Optional[Dict[int, str]] = None,
+         elements: str = "") -> str:
     from prompt_programs.narrow import NARROW_VERSION
     from prompt_programs.reader import READER_VERSION
     from prompt_programs.store import program_key
@@ -336,6 +345,8 @@ def _key(model: Optional[str], masked: str, exact: Dict[str, str], modes: Option
                              "prompt": masked, "exact": exact, "narrow": NARROW_VERSION}
     if modes:
         parts["modes"] = {str(n): m for n, m in sorted(modes.items())}
+    if elements:
+        parts["elements"] = _elements_mark(elements)
     return program_key(parts)
 
 
@@ -355,7 +366,8 @@ def slot_modes(parsed: Parsed, modes: Optional[Dict[str, str]]) -> Dict[int, str
 
 
 async def _read_prompt(prompt: str, profile_id: Optional[str], project_id: Optional[int],
-                       shown: Optional[str] = None, modes: Optional[Dict[str, str]] = None) -> Optional[_Prompt]:
+                       shown: Optional[str] = None, modes: Optional[Dict[str, str]] = None,
+                       elements: str = "") -> Optional[_Prompt]:
     """The prompt as parsed for reading, or None when nothing in it varies."""
     from prompt_pipeline import _profile_wildcards_and_segments
     from prompt_programs import program as prep
@@ -371,8 +383,8 @@ async def _read_prompt(prompt: str, profile_id: Optional[str], project_id: Optio
         return None
     model = await prep.model_fingerprint(project_id)
     by_n = slot_modes(parsed, modes)
-    return _Prompt(prompt, parsed, masked, exact, _key(model, masked, exact, by_n), model, prep.store_for(profile_id),
-                   profile_id, project_id, shown, by_n)
+    return _Prompt(prompt, parsed, masked, exact, _key(model, masked, exact, by_n, elements), model,
+                   prep.store_for(profile_id), profile_id, project_id, shown, by_n, elements)
 
 
 _WORD = re.compile(r"\w+|\s+|[^\w\s]")
@@ -602,6 +614,8 @@ async def _assemble(p: _Prompt, ask: Any) -> Dict[str, Any]:
             x["seen"] = list_seen[x["n"]]
     if p.modes:
         entry["modes"] = {str(n): m for n, m in sorted(p.modes.items())}
+    if p.elements:
+        entry["elements"] = p.elements
     entry.update({"key": p.key, "version": SLOTS_VERSION, "exact": p.exact, "typed": p.typed, "model": p.model or "",
                   "readings": {"slots": [readings[n] for n in sorted(readings)],
                                "lists": [{"n": n, "label": labels[n], **({"seen": list_seen[n]} if n in list_seen else {})}
@@ -663,7 +677,7 @@ def _pools(entry: Dict[str, Any], p: _Prompt) -> None:
         seen = s.get("seen") if isinstance(s.get("seen"), dict) else seen_in(p.parsed, segs[s["n"]])
         s["pool"] = pool_key(p.model, s["words"], str(seen.get("marked") or ""), list(seen.get("notes") or []),
                              young_marks(record), scene=str(seen.get("scene") or ""), place=mark(record.get("place")),
-                             mode=str(s.get("mode") or ""))
+                             mode=str(s.get("mode") or ""), elements=_elements_mark(p.elements))
 
 
 def _stand_ins(entry: Dict[str, Any], p: _Prompt) -> None:
@@ -891,7 +905,7 @@ def _settle(p: _Prompt) -> None:
 
 async def prepare(prompt: str, *, profile_id: Optional[str], project_id: Optional[int] = None,
                   start: bool = True, force: bool = False, shown: Optional[str] = None,
-                  modes: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+                  modes: Optional[Dict[str, str]] = None, elements: str = "") -> Dict[str, Any]:
     """The prompt's entry now: every slot and list from the parse, each `ready` with its reading
     or still `reading`. Never waits on a model. `start` reads what isn't read yet in the
     background (`force`: everything again); `reading` says something is still out, `working`
@@ -902,8 +916,10 @@ async def prepare(prompt: str, *, profile_id: Optional[str], project_id: Optiona
     so the editor's choices follow the part. A prompt with nothing that varies:
     {"key": None, "slots": [], "choices": []}. `modes`: {slot id: "one" | "kind"}, how the user
     chose a slot to vary (Add Detail or Add Variety), over the reader's own reading; a prompt prepared with
-    modes is an entry of its own, and each such slot a reading and a pool of its own."""
-    p = await _read_prompt(prompt, profile_id, project_id, shown, modes)
+    modes is an entry of its own, and each such slot a reading and a pool of its own. `elements`: what
+    the tool's attached elements fix (elements.resolver.fluent_element_text), for the variant writer;
+    an entry and pools of its own too."""
+    p = await _read_prompt(prompt, profile_id, project_id, shown, modes, elements)
     if p is None:
         return {"key": None, "slots": [], "choices": []}
     entry = await _assemble(p, None)

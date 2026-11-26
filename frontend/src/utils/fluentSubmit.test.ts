@@ -151,6 +151,15 @@ test('a slot the user chose to flesh out or vary is prepared with that choice', 
   assert.equal(prepareSettingsSig({ ...plain, modes: { b: 'one', a: 'kind' } }), prepareSettingsSig({ ...plain, modes: { a: 'kind', b: 'one' } }))
 })
 
+test('attached elements go with a prepare, and a change prepares again', () => {
+  const plain: PrepareInputs = { toolId: 't', prompt: 'a <cat>', projectId: 3 }
+  const elements = { elements: [{ name: 'Old Wen', instructions: { fluent: 'Gray stubble; never young.' } }] }
+  assert.deepEqual(prepareBody({ ...plain, elements }).element_context, elements)
+  assert.deepEqual(prepareBody({ ...plain, elements: { elements: [] } }), prepareBody(plain))
+  assert.notEqual(prepareSettingsSig({ ...plain, elements }), prepareSettingsSig(plain))
+  assert.equal(prepareSettingsSig({ ...plain, elements: null }), prepareSettingsSig(plain))
+})
+
 test('a prompt too long or no balance says what to do, without mechanics', () => {
   const long = fallbackNotice('prompt_too_long', 'Brand')
   assert.equal(long.action, 'none')

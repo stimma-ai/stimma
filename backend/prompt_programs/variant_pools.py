@@ -69,13 +69,14 @@ SEEDS_KEPT = 500    # draws with an explicit draw seed remembered per prompt
 
 
 def pool_key(model: Optional[str], words: str, marked: str, notes: Sequence[str], minor: Sequence[str] = (),
-             scene: str = "", place: str = "", mode: str = "") -> str:
+             scene: str = "", place: str = "", mode: str = "", elements: str = "") -> str:
     """A pool's key: the model, the slot's words, the line its reading was made in (marked) and
     the prompt's notes; a slot's minors marks (`minor`: seeding.young_marks, a child's ages and
     the youngest stage of a young prompt) key a pool of their own, and so does a slot
     read again because an edit elsewhere changed the scene (`scene`, reader.scene_mark), and a
     person whose place context differs (`place`, places.mark: "JP@prompt", "FR@default"), and a
-    slot whose way of varying the user chose (`mode`: "one", flesh it out; "kind", vary it)."""
+    slot whose way of varying the user chose (`mode`: "one", flesh it out; "kind", vary it), and one
+    written under the tool's attached elements (`elements`: a hash of what the writer is told)."""
     parts: Dict[str, Any] = {"v": POOL_VERSION, "writer": VARIANTS_VERSION, "model": model,
                              "words": words, "marked": marked, "notes": list(notes)}
     if minor:
@@ -86,6 +87,8 @@ def pool_key(model: Optional[str], words: str, marked: str, notes: Sequence[str]
         parts["place"] = place
     if mode:
         parts["mode"] = mode
+    if elements:
+        parts["elements"] = elements
     blob = json.dumps(parts, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
 

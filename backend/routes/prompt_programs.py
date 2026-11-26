@@ -41,6 +41,9 @@ class PrepareRequest(BaseModel):
     # What the user chose in the chooser, per choice (prompt_programs.choices). Preparing reads
     # only each slot's `mode` (Add Detail or Add Variety); the pools and draws read the rest.
     choices: Dict[str, Any] = Field(default_factory=dict)
+    # The elements attached on the tool ({elements: [{name, instructions: {fluent}}]}): the variant
+    # writer keeps to what they fix (elements.resolver.fluent_element_text).
+    element_context: Optional[Dict[str, Any]] = None
 
 
 class PreviewRequest(PrepareRequest):
@@ -69,6 +72,7 @@ def program_http_error(e: Exception, failed: str = "program_failed") -> Optional
 
 async def _prepare(req: PrepareRequest) -> Optional[Dict[str, Any]]:
     from prompt_programs import slots
+    from elements.resolver import fluent_element_text
     from prompt_programs.choices import modes
     from routes.generation import prompt_enhance_context
 
@@ -78,7 +82,7 @@ async def _prepare(req: PrepareRequest) -> Optional[Dict[str, Any]]:
     try:
         return await slots.prepare(req.prompt, profile_id=get_current_profile(), project_id=req.project_id,
                                    start=not req.cache_only, force=req.force, shown=req.key,
-                                   modes=modes(req.choices))
+                                   modes=modes(req.choices), elements=fluent_element_text(req.element_context))
     except Exception as e:
         http = program_http_error(e)
         if http is None:

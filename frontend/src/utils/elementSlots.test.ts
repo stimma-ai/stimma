@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applyLoras, applyRefs } from './elementSlots.ts'
+import { applyLoras, applyRefs, renderGuidance } from './elementSlots.ts'
 
 const ref = (id: number, key = `k${id}`, el = 1) => ({ element_asset_id: el, member_key: key, media_id: id, file_path: `/lib/${id}.png` })
 
@@ -42,4 +42,14 @@ test('element LoRAs come and go; the user’s own LoRA is untouched', () => {
   assert.deepEqual(off.loras, [user, pool])
   const fresh = applyLoras([user], [], [{ element_asset_id: 1, lora_key: 'n', path: 'new.safetensors', weight: 0.7 }])
   assert.deepEqual(applyLoras(fresh.loras, fresh.picks, []).loras, [user])
+})
+
+test('guidance numbers images as they stand in the slots, not in the order they were chosen', () => {
+  const selected = [ref(2), ref(3)]
+  // A user image first, and the picks landed as [3, 2].
+  const items = [{ mediaId: 9 }, { mediaId: 3 }, { mediaId: 2 }]
+  assert.equal(
+    renderGuidance('Keep her face from {ref:1}; the stall is {ref:2}. Ignore {ref:5}.', selected, items),
+    'Keep her face from image 3; the stall is image 2. Ignore a reference image.',
+  )
 })

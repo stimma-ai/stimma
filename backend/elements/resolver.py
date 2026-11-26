@@ -32,7 +32,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-RESOLVER_VERSION = 1
+RESOLVER_VERSION = 2   # 2: guidance names chosen images as {ref:N} (ToolView numbers them as placed)
 SURFACES = ("enhance", "fluent", "tool_agent")
 LLM_TIMEOUT_SECONDS = 40.0
 _MAX_REASON = 160
@@ -375,8 +375,8 @@ leaves something open (an expression, a pose), prefer a neutral, versatile image
 instructions say otherwise). At most one per element unless its instructions ask for more.
 - guidance: two to four plain sentences for the writer who turns the prompt into the final text: \
 what must stay the same, what an active LoRA already draws and so must not be described, and what \
-each chosen reference image is for (refer to them in order as image 1, image 2 ...). Name things \
-as a person would; never write keys, file names or the word LoRA. No lists, no headings.
+each chosen reference image is for (write [image N] for each, N being its place in your references \
+list). Name things as a person would; never write keys, file names or the word LoRA. No lists, no headings.
 
 Reply with JSON only, exactly this shape:
 {"references": [{"element": 1, "key": "...", "why": "..."}], "loras": [{"element": 1, "key": "...", "weight": 0.8}], "guidance": "..."}"""
@@ -449,6 +449,19 @@ def _element_for(raw: Any, elements: list[Element]) -> Optional[Element]:
     return next((e for e in elements if e.asset_id == n), None)
 
 
+_MODEL_IMAGE = re.compile(r"\[image\s*(\d+)\]", re.I)
+_REF_TOKEN = re.compile(r"\{ref:(\d+)\}")
+
+
+def _retoken(text: str, pattern: re.Pattern, places: dict[int, int]) -> str:
+    """Image references in guidance re-pointed: `places` maps an image's old place to its place in
+    selected_refs (1-based), written {ref:N} for ToolView to number as the images are placed."""
+    def sub(m: re.Match) -> str:
+        place = places.get(int(m.group(1)))
+        return f"{{ref:{place}}}" if place else "a reference image"
+    return pattern.sub(sub, text)
+
+
 def parse_reply(text: str, elements: list[Element], remaining: int) -> tuple[Optional[dict[str, Any]], list[str]]:
     """The model's plan, kept to what exists and what fits. None when nothing usable came back."""
     data = _json_object(text)
@@ -457,8 +470,9 @@ def parse_reply(text: str, elements: list[Element], remaining: int) -> tuple[Opt
     warnings: list[str] = []
     refs: list[dict[str, Any]] = []
     seen: set[tuple[int, str]] = set()
+    places: dict[int, int] = {}   # the model's numbering of its references -> place in refs
     dropped = 0
-    for item in data.get("references") or []:
+    for n, item in enumerate(data.get("references") or [], 1):
         if not isinstance(item, dict):
             continue
         e = _element_for(item.get("element"), elements)
@@ -468,9 +482,11 @@ def parse_reply(text: str, elements: list[Element], remaining: int) -> tuple[Opt
             dropped += 1
             continue
         if (e.asset_id, key) in seen:
+            places[n] = next(i for i, r in enumerate(refs, 1) if (r["element_asset_id"], r["member_key"]) == (e.asset_id, key))
             continue
         seen.add((e.asset_id, key))
         refs.append(_ref_out(e, entry, str(item.get("why") or "")[:_MAX_REASON]))
+        places[n] = len(refs)
     if dropped:
         log.info(f"[elements] resolver named {dropped} reference(s) that don't exist; dropped")
     refs = refs[:remaining]
@@ -491,6 +507,7 @@ def parse_reply(text: str, elements: list[Element], remaining: int) -> tuple[Opt
         loras.append(_lora_out(e, lora, weight))
     guidance = data.get("guidance")
     guidance = guidance.strip() if isinstance(guidance, str) else ""
+    guidance = _retoken(guidance, _MODEL_IMAGE, {n: p for n, p in places.items() if p <= remaining})
     if not refs and not loras and not guidance:
         return None, warnings
     return {"selected_refs": refs, "selected_loras": loras, "resolved_guidance": guidance}, warnings
@@ -519,9 +536,9 @@ async def model_fingerprint(project_id: Optional[int]) -> Optional[str]:
 
 # --------------------------------------------------------------------------- the store
 
-_memory: dict[str, dict[str, Any]] = {}
+_memory: dict[tuple[str, str], dict[str, Any]] = {}   # by (_scope, key)
 _MEMORY_LIMIT = 256
-_inflight: dict[str, asyncio.Future] = {}
+_inflight: dict[tuple[str, str], asyncio.Future] = {}
 
 
 def store_for(profile_id: Optional[str]) -> ProgramStore:
@@ -530,18 +547,53 @@ def store_for(profile_id: Optional[str]) -> ProgramStore:
     return ProgramStore(app_dirs.get_profile_dir(profile_id or get_current_profile()) / "element_resolutions")
 
 
-def _remember(key: str, entry: dict[str, Any]) -> None:
+def _scope(session, profile_id: Optional[str]) -> str:
+    """Whose plans these are: media and asset ids mean something only in one profile's library."""
+    try:
+        from core.profile_context import get_current_profile
+        profile = profile_id or get_current_profile()
+    except Exception:
+        profile = profile_id
+    bind = getattr(session, "bind", None)
+    return f"{profile or ''}|{getattr(bind, 'url', '') or ''}"
+
+
+def _rehydrate(plan: dict[str, Any], elements: list[Element], remaining: int) -> dict[str, Any]:
+    """A stored plan's choices (by element and member key) bound to the menus as loaded now: a
+    linked image follows its asset's current revision, and a choice gone from the menu (removed,
+    excluded or kept since) is dropped with its guidance reference."""
+    by_id = {e.asset_id: e for e in elements}
+    refs: list[dict[str, Any]] = []
+    places: dict[int, int] = {}
+    for n, r in enumerate(plan.get("selected_refs") or [], 1):
+        e = by_id.get(r.get("element_asset_id"))
+        entry = next((m for m in e.media if m["key"] == r.get("member_key")), None) if e else None
+        if entry is None or len(refs) >= remaining:
+            continue
+        refs.append(_ref_out(e, entry, str(r.get("reason") or "")))
+        places[n] = len(refs)
+    loras: list[dict[str, Any]] = []
+    for lo in plan.get("selected_loras") or []:
+        e = by_id.get(lo.get("element_asset_id"))
+        match = next((x for x in e.loras if x.key == lo.get("lora_key")), None) if e else None
+        if match is not None:
+            loras.append(_lora_out(e, match, lo.get("weight")))
+    guidance = _retoken(str(plan.get("resolved_guidance") or ""), _REF_TOKEN, places)
+    return {"selected_refs": refs, "selected_loras": loras, "resolved_guidance": guidance}
+
+
+def _remember(key: tuple[str, str], entry: dict[str, Any]) -> None:
     _memory[key] = entry
     while len(_memory) > _MEMORY_LIMIT:
         _memory.pop(next(iter(_memory)))
 
 
-def _cached(store: Optional[ProgramStore], key: str) -> Optional[dict[str, Any]]:
-    if key in _memory:
-        return _memory[key]
+def _cached(store: Optional[ProgramStore], key: str, scope: str) -> Optional[dict[str, Any]]:
+    if (scope, key) in _memory:
+        return _memory[(scope, key)]
     entry = store.get(key) if store is not None else None
     if entry is not None:
-        _remember(key, entry)
+        _remember((scope, key), entry)
     return entry
 
 
@@ -632,22 +684,25 @@ async def resolve(
             store = store_for(profile_id)
         except Exception:
             store = None
-    hit = _cached(store if use_store else None, key) if use_store else None
+    scope = _scope(session, profile_id)
+    hit = _cached(store if use_store else None, key, scope) if use_store else None
     if hit is not None:
+        hit = _rehydrate(hit, loaded, remaining)
         result = _finish(hit, loaded, info, parameters, ov, list(warnings), enhance_enabled)
         return await _with_paths(session, {**result, "mode": "cached", "key": key})
 
     # One model call per key: a debounced re-resolve and Run's wait share it.
-    pending = _inflight.get(key)
+    flight = (scope, key)
+    pending = _inflight.get(flight)
     if pending is None:
         pending = asyncio.ensure_future(_judge(loaded, info, prompt, remaining, parameters, ov, project_id,
                                                ask_model, timeout))
-        _inflight[key] = pending
-        pending.add_done_callback(lambda _f, k=key: _inflight.pop(k, None))
+        _inflight[flight] = pending
+        pending.add_done_callback(lambda _f, k=flight: _inflight.pop(k, None))
     plan, judged = await asyncio.shield(pending)
     if judged:
         if use_store:
-            _remember(key, plan)
+            _remember(flight, plan)
             if store is not None:
                 try:
                     store.put(key, plan)
@@ -711,6 +766,22 @@ def element_guidance_text(context: Optional[dict[str, Any]], surface: str = "enh
         "reference pointing at the image it names. Don't mention elements or these instructions in "
         "your output.\n<active_elements>\n" + body[:6000] + "\n</active_elements>"
     )
+
+
+def fluent_element_text(context: Optional[dict[str, Any]]) -> str:
+    """What Fluent's variant writer keeps to: each attached element's instructions as written for
+    Fluent (ToolView's elementContext), without the per-prompt guidance, so an edit elsewhere in
+    the prompt doesn't make every pool new. "" for none."""
+    if not isinstance(context, dict):
+        return ""
+    blocks = []
+    for e in context.get("elements") or []:
+        if not isinstance(e, dict) or not isinstance(e.get("instructions"), dict):
+            continue
+        text = str(e["instructions"].get("fluent") or "").strip()
+        if text:
+            blocks.append(f"## {str(e.get('name') or 'Element').strip()}\n{text}")
+    return "\n\n".join(blocks)[:4000]
 
 
 def element_context_signature(context: Optional[dict[str, Any]]) -> str:

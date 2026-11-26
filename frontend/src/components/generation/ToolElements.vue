@@ -43,7 +43,7 @@
         <Spinner v-if="working" size="sm" class="flex-none" />
         <button
           type="button"
-          class="flex-none w-6 h-6 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-md text-content-tertiary opacity-0 group-hover:opacity-100 coarse:opacity-100 hover:text-content hover:bg-overlay-subtle transition-opacity"
+          class="flex-none w-6 h-6 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-md text-content-tertiary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [[data-pointer=coarse]_&]:opacity-100 hover:text-content hover:bg-overlay-subtle transition-opacity"
           :title="`Remove ${a.name}`"
           :aria-label="`Remove ${a.name}`"
           @click="elements.detach(a.asset_id)"

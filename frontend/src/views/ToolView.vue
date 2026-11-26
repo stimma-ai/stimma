@@ -4027,6 +4027,7 @@ const promptProgram = usePromptProgram({
     && !aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
   // Typing there is read once it pauses, or the caret leaves the slot or the box.
   inPrompt: () => !!aiPromptEditorRef.value?.$el?.contains?.(document.activeElement),
+  elements: () => toolElements.fluentContext(),
 })
 // The newest image made in Fluent: the prompt it was sent with and its record (the prompt
 // menu's developer view).

@@ -107,3 +107,16 @@ export function applyLoras(
   }
   return { loras: out, picks: kept }
 }
+
+/**
+ * The resolver's guidance as the prompt writer reads it. The resolver names each chosen image
+ * `{ref:N}` (N: its place in selected_refs); here each becomes "image K", K its place among the
+ * tool's input images now, which the user's own images and the order picks landed in decide.
+ */
+export function renderGuidance(guidance: string, selected: ResolvedRef[], items: SlotItem[]): string {
+  return guidance.replace(/\{ref:(\d+)\}/g, (_m, n) => {
+    const ref = selected[Number(n) - 1]
+    const index = ref ? items.findIndex(i => i.mediaId != null && i.mediaId === ref.media_id) : -1
+    return index >= 0 ? `image ${index + 1}` : 'a reference image'
+  })
+}
