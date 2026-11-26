@@ -105,6 +105,11 @@ export function useUrlState() {
       params.set('xtl', filters.excludedTools.join(','))
     }
 
+    // Made with (element asset ids)
+    if (filters.madeWith?.length > 0) {
+      params.set('mw', filters.madeWith.join(','))
+    }
+
     // Imported lineage provenance (1 = imported, 0 = has tool history)
     if (filters.isImported !== null && filters.isImported !== undefined) {
       params.set('imp', filters.isImported ? '1' : '0')
@@ -188,6 +193,9 @@ export function useUrlState() {
       filters.excludedProjects = queryParams.xprj.split(',').map(Number).filter(Number.isFinite)
     }
     filters.includeProjects = queryParams.include_projects === '1' || queryParams.include_projects === 'true'
+    if (queryParams.mw) {
+      filters.madeWith = String(queryParams.mw).split(',').map(Number).filter(Number.isFinite)
+    }
 
     if (queryParams.xmt) {
       filters.excludedMediaTypes = queryParams.xmt.split(',').map(decodeMediaType)

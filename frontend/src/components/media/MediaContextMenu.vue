@@ -865,6 +865,15 @@
           </svg>
           <span>View lineage</span>
         </button>
+        <button
+          v-if="!isMultiple && isElement"
+          data-testid="menu-show-what-it-made"
+          @click="runElementAction('showWhatItMade')"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <Squares2X2Icon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>Show what it made</span>
+        </button>
         </div>
         </Teleport>
 
@@ -2175,7 +2184,7 @@ function handleEditImage() {
 
 
 // Create Set handler
-function runElementAction(action: 'refineInChat' | 'rename' | 'setCover') {
+function runElementAction(action: 'refineInChat' | 'rename' | 'setCover' | 'showWhatItMade') {
   const mediaId = contextMenu.state.value.mediaId
   contextMenu.hide()
   if (mediaId) elementActions[action](mediaId)

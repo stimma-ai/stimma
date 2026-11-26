@@ -19,6 +19,7 @@ import { getChatDraft } from '../../composables/useChatDraft'
 import { useWorkingContext } from '../../composables/useWorkingContext'
 import { useWebSocket } from '../../composables/useWebSocket'
 import { applySavedElement, cachedVersionsOf } from './elementCache'
+import { useBrowseFilters } from '../../composables/useBrowseFilters'
 
 export interface ElementMediaSlot {
   key: string
@@ -161,6 +162,12 @@ export async function saveElement(mediaId: number, patch: { name?: string; cover
   }
 }
 
+/** The library, filtered to what an element (by asset id) made, across projects too. */
+export function showMadeWith(elementAssetId: number) {
+  useBrowseFilters('browse').setFilters({ madeWith: [Number(elementAssetId)], includeProjects: true })
+  if (router.currentRoute.value.name !== 'browse') void router.push({ name: 'browse' })
+}
+
 /** "Character" from the manifest's "character". */
 export function kindLabel(kind: string | null | undefined): string {
   const text = (kind || '').trim()
@@ -192,6 +199,13 @@ export const elementActions = {
     if (mediaId == null) return
     await loadElement(mediaId)
     elementUi.renaming = Number(mediaId)
+  },
+  /** Open the library on everything made with this element. Resolves once the filter is set. */
+  async showWhatItMade(mediaId: number | null | undefined) {
+    if (mediaId == null) return
+    const el = cachedElement(mediaId) || await loadElement(mediaId)
+    if (!el) return
+    showMadeWith(el.asset_id)
   },
   async setCover(mediaId: number | null | undefined) {
     if (mediaId == null) return

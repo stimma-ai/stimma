@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +27,7 @@ from elements.bundle import (
     safe_bundle_file,
     update_element,
 )
+from elements.lineage import element_outputs, elements_used_by
 from elements.manifest import INSTRUCTIONS_NAME, new_manifest, starter_instructions, write_manifest
 from routes.media_files import get_db_session_by_guid
 from utils.http_headers import content_disposition
@@ -132,6 +133,26 @@ async def resolve_elements(body: ResolveRequest, session: AsyncSession = Depends
         project_id=body.project_id,
         profile_id=get_current_profile(),
     )
+
+
+@router.get("/elements/made-with/{media_id}")
+async def get_elements_made_with(media_id: int, session: AsyncSession = Depends(get_db_session)):
+    """The elements a library item was made with (its info panel)."""
+    return {"elements": await elements_used_by(session, media_id)}
+
+
+@router.get("/elements/{asset_id}/outputs")
+async def get_element_outputs(
+    asset_id: int,
+    limit: int = Query(8, ge=1, le=50),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Recent library items made with an element, and how many there are."""
+    try:
+        await element_asset(session, asset_id)
+    except ElementError as exc:
+        raise _http(exc)
+    return await element_outputs(session, asset_id, limit=limit)
 
 
 @router.get("/elements/{asset_id}")

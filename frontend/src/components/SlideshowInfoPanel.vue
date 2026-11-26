@@ -282,6 +282,39 @@
         </button>
       </div>
 
+      <!-- Made with: the elements this was generated with -->
+      <div v-if="madeWithElements.length > 0 && !isElementItem" class="mb-6" data-testid="info-made-with">
+        <h4 class="m-0 text-xs font-semibold text-content-secondary">Made with</h4>
+        <div class="mt-2">
+          <div
+            v-for="el in madeWithElements"
+            :key="el.asset_id"
+            class="flex cursor-pointer items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left hover:bg-overlay-faint"
+            role="button"
+            tabindex="0"
+            :aria-label="`Open ${el.name}`"
+            @click="$emit('navigate-to-source-media', el.media_id)"
+            @keydown.enter.prevent="$emit('navigate-to-source-media', el.media_id)"
+            @keydown.space.prevent="$emit('navigate-to-source-media', el.media_id)"
+          >
+            <div class="h-10 w-10 flex-shrink-0 overflow-hidden rounded-media bg-matte">
+              <MediaImage
+                :media-id="el.media_id"
+                :thumbnail="true"
+                :thumbnail-size="128"
+                container-class="h-full w-full"
+              />
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="truncate text-xs text-content">{{ el.name }}</div>
+              <div class="mt-0.5 truncate text-[11px] text-content-tertiary">
+                {{ [kindLabel(el.kind), el.is_current_revision ? '' : `Version ${el.revision_number}`].filter(Boolean).join(' · ') || 'Element' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Versions are saved states of this Asset; Media remains implementation detail. -->
       <div v-if="currentItem.asset_id && versions.length > 1" class="mb-6">
         <h4 class="m-0 text-xs font-semibold text-content-secondary">Versions</h4>
@@ -369,6 +402,33 @@
             :container-class="relationThumbClass"
             img-class="w-full h-full object-cover"
             @click="$emit('navigate-to-source-media', descendant.id)"
+          />
+        </div>
+      </div>
+
+      <!-- Made with this (an element's recent outputs) -->
+      <div v-if="isElementItem && elementOutputs.items.length > 0" class="mb-6" data-testid="info-made-with-this">
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="m-0 text-xs font-semibold text-content-secondary">Made with this</h4>
+          <button
+            v-if="handles('show-made-with')"
+            type="button"
+            :class="sectionLinkClass"
+            @click="$emit('show-made-with', elementOutputs.assetId)"
+          >
+            {{ elementOutputs.total > elementOutputs.items.length ? `Show all ${elementOutputs.total}` : 'Show in library' }}
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <MediaImage
+            v-for="output in elementOutputs.items"
+            :key="output.asset_id"
+            :media-id="output.media_id"
+            :file-hash="output.file_hash"
+            :thumbnail-size="128"
+            :container-class="relationThumbClass"
+            img-class="w-full h-full object-cover"
+            @click="$emit('navigate-to-source-media', output.media_id)"
           />
         </div>
       </div>
@@ -524,7 +584,7 @@ import { copyToClipboard } from '../utils/clipboard'
 import { addToast } from '../composables/useToasts'
 import { isImage as isImageType, hasVisualContent, getMediaType } from '../utils/mediaTypes'
 import { ChatBubbleLeftEllipsisIcon } from '@heroicons/vue/24/outline'
-import { elementActions } from './elements/useElements'
+import { elementActions, kindLabel, loadElement } from './elements/useElements'
 const isElementItem = computed(() => props.currentItem?.file_format === 'stimmaelement')
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { bgClass, textClass } from '../utils/statusColors'
@@ -634,6 +694,8 @@ const emit = defineEmits([
   'tags-updated',
   'menu-sent',
   'package-rebuilt',
+  // An element's asset id: open the library on what it made.
+  'show-made-with',
 ])
 
 // Actions that leave the panel render only where the host listens for them —
@@ -977,6 +1039,51 @@ const expiryBucket = computed(() => {
   if (tier.includes('orange') || tier.includes('yellow')) return 'warning'
   return 'queued'
 })
+
+// Elements: what a generated item was made with, and what an element made.
+const madeWithElements = ref([])
+const ELEMENT_OUTPUT_PREVIEW = 8
+const elementOutputs = ref({ assetId: null, total: 0, items: [] })
+let madeWithToken = 0
+
+function recordsElements(item) {
+  let meta = item?.generation_metadata
+  if (typeof meta === 'string') {
+    try { meta = JSON.parse(meta) } catch { meta = null }
+  }
+  return Array.isArray(meta?.elements) && meta.elements.length > 0
+}
+
+async function loadMadeWith() {
+  const token = ++madeWithToken
+  const item = props.currentItem
+  const mediaId = item ? mediaIdOf(item) : null
+  if (mediaId == null) {
+    madeWithElements.value = []
+    elementOutputs.value = { assetId: null, total: 0, items: [] }
+    return
+  }
+  try {
+    if (isElementItem.value) {
+      madeWithElements.value = []
+      const el = await loadElement(mediaId)
+      if (!el || token !== madeWithToken) return
+      const { data } = await axios.get(`/api/elements/${el.asset_id}/outputs`, { params: { limit: ELEMENT_OUTPUT_PREVIEW } })
+      if (token === madeWithToken) elementOutputs.value = { assetId: el.asset_id, total: data.total, items: data.items }
+    } else {
+      elementOutputs.value = { assetId: null, total: 0, items: [] }
+      if (!recordsElements(item)) { madeWithElements.value = []; return }
+      const { data } = await axios.get(`/api/elements/made-with/${mediaId}`)
+      if (token === madeWithToken) madeWithElements.value = data.elements || []
+    }
+  } catch {
+    if (token === madeWithToken) {
+      madeWithElements.value = []
+      elementOutputs.value = { assetId: null, total: 0, items: [] }
+    }
+  }
+}
+watch(() => props.currentItem ? mediaIdOf(props.currentItem) : null, loadMadeWith, { immediate: true })
 
 // Reset face overlays when item changes
 watch(() => props.currentItem?.id, () => {

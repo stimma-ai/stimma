@@ -63,6 +63,7 @@
       @edit-image="handleEditImage"
       @download-version="downloadVersion"
       @view-lineage="handleViewLineage"
+      @show-made-with="showWhatItMade"
       @share-to-cloud="openShareLink"
     />
     </component>
@@ -1294,6 +1295,7 @@
         <button v-if="isElement" type="button" class="sheet-row" @click="compactMoreOpen = false; elementActions.refineInChat(currentPayloadId)"><ChatBubbleLeftEllipsisIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Refine in chat</span></button>
         <button v-if="isElement" type="button" class="sheet-row" @click="compactMoreOpen = false; elementActions.rename(currentPayloadId)"><PencilIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Rename</span></button>
         <button v-if="isElement" type="button" class="sheet-row" @click="compactMoreOpen = false; elementActions.setCover(currentPayloadId)"><PhotoIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Set cover</span></button>
+        <button v-if="isElement" type="button" class="sheet-row" @click="compactMoreOpen = false; showWhatItMade()"><Squares2X2Icon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Show what it made</span></button>
         <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('zip')"><ArchiveBoxIcon class="sheet-row-icon" /><span class="flex-1">Download ZIP</span></button>
         <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('pdf')"><DocumentArrowDownIcon class="sheet-row-icon" /><span class="flex-1">Download PDF</span></button>
       </div>
@@ -1439,7 +1441,7 @@ import NativeShareDialog from './NativeShareDialog.vue'
 import { desktop } from '../desktop'
 import { supportsNativeShare } from '../utils/nativeShare'
 import { ArrowUpTrayIcon, FilmIcon, LinkIcon, ChatBubbleLeftEllipsisIcon, PencilIcon, PhotoIcon } from '@heroicons/vue/24/outline'
-import { elementActions } from './elements/useElements'
+import { elementActions, showMadeWith } from './elements/useElements'
 import { useShareDialog } from '../composables/useShareDialog'
 import HorizontalVirtualScroller from './HorizontalVirtualScroller.vue'
 import SlideshowMarkerControls from './SlideshowMarkerControls.vue'
@@ -5469,6 +5471,14 @@ async function handlePermanentDeleteCurrentItem() {
     console.error('Failed to permanently delete media:', error)
     addToast('Failed to permanently delete item', 'error')
   }
+}
+
+// An element's outputs in the library: from the info panel (asset id) or the ⋯ sheet.
+async function showWhatItMade(elementAssetId) {
+  const onBrowse = router.currentRoute.value.name === 'browse'
+  if (elementAssetId != null) showMadeWith(elementAssetId)
+  else await elementActions.showWhatItMade(currentPayloadId.value)
+  if (onBrowse) close()
 }
 
 function findSimilar() {

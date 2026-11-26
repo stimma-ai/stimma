@@ -18,6 +18,7 @@ from database import (
     ContainerMember,
     MediaItem,
     MediaLineage,
+    MediaElement,
     MediaToolLineage,
     Project,
     ProjectAsset,
@@ -458,6 +459,7 @@ def build_filtered_query(
     excluded_tool_ids: Optional[str] = None,
     tool_id: Optional[str] = None,
     preset_id: Optional[int] = None,
+    element_ids: Optional[str] = None,
     created_after: Optional[str] = None,
     created_before: Optional[str] = None,
     show_expiring: Optional[bool] = None,
@@ -481,6 +483,8 @@ def build_filtered_query(
     Args:
         query: SQLAlchemy query to apply filters to
         exclude_category: Category to exclude from filtering ('media_types', 'resolutions', 'folders', 'tags', 'projects', 'tools', 'markers', 'imported')
+        element_ids: Comma-separated element asset IDs; item must have been made with at least one
+            of them (OR logic), per ``media_elements``.
         project_ids: Comma-separated project IDs; item must belong to at least one (OR logic).
         excluded_project_ids: Comma-separated project IDs; item must NOT belong to any of them.
         has_project: Tri-state membership predicate — True = in at least one (non-deleted) project,
@@ -788,6 +792,15 @@ def build_filtered_query(
     # Preset filter: filter by preset that was active during generation
     if preset_id:
         query = query.where(MediaItem.preset_id == preset_id)
+
+    # "Made with" filter: media generated with any of these elements (generation lineage).
+    if element_ids:
+        element_id_list = [int(eid) for eid in element_ids.split(',') if eid.strip().isdigit()]
+        made_with = select(MediaElement.media_id).where(
+            MediaElement.element_asset_id.in_(element_id_list or [0]),
+            MediaElement.deleted_at.is_(None),
+        )
+        query = query.where(MediaItem.id.in_(made_with))
 
     # Date filters (created_date)
     if exclude_category != "date_ranges":

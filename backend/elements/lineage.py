@@ -11,11 +11,12 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import Asset, AssetRevision, MediaElement, MediaItem
-from elements.manifest import ELEMENT_ASSET_TYPE
+from elements.manifest import ELEMENT_ASSET_TYPE, parse_manifest
 
 
 async def record_media_elements(
@@ -107,3 +108,78 @@ async def record_job_elements(session: AsyncSession, media_id: int, params: dict
     if not isinstance(specs, list) or not specs:
         return []
     return await record_media_elements(session, media_id, [s for s in specs if isinstance(s, dict)])
+
+
+async def elements_used_by(session: AsyncSession, media_id: int) -> list[dict[str, Any]]:
+    """The live elements a Media was made with, in the order they were used.
+
+    Each entry names the element's current version (``media_id``/``file_hash``
+    open and picture it) and the version that made this Media.
+    """
+    used = aliased(AssetRevision)
+    current = aliased(AssetRevision)
+    rows = (await session.execute(
+        select(MediaElement, Asset, used, current, MediaItem)
+        .join(Asset, Asset.id == MediaElement.element_asset_id)
+        .join(used, used.id == MediaElement.element_revision_id)
+        .join(current, current.id == Asset.current_revision_id)
+        .join(MediaItem, MediaItem.id == current.primary_media_id)
+        .where(
+            MediaElement.media_id == int(media_id),
+            MediaElement.deleted_at.is_(None),
+            Asset.asset_type == ELEMENT_ASSET_TYPE,
+            Asset.deleted_at.is_(None),
+            Asset.state == "active",
+        )
+        .order_by(MediaElement.element_order, MediaElement.id)
+    )).all()
+    out = []
+    for link, asset, used_rev, current_rev, media in rows:
+        manifest = parse_manifest(media.raw_metadata or "") or {}
+        out.append({
+            "asset_id": asset.id,
+            "name": asset.title or manifest.get("name") or "Untitled element",
+            "kind": (manifest.get("kind") or "").lower(),
+            "media_id": media.id,
+            "file_hash": media.file_hash,
+            "revision_number": used_rev.revision_number,
+            "is_current_revision": used_rev.id == current_rev.id,
+            "carrier": link.carrier,
+        })
+    return out
+
+
+async def element_outputs(session: AsyncSession, element_asset_id: int, *, limit: int = 8) -> dict[str, Any]:
+    """Library items made with an element, newest first: ``{total, items}``.
+
+    Only items whose current version was made with it count, matching the
+    library's "made with" filter.
+    """
+    base = (
+        select(Asset.id.label("asset_id"), MediaItem.id.label("media_id"), MediaItem.file_hash, MediaElement.created_at)
+        .select_from(MediaElement)
+        .join(MediaItem, MediaItem.id == MediaElement.media_id)
+        .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
+        .join(Asset, Asset.current_revision_id == AssetRevision.id)
+        .where(
+            MediaElement.element_asset_id == int(element_asset_id),
+            MediaElement.deleted_at.is_(None),
+            MediaItem.deleted_at.is_(None),
+            AssetRevision.deleted_at.is_(None),
+            Asset.deleted_at.is_(None),
+            Asset.state == "active",
+        )
+    )
+    total = await session.scalar(select(func.count(func.distinct(base.subquery().c.asset_id))))
+    rows = (await session.execute(
+        base.order_by(MediaElement.created_at.desc(), MediaElement.id.desc()).limit(max(1, min(int(limit), 50)) * 2)
+    )).all()
+    items, seen = [], set()
+    for row in rows:
+        if row.asset_id in seen:
+            continue
+        seen.add(row.asset_id)
+        items.append({"asset_id": row.asset_id, "media_id": row.media_id, "file_hash": row.file_hash})
+        if len(items) >= limit:
+            break
+    return {"total": total or 0, "items": items}

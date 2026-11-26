@@ -39,6 +39,7 @@ export function getFilterCountWatchValues(filters = {}, {
     filters.includeProjects,
     filters.selectedTools,
     filters.excludedTools,
+    filters.madeWith,
     filters.selectedMarkers,
     filters.excludedMarkers,
     filters.isImported,
@@ -90,6 +91,7 @@ export function buildFilterCountParams(filters = {}, {
   }
   setList('tool_ids', filters.selectedTools)
   setList('excluded_tool_ids', filters.excludedTools)
+  setList('element_ids', filters.madeWith)
   setList('marker_ids', filters.selectedMarkers)
   setList('excluded_marker_ids', filters.excludedMarkers)
 

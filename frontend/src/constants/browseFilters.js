@@ -17,6 +17,7 @@ export const DEFAULT_BROWSE_FILTERS = {
   includeProjects: false,    // top level only: false = unfiled assets, true = include project assets
   selectedTools: [],
   excludedTools: [],
+  madeWith: [],              // element asset ids: assets made with any of them
   selectedMarkers: [],
   excludedMarkers: [],
   isImported: null,

@@ -304,6 +304,29 @@
           </button>
         </div>
 
+        <!-- Made with: assets generated with an element -->
+        <div v-for="el in madeWithChips"
+             :key="'mw-' + el.assetId"
+             data-testid="made-with-chip"
+             class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
+          <span class="leading-none">Made with</span>
+          <div v-if="el.mediaId" class="w-6 h-6 rounded-media bg-matte overflow-hidden flex-shrink-0">
+            <MediaImage
+              :media-id="el.mediaId"
+              :thumbnail="true"
+              :thumbnail-size="128"
+              container-class="w-full h-full"
+              :enable-context-menu="false"
+              :draggable="false"
+            />
+          </div>
+          <span class="leading-none truncate max-w-[12rem]">{{ el.name }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" :aria-label="`Remove made with ${el.name}`" @click.stop="removeMadeWith(el.assetId)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
         <!-- Text Similarity Badge -->
         <div v-if="localSimilarToText" class="inline-flex items-center gap-1.5 px-3 rounded-md text-ctl font-medium transition-all h-control compact:h-9 bg-accent/15 text-accent-hi">
@@ -735,6 +758,7 @@
 <script setup>
 import { formatDate } from '../utils/timeFormat'
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import axios from 'axios'
 import { useViewport } from '../composables/useViewport'
 import { MagnifyingGlassCircleIcon } from '@heroicons/vue/24/solid'
 import { ArchiveBoxIcon, ArrowUpTrayIcon, FunnelIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
@@ -781,6 +805,7 @@ const props = defineProps({
   includeProjects: { type: Boolean, default: false },  // Top level: include assets that belong to projects
   selectedTools: Array,          // Tool lineage filter (full_tool_id strings)
   excludedTools: Array,          // Excluded tool lineage filter
+  madeWith: { type: Array, default: () => [] },  // Element asset ids (made with)
   selectedMarkers: Array,         // New: selected markers (by ID)
   excludedMarkers: Array,         // New: excluded markers (by ID)
   markers: { type: Array, default: () => [] },  // Available markers from backend
@@ -823,6 +848,7 @@ const emit = defineEmits([
   'update:includeProjects',    // Top-level scope: include project assets
   'update:selectedTools',      // Tool lineage filter
   'update:excludedTools',      // Excluded tool lineage filter
+  'update:madeWith',           // Made with (element asset ids)
   'update:selectedMarkers',    // New: markers filter
   'update:excludedMarkers',    // New: excluded markers filter
   'update:isImported',         // Imported lineage provenance filter
@@ -874,6 +900,26 @@ const projects = ref([])                                  // All available proje
 const showAllProjects = ref(false)                        // Expand the project list beyond top 5
 const selectedTools = ref(props.selectedTools || [])      // Tool lineage filter
 const excludedTools = ref(props.excludedTools || [])      // Excluded tool lineage filter
+const madeWith = ref([...(props.madeWith || [])])           // Made with (element asset ids)
+// Names and pictures for the made-with chips, by element asset id.
+const madeWithInfo = ref({})
+async function loadMadeWithInfo(ids) {
+  for (const id of ids || []) {
+    if (madeWithInfo.value[id]) continue
+    madeWithInfo.value = { ...madeWithInfo.value, [id]: { name: 'Element' } }
+    try {
+      const { data } = await axios.get(`/api/elements/${id}`)
+      madeWithInfo.value = { ...madeWithInfo.value, [id]: { name: data.name, mediaId: data.media_id } }
+    } catch {
+      madeWithInfo.value = { ...madeWithInfo.value, [id]: { name: 'Removed element' } }
+    }
+  }
+}
+const madeWithChips = computed(() => (madeWith.value || []).map(id => ({ assetId: id, ...(madeWithInfo.value[id] || { name: 'Element' }) })))
+function removeMadeWith(assetId) {
+  madeWith.value = madeWith.value.filter(id => id !== assetId)
+  emitUpdate()
+}
 const selectedMarkers = ref(props.selectedMarkers || [])  // New: markers
 const excludedMarkers = ref(props.excludedMarkers || [])  // New: excluded markers
 const localIsImported = ref(props.isImported ?? null)
@@ -981,6 +1027,7 @@ const hasActiveFilters = computed(() => {
     (!props.isTrashMode && !props.inProjectScope && includeProjectsFlag.value) ||
     (selectedTools.value && selectedTools.value.length > 0) ||
     (excludedTools.value && excludedTools.value.length > 0) ||
+    (madeWith.value && madeWith.value.length > 0) ||
     (selectedMarkers.value && selectedMarkers.value.length > 0) ||
     (excludedMarkers.value && excludedMarkers.value.length > 0) ||
     localIsImported.value !== null ||
@@ -1138,6 +1185,7 @@ const filterChipCount = computed(() => {
     allTags.value.length +
     (showProjectChips ? (localIncludeProjects.value ? 1 : 0) + (projectMembership.value ? 1 : 0) + allProjects.value.length : 0) +
     allTools.value.length +
+    madeWithChips.value.length +
     allFolders.value.length +
     (selectedDateRange.value ? 1 : 0) +
     (!props.isTrashMode && localIsImported.value !== null ? 1 : 0) +
@@ -1302,6 +1350,7 @@ function emitUpdate() {
   emit('update:includeProjects', includeProjectsFlag.value)    // Top-level scope
   emit('update:selectedTools', selectedTools.value)            // Tool lineage filter
   emit('update:excludedTools', excludedTools.value)            // Excluded tool lineage filter
+  emit('update:madeWith', madeWith.value)                      // Made with (element asset ids)
   emit('update:selectedMarkers', selectedMarkers.value)        // New: markers
   emit('update:excludedMarkers', excludedMarkers.value)        // New: excluded markers
   emit('update:isImported', localIsImported.value)              // Imported provenance filter
@@ -1446,6 +1495,7 @@ function clearAllFilters() {
   excludedTags.value = []
   selectedTools.value = []
   excludedTools.value = []
+  madeWith.value = []
   selectedMarkers.value = []
   excludedMarkers.value = []
   selectedProjects.value = []
@@ -2193,6 +2243,8 @@ watch(() => props.includeProjects, (val) => includeProjectsFlag.value = !!val)
 watch(localIncludeProjects, () => loadUnfilteredCount())
 watch(() => props.selectedTools, (val) => syncArray(selectedTools, val))
 watch(() => props.excludedTools, (val) => syncArray(excludedTools, val))
+watch(() => props.madeWith, (val) => syncArray(madeWith, val || []))
+watch(madeWith, (ids) => loadMadeWithInfo(ids), { immediate: true, deep: true })
 watch(() => props.selectedMarkers, (val) => syncArray(selectedMarkers, val))
 watch(() => props.excludedMarkers, (val) => syncArray(excludedMarkers, val))
 watch(() => props.isImported, (val) => localIsImported.value = val ?? null)

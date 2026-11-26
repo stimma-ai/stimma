@@ -69,6 +69,7 @@
       v-model:includeProjects="filters.includeProjects"
       v-model:selectedTools="filters.selectedTools"
       v-model:excludedTools="filters.excludedTools"
+      v-model:madeWith="filters.madeWith"
       v-model:selectedMarkers="filters.selectedMarkers"
       v-model:excludedMarkers="filters.excludedMarkers"
       v-model:isImported="filters.isImported"
@@ -413,6 +414,7 @@ const hasActiveFilterCriteria = computed(() =>
   (filters.excludedTags?.length > 0) ||
   (filters.selectedTools?.length > 0) ||
   (filters.excludedTools?.length > 0) ||
+  (filters.madeWith?.length > 0) ||
   (filters.selectedMarkers?.length > 0) ||
   (filters.excludedMarkers?.length > 0) ||
   filters.isImported !== null ||
@@ -880,6 +882,9 @@ function buildFilterParams() {
   }
   if (filters.excludedTools && filters.excludedTools.length > 0) {
     params.excluded_tool_ids = filters.excludedTools.join(',')
+  }
+  if (filters.madeWith && filters.madeWith.length > 0) {
+    params.element_ids = filters.madeWith.join(',')
   }
   if (filters.isImported !== null && filters.isImported !== undefined) {
     params.is_imported = filters.isImported
@@ -1772,7 +1777,7 @@ const browseFilterQueryKeys = new Set([
   's', 'k', 'xk',
   'mk', 'xmk',
   'f', 'xf',
-  'tl', 'xtl',
+  'tl', 'xtl', 'mw',
   'prj', 'xprj', 'include_projects',
   'imp', 'unu',
   'sim', 'fsim',

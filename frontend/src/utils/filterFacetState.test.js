@@ -156,3 +156,12 @@ test('retired caption and keyword criteria cannot survive saved-view restoration
     assert.equal(key in params, false)
   }
 })
+
+test('made-with filter reaches the counts and survives saved views', () => {
+  const filters = normalizeBrowseFilters({ madeWith: [42], includeProjects: true })
+  assert.deepEqual(filters.madeWith, [42])
+  const params = buildFilterCountParams(filters)
+  assert.equal(params.element_ids, '42')
+  assert.ok(getFilterCountWatchValues(filters).some(value => Array.isArray(value) && value.includes(42)))
+  assert.equal(buildFilterCountParams(normalizeBrowseFilters({})).element_ids, undefined)
+})
