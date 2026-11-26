@@ -29,7 +29,7 @@ from models.api_models import BulkDeleteRequest, MediaListResponse, MediaItemRes
 from utils.query_builder import (
     build_filtered_query,
     IMAGE_FORMATS, VIDEO_FORMATS, AUDIO_FORMATS, TEXT_FORMATS, VECTOR_FORMATS,
-    SET_FORMATS, GRID_FORMATS, SPRITE_FORMATS, PACKAGE_FORMATS, LAYOUT_FORMATS, STRUCTURED_FORMATS,
+    SET_FORMATS, GRID_FORMATS, SPRITE_FORMATS, PACKAGE_FORMATS, ELEMENT_FORMATS, LAYOUT_FORMATS, STRUCTURED_FORMATS,
     RESOLUTION_MAP,
 )
 from utils.websocket import ws_manager
@@ -416,6 +416,7 @@ async def get_trash_filter_counts(
         'grids': GRID_FORMATS,
         'sprites': SPRITE_FORMATS,
         'packages': PACKAGE_FORMATS,
+        'elements': ELEMENT_FORMATS,
         'layouts': LAYOUT_FORMATS,
         'structured': STRUCTURED_FORMATS,
     }

@@ -65,7 +65,7 @@ export function planToolHandoff({
   /** `count` is what a slot will hold after a targeted swap/add, not a batch. */
   targeted?: boolean
 }): ToolHandoffPlan {
-  const resolvedTypes = uniqueMediaTypes(mediaTypes ?? items.map(mediaTypeForItem))
+  const resolvedTypes = uniqueMediaTypes((mediaTypes ?? items.map(mediaTypeForItem)).map(type => type === 'element' ? 'image' : type))
   const selectionCount = count ?? items.length
 
   if (tool.availability && tool.availability !== 'available') {

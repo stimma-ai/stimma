@@ -1280,7 +1280,7 @@ async def test_asset_facets_count_every_media_type(client, db_session):
     response = await client.get("/api/assets/filter-counts")
     assert response.status_code == 200, response.text
     counts = response.json()["media_type"]
-    expected_keys = {"images", "videos", "audio", "text", "vectors", "sets", "grids", "sprites", "packages", "layouts"}
+    expected_keys = {"images", "videos", "audio", "text", "vectors", "sets", "grids", "sprites", "packages", "elements", "layouts"}
     assert expected_keys <= set(counts)
     assert counts["packages"] == before.get("packages", 0) + 1
     assert counts["sprites"] == before.get("sprites", 0) + 1

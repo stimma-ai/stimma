@@ -553,6 +553,17 @@
           class="absolute inset-0"
         />
 
+        <!-- Element: what's inside, readable. Edits happen in chat. -->
+        <ElementViewer
+          v-else-if="isElement"
+          :style="galleryPictureStyle"
+          :key="`element-${displayItem?.id}-${refreshKey}`"
+          :media-id="mediaIdOf(displayItem)"
+          :compact="slideshowCompact"
+          @contextmenu="handleContextMenu($event, displayItem)"
+          class="absolute inset-0"
+        />
+
         <!-- Package: the cover page, full bleed. Its facts and its rebuild
              live in the media info panel, not in a second sidebar here. -->
         <PackageViewer
@@ -1279,7 +1290,10 @@
         <button v-if="isVideo" type="button" class="sheet-row" @click="toggleMute"><SpeakerXMarkIcon v-if="isMuted" class="sheet-row-icon" /><SpeakerWaveIcon v-else class="sheet-row-icon" /><span class="flex-1">Sound</span><span class="sheet-row-detail" :class="isMuted ? '' : '!text-live'">{{ isMuted ? 'muted' : 'on' }}</span></button>
         <button v-if="isVideo" type="button" class="sheet-row" @click="toggleVideoTransport"><FilmIcon class="sheet-row-icon" /><span class="flex-1">Scrubber</span><span class="sheet-row-detail" :class="showVideoTransport ? '!text-live' : ''">{{ showVideoTransport ? 'shown' : 'hidden' }}</span></button>
         <button type="button" class="sheet-row" @click="toggleImageStrip(); compactMoreOpen = false"><Squares2X2Icon class="sheet-row-icon" /><span class="flex-1">Filmstrip</span><span class="sheet-row-detail" :class="stripWanted ? '!text-live' : ''">{{ stripWanted ? 'shown' : 'hidden' }}</span></button>
-        <button type="button" class="sheet-row" @click="compactMoreOpen = false; handleViewLineage()"><ShareIcon class="sheet-row-icon rotate-90" /><span class="flex-1">View lineage</span></button>
+        <button v-if="!isElement" type="button" class="sheet-row" @click="compactMoreOpen = false; handleViewLineage()"><ShareIcon class="sheet-row-icon rotate-90" /><span class="flex-1">View lineage</span></button>
+        <button v-if="isElement" type="button" class="sheet-row" @click="compactMoreOpen = false; elementActions.refineInChat(currentPayloadId)"><ChatBubbleLeftEllipsisIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Refine in chat</span></button>
+        <button v-if="isElement" type="button" class="sheet-row" @click="compactMoreOpen = false; elementActions.rename(currentPayloadId)"><PencilIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Rename</span></button>
+        <button v-if="isElement" type="button" class="sheet-row" @click="compactMoreOpen = false; elementActions.setCover(currentPayloadId)"><PhotoIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Set cover</span></button>
         <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('zip')"><ArchiveBoxIcon class="sheet-row-icon" /><span class="flex-1">Download ZIP</span></button>
         <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('pdf')"><DocumentArrowDownIcon class="sheet-row-icon" /><span class="flex-1">Download PDF</span></button>
       </div>
@@ -1424,7 +1438,8 @@ import ExportModal from './ExportModal.vue'
 import NativeShareDialog from './NativeShareDialog.vue'
 import { desktop } from '../desktop'
 import { supportsNativeShare } from '../utils/nativeShare'
-import { ArrowUpTrayIcon, FilmIcon, LinkIcon } from '@heroicons/vue/24/outline'
+import { ArrowUpTrayIcon, FilmIcon, LinkIcon, ChatBubbleLeftEllipsisIcon, PencilIcon, PhotoIcon } from '@heroicons/vue/24/outline'
+import { elementActions } from './elements/useElements'
 import { useShareDialog } from '../composables/useShareDialog'
 import HorizontalVirtualScroller from './HorizontalVirtualScroller.vue'
 import SlideshowMarkerControls from './SlideshowMarkerControls.vue'
@@ -1442,6 +1457,8 @@ import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType, isVector as isVectorType, isSprite as isSpriteType, isPackage as isPackageType } from '../utils/mediaTypes'
 import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer, SpritePlayer, PackageViewer } from './viewers'
 import ContactSheetViewer from './sheets/ContactSheetViewer.vue'
+import ElementViewer from './elements/ElementViewer.vue'
+import { isElement as isElementType } from '../utils/mediaTypes'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { playbackPartUrl } from '../utils/segmentedLoopPlayback'
@@ -1790,7 +1807,7 @@ const slideshowSwipe = createSlideshowSwipe({
   release: releaseGallery,
 })
 function pictureGesturesEnabled() {
-  return !isAudio.value && !isText.value && !isLayout.value && !isVector.value && !isSprite.value && !isPackage.value && !isSet.value && !isGrid.value
+  return !isAudio.value && !isText.value && !isLayout.value && !isVector.value && !isSprite.value && !isPackage.value && !isElement.value && !isSet.value && !isGrid.value
 }
 // Phones: the bar lies along the bottom edge; the vertical pill was a desktop choice.
 const controlBarOrientationPref = ref(slideshowCompact.value ? 'horizontal' : (savedSettings.controlBarOrientation ?? 'horizontal'))
@@ -2513,6 +2530,7 @@ const isPackage = computed(() => {
 })
 
 const isSheet = computed(() => !!displayItem.value && getMediaType(displayItem.value) === 'sheet')
+const isElement = computed(() => !!displayItem.value && isElementType(displayItem.value))
 
 const packageTitle = computed(() => {
   const item = currentItem.value
@@ -4731,7 +4749,7 @@ function handleWheel(event) {
   if (!mediaContainerRef.value?.contains(event.target)) return
 
   // Only zoom for images and videos, let other types (text, sets, grids) scroll naturally
-  if (isAudio.value || isText.value || isSet.value || isGrid.value || isLayout.value || isSprite.value || isSheet.value || isPackage.value) return
+  if (isAudio.value || isText.value || isSet.value || isGrid.value || isLayout.value || isSprite.value || isSheet.value || isPackage.value || isElement.value) return
 
   event.preventDefault()
 

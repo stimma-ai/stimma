@@ -10,6 +10,7 @@
       <template v-if="attachment.workspace_ref">
         <span class="text-xs truncate text-content">{{ attachment.filename }}</span>
       </template>
+      <ElementAttachmentTile v-else-if="attachment.element" :attachment="attachment" />
       <MediaImage
         v-else-if="attachment.media_id"
         :media-id="attachment.media_id"
@@ -34,6 +35,7 @@
 
 <script setup>
 import IconButton from '../ui/IconButton.vue'
+import ElementAttachmentTile from '../elements/ElementAttachmentTile.vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { MediaImage, AppImage } from '../media'
 import { getApiBase } from '../../apiConfig'

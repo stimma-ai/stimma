@@ -141,11 +141,39 @@ async def _member_rows(session: AsyncSession, revision_id: int) -> dict[str, Con
     return {row.title or "": row for row in rows}
 
 
-async def element_detail(session: AsyncSession, asset_id: int) -> dict[str, Any]:
-    """Everything a viewer, the chat card or the agent needs about one element."""
+async def element_revision_by_media(session: AsyncSession, media_id: int) -> tuple[Asset, AssetRevision, MediaItem]:
+    """The element version whose bundle is ``media_id`` (any version, not only the newest)."""
+    revision = await session.scalar(
+        select(AssetRevision).where(
+            AssetRevision.primary_media_id == int(media_id),
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
+    asset = await session.get(Asset, revision.asset_id) if revision is not None else None
+    media = await session.get(MediaItem, int(media_id))
+    if (
+        revision is None or asset is None or media is None
+        or asset.asset_type != ELEMENT_ASSET_TYPE or asset.deleted_at is not None
+        or media.file_format != ELEMENT_FORMAT or not Path(media.file_path).is_dir()
+    ):
+        raise ElementNotFound(f"There is no element version {media_id}.")
+    return asset, revision, media
+
+
+async def element_detail(session: AsyncSession, asset_id: int, *, media_id: Optional[int] = None) -> dict[str, Any]:
+    """Everything a viewer, the chat card or the agent needs about one element.
+
+    The current version by default; ``media_id`` picks an earlier version's bundle
+    (the chat panel's version menu shows those).
+    """
     from container_service import resolve_container_members
 
-    asset, revision, media = await element_asset(session, asset_id)
+    if media_id is not None:
+        asset, revision, media = await element_revision_by_media(session, media_id)
+        if asset.id != int(asset_id):
+            raise ElementNotFound(f"There is no element version {media_id}.")
+    else:
+        asset, revision, media = await element_asset(session, asset_id)
     manifest = bundle_manifest(media)
     raw = bundle_instructions(media)
     display = template.strip_blocks(strip_frontmatter(raw))
@@ -194,7 +222,7 @@ async def element_detail(session: AsyncSession, asset_id: int) -> dict[str, Any]
             "mime_type": entry.get("mime_type") or mimetypes.guess_type(entry.get("path") or "")[0],
             "size": target.stat().st_size if target else None,
         })
-    updated = max(asset.updated_at, revision.created_at)
+    updated = max(asset.updated_at, revision.created_at) if revision.id == asset.current_revision_id else revision.created_at
     return {
         "asset_id": asset.id,
         "revision_id": revision.id,

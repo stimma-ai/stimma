@@ -8,6 +8,7 @@
         <div class="text-[12.5px] font-semibold text-content truncate">{{ workspaceFile?.name || asset?.title || 'Untitled' }}</div>
         <div class="text-[10.5px] text-content-muted">
           <span v-if="workspaceFile" class="font-mono">{{ workspaceFile.path }} · {{ fileSize(workspaceFile.size) }}</span>
+          <ElementKindLine v-else-if="heroKind === 'element' && viewedRevision" :media-id="viewedRevision.media_id" />
           <template v-else>{{ kindLabel }}<template v-if="revisions.length"> · {{ versionSubline }}</template></template>
         </div>
       </div>
@@ -88,7 +89,7 @@
             {{ loading ? 'Setting…' : 'Set as latest' }}
           </button>
           <IconButton v-if="canOpenSlideshow && !heroOpensSlideshow" title="Open slideshow" aria-label="Open slideshow" @click="openSlideshow"><ArrowsPointingOutIcon class="w-4 h-4" /></IconButton>
-          <IconButton v-if="heroKind !== 'package' && heroKind !== 'sheet'" title="Download" aria-label="Download" @click="downloadRevision"><ArrowDownTrayIcon class="w-4 h-4" /></IconButton>
+          <IconButton v-if="heroKind !== 'package' && heroKind !== 'sheet' && heroKind !== 'element'" title="Download" aria-label="Download" @click="downloadRevision"><ArrowDownTrayIcon class="w-4 h-4" /></IconButton>
           <div ref="overflowButtonRef" class="flex">
             <IconButton title="Actions" @click="onOverflowClick">
               <EllipsisVerticalIcon class="w-4 h-4" />
@@ -99,7 +100,7 @@
     </div>
 
     <!-- Hero -->
-    <div class="flex-1 min-h-0 flex flex-col relative" :class="workspaceFile || heroKind === 'sheet' ? '' : 'px-3 pt-3'">
+    <div class="flex-1 min-h-0 flex flex-col relative" :class="workspaceFile || heroKind === 'sheet' || heroKind === 'element' ? '' : 'px-3 pt-3'">
       <FileViewer v-if="workspaceFile && chatId != null && active !== false" :controls-target="fileControlsRef" :key="fileUrl(chatId, workspaceFile)" :url="fileUrl(chatId, workspaceFile)" :name="workspaceFile.name" :mime="workspaceFile.mime" :size="workspaceFile.size" :workspace-file="workspaceFile" :chat-id="chatId" class="flex-1 min-h-0" @attach="$emit('attach-file', $event)" @save="$emit('save-file', $event)" />
       <div v-else-if="loading && !viewedRevision" class="flex-1 flex items-center justify-center text-content-muted text-sm">
         Loading…
@@ -124,8 +125,16 @@
         </button>
 
         <!-- A contact sheet is a page you read and review, not a picture. -->
+        <!-- An element is read like a document: cover, instructions, what it holds. -->
+        <ElementPanelViewer
+          v-if="heroKind === 'element'"
+          :key="'element-' + viewedRevision.media_id"
+          :media-id="viewedRevision.media_id"
+          class="flex-1 min-h-0"
+          @open-media="(ids, index) => $emit('open-members', ids, index)"
+        />
         <ContactSheetViewer
-          v-if="heroKind === 'sheet'"
+          v-else-if="heroKind === 'sheet'"
           :key="'sheet-' + viewedRevision.media_id"
           :media-id="viewedRevision.media_id"
           :chat-id="chatId ?? null"
@@ -218,6 +227,8 @@
 
 <script setup lang="ts">
 import FileActions from './FileActions.vue'
+import ElementPanelViewer from '../elements/ElementPanelViewer.vue'
+import ElementKindLine from '../elements/ElementKindLine.vue'
 import FileViewer from '../viewers/FileViewer.vue'
 import Button from '../ui/Button.vue'
 import { fileUrl, fileSize, dragWorkspaceFile, fileKind, type WorkspaceFile } from '../../utils/fileRefs'
@@ -447,16 +458,16 @@ const videoTransport = useVideoTransport({
 })
 
 const showDimensionChip = computed(() =>
-  heroKind.value !== 'vector' && heroKind.value !== 'sprite' && heroKind.value !== 'package' && heroKind.value !== 'sheet' && !!props.viewedRevision?.width && !!props.viewedRevision?.height
+  heroKind.value !== 'vector' && heroKind.value !== 'sprite' && heroKind.value !== 'package' && heroKind.value !== 'sheet' && heroKind.value !== 'element' && !!props.viewedRevision?.width && !!props.viewedRevision?.height
 )
 
 // A package's cover and a contact sheet are pages you read in place; the
 // slideshow is the surface they must never land on. A set or grid opens it
 // over its members, from the tile clicked.
-const canOpenSlideshow = computed(() => !!props.viewedRevision && !['package', 'sheet', 'set', 'grid'].includes(heroKind.value))
+const canOpenSlideshow = computed(() => !!props.viewedRevision && !['package', 'sheet', 'set', 'grid', 'element'].includes(heroKind.value))
 // Documents, audio and text sit in the file viewer, which has controls of its own.
 const heroUsesFileViewer = computed(() => !!props.viewedRevision
-  && !['layout', 'vector', 'sprite', 'package', 'sheet', 'video', 'set', 'grid'].includes(heroKind.value)
+  && !['layout', 'vector', 'sprite', 'package', 'sheet', 'video', 'set', 'grid', 'element'].includes(heroKind.value)
   && fileKind(props.viewedRevision.file_format) !== 'image')
 // A click on the artwork opens the slideshow, a video's too: play and pause
 // sit on its transport bar and Space. A layout is a live page whose clicks stay

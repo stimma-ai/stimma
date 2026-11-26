@@ -28,7 +28,12 @@
             <template #icon><PencilSquareIcon class="h-4 w-4 flex-shrink-0" /></template>
             Edit
           </ActionRow>
+          <ActionRow v-if="isElementItem" @click="elementActions.refineInChat(mediaIdOf(currentItem))">
+            <template #icon><ChatBubbleLeftEllipsisIcon class="h-4 w-4 flex-shrink-0" /></template>
+            Refine in chat
+          </ActionRow>
           <InspireMenu
+            v-if="!isElementItem"
             :media-id="mediaIdOf(currentItem)"
             @sent="$emit('menu-sent')"
             class="action-pair-wrap"
@@ -230,7 +235,7 @@
       </div>
 
       <!-- Lineage: how this was made, newest step first -->
-      <div v-if="provenance.steps.length > 0" class="mb-6">
+      <div v-if="provenance.steps.length > 0 && !isElementItem" class="mb-6">
         <div class="flex items-center justify-between mb-3">
           <h4 class="m-0 text-xs font-semibold text-content-secondary">Lineage</h4>
           <button
@@ -402,7 +407,7 @@
       <!-- AI description -->
 
       <!-- File -->
-      <ProvenanceFileFacts class="mb-6" :rows="fileInfoRows">
+      <ProvenanceFileFacts v-if="!isElementItem" class="mb-6" :rows="fileInfoRows">
         <template #actions="{ row }">
           <template v-if="row.key === 'name'">
             <Tooltip v-if="isDesktopMode" text="Show in Finder">
@@ -518,6 +523,9 @@ import { useProvenanceBuilder } from '../composables/useMediaProvenance'
 import { copyToClipboard } from '../utils/clipboard'
 import { addToast } from '../composables/useToasts'
 import { isImage as isImageType, hasVisualContent, getMediaType } from '../utils/mediaTypes'
+import { ChatBubbleLeftEllipsisIcon } from '@heroicons/vue/24/outline'
+import { elementActions } from './elements/useElements'
+const isElementItem = computed(() => props.currentItem?.file_format === 'stimmaelement')
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { bgClass, textClass } from '../utils/statusColors'
 import { factRows, formatDateTime, normalizeDate } from '../utils/mediaProvenance'

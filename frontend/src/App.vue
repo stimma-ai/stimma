@@ -18,6 +18,8 @@
     <MediaDetailsModal />
     <!-- Share link dialog (global, opened via useShareDialog) -->
     <ShareDialog />
+    <!-- Element rename / set cover (global, opened via elementActions) -->
+    <ElementDialogs />
 
     <ReadinessPanel />
 
@@ -316,6 +318,7 @@ import ToastContainer from './components/ToastContainer.vue'
 import ChatDock from './components/chat/ChatDock.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import ShareDialog from './components/ShareDialog.vue'
+import ElementDialogs from './components/elements/ElementDialogs.vue'
 import ReadinessPanel from './components/ReadinessPanel.vue'
 import FirstRunTour from './components/FirstRunTour.vue'
 import ConnectionScreen from './components/ConnectionScreen.vue'

@@ -1179,6 +1179,12 @@ async def _copy_media_to_workspace(
         select(MediaItem).where(MediaItem.id.in_(media_ids))
     )
     for item in result.scalars().all():
+        if item.file_format == "stimmaelement":
+            # An element is opened as the agent edits it, not copied as a raw bundle.
+            entry = await _checkout_attached_element(session, item, workspace)
+            if entry:
+                copied.append(entry)
+            continue
         file_path = item.file_path
         if file_path and os.path.exists(file_path):
             filename = _workspace_safe_filename(os.path.basename(file_path))
@@ -1213,6 +1219,36 @@ async def _copy_media_to_workspace(
             except Exception as e:
                 log.warning(f"Failed to copy media {item.id} to workspace: {e}")
     return copied
+
+
+async def _checkout_attached_element(
+    session: AsyncSession,
+    item: MediaItem,
+    workspace: Path,
+) -> Dict[str, Any] | None:
+    """Check an attached element out under elements/<slug>/ for the agent."""
+    from database import AssetRevision
+    from elements.bundle import ElementError
+    from elements.workspace import open_element
+
+    asset_id = await session.scalar(
+        select(AssetRevision.asset_id).where(
+            AssetRevision.primary_media_id == item.id,
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
+    if asset_id is None:
+        return None
+    try:
+        checkout = await open_element(session, workspace, int(asset_id))
+    except ElementError as e:
+        log.warning(f"Failed to open attached element {asset_id}: {e}")
+        return None
+    return {
+        "media_id": item.id,
+        "filename": f"{checkout.path}/",
+        "element_asset_id": int(asset_id),
+    }
 
 
 async def _stamp_workspace_files_on_message(

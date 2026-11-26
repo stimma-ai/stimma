@@ -14,9 +14,10 @@ export const SPRITE_FORMATS = ['stimmasprite.json']
 export const PACKAGE_FORMATS = ['stimmapackage']
 export const LAYOUT_FORMATS = ['stimmalayout']
 export const SHEET_FORMATS = ['stimmasheet.html']
-export const STRUCTURED_FORMATS = [...TEXT_FORMATS, ...VECTOR_FORMATS, ...SET_FORMATS, ...GRID_FORMATS, ...SPRITE_FORMATS, ...PACKAGE_FORMATS, ...LAYOUT_FORMATS, ...SHEET_FORMATS]
+export const ELEMENT_FORMATS = ['stimmaelement']
+export const STRUCTURED_FORMATS = [...TEXT_FORMATS, ...VECTOR_FORMATS, ...SET_FORMATS, ...GRID_FORMATS, ...SPRITE_FORMATS, ...PACKAGE_FORMATS, ...LAYOUT_FORMATS, ...SHEET_FORMATS, ...ELEMENT_FORMATS]
 
-export type MediaType = 'image' | 'video' | 'audio' | 'text' | 'vector' | 'set' | 'grid' | 'sprite' | 'package' | 'layout' | 'sheet'
+export type MediaType = 'image' | 'video' | 'audio' | 'text' | 'vector' | 'set' | 'grid' | 'sprite' | 'package' | 'layout' | 'sheet' | 'element'
 
 export interface MediaItem {
   file_format: string
@@ -37,6 +38,7 @@ export function getMediaType(item: MediaItem): MediaType {
   if (format === 'stimmapackage') return 'package'
   if (format === 'stimmalayout') return 'layout'
   if (format === 'stimmasheet.html') return 'sheet'
+  if (format === 'stimmaelement') return 'element'
   if (AUDIO_FORMATS.includes(format)) return 'audio'
   if (VIDEO_FORMATS.includes(format)) return 'video'
   return 'image'
@@ -76,6 +78,10 @@ export function isSprite(item: MediaItem): boolean {
 
 export function isPackage(item: MediaItem): boolean {
   return PACKAGE_FORMATS.includes(item.file_format?.toLowerCase())
+}
+
+export function isElement(item: MediaItem): boolean {
+  return ELEMENT_FORMATS.includes(item.file_format?.toLowerCase())
 }
 
 export function isVector(item: MediaItem): boolean {
@@ -177,6 +183,14 @@ export function getBadgeConfig(item: MediaItem): BadgeConfig | null {
         bgColor: 'bg-gray-500/15',
         borderColor: 'border-gray-500/50',
         label: 'Package'
+      }
+    case 'element':
+      return {
+        icon: 'puzzle-piece',
+        color: 'text-gray-400',
+        bgColor: 'bg-gray-500/15',
+        borderColor: 'border-gray-500/50',
+        label: 'Element'
       }
     case 'sheet':
       return {

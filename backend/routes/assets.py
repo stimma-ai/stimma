@@ -64,6 +64,7 @@ from implicit_markers import (
 from core.dependencies import get_db_session
 from utils.query_builder import (
     AUDIO_FORMATS,
+    ELEMENT_FORMATS,
     GRID_FORMATS,
     IMAGE_FORMATS,
     LAYOUT_FORMATS,
@@ -678,6 +679,7 @@ async def browse_assets(
 # Search result groups, in display order: deliverables first, loose media after.
 SEARCH_GROUP_ORDER = [
     ("packages", PACKAGE_FORMATS),
+    ("elements", ELEMENT_FORMATS),
     ("layouts", LAYOUT_FORMATS),
     ("sets", SET_FORMATS),
     ("grids", GRID_FORMATS),
@@ -1048,6 +1050,7 @@ async def get_asset_filter_counts(
         "grids": GRID_FORMATS,
         "sprites": SPRITE_FORMATS,
         "packages": PACKAGE_FORMATS,
+        "elements": ELEMENT_FORMATS,
         "layouts": LAYOUT_FORMATS,
     }
     media_type_counts = {

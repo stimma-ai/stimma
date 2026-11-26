@@ -156,6 +156,21 @@
           <span>Edit</span>
         </button>
 
+        <template v-if="isElement && !isMultiple">
+        <button @click="runElementAction('refineInChat')" class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2">
+          <ChatBubbleLeftEllipsisIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>Refine in chat</span>
+        </button>
+        <button @click="runElementAction('rename')" class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2">
+          <PencilIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>Rename</span>
+        </button>
+        <button @click="runElementAction('setCover')" class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2">
+          <PhotoIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>Set cover…</span>
+        </button>
+        </template>
+
         <!-- Tags -->
         <button
           @click="handleEditTags"
@@ -367,7 +382,7 @@
 
         <!-- Remix (single item only, not grids, sprites or packages) - with submenu -->
         <div
-          v-if="!isMultiple && !isGrid && !isSprite && !isPackage"
+          v-if="!isMultiple && !isGrid && !isSprite && !isPackage && !isElement"
           class="relative"
           @mouseenter="!isCoarsePointer && openSubmenu('generate', $event)"
           @click.stop="openSubmenu('generate', $event)"
@@ -838,7 +853,7 @@
 
         <!-- View Lineage (single item only) -->
         <button
-          v-if="!isMultiple"
+          v-if="!isMultiple && !isElement"
           @click="handleViewLineage"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
@@ -905,6 +920,7 @@
 
         <!-- Print -->
         <button
+          v-if="!isElement"
           @click="handlePrint"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
@@ -990,6 +1006,8 @@
 </template>
 
 <script setup lang="ts">
+import { ChatBubbleLeftEllipsisIcon } from '@heroicons/vue/24/outline'
+import { elementActions } from '../elements/useElements'
 import { flowsEnabled } from '../../composables/useExperimentalFlows'
 import { useAssetTrash } from '../../composables/useAssetTrash'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
@@ -1393,8 +1411,11 @@ const selectionSummary = computed(() => {
   const item = mediaItem.value
   if (!item) return null
   const facts: string[] = []
+  if (item.file_format === 'stimmaelement') facts.push('Element')
+  else {
   if (item.width && item.height) facts.push(`${item.width} × ${item.height}`)
   if (item.file_format) facts.push(String(item.file_format).split('.')[0].toUpperCase())
+  }
   const kind = currentMediaType.value
   return { title: item.title || kind.charAt(0).toUpperCase() + kind.slice(1), detail: facts.join(' · ') }
 })
@@ -1406,7 +1427,8 @@ const isSprite = computed(() => mediaItem.value?.file_format === 'stimmasprite.j
 const isPackage = computed(() => mediaItem.value?.file_format === 'stimmapackage')
 const isSetOrGrid = computed(() => isSet.value || isGrid.value)
 // No single file to hand to the OS share sheet.
-const isMultiFileItem = computed(() => isSetOrGrid.value || isSprite.value || isPackage.value || mediaItem.value?.file_format === 'stimmalayout')
+const isElement = computed(() => mediaItem.value?.file_format === 'stimmaelement')
+const isMultiFileItem = computed(() => isSetOrGrid.value || isSprite.value || isPackage.value || isElement.value || mediaItem.value?.file_format === 'stimmalayout')
 const inCollection = computed(() => contextMenu.state.value.inCollection || false)
 const collectionSectionId = computed(() => contextMenu.state.value.collectionSectionId)
 const inProject = computed(() => contextMenu.state.value.inProject || false)
@@ -2150,6 +2172,12 @@ function handleEditImage() {
 
 
 // Create Set handler
+function runElementAction(action: 'refineInChat' | 'rename' | 'setCover') {
+  const mediaId = contextMenu.state.value.mediaId
+  contextMenu.hide()
+  if (mediaId) elementActions[action](mediaId)
+}
+
 async function handleCreateSet() {
   const ids = targetMediaIds.value
   if (ids.length < 2) return

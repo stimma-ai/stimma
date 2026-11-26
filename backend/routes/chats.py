@@ -64,6 +64,7 @@ class AttachmentInfo(PydanticBaseModel):
     media_id: Optional[int] = None  # For images from library
     path: Optional[str] = None  # For uploaded files
     filename: Optional[str] = None
+    element: Optional[dict] = None  # {asset_id, name, kind} when media_id is an element
 
 
 class ChatItemCreateRequest(PydanticBaseModel):
@@ -1980,6 +1981,35 @@ async def list_chat_items(
     )
 
 
+async def _describe_element_attachments(session: AsyncSession, attachments: list[dict]) -> None:
+    """Name the elements among a message's attachments, so the bubble can draw them as elements."""
+    from database import Asset, AssetRevision, MediaItem
+    from elements.bundle import bundle_manifest
+
+    ids = [a["media_id"] for a in attachments if a.get("media_id") is not None]
+    if not ids:
+        return
+    rows = (await session.execute(
+        select(MediaItem, Asset)
+        .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
+        .join(Asset, Asset.id == AssetRevision.asset_id)
+        .where(MediaItem.id.in_(ids), MediaItem.file_format == "stimmaelement", AssetRevision.deleted_at.is_(None))
+    )).all()
+    found = {}
+    for media, asset in rows:
+        try:
+            kind = bundle_manifest(media).get("kind") or ""
+        except Exception:  # noqa: BLE001 - an unreadable bundle still shows as an element
+            kind = ""
+        found[media.id] = {"asset_id": asset.id, "name": asset.title or "", "kind": kind}
+    for attachment in attachments:
+        if attachment.get("media_id") in found:
+            attachment["element"] = found[attachment["media_id"]]
+            attachment["file_format"] = "stimmaelement"
+        else:
+            attachment.pop("element", None)
+
+
 async def _attachment_metadata(
     session: AsyncSession,
     chat_id: int,
@@ -1994,6 +2024,7 @@ async def _attachment_metadata(
         except json.JSONDecodeError:
             pass
     metadata_dict["attachments"] = [a.dict() for a in attachments]
+    await _describe_element_attachments(session, metadata_dict["attachments"])
     workspace_refs = []
     from routes.workspace_files import attachment_file
     for attachment in attachments:

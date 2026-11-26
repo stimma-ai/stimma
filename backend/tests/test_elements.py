@@ -453,3 +453,90 @@ async def test_checkouts_stay_inside_the_workspace(db_session, tmp_path):
         (outside / "secret.md").write_text("secret")
         (good / "elements/mira/ELEMENT.md").symlink_to(outside / "secret.md")
         assert "must not be a link" in await _tool(session, good, action="save", slug="mira")
+
+
+# Phase 2: chat card, versions by media, attachments --------------------------
+
+async def _chat(session) -> int:
+    from database import Chat
+
+    chat = Chat(name="Elements")
+    session.add(chat)
+    await session.commit()
+    return chat.id
+
+
+@pytest.mark.asyncio
+async def test_save_in_chat_posts_the_element_card(db_session, tmp_path):
+    from database import ChatItem
+
+    workspace = tmp_path / "ws"
+    async with db_session() as session:
+        chat_id = await _chat(session)
+        asset_id, _ = await _make_mira(session, tmp_path, workspace)  # saved without a chat: no card
+        (workspace / "elements/mira/ELEMENT.md").write_text(INSTRUCTIONS + "\nTowel on the left shoulder.\n")
+        saved = await _tool(session, workspace, action="save", slug="mira", note="Towel", chat_id=chat_id)
+        assert saved.startswith("Saved 'Mira'"), saved
+        items = list(await session.scalars(select(ChatItem).where(ChatItem.chat_id == chat_id)))
+        assert [i.item_type for i in items] == ["media_display"]
+        data = json.loads(items[0].item_metadata)["display_data"]
+        asset = await session.get(Asset, asset_id)
+        revision = await session.get(AssetRevision, asset.current_revision_id)
+        assert data["artifact"] == {
+            "asset_id": asset_id, "revision_id": revision.id, "revision_number": 2, "note": "Towel", "title": "Mira",
+        }
+        output = data["rows"][0]["output"]
+        assert output["media_id"] == revision.primary_media_id and output["file_format"] == "stimmaelement"
+        assert items[0].asset_id == asset_id and items[0].show_role == "final"
+
+
+@pytest.mark.asyncio
+async def test_element_by_media_reads_any_version(db_session, client, tmp_path):
+    workspace = tmp_path / "ws"
+    async with db_session() as session:
+        asset_id, _ = await _make_mira(session, tmp_path, workspace)
+        first_media = (await session.get(AssetRevision, (await session.get(Asset, asset_id)).current_revision_id)).primary_media_id
+        (workspace / "elements/mira/ELEMENT.md").write_text("# Mira\n\nVersion two.\n")
+        await _tool(session, workspace, action="save", slug="mira")
+        other_asset, other_media = await _library_image(session, _png(tmp_path / "lib" / "other.png"))
+
+    old = (await client.get(f"/api/elements/by-media/{first_media}")).json()
+    assert old["asset_id"] == asset_id and old["revision_number"] == 1 and old["media_id"] == first_media
+    assert "olive skin" in old["instructions_display"]
+    current = (await client.get(f"/api/elements/{asset_id}")).json()
+    assert current["revision_number"] == 2 and "Version two." in current["instructions_display"]
+    assert (await client.get(f"/api/elements/by-media/{other_media}")).status_code == 404
+
+    renamed = await client.patch(f"/api/elements/{asset_id}", json={"name": "Mira K", "base_revision_id": current["revision_id"]})
+    assert renamed.status_code == 200 and renamed.json()["name"] == "Mira K"
+    stale = await client.patch(f"/api/elements/{asset_id}", json={"name": "Again", "base_revision_id": old["revision_id"]})
+    assert stale.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_attached_element_is_named_and_checked_out(db_session, tmp_path, monkeypatch):
+    from agent.v2 import service
+    from agent.v2.conversation import _workspace_file_note
+    from routes.chats import _describe_element_attachments
+
+    async with db_session() as session:
+        asset_id, _ = await _make_mira(session, tmp_path, tmp_path / "ws")
+        element_media = (await session.get(AssetRevision, (await session.get(Asset, asset_id)).current_revision_id)).primary_media_id
+        _, image_media = await _library_image(session, _png(tmp_path / "lib" / "plain.png"))
+
+        attachments = [{"media_id": element_media}, {"media_id": image_media, "element": {"name": "spoofed"}}]
+        await _describe_element_attachments(session, attachments)
+        assert attachments[0]["element"] == {"asset_id": asset_id, "name": "Mira", "kind": "character"}
+        assert attachments[0]["file_format"] == "stimmaelement"
+        assert "element" not in attachments[1]
+
+        chat_ws = tmp_path / "chat-ws"
+        chat_ws.mkdir()
+        monkeypatch.setattr(service, "get_workspace_dir", lambda *args: chat_ws)
+        copied = await service._copy_media_to_workspace([element_media, image_media], 1, session)
+        by_media = {entry["media_id"]: entry for entry in copied}
+        assert by_media[element_media] == {"media_id": element_media, "filename": "elements/mira/", "element_asset_id": asset_id}
+        assert (chat_ws / "elements/mira/ELEMENT.md").is_file()
+        assert not any(p.suffix == ".stimmaelement" for p in chat_ws.iterdir())
+        note = _workspace_file_note(by_media[element_media])
+        assert note.startswith("element elements/mira/") and f"asset_id={asset_id}" in note

@@ -59,6 +59,54 @@ def _lora_lines(manifest: dict) -> list[str]:
     return lines
 
 
+async def _show_element_card(session: AsyncSession, chat_id: Optional[int], result, note: Optional[str]) -> None:
+    """Leave the saved version in the transcript as the element's card.
+
+    Same shape as an artifact the show tool posts (a media_display item with
+    ``artifact`` info), so the chat collapses earlier versions and opens the
+    element in the artifact panel with its version menu.
+    """
+    if chat_id is None:
+        return
+    from utils.websocket import ws_manager
+    from .show import _create_display_item
+
+    media_id = result.media.id
+    artifact_info = {
+        "asset_id": result.asset.id,
+        "revision_id": result.revision.id,
+        "revision_number": result.revision.revision_number,
+        "note": note or result.revision.note,
+        "title": result.asset.title,
+    }
+    row = {
+        "id": f"element_{result.revision.id}",
+        "input": {"type": "output_only"},
+        "output": {
+            "status": "complete",
+            "media_id": media_id,
+            "asset_id": result.asset.id,
+            "file_format": result.media.file_format,
+        },
+    }
+    try:
+        await _create_display_item(
+            session=session,
+            chat_id=chat_id,
+            rows=[row],
+            title=None,
+            role="final",
+            media_ids=[media_id],
+            asset_ids=[result.asset.id],
+            ws_manager=ws_manager,
+            artifact_info=artifact_info,
+            asset_by_media={media_id: result.asset.id},
+            artifact_is_new_asset=result.created,
+        )
+    except Exception as exc:  # The save stands even if the card can't be posted.
+        log.warning(f"[element] could not post the element card: {exc}")
+
+
 @tool(
     name="element",
     description=(
@@ -205,6 +253,7 @@ async def element_tool(
                 project_id=kwargs.get("project_id"),
                 note=note,
             )
+            await _show_element_card(session, kwargs.get("chat_id"), result, note)
             verb = "Saved new element" if result.created else "Saved"
             lines = [
                 f"{verb} '{result.asset.title}' (asset_id {result.asset.id}, version {result.revision.revision_number})."

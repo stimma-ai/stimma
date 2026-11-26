@@ -529,6 +529,7 @@
                     </div>
                     <!-- Library media (has media_id) — click opens generation/image details -->
                     <span v-else-if="attachment.workspace_ref" class="text-xs font-mono p-2 break-all">{{ attachment.filename }}</span>
+                    <ElementAttachmentTile v-else-if="attachment.element" :attachment="attachment" />
                     <MediaImage
                       v-else-if="attachment.media_id"
                       :mediaId="attachment.media_id"
@@ -964,9 +965,9 @@
                version chip (Mock A/B) — clicking navigates the stage, or
                reopens it if the user closed it. -->
           <FileChips v-else-if="item.item_type === 'file_display'" :files="sharedFiles(item)" :chat-id="chatId" :selected="artifactStage.stageOpen.value ? artifactStage.workspaceFile.value : null" @refreshed="refreshStagedFile" @preview="previewWorkspaceFile" @attach="attachWorkspaceFile" @save="saveWorkspaceFile" />
-          <div v-else-if="item.item_type === 'media_display'" class="flex justify-start" :class="{ 'w-full': !getStagedItemArtifact(item) && !getSheetItem(item) }">
+          <div v-else-if="item.item_type === 'media_display'" class="flex justify-start" :class="{ 'w-full': !getStagedItemArtifact(item) && !getSheetItem(item) && !getElementItem(item) }">
             <ChatItemWrapper
-              :class="getStagedItemArtifact(item) || getSheetItem(item) ? '' : 'w-full'"
+              :class="getStagedItemArtifact(item) || getSheetItem(item) || getElementItem(item) ? '' : 'w-full'"
               :item-id="item.id"
               :sent-at="item.created_at"
               align="left"
@@ -974,8 +975,16 @@
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
+              <ElementChatChip
+                v-if="getElementItem(item)"
+                :artifact="getElementItem(item).artifact"
+                :media-id="getElementItem(item).mediaId"
+                :latest="latestElementItemIds.has(item.id)"
+                :in-panel="!narrow && artifactStage.stageOpen.value && !artifactStage.workspaceFile.value && artifactStage.viewedRevisionId.value === getElementItem(item).artifact.revision_id"
+                @click="openElementFromChat(getElementItem(item))"
+              />
               <SheetChatChip
-                v-if="getSheetItem(item)"
+                v-else-if="getSheetItem(item)"
                 :artifact="getSheetItem(item).artifact"
                 :media-id="getSheetItem(item).mediaId"
                 :latest="latestSheetItemIds.has(item.id)"
@@ -1486,6 +1495,8 @@ import MediaDisplay from '../components/chat/MediaDisplay.vue'
 import MediaSelectionBar from '../components/chat/MediaSelectionBar.vue'
 import { CHAT_MEDIA_COLLECTIONS, useChatMediaCollections } from '../composables/useChatMediaCollections'
 import FileChips from '../components/chat/FileChips.vue'
+import ElementChatChip from '../components/elements/ElementChatChip.vue'
+import ElementAttachmentTile from '../components/elements/ElementAttachmentTile.vue'
 import { fileUrl, type WorkspaceFile } from '../utils/fileRefs'
 import ArtifactStage from '../components/chat/ArtifactStage.vue'
 import ArtifactVersionChip from '../components/chat/ArtifactVersionChip.vue'
@@ -1918,7 +1929,7 @@ async function openFromMediaDisplay(item, mediaId, slot) {
   if (!props.embedded) {
     const row = (parseMediaDisplayData(item).rows || []).find(r => r?.output?.media_id === mediaId)
     const output = row?.output
-    if (output?.file_format && ['package', 'sheet'].includes(getMediaType({ file_format: output.file_format }))) {
+    if (output?.file_format && ['package', 'sheet', 'element'].includes(getMediaType({ file_format: output.file_format }))) {
       let assetId = output.asset_id
       if (!assetId) {
         // Older display rows predate asset_id on the row; the media itself knows.
@@ -1961,6 +1972,29 @@ const latestSheetItemIds = computed(() => {
   }
   return new Set(latestByAsset.values())
 })
+
+// An element in the transcript, like a contact sheet: its card for the newest
+// version, one quiet line for every earlier one. Never a media panel.
+function getElementItem(item) {
+  if (item?.item_type !== 'media_display') return null
+  const meta = parseArtifactMeta(item)
+  if (!meta) return null
+  const output = (parseMediaDisplayData(item).rows || [])[0]?.output
+  if (getMediaType({ file_format: output?.file_format || '' }) !== 'element') return null
+  return { artifact: meta, mediaId: output.media_id }
+}
+const latestElementItemIds = computed(() => {
+  const latestByAsset = new Map()
+  for (const item of items.value) {
+    const element = getElementItem(item)
+    if (element) latestByAsset.set(element.artifact.asset_id, item.id)
+  }
+  return new Set(latestByAsset.values())
+})
+function openElementFromChat(element) {
+  if (props.embedded) return
+  selectArtifactChip(element.artifact)
+}
 
 function getSheetReview(item) {
   if (item?.item_type !== 'user_message' || !item.item_metadata) return null

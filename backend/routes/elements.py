@@ -22,6 +22,7 @@ from elements.bundle import (
     commit_element,
     element_asset,
     element_detail,
+    element_revision_by_media,
     list_elements,
     safe_bundle_file,
     update_element,
@@ -90,6 +91,16 @@ async def create_element(body: CreateElementRequest, session: AsyncSession = Dep
     return {**detail, "warnings": result.warnings}
 
 
+@router.get("/elements/by-media/{media_id}")
+async def get_element_by_media(media_id: int, session: AsyncSession = Depends(get_db_session)):
+    """One version of an element, by its bundle's media id (chat cards and the version menu)."""
+    try:
+        asset, _revision, _media = await element_revision_by_media(session, media_id)
+        return await element_detail(session, asset.id, media_id=media_id)
+    except ElementError as exc:
+        raise _http(exc)
+
+
 @router.get("/elements/{asset_id}")
 async def get_element(asset_id: int, session: AsyncSession = Depends(get_db_session)):
     try:
@@ -108,7 +119,7 @@ class UpdateElementRequest(BaseModel):
 async def patch_element(asset_id: int, body: UpdateElementRequest, session: AsyncSession = Depends(get_db_session)):
     """The viewer's direct edits: rename, and set the cover. Everything else is refined in chat."""
     try:
-        return await update_element(
+        detail = await update_element(
             session,
             profile_id=get_current_profile(),
             asset_id=asset_id,
@@ -118,6 +129,16 @@ async def patch_element(asset_id: int, body: UpdateElementRequest, session: Asyn
         )
     except ElementError as exc:
         raise _http(exc)
+    # Tiles, open viewers and chat panels follow the edit.
+    from utils.websocket import ws_manager
+
+    if body.cover_member_key is not None:
+        await ws_manager.broadcast("asset_current_revision_changed", {
+            "asset_id": detail["asset_id"], "revision_id": detail["revision_id"], "media_id": detail["media_id"],
+        })
+    if body.name is not None:
+        await ws_manager.broadcast("assets_updated", {"asset_ids": [detail["asset_id"]], "fields": ["title"]})
+    return detail
 
 
 async def _serve_file(session: AsyncSession, asset_id: int, path: str, download: bool) -> FileResponse:

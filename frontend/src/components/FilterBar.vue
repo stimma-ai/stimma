@@ -1187,6 +1187,7 @@ const mediaTypeOptions = [
   { value: 'grids', label: 'Grids' },
   { value: 'sprites', label: 'Sprites' },
   { value: 'packages', label: 'Packages' },
+  { value: 'elements', label: 'Elements' },
   { value: 'layouts', label: 'Layouts' },
 ]
 const resolutionOptions = [

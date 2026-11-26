@@ -72,6 +72,7 @@ export interface AssetGroup {
 
 const ASSET_GROUP_ORDER: Array<Omit<AssetGroup, 'items'>> = [
   { type: 'package', label: 'Packages', filterKey: 'packages', titled: true },
+  { type: 'element', label: 'Elements', filterKey: 'elements', titled: true },
   { type: 'layout', label: 'Layouts', filterKey: 'layouts', titled: true },
   { type: 'set', label: 'Sets', filterKey: 'sets', titled: true },
   { type: 'grid', label: 'Grids', filterKey: 'grids', titled: true },
