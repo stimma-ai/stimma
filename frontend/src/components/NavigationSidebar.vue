@@ -100,9 +100,10 @@
                the pinned ones do, and resting the mouse on Assets unfolds the
                rest so any view is one click away. Pin from the row or its
                right-click menu. -->
-          <div @pointerenter="onAssetsPointerEnter" @pointerleave="onAssetsPointerLeave">
           <button
             @click="handleNavClick('browse')"
+            @pointerenter="onAssetsPointerEnter"
+            @pointerleave="onAssetsPointerLeave"
             class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
             :class="activeTab === 'browse' ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
           >
@@ -149,7 +150,6 @@
               </div>
             </div>
           </TransitionGroup>
-          </div>
           <ActionMenu v-if="savedViewMenu" :x="savedViewMenu.x" :y="savedViewMenu.y" :actions="savedViewMenuActions" @close="savedViewMenu = null" />
 
           <!-- Collections landing link (with drag-drop to create new) -->
@@ -1530,7 +1530,7 @@ const savedViewMenuActions = computed(() => {
   const pin = { id: 'pin', label: view.pinned ? 'Unpin' : 'Pin', icon: pinSvg(!view.pinned), action: () => toggleSavedViewPin(view) }
   // Reordering is offered only where every view is visible, so a move never
   // swaps with a hidden neighbour.
-  if (!assetsExpanded.value) return [pin]
+  if (!inAssets.value) return [pin]
   return [
     pin,
     { id: 'divider' },
