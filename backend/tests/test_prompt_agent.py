@@ -63,6 +63,21 @@ def test_prompting_tools_mirror_the_prompt_menu():
     assert "{{name}}" in sp and "set_choice" in sp and "prompt_choices" in sp
 
 
+def test_agent_knows_fluent_parts_and_current_names():
+    """The chat bar writes Fluent's <parts>, and an unsaved {{name}} is not an open choice."""
+    import json
+    from prompt_agent_tools import TOOL_SCHEMAS
+    from prompts import get_prompt
+    sp = get_prompt("prompt_enhancement", "agent_system_prompt")
+    assert "<young woman>" in sp and "a <dog>" in sp
+    assert "prompt_options.mode" in sp
+    assert "open choice" not in sp
+    by_name = {t["function"]["name"]: t["function"] for t in TOOL_SCHEMAS}
+    for name in ("set_prompt", "set_prompting", "set_choice"):
+        assert "<angle-bracketed>" in by_name[name]["description"], name
+    assert "fluent" not in json.dumps(TOOL_SCHEMAS).lower()
+
+
 def test_agent_system_prompt_has_notes_principle():
     from prompts import get_prompt
     sp = get_prompt("prompt_enhancement", "agent_system_prompt")

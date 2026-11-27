@@ -34,7 +34,8 @@ _PROMPT_TOOLS = [
     _fn(
         "set_prompt",
         "Replace the ENTIRE prompt text. Use for big rewrites or starting over. "
-        "Preserve [bracketed] verbatim segments and {a|b|c} wildcards unless asked to change them. "
+        "Preserve [bracketed] verbatim segments, <angle-bracketed> parts, {a|b|c} lists and {{name}}s unless "
+        "asked to change them. "
         "An empty string clears the prompt.",
         {"text": {"type": "string"}},
         ["text"],
@@ -362,9 +363,10 @@ _OPTION_TOOLS = [
         "set_prompting",
         "Set how the prompt is read when generating, like the prompt menu. Pass mode, detail, or both. "
         "mode: 'vary' reads the prompt once and gives each image its own choices (listed in "
-        "state_context.prompt_choices); 'direct' sends the words as written ({a|b} picks one, saved "
-        "wildcards fill, [brackets] unwrap, # lines drop) with no chat model; 'raw' sends the text exactly "
-        "as typed. state_context.prompt_options.mode_names gives the name the user sees for each mode. "
+        "state_context.prompt_choices): its own take on each <angle-bracketed> part, keeping its words, "
+        "and one option from each {a|b} list. 'direct' sends the words as written (<words> as their words, "
+        "{a|b} picks one, saved wildcards fill, [brackets] unwrap, # lines drop) with no chat model; 'raw' "
+        "sends the text exactly as typed.state_context.prompt_options.mode_names gives the name the user sees for each mode. "
         "detail (Increase Detail in the menu): how much is added when the prompt is read: 'off' nothing, 'medium' what "
         "this model needs to read them well, 'high' a full, rich prompt that may add choices of its own.",
         {"mode": {"type": "string", "enum": ["vary", "direct", "raw"]},
@@ -375,7 +377,8 @@ _OPTION_TOOLS = [
         "Hold one of the prompt's choices, like ticking options on its card: one value pins it for every "
         "image, several limit each image to those, an empty list lets it vary freely again. choice is an "
         "id from state_context.prompt_choices (or its label); values come from that choice's options. To "
-        "offer a new option, edit the prompt's {a|b|c} list instead.",
+        "offer a new option for a {a|b|c} list, edit the list; to steer an <angle-bracketed> part, edit "
+        "its words.",
         {"choice": {"type": "string", "description": "A choice id from state_context.prompt_choices."},
          "values": {"type": "array", "items": {"type": "string"},
                     "description": "Options to hold. Empty: draw from every option again."}},
