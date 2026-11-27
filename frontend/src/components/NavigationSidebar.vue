@@ -22,6 +22,8 @@
         :style="!isMobile ? { width: `${sidebarWidth}px` } : undefined"
         :aria-hidden="(isMobile && !isOpen) || (focusCollapsed && !peeking) ? 'true' : undefined"
         :inert="(isMobile && !isOpen) || (focusCollapsed && !peeking) ? true : undefined"
+        @pointerenter="onSidebarPointerEnter"
+        @pointerleave="onSidebarPointerLeave"
       >
         <!-- Draggable region + fade overlay for traffic light area -->
         <div v-if="isDesktopMac" class="absolute top-0 left-0 right-3 h-9 z-10 pointer-events-none">
@@ -95,7 +97,10 @@
 
           <!-- All Assets, then the saved views flush beneath it. Inside Assets
                (the browser or any saved view) every view shows; elsewhere only
-               the pinned ones do. Pin from the row or its right-click menu. -->
+               the pinned ones do, and resting the mouse on Assets unfolds the
+               rest so any view is one click away. Pin from the row or its
+               right-click menu. -->
+          <div @pointerenter="onAssetsPointerEnter" @pointerleave="onAssetsPointerLeave">
           <button
             @click="handleNavClick('browse')"
             class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-1"
@@ -144,6 +149,7 @@
               </div>
             </div>
           </TransitionGroup>
+          </div>
           <ActionMenu v-if="savedViewMenu" :x="savedViewMenu.x" :y="savedViewMenu.y" :actions="savedViewMenuActions" @close="savedViewMenu = null" />
 
           <!-- Collections landing link (with drag-drop to create new) -->
@@ -1456,7 +1462,45 @@ watch(() => hasLoadedData.value && props.isMobile, (phoneReady) => {
 // Saved views sit under Assets. Inside Assets (the browser or any saved view)
 // they all show; elsewhere only the pinned ones do. Pinning is part of the view.
 const inAssets = computed(() => activeTab.value === 'browse' || route.name === 'saved-view')
-const sidebarSavedViews = computed(() => contextSavedViews.value.filter(v => inAssets.value || v.pinned))
+// Hovering Assets with a mouse unfolds every view after a short pause, so
+// sweeping past doesn't jolt the sidebar. Once open, the fold stays open until
+// the pointer leaves the sidebar (or the right-click menu closes outside it),
+// so rows never shift under the cursor while it is still in the sidebar.
+const ASSETS_HOVER_OPEN_MS = 150
+const ASSETS_HOVER_CLOSE_MS = 300
+const assetsHoverOpen = ref(false)
+const sidebarPointerInside = ref(false)
+let assetsHoverTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleAssetsHover(open: boolean, delay: number) {
+  if (assetsHoverTimer) clearTimeout(assetsHoverTimer)
+  assetsHoverTimer = setTimeout(() => { assetsHoverTimer = null; assetsHoverOpen.value = open }, delay)
+}
+function onAssetsPointerEnter(event: PointerEvent) {
+  if (event.pointerType !== 'mouse' || props.isMobile) return
+  sidebarPointerInside.value = true
+  scheduleAssetsHover(true, assetsHoverOpen.value ? 0 : ASSETS_HOVER_OPEN_MS)
+}
+function onAssetsPointerLeave(event: PointerEvent) {
+  // A pass that didn't settle long enough to open cancels the pending open.
+  if (event.pointerType === 'mouse' && !assetsHoverOpen.value && assetsHoverTimer) {
+    clearTimeout(assetsHoverTimer); assetsHoverTimer = null
+  }
+}
+function onSidebarPointerEnter(event: PointerEvent) {
+  if (event.pointerType !== 'mouse') return
+  sidebarPointerInside.value = true
+  // Coming back before the fold closes keeps it open.
+  if (assetsHoverOpen.value && assetsHoverTimer) scheduleAssetsHover(true, 0)
+}
+function onSidebarPointerLeave(event: PointerEvent) {
+  if (event.pointerType !== 'mouse') return
+  sidebarPointerInside.value = false
+  if (savedViewMenu.value) return
+  if (assetsHoverOpen.value || assetsHoverTimer) scheduleAssetsHover(false, ASSETS_HOVER_CLOSE_MS)
+}
+onUnmounted(() => { if (assetsHoverTimer) clearTimeout(assetsHoverTimer) })
+const assetsExpanded = computed(() => inAssets.value || assetsHoverOpen.value)
+const sidebarSavedViews = computed(() => contextSavedViews.value.filter(v => assetsExpanded.value || v.pinned))
 const PIN_PATH = 'M10.5 1.5L14.5 5.5L12 8L11.5 12L8 8.5L4.5 12L4 11.5L7.5 8L4 4.5L8 4L10.5 1.5Z'
 const pinSvg = (filled: boolean) => `<svg viewBox="0 0 16 16" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.25"><path d="${PIN_PATH}"/></svg>`
 async function toggleSavedViewPin(view: any) {
@@ -1470,6 +1514,9 @@ async function toggleSavedViewPin(view: any) {
   }
 }
 const savedViewMenu = ref<{ view: any, x: number, y: number } | null>(null)
+watch(savedViewMenu, (menu) => {
+  if (!menu && assetsHoverOpen.value && !sidebarPointerInside.value) scheduleAssetsHover(false, ASSETS_HOVER_CLOSE_MS)
+})
 function openSavedViewMenu(view: any, event: MouseEvent) {
   savedViewMenu.value = { view, x: event.clientX, y: event.clientY }
 }
@@ -1483,7 +1530,7 @@ const savedViewMenuActions = computed(() => {
   const pin = { id: 'pin', label: view.pinned ? 'Unpin' : 'Pin', icon: pinSvg(!view.pinned), action: () => toggleSavedViewPin(view) }
   // Reordering is offered only where every view is visible, so a move never
   // swaps with a hidden neighbour.
-  if (!inAssets.value) return [pin]
+  if (!assetsExpanded.value) return [pin]
   return [
     pin,
     { id: 'divider' },
