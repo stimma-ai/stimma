@@ -1,10 +1,13 @@
 import { ref, type Ref } from 'vue'
 import { EditorView } from '@codemirror/view'
 import { Compartment } from '@codemirror/state'
+import { selectAll } from '@codemirror/commands'
 import { vim, Vim, getCM } from '@replit/codemirror-vim'
 
 const VIM_MODE_KEY = 'stimma:vim-mode'
 const VIM_COMMANDS_KEY = 'stimma:vim-commands'
+// As the Vim adapter decides it (CodeMirror.isMac).
+const IS_MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
 const vimSaveHandlers = new WeakMap<object, () => void | Promise<void>>()
 
 interface StoredVimCommand {
@@ -151,6 +154,44 @@ export function vimPanelKeydownHandler(e: KeyboardEvent) {
   const target = e.target as HTMLElement
   if (!(target instanceof HTMLInputElement) || !target.closest('.cm-vim-panel')) return
   saveVimCommand(target.value)
+}
+
+/** Ctrl+A and Ctrl+V select all and paste, as they do with Vim off, rather than Vim's increment
+    and block-visual (gVim on Windows and VSCodeVim do the same). Ctrl+C is left to Vim, which
+    copies a selection and otherwise treats it as Escape. Not on macOS, where Cmd does these and
+    Ctrl+A and Ctrl+V stay Vim's. Registered in the capture phase on the editor's mount, so Vim's
+    own keydown never sees these keys. */
+export function vimClipboardKeydownHandler(e: KeyboardEvent) {
+  if (IS_MAC || !e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+  const key = e.key.toLowerCase()
+  if (key !== 'a' && key !== 'v') return
+  const view = vimViewAt(e.target)
+  if (!view) return
+  e.stopPropagation()
+  if (key === 'a') {
+    e.preventDefault()
+    selectAll(view)
+  }
+}
+
+/** A paste over selected text replaces it. Vim's own paste listener collapses the selection
+    first, so a paste after Ctrl+A would land after the prompt instead of in its place. With
+    nothing selected, Vim places the paste as it does now. */
+export function vimPasteHandler(e: ClipboardEvent) {
+  const view = vimViewAt(e.target)
+  const text = e.clipboardData?.getData('text/plain')
+  if (!view || !text || view.state.selection.ranges.every(r => r.empty)) return
+  e.preventDefault()
+  e.stopPropagation()
+  view.dispatch(view.state.replaceSelection(text), { scrollIntoView: true, userEvent: 'input.paste' })
+}
+
+/** The editor `target` is typing in, when Vim is on in it. Not the Vim command line. */
+function vimViewAt(target: EventTarget | null): EditorView | null {
+  const el = target as HTMLElement | null
+  if (!el?.closest?.('.cm-content')) return null
+  const view = EditorView.findFromDOM(el)
+  return view && getCM(view) ? view : null
 }
 
 export interface VimToggle {

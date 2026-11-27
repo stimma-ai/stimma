@@ -82,7 +82,7 @@ import { darkHighlightStyle, lightHighlightStyle } from '../../utils/codeHighlig
 import { syntaxHighlighting } from '@codemirror/language'
 import { defaultKeymap, historyKeymap, history } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
-import { registerVimSaveHandler, useVimToggle, vimPanelKeydownHandler } from '../../composables/codeMirrorVim'
+import { registerVimSaveHandler, useVimToggle, vimClipboardKeydownHandler, vimPanelKeydownHandler, vimPasteHandler } from '../../composables/codeMirrorVim'
 import { webkitSelectionLayer } from '../../composables/webkitSelectionLayer'
 
 const MONO_KEY = 'stimma:flow-code-monospace'
@@ -351,12 +351,16 @@ function createView() {
   bindView(view)
   unregisterVimSaveHandler = registerVimSaveHandler(view, () => emit('save-request'))
   mountEl.value.addEventListener('keydown', vimPanelKeydownHandler, true)
+  mountEl.value.addEventListener('keydown', vimClipboardKeydownHandler, true)
+  mountEl.value.addEventListener('paste', vimPasteHandler, true)
   setDirty(view.state.doc.toString() !== serverBaseline)
   applyErrorLines()
 }
 
 function destroyView() {
   mountEl.value?.removeEventListener('keydown', vimPanelKeydownHandler, true)
+  mountEl.value?.removeEventListener('keydown', vimClipboardKeydownHandler, true)
+  mountEl.value?.removeEventListener('paste', vimPasteHandler, true)
   unregisterVimSaveHandler?.()
   unregisterVimSaveHandler = null
   view?.destroy()

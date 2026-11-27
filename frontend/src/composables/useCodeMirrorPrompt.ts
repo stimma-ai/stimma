@@ -14,7 +14,7 @@ import { EditorState, StateEffect, StateField, Compartment, RangeSetBuilder, typ
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { bracketMatching } from '@codemirror/language'
-import { registerVimSaveHandler, useVimToggle, vimPanelKeydownHandler } from './codeMirrorVim'
+import { registerVimSaveHandler, useVimToggle, vimClipboardKeydownHandler, vimPanelKeydownHandler, vimPasteHandler } from './codeMirrorVim'
 import { webkitSelectionLayer } from './webkitSelectionLayer'
 import { lineSyntaxRanges, type PromptSyntaxKind, type PromptSyntaxMode } from '../utils/promptSyntax'
 
@@ -432,6 +432,8 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
     bindView(view)
     if (onSave) unregisterSave = registerVimSaveHandler(view, onSave)
     mountRef.value.addEventListener('keydown', vimPanelKeydownHandler, true)
+    mountRef.value.addEventListener('keydown', vimClipboardKeydownHandler, true)
+    mountRef.value.addEventListener('paste', vimPasteHandler, true)
   }
 
   function setContent(text: string) {
@@ -505,6 +507,8 @@ export function useCodeMirrorPrompt(options: UseCodeMirrorPromptOptions) {
 
   function destroy() {
     mountRef.value?.removeEventListener('keydown', vimPanelKeydownHandler, true)
+    mountRef.value?.removeEventListener('keydown', vimClipboardKeydownHandler, true)
+    mountRef.value?.removeEventListener('paste', vimPasteHandler, true)
     unregisterSave?.()
     unregisterSave = null
     view?.destroy()
