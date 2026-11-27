@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import MediaLineage, MediaToolLineage
+from database import MediaItem, MediaLineage, MediaToolLineage
 
 log = logging.getLogger(__name__)
 
@@ -84,6 +84,30 @@ def build_inherited_lineage_trace(parent_media: Any) -> list[dict]:
     return trace
 
 
+def _as_media_id(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return None
+
+
+async def existing_media_ids(session: AsyncSession, media_ids) -> set[int]:
+    """The ids among ``media_ids`` that still have a Media row.
+
+    A source can be permanently deleted after a job picks it up (or while a
+    tool's reference slot still remembers it), so lineage writers keep only the
+    sources that still exist instead of failing the finished output.
+    """
+    ids = {i for i in map(_as_media_id, media_ids) if i is not None}
+    if not ids:
+        return set()
+    rows = await session.scalars(select(MediaItem.id).where(MediaItem.id.in_(ids)))
+    return set(rows)
+
+
 async def record_lineage(
     session: AsyncSession,
     media_id: int,
@@ -113,6 +137,8 @@ async def record_lineage(
         delete(MediaLineage).where(MediaLineage.media_id == media_id)
     )
 
+    present = await existing_media_ids(session, source_media_ids)
+    source_media_ids = [i for i in map(_as_media_id, source_media_ids) if i in present]
     for i, source_id in enumerate(source_media_ids):
         lineage = MediaLineage(
             media_id=media_id,
@@ -155,11 +181,17 @@ async def record_lineage_from_inputs(
         delete(MediaLineage).where(MediaLineage.media_id == media_id)
     )
 
+    # A source deleted since the job started keeps its file path, like an
+    # external file, rather than pointing at a Media row that is gone.
+    present = await existing_media_ids(session, [s.get('media_id') for s in source_inputs])
     for i, source in enumerate(source_inputs):
+        source_id = _as_media_id(source.get('media_id'))
+        if source_id not in present:
+            source_id = None
         lineage = MediaLineage(
             media_id=media_id,
-            source_media_id=source.get('media_id'),
-            source_file_path=source.get('file_path') if not source.get('media_id') else None,
+            source_media_id=source_id,
+            source_file_path=source.get('file_path') if source_id is None else None,
             source_order=i,
             task_type=task_type,
             relationship_type=relationship_type,

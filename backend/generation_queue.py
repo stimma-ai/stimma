@@ -1461,6 +1461,12 @@ class GenerationQueue:
                     if media_id is None and lineage_path:
                         media_id = await self._resolve_path_to_media_id(session, lineage_path)
 
+                    # A slot can remember a source that has since been
+                    # permanently deleted (a cropped or prepared copy still
+                    # runs); record it by file path only.
+                    if media_id is not None and await session.get(MediaItem, media_id) is None:
+                        media_id = None
+
                     # Assign role based on task type and position
                     if is_video_task:
                         role = "start_image" if i == 0 else "end_image"
@@ -4067,6 +4073,10 @@ class GenerationQueue:
             # Record inspiration lineage if inspired_by_media_id is present
             # This adds an additional row (not replacing derived lineage) to track inspiration source
             inspired_by_media_id = params.get('inspired_by_media_id')
+            if inspired_by_media_id and not ephemeral_run_id:
+                from utils.lineage import existing_media_ids
+                if int(inspired_by_media_id) not in await existing_media_ids(session, [int(inspired_by_media_id)]):
+                    inspired_by_media_id = None
             if inspired_by_media_id and not ephemeral_run_id:
                 session.add(MediaLineage(
                     media_id=media_item.id,
