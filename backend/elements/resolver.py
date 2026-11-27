@@ -32,7 +32,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-RESOLVER_VERSION = 2   # 2: guidance names chosen images as {ref:N} (ToolView numbers them as placed)
+RESOLVER_VERSION = 3   # 2: guidance names chosen images as {ref:N}; 3: pick per shot, not every image that fits
 SURFACES = ("enhance", "fluent", "tool_agent")
 LLM_TIMEOUT_SECONDS = 40.0
 _MAX_REASON = 160
@@ -299,11 +299,17 @@ def remaining_slots(info: ToolInfo, overrides: Overrides) -> int:
 
 
 def needs_judgment(elements: list[Element], remaining: int) -> bool:
-    """Whether a model must choose. Structural only: counts and flags, never the prompt's words."""
+    """Whether a model must choose. Structural only: counts and flags, never the prompt's words.
+
+    Any element with more than one image to offer is a choice for the shot, even when all of
+    them would fit: the prompt decides which ones help, not the slot count.
+    """
     refs = [m for e in elements for m in e.media] if remaining > 0 else []
     if any(m.get("conditional") for m in refs):
         return True
     if len(refs) > remaining:
+        return True
+    if remaining > 0 and any(len(e.media) > 1 for e in elements):
         return True
     return any(len(e.loras) > 1 for e in elements)
 
@@ -367,8 +373,10 @@ characters, products, places, styles or brands. Each element has instructions, a
 images and sometimes LoRAs (add-on model weights that draw it).
 
 Choose, for the user's prompt:
-- references: the reference images that best serve this prompt. Use each image's description and \
-its "use when" note. Never choose more than the number of free slots; when elements compete, share \
+- references: only the reference images this shot needs. Use each image's description and \
+its "use when" note. An image that shows an angle, expression, outfit or setting the prompt doesn't \
+call for works against it, so leave it out; most shots need one or two images per element, never \
+every image just because there is room. Never choose more than the number of free slots; when elements compete, share \
 the slots so each element that matters to the prompt gets its most useful image. If the prompt \
 leaves something open (an expression, a pose), prefer a neutral, versatile image.
 - loras: which of each element's LoRAs to switch on, and at what weight (default unless the \

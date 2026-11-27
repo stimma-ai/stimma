@@ -71,7 +71,7 @@ class FakeModel:
 @pytest.mark.asyncio
 async def test_fast_path_binds_everything_without_a_model(db_session, tmp_path):
     async with db_session() as session:
-        place = await _element(session, tmp_path, "market", [{"key": "street"}, {"key": "stall"}], [],
+        place = await _element(session, tmp_path, "market", [{"key": "street"}], [],
                                text="# Night market\nLanterns, wet stone.")
         mira = await _element(session, tmp_path, "mira", MIRA_MEDIA[:1], MIRA_LORA)
         model = FakeModel(AssertionError("no model on the fast path"))
@@ -79,13 +79,26 @@ async def test_fast_path_binds_everything_without_a_model(db_session, tmp_path):
                              prompt="Mira at the market", info=_info(3), ask_model=model, use_store=False)
     assert plan["mode"] == "deterministic" and not model.calls
     assert [(r["element_asset_id"], r["member_key"]) for r in plan["selected_refs"]] == [
-        (mira, "face-front"), (place, "street"), (place, "stall")]
+        (mira, "face-front"), (place, "street")]
     assert all(r["media_id"] for r in plan["selected_refs"])
     assert plan["selected_loras"] == [{"element_asset_id": mira, "lora_key": "mira-klein-v2", "path": LORA_PATH,
                                        "weight": 0.8, "trigger": "mira_kl", "reason": ""}]
     rendered = {e["asset_id"]: e["instructions"] for e in plan["elements"]}
     assert "don't describe it" in rendered[mira]["enhance"] and "olive skin" not in rendered[mira]["enhance"]
     assert set(rendered[mira]) == {"enhance", "fluent", "tool_agent"}
+
+
+@pytest.mark.asyncio
+async def test_several_images_are_a_choice_even_when_all_fit(db_session, tmp_path):
+    async with db_session() as session:
+        place = await _element(session, tmp_path, "market", [{"key": "street"}, {"key": "stall"}, {"key": "lanterns"}],
+                               [], text="# Night market")
+        model = FakeModel({"references": [{"element": 1, "key": "stall", "why": "A close shot at a stall"}],
+                           "loras": [], "guidance": "[image 1] shows the stall."})
+        plan = await resolve(session, elements=[{"asset_id": place}], tool_id="t", prompt="steam rising off a noodle stall",
+                             info=_info(8), ask_model=model, use_store=False)
+    assert plan["mode"] == "resolved" and len(model.calls) == 1
+    assert [r["member_key"] for r in plan["selected_refs"]] == ["stall"]
 
 
 @pytest.mark.asyncio
