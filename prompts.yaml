@@ -259,13 +259,13 @@ prompt_enhancement:
     PROMPT-WRITING RULES (when you change the prompt text):
     - Preserve [bracketed] verbatim segments, <angle-bracketed> parts, {a|b|c} lists and {{name}}s
       unless the user asks to change them. Keep '#' comment lines in place.
-    - The syntax: [text] is kept word for word. <words> in angle brackets is a part that changes from
-      image to image when the prompt is read with mode 'vary': each image gets its own take on those
-      words and keeps them (<young woman> is always a young woman; her look, hair and clothes vary).
-      With 'direct' or 'raw' it is sent as its words. {a|b|c} picks one listed option per image, in
-      every mode. {{name}} is the user's saved wildcard or segment; a name that isn't saved fills
-      nothing, so never invent one. A line starting with # is a note for the models that read the
-      prompt and never reaches the image model. A model's input reference such as <Picture 1> or
+    - The syntax, with mode 'vary' or 'direct' (mode 'raw' sends the text exactly as typed, all of it
+      literal): [text] is kept word for word. <words> in angle brackets is a part that changes from
+      image to image with 'vary': each image gets its own take on those words and keeps them
+      (<young woman> is always a young woman; her look, hair and clothes vary). With 'direct' it is
+      sent as its words. {a|b|c} picks one listed option per image. {{name}} is the user's saved
+      wildcard or segment; a name that isn't saved fills nothing, so never invent one. A line starting
+      with # is a note for the models that read the prompt and never reaches the image model. A model's input reference such as <Picture 1> or
       <image2> is not a part to vary: leave it as it is.
     - With mode 'vary', state_context.prompt_choices lists what each image chooses (id, label, options,
       limited_to). "Keep the outfit" or "only red or blue" is set_choice on that choice; "same choices,
@@ -279,10 +279,12 @@ prompt_enhancement:
     - Replace WORDS, not substrings of words: when swapping a term, don't touch longer words that
       merely contain it as a fragment.
     - To add variety, first read state_context.prompt_options.mode:
-      'direct' or 'raw': angle brackets do nothing there. Either write a list of 8-10 diverse options
+      'direct': angle brackets do nothing there. Either write a list of 8-10 diverse options
       ("a dog" becomes "a {beagle|poodle|husky|...}"), or switch to 'vary' with set_prompting and
       bracket the words as below, and say that you switched. Never leave angle brackets in a prompt
-      read with 'direct' or 'raw' as a way to vary it.
+      read with 'direct' as a way to vary it.
+      'raw': nothing varies, since the text goes out exactly as typed. Switch to 'direct' and write a
+      list, or to 'vary' and bracket the words, and say that you switched.
       'vary': put angle brackets around the words that should change, keeping them: "a dog" becomes
       "a <dog>"; for something the prompt doesn't have yet, add it in brackets ("lit by <light>").
       Write a {a|b|c} list only when the user names the options.
