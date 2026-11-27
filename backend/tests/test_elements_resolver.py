@@ -332,7 +332,7 @@ def test_fluent_variant_writer_keeps_to_the_elements_and_pools_are_keyed_by_them
 
 @pytest.mark.asyncio
 async def test_refs_active_follows_the_images_placed_for_each_element(db_session, tmp_path):
-    text = "# Ada\n{{#if refs_active}}\nPoint at her image.\n{{else}}\nGray eyes, red braid.\n{{/if}}\n"
+    text = "# Ada\n{{#if refs_active or lora_active}}\nPoint at her image.\n{{else}}\nGray eyes, red braid.\n{{/if}}\n"
     async with db_session() as session:
         ada = await _element(session, tmp_path, "ada", [{"key": "face-front"}], [], text=text)
         with_room = await resolve(session, elements=[{"asset_id": ada}], tool_id="t", prompt="Ada reading",
