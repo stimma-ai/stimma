@@ -15,15 +15,18 @@ export default async function globalSetup(config: FullConfig) {
   const context = await browser.newContext()
   const page = await context.newPage()
 
-  await page.addInitScript(() => {
-    // Key prefix is the bundle id (see frontend/src/appConfig.js).
-    localStorage.setItem('stimma_bundle_id', 'ai.stimma.stimma.debug')
-    localStorage.setItem('stimma_sandbox', 'default')
-    for (const prefix of ['stimma', 'stimma_ai.stimma.stimma.debug', 'stimma_ai.stimma.stimma.debug_default']) {
-      localStorage.setItem('stimma_install_theme', 'light')
-      localStorage.setItem(`${prefix}_global_onboarding_completed`, 'true')
+  const bundle = process.env.DOCS_SHOTS_BUNDLE || 'ai.stimma.stimma.debug'
+  const sandbox = process.env.DOCS_SHOTS_SANDBOX || 'docs-demo'
+  await page.addInitScript(([bundle, sandbox]) => {
+    // Keys are prefixed with the bundle id and sandbox (utils/storageKeys.ts).
+    localStorage.setItem('stimma_bundle_id', bundle)
+    localStorage.setItem('stimma_sandbox', sandbox)
+    localStorage.setItem('stimma_install_theme', 'light')
+    localStorage.setItem('stimma_install_terms_accepted', JSON.stringify({ version: 999, at: Date.now() }))
+    for (const prefix of ['stimma', `stimma_${bundle}`, `stimma_${bundle}_default`, `stimma_${bundle}_${sandbox}`]) {
+      localStorage.setItem(`${prefix}_global_onboarding_completed`, '1')
     }
-  })
+  }, [bundle, sandbox])
 
   await page.goto(baseURL)
   await page.waitForFunction(() => localStorage.getItem('profileId') !== null, { timeout: 30000 })

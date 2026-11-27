@@ -3,7 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { fileURLToPath } from 'url'
 
-const OUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'out')
+export const OUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'out')
 
 /** Let layout, images, and transitions finish before capturing. */
 export async function settle(page: Page, ms = 700) {
@@ -59,4 +59,26 @@ export async function resetToolState(page: Page, fullToolId: string) {
       body: JSON.stringify({ state: {} }),
     })
   }, fullToolId)
+}
+
+/**
+ * Capture the region around several elements (their union, padded) to out/<name>.png:
+ * a crop that keeps a menu and what it hangs from in one frame.
+ */
+export async function shootAround(page: Page, selectors: string[], name: string, pad = 16) {
+  const boxes = []
+  for (const s of selectors) {
+    const box = await page.locator(s).first().boundingBox()
+    if (box) boxes.push(box)
+  }
+  if (!boxes.length) throw new Error(`nothing to frame for ${name}`)
+  const vp = page.viewportSize() || { width: 1480, height: 940 }
+  const x = Math.max(0, Math.min(...boxes.map(b => b.x)) - pad)
+  const y = Math.max(0, Math.min(...boxes.map(b => b.y)) - pad)
+  const right = Math.min(vp.width, Math.max(...boxes.map(b => b.x + b.width)) + pad)
+  const bottom = Math.min(vp.height, Math.max(...boxes.map(b => b.y + b.height)) + pad)
+  const file = path.join(OUT_DIR, `${name}.png`)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  await page.screenshot({ path: file, clip: { x, y, width: right - x, height: bottom - y } })
+  console.log(`  📸 ${name} (region)`)
 }

@@ -11,7 +11,7 @@ into a page. Inventory refs point at the docs repo's SCREENSHOT_INVENTORY.md.
 | Shot (out/…) | Spec | Staging | Published as |
 |---|---|---|---|
 | getting-started/onboarding.png | 05-onboarding | Clean storage state so the onboarding gate engages; theme forced light via init script. | getting-started/onboarding.png → getting-started page |
-| getting-started/first-generation.png | 02-tools | Reset tool state, type prompt, Run, wait ~18s for the stage hero. Ollama configured so suggestion chips render instead of an error. | getting-started/first-generation.png → getting-started page |
+| tools/first-generation-demo.png | 02-tools | Demo-set take of the hero, superseded by the Fluent set's getting-started/first-generation.png (below). | — |
 | tools/tool-panel-flux.png | 02-tools | Reset tool state, type prompt, expand the Advanced group (steps/guidance/sampler in frame). | tools/tool-panel.png → tool-panel page |
 | tools/tool-picker-open.png | 02-tools | Click the tool-name header to open the hop-to menu. Sparse with only demo tools — NOT published; revisit with more tools registered. | — |
 | tools/all-tools.png | 02-tools | /tools view with the demo provider's five tools. | tools/all-tools.png → tools overview |
@@ -28,6 +28,23 @@ into a page. Inventory refs point at the docs repo's SCREENSHOT_INVENTORY.md.
 | library/collection-detail.png | 01-library | Open the "Brand Refresh" collection. | — (spare) |
 | lineage/lineage-view-demo.png | 01-library | /lineage/23 (kontext-edit restyle with a source chain). | — (spare; lineage pages have approved assets) |
 
+## Fluent set (`run.sh fluent`, real chat model and image tool)
+
+First captured 2026-11-27 with a local Qwen-class chat model and Krea 2 Turbo over ComfyUI.
+Prompt: "A young `<barista>` laughing behind the counter of a small Lisbon café,
+`{an espresso|a pastel de nata}` on the marble bar, `<time of day>` light through the window".
+
+| Shot (out/…) | Spec | Staging | Published as |
+|---|---|---|---|
+| prompt-engineering/fluent-editor.png | fluent/fluent | Prompt replaced whole (insertText; select-all first, since the prompt lives in the workspace, not the tool state). Waits for every row's count and the suggestions. Region: editor + rows. | prompt-engineering/prompt-editor.png and prompting-overview.png → Prompt Editor, Fluent, Prompting overview |
+| getting-started/first-generation.png | fluent/fluent | Same prompt, Run twice, each waited to the end. Full viewport. | getting-started/first-generation.png → getting-started, Tools, Tool Panel |
+| prompt-engineering/fluent-menu.png | fluent/fluent | Fluent chip clicked. Region: chip, menu, editor. | prompt-engineering/fluent-menu.png → Fluent |
+| prompt-engineering/fluent-picker.png | fluent/fluent | First row (the person slot) opened; two ideas ticked so the row reads "2 of 40 · Clear"; cleared after. Region: editor + rows. | prompt-engineering/fluent-picker.png → Fluent |
+| prompt-engineering/fluent-use.png | fluent/fluent | Use on the stage image. Full viewport. | prompt-engineering/fluent-use.png → Fluent |
+| tools/tool-assistant.png | fluent/fluent | Own recording page; "Make it a rainy evening and run it" typed in the bar, not yet sent. | — (spare; the video is published) |
+| tools/tool-assistant-done.png | fluent/fluent | The same turn finished: prompt rewritten, new image. | — (spare) |
+| tools/tool-assistant.webm | fluent/fluent | Video of the whole turn, 1480x940. | public/assets/tools/tool-assistant.webm → Tool Assistant |
+
 ## Gotchas encoded in the harness (don't relearn these)
 
 - Theme comes from the **backend** config (`theme: light`), not localStorage.
@@ -37,10 +54,14 @@ into a page. Inventory refs point at the docs repo's SCREENSHOT_INVENTORY.md.
 - Tool working state **persists server-side**; specs reset it via `PUT /api/tools/state/<tool>` for idempotence.
 - The websocket provider URL needs the **/stp-v1 path**.
 - Never `lsof -ti :PORT | xargs kill` — it matches *connections* too. Use `-sTCP:LISTEN`.
+- Servers start detached (`setsid`, all three std streams redirected): a caller piping `run.sh` output would otherwise hang on the backend's inherited pipe.
+- Fluent set: the setup wizard and tour are marked seen in config; the image tool's first-connect hint is retired by opening its manager once; onboarding and terms keys are set per bundle and sandbox in `setup.ts`.
+- Type a Fluent prompt with `insertText`, never `keyboard.type`: the editor pairs `<` and `{` as you type.
+- Clicking the stage opens the media viewer; leave the editor by clicking the panel's empty space.
 
 ## Not yet automated
 
-- Agent chat shots (`bake` class) — gemma4-over-Ollama now works for suggestions; chat-driven shots are plausible next, or wait for the cloud bake.
+- Agent chat shots (`bake` class): the Fluent set's setup is the pattern.
 - Flow shots — flows are agent-built; same dependency.
 - ComfyUI's own UI (manual, one shot).
 - Cloud-specific UI (cost badges, tier cards) — needs a signed-in account.

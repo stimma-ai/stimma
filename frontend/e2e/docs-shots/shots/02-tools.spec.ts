@@ -59,5 +59,5 @@ test('first generation on stage', async ({ page }) => {
   // Demo provider takes ~1s; ingestion a few more. Wait for the stage image.
   await page.waitForTimeout(18000)
   await settle(page)
-  await shoot(page, 'getting-started/first-generation')
+  await shoot(page, 'tools/first-generation-demo')
 })
