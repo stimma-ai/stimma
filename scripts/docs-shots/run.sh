@@ -228,14 +228,8 @@ cmd_shoot() {
   start_backend
   start_frontend
   rm -rf "$REPO_ROOT/frontend/e2e/docs-shots/.auth"
-  local specs=()
-  # Each set shoots its own specs: the demo set every spec but the Fluent ones.
-  if [ "$SET" = fluent ]; then
-    need_fluent_env
-    specs=(--grep-invert '@demo' shots/fluent)
-  else
-    specs=(--grep-invert '@fluent')
-  fi
+  # The config picks each set's specs from DOCS_SHOTS_SET.
+  [ "$SET" = fluent ] && need_fluent_env
   (cd "$REPO_ROOT/frontend" && STIMMA_FRONTEND_PORT=$FRONTEND_PORT STIMMA_BACKEND_PORT=$BACKEND_PORT \
     DOCS_SHOTS_BUNDLE=$BUNDLE DOCS_SHOTS_SANDBOX=$SANDBOX DOCS_SHOTS_SET=$SET \
     npx playwright test --config e2e/docs-shots/playwright.config.ts "$@")

@@ -48,7 +48,8 @@ async function rowsReady(slots: number) {
     const list = document.querySelector('[data-slot-list]')
     if (!list) return false
     const rows = list.querySelectorAll('[data-row]')
-    return rows.length >= n && !list.querySelector('.fluent-shimmer') && !list.querySelector('[data-suggest-loading]')
+    return rows.length >= n && !list.querySelector('.fluent-shimmer') && !list.querySelector('[data-suggest-loading]') &&
+      !list.querySelector('[data-more-spinner]')
   }, slots, { timeout: 240000 })
 }
 
@@ -106,6 +107,15 @@ test('prompt menu open', async () => {
 test('a slot picker open', async () => {
   await page.locator('[data-row]').first().click()
   await page.waitForSelector('[data-picker-body] [data-variant]', { timeout: 120000 })
+  await page.waitForTimeout(1200)
+  // Descent narrowed to the café's own town, so the person rows show a pick and the ideas
+  // stay on the barista the prompt is about.
+  await page.locator('[data-filter="descent"]').click()
+  await page.getByPlaceholder('Search').last().fill('Portuguese')
+  await page.locator('[data-heritage="Portuguese"]').first().click()
+  await page.locator('[data-back]').click()
+  await page.waitForSelector('[data-picker-body] [data-variant]', { timeout: 120000 })
+  await page.waitForFunction(() => !document.querySelector('[data-writing-more]'), null, { timeout: 240000 })
   await page.waitForTimeout(1200)
   // Two ticked: the row says how many of the ideas are in play, with Clear.
   const variants = page.locator('[data-picker-body] [data-variant]')
