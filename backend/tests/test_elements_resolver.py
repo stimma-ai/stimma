@@ -328,3 +328,17 @@ def test_fluent_variant_writer_keeps_to_the_elements_and_pools_are_keyed_by_them
     assert V.ELEMENTS_LINE not in plain
     assert pool_key("m", "old man", prompt, []) != pool_key("m", "old man", prompt, [], elements="abc")
     assert pool_key("m", "old man", prompt, []) == pool_key("m", "old man", prompt, [], elements="")
+
+
+@pytest.mark.asyncio
+async def test_refs_active_follows_the_images_placed_for_each_element(db_session, tmp_path):
+    text = "# Ada\n{{#if refs_active}}\nPoint at her image.\n{{else}}\nGray eyes, red braid.\n{{/if}}\n"
+    async with db_session() as session:
+        ada = await _element(session, tmp_path, "ada", [{"key": "face-front"}], [], text=text)
+        with_room = await resolve(session, elements=[{"asset_id": ada}], tool_id="t", prompt="Ada reading",
+                                  info=_info(3), use_store=False)
+        no_room = await resolve(session, elements=[{"asset_id": ada}], tool_id="t", prompt="Ada reading",
+                                info=_info(0), use_store=False)
+    assert "Point at her image." in with_room["elements"][0]["instructions"]["enhance"]
+    assert "Gray eyes" not in with_room["elements"][0]["instructions"]["enhance"]
+    assert "Gray eyes" in no_room["elements"][0]["instructions"]["enhance"]

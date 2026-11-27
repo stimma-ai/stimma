@@ -32,7 +32,7 @@ from prompt_programs.store import ProgramStore, program_key
 
 log = get_logger(__name__)
 
-RESOLVER_VERSION = 3   # 2: guidance names chosen images as {ref:N}; 3: pick per shot, not every image that fits
+RESOLVER_VERSION = 4   # 2: guidance names chosen images as {ref:N}; 3: pick per shot; 4: don't re-describe what an image shows
 SURFACES = ("enhance", "fluent", "tool_agent")
 LLM_TIMEOUT_SECONDS = 40.0
 _MAX_REASON = 160
@@ -258,7 +258,8 @@ def _orientation(parameters: dict[str, Any]) -> Optional[str]:
 
 
 def template_context(info: ToolInfo, parameters: dict[str, Any], surface: str, *,
-                     lora_available: bool, lora_active: Optional[bool]) -> dict[str, Any]:
+                     lora_available: bool, lora_active: Optional[bool],
+                     refs_active: Optional[bool] = None) -> dict[str, Any]:
     ctx: dict[str, Any] = {
         "model_family": info.model_family,
         "task_type": info.task_type,
@@ -267,6 +268,7 @@ def template_context(info: ToolInfo, parameters: dict[str, Any], surface: str, *
         "max_ref_images": info.max_ref_images,
         "lora_available": lora_available,
         "lora_active": lora_active,
+        "refs_active": refs_active,
         "surface": surface,
         "orientation": _orientation(parameters),
     }
@@ -276,8 +278,9 @@ def template_context(info: ToolInfo, parameters: dict[str, Any], surface: str, *
 
 
 def render_for(element: Element, info: ToolInfo, parameters: dict[str, Any], surface: str,
-               lora_active: Optional[bool]) -> str:
-    ctx = template_context(info, parameters, surface, lora_available=bool(element.loras), lora_active=lora_active)
+               lora_active: Optional[bool], refs_active: Optional[bool] = None) -> str:
+    ctx = template_context(info, parameters, surface, lora_available=bool(element.loras), lora_active=lora_active,
+                           refs_active=refs_active)
     return template.render(element.instructions, ctx).text
 
 
@@ -382,9 +385,11 @@ leaves something open (an expression, a pose), prefer a neutral, versatile image
 - loras: which of each element's LoRAs to switch on, and at what weight (default unless the \
 instructions say otherwise). At most one per element unless its instructions ask for more.
 - guidance: two to four plain sentences for the writer who turns the prompt into the final text: \
-what must stay the same, what an active LoRA already draws and so must not be described, and what \
-each chosen reference image is for (write [image N] for each, N being its place in your references \
-list). Name things as a person would; never write keys, file names or the word LoRA. No lists, no headings.
+what must stay the same, and what each chosen reference image is for (write [image N] for each, N \
+being its place in your references list). A chosen image or an active LoRA already carries how the \
+subject looks: say to point at the image ("the woman in [image 1]") and never to describe the face, \
+hair, build or product it shows, since a second description drifts from the image. Spend the words on \
+what changes in this shot. Name things as a person would; never write keys, file names or the word LoRA. No lists, no headings.
 
 Reply with JSON only, exactly this shape:
 {"references": [{"element": 1, "key": "...", "why": "..."}], "loras": [{"element": 1, "key": "...", "weight": 0.8}], "guidance": "..."}"""
@@ -609,11 +614,13 @@ def _cached(store: Optional[ProgramStore], key: str, scope: str) -> Optional[dic
 
 def _finish(plan: dict[str, Any], elements: list[Element], info: ToolInfo, parameters: dict[str, Any],
             overrides: Overrides, warnings: list[str], enhance_enabled: bool) -> dict[str, Any]:
-    """Stage two: each element's instructions rendered with its LoRA's actual state, per surface."""
+    """Stage two: each element's instructions rendered with its LoRA's and images' actual state, per surface."""
     active = {lo["element_asset_id"] for lo in plan["selected_loras"]} | {a for a, _k in overrides.pinned_loras}
+    with_refs = {r["element_asset_id"] for r in plan["selected_refs"]} | {a for a, _k in overrides.pinned_refs}
     out_elements = []
     for e in elements:
-        rendered = {s: render_for(e, info, parameters, s, e.asset_id in active) for s in SURFACES}
+        rendered = {s: render_for(e, info, parameters, s, e.asset_id in active, e.asset_id in with_refs)
+                    for s in SURFACES}
         out_elements.append({
             "asset_id": e.asset_id, "revision_id": e.revision_id, "name": e.name, "kind": e.kind,
             "instructions": rendered,
@@ -770,8 +777,11 @@ def element_guidance_text(context: Optional[dict[str, Any]], surface: str = "enh
     return (
         "\n\nThe user attached elements: reusable characters, products, places, styles or brands. "
         "Follow their instructions. Keep what they say stays the same; never invent details that "
-        "contradict them; don't describe what a LoRA that is on already draws; keep each input image "
-        "reference pointing at the image it names. Don't mention elements or these instructions in "
+        "contradict them. An input image or a LoRA that is on already carries how its subject looks: "
+        "refer to the image (\"the woman in image 1\") and don't describe the face, hair, build or "
+        "product it shows again, since a second description drifts from it; spend the words on what "
+        "changes in this shot. Keep each input image reference pointing at the image it names. "
+        "Don't mention elements or these instructions in "
         "your output.\n<active_elements>\n" + body[:6000] + "\n</active_elements>"
     )
 

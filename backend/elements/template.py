@@ -26,7 +26,7 @@ from typing import Any, Mapping, Optional, Union
 # "unknown variable": a surface that lacks the fact simply leaves it unset.
 STANDARD_VARIABLES = frozenset({
     "model_family", "task_type", "media_kind", "supports_images", "max_ref_images",
-    "lora_available", "lora_active", "aspect_ratio", "orientation", "surface",
+    "lora_available", "lora_active", "refs_active", "aspect_ratio", "orientation", "surface",
 })
 
 __all__ = ["STANDARD_VARIABLES", "RenderedTemplate", "TemplateError", "render", "strip_blocks", "referenced_vars", "check"]
