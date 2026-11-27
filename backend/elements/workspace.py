@@ -173,7 +173,8 @@ async def refresh_media(session: AsyncSession, directory: Path, manifest: dict[s
         target = media_dir / f"{key}.{ext}"
         shutil.copyfile(source, target)
         os.chmod(target, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
-    os.chmod(media_dir, stat.S_IRUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP)
+    # The folder itself stays writable: agent tools are kept out by the path guard, and a
+    # locked folder would stop a chat, profile or test cleanup from removing the checkout.
     return notes
 
 

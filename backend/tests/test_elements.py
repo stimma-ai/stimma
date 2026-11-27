@@ -144,6 +144,12 @@ async def test_open_renders_for_chat_and_media_is_read_only(db_session, tmp_path
         assert "expr-angry (asset_id" in out and "situational" in out
         assert "elements/mira/files/palette.json" in out
         assert (other / "elements" / "mira" / "media" / "expr-angry.png").is_file()
+        # The copies are read-only but the folder isn't, so cleanup can remove a checkout.
+        import shutil as _shutil
+        spare = tmp_path / "ws3"
+        await _tool(session, spare, action="open", asset_id=asset_id)
+        _shutil.rmtree(spare)
+        assert not spare.exists()
 
         blocked = await write_file(file_path="elements/mira/media/face-front.png", content="x", workspace_dir=str(other))
         assert blocked.startswith("Error:") and "read-only" in blocked
