@@ -4,8 +4,20 @@
 import os
 from pathlib import Path
 import shutil
+import stat
 import sys
 import tempfile
+
+
+def _retry_with_writable_parent(func, path, exc_info):
+    """Retry cleanup after tests leave a read-only path in their scratch tree."""
+    del exc_info
+    target = Path(path)
+    target.parent.chmod(stat.S_IRWXU)
+    if target.exists():
+        target.chmod(stat.S_IRWXU)
+    func(path)
+
 
 if sys.argv[1:] == ['cleanup']:
     scratch = os.environ.get('STIMMA_CI_TEST_TMP')
@@ -14,7 +26,7 @@ if sys.argv[1:] == ['cleanup']:
         if path.parent != Path(os.environ['RUNNER_TEMP']) or not path.name.startswith('stimma-tests-'):
             raise SystemExit('Refusing unexpected test scratch path')
         try:
-            shutil.rmtree(path)
+            shutil.rmtree(path, onerror=_retry_with_writable_parent)
         except FileNotFoundError:
             pass  # Cleanup is safe to repeat after cancellation or runner cleanup.
 elif os.environ.get('STIMMA_PREPROVISIONED') == '1':
