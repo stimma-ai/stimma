@@ -1438,11 +1438,10 @@ function openAgent() {
 function foldAgentIfIdle() {
   if (agentOpen.value && (agentChatRef.value?.isIdle() ?? true)) agentOpen.value = false
 }
-// Menus the bar opens (skills) render outside it, and count as inside.
-const AGENT_POPUPS = '[role="menu"], [role="dialog"], [role="listbox"], [data-escape-layer]'
+// The skills menu the bar opens renders in <body>, and counts as inside.
 function outsideAgent(node: Node | null) {
   if (!node || agentCapsuleEl.value?.contains(node)) return false
-  return !(node instanceof Element && node.closest(AGENT_POPUPS))
+  return !(node instanceof Element && node.closest('[data-skills-menu]'))
 }
 // Tabbing away folds it; pointer presses are handled below, since a press on
 // plain text inside the bar blurs the field too.
