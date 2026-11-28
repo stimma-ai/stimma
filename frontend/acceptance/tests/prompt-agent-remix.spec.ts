@@ -1,7 +1,14 @@
+import type { Page } from '@playwright/test';
 import { expect, test } from '../helpers/testbed';
 import { openPromptToolById, promptInput, toolRunButton, waitForGeneratedMedia, TEST_T2I_TOOL_ID } from '../helpers/app';
 
 const ORIGINAL = 'a fox in a snowy forest at dawn';
+
+// At rest the agent is a button floating over the controls; it opens into a bar.
+async function openAgent(page: Page) {
+  const capsule = page.getByRole('button', { name: 'Ask for a change' });
+  if (await capsule.isVisible()) await capsule.click();
+}
 
 test.describe('tool agent after a remix', () => {
   test('Use Exact Prompt leaves the agent nothing but the text on screen', async ({ page }) => {
@@ -12,9 +19,10 @@ test.describe('tool agent after a remix', () => {
       requests.push(body);
       await route.fulfill({ json: reply(body) });
     });
-    const agentInput = page.locator('#agent-dock textarea, #agent-dock-result textarea').last();
+    const agentInput = page.locator('#agent-dock textarea').last();
     const ask = async (text: string, steps: number) => {
       const before = requests.length;
+      await openAgent(page);
       await agentInput.fill(text);
       await agentInput.press('Enter');
       await expect.poll(() => requests.length).toBe(before + steps);
@@ -82,7 +90,8 @@ test.describe('tool agent after a remix', () => {
     await page.locator('button[title^="Remix: load this image"]').first().click({ force: true });
     await expect(page.getByRole('button', { name: 'Use Exact Prompt' })).toBeVisible();
 
-    const agentInput = page.locator('#agent-dock textarea, #agent-dock-result textarea').last();
+    const agentInput = page.locator('#agent-dock textarea').last();
+    await openAgent(page);
     await agentInput.fill('change the fox to a lynx');
     await agentInput.press('Enter');
     await expect.poll(() => requests).toBe(1);

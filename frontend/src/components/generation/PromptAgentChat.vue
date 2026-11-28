@@ -318,6 +318,16 @@
         </button>
         <!-- Active skills — skills targeting this tool feed the agent automatically. -->
         <SkillsMenuButton v-if="agent" :skills="activeSkills" mode="view" />
+        <!-- Conversation history (dev mode only) -->
+        <button
+          v-if="devModeRef"
+          @click="showDebug = !showDebug"
+          class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+          :class="showDebug ? 'text-purple-500 bg-purple-500/10' : 'text-content-muted hover:text-purple-500 hover:bg-purple-500/10'"
+          title="Show conversation history"
+        >
+          <BugAntIcon class="w-4 h-4" />
+        </button>
       </div>
 
       <SendButton
@@ -349,20 +359,6 @@
       </button>
     </div>
 
-    <!-- Floating debug button (dev mode only) -->
-    <button
-      v-if="devModeRef"
-      @click="showDebug = !showDebug"
-      :class="[
-        'absolute bottom-0 right-0 p-1.5 rounded transition-colors z-10',
-        showDebug
-          ? 'text-purple-500 bg-purple-500/10'
-          : 'text-content-muted hover:text-purple-500 hover:bg-purple-500/10'
-      ]"
-      title="Show conversation history"
-    >
-      <BugAntIcon class="w-4 h-4" />
-    </button>
   </div>
 </template>
 
@@ -490,7 +486,7 @@ function collectPromptAgentConversation() {
 
 const inputPlaceholder = computed(() => {
   if (props.placeholder) return props.placeholder
-  return props.hasPrompt ? 'Make it more dramatic, add rain, …' : 'Ask or tell me to change a setting…'
+  return 'Ask for a change'
 })
 
 // --- Prompt write helpers (prompt-only mode) -------------------------------
@@ -969,4 +965,10 @@ onUnmounted(() => {
   agentFlashTimers.clear()
 })
 
+// The host folds the chat away when it's idle: nothing typed, nothing
+// running, settings closed.
+defineExpose({
+  focus: focusFeedback,
+  isIdle: () => !feedbackText.value.trim() && !feedbackBusy() && !showSettings.value,
+})
 </script>

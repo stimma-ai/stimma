@@ -112,8 +112,10 @@
         ]"
         :style="isCompact ? {} : { width: layoutMode === 'stage' ? stageControlsWidth + 'px' : studioControlsPct + '%' }"
       >
-       <!-- Controls are floating panels on the matte; content sits on the matte. -->
-       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-3 pb-6 roomy:mr-0 roomy:overscroll-contain">
+       <!-- Controls are floating panels on the matte; content sits on the matte.
+            The card holds the scrolling controls and, under them, the agent. -->
+       <div class="flex-1 min-h-0 flex flex-col m-3 rounded-lg border border-edge-subtle bg-surface overflow-hidden roomy:mr-0">
+       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable p-3 roomy:overscroll-contain" :class="agentCapsuleShown ? 'pb-16' : 'pb-6'">
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
           <!-- Title, then the tool's facts as meta. One 52px row. -->
@@ -400,12 +402,12 @@
           />
         </div>
 
-        <!-- Page-level agent chat. Mounted unconditionally and teleported into
-             the single full-width dock so it survives layout switches without
-             ever changing target — the chat stays put while the studio/stage
-             toggle animates the columns above it. -->
-        <Teleport defer :to="agentDocked ? (agentOnResult ? '#agent-dock-result' : '#agent-dock') : '#agent-dock-compact'">
+        <!-- Page-level agent chat. Mounted unconditionally so its conversation
+             survives layout switches: the bar under the controls, or a phone's
+             agent sheet. -->
+        <Teleport defer :to="drawerMode ? '#agent-dock-compact' : '#agent-dock'">
           <PromptAgentChat
+            ref="agentChatRef"
             :prompt="globalPrefs.prompt"
             :has-prompt="hasPrompt"
             :active-skills="activeToolSkills"
@@ -713,6 +715,30 @@
         </div>
         </Teleport>
        </div>
+       <!-- The agent is rarely used, so at rest it's a small button floating over
+            the bottom of the controls, with no scrim. Opened, it becomes a bar
+            under the scroll, and it folds back to the button once it's left
+            empty. v-show, not v-if: the Teleport target stays mounted, and the
+            agent appears live once a chat model is added. -->
+       <div
+         v-show="!llmUnconfigured"
+         ref="agentCapsuleEl"
+         class="relative flex-none"
+         @focusout="onAgentFocusOut"
+         @keydown="onAgentKeydown"
+       >
+         <button
+           v-show="!agentOpen"
+           type="button"
+           class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-10 flex items-center gap-1.5 h-9 pl-3 pr-4 rounded-full border border-edge bg-surface-raised text-ctl text-content-secondary whitespace-nowrap shadow-lg shadow-black/30 hover:text-content transition-colors"
+           @click="openAgent"
+         >
+           <AgentIcon class="w-icon-nav h-icon-nav" />
+           Ask for a change
+         </button>
+         <div id="agent-dock" v-show="agentOpen" class="max-h-[60vh] overflow-y-auto border-t border-edge-subtle p-3"></div>
+       </div>
+       </div>
       </div>
 
       <!-- Draggable seam on the controls column's right edge. In Stage it sizes
@@ -747,7 +773,6 @@
         ref="heroBoxRef"
         class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden narrow:justify-center compact:order-1 compact:flex-1 compact:min-h-[96px] compact:!p-0 roomy:col-start-2 roomy:row-start-1 roomy:min-h-0 roomy:!px-page roomy:!pt-4 roomy:!pb-3"
         :class="layoutMode === 'stage' ? 'pt-3 px-4 pb-3' : 'p-0'"
-        :style="agentReserve ? { paddingBottom: `${agentReserve + 24}px` } : undefined"
         data-no-drawer-swipe
         @touchstart="heroSwipe.start($event)"
         @touchmove="heroSwipe.move($event)"
@@ -987,16 +1012,6 @@
           </div>
         </div>
         </div>
-        <!-- Desktop Stage: the agent is a control panel floating at the bottom of
-             the image area, 12px from the controls and level with their bottom.
-             Its right inset stays with the image area. The hero
-             reserves its room up front (agentReserve), so nothing the agent does
-             resizes the image: anything taller, like Instructions, floats over it. -->
-        <div
-          id="agent-dock-result"
-          v-show="!llmUnconfigured && agentDocked && agentOnResult"
-          class="absolute left-4 right-4 bottom-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto empty:hidden"
-        ></div>
       </div>
 
       <!-- Queue rail (RIGHT): same JobsGrid in both modes — width tweens from
@@ -1105,13 +1120,12 @@
              the header at a time (useCompactChrome). -->
         <Teleport v-if="isCompact && stageViewActive && ownsCompactHeader" to="#compact-header-actions" defer>
           <button
-            v-if="!llmUnconfigured"
+            v-if="!llmUnconfigured && drawerMode"
             type="button"
             class="w-11 h-11 flex items-center justify-center rounded-md border-none bg-transparent transition-colors"
-            :class="compactAgentOpen || (roomyAgentDockable && agentDocked) ? 'text-content bg-overlay-subtle' : 'text-content-secondary'"
+            :class="compactAgentOpen ? 'text-content bg-overlay-subtle' : 'text-content-secondary'"
             aria-label="Agent"
-            :aria-pressed="roomyAgentDockable ? agentDocked : undefined"
-            @click="onCompactAgentButton"
+            @click="compactAgentOpen = true"
           >
             <AgentIcon class="h-icon-canvas w-icon-canvas" />
           </button>
@@ -1173,16 +1187,6 @@
             </div>
           </div>
         </Transition>
-        <!-- Agent chat dock: full width at the bottom of the page in both modes,
-             so the chat stays put while the columns above tween between Studio
-             and Stage. Single Teleport target — no remount on layout toggle.
-             v-show (not v-if) with no LLM configured: the Teleport target must
-             stay mounted, and the dock reappears live once a model is added. -->
-        <div
-          id="agent-dock"
-          v-show="!llmUnconfigured && agentDocked"
-          class="flex-none overflow-y-auto mx-3 mb-3 max-h-[45%] empty:hidden roomy:max-h-[35%] roomy:pb-safe"
-        ></div>
       </div>
     </template>
 
@@ -1415,30 +1419,55 @@ import { useCloudAccount } from '../composables/useCloudAccount'
 const API_BASE = '/api'
 const router = useRouter()
 const route = useRoute()
-const { isCompact, isRoomy, isShort, isCoarsePointer } = useViewport()
+const { isCompact, isRoomy, isCoarsePointer } = useViewport()
 // Phone layouts: a narrow phone gets the bottom drawer; a roomy one (an
-// unfolded foldable) gets side-by-side columns with the agent docked below,
-// when asked for. The docked agent is opt-in there (the header's agent button
-// toggles it, remembered per device): docked by default it read as the
-// prompt field. Short screens (a landscape phone) never dock it.
+// unfolded foldable) gets side-by-side columns like the desktop.
 const roomyTool = computed(() => isCompact.value && isRoomy.value)
 const drawerMode = computed(() => isCompact.value && !isRoomy.value)
-const ROOMY_AGENT_KEY = 'stimma-roomy-agent-docked'
-const roomyAgentWanted = ref(localStorage.getItem(ROOMY_AGENT_KEY) === '1')
-watch(roomyAgentWanted, (on) => { localStorage.setItem(ROOMY_AGENT_KEY, on ? '1' : '0') })
-const roomyAgentDockable = computed(() => roomyTool.value && !isShort.value)
-const agentDocked = computed(() => !isCompact.value || (roomyAgentDockable.value && roomyAgentWanted.value))
-// On desktop in Stage the agent prompt sits under the result, at the result's
-// width; in Studio (no hero) and on a fold it spans the bottom of the page.
-const agentOnResult = computed(() => !isCompact.value && layoutMode.value === 'stage')
-function onCompactAgentButton() {
-  if (roomyAgentDockable.value) roomyAgentWanted.value = !roomyAgentWanted.value
-  else compactAgentOpen.value = true
+// The agent lives at the bottom of the controls card: a floating button at
+// rest, a bar under the scroll once opened. It folds back to the button when
+// focus leaves it with nothing typed, nothing running and settings closed.
+const agentOpen = ref(false)
+const agentCapsuleEl = ref<HTMLElement | null>(null)
+const agentChatRef = ref<InstanceType<typeof PromptAgentChat> | null>(null)
+const agentCapsuleShown = computed(() => !llmUnconfigured.value && !drawerMode.value && !agentOpen.value)
+function openAgent() {
+  agentOpen.value = true
+  nextTick(() => agentChatRef.value?.focus())
 }
-// Phones keep the agent dock behind a toggle so the controls get the height.
+function foldAgentIfIdle() {
+  if (agentOpen.value && (agentChatRef.value?.isIdle() ?? true)) agentOpen.value = false
+}
+// Menus the bar opens (skills) render outside it, and count as inside.
+const AGENT_POPUPS = '[role="menu"], [role="dialog"], [role="listbox"], [data-escape-layer]'
+function outsideAgent(node: Node | null) {
+  if (!node || agentCapsuleEl.value?.contains(node)) return false
+  return !(node instanceof Element && node.closest(AGENT_POPUPS))
+}
+// Tabbing away folds it; pointer presses are handled below, since a press on
+// plain text inside the bar blurs the field too.
+function onAgentFocusOut(e: FocusEvent) {
+  if (outsideAgent(e.relatedTarget as Node | null)) foldAgentIfIdle()
+}
+function onPointerDownWhileAgentOpen(e: PointerEvent) {
+  if (outsideAgent(e.target as Node | null)) foldAgentIfIdle()
+}
+watch(agentOpen, (open) => {
+  if (open) window.addEventListener('pointerdown', onPointerDownWhileAgentOpen, true)
+  else window.removeEventListener('pointerdown', onPointerDownWhileAgentOpen, true)
+})
+onUnmounted(() => window.removeEventListener('pointerdown', onPointerDownWhileAgentOpen, true))
+function onAgentKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || e.defaultPrevented || !agentOpen.value) return
+  if (!(agentChatRef.value?.isIdle() ?? true)) return
+  e.preventDefault()
+  agentOpen.value = false
+  ;(document.activeElement as HTMLElement | null)?.blur()
+}
+// Phones keep the agent behind the header button, in a sheet.
 const compactAgentOpen = ref(false)
-// Unfolding docks the agent; the overlay it was open in would be left empty.
-watch(agentDocked, (docked) => { if (docked) compactAgentOpen.value = false })
+// Unfolding moves the agent into the controls; the sheet would be left empty.
+watch(drawerMode, (drawer) => { if (!drawer) compactAgentOpen.value = false })
 const agentSheetEl = ref<HTMLElement | null>(null)
 function onAgentSheetKeydown(e: KeyboardEvent) {
   if (!e.defaultPrevented && e.key === 'Escape' && isTopmostEscapeLayer(agentSheetEl.value)) {
@@ -1952,14 +1981,6 @@ const heroBarBleed = computed(() => {
   return art.barW + 2 * inset <= col.w ? inset : 0
 })
 const heroColRef = ref<HTMLElement | null>(null)
-// Room the hero keeps for the Stage agent panel: the composer. It depends only on
-// the column's width, so the image never changes size with the agent's state. The
-// composer stacks below 480px (PromptAgentChat).
-const agentReserve = computed(() => {
-  if (!agentOnResult.value || llmUnconfigured.value) return 0
-  // The dock is a plain wrapper inset 16px each side; the composer is the only surface.
-  return (heroColSize.value?.w ?? 0) - 32 < 480 ? 84 : 40
-})
 const heroColSize = ref<{ w: number, h: number } | null>(null)
 const heroNatural = ref<{ w: number, h: number } | null>(null)
 const heroArt = computed(() => {
